@@ -183,6 +183,13 @@ async function main() {
         dayNumber: 1,
         title: "Deep Core Alignment & Posture Awakening",
         dayType: "TRAINING_DAY",
+        dayNotifications: JSON.stringify([
+          {
+            time: "16:40",
+            message: "Posture & Core Reset: Waktunya aktivasi deep spinal stabilizers dan wall holds.",
+            label: "Movement Protocol",
+          },
+        ]),
         videoUrl: "https://www.youtube.com/watch?v=inpok4MKVLM",
         videoChecklist: JSON.stringify([
           "Thoracic Spine Mobilization & Cat-Cow Drills",
@@ -314,6 +321,13 @@ async function main() {
         dayNumber: 1,
         title: "Vagus Nerve Activation & Systemic Calming",
         dayType: "REST_DAY",
+        dayNotifications: JSON.stringify([
+          {
+            time: "16:50",
+            message: "Parasympathetic Surge: Waktunya dekompresi syaraf dan istirahat NSDR 10 menit.",
+            label: "Recovery Alert",
+          },
+        ]),
         restInstructions: "Complete 15 minutes of non-sleep deep rest (NSDR). Take a warm magnesium bath or foot soak to down-regulate sympathetic tone.",
         mealRecommendation: "Warm digestive broth with steamed pumpkin, sweet potato, and fresh herbal tea.",
         sleepRecommendation: "Target 8 hours in a dark, quiet room at 19°C. Elevate legs for 10 minutes prior to sleep.",
@@ -443,6 +457,13 @@ async function main() {
         dayNumber: 1,
         title: "Cohort Orientation & Longevity Visioning",
         dayType: "CONNECTION_DAY",
+        dayNotifications: JSON.stringify([
+          {
+            time: "17:00",
+            message: "Breath & Longevity: Sesi Live Opening Circle bersama Dr. Julian dimulai pukul 17.00 WIB.",
+            label: "Sanctuary Circle",
+          },
+        ]),
         meetupLink: "https://zoom.us/j/bms-sanctuary-circle-3",
         eventTitle: "Live Opening Circle: Setting Your Longevity Intention",
         eventHost: "Dr. Julian Sterling",

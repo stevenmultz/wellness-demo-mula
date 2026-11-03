@@ -1067,6 +1067,54 @@ export function DashboardClient({
     setTimeout(() => setActionNotice(null), 4500);
   };
 
+  // Realtime Cadence Dispatcher: checks every 5 seconds against current device time (HH:mm)
+  const [dispatchedCadenceKeys, setDispatchedCadenceKeys] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const checkScheduledDispatches = () => {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const currentTimeStr = `${hours}:${minutes}`;
+
+      myEnrolledPrograms.forEach((prog) => {
+        const todayDay = prog.days.find((d) => d.isCalendarUnlocked && !d.isPast2359);
+        if (!todayDay || !todayDay.dayNotifications) return;
+
+        todayDay.dayNotifications.forEach((notif, nIdx) => {
+          const key = `${prog.id}-${todayDay.id}-${nIdx}`;
+          if (notif.time === currentTimeStr && !dispatchedCadenceKeys[key]) {
+            setDispatchedCadenceKeys((prev) => ({ ...prev, [key]: true }));
+
+            const title = `+ BMS • ${prog.title}`;
+            const body = `[${notif.time} WIB] ${notif.message}`;
+            fireBrowserNotification(title, body);
+
+            setActionNotice({
+              type: "success",
+              text: `[${notif.time} WIB] ${prog.title}: ${notif.message}`,
+            });
+            setTimeout(() => setActionNotice(null), 6000);
+          }
+        });
+      });
+    };
+
+    checkScheduledDispatches();
+    const interval = setInterval(checkScheduledDispatches, 5000);
+    return () => clearInterval(interval);
+  }, [myEnrolledPrograms, dispatchedCadenceKeys]);
+
+  const handleFireSpecificNotification = (progTitle: string, time: string, message: string) => {
+    const title = `+ BMS • ${progTitle}`;
+    fireBrowserNotification(title, `[${time} WIB] ${message}`);
+    setActionNotice({
+      type: "success",
+      text: `[${time} WIB] ${progTitle}: ${message}`,
+    });
+    setTimeout(() => setActionNotice(null), 5000);
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdatingProfile(true);
@@ -3089,9 +3137,14 @@ export function DashboardClient({
 
             {/* Program Specific Notification History / Logs */}
             <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl">
-              <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                Cohort Dispatch Log
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  Cohort Dispatch Log &amp; Real-Time Triggers
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  Auto-Dispatches at Scheduled Minute
+                </span>
+              </div>
               {myEnrolledPrograms.length === 0 ? (
                 <p className="text-xs text-zinc-500 py-3 text-center">No enrolled programs for alert dispatch.</p>
               ) : (
@@ -3122,22 +3175,40 @@ export function DashboardClient({
                   ).slice(0, 8).map((item) => (
                     <div
                       key={item.id}
-                      className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex items-start justify-between gap-3 text-xs"
+                      className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                          <span className="text-[10px] font-semibold text-zinc-300 uppercase tracking-wider truncate">
                             {item.programTitle} &bull; Day {item.dayNumber}
                           </span>
-                          <span className="text-[10px] text-zinc-500 font-mono">{item.time}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 text-white font-mono font-bold shrink-0">
+                            {item.time} WIB
+                          </span>
                         </div>
-                        <p className="text-xs text-zinc-200 font-light">{item.message}</p>
+                        <p className="text-xs text-zinc-200 font-light leading-relaxed">{item.message}</p>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
-                        item.isPast ? "bg-white/5 text-zinc-500 border border-white/5" : "bg-white/10 text-white border border-white/15"
-                      }`}>
-                        {item.isPast ? "Dispatched" : "Active"}
-                      </span>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleFireSpecificNotification(item.programTitle, item.time, item.message)}
+                          className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold uppercase tracking-wider transition active:scale-95 flex items-center gap-1"
+                          title="Simulasikan notifikasi ini sekarang"
+                        >
+                          <Bell className="w-3 h-3 text-zinc-300" />
+                          <span>Test Fire</span>
+                        </button>
+                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase ${
+                          dispatchedCadenceKeys[item.id]
+                            ? "bg-white text-zinc-950 font-bold"
+                            : item.isPast
+                            ? "bg-white/5 text-zinc-500 border border-white/5"
+                            : "bg-white/10 text-white border border-white/15"
+                        }`}>
+                          {dispatchedCadenceKeys[item.id] ? "Dispatched" : "Scheduled"}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
