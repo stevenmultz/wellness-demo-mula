@@ -991,6 +991,33 @@ export function DashboardClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  const fireBrowserNotification = (title: string, body: string) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title, {
+          body,
+          icon: "/favicon.svg",
+          badge: "/favicon.svg",
+          vibrate: [100, 50, 100],
+          data: { url: "/dashboard" },
+        } as NotificationOptions).catch(() => {
+          try {
+            new Notification(title, { body, icon: "/favicon.svg" });
+          } catch {}
+        });
+      });
+    } else {
+      try {
+        new Notification(title, { body, icon: "/favicon.svg" });
+      } catch (err) {
+        console.warn("Notification error:", err);
+      }
+    }
+  };
+
   const handleEnableNotifications = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       setActionNotice({
@@ -999,35 +1026,44 @@ export function DashboardClient({
       });
       return;
     }
-    const perm = await Notification.requestPermission();
-    setNotifPermission(perm);
-    if (perm === "granted") {
-      new Notification("Wellness Reminders Enabled", {
-        body: `Morning workout (${morningTime}) & evening checklist (${eveningTime}) reminders are active.`,
-        icon: "/image.jpg",
-      });
-      setActionNotice({
-        type: "success",
-        text: "Daily reminder notifications enabled.",
-      });
-      setTimeout(() => setActionNotice(null), 3500);
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifPermission(perm);
+      if (perm === "granted") {
+        fireBrowserNotification(
+          "+ BMS • Reminders Activated",
+          `Morning Awakening (${morningTime}) and Evening Reflection (${eveningTime}) alerts are now active.`
+        );
+        setActionNotice({
+          type: "success",
+          text: "Push notification alert enabled successfully.",
+        });
+        setTimeout(() => setActionNotice(null), 3500);
+      } else {
+        setActionNotice({
+          type: "error",
+          text: "Notification permission was not granted.",
+        });
+        setTimeout(() => setActionNotice(null), 3500);
+      }
+    } catch (err) {
+      console.warn("Failed to request permission:", err);
     }
   };
 
   const handleTestReminder = (type: "morning" | "evening") => {
+    const title =
+      type === "morning"
+        ? "+ BMS • Morning Awakening Protocol"
+        : "+ BMS • Evening Reflection & Cutoff";
     const msg =
       type === "morning"
         ? currentDay?.pendingReminder ||
-          "Good morning! Today's workout video and meal guide are ready."
-        : "Evening Reminder: Complete your workout video and daily checklist before 23:59.";
+          "Good morning. Daily curriculum, sleep check, and movement sequence are now unlocked."
+        : "Evening Check: Complete your movement reps and reflection before the 23:59 cutoff.";
 
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      new Notification(
-        type === "morning" ? "Morning Workout Reminder" : "Evening Checklist Reminder",
-        { body: msg, icon: "/image.jpg" }
-      );
-    }
-    setActionNotice({ type: "success", text: msg });
+    fireBrowserNotification(title, msg);
+    setActionNotice({ type: "success", text: `Dispatched test alert: "${title}"` });
     setTimeout(() => setActionNotice(null), 4500);
   };
 
@@ -2966,6 +3002,58 @@ export function DashboardClient({
               <p className="text-xs text-zinc-400 font-light leading-relaxed">
                 Scheduled circadian reminders and protocol unlocking cadences for enrolled cohorts.
               </p>
+            </div>
+
+            {/* Interactive Browser Push Trigger & Test Panel */}
+            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3.5 shadow-xl font-mono">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  Live Alert Testing
+                </span>
+                <span className={`text-[10px] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
+                  notifPermission === "granted"
+                    ? "bg-white text-zinc-950"
+                    : "bg-white/10 text-zinc-300 border border-white/15"
+                }`}>
+                  {notifPermission === "granted" ? "Permission Active" : "Action Required"}
+                </span>
+              </div>
+
+              <p className="text-xs text-zinc-300 font-light leading-relaxed">
+                Test the browser/device notification delivery immediately. Make sure to allow notifications when prompted by your browser.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {notifPermission !== "granted" ? (
+                  <button
+                    type="button"
+                    onClick={handleEnableNotifications}
+                    className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide uppercase flex items-center gap-2 shadow-sm"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>Enable Push Notifications</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleTestReminder("morning")}
+                      className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95"
+                    >
+                      <Clock className="w-3 h-3 text-zinc-300" />
+                      <span>Test Morning Alert (07:00)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestReminder("evening")}
+                      className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95"
+                    >
+                      <Moon className="w-3 h-3 text-zinc-300" />
+                      <span>Test Evening Cutoff (21:30)</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Daily Dispatch Cadence Schedule */}
