@@ -58,7 +58,7 @@ async function runFeatureTests() {
   }
 
   const day = program.days[0];
-  const testProgress = await prisma.dayProgress.upsert({
+  const testProgress = await prisma.programDayProgress.upsert({
     where: {
       userId_programDayId: {
         userId: user.id,

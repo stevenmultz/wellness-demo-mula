@@ -36,3 +36,7 @@ next-env.d.ts
 /prisma/*.db-shm
 /prisma/*.db-wal
 /prisma/*.db-journal
+
+# agent scratch
+scratch/
+

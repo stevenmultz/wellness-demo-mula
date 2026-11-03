@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { resolvePublicBadge, PublicProgramBadge } from "@/wellness/utils/timeline";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -38,6 +39,7 @@ interface LandingClientProps {
     title: string;
     slug: string;
     description: string;
+    coverImage?: string | null;
     category?: string | null;
     recommendedFor?: string | null;
     coachName?: string | null;
@@ -62,6 +64,7 @@ interface LandingClientProps {
     status?: string | null;
     isPublished?: boolean;
     dayCount: number;
+    termsList?: string[];
   }>;
 }
 
@@ -389,15 +392,18 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                 const startDate = formatDate(prog.startDate);
                 const regOpenDate = formatDate(prog.registrationOpenDate);
 
-                const now = new Date();
-                const regOpen = prog.registrationOpenDate ? new Date(prog.registrationOpenDate) : null;
-                const regDeadline = prog.registrationDeadline ? new Date(prog.registrationDeadline) : null;
+                // Authoritative Public Badge Resolver (6 Dynamic Badges when status === "PUBLISH")
+                const publicBadge: PublicProgramBadge = resolvePublicBadge({
+                  status: prog.status,
+                  registrationOpenDate: prog.registrationOpenDate,
+                  registrationDeadline: prog.registrationDeadline,
+                  startDate: prog.startDate,
+                  endDate: prog.endDate,
+                  maxQuota: prog.maxQuota,
+                  enrolledCount: prog.enrolledCount,
+                }) || "Open Registration";
 
-                // Status evaluation:
-                // If registrationOpenDate is not reached yet (or TBA): COMING SOON
-                const isComingSoon = regOpen ? now < regOpen : true;
-                const isRegistrationClosed = regDeadline ? now > regDeadline : false;
-                const isJoinNow = !isComingSoon && !isRegistrationClosed;
+                const isEnrollable = publicBadge === "Open Registration";
 
                 // Attendance label: strictly "Online", "On-Site", or "Online + Onsite"
                 const attendanceLabel =
@@ -408,7 +414,10 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                     : `Online + Onsite • ${prog.city || "Jakarta"}`;
 
                 const cohortImages = ["/test.jpg", "/pic.jpg", "/image.jpg", "/coach.jpg", "/coach2.jpg"];
-                const cohortImage = cohortImages[idx % cohortImages.length];
+                const cohortImage =
+                  prog.coverImage && prog.coverImage.trim().length > 0
+                    ? prog.coverImage
+                    : cohortImages[idx % cohortImages.length];
 
                 return (
                   <div key={prog.id} className="w-full shrink-0 min-w-full">
@@ -438,20 +447,41 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                           {attendanceLabel}
                         </span>
 
-                        {/* Badge 3: Ultra Prominent Status Badge */}
-                        {isComingSoon ? (
-                          <span className="px-4 py-1.5 rounded-full bg-zinc-900/90 border-2 border-white/60 text-white font-mono font-bold text-xs tracking-wider shadow-2xl flex items-center gap-2 ring-2 ring-white/20 backdrop-blur-md">
+                        {/* Badge 3: Dynamic 6-Stage Public Badge */}
+                        {publicBadge === "Coming Soon" && (
+                          <span className="px-4 py-1.5 rounded-full bg-amber-500/15 border-2 border-amber-400 text-amber-300 font-mono font-bold text-xs tracking-wider shadow-2xl flex items-center gap-2 backdrop-blur-md ring-2 ring-amber-400/20">
                             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                             <span>COMING SOON</span>
                           </span>
-                        ) : isJoinNow ? (
-                          <span className="px-4 py-1.5 rounded-full bg-white text-zinc-950 font-mono font-bold text-xs tracking-wider shadow-2xl flex items-center gap-2 ring-2 ring-white/50">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span>JOIN NOW</span>
+                        )}
+                        {publicBadge === "Open Registration" && (
+                          <span className="px-4 py-1.5 rounded-full bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300 font-mono font-bold text-xs tracking-wider shadow-2xl flex items-center gap-2 backdrop-blur-md ring-2 ring-emerald-400/20">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>OPEN REGISTRATION</span>
                           </span>
-                        ) : (
-                          <span className="px-4 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-400 font-mono font-bold text-xs tracking-wider">
-                            <span>REGISTRATION CLOSED</span>
+                        )}
+                        {publicBadge === "Full" && (
+                          <span className="px-4 py-1.5 rounded-full bg-purple-500/20 border-2 border-purple-400 text-purple-300 font-mono font-bold text-xs tracking-wider shadow-2xl flex items-center gap-2 backdrop-blur-md">
+                            <span className="w-2 h-2 rounded-full bg-purple-400" />
+                            <span>FULL (SOLD OUT)</span>
+                          </span>
+                        )}
+                        {publicBadge === "Close Registration" && (
+                          <span className="px-4 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-300 font-mono font-bold text-xs tracking-wider shadow-xl flex items-center gap-2 backdrop-blur-md">
+                            <span className="w-2 h-2 rounded-full bg-zinc-500" />
+                            <span>CLOSE REGISTRATION</span>
+                          </span>
+                        )}
+                        {publicBadge === "On going" && (
+                          <span className="px-4 py-1.5 rounded-full bg-blue-500/20 border-2 border-blue-400 text-blue-300 font-mono font-bold text-xs tracking-wider shadow-2xl flex items-center gap-2 backdrop-blur-md">
+                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                            <span>ON GOING</span>
+                          </span>
+                        )}
+                        {publicBadge === "End" && (
+                          <span className="px-4 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 text-zinc-500 font-mono font-bold text-xs tracking-wider flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-zinc-600" />
+                            <span>END</span>
                           </span>
                         )}
                       </div>
@@ -500,12 +530,37 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                         </div>
 
                         <div>
-                          {isComingSoon ? (
+                          {sessionUser && prog.isUserEnrolled ? (
+                            <button
+                              type="button"
+                              onClick={() => router.push("/dashboard")}
+                              className="px-7 py-3.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 text-xs font-mono font-semibold tracking-wide inline-flex items-center gap-3 transition-all duration-200 hover:scale-[1.02] shadow-xl"
+                            >
+                              <span className="font-bold">Enrolled • Go to Dashboard</span>
+                              <ArrowRight className="w-4 h-4 text-zinc-950" />
+                            </button>
+                          ) : isEnrollable ? (
+                            <button
+                              type="button"
+                              onClick={() => handleProgramAction(prog.id)}
+                              className="px-7 py-3.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 text-xs font-mono font-semibold tracking-wide inline-flex items-center gap-3 transition-all duration-200 hover:scale-[1.02] shadow-xl"
+                            >
+                              <span className="font-bold">Join Now</span>
+                              <span className="w-px h-3.5 bg-zinc-950/25" />
+                              {prog.actualPrice && prog.actualPrice > prog.price && (
+                                <span className="line-through text-zinc-500 text-[11px] font-normal">
+                                  Rp {prog.actualPrice.toLocaleString("id-ID")}
+                                </span>
+                              )}
+                              <span className="font-bold">Rp {prog.price.toLocaleString("id-ID")}</span>
+                              <ArrowRight className="w-4 h-4 text-zinc-950 ml-0.5" />
+                            </button>
+                          ) : publicBadge === "Coming Soon" ? (
                             <div className="flex flex-col items-end gap-1">
                               <button
                                 type="button"
                                 disabled
-                                className="px-7 py-3.5 rounded-full bg-zinc-900/80 border border-white/20 text-xs font-mono font-semibold tracking-wide inline-flex items-center gap-3 text-zinc-400 cursor-not-allowed shadow-xl backdrop-blur-md opacity-80"
+                                className="px-7 py-3.5 rounded-full bg-zinc-900/80 border border-amber-400/30 text-xs font-mono font-semibold tracking-wide inline-flex items-center gap-3 text-amber-300/90 cursor-not-allowed shadow-xl backdrop-blur-md opacity-90"
                               >
                                 <span>Coming Soon</span>
                                 {prog.price > 0 && (
@@ -519,38 +574,47 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                                 {regOpenDate ? `Registration opens ${regOpenDate}` : "Registration date TBA"}
                               </span>
                             </div>
-                          ) : isJoinNow ? (
+                          ) : publicBadge === "Full" ? (
+                            <div className="flex flex-col items-end gap-1">
+                              <button
+                                type="button"
+                                disabled
+                                className="px-7 py-3.5 rounded-full bg-zinc-900/90 border border-purple-500/40 text-xs font-mono font-semibold tracking-wide inline-flex items-center gap-2 text-purple-300/90 cursor-not-allowed shadow-xl"
+                              >
+                                <span>Full (Sold Out)</span>
+                              </button>
+                              <span className="text-[10px] text-zinc-400 font-mono">
+                                Quota filled ({prog.enrolledCount}/{prog.maxQuota} seats)
+                              </span>
+                            </div>
+                          ) : publicBadge === "Close Registration" ? (
+                            <div className="flex flex-col items-end gap-1">
+                              <button
+                                type="button"
+                                disabled
+                                className="px-7 py-3.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-mono font-semibold tracking-wide text-zinc-400 cursor-not-allowed shadow-xl"
+                              >
+                                <span>Registration Closed</span>
+                              </button>
+                              <span className="text-[10px] text-zinc-400 font-mono">
+                                {startDate ? `Starts ${startDate}` : "Awaiting batch launch"}
+                              </span>
+                            </div>
+                          ) : publicBadge === "On going" ? (
                             <button
                               type="button"
-                              onClick={() => handleProgramAction(prog.id)}
-                              className="px-7 py-3.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 text-xs font-mono font-semibold tracking-wide inline-flex items-center gap-3 transition-all duration-200 hover:scale-[1.02] shadow-xl"
+                              disabled
+                              className="px-7 py-3.5 rounded-full bg-zinc-900 border border-blue-500/30 text-xs font-mono font-semibold tracking-wide text-blue-300/90 cursor-not-allowed shadow-xl"
                             >
-                              {sessionUser && prog.isUserEnrolled ? (
-                                <>
-                                  <span>Enrolled • Dashboard</span>
-                                  <ArrowRight className="w-4 h-4 text-zinc-950" />
-                                </>
-                              ) : (
-                                <>
-                                  <span className="font-bold">Join Now</span>
-                                  <span className="w-px h-3.5 bg-zinc-950/25" />
-                                  {prog.actualPrice && prog.actualPrice > prog.price && (
-                                    <span className="line-through text-zinc-500 text-[11px] font-normal">
-                                      Rp {prog.actualPrice.toLocaleString("id-ID")}
-                                    </span>
-                                  )}
-                                  <span className="font-bold">Rp {prog.price.toLocaleString("id-ID")}</span>
-                                  <ArrowRight className="w-4 h-4 text-zinc-950 ml-0.5" />
-                                </>
-                              )}
+                              <span>Program In Progress</span>
                             </button>
                           ) : (
                             <button
                               type="button"
                               disabled
-                              className="px-7 py-3.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-mono font-semibold tracking-wide text-zinc-500 cursor-not-allowed shadow-xl"
+                              className="px-7 py-3.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono font-semibold tracking-wide text-zinc-500 cursor-not-allowed shadow-xl"
                             >
-                              Registration Closed
+                              <span>Program Concluded</span>
                             </button>
                           )}
                         </div>

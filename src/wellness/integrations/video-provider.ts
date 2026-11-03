@@ -22,7 +22,19 @@ export interface NormalizedVideoEmbed {
  */
 export function extractYouTubeId(rawUrl: string): string | null {
   try {
-    const trimmed = rawUrl.trim();
+    let trimmed = rawUrl.trim();
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const first = parsed[0];
+          if (typeof first === "string") trimmed = first.trim();
+          else if (first && typeof first.url === "string") trimmed = first.url.trim();
+        }
+      } catch {
+        // Ignore JSON parse fallback
+      }
+    }
     const url = new URL(trimmed);
 
     if (url.hostname.includes("youtu.be")) {

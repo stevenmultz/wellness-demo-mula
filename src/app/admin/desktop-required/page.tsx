@@ -34,6 +34,14 @@ export default function DesktopRequiredPage() {
             Home
           </Link>
         </div>
+        <div className="pt-2">
+          <Link
+            href="/admin?forceDesktop=true"
+            className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 underline font-mono"
+          >
+            Tablet / Emergency Mode: Continue anyway &rarr;
+          </Link>
+        </div>
       </div>
     </div>
   );

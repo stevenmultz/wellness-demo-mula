@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { prisma } from "../db";
 
 const COOKIE_NAME = "wellness_session";
@@ -74,9 +75,10 @@ export async function clearSessionCookie() {
 
 /**
  * Ambil sesi aktif pengguna dan validasi tokenVersion secara real-time.
- * Ini memastikan jika password diubah atau sesi direvoke, sesi lama langsung mati seketika.
+ * Dibungkus dengan React cache() agar pemanggilan berulang dalam 1 request RSC
+ * (misal di layout.tsx dan page.tsx) hanya melakukan 1x query ke database.
  */
-export async function getWellnessSession(): Promise<{
+export const getWellnessSession = cache(async (): Promise<{
   userId: string;
   email: string;
   fullName: string;
@@ -84,7 +86,7 @@ export async function getWellnessSession(): Promise<{
   role: string;
   status: string;
   createdAt: Date;
-} | null> {
+} | null> => {
   try {
     const cookieStore = cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -124,4 +126,4 @@ export async function getWellnessSession(): Promise<{
   } catch {
     return null;
   }
-}
+});

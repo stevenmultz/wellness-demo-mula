@@ -9,6 +9,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
+import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 
 interface WorkoutSectionProps {
   dayNumber: number;
@@ -43,30 +44,29 @@ export function WorkoutSection({
   onSaveWorkoutNotes,
   onUpdateChecklistRep,
 }: WorkoutSectionProps) {
-  const defaultOptions =
-    availableOptions.length > 0
-      ? availableOptions
-      : [
-          "Hot Pilates",
-          "Strength Workout",
-          "Outdoor Running",
-          "Yoga & Mobility Flow",
-          "Cardio / HIIT",
-          "Custom Routine",
-        ];
+  const workoutGroups = parseWorkoutOptionGroups(availableOptions, checklist);
+  const optionNames = workoutGroups.map((g) => g.optionName);
 
   const [activeWorkout, setActiveWorkout] = useState<string>(
-    selectedWorkout || defaultOptions[0]
+    selectedWorkout || optionNames[0] || "Workout"
   );
-  const [customInput, setCustomInput] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  // Sync activeWorkout when dayNumber or selectedWorkout prop changes
+  useEffect(() => {
+    if (selectedWorkout) {
+      setActiveWorkout(selectedWorkout);
+    } else if (optionNames.length > 0 && !optionNames.includes(activeWorkout)) {
+      setActiveWorkout(optionNames[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayNumber, selectedWorkout, availableOptions.join("|")]);
 
   // Workout Notes State
   const [trainingNotes, setTrainingNotes] = useState(workoutNotes || "");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
 
-  // Local rep input state
+  // Local rep input state keyed by "[OptionName] MovementName"
   const [repInputs, setRepInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -81,42 +81,82 @@ export function WorkoutSection({
     for (const item of completedChecklist) {
       if (item.includes("=")) {
         const [k, v] = item.split("=").map((s) => s.trim());
-        if (k && v) map[k] = v;
+        if (k && v) {
+          map[k] = v;
+        }
       }
     }
-    setRepInputs((prev) => ({ ...map, ...prev }));
-  }, [completedChecklist]);
+    setRepInputs(map);
+  }, [completedChecklist, dayNumber]);
 
   const handleWorkoutClick = async (option: string) => {
     if (isPast2359) return;
-    if (option === "Custom Routine") {
-      setShowCustomInput(true);
-      return;
-    }
     setActiveWorkout(option);
-    setShowCustomInput(false);
     await onSelectWorkout(option);
   };
 
-  const handleCustomSubmit = async () => {
-    if (!customInput.trim() || isPast2359) return;
-    setActiveWorkout(customInput.trim());
-    await onSelectWorkout(customInput.trim());
-    setShowCustomInput(false);
+  const compressImageFile = (file: File, maxDim = 960, quality = 0.72): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onload = (event) => {
+        const rawDataUrl = event.target?.result as string;
+        if (!rawDataUrl) return reject(new Error("Empty image data"));
+        const img = new window.Image();
+        img.onerror = () => resolve(rawDataUrl);
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(rawDataUrl);
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressed);
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  const handleFileChange = (type: "before" | "after", e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (type: "before" | "after", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        await onUploadPhoto(type, dataUrl);
+    try {
+      const compressedDataUrl = await compressImageFile(file);
+      if (compressedDataUrl) {
+        // Post to upload API to store as an asset URL instead of bloating database rows with Base64
+        try {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dataUrl: compressedDataUrl, type }),
+          });
+          const data = await res.json();
+          if (data.success && data.url) {
+            await onUploadPhoto(type, data.url);
+            return;
+          }
+        } catch {
+          // Fallback to direct URL if upload route is unavailable
+        }
+        await onUploadPhoto(type, compressedDataUrl);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // Ignore invalid image selection
+    }
   };
 
   const handleSaveNotes = async () => {
@@ -132,106 +172,271 @@ export function WorkoutSection({
     }
   };
 
-  // Helper to parse checklist item
-  const parseItem = (task: string) => {
-    if (task.includes("=")) {
-      const [name, target] = task.split("=").map((s) => s.trim());
-      return { isKeyValue: true, name, target };
-    }
-    return { isKeyValue: false, name: task.trim(), target: "" };
+  const currentGroup =
+    workoutGroups.find(
+      (g) => g.optionName.trim().toLowerCase() === activeWorkout.trim().toLowerCase()
+    ) || workoutGroups[0];
+
+  const getItemKey = (optionName: string, movName: string) =>
+    `[${optionName.trim()}] ${movName.trim()}`;
+
+  const getCanonicalTask = (optionName: string, movName: string, targetReps: string) => {
+    const key = getItemKey(optionName, movName);
+    return targetReps.trim() ? `${key} = ${targetReps.trim()}` : key;
   };
 
-  const isItemChecked = (task: string) => {
-    const { isKeyValue, name } = parseItem(task);
-    if (completedChecklist.includes(task)) return true;
-    if (isKeyValue) {
-      return completedChecklist.some((c) => {
-        const cName = c.includes("=") ? c.split("=")[0].trim() : c.trim();
-        return cName.toLowerCase() === name.toLowerCase();
-      });
-    }
-    return false;
+  const findCompletedEntry = (optionName: string, movName: string): string | undefined => {
+    const keyLower = getItemKey(optionName, movName).toLowerCase();
+    const plainLower = movName.trim().toLowerCase();
+    return completedChecklist.find((c) => {
+      const cLeft = (c.includes("=") ? c.split("=")[0] : c).trim().toLowerCase();
+      return cLeft === keyLower || cLeft === plainLower;
+    });
   };
 
-  const handleRepChange = (name: string, val: string) => {
-    setRepInputs((prev) => ({ ...prev, [name]: val }));
+  const isMovementChecked = (optionName: string, movName: string): boolean => {
+    return Boolean(findCompletedEntry(optionName, movName));
   };
 
-  const handleRepBlur = async (task: string, name: string) => {
-    const val = repInputs[name] || "";
+  const handleRepChange = (itemKey: string, val: string) => {
+    setRepInputs((prev) => ({ ...prev, [itemKey]: val }));
+  };
+
+  const handleRepCommit = async (
+    optionName: string,
+    movName: string,
+    targetReps: string
+  ) => {
+    if (isPast2359) return;
+    const itemKey = getItemKey(optionName, movName);
+    const canonicalTask = getCanonicalTask(optionName, movName, targetReps);
+    const rawVal = (repInputs[itemKey] ?? "").trim();
+    if (!rawVal) return;
+
     if (onUpdateChecklistRep) {
-      await onUpdateChecklistRep(task, val);
+      await onUpdateChecklistRep(canonicalTask, rawVal);
     } else {
-      // Fallback: save as "name = val" or original task
-      const formatted = val.trim() ? `${name} = ${val.trim()}` : task;
-      await onToggleChecklistItem(formatted);
+      await onToggleChecklistItem(`${itemKey} = ${rawVal}`);
     }
   };
+
+  const handleToggleMovement = async (
+    optionName: string,
+    movName: string,
+    targetReps: string
+  ) => {
+    if (isPast2359) return;
+    const itemKey = getItemKey(optionName, movName);
+    const canonicalTask = getCanonicalTask(optionName, movName, targetReps);
+    const existingEntry = findCompletedEntry(optionName, movName);
+
+    if (existingEntry) {
+      // Uncheck movement
+      await onToggleChecklistItem(existingEntry);
+    } else {
+      // Check movement: use typed actual reps if provided, otherwise auto-fill recommended targetReps
+      const achievedReps =
+        (repInputs[itemKey] ?? "").trim() || targetReps.trim() || "Completed";
+      setRepInputs((prev) => ({ ...prev, [itemKey]: achievedReps }));
+      if (onUpdateChecklistRep) {
+        await onUpdateChecklistRep(canonicalTask, achievedReps);
+      } else {
+        await onToggleChecklistItem(`${itemKey} = ${achievedReps}`);
+      }
+    }
+  };
+
+  const completedInCurrentGroup = currentGroup
+    ? currentGroup.movements.filter((m) =>
+        isMovementChecked(currentGroup.optionName, m.name)
+      ).length
+    : 0;
 
   return (
     <div className="space-y-6">
-      {/* 1. SELEKSI JENIS TRAINING */}
-      <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-5 border border-zinc-200/70 dark:border-white/10 shadow-xl">
+      {/* 1. SELEKSI JENIS TRAINING & SYNCHRONIZED MOVEMENT CHECKLIST */}
+      <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
           <div className="space-y-1.5">
             <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
-              Discipline Selection
+              Workout Option &amp; Checklist
             </span>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-              Today&apos;s Movement Discipline
+              Today&apos;s Workout Selection &amp; Checklist
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-md leading-relaxed font-mono">
-              Select the movement modality executed for Day {dayNumber}.
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-lg leading-relaxed font-mono">
+              Select your preferred workout option for Day {dayNumber}. If your reps match the recommendation, simply tap the checklist button—or enter your actual reps achieved.
             </p>
           </div>
 
-          {activeWorkout && (
-            <div className="shrink-0">
-              <span className="text-xs px-4 py-1.5 rounded-full font-mono font-medium border bg-white/10 border-white/20 text-white backdrop-blur-md">
-                {activeWorkout}
+          {currentGroup && (
+            <div className="shrink-0 flex items-center gap-2">
+              <span className="text-xs px-4 py-1.5 rounded-full font-mono font-medium glass-panel-subtle border border-zinc-200/70 dark:border-white/15 text-zinc-900 dark:text-white">
+                {completedInCurrentGroup} of {currentGroup.movements.length} Completed
               </span>
             </div>
           )}
         </div>
 
         {/* Workout Options Pill Selector */}
-        <div className="flex flex-wrap items-center gap-2.5 pt-1">
-          {defaultOptions.map((opt) => {
-            const isSelected = activeWorkout === opt;
-            return (
-              <button
-                key={opt}
-                type="button"
-                disabled={isPast2359}
-                onClick={() => handleWorkoutClick(opt)}
-                className={`px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all duration-200 ${
-                  isSelected
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-md scale-[1.02]"
-                    : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/60 dark:border-white/10"
-                }`}
-              >
-                <span>{opt}</span>
-              </button>
-            );
-          })}
+        <div className="space-y-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+            Choose Workout Option:
+          </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {workoutGroups.map((group) => {
+              const isSelected =
+                currentGroup?.optionName.toLowerCase() ===
+                group.optionName.toLowerCase();
+              return (
+                <button
+                  key={group.optionName}
+                  type="button"
+                  disabled={isPast2359}
+                  onClick={() => handleWorkoutClick(group.optionName)}
+                  className={`px-4 py-2.5 rounded-full text-xs font-mono font-medium tracking-wide transition-all duration-200 flex items-center gap-2 ${
+                    isSelected
+                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-md scale-[1.02]"
+                      : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/60 dark:border-white/10"
+                  }`}
+                >
+                  <span>{group.optionName}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                      isSelected
+                        ? "bg-white/20 text-white dark:bg-zinc-900/15 dark:text-zinc-900"
+                        : "bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    {group.movements.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {showCustomInput && (
-          <div className="flex items-center gap-2 pt-2 max-w-sm">
-            <input
-              type="text"
-              placeholder="Enter custom discipline..."
-              value={customInput}
-              onChange={(e) => setCustomInput(e.target.value)}
-              className="px-4 py-2 text-xs rounded-xl glass-input w-full"
-            />
-            <button
-              type="button"
-              onClick={handleCustomSubmit}
-              className="px-5 py-2 rounded-xl chrome-button text-xs font-semibold shrink-0"
-            >
-              Save
-            </button>
+        {/* Synchronized Movement Checklist for Selected Workout Option */}
+        {currentGroup && currentGroup.movements.length > 0 && (
+          <div className="space-y-3 pt-2 border-t border-zinc-900/[0.06] dark:border-white/10 font-mono">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+                {currentGroup.optionName} • Movement Checklist
+              </span>
+              <span className="text-[11px] text-zinc-400 font-light">
+                Tap check if matching recommendation, or type actual reps
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {currentGroup.movements.map((mov, idx) => {
+                const itemKey = getItemKey(currentGroup.optionName, mov.name);
+                const plainKey = mov.name.trim();
+                const isChecked = isMovementChecked(
+                  currentGroup.optionName,
+                  mov.name
+                );
+                const currentVal =
+                  repInputs[itemKey] !== undefined
+                    ? repInputs[itemKey]
+                    : repInputs[plainKey] !== undefined
+                    ? repInputs[plainKey]
+                    : isChecked
+                    ? mov.target
+                    : "";
+
+                return (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl border text-xs sm:text-sm font-light transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      isChecked
+                        ? "glass-panel-subtle border-zinc-400/50 dark:border-white/25 bg-zinc-900/[0.03] dark:bg-white/[0.06]"
+                        : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-900 dark:text-zinc-100"
+                    }`}
+                  >
+                    {/* Left: Checkbox & Movement Name + Recommended Target */}
+                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                      <button
+                        type="button"
+                        disabled={isPast2359}
+                        onClick={() =>
+                          handleToggleMovement(
+                            currentGroup.optionName,
+                            mov.name,
+                            mov.target
+                          )
+                        }
+                        className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition ${
+                          isChecked
+                            ? "bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
+                            : "border-zinc-400 dark:border-zinc-600 hover:border-zinc-900 dark:hover:border-white"
+                        }`}
+                        title={
+                          isChecked
+                            ? "Uncheck movement"
+                            : `Check off with recommended target (${mov.target})`
+                        }
+                      >
+                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className={`block font-medium truncate ${
+                            isChecked
+                              ? "line-through text-zinc-500 dark:text-zinc-400"
+                              : "text-zinc-900 dark:text-white"
+                          }`}
+                        >
+                          {mov.name}
+                        </span>
+                        {mov.target && (
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block font-light">
+                            Recommended: <strong className="font-medium text-zinc-700 dark:text-zinc-300">{mov.target}</strong>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Actual Reps Input Field */}
+                    <div className="flex items-center gap-2 pl-9 sm:pl-0 shrink-0">
+                      <span className="text-micro text-zinc-400 uppercase tracking-wider">
+                        Actual Reps:
+                      </span>
+                      <input
+                        type="text"
+                        disabled={isPast2359}
+                        value={currentVal}
+                        onChange={(e) => handleRepChange(itemKey, e.target.value)}
+                        onBlur={() =>
+                          handleRepCommit(
+                            currentGroup.optionName,
+                            mov.name,
+                            mov.target
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleRepCommit(
+                              currentGroup.optionName,
+                              mov.name,
+                              mov.target
+                            );
+                          }
+                        }}
+                        placeholder={
+                          mov.target
+                            ? `Enter actual (${mov.target})...`
+                            : "Enter actual reps..."
+                        }
+                        className="w-40 sm:w-44 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -381,91 +586,6 @@ export function WorkoutSection({
         </div>
       </div>
 
-      {/* 3. CHECKLIST AKTIVITAS LATIHAN DENGAN INPUT ANGKA / REPS */}
-      {checklist.length > 0 && (
-        <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-5 border border-zinc-200/70 dark:border-white/10 shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-            <div className="space-y-1">
-              <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
-                Movement Targets &amp; Logging
-              </span>
-              <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-                Daily Protocol Checklist
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light font-mono">
-                Log your completed reps / sets for each movement below.
-              </p>
-            </div>
-
-            <span className="text-xs font-mono font-medium text-zinc-600 dark:text-zinc-400 px-3.5 py-1.5 rounded-full glass-panel-subtle w-fit shrink-0">
-              {completedChecklist.length} of {checklist.length} Completed
-            </span>
-          </div>
-
-          <div className="space-y-3 font-mono">
-            {checklist.map((task, idx) => {
-              const { isKeyValue, name, target } = parseItem(task);
-              const isChecked = isItemChecked(task);
-              const currentVal = repInputs[name] !== undefined ? repInputs[name] : target;
-
-              return (
-                <div
-                  key={idx}
-                  className={`p-4 rounded-2xl border text-xs sm:text-sm font-light transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    isChecked
-                      ? "glass-panel-subtle border-white/20 text-zinc-400 bg-white/5"
-                      : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-900 dark:text-zinc-100"
-                  }`}
-                >
-                  {/* Left: Checkbox & Name */}
-                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                    <button
-                      type="button"
-                      disabled={isPast2359}
-                      onClick={() => onToggleChecklistItem(task)}
-                      className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition ${
-                        isChecked
-                          ? "bg-white text-zinc-950 border-white shadow-xs"
-                          : "border-zinc-400 dark:border-zinc-600 hover:border-zinc-300"
-                      }`}
-                    >
-                      {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                    </button>
-
-                    <div className="min-w-0 flex-1">
-                      <span className={`block font-medium truncate ${isChecked ? "line-through opacity-70" : "text-zinc-900 dark:text-white"}`}>
-                        {name}
-                      </span>
-                      {target && (
-                        <span className="text-[11px] text-zinc-400 block font-light">
-                          Target: {target}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Actual Input Log */}
-                  <div className="flex items-center gap-2 pl-9 sm:pl-0 shrink-0">
-                    <span className="text-micro text-zinc-400 uppercase tracking-wider hidden sm:inline">
-                      Actual:
-                    </span>
-                    <input
-                      type="text"
-                      disabled={isPast2359}
-                      value={currentVal}
-                      onChange={(e) => handleRepChange(name, e.target.value)}
-                      onBlur={() => handleRepBlur(task, name)}
-                      placeholder={target || "e.g. 30 reps"}
-                      className="w-28 sm:w-32 px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* 4. TODAY'S TRAINING NOTES & SENSATION */}
       <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-5 border border-zinc-200/70 dark:border-white/10 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
@@ -488,7 +608,7 @@ export function WorkoutSection({
             value={trainingNotes}
             disabled={isPast2359}
             onChange={(e) => setTrainingNotes(e.target.value)}
-            placeholder="e.g. Core felt strong, completed 35 clean push-ups without rest. Hip mobility was slightly tight during lunges..."
+            placeholder="Enter your workout notes or movement observations..."
             className="w-full p-4 rounded-2xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
           />
 

@@ -11,10 +11,13 @@ import {
   wellnessChangePassword,
   wellnessEnrollProgram,
   wellnessDeleteAccount,
+  wellnessUpdateHealthProfile,
 } from "@/wellness/actions/account";
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { normalizeVideoEmbed } from "@/wellness/integrations/video-provider";
+import { parseWorkoutOptionGroups, parseTermsChapters, ProgramTermChapter } from "@/wellness/utils/json";
+import { resolvePublicBadge, PublicProgramBadge } from "@/wellness/utils/timeline";
 import { SleepTrackerCard } from "./SleepTrackerCard";
 import { VideoThumbnailLinkCard } from "./VideoThumbnailLinkCard";
 import { WorkoutSection } from "./WorkoutSection";
@@ -36,6 +39,13 @@ import {
   Square,
   ExternalLink,
   ArrowRight,
+  ArrowLeft,
+  Search,
+  Filter,
+  CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
   Play,
   AlertTriangle,
   MessageCircle,
@@ -52,6 +62,16 @@ import {
   Sliders,
   User,
   Users,
+  Camera,
+  Scale,
+  Activity,
+  Heart,
+  Moon,
+  Smile,
+  Dumbbell,
+  Upload,
+  Trash2,
+  Award,
 } from "lucide-react";
 
 export interface ProgramDayItem {
@@ -108,6 +128,7 @@ export interface ProgramItem {
   title: string;
   slug: string;
   description: string;
+  coverImage?: string | null;
   recommendedFor?: string;
   coachName: string;
   durationDays?: number;
@@ -125,6 +146,14 @@ export interface ProgramItem {
   registrationDeadline: Date | string;
   status?: string;
   dayCount: number;
+  targetState?: string | null;
+  methodology?: string | null;
+  expectedBenefits?: string[];
+  scientificReferences?: Array<{ title: string; url?: string }>;
+  programGuidelines?: string[];
+  termsList?: string[];
+  termsChapters?: ProgramTermChapter[];
+  customTerms?: string | null;
   days: ProgramDayItem[];
 }
 
@@ -134,6 +163,7 @@ export interface EnrollmentItem {
   title: string;
   slug: string;
   description: string;
+  coverImage?: string | null;
   coachName: string;
   price: number;
   maxQuota: number;
@@ -152,6 +182,7 @@ export interface EnrollmentItem {
   invoiceExpiresAt: Date | string | null;
   paidAt: Date | string | null;
   validUntil: Date | string | null;
+  termsList?: string[];
 }
 
 export interface UserProfile {
@@ -159,20 +190,67 @@ export interface UserProfile {
   email: string;
   fullName: string;
   phone: string | null;
+  age?: number | null;
+  gender?: string | null;
+  occupation?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
   role: string;
   status: string;
   createdAt: Date | string;
+}
+
+export interface HealthProfileData {
+  id?: string;
+  photoFrontUrl?: string | null;
+  photoSideUrl?: string | null;
+  photoBackUrl?: string | null;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  waistCm?: number | null;
+  chestCm?: number | null;
+  hipsCm?: number | null;
+  dietType?: string | null;
+  foodAllergies?: string | null;
+  injuriesOrConditions?: string | null;
+  primaryGoal?: string | null;
+  currentMood?: string | null;
+  energyLevel?: number | null;
+  routineConfidence?: number | null;
+  workoutFrequency?: string | null;
+  averageBedtime?: string | null;
+  averageWakeTime?: string | null;
+  sleepQualityNotes?: string | null;
+  eatingPatterns?: string | null;
 }
 
 interface DashboardProps {
   user: UserProfile;
   myPrograms: EnrollmentItem[];
   allPrograms: ProgramItem[];
+  initialHealthProfile?: HealthProfileData | null;
 }
 
-export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProps) {
+export function DashboardClient({
+  user,
+  myPrograms,
+  allPrograms,
+  initialHealthProfile,
+}: DashboardProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "setting">("my_plan");
+  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "profile">("my_plan");
+  const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
+  const [profileSubTab, setProfileSubTab] = useState<"personal" | "medical" | "payments" | "account">("personal");
+
+  // Explore (All Programs) Search, Filter, Pagination States
+  const [programSearch, setProgramSearch] = useState("");
+  const [formatFilter, setFormatFilter] = useState<"ALL" | "ONLINE" | "ONSITE" | "HYBRID">("ALL");
+  const [availabilityFilter, setAvailabilityFilter] = useState<"ALL" | "OPEN" | "ACTIVE" | "COMING_SOON">("ALL");
+  const [programsPage, setProgramsPage] = useState(1);
+  const ITEMS_PER_PAGE = 4;
 
   // Filter ONLY programs the user has enrolled in
   const enrolledProgramIds = new Set(myPrograms.map((e) => e.programId));
@@ -229,11 +307,121 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
 
   // Profile Settings States
   const [profileForm, setProfileForm] = useState({
-    fullName: user.fullName,
+    fullName: user.fullName || "",
     phone: user.phone || "",
+    age: user.age ? String(user.age) : "",
+    gender: user.gender || "",
+    occupation: user.occupation || "",
+    address: user.address || "",
+    city: user.city || "",
+    province: user.province || "",
+    emergencyContactName: user.emergencyContactName || "",
+    emergencyContactPhone: user.emergencyContactPhone || "",
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Health & Body Baseline Profile States
+  const [healthProfile, setHealthProfile] = useState<HealthProfileData>(() => ({
+    photoFrontUrl: initialHealthProfile?.photoFrontUrl || null,
+    photoSideUrl: initialHealthProfile?.photoSideUrl || null,
+    photoBackUrl: initialHealthProfile?.photoBackUrl || null,
+    weightKg: initialHealthProfile?.weightKg ?? null,
+    heightCm: initialHealthProfile?.heightCm ?? null,
+    waistCm: initialHealthProfile?.waistCm ?? null,
+    chestCm: initialHealthProfile?.chestCm ?? null,
+    hipsCm: initialHealthProfile?.hipsCm ?? null,
+    dietType: initialHealthProfile?.dietType || "Omnivore",
+    foodAllergies: initialHealthProfile?.foodAllergies || "",
+    injuriesOrConditions: initialHealthProfile?.injuriesOrConditions || "",
+    primaryGoal: initialHealthProfile?.primaryGoal || "",
+    currentMood: initialHealthProfile?.currentMood || "",
+    energyLevel: initialHealthProfile?.energyLevel ?? 7,
+    routineConfidence: initialHealthProfile?.routineConfidence ?? 3,
+    workoutFrequency: initialHealthProfile?.workoutFrequency || "3 - 4 days / week",
+    averageBedtime: initialHealthProfile?.averageBedtime || "22:30",
+    averageWakeTime: initialHealthProfile?.averageWakeTime || "06:30",
+    sleepQualityNotes: initialHealthProfile?.sleepQualityNotes || "",
+    eatingPatterns: initialHealthProfile?.eatingPatterns || "",
+  }));
+  const [isUpdatingHealth, setIsUpdatingHealth] = useState(false);
+  const [healthMsg, setHealthMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [uploadingPhotoKey, setUploadingPhotoKey] = useState<"front" | "side" | "back" | null>(null);
+
+  const handlePhotoUpload = async (key: "front" | "side" | "back", file: File) => {
+    setUploadingPhotoKey(key);
+    try {
+      const compressed = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.onload = (e) => {
+          const raw = e.target?.result as string;
+          if (!raw) return reject(new Error("Empty data"));
+          const img = new window.Image();
+          img.onerror = () => resolve(raw);
+          img.onload = () => {
+            const maxDim = 1080;
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return resolve(raw);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.78));
+          };
+          img.src = raw;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: compressed, type: key }),
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        const fieldName = key === "front" ? "photoFrontUrl" : key === "side" ? "photoSideUrl" : "photoBackUrl";
+        setHealthProfile((prev) => ({ ...prev, [fieldName]: data.url }));
+        setHealthMsg({ type: "success", text: `${key.toUpperCase()} photo uploaded. Remember to click 'Save Health Profile'.` });
+      } else {
+        setHealthMsg({ type: "error", text: data.message || "Failed to upload photo." });
+      }
+    } catch {
+      setHealthMsg({ type: "error", text: "Photo upload failed. Please try again." });
+    } finally {
+      setUploadingPhotoKey(null);
+    }
+  };
+
+  const handleSaveHealthProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingHealth(true);
+    setHealthMsg(null);
+    try {
+      const res = await wellnessUpdateHealthProfile(healthProfile);
+      if (res.success) {
+        setHealthMsg({ type: "success", text: "Health & lifestyle baseline profile saved successfully." });
+        setTimeout(() => setHealthMsg(null), 4000);
+      } else {
+        setHealthMsg({ type: "error", text: res.message || "Failed to save health profile." });
+      }
+    } catch {
+      setHealthMsg({ type: "error", text: "Network error occurred." });
+    } finally {
+      setIsUpdatingHealth(false);
+    }
+  };
 
   // Password Form States & Peek
   const [passwordForm, setPasswordForm] = useState({
@@ -294,6 +482,37 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
     return !!day.userProgress?.videoWatched || !!day.userProgress?.isCompleted;
   };
 
+  const areActiveWorkoutMovementsCompleted = (
+    day: ProgramDayItem,
+    checkedList: string[]
+  ): boolean => {
+    if (day.dayType !== "TRAINING_DAY" || !day.videoChecklist || day.videoChecklist.length === 0) {
+      return true;
+    }
+    const groups = parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist);
+    const selectedOpt =
+      dayWorkouts[day.id] ||
+      day.userProgress?.selectedWorkout ||
+      groups[0]?.optionName ||
+      "Workout";
+    const activeGroup =
+      groups.find((g) => g.optionName.trim().toLowerCase() === selectedOpt.trim().toLowerCase()) ||
+      groups[0];
+    if (!activeGroup || activeGroup.movements.length === 0) return true;
+
+    const checkedKeys = new Set(
+      checkedList.map((item) =>
+        (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
+      )
+    );
+
+    return activeGroup.movements.every((m) => {
+      const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
+      const plainKey = m.name.trim().toLowerCase();
+      return checkedKeys.has(scopedKey) || checkedKeys.has(plainKey);
+    });
+  };
+
   const handleToggleVideoWatched = async () => {
     if (!currentDay) return;
     const prevVideo = getVideoWatched(currentDay);
@@ -301,9 +520,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
     setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: nextVideo }));
 
     const checked = getCheckedItems(currentDay);
-    const allTasksDone =
-      currentDay.videoChecklist.length === 0 ||
-      currentDay.videoChecklist.every((t) => checked.includes(t));
+    const allTasksDone = areActiveWorkoutMovementsCompleted(currentDay, checked);
     const autoComplete = nextVideo && allTasksDone;
 
     const res = await wellnessUserSubmitDayProgress({
@@ -351,9 +568,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
       currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
         ? true
         : getVideoWatched(currentDay);
-    const allTasksDone =
-      currentDay.videoChecklist.length > 0 &&
-      currentDay.videoChecklist.every((t) => updated.includes(t));
+    const allTasksDone = areActiveWorkoutMovementsCompleted(currentDay, updated);
 
     const autoComplete = videoDone && allTasksDone;
 
@@ -510,11 +725,20 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
     const nextList = [...filtered, formattedItem];
     setDayChecklists((prev) => ({ ...prev, [currentDay.id]: nextList }));
 
+    const videoDone =
+      currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
+        ? true
+        : getVideoWatched(currentDay);
+    const allTasksDone = areActiveWorkoutMovementsCompleted(currentDay, nextList);
+    const autoComplete = videoDone && allTasksDone;
+
     await wellnessUserSubmitDayProgress({
       programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
+      isCompleted: autoComplete || !!currentDay.userProgress?.isCompleted,
       checklistCompleted: nextList,
       videoWatched: getVideoWatched(currentDay),
+      selectedWorkout:
+        dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout || undefined,
     });
   };
 
@@ -686,13 +910,25 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
     mode: "IN_PERSON" | "VIRTUAL" = "VIRTUAL"
   ) => {
     const targetProg = allPrograms.find((p) => p.id === programId);
-    if (targetProg && targetProg.status === "COMING_SOON") {
-      setActionNotice({
-        type: "error",
-        text: "This program is Coming Soon. Registration will open shortly. Please join the Waitlist.",
+    if (targetProg) {
+      const publicBadge = resolvePublicBadge({
+        status: targetProg.status,
+        registrationOpenDate: targetProg.registrationOpenDate,
+        registrationDeadline: targetProg.registrationDeadline,
+        startDate: targetProg.startDate,
+        endDate: targetProg.endDate,
+        maxQuota: targetProg.maxQuota,
+        enrolledCount: targetProg.enrolledCount,
       });
-      setTimeout(() => setActionNotice(null), 4000);
-      return;
+
+      if (publicBadge && publicBadge !== "Open Registration") {
+        setActionNotice({
+          type: "error",
+          text: `Pendaftaran tidak dibuka untuk program ini (Status: ${publicBadge}).`,
+        });
+        setTimeout(() => setActionNotice(null), 4000);
+        return;
+      }
     }
 
     setEnrollingId(programId);
@@ -772,7 +1008,18 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
     setIsUpdatingProfile(true);
     setProfileMsg(null);
     try {
-      const res = await wellnessUpdateProfile(profileForm);
+      const res = await wellnessUpdateProfile({
+        fullName: profileForm.fullName,
+        phone: profileForm.phone || undefined,
+        age: profileForm.age ? parseInt(profileForm.age, 10) : null,
+        gender: profileForm.gender || null,
+        occupation: profileForm.occupation || null,
+        address: profileForm.address || null,
+        city: profileForm.city || null,
+        province: profileForm.province || null,
+        emergencyContactName: profileForm.emergencyContactName || null,
+        emergencyContactPhone: profileForm.emergencyContactPhone || null,
+      });
       if (res.success) {
         setProfileMsg({ type: "success", text: "Profile updated successfully." });
         router.refresh();
@@ -870,10 +1117,13 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
           </span>
         </Link>
 
-        {/* Desktop Navigation (3 Menus: My Ritual, Programs, Settings) */}
+        {/* Desktop Navigation (3 Menus: My Program, Explore, Profile) */}
         <nav className="hidden sm:flex items-center gap-1.5 shrink-0 text-xs font-mono font-medium">
           <button
-            onClick={() => setActiveTab("my_plan")}
+            onClick={() => {
+              setActiveTab("my_plan");
+              setIsViewingPlanDetail(false);
+            }}
             className={`px-4 py-1.5 rounded-full text-xs transition duration-200 flex items-center gap-2 ${
               activeTab === "my_plan"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
@@ -881,7 +1131,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>My Ritual</span>
+            <span>My Program</span>
           </button>
           <button
             onClick={() => setActiveTab("all_plan")}
@@ -892,18 +1142,18 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
             }`}
           >
             <Compass className="w-3.5 h-3.5" />
-            <span>Programs</span>
+            <span>Explore</span>
           </button>
           <button
-            onClick={() => setActiveTab("setting")}
+            onClick={() => setActiveTab("profile")}
             className={`px-4 py-1.5 rounded-full text-xs transition duration-200 flex items-center gap-2 ${
-              activeTab === "setting"
+              activeTab === "profile"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
                 : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
             }`}
           >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Settings</span>
+            <User className="w-3.5 h-3.5" />
+            <span>Profile</span>
           </button>
         </nav>
 
@@ -934,45 +1184,48 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
       {/* Mobile-First Bottom Floating Dock (sm:hidden) */}
       <nav
         style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 sm:hidden w-[90%] max-w-sm h-14 rounded-full blur-dock px-3 flex items-center justify-around border border-zinc-200/70 dark:border-white/15 shadow-2xl"
+        className="fixed left-1/2 -translate-x-1/2 z-50 sm:hidden w-[92%] max-w-sm h-14 rounded-full blur-dock px-3 flex items-center justify-around border border-zinc-200/70 dark:border-white/15 shadow-2xl font-mono"
       >
         <button
           type="button"
-          onClick={() => setActiveTab("my_plan")}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+          onClick={() => {
+            setActiveTab("my_plan");
+            setIsViewingPlanDetail(false);
+          }}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
             activeTab === "my_plan"
               ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
               : "text-zinc-500 dark:text-zinc-400"
           }`}
         >
           <Calendar className="w-3.5 h-3.5" />
-          <span className="text-[11px]">Ritual</span>
+          <span className="text-[11px]">My Program</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("all_plan")}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
             activeTab === "all_plan"
               ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
               : "text-zinc-500 dark:text-zinc-400"
           }`}
         >
           <Compass className="w-3.5 h-3.5" />
-          <span className="text-[11px]">Programs</span>
+          <span className="text-[11px]">Explore</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActiveTab("setting")}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
-            activeTab === "setting"
+          onClick={() => setActiveTab("profile")}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+            activeTab === "profile"
               ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
               : "text-zinc-500 dark:text-zinc-400"
           }`}
         >
-          <Sliders className="w-3.5 h-3.5" />
-          <span className="text-[11px]">Settings</span>
+          <User className="w-3.5 h-3.5" />
+          <span className="text-[11px]">Profile</span>
         </button>
       </nav>
 
@@ -997,7 +1250,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
 
         {/* TAB 1: DAILY CURRICULUM & BENTO GRID (ONLY ENROLLED PROGRAMS) */}
         {activeTab === "my_plan" && (
-          <div className="space-y-10 sm:space-y-12">
+          <div className="space-y-10 sm:space-y-12 font-mono">
             {!currentProgram ? (
               /* Empty state if user has NOT enrolled in any program yet */
               <div className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 p-10 sm:p-16 text-center flex flex-col items-center justify-center space-y-6 shadow-2xl min-h-[420px]">
@@ -1020,7 +1273,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                     You haven&apos;t joined a program yet.
                   </h2>
                   <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-light leading-relaxed font-mono">
-                    My Ritual exclusively displays the programs you are participating in. Explore our curated active curriculums to unlock your daily movement protocols, whole food plans, and community channel.
+                    My Program exclusively displays the protocols you are participating in. Explore our curated active curriculums to unlock your daily movement protocols, whole food plans, and community channel.
                   </p>
                 </div>
                 <div className="relative z-10 pt-2 font-mono">
@@ -1034,17 +1287,32 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                   </button>
                 </div>
               </div>
-            ) : (
-              <>
-                {/* Program Switcher (ONLY shown if user is enrolled in multiple programs) */}
-                {myEnrolledPrograms.length > 1 && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none font-mono">
-                    <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 shrink-0">
-                      Your Programs:
-                    </span>
-                    {myEnrolledPrograms.map((p) => {
-                      const isSel = p.id === currentProgram.id;
-                      return (
+            ) : !isViewingPlanDetail ? (
+              /* VIEW 1: DASHBOARD VIEW (Metrics & My Plan Hero Card) */
+              <div className="space-y-8 sm:space-y-10 font-mono">
+                {/* Header Welcome Banner */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono pb-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500">
+                        Member Dashboard
+                      </span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
+                      Welcome back, <span className="font-normal">{user.fullName.split(" ")[0]}</span>
+                    </h1>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                      Today is {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+
+                  {myEnrolledPrograms.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                      <span className="text-micro font-semibold text-zinc-400 shrink-0 uppercase tracking-wider">
+                        Program:
+                      </span>
+                      {myEnrolledPrograms.map((p) => (
                         <button
                           key={p.id}
                           type="button"
@@ -1053,194 +1321,250 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                             setActiveDayIndex(0);
                           }}
                           className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition ${
-                            isSel
-                              ? "chrome-button shadow-sm"
-                              : "glass-panel-subtle text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                            p.id === currentProgram.id
+                              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                              : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
                           }`}
                         >
                           {p.title}
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Top 12-Column Editorial Bento Header */}
-                <div className="grid lg:grid-cols-12 gap-6 items-stretch font-mono">
-                  {/* Program Overview Card with Full Background Image (7 Columns) */}
-                  <div className="lg:col-span-7 relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 p-7 sm:p-9 flex flex-col justify-between group shadow-xl min-h-[300px]">
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                      <Image
-                        src="/test.jpg"
-                        alt=""
-                        fill
-                        className="object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
-                      />
+                      ))}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/30 pointer-events-none" />
+                  )}
+                </div>
 
-                    <div className="space-y-3 relative z-10 text-white font-mono">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 uppercase tracking-[0.2em] text-white">
-                          Active Program
+                {/* 4-Box Metrics Bento Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 font-mono">
+                  {/* Metric 1: Consistency */}
+                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                      Consistency
+                    </span>
+                    <div className="my-2">
+                      <p className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-900 dark:text-white">
+                        {completedDaysCount}
+                        <span className="text-xs text-zinc-400 ml-1">/ {totalDays} Days</span>
+                      </p>
+                    </div>
+                    <span className="text-micro text-zinc-600 dark:text-zinc-300 font-medium">
+                      {totalDays > 0 ? Math.round((completedDaysCount / totalDays) * 100) : 0}% Protocol Done
+                    </span>
+                  </div>
+
+                  {/* Metric 2: Today's Status */}
+                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                      Today&apos;s Protocol
+                    </span>
+                    <div className="my-2 flex items-center gap-2">
+                      {currentActiveCalendarDay?.userProgress?.isCompleted ? (
+                        <>
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          <span className="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-400">
+                            Completed
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-5 h-5 text-amber-500" />
+                          <span className="text-sm sm:text-base font-semibold text-amber-600 dark:text-amber-400">
+                            In Progress
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <span className="text-micro text-zinc-500">
+                      23:59 WIB Cutoff
+                    </span>
+                  </div>
+
+                  {/* Metric 3: Current Day */}
+                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                      Current Day
+                    </span>
+                    <div className="my-2">
+                      <p className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-900 dark:text-white">
+                        Day {currentActiveCalendarDay?.dayNumber || 1}
+                        <span className="text-xs font-light text-zinc-400 ml-1">/ {totalDays}</span>
+                      </p>
+                    </div>
+                    <span className="text-micro text-zinc-400">
+                      00:00 Daily Unlock
+                    </span>
+                  </div>
+
+                  {/* Metric 4: Health Baseline */}
+                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                      Health Baseline
+                    </span>
+                    <div className="my-2">
+                      <p className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white">
+                        {healthProfile.weightKg && healthProfile.heightCm
+                          ? `BMI ${(healthProfile.weightKg / Math.pow(healthProfile.heightCm / 100, 2)).toFixed(1)}`
+                          : healthProfile.weightKg
+                          ? `${healthProfile.weightKg} kg`
+                          : "Baseline Set"}
+                      </p>
+                    </div>
+                    <span className="text-micro text-zinc-600 dark:text-zinc-400 truncate">
+                      {healthProfile.dietType || "Omnivore"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* My Plan Hero Card (Click to open Plan Detail) */}
+                <div className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 p-7 sm:p-10 flex flex-col justify-between group shadow-2xl min-h-[380px] font-mono">
+                  {/* Full Background Cover Image */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <Image
+                      src={currentProgram.coverImage || "/test.jpg"}
+                      alt={currentProgram.title}
+                      fill
+                      className="object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/35 pointer-events-none" />
+
+                  {/* Top Badges */}
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-micro px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/25 uppercase tracking-[0.2em] font-semibold text-white">
+                        My Plan
+                      </span>
+                      {hasActiveAccess ? (
+                        <span className="text-micro px-3 py-1 rounded-full chrome-badge text-white uppercase tracking-wider font-semibold">
+                          Active Access
                         </span>
-                        {hasActiveAccess ? (
-                          <span className="text-micro px-3 py-1 rounded-full chrome-badge text-white uppercase tracking-wider">
-                            Active Access
-                          </span>
+                      ) : (
+                        <span className="text-micro px-3 py-1 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/40 backdrop-blur-md uppercase tracking-wider font-semibold">
+                          Tuition Pending
+                        </span>
+                      )}
+                      {currentProgram.locationType === "ONSITE" && (
+                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-zinc-300" />
+                          <span>On-Site • {currentProgram.city || "Studio"}</span>
+                        </span>
+                      )}
+                      {currentProgram.locationType === "HYBRID" && (
+                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-zinc-300" />
+                          <span>Hybrid • {currentProgram.city || "Studio"}</span>
+                        </span>
+                      )}
+                      {(!currentProgram.locationType || currentProgram.locationType === "ONLINE") && (
+                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md">
+                          Online Sanctuary
+                        </span>
+                      )}
+                      <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md">
+                        {currentProgram.dayCount} Days
+                      </span>
+                    </div>
+
+                    {currentProgram.communityLink && hasActiveAccess && (
+                      <a
+                        href={currentProgram.communityLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 text-micro flex items-center gap-1.5 transition"
+                      >
+                        <span>Sanctuary Circle</span>
+                        <ExternalLink className="w-3 h-3 opacity-70" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Center Content */}
+                  <div className="relative z-10 space-y-3 py-8 text-white">
+                    <span className="text-micro text-zinc-300 block tracking-[0.24em] uppercase font-semibold">
+                      Current Active Program
+                    </span>
+                    <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white leading-tight font-geometric">
+                      {currentProgram.title}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 font-light">
+                      {currentProgram.coachName && (
+                        <span>Lead Coach: <strong className="font-normal text-white">{currentProgram.coachName}</strong></span>
+                      )}
+                      <span>•</span>
+                      <span>{formatShortDate(currentProgram.startDate)} – {formatShortDate(currentProgram.endDate)}</span>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 max-w-xl text-xs text-zinc-200 flex items-center gap-3">
+                      <Calendar className="w-4 h-4 text-zinc-300 shrink-0" />
+                      <span>
+                        <strong>Today&apos;s Focus:</strong> Day {currentActiveCalendarDay?.dayNumber || 1} &bull; {currentActiveCalendarDay?.title || "Movement & Longevity"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Area */}
+                  <div className="relative z-10 pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-4">
+                    {!hasActiveAccess ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenQrisCheckout(currentProgram.id)}
+                        disabled={enrollingId === currentProgram.id}
+                        className="px-6 py-3 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2 shadow-xl transition"
+                      >
+                        {enrollingId === currentProgram.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <span className="text-micro px-3 py-1 rounded-full bg-zinc-800/80 text-zinc-300 border border-white/10 backdrop-blur-md uppercase tracking-wider">
-                            Tuition Pending
-                          </span>
-                        )}
-
-                        {currentProgram.locationType === "ONSITE" && (
-                          <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-zinc-300" />
-                            <span>On-Site • {currentProgram.city || "Studio"}</span>
-                          </span>
-                        )}
-
-                        {currentProgram.locationType === "HYBRID" && (
-                          <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-zinc-300" />
-                            <span>Hybrid • {currentProgram.city || "Studio"}</span>
-                          </span>
-                        )}
-
-                        {(!currentProgram.locationType || currentProgram.locationType === "ONLINE") && (
-                          <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md">
-                            Online Sanctuary
-                          </span>
-                        )}
-                      </div>
-
-                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight font-geometric">
-                        {currentProgram.title}
-                      </h1>
-
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 font-light font-mono">
-                        {currentProgram.coachName && (
-                          <span>Lead: <strong className="font-normal text-white">{currentProgram.coachName}</strong></span>
-                        )}
-                        <span>•</span>
-                        <span>{formatShortDate(currentProgram.startDate)} – {formatShortDate(currentProgram.endDate)}</span>
-                        {currentProgram.venueAddress && (
                           <>
-                            <span>•</span>
-                            <span className="text-zinc-300">Venue: {currentProgram.venueAddress}</span>
+                            <QrCode className="w-4 h-4" /> Complete QRIS Payment
                           </>
                         )}
-                      </div>
-                    </div>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const todayIdx = currentProgram.days.findIndex(
+                            (d) => d.isCalendarUnlocked && !d.isPast2359
+                          );
+                          if (todayIdx >= 0) setActiveDayIndex(todayIdx);
+                          setIsViewingPlanDetail(true);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="px-7 py-3 rounded-full chrome-button text-xs font-bold tracking-wide flex items-center gap-2.5 shadow-2xl transition hover:scale-[1.02]"
+                      >
+                        <span>View Plan Detail</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    )}
 
-                    <div className="pt-6 flex flex-wrap items-center justify-between gap-3 relative z-10">
-                      {myEnrolledPrograms.length > 1 && (
-                        <select
-                          value={selectedProgId}
-                          onChange={(e) => {
-                            setSelectedProgId(e.target.value);
-                            setActiveDayIndex(0);
-                          }}
-                          className="px-4 py-2 rounded-full glass-image-overlay text-white text-xs font-medium border border-white/20 focus:outline-none"
-                        >
-                          {myEnrolledPrograms.map((p) => (
-                            <option
-                              key={p.id}
-                              value={p.id}
-                              className="bg-zinc-900 text-white"
-                            >
-                              {p.title}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      {!hasActiveAccess && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenQrisCheckout(currentProgram.id)}
-                            disabled={enrollingId === currentProgram.id}
-                            className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2 shadow-xl transition"
-                          >
-                            {enrollingId === currentProgram.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <>
-                                <QrCode className="w-4 h-4" /> Complete QRIS Payment
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <span className="text-[11px] text-zinc-300 font-light">
+                      Tap to open today&apos;s workout video, meal protocol, and daily reflection &rarr;
+                    </span>
                   </div>
+                </div>
+              </div>
+            ) : (
+              /* VIEW 2: PLAN DETAIL (Hari ini apa saja gitu) */
+              <div className="space-y-8 font-mono">
+                {/* Top Navigation Bar with Back Button */}
+                <div className="flex items-center justify-between border-b border-zinc-200/70 dark:border-white/10 pb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewingPlanDetail(false);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="px-4 py-2 rounded-full glass-panel-subtle text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white transition flex items-center gap-2"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Dashboard</span>
+                  </button>
 
-                  {/* Right 2x2 Summary Metrics Bento Grid (5 Columns) */}
-                  <div className="lg:col-span-5 grid grid-cols-2 gap-4">
-                    <div className="glass-panel p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden border border-zinc-200/70 dark:border-white/10 shadow-lg">
-                      <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase">
-                        Current Day
-                      </span>
-                      <p className="text-3xl sm:text-4xl font-light tracking-tight text-zinc-900 dark:text-white my-2">
-                        Day {currentActiveCalendarDay?.dayNumber || 1}
-                        <span className="text-xs font-light text-zinc-400 ml-1.5">/ {totalDays}</span>
-                      </p>
-                      <span className="text-micro text-zinc-400">
-                        00:00 Daily Unlock
-                      </span>
-                    </div>
-
-                    <div className="glass-panel p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden border border-zinc-200/70 dark:border-white/10 shadow-lg">
-                      <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase">
-                        Completed
-                      </span>
-                      <p className="text-3xl sm:text-4xl font-light tracking-tight text-zinc-900 dark:text-white my-2">
-                        {completedDaysCount}
-                        <span className="text-xs font-light text-zinc-400 ml-1.5">Days</span>
-                      </p>
-                      <span className="text-micro text-zinc-900 dark:text-zinc-200 font-medium font-mono">
-                        {totalDays > 0 ? Math.round((completedDaysCount / totalDays) * 100) : 0}% Protocol Done
-                      </span>
-                    </div>
-
-                    <div className="glass-panel p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden border border-zinc-200/70 dark:border-white/10 shadow-lg">
-                      <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase">
-                        Skipped
-                      </span>
-                      <p className="text-3xl sm:text-4xl font-light tracking-tight text-zinc-900 dark:text-white my-2 font-geometric">
-                        {skippedDaysCount}
-                        <span className="text-xs font-light text-zinc-400 ml-1.5 font-mono">Missed</span>
-                      </p>
-                      <span className="text-micro text-zinc-500 font-mono">
-                        23:59 Cutoff
-                      </span>
-                    </div>
-
-                    <div className="glass-panel p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden border border-zinc-200/70 dark:border-white/10 shadow-lg font-mono">
-                      <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase">
-                        Sanctuary
-                      </span>
-                      {currentProgram.communityLink && hasActiveAccess ? (
-                        <a
-                          href={currentProgram.communityLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="my-2 inline-flex items-center gap-1.5 text-base font-light text-zinc-900 dark:text-white hover:text-zinc-400 transition"
-                        >
-                          <span>Join Circle</span>
-                          <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                        </a>
-                      ) : (
-                        <p className="text-base font-light text-zinc-400 my-2">
-                          {hasActiveAccess ? "Active" : "Locked"}
-                        </p>
-                      )}
-                      <span className="text-micro text-zinc-400">
-                        Private Group
-                      </span>
-                    </div>
+                  <div className="text-right">
+                    <span className="text-micro text-zinc-400 uppercase tracking-wider block">
+                      {currentProgram.title}
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-white">
+                      Day {currentDay?.dayNumber || 1} of {totalDays}
+                    </span>
                   </div>
                 </div>
 
@@ -1729,7 +2053,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                                       const text = e.target.value;
                                       setDayEventFeedback((p) => ({ ...p, [currentDay.id]: text }));
                                     }}
-                                    placeholder="e.g. Loved connecting with the coach and community in person! The alignment cues were transformative..."
+                                    placeholder="Enter your gathering feedback or notes..."
                                     className="w-full p-4 rounded-xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
                                   />
 
@@ -1791,541 +2115,1651 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                     )}
                   </div>
                 )}
-              </>
+
+                {/* Bottom Back Button */}
+                <div className="pt-6 border-t border-zinc-200/60 dark:border-white/10 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewingPlanDetail(false);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="px-6 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition flex items-center gap-2"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Dashboard Overview</span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
 
         {/* ===================================================================== */}
-        {/* TAB 2: ALL PLANS (IMAGE AS FULL BACKGROUND WIDGET)                   */}
+        {/* TAB 2: ALL PROGRAMS (SEARCH, FILTER & PAGINATION)                    */}
         {/* ===================================================================== */}
-        {activeTab === "all_plan" && (
-          <div className="space-y-8 sm:space-y-10">
+        {activeTab === "all_plan" && (() => {
+          const filteredPrograms = allPrograms.filter((prog) => {
+            const q = programSearch.trim().toLowerCase();
+            const matchesSearch =
+              !q ||
+              prog.title.toLowerCase().includes(q) ||
+              prog.coachName.toLowerCase().includes(q) ||
+              (prog.city && prog.city.toLowerCase().includes(q)) ||
+              (prog.description && prog.description.toLowerCase().includes(q));
+
+            const matchesFormat =
+              formatFilter === "ALL" ||
+              (formatFilter === "ONLINE" && (!prog.locationType || prog.locationType === "ONLINE")) ||
+              prog.locationType === formatFilter;
+
+            const publicBadge = resolvePublicBadge({
+              status: prog.status,
+              registrationOpenDate: prog.registrationOpenDate,
+              registrationDeadline: prog.registrationDeadline,
+              startDate: prog.startDate,
+              endDate: prog.endDate,
+              maxQuota: prog.maxQuota,
+              enrolledCount: prog.enrolledCount,
+            }) || "Open Registration";
+
+            const matchesAvailability =
+              availabilityFilter === "ALL" ||
+              (availabilityFilter === "OPEN" && publicBadge === "Open Registration") ||
+              (availabilityFilter === "ACTIVE" && publicBadge === "On going") ||
+              (availabilityFilter === "COMING_SOON" && publicBadge === "Coming Soon");
+
+            return matchesSearch && matchesFormat && matchesAvailability;
+          });
+
+          const totalProgramPages = Math.max(1, Math.ceil(filteredPrograms.length / ITEMS_PER_PAGE));
+          const paginatedPrograms = filteredPrograms.slice(
+            (programsPage - 1) * ITEMS_PER_PAGE,
+            programsPage * ITEMS_PER_PAGE
+          );
+
+          return (
+            <div className="space-y-8 sm:space-y-10 font-mono">
+              {/* Editorial Header */}
+              <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-zinc-200/70 dark:border-white/10 space-y-3">
+                <div className="flex items-center gap-2 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+                  <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
+                    Curated Programs
+                  </span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
+                  Longevity &amp; Movement <span className="font-geometric italic text-zinc-500 dark:text-zinc-400 font-light">Protocols</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-xl font-light leading-relaxed">
+                  Choose your structured longevity and movement protocol. Strictly capped at 35 members per program to preserve intimate coach attention.
+                </p>
+              </div>
+
+              {/* Search Bar & Filter Controls */}
+              <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-zinc-200/70 dark:border-white/10 space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={programSearch}
+                    onChange={(e) => {
+                      setProgramSearch(e.target.value);
+                      setProgramsPage(1);
+                    }}
+                    placeholder="Enter keyword to search programs..."
+                    className="w-full pl-11 pr-10 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                  />
+                  {programSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgramSearch("");
+                        setProgramsPage(1);
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Tabs (Format & Availability) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  {/* Format Filters */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-micro uppercase tracking-wider text-zinc-400 mr-1 flex items-center gap-1">
+                      <Filter className="w-3 h-3" /> Format:
+                    </span>
+                    {[
+                      { id: "ALL", label: "All Formats" },
+                      { id: "ONLINE", label: "Online Sanctuary" },
+                      { id: "ONSITE", label: "On-Site Studio" },
+                      { id: "HYBRID", label: "Hybrid" },
+                    ].map((fmt) => (
+                      <button
+                        key={fmt.id}
+                        type="button"
+                        onClick={() => {
+                          setFormatFilter(fmt.id as any);
+                          setProgramsPage(1);
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs transition ${
+                          formatFilter === fmt.id
+                            ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                            : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                        }`}
+                      >
+                        {fmt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Status Filters */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-micro uppercase tracking-wider text-zinc-400 mr-1">Status:</span>
+                    {[
+                      { id: "ALL", label: "All Status" },
+                      { id: "OPEN", label: "Open Reg." },
+                      { id: "ACTIVE", label: "Active" },
+                      { id: "COMING_SOON", label: "Coming Soon" },
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => {
+                          setAvailabilityFilter(st.id as any);
+                          setProgramsPage(1);
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs transition ${
+                          availabilityFilter === st.id
+                            ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                            : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Programs Grid */}
+              {paginatedPrograms.length === 0 ? (
+                <div className="glass-panel rounded-3xl p-12 text-center border border-zinc-200/70 dark:border-white/10 space-y-3">
+                  <Compass className="w-8 h-8 text-zinc-400 mx-auto opacity-50" />
+                  <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                    No programs found
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto font-light">
+                    No programs match your current search and filter criteria.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProgramSearch("");
+                      setFormatFilter("ALL");
+                      setAvailabilityFilter("ALL");
+                      setProgramsPage(1);
+                    }}
+                    className="px-5 py-2 rounded-full glass-panel-subtle text-xs font-semibold text-zinc-900 dark:text-white mt-2"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-6 sm:gap-8">
+                  {paginatedPrograms.map((prog, idx) => {
+                    const enrolled = myPrograms.find((e) => e.programId === prog.id);
+                    const isActive = enrolled?.status === "ACTIVE";
+                    const isPending = enrolled?.status === "PENDING";
+                    const remainingSlots = Math.max(0, prog.maxQuota - prog.enrolledCount);
+                    const publicBadge = resolvePublicBadge({
+                      status: prog.status,
+                      registrationOpenDate: prog.registrationOpenDate,
+                      registrationDeadline: prog.registrationDeadline,
+                      startDate: prog.startDate,
+                      endDate: prog.endDate,
+                      maxQuota: prog.maxQuota,
+                      enrolledCount: prog.enrolledCount,
+                    }) || "Open Registration";
+
+                    return (
+                      <div
+                        key={prog.id}
+                        className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 min-h-[460px] p-7 sm:p-8 flex flex-col justify-between group shadow-xl"
+                      >
+                        {/* Full Background Image */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                          <Image
+                            src={prog.coverImage || (idx % 2 === 0 ? "/test.jpg" : "/pic.jpg")}
+                            alt={prog.title}
+                            fill
+                            className="object-cover object-center scale-105 group-hover:scale-110 transition-transform duration-700"
+                          />
+                        </div>
+                        {/* Luminous light scrim */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 pointer-events-none" />
+
+                        {/* Top Badges */}
+                        <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5 font-mono">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-3 py-1 rounded-full glass-image-overlay text-micro uppercase tracking-[0.2em] font-semibold text-white">
+                              {prog.dayCount} Days
+                            </span>
+
+                            {prog.locationType === "ONSITE" && (
+                              <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3 text-zinc-300" />
+                                <span>On-Site &bull; {prog.city || "Studio"}</span>
+                              </span>
+                            )}
+
+                            {prog.locationType === "HYBRID" && (
+                              <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3 text-zinc-300" />
+                                <span>Hybrid &bull; {prog.city || "Studio"}</span>
+                              </span>
+                            )}
+
+                            {(!prog.locationType || prog.locationType === "ONLINE") && (
+                              <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md">
+                                Online Protocol
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isActive ? (
+                              <span className="px-3 py-1 rounded-full chrome-badge text-white text-micro uppercase tracking-[0.2em] font-semibold">
+                                Active Plan
+                              </span>
+                            ) : isPending ? (
+                              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-micro uppercase tracking-[0.2em] font-semibold">
+                                Pending Payment
+                              </span>
+                            ) : publicBadge === "Coming Soon" ? (
+                              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <span>Coming Soon</span>
+                              </span>
+                            ) : publicBadge === "Full" ? (
+                              <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400 text-purple-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                                <span>Full (0 spots)</span>
+                              </span>
+                            ) : publicBadge === "Close Registration" ? (
+                              <span className="px-3 py-1 rounded-full bg-zinc-800/80 border border-zinc-600 text-zinc-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                                <span>Reg. Closed</span>
+                              </span>
+                            ) : publicBadge === "On going" ? (
+                              <span className="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400 text-blue-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                                <span>On Going</span>
+                              </span>
+                            ) : publicBadge === "End" ? (
+                              <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 text-micro uppercase tracking-[0.2em] font-semibold flex items-center gap-1.5">
+                                <span>Concluded</span>
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full glass-image-overlay text-micro uppercase tracking-wider font-medium text-white flex items-center gap-1.5">
+                                <Users className="w-3 h-3 text-zinc-300" />
+                                <span>{remainingSlots} spots left</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Bottom Floating Glassmorphic Content Card */}
+                        <div className="relative z-10 glass-image-overlay rounded-2xl p-6 space-y-4 text-white border border-white/15 backdrop-blur-xl">
+                          <div className="space-y-1.5 font-mono">
+                            <div className="flex items-center gap-2 text-micro uppercase tracking-[0.18em] text-zinc-300 font-medium">
+                              <span>{prog.coachName}</span>
+                              <span>&bull;</span>
+                              <span>Starts {formatShortDate(prog.startDate)}</span>
+                            </div>
+
+                            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-geometric">
+                              {prog.title}
+                            </h3>
+
+                            <p className="text-xs text-zinc-200/90 line-clamp-2 leading-relaxed font-light font-mono">
+                              {prog.description}
+                            </p>
+
+                            {prog.locationType !== "ONLINE" && prog.virtualFallbackAvailable && (
+                              <div className="pt-1 flex items-center gap-1.5 text-micro uppercase tracking-wider text-zinc-300 font-medium font-mono">
+                                <Video className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
+                                <span>Live streaming broadcast included</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="pt-3 border-t border-white/15 flex items-center justify-between gap-3 font-mono">
+                            <div>
+                              <span className="text-micro uppercase tracking-[0.2em] text-zinc-400 block mb-0.5">
+                                {publicBadge === "Coming Soon" ? "Registration" : "Tuition"}
+                              </span>
+                              {publicBadge === "Coming Soon" ? (
+                                <span className="text-xs font-medium text-zinc-300">
+                                  {prog.registrationOpenDate
+                                    ? `Opens ${formatShortDate(prog.registrationOpenDate)}`
+                                    : "Announced Soon (TBA)"}
+                                </span>
+                              ) : (
+                                <span className="text-base font-bold text-white tracking-tight">
+                                  Rp {prog.price.toLocaleString("id-ID")}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDetailedProgram(prog)}
+                                className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition"
+                                title="View Overview"
+                              >
+                                <Info className="w-4 h-4" />
+                              </button>
+
+                              {isActive ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedProgId(prog.id);
+                                    setActiveDayIndex(0);
+                                    setActiveTab("my_plan");
+                                    setIsViewingPlanDetail(true);
+                                  }}
+                                  className="px-5 py-2.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                >
+                                  <span>Open Plan</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                              ) : isPending ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQrisCheckout(prog.id)}
+                                  disabled={enrollingId === prog.id}
+                                  className="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                >
+                                  {enrollingId === prog.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <QrCode className="w-3.5 h-3.5" />
+                                      <span>Complete Payment</span>
+                                    </>
+                                  )}
+                                </button>
+                              ) : publicBadge === "Open Registration" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQrisCheckout(prog.id)}
+                                  disabled={enrollingId === prog.id}
+                                  className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                >
+                                  {enrollingId === prog.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <QrCode className="w-3.5 h-3.5" />
+                                      <span>Join Program</span>
+                                    </>
+                                  )}
+                                </button>
+                              ) : publicBadge === "Coming Soon" ? (
+                                <a
+                                  href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo BMS Concierge, saya ingin bergabung ke waitlist untuk program: ${prog.title}`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
+                                  <span>Waitlist</span>
+                                </a>
+                              ) : publicBadge === "Full" ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-purple-500/30 text-purple-300/80 text-xs font-semibold tracking-wide cursor-not-allowed"
+                                >
+                                  <span>Cohort Full</span>
+                                </button>
+                              ) : publicBadge === "Close Registration" ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
+                                >
+                                  <span>Registration Closed</span>
+                                </button>
+                              ) : publicBadge === "On going" ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-blue-500/30 text-blue-300/80 text-xs font-semibold tracking-wide cursor-not-allowed"
+                                >
+                                  <span>In Progress</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 text-xs font-semibold tracking-wide cursor-not-allowed"
+                                >
+                                  <span>Ended</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalProgramPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-200/60 dark:border-white/10 text-xs">
+                  <span className="text-zinc-500 dark:text-zinc-400 font-light">
+                    Showing {Math.min((programsPage - 1) * ITEMS_PER_PAGE + 1, filteredPrograms.length)} –{" "}
+                    {Math.min(programsPage * ITEMS_PER_PAGE, filteredPrograms.length)} of {filteredPrograms.length} programs
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={programsPage <= 1}
+                      onClick={() => {
+                        setProgramsPage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 300, behavior: "smooth" });
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl glass-panel-subtle disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 hover:text-zinc-950 dark:hover:text-white transition"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Prev</span>
+                    </button>
+
+                    <span className="px-3.5 py-1.5 rounded-xl glass-panel text-zinc-900 dark:text-white font-semibold">
+                      {programsPage} / {totalProgramPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={programsPage >= totalProgramPages}
+                      onClick={() => {
+                        setProgramsPage((p) => Math.min(totalProgramPages, p + 1));
+                        window.scrollTo({ top: 300, behavior: "smooth" });
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl glass-panel-subtle disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 hover:text-zinc-950 dark:hover:text-white transition"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ===================================================================== */}
+        {/* TAB 3: PROFILE (PERSONAL, MEDICAL, PAYMENTS & ACCOUNT MANAGEMENT)     */}
+        {/* ===================================================================== */}
+        {activeTab === "profile" && (
+          <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10 font-mono">
+            {/* Header */}
             <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-zinc-200/70 dark:border-white/10 space-y-3">
               <div className="flex items-center gap-2 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
                 <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
-                  Curated Programs
+                  Member Profile
                 </span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
-                Longevity &amp; Movement <span className="font-geometric italic text-zinc-500 dark:text-zinc-400 font-light">Protocols</span>
+                Account &amp; <span className="font-geometric italic text-zinc-500 dark:text-zinc-400 font-light">Wellness Profile</span>
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-xl font-light leading-relaxed">
-                Choose your structured longevity and movement protocol. Strictly capped at 35 members per program to preserve intimate coach attention.
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-light leading-relaxed">
+                Manage your personal information, customer-filled medical baseline, payment history, and account credentials.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 sm:gap-8">
-              {allPrograms.map((prog, idx) => {
-                const enrolled = myPrograms.find((e) => e.programId === prog.id);
-                const isActive = enrolled?.status === "ACTIVE";
-                const remainingSlots = Math.max(0, prog.maxQuota - prog.enrolledCount);
-
+            {/* Sub-Tab Navigation Bar */}
+            <div className="flex items-center gap-1.5 p-1.5 rounded-2xl glass-panel border border-zinc-200/70 dark:border-white/10 overflow-x-auto scrollbar-none text-xs">
+              {[
+                { id: "personal", label: "Personal Info", icon: User },
+                { id: "medical", label: "Health & Medical", icon: Activity },
+                { id: "payments", label: "Payment History", icon: CreditCard },
+                { id: "account", label: "Account & Security", icon: Sliders },
+              ].map((sub) => {
+                const Icon = sub.icon;
+                const isSel = profileSubTab === sub.id;
                 return (
-                  <div
-                    key={prog.id}
-                    className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 min-h-[460px] p-7 sm:p-8 flex flex-col justify-between group shadow-xl"
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setProfileSubTab(sub.id as any)}
+                    className={`px-4 py-2 rounded-xl font-medium transition shrink-0 flex items-center gap-2 ${
+                      isSel
+                        ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
                   >
-                    {/* Full Background Image */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                      <Image
-                        src={idx % 2 === 0 ? "/test.jpg" : "/pic.jpg"}
-                        alt={prog.title}
-                        fill
-                        className="object-cover object-center scale-105 group-hover:scale-110 transition-transform duration-700"
-                      />
-                    </div>
-                    {/* Luminous light scrim */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 pointer-events-none" />
-
-                    {/* Top Badges */}
-                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5 font-mono">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-3 py-1 rounded-full glass-image-overlay text-micro uppercase tracking-[0.2em] font-semibold text-white">
-                          {prog.dayCount} Days
-                        </span>
-
-                        {prog.locationType === "ONSITE" && (
-                          <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-zinc-300" />
-                            <span>On-Site &bull; {prog.city || "Studio"}</span>
-                          </span>
-                        )}
-
-                        {prog.locationType === "HYBRID" && (
-                          <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-zinc-300" />
-                            <span>Hybrid &bull; {prog.city || "Studio"}</span>
-                          </span>
-                        )}
-
-                        {(!prog.locationType || prog.locationType === "ONLINE") && (
-                          <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md">
-                            Online Protocol
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {prog.status === "COMING_SOON" ? (
-                          <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-micro uppercase tracking-[0.2em] font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 animate-pulse" />
-                            <span>Coming Soon</span>
-                          </span>
-                        ) : isActive ? (
-                          <span className="px-3 py-1 rounded-full chrome-badge text-white text-micro uppercase tracking-[0.2em] font-semibold">
-                            Active Plan
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 rounded-full glass-image-overlay text-micro uppercase tracking-wider font-medium text-white flex items-center gap-1.5">
-                            <Users className="w-3 h-3 text-zinc-300" />
-                            <span>{remainingSlots} spots left</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Bottom Floating Glassmorphic Content Card */}
-                    <div className="relative z-10 glass-image-overlay rounded-2xl p-6 space-y-4 text-white border border-white/15 backdrop-blur-xl">
-                      <div className="space-y-1.5 font-mono">
-                        <div className="flex items-center gap-2 text-micro uppercase tracking-[0.18em] text-zinc-300 font-medium">
-                          <span>{prog.coachName}</span>
-                          <span>&bull;</span>
-                          <span>Starts {formatShortDate(prog.startDate)}</span>
-                        </div>
-
-                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-geometric">
-                          {prog.title}
-                        </h3>
-
-                        <p className="text-xs text-zinc-200/90 line-clamp-2 leading-relaxed font-light font-mono">
-                          {prog.description}
-                        </p>
-
-                        {prog.locationType !== "ONLINE" && prog.virtualFallbackAvailable && (
-                          <div className="pt-1 flex items-center gap-1.5 text-micro uppercase tracking-wider text-zinc-300 font-medium font-mono">
-                            <Video className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
-                            <span>Live streaming broadcast included</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-3 border-t border-white/15 flex items-center justify-between gap-3 font-mono">
-                        <div>
-                          <span className="text-micro uppercase tracking-[0.2em] text-zinc-400 block mb-0.5">
-                            {prog.status === "COMING_SOON" ? "Registration" : "Tuition"}
-                          </span>
-                          {prog.status === "COMING_SOON" ? (
-                            <span className="text-xs font-medium text-zinc-300">
-                              {prog.registrationOpenDate
-                                ? `Opens ${formatShortDate(prog.registrationOpenDate)}`
-                                : "Announced Soon (TBA)"}
-                            </span>
-                          ) : (
-                            <span className="text-base font-bold text-white tracking-tight">
-                              Rp {prog.price.toLocaleString("id-ID")}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDetailedProgram(prog)}
-                            className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition"
-                            title="View Overview"
-                          >
-                            <Info className="w-4 h-4" />
-                          </button>
-
-                          {prog.status === "COMING_SOON" ? (
-                            <a
-                              href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo BMS Concierge, saya ingin bergabung ke waitlist untuk program: ${prog.title}`)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-                              <span>Waitlist</span>
-                            </a>
-                          ) : isActive ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedProgId(prog.id);
-                                setActiveDayIndex(0);
-                                setActiveTab("my_plan");
-                              }}
-                              className="px-5 py-2.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                            >
-                              <span>Open Plan</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenQrisCheckout(prog.id)}
-                              disabled={enrollingId === prog.id}
-                              className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                            >
-                              {enrollingId === prog.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : enrolled ? (
-                                <>
-                                  <QrCode className="w-3.5 h-3.5" />
-                                  <span>Complete Payment</span>
-                                </>
-                              ) : (
-                                <>
-                                  <QrCode className="w-3.5 h-3.5" />
-                                  <span>Join Program</span>
-                                </>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{sub.label}</span>
+                  </button>
                 );
               })}
             </div>
-          </div>
-        )}
 
-        {/* ===================================================================== */}
-        {/* TAB 3: SETTING (PROFILE, REMINDERS, SECURITY, PREFERENCES)             */}
-        {/* ===================================================================== */}
-        {activeTab === "setting" && (
-          <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10">
-            <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-zinc-200/70 dark:border-white/10 space-y-3">
-              <div className="flex items-center gap-2 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
-                  Preferences &amp; Credentials
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
-                Account <span className="font-geometric italic text-zinc-500 dark:text-zinc-400 font-light">Settings</span>
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-light leading-relaxed">
-                Manage your personal profile, notification schedule, credentials, and app preferences.
-              </p>
-            </div>
-
-            {/* 1. Profile Information */}
-            <form
-              onSubmit={handleUpdateProfile}
-              className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm"
-            >
-              <div className="space-y-1">
-                <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                  Identity Details
-                </span>
-                <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
-                  Profile Information
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                  Update your contact details and display name within BMS.
-                </p>
-              </div>
-
-              {profileMsg && (
-                <div
-                  className={`p-4 rounded-2xl text-xs font-medium font-mono ${
-                    profileMsg.type === "success"
-                      ? "bg-white/10 border border-white/20 text-zinc-900 dark:text-white"
-                      : "bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300"
-                  }`}
-                >
-                  {profileMsg.text}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter your name"
-                    value={profileForm.fullName}
-                    onChange={(e) =>
-                      setProfileForm((p) => ({ ...p, fullName: e.target.value }))
-                    }
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    disabled
-                    value={user.email}
-                    className="w-full px-4 py-3 rounded-2xl glass-panel-subtle text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 cursor-not-allowed border border-zinc-200/50 dark:border-white/5"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    WhatsApp / Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +62 812..."
-                    value={profileForm.phone}
-                    onChange={(e) =>
-                      setProfileForm((p) => ({ ...p, phone: e.target.value }))
-                    }
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 text-right">
-                <button
-                  type="submit"
-                  disabled={isUpdatingProfile}
-                  className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
-                >
-                  {isUpdatingProfile ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </form>
-
-            {/* 2. Daily Reminders & Alerts */}
-            <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
+            {/* SUB-TAB 1: PERSONAL INFORMATION */}
+            {profileSubTab === "personal" && (
+              <form
+                onSubmit={handleUpdateProfile}
+                className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm"
+              >
                 <div className="space-y-1">
                   <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                    Circadian Push Notifications
+                    Identity Details
                   </span>
-                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
-                    <Bell className="w-4 h-4 text-zinc-400" />
-                    <span>Daily Reminder Schedule</span>
+                  <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                    Personal Information
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
-                    Synchronize reminders for your morning practice and evening 23:59 checklist cutoff.
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                    Update your contact details, personal bio, and address.
                   </p>
                 </div>
-                <span className="text-micro uppercase tracking-[0.18em] font-semibold px-3 py-1 rounded-full glass-panel-subtle shrink-0 text-zinc-700 dark:text-zinc-300">
-                  {notifPermission === "granted" ? "Active" : "Disabled"}
-                </span>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    Morning Routine
-                  </label>
-                  <input
-                    type="time"
-                    value={morningTime}
-                    onChange={(e) => setMorningTime(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    Evening Cutoff (23:59)
-                  </label>
-                  <input
-                    type="time"
-                    value={eveningTime}
-                    onChange={(e) => setEveningTime(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                  />
-                </div>
-              </div>
+                {profileMsg && (
+                  <div
+                    className={`p-4 rounded-2xl text-xs font-medium font-mono ${
+                      profileMsg.type === "success"
+                        ? "bg-white/10 border border-white/20 text-zinc-900 dark:text-white"
+                        : "bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300"
+                    }`}
+                  >
+                    {profileMsg.text}
+                  </div>
+                )}
 
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={handleEnableNotifications}
-                  className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
-                >
-                  {notifPermission === "granted"
-                    ? "Save Schedule"
-                    : "Enable Notifications"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTestReminder("morning")}
-                  className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 transition"
-                >
-                  Test Morning Alert
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTestReminder("evening")}
-                  className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 transition"
-                >
-                  Test Evening Alert
-                </button>
-              </div>
-
-              {/* PWA Home Screen Guide */}
-              <div className="pt-5 border-t border-zinc-200/60 dark:border-white/10 space-y-2">
-                <div className="flex items-center gap-2 text-micro uppercase tracking-[0.2em] font-semibold text-zinc-900 dark:text-white font-mono">
-                  <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Install on Home Screen (PWA Sanctuary)</span>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
-                  For native ambient immersion and reliable push alerts, install BMS onto your device home screen:
-                </p>
-                <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-400 list-decimal list-inside font-light">
-                  <li>In <strong>Safari (iOS)</strong>, tap Share &rarr; &ldquo;Add to Home Screen&rdquo;.</li>
-                  <li>In <strong>Chrome (Android)</strong>, tap Menu (3 dots) &rarr; &ldquo;Install app&rdquo;.</li>
-                </ol>
-              </div>
-            </div>
-
-            {/* 3. Security & Password */}
-            <form
-              onSubmit={handleChangePassword}
-              className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm"
-            >
-              <div className="space-y-1">
-                <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                  Access Security
-                </span>
-                <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white">
-                  Change Password
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                  Ensure your account is protected with a resilient credentials passphrase.
-                </p>
-              </div>
-
-              {passwordMsg && (
-                <div
-                  className={`p-4 rounded-2xl text-xs font-medium font-mono ${
-                    passwordMsg.type === "success"
-                      ? "bg-white/10 border border-white/20 text-zinc-900 dark:text-white"
-                      : "bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300"
-                  }`}
-                >
-                  {passwordMsg.text}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    Current Password
-                  </label>
-                  <div className="relative">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Full Name
+                    </label>
                     <input
-                      type={peekCurrentPass ? "text" : "password"}
+                      type="text"
                       required
-                      placeholder="Enter current password"
-                      value={passwordForm.currentPassword}
+                      placeholder="Enter your full name"
+                      value={profileForm.fullName}
                       onChange={(e) =>
-                        setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
+                        setProfileForm((p) => ({ ...p, fullName: e.target.value }))
                       }
-                      className="w-full pl-4 pr-12 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setPeekCurrentPass(!peekCurrentPass)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      disabled
+                      value={user.email}
+                      className="w-full px-4 py-3 rounded-2xl glass-panel-subtle text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 cursor-not-allowed border border-zinc-200/50 dark:border-white/5"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      WhatsApp / Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={profileForm.phone}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, phone: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="Enter your age"
+                      value={profileForm.age}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, age: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Gender
+                    </label>
+                    <select
+                      value={profileForm.gender}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, gender: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm cursor-pointer"
                     >
-                      {peekCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Prefer not to say</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Occupation
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter your occupation"
+                      value={profileForm.occupation}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, occupation: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Street Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter your street address"
+                      value={profileForm.address}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, address: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter your city"
+                      value={profileForm.city}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, city: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Province / State
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter your province"
+                      value={profileForm.province}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, province: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Emergency Contact Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter emergency contact name"
+                      value={profileForm.emergencyContactName}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, emergencyContactName: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                      Emergency Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="Enter emergency contact phone"
+                      value={profileForm.emergencyContactPhone}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, emergencyContactPhone: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={peekNewPass ? "text" : "password"}
-                      required
-                      minLength={8}
-                      placeholder="Enter new password (min. 8 characters)"
-                      value={passwordForm.newPassword}
-                      onChange={(e) =>
-                        setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
-                      }
-                      className="w-full pl-4 pr-12 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPeekNewPass(!peekNewPass)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                    >
-                      {peekNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                <div className="pt-2 text-right">
+                  <button
+                    type="submit"
+                    disabled={isUpdatingProfile}
+                    className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
+                  >
+                    {isUpdatingProfile ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* SUB-TAB 2: HEALTH & BODY ASSESSMENT */}
+            {profileSubTab === "medical" && (
+              <form
+                onSubmit={handleSaveHealthProfile}
+                className="glass-panel rounded-3xl p-7 sm:p-9 space-y-8 border border-zinc-200/70 dark:border-white/10 shadow-sm"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono block">
+                      Physical &amp; Lifestyle Baseline
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                    Health &amp; Body Assessment
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                    Track your posture baseline photos, anthropometric measurements, dietary style, energy levels, and routine consistency.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-zinc-900/5 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 font-light flex items-start gap-2.5">
+                  <Info className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+                  <span>
+                    This section is exclusively self-managed by you. BMS coaches view this as read-only telemetry to tailor workout adaptations safely.
+                  </span>
+                </div>
+
+                {healthMsg && (
+                  <div
+                    className={`p-4 rounded-2xl text-xs font-medium font-mono ${
+                      healthMsg.type === "success"
+                        ? "bg-white/10 border border-white/20 text-zinc-900 dark:text-white"
+                        : "bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300"
+                    }`}
+                  >
+                    {healthMsg.text}
+                  </div>
+                )}
+
+                {/* SECTION A: Front, Side, Back Photos */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white font-mono flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Posture &amp; Progress Photos</span>
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 font-light mt-0.5">
+                        Three-angle baseline capture for coach analysis and personal milestone comparison.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    {(
+                      [
+                        { key: "front", label: "Front View", field: "photoFrontUrl" as const },
+                        { key: "side", label: "Side View", field: "photoSideUrl" as const },
+                        { key: "back", label: "Back View", field: "photoBackUrl" as const },
+                      ] as const
+                    ).map(({ key, label, field }) => {
+                      const photoUrl = healthProfile[field];
+                      const isUploading = uploadingPhotoKey === key;
+
+                      return (
+                        <div
+                          key={key}
+                          className="relative rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] p-3 text-center flex flex-col justify-between group overflow-hidden"
+                        >
+                          <div className="flex items-center justify-between mb-2 px-1">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
+                              {label}
+                            </span>
+                            {photoUrl && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">
+                                Logged
+                              </span>
+                            )}
+                          </div>
+
+                          {photoUrl ? (
+                            <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden bg-zinc-900 border border-white/10 group">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={photoUrl}
+                                alt={label}
+                                className="w-full h-full object-cover object-center"
+                              />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 backdrop-blur-xs">
+                                <label className="px-3 py-1.5 rounded-lg bg-white text-zinc-950 text-[10px] font-semibold cursor-pointer hover:bg-zinc-200 transition">
+                                  Change
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={isUploading}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handlePhotoUpload(key, f);
+                                    }}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => setHealthProfile((p) => ({ ...p, [field]: null }))}
+                                  className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white text-[10px] hover:bg-white/20 transition flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Remove</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <label className="relative aspect-[3/4] w-full rounded-xl border border-dashed border-zinc-300 dark:border-white/20 hover:border-zinc-500 dark:hover:border-white/40 bg-zinc-100/50 dark:bg-white/[0.01] hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition flex flex-col items-center justify-center gap-2 cursor-pointer p-4">
+                              {isUploading ? (
+                                <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+                              ) : (
+                                <>
+                                  <div className="w-9 h-9 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center">
+                                    <Camera className="w-4 h-4 text-zinc-400" />
+                                  </div>
+                                  <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+                                    Upload {label}
+                                  </span>
+                                  <span className="text-[9px] text-zinc-400 font-mono">
+                                    JPG, PNG up to 5MB
+                                  </span>
+                                </>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={isUploading}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handlePhotoUpload(key, f);
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={peekConfirmPass ? "text" : "password"}
-                      required
-                      minLength={8}
-                      placeholder="Confirm new password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
-                      }
-                      className="w-full pl-4 pr-12 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                    />
+                {/* SECTION B: Body Measurements */}
+                <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white font-mono flex items-center gap-1.5">
+                        <Scale className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Body Measurements</span>
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 font-light mt-0.5">
+                        Key anthropometric data. Height and weight calculate your baseline BMI.
+                      </p>
+                    </div>
+                    {healthProfile.weightKg && healthProfile.heightCm && (
+                      <span className="font-mono text-[11px] px-3 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-200/60 dark:border-white/15">
+                        BMI: {(healthProfile.weightKg / Math.pow(healthProfile.heightCm / 100, 2)).toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-1.5">
+                        Weight (kg)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="Enter weight in kg"
+                        value={healthProfile.weightKg ?? ""}
+                        onChange={(e) =>
+                          setHealthProfile((p) => ({
+                            ...p,
+                            weightKg: e.target.value ? parseFloat(e.target.value) : null,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-1.5">
+                        Height (cm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Enter height in cm"
+                        value={healthProfile.heightCm ?? ""}
+                        onChange={(e) =>
+                          setHealthProfile((p) => ({
+                            ...p,
+                            heightCm: e.target.value ? parseFloat(e.target.value) : null,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-1.5">
+                        Waist (cm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Enter waist in cm"
+                        value={healthProfile.waistCm ?? ""}
+                        onChange={(e) =>
+                          setHealthProfile((p) => ({
+                            ...p,
+                            waistCm: e.target.value ? parseFloat(e.target.value) : null,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-1.5">
+                        Chest (cm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Enter chest in cm"
+                        value={healthProfile.chestCm ?? ""}
+                        onChange={(e) =>
+                          setHealthProfile((p) => ({
+                            ...p,
+                            chestCm: e.target.value ? parseFloat(e.target.value) : null,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-1.5">
+                        Hips (cm)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Enter hips in cm"
+                        value={healthProfile.hipsCm ?? ""}
+                        onChange={(e) =>
+                          setHealthProfile((p) => ({
+                            ...p,
+                            hipsCm: e.target.value ? parseFloat(e.target.value) : null,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION C: Dietary Style & Medical Notes */}
+                <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-white/10">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white font-mono flex items-center gap-1.5">
+                    <Utensils className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Dietary Style &amp; Medical Conditions</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Primary Diet Type
+                      </label>
+                      <select
+                        value={healthProfile.dietType || "Omnivore"}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, dietType: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Omnivore">Omnivore (Balanced Whole Foods)</option>
+                        <option value="Vegetarian">Vegetarian (Plant-based + Dairy/Eggs)</option>
+                        <option value="Vegan">Vegan (100% Plant-based)</option>
+                        <option value="Pescatarian">Pescatarian (Fish & Seafood)</option>
+                        <option value="Ketogenic">Ketogenic / Low-Carb High-Fat</option>
+                        <option value="Halal">Halal Diet</option>
+                        <option value="Gluten-Free">Gluten-Free</option>
+                        <option value="Other">Other Dietary Style</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Food Allergies / Intolerances
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter food allergies or none"
+                        value={healthProfile.foodAllergies || ""}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, foodAllergies: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Injuries, Joint Limitations &amp; Medical Conditions
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter injuries or medical conditions or none"
+                        value={healthProfile.injuriesOrConditions || ""}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, injuriesOrConditions: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Primary Longevity Goal
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter primary health or fitness goal"
+                        value={healthProfile.primaryGoal || ""}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, primaryGoal: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION D: Mood & Vital Energy */}
+                <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-white/10">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white font-mono flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Current Mood &amp; Vital Energy</span>
+                  </h4>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Primary Mental State
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          "Calm & Centered",
+                          "Focused & Driven",
+                          "High Energy",
+                          "Fatigued / Sleepy",
+                          "Stressed / Anxious",
+                          "Grateful & Balanced",
+                        ].map((m) => {
+                          const isSelected = healthProfile.currentMood === m;
+                          return (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setHealthProfile((p) => ({ ...p, currentMood: m }))}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
+                                isSelected
+                                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                                  : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-transparent"
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500">
+                          Energy Level
+                        </label>
+                        <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white">
+                          {healthProfile.energyLevel ?? 7} / 10
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={healthProfile.energyLevel ?? 7}
+                        onChange={(e) =>
+                          setHealthProfile((p) => ({ ...p, energyLevel: parseInt(e.target.value, 10) }))
+                        }
+                        className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION E: Routine Confidence & Workout Frequency */}
+                <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-white/10">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white font-mono flex items-center gap-1.5">
+                    <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Routine Confidence &amp; Workout Frequency</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Confidence in Current Routine
+                      </label>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[
+                          { score: 1, label: "Struggling" },
+                          { score: 2, label: "Inconsistent" },
+                          { score: 3, label: "Moderate" },
+                          { score: 4, label: "Solid" },
+                          { score: 5, label: "Peak Flow" },
+                        ].map(({ score, label }) => {
+                          const isSelected = (healthProfile.routineConfidence ?? 3) === score;
+                          return (
+                            <button
+                              key={score}
+                              type="button"
+                              onClick={() => setHealthProfile((p) => ({ ...p, routineConfidence: score }))}
+                              className={`p-2 rounded-xl text-center transition flex flex-col items-center gap-1 ${
+                                isSelected
+                                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-bold shadow-xs"
+                                  : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400"
+                              }`}
+                            >
+                              <span className="text-xs font-mono font-bold">{score}</span>
+                              <span className="text-[9px] truncate max-w-full">{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Current Workout Frequency
+                      </label>
+                      <select
+                        value={healthProfile.workoutFrequency || "3 - 4 days / week"}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, workoutFrequency: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Sedentary (0 days/week)">Sedentary (0 days / week)</option>
+                        <option value="1 - 2 days / week">1 - 2 days / week</option>
+                        <option value="3 - 4 days / week">3 - 4 days / week</option>
+                        <option value="5+ days / week">5+ days / week</option>
+                        <option value="Daily Athlete / Intensive">Daily Athlete / Intensive</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION F: Sleep Routine & Eating Patterns */}
+                <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-white/10">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white font-mono flex items-center gap-1.5">
+                    <Moon className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Sleep Routine &amp; Nutrition Patterns</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500">
+                        Sleep Schedule &amp; Quality
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] text-zinc-400 block mb-1">Target Bedtime</span>
+                          <input
+                            type="text"
+                            placeholder="Enter target bedtime (HH:MM)"
+                            value={healthProfile.averageBedtime || ""}
+                            onChange={(e) => setHealthProfile((p) => ({ ...p, averageBedtime: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-zinc-400 block mb-1">Target Wake Time</span>
+                          <input
+                            type="text"
+                            placeholder="Enter target wake time (HH:MM)"
+                            value={healthProfile.averageWakeTime || ""}
+                            onChange={(e) => setHealthProfile((p) => ({ ...p, averageWakeTime: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Enter sleep quality notes"
+                        value={healthProfile.sleepQualityNotes || ""}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, sleepQualityNotes: e.target.value }))}
+                        className="w-full px-3.5 py-2 rounded-xl glass-input text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500">
+                        Eating Habits &amp; Dietary Style
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter eating patterns and dietary style"
+                        value={healthProfile.eatingPatterns || ""}
+                        onChange={(e) => setHealthProfile((p) => ({ ...p, eatingPatterns: e.target.value }))}
+                        className="w-full px-3.5 py-2 rounded-xl glass-input text-xs"
+                      />
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {["Intermittent Fasting", "Whole Foods", "High Protein", "Plant Based", "Halal Diet"].map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() =>
+                              setHealthProfile((p) => {
+                                const curr = p.eatingPatterns || "";
+                                if (curr.includes(tag)) return p;
+                                return { ...p, eatingPatterns: curr ? `${curr}, ${tag}` : tag };
+                              })
+                            }
+                            className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition font-mono"
+                          >
+                            +{tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <div className="pt-2 text-right border-t border-zinc-100 dark:border-white/10">
+                  <button
+                    type="submit"
+                    disabled={isUpdatingHealth}
+                    className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm flex items-center gap-2 ml-auto"
+                  >
+                    {isUpdatingHealth && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{isUpdatingHealth ? "Saving Profile..." : "Save Health Profile"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* SUB-TAB 3: PAYMENT HISTORY */}
+            {profileSubTab === "payments" && (
+              <div className="space-y-6">
+                <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-4 border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                        Billing &amp; Transactions
+                      </span>
+                      <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                        Payment History
+                      </h3>
+                    </div>
+                    <span className="text-micro font-semibold px-3 py-1 rounded-full glass-panel-subtle text-zinc-600 dark:text-zinc-300">
+                      {myPrograms.length} Invoices
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                    Review your program tuitions, QRIS invoice status, and receipt history.
+                  </p>
+                </div>
+
+                {myPrograms.length === 0 ? (
+                  <div className="glass-panel rounded-3xl p-12 text-center border border-zinc-200/70 dark:border-white/10 space-y-4">
+                    <CreditCard className="w-8 h-8 text-zinc-400 mx-auto opacity-50" />
+                    <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                      No Payment Records Found
+                    </h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto font-light">
+                      You haven&apos;t enrolled in any paid programs yet. Explore our longevity protocols to begin.
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setPeekConfirmPass(!peekConfirmPass)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                      onClick={() => setActiveTab("all_plan")}
+                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-2"
                     >
-                      {peekConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      <span>Explore Programs</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {myPrograms.map((enr) => {
+                      const isPaid = enr.status === "ACTIVE";
+                      const isPending = enr.status === "PENDING";
+
+                      return (
+                        <div
+                          key={enr.enrollmentId}
+                          className="glass-panel rounded-2xl p-5 sm:p-6 border border-zinc-200/70 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-xl overflow-hidden relative shrink-0 bg-zinc-900 border border-zinc-200/50 dark:border-white/10">
+                              <Image
+                                src={enr.coverImage || "/test.jpg"}
+                                alt={enr.title}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
+                                  {enr.title}
+                                </h4>
+                                <span
+                                  className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full ${
+                                    isPaid
+                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                      : isPending
+                                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                      : "bg-zinc-500/15 text-zinc-500 border border-zinc-500/20"
+                                  }`}
+                                >
+                                  {isPaid ? "Paid & Active" : isPending ? "Payment Pending" : enr.status}
+                                </span>
+                              </div>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                                Coach: {enr.coachName} &bull; Ref: {enr.paymentReference || enr.enrollmentId.slice(-8).toUpperCase()}
+                              </p>
+                              <div className="text-[11px] text-zinc-400 font-mono pt-0.5">
+                                {isPaid && enr.paidAt && (
+                                  <span>Paid on {new Date(enr.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                                )}
+                                {isPending && enr.invoiceExpiresAt && (
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    Expires {new Date(enr.invoiceExpiresAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-white/5">
+                            <span className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                              Rp {enr.price.toLocaleString("id-ID")}
+                            </span>
+
+                            {isPending && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQrisCheckout(enr.programId)}
+                                className="px-4 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                                <span>Pay with QRIS</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB-TAB 4: ACCOUNT MANAGEMENT & SECURITY */}
+            {profileSubTab === "account" && (
+              <div className="space-y-8">
+                {/* 1. Daily Push Reminders */}
+                <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                        Circadian Push Notifications
+                      </span>
+                      <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
+                        <Bell className="w-4 h-4 text-zinc-400" />
+                        <span>Daily Reminder Schedule</span>
+                      </h3>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
+                        Synchronize reminders for your morning practice and evening 23:59 checklist cutoff.
+                      </p>
+                    </div>
+                    <span className="text-micro uppercase tracking-[0.18em] font-semibold px-3 py-1 rounded-full glass-panel-subtle shrink-0 text-zinc-700 dark:text-zinc-300">
+                      {notifPermission === "granted" ? "Active" : "Disabled"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Morning Routine
+                      </label>
+                      <input
+                        type="time"
+                        value={morningTime}
+                        onChange={(e) => setMorningTime(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Evening Cutoff (23:59)
+                      </label>
+                      <input
+                        type="time"
+                        value={eveningTime}
+                        onChange={(e) => setEveningTime(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleEnableNotifications}
+                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
+                    >
+                      {notifPermission === "granted"
+                        ? "Save Schedule"
+                        : "Enable Notifications"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestReminder("morning")}
+                      className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 transition"
+                    >
+                      Test Morning Alert
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTestReminder("evening")}
+                      className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 transition"
+                    >
+                      Test Evening Alert
+                    </button>
+                  </div>
+
+                  {/* PWA Home Screen Guide */}
+                  <div className="pt-5 border-t border-zinc-200/60 dark:border-white/10 space-y-2">
+                    <div className="flex items-center gap-2 text-micro uppercase tracking-[0.2em] font-semibold text-zinc-900 dark:text-white font-mono">
+                      <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Install on Home Screen (PWA Sanctuary)</span>
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
+                      For native ambient immersion and reliable push alerts, install BMS onto your device home screen:
+                    </p>
+                    <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-400 list-decimal list-inside font-light">
+                      <li>In <strong>Safari (iOS)</strong>, tap Share &rarr; &ldquo;Add to Home Screen&rdquo;.</li>
+                      <li>In <strong>Chrome (Android)</strong>, tap Menu (3 dots) &rarr; &ldquo;Install app&rdquo;.</li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* 2. Change Password */}
+                <form
+                  onSubmit={handleChangePassword}
+                  className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm"
+                >
+                  <div className="space-y-1">
+                    <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                      Access Security
+                    </span>
+                    <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                      Change Password
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                      Ensure your account is protected with a resilient credentials passphrase.
+                    </p>
+                  </div>
+
+                  {passwordMsg && (
+                    <div
+                      className={`p-4 rounded-2xl text-xs font-medium font-mono ${
+                        passwordMsg.type === "success"
+                          ? "bg-white/10 border border-white/20 text-zinc-900 dark:text-white"
+                          : "bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300"
+                      }`}
+                    >
+                      {passwordMsg.text}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Current Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={peekCurrentPass ? "text" : "password"}
+                          required
+                          placeholder="Enter current password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) =>
+                            setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
+                          }
+                          className="w-full pl-4 pr-12 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPeekCurrentPass(!peekCurrentPass)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                        >
+                          {peekCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={peekNewPass ? "text" : "password"}
+                          required
+                          minLength={8}
+                          placeholder="Enter new password (min. 8 characters)"
+                          value={passwordForm.newPassword}
+                          onChange={(e) =>
+                            setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
+                          }
+                          className="w-full pl-4 pr-12 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPeekNewPass(!peekNewPass)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                        >
+                          {peekNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={peekConfirmPass ? "text" : "password"}
+                          required
+                          minLength={8}
+                          placeholder="Confirm new password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) =>
+                            setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
+                          }
+                          className="w-full pl-4 pr-12 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPeekConfirmPass(!peekConfirmPass)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                        >
+                          {peekConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 text-right">
+                    <button
+                      type="submit"
+                      disabled={isChangingPass}
+                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
+                    >
+                      {isChangingPass ? "Updating..." : "Update Password"}
+                    </button>
+                  </div>
+                </form>
+
+                {/* 3. Danger Zone */}
+                <div className="glass-panel rounded-3xl p-7 sm:p-9 border border-red-500/20 space-y-4 shadow-sm">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-red-500 block">
+                    Irreversible Action
+                  </span>
+                  <h3 className="text-lg font-light tracking-tight text-red-600 dark:text-red-400">
+                    Delete Account
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
+                    Permanently purge your BMS account, personal logs, streak histories, and active program enrollments. This cannot be reversed.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModalOpen(true)}
+                      className="px-5 py-2.5 rounded-full border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium tracking-wide transition"
+                    >
+                      Delete Account
                     </button>
                   </div>
                 </div>
               </div>
-
-              <div className="pt-2 text-right">
-                <button
-                  type="submit"
-                  disabled={isChangingPass}
-                  className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
-                >
-                  {isChangingPass ? "Updating..." : "Update Password"}
-                </button>
-              </div>
-            </form>
-
-            {/* 4. Danger Zone */}
-            <div className="glass-panel rounded-3xl p-7 sm:p-9 border border-red-500/20 space-y-4 shadow-sm">
-              <span className="text-micro uppercase tracking-[0.22em] font-semibold text-red-500 block">
-                Irreversible Action
-              </span>
-              <h3 className="text-lg font-light tracking-tight text-red-600 dark:text-red-400">
-                Delete Account
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
-                Permanently purge your BMS account, personal logs, streak histories, and active program enrollments. This cannot be reversed.
-              </p>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteModalOpen(true)}
-                  className="px-5 py-2.5 rounded-full border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium tracking-wide transition"
-                >
-                  Delete Account
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </main>
@@ -2407,6 +3841,9 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
         programVenue={
           allPrograms.find((p) => p.id === qrisInvoice?.programId)?.venueAddress
         }
+        programTerms={
+          allPrograms.find((p) => p.id === qrisInvoice?.programId)?.termsList
+        }
       />
 
       {/* Program Detail Explanation Modal */}
@@ -2416,7 +3853,7 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
             {/* Modal Header with Full Background Image Header */}
             <div className="relative h-44 w-full bg-zinc-900 overflow-hidden shrink-0">
               <Image
-                src="/image.jpg"
+                src={detailedProgram.coverImage || "/image.jpg"}
                 alt={detailedProgram.title}
                 fill
                 className="object-cover scale-105"
@@ -2504,6 +3941,92 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                 </div>
               </div>
 
+              {/* Program Blueprint: Target State, Methodology, Benefits, References & Guidelines */}
+              {detailedProgram.targetState && (
+                <div className="space-y-2">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                    Target Physical, Mental &amp; Mind Condition
+                  </span>
+                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
+                    {detailedProgram.targetState}
+                  </div>
+                </div>
+              )}
+
+              {detailedProgram.methodology && (
+                <div className="space-y-2">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                    Objectives &amp; Methodology
+                  </span>
+                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
+                    {detailedProgram.methodology}
+                  </div>
+                </div>
+              )}
+
+              {detailedProgram.expectedBenefits && detailedProgram.expectedBenefits.length > 0 && (
+                <div className="space-y-2.5">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                    Expected Benefits &amp; Tangible Outcomes ({detailedProgram.expectedBenefits.length})
+                  </span>
+                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10">
+                    <ul className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
+                      {detailedProgram.expectedBenefits.map((benefit, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-white shrink-0 mt-0.5" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {detailedProgram.scientificReferences && detailedProgram.scientificReferences.length > 0 && (
+                <div className="space-y-2.5">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                    Scientific References &amp; Clinical Basis ({detailedProgram.scientificReferences.length})
+                  </span>
+                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 font-mono">
+                    <ol className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed font-light">
+                      {detailedProgram.scientificReferences.map((ref, idx) => (
+                        <li key={idx} className="leading-snug">
+                          <span>{ref.title}</span>
+                          {ref.url && (
+                            <a
+                              href={ref.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 ml-2 text-zinc-900 dark:text-white underline hover:opacity-80"
+                            >
+                              <span>Source</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              {detailedProgram.programGuidelines && detailedProgram.programGuidelines.length > 0 && (
+                <div className="space-y-2.5">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                    Program Guidelines &amp; Daily Principles ({detailedProgram.programGuidelines.length})
+                  </span>
+                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10">
+                    <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed font-light">
+                      {detailedProgram.programGuidelines.map((guide, idx) => (
+                        <li key={idx} className="leading-snug">
+                          {guide}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              )}
+
               {/* What Happens Daily */}
               <div className="space-y-3">
                 <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
@@ -2535,6 +4058,53 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                   </div>
                 </div>
               </div>
+
+              {/* Program Terms & Conditions (Chapters & Sub-bab Clauses) */}
+              {(() => {
+                const chapters =
+                  detailedProgram.termsChapters && detailedProgram.termsChapters.length > 0
+                    ? detailedProgram.termsChapters
+                    : parseTermsChapters(detailedProgram.customTerms);
+                const hasValidChapters = chapters.some(
+                  (c) => c.chapter.trim() || c.clauses.some((cl) => cl.trim())
+                );
+                if (!hasValidChapters) return null;
+
+                return (
+                  <div className="space-y-3">
+                    <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                      Program Terms &amp; Conditions ({chapters.length} {chapters.length === 1 ? "Chapter" : "Chapters"})
+                    </span>
+                    <div className="space-y-3">
+                      {chapters.map((ch, cIdx) => (
+                        <div
+                          key={cIdx}
+                          className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 space-y-2.5 font-mono"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                              Bab {cIdx + 1}
+                            </span>
+                            <h4 className="text-xs font-semibold text-zinc-900 dark:text-white">
+                              {ch.chapter || `Chapter ${cIdx + 1}`}
+                            </h4>
+                          </div>
+                          <ol className="space-y-1.5 pl-0.5 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-light">
+                            {ch.clauses.map((clause, clIdx) => (
+                              <li key={clIdx} className="flex items-start gap-2">
+                                <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500 shrink-0 select-none">
+                                  {cIdx + 1}.{clIdx + 1}
+                                </span>
+                                <span className="leading-snug">{clause}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Modal Footer Actions */}
@@ -2550,8 +4120,52 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
               {(() => {
                 const enrolled = myPrograms.find((e) => e.programId === detailedProgram.id);
                 const isActive = enrolled?.status === "ACTIVE";
+                const isPending = enrolled?.status === "PENDING";
+                const publicBadge = resolvePublicBadge({
+                  status: detailedProgram.status,
+                  registrationOpenDate: detailedProgram.registrationOpenDate,
+                  registrationDeadline: detailedProgram.registrationDeadline,
+                  startDate: detailedProgram.startDate,
+                  endDate: detailedProgram.endDate,
+                  maxQuota: detailedProgram.maxQuota,
+                  enrolledCount: detailedProgram.enrolledCount,
+                }) || "Open Registration";
 
-                if (detailedProgram.status === "COMING_SOON") {
+                if (isActive) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProgId(detailedProgram.id);
+                        setActiveDayIndex(0);
+                        setActiveTab("my_plan");
+                        setIsViewingPlanDetail(true);
+                        setDetailedProgram(null);
+                      }}
+                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2"
+                    >
+                      Open Daily Plan <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  );
+                }
+
+                if (isPending) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const progId = detailedProgram.id;
+                        setDetailedProgram(null);
+                        handleOpenQrisCheckout(progId);
+                      }}
+                      className="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2"
+                    >
+                      <QrCode className="w-3.5 h-3.5" /> Complete Payment
+                    </button>
+                  );
+                }
+
+                if (publicBadge === "Coming Soon") {
                   return (
                     <a
                       href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo BMS Concierge, saya ingin bergabung ke waitlist untuk program: ${detailedProgram.title}`)}`}
@@ -2564,19 +4178,18 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                   );
                 }
 
-                if (isActive) {
+                if (publicBadge === "Open Registration") {
                   return (
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedProgId(detailedProgram.id);
-                        setActiveDayIndex(0);
-                        setActiveTab("my_plan");
+                        const progId = detailedProgram.id;
                         setDetailedProgram(null);
+                        handleOpenQrisCheckout(progId);
                       }}
                       className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2"
                     >
-                      Open Daily Plan <ArrowRight className="w-3.5 h-3.5" />
+                      <QrCode className="w-3.5 h-3.5" /> Enroll Now (Rp {detailedProgram.price.toLocaleString("id-ID")})
                     </button>
                   );
                 }
@@ -2584,14 +4197,10 @@ export function DashboardClient({ user, myPrograms, allPrograms }: DashboardProp
                 return (
                   <button
                     type="button"
-                    onClick={() => {
-                      const progId = detailedProgram.id;
-                      setDetailedProgram(null);
-                      handleOpenQrisCheckout(progId);
-                    }}
-                    className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2"
+                    disabled
+                    className="px-6 py-2.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
                   >
-                    <QrCode className="w-3.5 h-3.5" /> Enroll Now (Rp {detailedProgram.price.toLocaleString("id-ID")})
+                    Registration Closed ({publicBadge})
                   </button>
                 );
               })()}

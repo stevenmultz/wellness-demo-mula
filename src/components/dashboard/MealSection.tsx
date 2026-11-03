@@ -166,7 +166,7 @@ export function MealSection({
           value={notes}
           disabled={isPast2359}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Log what you ate today (e.g. Avocado toast with eggs, salmon quinoa bowl with greens, clean hydration)..."
+          placeholder="Enter your meals and nutrition logs for today..."
           className="w-full p-4 rounded-2xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
         />
       </div>

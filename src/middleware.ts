@@ -24,26 +24,39 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Deteksi jika perangkat adalah mobile (Admin Control bersifat Desktop Only)
+    // Deteksi jika perangkat adalah mobile (Admin Control bersifat Desktop Only, kecuali override aktif)
     const userAgent = request.headers.get("user-agent") || "";
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const hasDesktopOverride =
+      request.nextUrl.searchParams.get("forceDesktop") === "true" ||
+      request.cookies.get("wellness_admin_desktop_override")?.value === "1";
 
-    if (isMobile) {
+    if (isMobile && !hasDesktopOverride) {
       return NextResponse.redirect(new URL("/admin/desktop-required", request.url));
     }
 
     if (!sessionCookie) {
-      return NextResponse.redirect(new URL("/?auth=signin&target=admin", request.url));
+      const signInUrl = new URL("/?auth=signin&target=admin", request.url);
+      return NextResponse.redirect(signInUrl);
     }
 
     try {
       const { payload } = await jwtVerify(sessionCookie, SECRET_KEY);
       const tokenData = payload as unknown as TokenPayload;
 
-      if (tokenData.role !== "SUPERADMIN") {
+      if (tokenData.role !== "SUPERADMIN" || !tokenData.userId) {
         // Bukan superadmin -> alihkan ke user dashboard
         return NextResponse.redirect(new URL("/dashboard?error=unauthorized_admin", request.url));
       }
+
+      // Terapkan header anti-cache ketat agar halaman admin tidak pernah disimpan di cache browser setelah logout
+      const response = NextResponse.next();
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
+      response.headers.set("X-Frame-Options", "DENY");
+      response.headers.set("X-Content-Type-Options", "nosniff");
+      return response;
     } catch {
       // Token tidak valid atau kedaluwarsa
       const response = NextResponse.redirect(new URL("/?auth=signin&target=admin", request.url));

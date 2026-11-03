@@ -4,6 +4,7 @@ import "./globals.css";
 import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuraBackground } from "@/components/ui/AuraBackground";
+import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
 
 const urbanist = Urbanist({
   subsets: ["latin"],
@@ -32,8 +33,6 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
@@ -47,11 +46,17 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{const t=localStorage.getItem("wellness-theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}}catch(e){}`,
+          }}
+        />
       </head>
       <body
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
       >
         <ThemeProvider>
+          <ServiceWorkerRegister />
           <SmoothScroll>
             <AuraBackground />
             <div className="relative z-10">{children}</div>

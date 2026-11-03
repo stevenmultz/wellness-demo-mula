@@ -126,7 +126,7 @@ export function DailyReflectionCard({
           value={reflection}
           disabled={isPast2359}
           onChange={(e) => setReflection(e.target.value)}
-          placeholder="Dear Diary, today I felt... (How was your physical energy post-workout? What are you grateful for today?)"
+          placeholder="Enter your daily reflection and observations..."
           className="w-full p-4 sm:p-5 rounded-2xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
         />
       </div>

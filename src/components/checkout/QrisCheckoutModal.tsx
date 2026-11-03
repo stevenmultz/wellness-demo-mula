@@ -35,6 +35,7 @@ interface QrisCheckoutModalProps {
   onSuccess: (programId: string) => void;
   programLocationType?: string | null;
   programVenue?: string | null;
+  programTerms?: string[];
 }
 
 export function QrisCheckoutModal({
@@ -44,6 +45,7 @@ export function QrisCheckoutModal({
   onSuccess,
   programLocationType,
   programVenue,
+  programTerms,
 }: QrisCheckoutModalProps) {
   const [currentInvoice, setCurrentInvoice] = useState<QrisInvoiceData | null>(invoice);
   const [attendanceMode, setAttendanceMode] = useState<"IN_PERSON" | "VIRTUAL">(
@@ -54,6 +56,7 @@ export function QrisCheckoutModal({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [paidSuccess, setPaidSuccess] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
     setCurrentInvoice(invoice);
@@ -62,6 +65,7 @@ export function QrisCheckoutModal({
     }
     setErrorMsg(null);
     setPaidSuccess(false);
+    setAgreedToTerms(false);
   }, [invoice]);
 
   useEffect(() => {
@@ -106,6 +110,10 @@ export function QrisCheckoutModal({
   };
 
   const handleVerifyPayment = async () => {
+    if (!agreedToTerms) {
+      setErrorMsg("Please agree to the Program Terms & Conditions before confirming payment.");
+      return;
+    }
     setIsProcessing(true);
     setErrorMsg(null);
     try {
@@ -311,6 +319,53 @@ export function QrisCheckoutModal({
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Program Terms & Conditions Clickwrap Agreement */}
+          {!paidSuccess && (
+            <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-3 font-mono">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-500 dark:text-zinc-400">
+                  Terms &amp; Conditions ({programTerms?.length || 4})
+                </span>
+                <span className="text-[10px] text-zinc-400">Required</span>
+              </div>
+              <ol className="max-h-28 overflow-y-auto pr-1 space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed font-light">
+                {(programTerms && programTerms.length > 0
+                  ? programTerms
+                  : [
+                      "Participants confirm they are in good physical health and medically cleared to engage in daily movement protocols.",
+                      "All program tuition fees are final, non-refundable, and non-transferable once enrollment is confirmed.",
+                      "All video routines, nutrition protocols, and community materials are strictly for personal use by enrolled members.",
+                      "Daily progress logs and checklists must be completed before the 23:59 daily cutoff time.",
+                    ]
+                ).map((term, idx) => (
+                  <li key={idx} className="leading-snug">
+                    {term}
+                  </li>
+                ))}
+              </ol>
+              <label className="pt-2 border-t border-zinc-200/60 dark:border-white/10 flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => {
+                    setAgreedToTerms(e.target.checked);
+                    if (e.target.checked && errorMsg?.includes("Terms & Conditions")) {
+                      setErrorMsg(null);
+                    }
+                  }}
+                  className="mt-0.5 w-4 h-4 rounded border-zinc-300 dark:border-white/20 accent-zinc-900 dark:accent-white shrink-0"
+                />
+                <span className="text-[11px] text-zinc-700 dark:text-zinc-200 leading-snug font-light">
+                  I have read, understood, and agree to the{" "}
+                  <strong className="font-semibold text-zinc-900 dark:text-white">
+                    Program Terms &amp; Conditions
+                  </strong>{" "}
+                  above.
+                </span>
+              </label>
             </div>
           )}
 

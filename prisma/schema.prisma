@@ -7,206 +7,413 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// 1. USERS & ACCESS MANAGEMENT
+// ============================================================================
+
 model User {
-  id                String               @id @default(cuid())
-  email             String               @unique
-  passwordHash      String
-  fullName          String
-  phone             String?
-  role              String               @default("USER") // "USER" | "SUPERADMIN"
-  status            String               @default("ACTIVE") // "ACTIVE" | "SUSPENDED"
-  tokenVersion      Int                  @default(0) // Invalidates all sessions on password change
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  id                String               @id @default(cuid()) @map("id")
+  email             String               @unique @map("email")
+  passwordHash      String               @map("password_hash")
+  fullName              String               @map("full_name")
+  phone                 String?              @map("phone")
+  age                   Int?                 @map("age")
+  gender                String?              @map("gender")
+  occupation            String?              @map("occupation")
+  address               String?              @map("address")
+  city                  String?              @map("city")
+  province              String?              @map("province")
+  emergencyContactName  String?              @map("emergency_contact_name")
+  emergencyContactPhone String?              @map("emergency_contact_phone")
+  role                  String               @default("USER") @map("role") // "USER" | "SUPERADMIN"
+  status            String               @default("ACTIVE") @map("status") // "ACTIVE" | "SUSPENDED"
+  tokenVersion      Int                  @default(0) @map("token_version") // Invalidates all sessions on password change
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
   resetTokens       PasswordResetToken[]
-  enrollments       Enrollment[]
+  enrollments       ProgramEnrollment[]
   pushSubscriptions PushSubscription[]
-  dayProgress       DayProgress[]
+  dayProgress       ProgramDayProgress[]
+  healthProfile     CustomerHealthProfile?
 
   @@index([role])
   @@index([status])
+  @@index([createdAt])
+  @@map("users")
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id        String   @id @default(cuid()) @map("id")
+  token     String   @unique @map("token")
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false) @map("used")
+  createdAt DateTime @default(now()) @map("created_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@map("password_reset_tokens")
 }
 
-model Program {
-  id                   String        @id @default(cuid())
-  title                String
-  slug                 String        @unique
-  description          String
-  coverImage           String?       // Custom banner / poster image URL
-  difficultyLevel      String        @default("INTERMEDIATE") // "BEGINNER" | "MODERATE" | "INTERMEDIATE" | "ADVANCED" | "HIGH_INTENSITY"
-  category             String        @default("Pilates") // "Pilates" | "Workout" | "Mobility & Longevity"
-  equipment            String?       // Selected master equipment: e.g. "Yoga Mat, Resistance Bands"
-  dailyCommitment      String?       // Daily time estimation: e.g. "20 - 30 Mins / Day"
-  recommendedFor       String        @default("All Levels • Mindful Movement & Longevity")
-  coachName            String        @default("Head Wellness Coach")
-  coachTitle           String?       @default("Movement & Longevity Specialist")
-  durationDays         Int           @default(21) // Target curriculum length (days required before final launch)
-  actualPrice          Float         @default(0) // Harga normal sebelum diskon
-  discountPercentage   Int           @default(0) // Diskon kelipatan 5% (0, 5, 10, ... 50)
-  price                Float         @default(0) // Final net price yang ditagihkan ke user (actualPrice - diskon)
-  maxQuota             Int           @default(50) // Participant quota limit per batch
-  communityLink        String?       // External WhatsApp / Telegram group URL
-  locationType         String        @default("ONLINE") // "ONLINE" | "ONSITE" | "HYBRID"
-  city                 String?       // Contoh: "Jakarta Selatan", "Bali", "Surabaya"
-  venueAddress         String?       // Alamat fisik venue / studio
-  virtualFallbackAvailable Boolean   @default(true) // Opsi bagi peserta luar kota untuk ikut via Live Stream Zoom
-  startDate            DateTime      @default(now())
-  endDate              DateTime      @default(now())
-  registrationOpenDate DateTime?     // Kapan pendaftaran dibuka (null jika TBA / Coming Soon)
-  registrationDeadline DateTime      @default(now())
-  status               String        @default("DRAFT") // "DRAFT" | "PUBLISHED"
-  isPublished          Boolean       @default(false) // Status publish/unpublish eksplisit
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  days                 ProgramDay[]
-  enrollments          Enrollment[]
+// ============================================================================
+// 2. MASTER DIRECTORIES (STANDALONE CATALOGS)
+// ============================================================================
 
-  @@index([status])
-  @@index([isPublished])
-  @@index([startDate])
-  @@index([locationType])
+model MasterCategory {
+  id        String            @id @default(cuid()) @map("id")
+  name      String            @unique @map("name") // e.g. "Pilates", "Workout", "Mobility & Longevity"
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  programs  ProgramCategory[]
+
+  @@map("master_categories")
 }
 
 model MasterCoach {
-  id        String   @id @default(cuid())
-  name      String
-  title     String   // e.g. "Senior Pilates Specialist"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String         @id @default(cuid()) @map("id")
+  name      String         @map("name")
+  title     String         @map("title") // e.g. "Senior Pilates Specialist"
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  programs  ProgramCoach[]
+
+  @@map("master_coaches")
 }
 
 model MasterTargetAudience {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g. "Mom", "Dad", "Business Woman", "Employee", "Desk Worker"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+  id        String            @id @default(cuid()) @map("id")
+  name      String            @unique @map("name") // e.g. "Mom", "Dad", "Business Woman", "Employee", "Desk Worker"
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  programs  ProgramAudience[]
 
-model MasterCategory {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g. "Pilates", "Workout", "Mobility & Longevity"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@map("master_target_audiences")
 }
 
 model MasterEquipment {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g. "No Equipment", "Yoga Mat", "Resistance Bands", "Light Dumbbells", "Pilates Ball"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String             @id @default(cuid()) @map("id")
+  name      String             @unique @map("name") // e.g. "No Equipment", "Yoga Mat", "Resistance Bands"
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  programs  ProgramEquipment[]
+
+  @@map("master_equipments")
 }
 
 model MasterDailyCommitment {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g. "10 - 15 Mins / Day", "15 - 20 Mins / Day", "20 - 30 Mins / Day"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(cuid()) @map("id")
+  name      String    @unique @map("name") // e.g. "10 - 15 Mins / Day", "20 - 30 Mins / Day"
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  programs  Program[]
+
+  @@map("master_daily_commitments")
 }
 
+// ============================================================================
+// 3. PROGRAM DOMAIN (HEADER & METADATA)
+// ============================================================================
+
+model Program {
+  id                       String                 @id @default(cuid()) @map("id")
+  title                    String                 @map("title")
+  slug                     String                 @unique @map("slug")
+  description              String                 @map("description")
+  coverImage               String?                @map("cover_image") // Custom banner / poster image URL
+  difficultyLevel          String                 @default("INTERMEDIATE") @map("difficulty_level") // "BEGINNER" | "MODERATE" | "INTERMEDIATE" | "ADVANCED" | "HIGH_INTENSITY"
+  durationDays             Int                    @default(21) @map("duration_days") // Target curriculum length (days required before final launch)
+  
+  // Pricing & Seat Quota
+  actualPrice              Float                  @default(0) @map("actual_price") // Base tuition before discount
+  discountPercentage       Int                    @default(0) @map("discount_percentage") // 5% step discount (0..50%)
+  price                    Float                  @default(0) @map("price") // Net calculated price
+  maxQuota                 Int                    @default(50) @map("max_quota") // Participant quota limit per cohort
+  
+  // Community Channel & Logistics
+  communityLink            String?                @map("community_link") // External private channel link (WhatsApp, Discord, etc.)
+  locationType             String                 @default("ONLINE") @map("location_type") // "ONLINE" | "ONSITE" | "HYBRID"
+  city                     String?                @map("city") // e.g. "Jakarta Selatan", "Bali"
+  venueAddress             String?                @map("venue_address") // Studio physical address
+  virtualFallbackAvailable Boolean                @default(true) @map("virtual_fallback_available") // Zoom livestream fallback option
+  
+  // Schedule Timeline
+  startDate                DateTime               @default(now()) @map("start_date")
+  endDate                  DateTime               @default(now()) @map("end_date")
+  registrationOpenDate     DateTime?              @map("registration_open_date") // Opening date
+  registrationDeadline     DateTime               @default(now()) @map("registration_deadline") // Hard cutoff date
+  
+  // Publication Status
+  status                   String                 @default("DRAFT") @map("status") // "DRAFT" | "PUBLISHED"
+  isPublished              Boolean                @default(false) @map("is_published")
+
+  // Daily Commitment (N:1 Relational Foreign Key)
+  dailyCommitmentId        String?                @map("daily_commitment_id")
+  dailyCommitmentRef       MasterDailyCommitment? @relation(fields: [dailyCommitmentId], references: [id], onDelete: SetNull)
+
+  // Terms & Conditions (T&C) & Program Blueprint (Moral & Scientific Basis)
+  termsType                String                 @default("STANDARD") @map("terms_type") // "STANDARD" | "CUSTOM"
+  customTerms              String?                @map("custom_terms") // Program-specific clauses / notes
+  targetState              String?                @map("target_state") // Target physical, mental & mind condition
+  methodology              String?                @map("methodology") // Core program objective & methodology
+  expectedBenefits         String?                @map("expected_benefits") // JSON string[] of expected benefits & outcomes
+  scientificReferences     String?                @map("scientific_references") // JSON ProgramReferenceItem[] of clinical journals & studies
+  programGuidelines        String?                @map("program_guidelines") // JSON string[] of practical daily guidelines
+
+  // Compatibility / Snapshot Cache Fields (Ensures instant zero-join catalog rendering)
+  category                 String                 @default("Pilates") @map("category") // Comma-separated category string
+  equipment                String?                @map("equipment") // Comma-separated equipment string
+  dailyCommitment          String?                @map("daily_commitment") // Cached commitment label
+  recommendedFor           String                 @default("All Levels • Mindful Movement & Longevity") @map("recommended_for")
+  coachName                String                 @default("Head Wellness Coach") @map("coach_name")
+  coachTitle               String?                @default("Movement & Longevity Specialist") @map("coach_title")
+
+  categoryCache            String?                @map("category_cache")
+  coachCache               String?                @map("coach_cache")
+  equipmentCache           String?                @map("equipment_cache")
+  audienceCache            String?                @map("audience_cache")
+  commitmentCache          String?                @map("commitment_cache")
+
+  createdAt                DateTime               @default(now()) @map("created_at")
+  updatedAt                DateTime               @updatedAt @map("updated_at")
+
+  // Relational Collections
+  categories               ProgramCategory[]
+  coaches                  ProgramCoach[]
+  audiences                ProgramAudience[]
+  equipments               ProgramEquipment[]
+  days                     ProgramDay[]
+  enrollments              ProgramEnrollment[]
+
+  @@index([status, isPublished, startDate])
+  @@index([locationType, isPublished])
+  @@index([dailyCommitmentId])
+  @@map("programs")
+}
+
+// ============================================================================
+// 4. PROGRAM TAXONOMY RELATIONAL JUNCTIONS (PIVOT TABLES)
+// ============================================================================
+
+model ProgramCategory {
+  programId  String         @map("program_id")
+  categoryId String         @map("category_id")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  program    Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  category   MasterCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([programId, categoryId])
+  @@index([categoryId])
+  @@map("program_categories")
+}
+
+model ProgramCoach {
+  programId    String      @map("program_id")
+  coachId      String      @map("coach_id")
+  isLead       Boolean     @default(false) @map("is_lead")
+  displayOrder Int         @default(0) @map("display_order")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  program      Program     @relation(fields: [programId], references: [id], onDelete: Cascade)
+  coach        MasterCoach @relation(fields: [coachId], references: [id], onDelete: Restrict)
+
+  @@id([programId, coachId])
+  @@index([coachId])
+  @@map("program_coaches")
+}
+
+model ProgramAudience {
+  programId  String               @map("program_id")
+  audienceId String               @map("audience_id")
+  createdAt  DateTime             @default(now()) @map("created_at")
+
+  program    Program              @relation(fields: [programId], references: [id], onDelete: Cascade)
+  audience   MasterTargetAudience @relation(fields: [audienceId], references: [id], onDelete: Restrict)
+
+  @@id([programId, audienceId])
+  @@index([audienceId])
+  @@map("program_audiences")
+}
+
+model ProgramEquipment {
+  programId   String          @map("program_id")
+  equipmentId String          @map("equipment_id")
+  isRequired  Boolean         @default(true) @map("is_required")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  program     Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
+  equipment   MasterEquipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+
+  @@id([programId, equipmentId])
+  @@index([equipmentId])
+  @@map("program_equipments")
+}
+
+// ============================================================================
+// 5. PROGRAM CURRICULUM (DAILY MODULES)
+// ============================================================================
+
 model ProgramDay {
-  id                  String        @id @default(cuid())
-  programId           String
-  dayNumber           Int
-  title               String
-  dayType             String        @default("TRAINING_DAY") // "TRAINING_DAY" | "REST_DAY" | "CONNECTION_DAY" | "MEETUP_DAY"
-  workoutOptions      String?       // JSON string array of workout types: e.g. ["Hot Pilates", "Strength Workout", "Outdoor Run"]
-  sleepRecommendation String?       // Guidance: e.g. "Target 8 Jam • Tidur sebelum 22:30 WIB"
-  dayNotifications    String?       // JSON array string: [{ time: "07:00", message: "...", label: "Morning" }, ...]
-  videoUrl            String?
-  videoChecklist      String?       // JSON string of string checklist items
-  mealRecommendation  String?       // Nutritional guidance for the day
-  dailyAssessment     String?       // Reflection / quiz / workout questionnaire
-  pendingReminder     String?       // Motivational reminder message when not yet completed
-  completedReminder   String?       // Celebration / recovery reminder when finished
-  meetupLink          String?       // Virtual meeting link (Zoom / Google Meet)
-  mapLink             String?       // Direct Google Maps link for the venue
-  onsiteVenue         String?       // Physical location / venue name for On-Site / Connect sessions
-  onsiteSchedule      String?       // Time & schedule details for On-Site / Connect sessions
-  eventTitle          String?       // Event title for Connect Day (e.g. "BMS Community Studio Flow & Brunch")
-  eventHost           String?       // Who they will meet with (e.g. "Coach Marcus & Special Guests")
-  eventDetails        String?       // Rundown & details of the event
-  restInstructions    String?       // Tips / breathwork guide for REST_DAY
-  coachName           String?       // Lead coach specifically assigned for this daily module
-  recommendedFor      String?       // Specific focus / target for this day (derived from program focus)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  program             Program       @relation(fields: [programId], references: [id], onDelete: Cascade)
-  progress            DayProgress[]
+  id                  String        @id @default(cuid()) @map("id")
+  programId           String        @map("program_id")
+  dayNumber           Int           @map("day_number")
+  title               String        @map("title")
+  dayType             String        @default("TRAINING_DAY") @map("day_type") // "TRAINING_DAY" | "REST_DAY" | "CONNECTION_DAY" | "MEETUP_DAY"
+  workoutOptions      String?       @map("workout_options") // JSON array string
+  sleepRecommendation String?       @map("sleep_recommendation")
+  dayNotifications    String?       @map("day_notifications") // JSON array string
+  videoUrl            String?       @map("video_url")
+  videoChecklist      String?       @map("video_checklist") // JSON array string
+  mealRecommendation  String?       @map("meal_recommendation")
+  dailyAssessment     String?       @map("daily_assessment")
+  pendingReminder     String?       @map("pending_reminder")
+  completedReminder   String?       @map("completed_reminder")
+  meetupLink          String?       @map("meetup_link")
+  mapLink             String?       @map("map_link")
+  onsiteVenue         String?       @map("onsite_venue")
+  onsiteSchedule      String?       @map("onsite_schedule")
+  eventTitle          String?       @map("event_title")
+  eventHost           String?       @map("event_host")
+  eventDetails        String?       @map("event_details")
+  restInstructions    String?       @map("rest_instructions")
+  coachName           String?       @map("coach_name")
+  recommendedFor      String?       @map("recommended_for")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  program             Program              @relation(fields: [programId], references: [id], onDelete: Cascade)
+  progress            ProgramDayProgress[]
 
   @@unique([programId, dayNumber])
   @@index([programId])
+  @@map("program_days")
 }
 
-model DayProgress {
-  id                   String     @id @default(cuid())
-  userId               String
-  programDayId         String
-  videoWatched         Boolean    @default(false)
-  isCompleted          Boolean    @default(false)
-  checklistCompleted   String?    // JSON string of completed items
-  selectedWorkout      String?    // Selected workout type e.g. "Hot Pilates"
-  photoBeforeUrl       String?    // Before workout photo (data URL / link)
-  photoAfterUrl        String?    // After workout photo (data URL / link)
-  workoutNotes         String?    // Member notes regarding today's training
-  eventFeedback        String?    // Member feedback notes regarding connect meetup
-  mealCompliance       String?    // "FULL" | "PARTIAL" | "NONE"
-  mealNotes            String?    // What was eaten / adherence notes
-  dailyReflection      String?    // "Dear Diary" daily reflections
-  happinessRate        Int?       // Rating 1 to 5
-  bedtime              String?    // Previous night bedtime e.g. "23:00"
-  wakeTime             String?    // Morning wake time e.g. "06:30"
-  sleepDurationMinutes Int?       // Calculated sleep duration in minutes
-  assessmentResponse   String?    // User feedback / score (backward compatibility)
-  completedAt          DateTime?
-  updatedAt            DateTime   @updatedAt
+// ============================================================================
+// 6. TRANSACTIONS & ENROLLMENTS (WITH T&C CONSENT AUDITING)
+// ============================================================================
+
+model ProgramEnrollment {
+  id                 String    @id @default(cuid()) @map("id")
+  userId             String    @map("user_id")
+  programId          String    @map("program_id")
+  status             String    @default("PENDING") @map("status") // "PENDING" | "ACTIVE" | "EXPIRED" | "CANCELLED"
+  attendanceMode     String    @default("VIRTUAL") @map("attendance_mode") // "IN_PERSON" | "VIRTUAL"
+  paymentReference   String?   @unique @map("payment_reference")
+  invoiceExpiresAt   DateTime? @map("invoice_expires_at")
+  paidAt             DateTime? @map("paid_at")
+  validUntil         DateTime? @map("valid_until")
+
+  // Legal Consent Audit Trail
+  termsAgreedAt      DateTime? @map("terms_agreed_at")
+  termsAgreedVersion String?   @default("v1.0") @map("terms_agreed_version")
+
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program            Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, programId])
+  @@index([programId, status])
+  @@index([status])
+  @@index([createdAt])
+  @@map("program_enrollments")
+}
+
+// ============================================================================
+// 7. USER PROGRESS & TELEMETRY
+// ============================================================================
+
+model ProgramDayProgress {
+  id                   String     @id @default(cuid()) @map("id")
+  userId               String     @map("user_id")
+  programDayId         String     @map("program_day_id")
+  videoWatched         Boolean    @default(false) @map("video_watched")
+  isCompleted          Boolean    @default(false) @map("is_completed")
+  checklistCompleted   String?    @map("checklist_completed") // JSON array string
+  selectedWorkout      String?    @map("selected_workout")
+  photoBeforeUrl       String?    @map("photo_before_url")
+  photoAfterUrl        String?    @map("photo_after_url")
+  workoutNotes         String?    @map("workout_notes")
+  eventFeedback        String?    @map("event_feedback")
+  mealCompliance       String?    @map("meal_compliance") // "FULL" | "PARTIAL" | "NONE"
+  mealNotes            String?    @map("meal_notes")
+  dailyReflection      String?    @map("daily_reflection")
+  happinessRate        Int?       @map("happiness_rate")
+  bedtime              String?    @map("bedtime")
+  wakeTime             String?    @map("wake_time")
+  sleepDurationMinutes Int?       @map("sleep_duration_minutes")
+  assessmentResponse   String?    @map("assessment_response")
+  completedAt          DateTime?  @map("completed_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
   user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   programDay           ProgramDay @relation(fields: [programDayId], references: [id], onDelete: Cascade)
 
   @@unique([userId, programDayId])
   @@index([programDayId])
   @@index([isCompleted])
-}
-
-model Enrollment {
-  id               String    @id @default(cuid())
-  userId           String
-  programId        String
-  status           String    @default("PENDING") // "PENDING" | "ACTIVE" | "EXPIRED" | "CANCELLED"
-  attendanceMode   String    @default("VIRTUAL") // "IN_PERSON" | "VIRTUAL"
-  paymentReference String?   @unique
-  invoiceExpiresAt DateTime? // 15-minute QRIS invoice validity window
-  paidAt           DateTime?
-  validUntil       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  program          Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, programId])
-  @@index([programId, status])
-  @@index([status])
+  @@map("program_day_progress")
 }
 
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
+  id        String   @id @default(cuid()) @map("id")
+  userId    String   @map("user_id")
+  endpoint  String   @unique @map("endpoint")
+  p256dh    String   @map("p256dh")
+  auth      String   @map("auth")
+  createdAt DateTime @default(now()) @map("created_at")
+
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ============================================================================
+// 8. CUSTOMER HEALTH & LIFESTYLE BASELINE PROFILE
+// ============================================================================
+
+model CustomerHealthProfile {
+  id                 String   @id @default(cuid()) @map("id")
+  userId             String   @unique @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 1. Progress Photos (Front, Side, Back)
+  photoFrontUrl      String?  @map("photo_front_url")
+  photoSideUrl       String?  @map("photo_side_url")
+  photoBackUrl       String?  @map("photo_back_url")
+
+  // 2. Body Measurements
+  age                Int?     @map("age")
+  weightKg           Float?   @map("weight_kg")
+  heightCm           Float?   @map("height_cm")
+  dietType           String?  @map("diet_type") // e.g. "Vegetarian", "Vegan", "Omnivore", "Pescatarian", "Halal", "Keto"
+  waistCm            Float?   @map("waist_cm")
+  chestCm            Float?   @map("chest_cm")
+  hipsCm             Float?   @map("hips_cm")
+
+  // 3. Mental & Routine Metrics
+  currentMood        String?  @map("current_mood")
+  energyLevel        Int?     @map("energy_level")       // 1 - 10
+  routineConfidence  Int?     @map("routine_confidence") // 1 - 5
+  workoutFrequency   String?  @map("workout_frequency")
+
+  // 4. Lifestyle & Eating Habits
+  averageBedtime     String?  @map("average_bedtime")
+  averageWakeTime    String?  @map("average_wake_time")
+  sleepQualityNotes  String?  @map("sleep_quality_notes")
+  eatingPatterns     String?  @map("eating_patterns")    // Tags / description
+
+  // 5. Medical Clearance, Dietary Allergies & Coaching Notes
+  injuriesOrConditions String?  @map("injuries_or_conditions")
+  foodAllergies        String?  @map("food_allergies")
+  primaryGoal          String?  @map("primary_goal")
+  coachNotes           String?  @map("coach_notes")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("customer_health_profiles")
 }

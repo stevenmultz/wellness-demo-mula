@@ -72,6 +72,14 @@ export const UpdateProfileSchema = z.object({
     .max(18, "Phone number cannot exceed 18 digits")
     .optional()
     .or(z.literal("")),
+  age: z.number().int().min(10).max(120).nullable().optional(),
+  gender: z.string().max(20).nullable().optional(),
+  occupation: z.string().max(100).nullable().optional(),
+  address: z.string().max(255).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  province: z.string().max(100).nullable().optional(),
+  emergencyContactName: z.string().max(100).nullable().optional(),
+  emergencyContactPhone: z.string().max(30).nullable().optional(),
 });
 
 export const ChangePasswordSchema = z
@@ -100,3 +108,28 @@ export const DeleteAccountSchema = z.object({
     .string({ required_error: "Password is required for security verification" })
     .min(1, "Password is required"),
 });
+
+export const HealthProfileSchema = z.object({
+  photoFrontUrl: z.string().nullable().optional(),
+  photoSideUrl: z.string().nullable().optional(),
+  photoBackUrl: z.string().nullable().optional(),
+  age: z.number().int().min(10).max(120).nullable().optional(),
+  weightKg: z.number().min(20).max(300).nullable().optional(),
+  heightCm: z.number().min(50).max(250).nullable().optional(),
+  dietType: z.string().max(50).nullable().optional(),
+  foodAllergies: z.string().max(500).nullable().optional(),
+  injuriesOrConditions: z.string().max(1000).nullable().optional(),
+  primaryGoal: z.string().max(500).nullable().optional(),
+  waistCm: z.number().min(30).max(200).nullable().optional(),
+  chestCm: z.number().min(30).max(200).nullable().optional(),
+  hipsCm: z.number().min(30).max(200).nullable().optional(),
+  currentMood: z.string().max(50).nullable().optional(),
+  energyLevel: z.number().int().min(1).max(10).nullable().optional(),
+  routineConfidence: z.number().int().min(1).max(5).nullable().optional(),
+  workoutFrequency: z.string().max(50).nullable().optional(),
+  averageBedtime: z.string().max(20).nullable().optional(),
+  averageWakeTime: z.string().max(20).nullable().optional(),
+  sleepQualityNotes: z.string().max(500).nullable().optional(),
+  eatingPatterns: z.string().max(500).nullable().optional(),
+});
+

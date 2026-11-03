@@ -87,7 +87,7 @@ async function runTestSuite() {
   const program = await prisma.program.findFirst();
   if (!program) throw new Error("Program tidak ditemukan di database!");
 
-  const enrollment = await prisma.enrollment.create({
+  const enrollment = await prisma.programEnrollment.create({
     data: {
       userId: newUser.id,
       programId: program.id,
@@ -100,7 +100,7 @@ async function runTestSuite() {
   // Verifikasi Pembayaran oleh Admin
   const paidAt = new Date();
   const validUntil = new Date(paidAt.getTime() + 30 * 24 * 3600 * 1000);
-  const approvedEnrollment = await prisma.enrollment.update({
+  const approvedEnrollment = await prisma.programEnrollment.update({
     where: { id: enrollment.id },
     data: {
       status: "ACTIVE",
@@ -163,7 +163,7 @@ async function runTestSuite() {
   // Hapus akun
   await prisma.user.delete({ where: { id: deleteTestUser.id } });
   const checkDeleted = await prisma.user.findUnique({ where: { id: deleteTestUser.id } });
-  const checkEnrollmentCascade = await prisma.enrollment.findMany({ where: { userId: deleteTestUser.id } });
+  const checkEnrollmentCascade = await prisma.programEnrollment.findMany({ where: { userId: deleteTestUser.id } });
 
   console.log("   ✅ User terhapus dari DB:", checkDeleted === null);
   console.log("   ✅ Seluruh enrollment otomatis terhapus (Cascade):", checkEnrollmentCascade.length === 0);

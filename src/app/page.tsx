@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { LandingClient } from "@/components/home/LandingClient";
+import { parseTermsList } from "@/wellness/utils/json";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,14 @@ export default async function HomePage() {
   const [programs, userEnrollments] = await Promise.all([
     prisma.program.findMany({
       where: {
-        isPublished: true,
+        OR: [
+          { status: "PUBLISH" },
+          { status: "PUBLISHED" },
+          { isPublished: true },
+        ],
+        NOT: {
+          status: { in: ["DRAFT", "ARCHIVE"] },
+        },
       },
       include: {
         _count: {
@@ -30,7 +38,7 @@ export default async function HomePage() {
       orderBy: { createdAt: "asc" },
     }),
     sessionUser
-      ? prisma.enrollment.findMany({
+      ? prisma.programEnrollment.findMany({
           where: { userId: sessionUser.userId, status: "ACTIVE" },
           select: { programId: true },
         })
@@ -52,6 +60,7 @@ export default async function HomePage() {
       title: p.title,
       slug: p.slug,
       description: p.description,
+      coverImage: p.coverImage || null,
       category: p.category || "Pilates",
       recommendedFor: p.recommendedFor || "All Levels",
       coachName: p.coachName,
@@ -76,6 +85,7 @@ export default async function HomePage() {
       registrationOpenDate: p.registrationOpenDate,
       registrationDeadline: p.registrationDeadline,
       dayCount: p._count.days || p.durationDays,
+      termsList: parseTermsList(p.customTerms),
     };
   });
 

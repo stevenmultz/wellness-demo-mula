@@ -3,7 +3,19 @@ import { redirect } from "next/navigation";
 import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
-import { safeJsonParse } from "@/wellness/utils/json";
+import {
+  safeJsonParse,
+  parseTermsList,
+  parseTermsChapters,
+  parseStringList,
+  parseReferencesList,
+  parseWorkoutOptionGroups,
+  DEFAULT_PROGRAM_BENEFITS,
+  DEFAULT_PROGRAM_GUIDELINES,
+  DEFAULT_PROGRAM_REFERENCES,
+  DEFAULT_TARGET_STATE,
+  DEFAULT_METHODOLOGY,
+} from "@/wellness/utils/json";
 import { getProgramDayWibWindow } from "@/wellness/utils/timezone";
 
 export const dynamic = "force-dynamic";
@@ -14,20 +26,29 @@ export default async function DashboardPage() {
     redirect("/?auth=signin&target=dashboard");
   }
 
-  // 1. User profile directly available from validated session (Zero duplicate SQL query!)
-  const user = {
-    id: session.userId,
-    email: session.email,
-    fullName: session.fullName,
-    phone: session.phone,
-    role: session.role,
-    status: session.status,
-    createdAt: session.createdAt,
-  };
-
-  // 2. Fetch user's enrollments and all published programs concurrently
-  const [enrollments, allProgramsData] = await Promise.all([
-    prisma.enrollment.findMany({
+  // Fetch full user details, enrollments, published programs, and health profile concurrently
+  const [dbUser, enrollments, allProgramsData, healthProfile] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        age: true,
+        gender: true,
+        occupation: true,
+        address: true,
+        city: true,
+        province: true,
+        emergencyContactName: true,
+        emergencyContactPhone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+    prisma.programEnrollment.findMany({
       where: { userId: session.userId },
       include: {
         program: {
@@ -40,7 +61,13 @@ export default async function DashboardPage() {
     }),
     prisma.program.findMany({
       where: {
-        status: { in: ["ACTIVE", "COMING_SOON"] },
+        OR: [
+          { status: "PUBLISH" },
+          { enrollments: { some: { userId: session.userId } } },
+        ],
+        NOT: {
+          status: { in: ["ARCHIVE", "DRAFT"] },
+        },
       },
       include: {
         _count: {
@@ -59,6 +86,9 @@ export default async function DashboardPage() {
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.customerHealthProfile.findUnique({
+      where: { userId: session.userId },
+    }),
   ]);
 
   const userActiveProgramIds = new Set(
@@ -71,6 +101,7 @@ export default async function DashboardPage() {
     title: e.program.title,
     slug: e.program.slug,
     description: e.program.description,
+    coverImage: e.program.coverImage || null,
     coachName: e.program.coachName,
     price: e.program.price,
     maxQuota: e.program.maxQuota,
@@ -89,18 +120,26 @@ export default async function DashboardPage() {
     invoiceExpiresAt: e.invoiceExpiresAt,
     paidAt: e.paidAt,
     validUntil: e.validUntil,
+    termsList: parseTermsList(e.program.customTerms),
   }));
 
   const now = new Date();
 
   const allPrograms = allProgramsData.map((p) => {
     const isPaidMember = userActiveProgramIds.has(p.id);
+    const normalizedStatus =
+      p.status === "COMING_SOON"
+        ? "COMING_SOON"
+        : p.isPublished || p.status === "ACTIVE" || p.status === "PUBLISHED"
+        ? "ACTIVE"
+        : "COMING_SOON";
 
     return {
       id: p.id,
       title: p.title,
       slug: p.slug,
       description: p.description,
+      coverImage: p.coverImage || null,
       recommendedFor: p.recommendedFor,
       coachName: p.coachName,
       durationDays: p.durationDays,
@@ -112,12 +151,20 @@ export default async function DashboardPage() {
       virtualFallbackAvailable: p.virtualFallbackAvailable,
       enrolledCount: p._count.enrollments,
       communityLink: p.communityLink,
-      status: p.status || (p.isPublished ? "ACTIVE" : "COMING_SOON"),
+      status: normalizedStatus,
       startDate: p.startDate,
       endDate: p.endDate,
       registrationOpenDate: p.registrationOpenDate,
       registrationDeadline: p.registrationDeadline,
       dayCount: p.days.length,
+      customTerms: p.customTerms,
+      termsChapters: parseTermsChapters(p.customTerms),
+      termsList: parseTermsList(p.customTerms),
+      targetState: p.targetState || DEFAULT_TARGET_STATE,
+      methodology: p.methodology || DEFAULT_METHODOLOGY,
+      expectedBenefits: parseStringList(p.expectedBenefits, DEFAULT_PROGRAM_BENEFITS),
+      scientificReferences: parseReferencesList(p.scientificReferences, DEFAULT_PROGRAM_REFERENCES),
+      programGuidelines: parseStringList(p.programGuidelines, DEFAULT_PROGRAM_GUIDELINES),
       days: p.days.map((d) => {
         // SOW 5.3 Strict Calendar Drip Content normalized to Western Indonesia Time (WIB / UTC+7):
         // Day N unlocks at 00:00 WIB on batchStart + (dayNumber - 1) days
@@ -132,11 +179,32 @@ export default async function DashboardPage() {
           d.dayType !== "TRAINING_DAY" || !d.videoUrl
             ? true
             : !!progRecord?.videoWatched || !!progRecord?.isCompleted;
-        const checklistDone =
-          checklistItems.length === 0
-            ? true
-            : checklistItems.every((item) => completedChecklist.includes(item)) ||
-              !!progRecord?.isCompleted;
+        let checklistDone = checklistItems.length === 0 || !!progRecord?.isCompleted;
+        if (!checklistDone && d.dayType === "TRAINING_DAY") {
+          const groups = parseWorkoutOptionGroups(
+            safeJsonParse<string[]>(d.workoutOptions, []),
+            checklistItems
+          );
+          const selectedOpt = progRecord?.selectedWorkout || groups[0]?.optionName || "Workout";
+          const activeGroup =
+            groups.find((g) => g.optionName.trim().toLowerCase() === selectedOpt.trim().toLowerCase()) ||
+            groups[0];
+
+          if (activeGroup && activeGroup.movements.length > 0) {
+            const checkedKeys = new Set(
+              completedChecklist.map((item) =>
+                (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
+              )
+            );
+            checklistDone = activeGroup.movements.every((m) => {
+              const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
+              const plainKey = m.name.trim().toLowerCase();
+              return checkedKeys.has(scopedKey) || checkedKeys.has(plainKey);
+            });
+          } else {
+            checklistDone = checklistItems.every((item) => completedChecklist.includes(item));
+          }
+        }
 
         const isFullyCompleted =
           !!progRecord?.isCompleted ||
@@ -210,12 +278,31 @@ export default async function DashboardPage() {
     };
   });
 
+  const user = dbUser || {
+    id: session.userId,
+    email: session.email,
+    fullName: session.fullName,
+    phone: session.phone,
+    age: null,
+    gender: null,
+    occupation: null,
+    address: null,
+    city: null,
+    province: null,
+    emergencyContactName: null,
+    emergencyContactPhone: null,
+    role: session.role,
+    status: session.status,
+    createdAt: session.createdAt,
+  };
+
   return (
     <Suspense fallback={<div className="min-h-screen" />}>
       <DashboardClient
         user={user}
         myPrograms={myPrograms}
         allPrograms={allPrograms}
+        initialHealthProfile={healthProfile}
       />
     </Suspense>
   );

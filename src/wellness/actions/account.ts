@@ -1,12 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireAuth } from "../security/guards";
 import { hashPassword, verifyPassword } from "../security/password";
 import { createSessionToken, setSessionCookie, clearSessionCookie } from "../security/session";
-import { UpdateProfileSchema, ChangePasswordSchema, DeleteAccountSchema } from "../validators/auth";
+import { UpdateProfileSchema, ChangePasswordSchema, DeleteAccountSchema, HealthProfileSchema } from "../validators/auth";
 import { createQrisInvoiceAdapter } from "../integrations/payment-gateway";
 import { isRegistrationClosedInWib } from "../utils/timezone";
+import { normalizeProgramStatus, resolvePublicBadge } from "../utils/timeline";
 import { WellnessActionResult } from "./auth";
 
 /**
@@ -53,19 +55,52 @@ export async function wellnessUpdateProfile(
     };
   }
 
-  const { fullName, phone } = validation.data;
+  const {
+    fullName,
+    phone,
+    age,
+    gender,
+    occupation,
+    address,
+    city,
+    province,
+    emergencyContactName,
+    emergencyContactPhone,
+  } = validation.data;
 
   const updatedUser = await prisma.user.update({
     where: { id: session.userId },
     data: {
       fullName,
       phone: phone || null,
+      age: age !== undefined ? age : undefined,
+      gender: gender !== undefined ? (gender?.trim() || null) : undefined,
+      occupation: occupation !== undefined ? (occupation?.trim() || null) : undefined,
+      address: address !== undefined ? (address?.trim() || null) : undefined,
+      city: city !== undefined ? (city?.trim() || null) : undefined,
+      province: province !== undefined ? (province?.trim() || null) : undefined,
+      emergencyContactName:
+        emergencyContactName !== undefined
+          ? (emergencyContactName?.trim() || null)
+          : undefined,
+      emergencyContactPhone:
+        emergencyContactPhone !== undefined
+          ? (emergencyContactPhone?.trim() || null)
+          : undefined,
     },
     select: {
       id: true,
       email: true,
       fullName: true,
       phone: true,
+      age: true,
+      gender: true,
+      occupation: true,
+      address: true,
+      city: true,
+      province: true,
+      emergencyContactName: true,
+      emergencyContactPhone: true,
     },
   });
 
@@ -73,6 +108,63 @@ export async function wellnessUpdateProfile(
     success: true,
     message: "Profile details updated successfully.",
     data: updatedUser,
+  };
+}
+
+/**
+ * Retrieve the authenticated user's baseline health & body assessment profile.
+ */
+export async function wellnessGetHealthProfile() {
+  const session = await requireAuth();
+
+  const profile = await prisma.customerHealthProfile.findUnique({
+    where: { userId: session.userId },
+  });
+
+  return profile;
+}
+
+/**
+ * Update or initialize the authenticated user's health, body photos, measurements, and lifestyle habits.
+ */
+export async function wellnessUpdateHealthProfile(
+  rawInput: unknown
+): Promise<WellnessActionResult> {
+  const session = await requireAuth();
+
+  const validation = HealthProfileSchema.safeParse(rawInput);
+  if (!validation.success) {
+    return {
+      success: false,
+      message: "Invalid health profile data.",
+      errors: validation.error.flatten().fieldErrors,
+    };
+  }
+
+  const data = validation.data;
+
+  const updatedProfile = await prisma.customerHealthProfile.upsert({
+    where: { userId: session.userId },
+    create: {
+      userId: session.userId,
+      ...data,
+    },
+    update: {
+      ...data,
+    },
+  });
+
+  try {
+    revalidatePath("/dashboard");
+    revalidatePath("/admin");
+  } catch {
+    // Ignore outside request context
+  }
+
+  return {
+    success: true,
+    message: "Health & lifestyle baseline profile updated successfully.",
+    data: updatedProfile,
   };
 }
 
@@ -180,8 +272,49 @@ export async function wellnessEnrollProgram(
     return { success: false, message: "Wellness cohort program not found." };
   }
 
+  const normStatus = normalizeProgramStatus(program.status);
+  if (normStatus !== "PUBLISH") {
+    return {
+      success: false,
+      message: "This cohort program is currently not open for public enrollment.",
+    };
+  }
+
+  // Resolve Dynamic Public Badge
+  const publicBadge = resolvePublicBadge({
+    status: "PUBLISH",
+    registrationOpenDate: program.registrationOpenDate,
+    registrationDeadline: program.registrationDeadline,
+    startDate: program.startDate,
+    endDate: program.endDate,
+    maxQuota: program.maxQuota,
+    enrolledCount: program._count.enrollments,
+    now: new Date(),
+  });
+
+  if (publicBadge === "Coming Soon") {
+    return {
+      success: false,
+      message: "Registration for this cohort program has not opened yet (Coming Soon).",
+    };
+  }
+
+  if (publicBadge === "Full") {
+    return {
+      success: false,
+      message: `This cohort batch has reached its maximum quota of ${program.maxQuota} participants.`,
+    };
+  }
+
+  if (publicBadge === "Close Registration" || publicBadge === "On going" || publicBadge === "End") {
+    return {
+      success: false,
+      message: "Registration for this cohort batch has closed.",
+    };
+  }
+
   // Check if already enrolled
-  const existingEnrollment = await prisma.enrollment.findUnique({
+  const existingEnrollment = await prisma.programEnrollment.findUnique({
     where: {
       userId_programId: {
         userId: session.userId,
@@ -205,11 +338,26 @@ export async function wellnessEnrollProgram(
     };
   }
 
-  // Check Participant Quota Limit
-  if (program._count.enrollments >= program.maxQuota) {
+  // Check Participant Quota Limit (Active + Unexpired PENDING checkout holds)
+  const now = new Date();
+  const activeAndHoldingCount = await prisma.programEnrollment.count({
+    where: {
+      programId: program.id,
+      OR: [
+        { status: "ACTIVE" },
+        {
+          status: "PENDING",
+          invoiceExpiresAt: { gt: now },
+          userId: { not: session.userId },
+        },
+      ],
+    },
+  });
+
+  if (activeAndHoldingCount >= program.maxQuota) {
     return {
       success: false,
-      message: `This cohort batch has reached its maximum quota of ${program.maxQuota} participants.`,
+      message: `This cohort batch has reached its maximum quota of ${program.maxQuota} participants (including active checkout holds).`,
     };
   }
 
@@ -223,7 +371,7 @@ export async function wellnessEnrollProgram(
 
     try {
       const enrollment = await prisma.$transaction(async (tx) => {
-        const liveActiveCount = await tx.enrollment.count({
+        const liveActiveCount = await tx.programEnrollment.count({
           where: { programId: program.id, status: "ACTIVE" },
         });
 
@@ -234,18 +382,20 @@ export async function wellnessEnrollProgram(
         }
 
         if (existingEnrollment) {
-          return await tx.enrollment.update({
+          return await tx.programEnrollment.update({
             where: { id: existingEnrollment.id },
             data: {
               status: "ACTIVE",
               attendanceMode,
               paidAt,
               validUntil,
+              termsAgreedAt: new Date(),
+              termsAgreedVersion: "v1.0",
             },
           });
         }
 
-        return await tx.enrollment.create({
+        return await tx.programEnrollment.create({
           data: {
             userId: session.userId,
             programId: program.id,
@@ -254,6 +404,8 @@ export async function wellnessEnrollProgram(
             paymentReference: `FREE-${Date.now().toString().slice(-6)}`,
             paidAt,
             validUntil,
+            termsAgreedAt: new Date(),
+            termsAgreedVersion: "v1.0",
           },
         });
       });
@@ -299,7 +451,7 @@ export async function wellnessEnrollProgram(
       new Date() < new Date(existingEnrollment.invoiceExpiresAt);
 
     // Preserve active 15-minute countdown if not expired; otherwise refresh
-    const refreshed = await prisma.enrollment.update({
+    const refreshed = await prisma.programEnrollment.update({
       where: { id: existingEnrollment.id },
       data: {
         status: "PENDING",
@@ -329,7 +481,7 @@ export async function wellnessEnrollProgram(
     };
   }
 
-  const enrollment = await prisma.enrollment.create({
+  const enrollment = await prisma.programEnrollment.create({
     data: {
       userId: session.userId,
       programId: program.id,
@@ -365,7 +517,7 @@ export async function wellnessConfirmQrisPayment(
 ): Promise<WellnessActionResult> {
   const session = await requireAuth();
 
-  const enrollment = await prisma.enrollment.findUnique({
+  const enrollment = await prisma.programEnrollment.findUnique({
     where: { id: enrollmentId },
     include: {
       program: true,
@@ -380,12 +532,30 @@ export async function wellnessConfirmQrisPayment(
     return { success: true, message: "Payment already verified." };
   }
 
+  // Guard against self-activation when live payment gateway provider is configured
+  const provider = process.env.PAYMENT_PROVIDER || "INTERNAL_SIMULATION";
+  if (provider !== "INTERNAL_SIMULATION") {
+    return {
+      success: false,
+      message:
+        "Direct client confirmation is disabled. Your payment will be activated automatically via payment gateway webhook or Admin manual approval.",
+    };
+  }
+
+  // Check registration deadline
+  if (isRegistrationClosedInWib(enrollment.program.registrationDeadline)) {
+    return {
+      success: false,
+      message: "Registration for this cohort batch has closed.",
+    };
+  }
+
   // Verify 15-minute QRIS validity window
   if (
     enrollment.invoiceExpiresAt &&
     new Date() > new Date(enrollment.invoiceExpiresAt)
   ) {
-    await prisma.enrollment.update({
+    await prisma.programEnrollment.update({
       where: { id: enrollment.id },
       data: { status: "EXPIRED" },
     });
@@ -398,7 +568,7 @@ export async function wellnessConfirmQrisPayment(
   // Atomic quota verification and activation within transaction to prevent race-condition overselling
   try {
     const updated = await prisma.$transaction(async (tx) => {
-      const activeCount = await tx.enrollment.count({
+      const activeCount = await tx.programEnrollment.count({
         where: {
           programId: enrollment.programId,
           status: "ACTIVE",
@@ -415,15 +585,24 @@ export async function wellnessConfirmQrisPayment(
           ? enrollment.program.endDate
           : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-      return await tx.enrollment.update({
+      return await tx.programEnrollment.update({
         where: { id: enrollment.id },
         data: {
           status: "ACTIVE",
           paidAt,
           validUntil,
+          termsAgreedAt: new Date(),
+          termsAgreedVersion: "v1.0",
         },
       });
     });
+
+    try {
+      revalidatePath("/dashboard");
+      revalidatePath("/admin");
+    } catch {
+      // Ignore outside request context
+    }
 
     return {
       success: true,
