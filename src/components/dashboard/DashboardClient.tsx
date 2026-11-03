@@ -245,6 +245,25 @@ export function DashboardClient({
   const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
   const [profileSubTab, setProfileSubTab] = useState<"personal" | "medical" | "payments" | "account">("personal");
 
+  // Scroll Hide / Show for Top Header (Scroll down hides, scroll up reveals)
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 40) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
   // Explore (All Programs) Search, Filter, Pagination States
   const [programSearch, setProgramSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState<"ALL" | "ONLINE" | "ONSITE" | "HYBRID">("ALL");
@@ -255,6 +274,11 @@ export function DashboardClient({
   // Filter ONLY programs the user has enrolled in
   const enrolledProgramIds = new Set(myPrograms.map((e) => e.programId));
   const myEnrolledPrograms = allPrograms.filter((p) => enrolledProgramIds.has(p.id));
+
+  // 3 Newly Published Programs for Dashboard discovery section (excluding already enrolled if possible)
+  const newlyPublishedPrograms = allPrograms
+    .filter((p) => !enrolledProgramIds.has(p.id) || myEnrolledPrograms.length === 0)
+    .slice(0, 3);
 
   const activeEnrollment = myPrograms.find((e) => e.status === "ACTIVE") || myPrograms[0];
   const defaultProgramId = activeEnrollment?.programId || myEnrolledPrograms[0]?.id || "";
@@ -1105,10 +1129,12 @@ export function DashboardClient({
 
   return (
     <div className="min-h-screen text-zinc-100 flex flex-col relative overflow-x-hidden bg-neutral-950 font-mono">
-      {/* Top Floating Glassmorphic Navigation Dock */}
+      {/* Top Minimalist Header (Hides on scroll down, reveals on scroll up; displays ONLY logo & user profile image) */}
       <header
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl h-12 px-3.5 sm:px-6 rounded-full blur-dock flex items-center justify-between border border-white/10 shadow-2xl transition-all duration-300 font-mono"
+        className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-4 rounded-full blur-dock flex items-center justify-between border border-white/10 shadow-2xl transition-all duration-300 font-mono ${
+          isHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-24 opacity-0 pointer-events-none"
+        }`}
       >
         <Link href="/" className="flex items-center gap-2 group shrink-0">
           <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
@@ -1117,74 +1143,39 @@ export function DashboardClient({
           </span>
         </Link>
 
-        {/* Desktop Navigation (3 Menus: My Program, Explore, Profile) */}
-        <nav className="hidden sm:flex items-center gap-1 shrink-0 text-xs font-mono font-medium">
+        {/* User Profile Image on Right (Only profile image as requested) */}
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => {
-              setActiveTab("my_plan");
+              setActiveTab("profile");
               setIsViewingPlanDetail(false);
             }}
-            className={`px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider font-semibold transition duration-200 flex items-center gap-1.5 ${
-              activeTab === "my_plan"
-                ? "bg-white text-zinc-950 shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
+            className="relative group focus:outline-none"
+            title="Open Profile"
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>My Program</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("all_plan")}
-            className={`px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider font-semibold transition duration-200 flex items-center gap-1.5 ${
-              activeTab === "all_plan"
-                ? "bg-white text-zinc-950 shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Explore</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("profile")}
-            className={`px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider font-semibold transition duration-200 flex items-center gap-1.5 ${
-              activeTab === "profile"
-                ? "bg-white text-zinc-950 shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>Profile</span>
-          </button>
-        </nav>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <ThemeToggle />
-
-          {user.role === "SUPERADMIN" && (
-            <Link
-              href="/admin"
-              className="px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 hover:text-white transition inline-flex items-center gap-1"
-              title="Admin Console"
-            >
-              <Shield className="w-3 h-3 text-zinc-400" />
-              <span className="hidden md:inline">Admin</span>
-            </Link>
-          )}
-
-          <button
-            onClick={handleSignOut}
-            title="Sign Out"
-            className="p-1.5 rounded-full text-zinc-400 hover:text-white transition"
-          >
-            <LogOut className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-full border border-white/20 bg-gradient-to-tr from-zinc-800 to-zinc-700 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-white/60 shadow-sm">
+              {healthProfile?.photoFrontUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={healthProfile.photoFrontUrl}
+                  alt={user.fullName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                  {user.fullName ? user.fullName.charAt(0) : "U"}
+                </span>
+              )}
+            </div>
           </button>
         </div>
       </header>
 
-      {/* Mobile-First Bottom Floating Dock (sm:hidden) */}
+      {/* Unified Bottom Floating Dock (3 Menus: My Plan, Explore, Profile) */}
       <nav
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 sm:hidden w-[94%] max-w-xs h-12 rounded-full blur-dock px-1.5 flex items-center justify-between border border-white/15 bg-neutral-950/85 backdrop-blur-2xl shadow-2xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-xs h-12 rounded-full blur-dock px-1.5 flex items-center justify-between border border-white/15 bg-neutral-950/85 backdrop-blur-2xl shadow-2xl font-mono"
       >
         <button
           type="button"
@@ -1288,233 +1279,446 @@ export function DashboardClient({
                 </div>
               </div>
             ) : !isViewingPlanDetail ? (
-              /* VIEW 1: DASHBOARD VIEW (Metrics & My Plan Hero Card) */
-              <div className="space-y-5 sm:space-y-6 font-mono">
-                {/* Header Welcome Banner */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono pb-1 border-b border-white/10">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-                      <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
-                        Member Dashboard
-                      </span>
-                    </div>
-                    <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
+              /* VIEW 1: DASHBOARD VIEW (Redesigned: Sleep Pattern Graph & Unified Tasks -> Stacked My Plans -> 3 Newly Published Plans) */
+              <div className="space-y-10 sm:space-y-14 font-mono">
+                {/* Header Welcome Title */}
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 font-mono pb-2 border-b border-white/10">
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
+                      Circadian Telemetry &bull; Daily Protocol
+                    </span>
+                    <h1 className="text-xl sm:text-3xl font-light tracking-tight text-white uppercase font-geometric">
                       Welcome, <span className="font-normal">{user.fullName.split(" ")[0]}</span>
                     </h1>
                   </div>
-
-                  {myEnrolledPrograms.length > 1 && (
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                      <span className="text-[10px] font-semibold text-zinc-500 shrink-0 uppercase tracking-wider">
-                        Program:
-                      </span>
-                      {myEnrolledPrograms.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProgId(p.id);
-                            setActiveDayIndex(0);
-                          }}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 transition ${
-                            p.id === currentProgram.id
-                              ? "bg-white text-zinc-950 shadow-sm"
-                              : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white"
-                          }`}
-                        >
-                          {p.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </span>
                 </div>
 
-                {/* 4-Box Metrics Bento Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 font-mono">
-                  {/* Metric 1: Consistency */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                      Consistency
-                    </span>
-                    <div className="my-1.5">
-                      <p className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                        {completedDaysCount}
-                        <span className="text-xs text-zinc-500 ml-1">/ {totalDays} D</span>
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-zinc-400 font-medium">
-                      {totalDays > 0 ? Math.round((completedDaysCount / totalDays) * 100) : 0}% Protocol Done
-                    </span>
-                  </div>
-
-                  {/* Metric 2: Today's Status */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                      Today&apos;s Protocol
-                    </span>
-                    <div className="my-1.5 flex items-center gap-1.5">
-                      {currentActiveCalendarDay?.userProgress?.isCompleted ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span className="text-xs sm:text-sm font-bold uppercase text-emerald-400">
-                            Completed
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="w-4 h-4 text-amber-400" />
-                          <span className="text-xs sm:text-sm font-bold uppercase text-amber-400">
-                            In Progress
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-zinc-500">
-                      23:59 WIB Cutoff
-                    </span>
-                  </div>
-
-                  {/* Metric 3: Current Day */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                      Current Day
-                    </span>
-                    <div className="my-1.5">
-                      <p className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                        Day {currentActiveCalendarDay?.dayNumber || 1}
-                        <span className="text-xs text-zinc-500 ml-1">/ {totalDays}</span>
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-zinc-400">
-                      00:00 Daily Unlock
-                    </span>
-                  </div>
-
-                  {/* Metric 4: Health Baseline */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                      Health Baseline
-                    </span>
-                    <div className="my-1.5">
-                      <p className="text-lg sm:text-2xl font-light tracking-tight text-white truncate">
-                        {healthProfile.weightKg && healthProfile.heightCm
-                          ? `BMI ${(healthProfile.weightKg / Math.pow(healthProfile.heightCm / 100, 2)).toFixed(1)}`
-                          : healthProfile.weightKg
-                          ? `${healthProfile.weightKg} kg`
-                          : "Baseline Set"}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-zinc-400 truncate">
-                      {healthProfile.dietType || "Omnivore"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* My Plan Hero Card (Click to open Plan Detail) */}
-                <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 p-4 sm:p-7 flex flex-col justify-between group shadow-2xl min-h-[300px] sm:min-h-[360px] font-mono bg-zinc-950">
-                  {/* Background Cover Image with Deep Athletic Vignette */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <Image
-                      src={currentProgram.coverImage || "/test.jpg"}
-                      alt={currentProgram.title}
-                      fill
-                      className="object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out brightness-[0.55]"
-                    />
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/35 pointer-events-none" />
-
-                  {/* Top Badges */}
-                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 uppercase tracking-wider font-bold text-white">
-                        My Plan
-                      </span>
-                      {hasActiveAccess ? (
-                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 uppercase tracking-wider font-bold">
-                          Active Access
+                {/* ============================================================= */}
+                {/* PART 1: GRAFIK & METRIK POLA TIDUR + UNIFIED DAILY TASKS      */}
+                {/* ============================================================= */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+                  {/* Left Column: Sleep Patterns Graph & Recovery Metrics (7 Cols) */}
+                  <div className="lg:col-span-7 rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-zinc-900/60 border border-white/10 space-y-5 shadow-xl flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Moon className="w-4 h-4 text-blue-400" />
+                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white font-mono">
+                          Sleep Pattern &bull; 7-Day Circadian
                         </span>
-                      ) : (
-                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/40 uppercase tracking-wider font-bold">
-                          Tuition Pending
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] uppercase font-bold tracking-wider">
+                        88% Restored
+                      </span>
+                    </div>
+
+                    {/* Sleep Duration Bar Chart */}
+                    <div className="space-y-2 py-1">
+                      <div className="flex items-end justify-between gap-2 h-36 px-2 pt-4">
+                        {[
+                          { day: "Mon", hrs: 7.2, target: 8 },
+                          { day: "Tue", hrs: 7.8, target: 8 },
+                          { day: "Wed", hrs: 6.5, target: 8 },
+                          { day: "Thu", hrs: 8.0, target: 8 },
+                          { day: "Fri", hrs: 7.4, target: 8 },
+                          { day: "Sat", hrs: 8.5, target: 8 },
+                          { day: "Sun", hrs: 7.6, target: 8, isToday: true },
+                        ].map((bar, i) => {
+                          const heightPct = Math.min(100, (bar.hrs / 9) * 100);
+                          const isOpt = bar.hrs >= 7.5;
+                          return (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                              <span className="text-[9px] font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {bar.hrs}h
+                              </span>
+                              <div className="w-full max-w-[28px] bg-white/5 rounded-t-lg h-full flex items-end overflow-hidden p-0.5">
+                                <div
+                                  style={{ height: `${heightPct}%` }}
+                                  className={`w-full rounded-t-md transition-all duration-500 ${
+                                    bar.isToday
+                                      ? "bg-gradient-to-t from-emerald-500 to-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.5)]"
+                                      : isOpt
+                                      ? "bg-gradient-to-t from-blue-500 to-blue-300"
+                                      : "bg-gradient-to-t from-zinc-600 to-zinc-400"
+                                  }`}
+                                />
+                              </div>
+                              <span className={`text-[10px] font-mono uppercase tracking-wider ${bar.isToday ? "text-emerald-400 font-bold" : "text-zinc-500"}`}>
+                                {bar.day}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-zinc-500 px-2 pt-1 border-t border-white/5">
+                        <span>Target: 7.5h – 8.5h Rest</span>
+                        <span className="text-zinc-300 font-semibold">Today: 7.6h &bull; Deep REM</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Sleep Telemetry Strip */}
+                    <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 text-center font-mono">
+                      <div className="p-2.5 rounded-xl bg-white/5">
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Avg Duration</span>
+                        <span className="text-sm font-bold text-white">7.6 Hours</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white/5">
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Bedtime</span>
+                        <span className="text-sm font-bold text-white">22:30 WIB</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white/5">
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Wake-up</span>
+                        <span className="text-sm font-bold text-white">06:15 WIB</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Unified Daily Tasks (Done vs Pending) (5 Cols) */}
+                  <div className="lg:col-span-5 rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-zinc-900/60 border border-white/10 space-y-4 shadow-xl flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-400" />
+                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white font-mono">
+                          Daily Task Telemetry
                         </span>
-                      )}
-                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/15 backdrop-blur-md uppercase tracking-wider">
-                        {currentProgram.dayCount} Days
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 text-[10px] font-bold tracking-wider">
+                        {currentActiveCalendarDay?.userProgress?.isCompleted ? "3 / 3 Complete" : "1 Done • 2 Pending"}
                       </span>
                     </div>
 
-                    {currentProgram.communityLink && hasActiveAccess && (
-                      <a
-                        href={currentProgram.communityLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1 transition"
-                      >
-                        <span>Sanctuary Circle</span>
-                        <ExternalLink className="w-3 h-3 opacity-70" />
-                      </a>
-                    )}
-                  </div>
+                    {/* Tasks List */}
+                    <div className="space-y-2 font-mono">
+                      {/* Task 1: Workout */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 truncate">
+                          {currentActiveCalendarDay?.userProgress?.isCompleted || currentActiveCalendarDay?.userProgress?.videoWatched ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                          )}
+                          <div className="space-y-0.5 truncate">
+                            <span className="text-xs text-white font-medium block truncate">
+                              {currentActiveCalendarDay?.title || "Morning Mobility Protocol"}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 block">
+                              {currentActiveCalendarDay?.dayType === "TRAINING_DAY" ? "Movement Routine (25m)" : "Active Rest"}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
+                          currentActiveCalendarDay?.userProgress?.isCompleted ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                        }`}>
+                          {currentActiveCalendarDay?.userProgress?.isCompleted ? "Done" : "Pending"}
+                        </span>
+                      </div>
 
-                  {/* Center Content */}
-                  <div className="relative z-10 space-y-2 py-4 text-white">
-                    <h2 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
-                      {currentProgram.title}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-300">
-                      {currentProgram.coachName && (
-                        <span>Coach: <strong className="font-semibold text-white">{currentProgram.coachName}</strong></span>
-                      )}
-                      <span>•</span>
-                      <span>{formatShortDate(currentProgram.startDate)} – {formatShortDate(currentProgram.endDate)}</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 max-w-lg text-xs text-zinc-200 flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span className="truncate">
-                        <strong>Day {currentActiveCalendarDay?.dayNumber || 1}:</strong> {currentActiveCalendarDay?.title || "Movement Protocol"}
-                      </span>
-                    </div>
-                  </div>
+                      {/* Task 2: Meal Protocol */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 truncate">
+                          {currentActiveCalendarDay?.userProgress?.mealCompliance ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                          )}
+                          <div className="space-y-0.5 truncate">
+                            <span className="text-xs text-white font-medium block truncate">
+                              Whole-Food Nutrition Intake
+                            </span>
+                            <span className="text-[10px] text-zinc-400 block">
+                              Clean Anti-Inflammatory Fuel
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
+                          currentActiveCalendarDay?.userProgress?.mealCompliance ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                        }`}>
+                          {currentActiveCalendarDay?.userProgress?.mealCompliance ? "Done" : "Pending"}
+                        </span>
+                      </div>
 
-                  {/* Bottom Action Area */}
-                  <div className="relative z-10 pt-3 border-t border-white/15 flex flex-wrap items-center justify-between gap-3">
-                    {!hasActiveAccess ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenQrisCheckout(currentProgram.id)}
-                        disabled={enrollingId === currentProgram.id}
-                        className="px-5 py-2 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl transition"
-                      >
-                        {enrollingId === currentProgram.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <QrCode className="w-3.5 h-3.5" /> Complete QRIS Payment
-                          </>
-                        )}
-                      </button>
-                    ) : (
+                      {/* Task 3: Evening Reflection */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 truncate">
+                          {currentActiveCalendarDay?.userProgress?.dailyReflection ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                          )}
+                          <div className="space-y-0.5 truncate">
+                            <span className="text-xs text-white font-medium block truncate">
+                              Circadian Reflection &amp; Vitality
+                            </span>
+                            <span className="text-[10px] text-zinc-400 block">
+                              Evening Mental Decompression
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
+                          currentActiveCalendarDay?.userProgress?.dailyReflection ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                        }`}>
+                          {currentActiveCalendarDay?.userProgress?.dailyReflection ? "Done" : "Pending"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Cutoff: 23:59 WIB Daily</span>
                       <button
                         type="button"
                         onClick={() => {
-                          const todayIdx = currentProgram.days.findIndex(
-                            (d) => d.isCalendarUnlocked && !d.isPast2359
-                          );
-                          if (todayIdx >= 0) setActiveDayIndex(todayIdx);
                           setIsViewingPlanDetail(true);
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className="px-5 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl transition active:scale-[0.98]"
+                        className="text-white hover:underline flex items-center gap-1 font-semibold uppercase tracking-wider"
                       >
-                        <span>View Plan Detail</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span>Check In Today</span>
+                        <ArrowRight className="w-3 h-3" />
                       </button>
-                    )}
+                    </div>
+                  </div>
+                </div>
 
-                    <span className="text-[10px] text-zinc-400 font-light">
-                      Workout video &bull; meal protocol &bull; reflection &rarr;
-                    </span>
+                {/* ============================================================= */}
+                {/* PART 2: LIST MY PLAN YANG DI STACK                            */}
+                {/* ============================================================= */}
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-400">
+                        Enrolled Protocols
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <h2 className="text-lg sm:text-2xl font-light uppercase tracking-tight text-white font-geometric">
+                        My Enrolled Plans
+                      </h2>
+                      <span className="text-xs text-zinc-400 font-mono">
+                        {myEnrolledPrograms.length} Active {myEnrolledPrograms.length === 1 ? "Plan" : "Plans"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stacked Cards */}
+                  <div className="space-y-4">
+                    {myEnrolledPrograms.map((prog, idx) => {
+                      const todayIdx = prog.days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
+                      const currentDayForProg = todayIdx >= 0 ? prog.days[todayIdx] : prog.days[0];
+                      const completedCount = prog.days.filter((d) => d.userProgress?.isCompleted).length;
+                      const progressPct = prog.days.length > 0 ? Math.round((completedCount / prog.days.length) * 100) : 0;
+
+                      return (
+                        <div
+                          key={prog.id}
+                          className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 p-5 sm:p-7 flex flex-col justify-between group shadow-xl bg-zinc-950 transition-all duration-300 hover:border-white/30"
+                        >
+                          {/* Background Cover with Vignette */}
+                          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <Image
+                              src={prog.coverImage || (idx % 2 === 0 ? "/test.jpg" : "/pic.jpg")}
+                              alt={prog.title}
+                              fill
+                              className="object-cover object-center brightness-[0.45] scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40 pointer-events-none" />
+
+                          {/* Top Badges */}
+                          <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5 font-mono">
+                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 uppercase tracking-wider font-bold text-white">
+                                Active Protocol
+                              </span>
+                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 uppercase tracking-wider font-bold">
+                                Day {currentDayForProg?.dayNumber || 1} of {prog.days.length}
+                              </span>
+                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/15 backdrop-blur-md uppercase tracking-wider">
+                                {prog.dayCount} Days
+                              </span>
+                            </div>
+
+                            {prog.communityLink && (
+                              <a
+                                href={prog.communityLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1 transition"
+                              >
+                                <span>Circle</span>
+                                <ExternalLink className="w-3 h-3 opacity-70" />
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Center Content */}
+                          <div className="relative z-10 space-y-2.5 py-5 text-white">
+                            <h3 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
+                              {prog.title}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-300 font-mono">
+                              <span>Coach {prog.coachName}</span>
+                              <span>&bull;</span>
+                              <span>{formatShortDate(prog.startDate)} – {formatShortDate(prog.endDate)}</span>
+                            </div>
+
+                            {/* Today's Focus Strip */}
+                            <div className="p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 max-w-lg text-xs text-zinc-200 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 truncate">
+                                <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <span className="truncate">
+                                  <strong>Day {currentDayForProg?.dayNumber || 1}:</strong> {currentDayForProg?.title || "Movement Sequence"}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-zinc-400 shrink-0">
+                                {progressPct}% Done
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Bottom Action Area */}
+                          <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between gap-3 font-mono">
+                            <span className="text-[10px] text-zinc-400 font-light">
+                              {prog.days.filter((d) => d.userProgress?.isCompleted).length} of {prog.days.length} Daily Sessions Finished
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProgId(prog.id);
+                                const currentIdx = prog.days.findIndex(
+                                  (d) => d.isCalendarUnlocked && !d.isPast2359
+                                );
+                                setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
+                                setIsViewingPlanDetail(true);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              className="px-5 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl transition active:scale-[0.98]"
+                            >
+                              <span>Open Plan Detail</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ============================================================= */}
+                {/* PART 3: 3 NEWLY PUBLISHED PLANS DI BAGIAN BAWAH              */}
+                {/* ============================================================= */}
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-400">
+                        New Releases
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <h2 className="text-lg sm:text-2xl font-light uppercase tracking-tight text-white font-geometric">
+                        Newly Published Programs
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("all_plan");
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-mono uppercase tracking-wider"
+                      >
+                        <span>View All ({allPrograms.length})</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-400 font-light font-mono">
+                      Curated cohorts recently opened for registration.
+                    </p>
+                  </div>
+
+                  {/* 3 Program Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
+                    {newlyPublishedPrograms.map((prog, idx) => {
+                      const enrolled = myPrograms.find((e) => e.programId === prog.id);
+                      const isEnrolled = !!enrolled;
+
+                      return (
+                        <div
+                          key={prog.id}
+                          className="relative rounded-2xl overflow-hidden border border-white/15 p-4 flex flex-col justify-between min-h-[300px] group shadow-xl bg-zinc-950"
+                        >
+                          {/* Background image */}
+                          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <Image
+                              src={prog.coverImage || (idx % 2 === 0 ? "/pic.jpg" : "/test.jpg")}
+                              alt={prog.title}
+                              fill
+                              className="object-cover object-center brightness-[0.5] scale-100 group-hover:scale-105 transition-transform duration-500"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30 pointer-events-none" />
+
+                          {/* Top Badges */}
+                          <div className="relative z-10 flex items-center justify-between gap-1.5">
+                            <span className="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[9px] uppercase tracking-wider font-semibold text-white">
+                              {prog.dayCount} Days
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] uppercase tracking-wider font-bold">
+                              Open Reg.
+                            </span>
+                          </div>
+
+                          {/* Bottom Content */}
+                          <div className="relative z-10 space-y-2 pt-6">
+                            <div className="space-y-1">
+                              <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">
+                                Coach {prog.coachName}
+                              </span>
+                              <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase leading-snug">
+                                {prog.title}
+                              </h3>
+                            </div>
+
+                            <div className="pt-2 border-t border-white/15 flex items-center justify-between gap-2">
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Tuition</span>
+                                <span className="text-xs font-bold text-white">
+                                  Rp {prog.price.toLocaleString("id-ID")}
+                                </span>
+                              </div>
+
+                              {isEnrolled ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedProgId(prog.id);
+                                    setIsViewingPlanDetail(true);
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-full bg-white/15 text-white text-[10px] font-bold uppercase tracking-wider"
+                                >
+                                  Enrolled
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDetailedProgram(prog);
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md transition active:scale-95"
+                                >
+                                  <span>Details</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
