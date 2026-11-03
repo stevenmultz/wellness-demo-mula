@@ -78,7 +78,9 @@ export async function clearSessionCookie() {
  * Dibungkus dengan React cache() agar pemanggilan berulang dalam 1 request RSC
  * (misal di layout.tsx dan page.tsx) hanya melakukan 1x query ke database.
  */
-export const getWellnessSession = cache(async (): Promise<{
+const safeCache = typeof cache === "function" ? cache : <T extends (...args: any[]) => any>(fn: T): T => fn;
+
+export const getWellnessSession = safeCache(async (): Promise<{
   userId: string;
   email: string;
   fullName: string;

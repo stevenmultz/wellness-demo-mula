@@ -165,10 +165,11 @@ export async function wellnessSignIn(
       },
     };
   } catch (error) {
-    console.error("[wellnessSignIn Error]:", error);
+    const errText = error instanceof Error ? `${error.message}\n${error.stack}` : String(error);
+    console.error("[wellnessSignIn Error]:", errText);
     return {
       success: false,
-      message: "An unexpected error occurred during sign in. Please try again.",
+      message: error instanceof Error ? error.message : "An unexpected error occurred during sign in. Please try again.",
     };
   }
 }
