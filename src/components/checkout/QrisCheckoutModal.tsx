@@ -164,7 +164,7 @@ export function QrisCheckoutModal({
         <div className="px-7 py-5 border-b border-zinc-200/70 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="space-y-0.5">
             <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block font-mono">
-              BMS Sanctuary &bull; Tuition Settlement
+              + &bull; Tuition Settlement
             </span>
             <h3 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
               <QrCode className="w-4 h-4 text-zinc-400" />

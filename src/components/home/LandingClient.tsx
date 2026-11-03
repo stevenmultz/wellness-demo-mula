@@ -172,10 +172,9 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
         className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-4 sm:px-6 rounded-full blur-dock flex items-center justify-between transition-all duration-300 border border-white/10 shadow-2xl font-mono"
       >
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-          <span className="font-geometric font-light text-xs tracking-[0.3em] text-white uppercase">
-            BMS
+        <Link href="/" className="flex items-center group shrink-0" title="Home">
+          <span className="font-mono font-light text-2xl text-white leading-none">
+            +
           </span>
         </Link>
 
@@ -271,7 +270,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center space-y-5 my-auto">
           {/* Micro Athletic Pill */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/15 backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
             <span className="text-[10px] uppercase font-mono tracking-[0.22em] text-zinc-300">
               Private Athletic Cohort • 35 Member Cap
             </span>
@@ -325,7 +324,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="text-center space-y-1">
             <span className="text-[10px] text-zinc-400 uppercase tracking-[0.24em] font-semibold">
-              The BMS System
+              Curriculum Core
             </span>
             <h2 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-white uppercase">
               Three Daily Disciplines
@@ -339,7 +338,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                 <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">
                   01 / MOVEMENT
                 </span>
-                <Activity className="w-4 h-4 text-emerald-400" />
+                <Activity className="w-4 h-4 text-white" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold text-white">Functional Spine &amp; Joint</h3>
@@ -355,7 +354,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                 <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">
                   02 / FUEL
                 </span>
-                <Flame className="w-4 h-4 text-amber-400" />
+                <Flame className="w-4 h-4 text-zinc-300" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold text-white">Whole Food Fuel</h3>
@@ -371,7 +370,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                 <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">
                   03 / RECOVERY
                 </span>
-                <Moon className="w-4 h-4 text-blue-400" />
+                <Moon className="w-4 h-4 text-zinc-400" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold text-white">Circadian Restoration</h3>
@@ -480,24 +479,24 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                         </span>
 
                         {publicBadge === "Open Registration" && (
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="px-2.5 py-1 rounded-full bg-white text-zinc-950 font-bold text-[10px] tracking-wider flex items-center gap-1.5 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-950" />
                             <span>OPEN</span>
                           </span>
                         )}
                         {publicBadge === "Coming Soon" && (
-                          <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-zinc-300 font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
                             <span>COMING SOON</span>
                           </span>
                         )}
                         {publicBadge === "Full" && (
-                          <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-400 text-purple-300 font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
+                          <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-500 font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
                             <span>FULL</span>
                           </span>
                         )}
                         {publicBadge === "On going" && (
-                          <span className="px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400 text-blue-300 font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
+                          <span className="px-2.5 py-1 rounded-full bg-white/15 border border-white/20 text-white font-bold text-[10px] tracking-wider flex items-center gap-1.5 backdrop-blur-md">
                             <span>ON GOING</span>
                           </span>
                         )}
@@ -527,7 +526,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
 
                         {prog.recommendedFor && (
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/[0.08] border border-white/10 text-[10px] text-zinc-300 backdrop-blur-sm">
-                            <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <Sparkles className="w-3 h-3 text-white shrink-0" />
                             <span>For: {prog.recommendedFor}</span>
                           </div>
                         )}
@@ -614,7 +613,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
                   <span className="px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[10px] text-zinc-200 uppercase tracking-wider font-semibold">
                     {coach.specialty.split("&")[0].trim()}
                   </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                 </div>
 
                 <div className="relative z-10 space-y-0.5 text-white">
@@ -641,7 +640,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
             &ldquo;Consistency over intensity. Discipline in quiet ease.&rdquo;
           </blockquote>
           <div className="text-[10px] text-zinc-500 uppercase tracking-[0.2em]">
-            BMS Philosophy &bull; Jakarta
+            Philosophy &bull; Jakarta
           </div>
         </div>
       </section>
@@ -676,12 +675,12 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
 
             <div className="flex items-center gap-2">
               <a
-                href="https://wa.me/6281290002026?text=Hello%20BMS%20Sanctuary,%20I%20would%20like%20to%20inquire%20about%20the%20upcoming%20cohort."
+                href="https://wa.me/6281290002026?text=Hello%20Sanctuary,%20I%20would%20like%20to%20inquire%20about%20the%20upcoming%20cohort."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold tracking-wider uppercase inline-flex items-center gap-1.5 transition"
               >
-                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <MessageCircle className="w-3.5 h-3.5 text-white" />
                 <span>WhatsApp</span>
               </a>
 
@@ -697,13 +696,12 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
 
           <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px]">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="text-white font-light tracking-widest uppercase">BMS</span>
+              <span className="text-white font-light text-xl font-mono leading-none">+</span>
               <span className="text-zinc-600">•</span>
               <span className="text-zinc-400">Minimalist Longevity Sanctuary</span>
             </div>
 
-            <span className="text-zinc-500">© 2026 BMS Sanctuary</span>
+            <span className="text-zinc-500">© 2026 Longevity Sanctuary</span>
           </div>
         </div>
       </footer>

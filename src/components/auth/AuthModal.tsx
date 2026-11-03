@@ -176,8 +176,8 @@ export function AuthModal({
         {/* Top Header Row with Switcher & Close Button */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-200/70 dark:border-white/10">
           <div className="space-y-0.5">
-            <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block font-mono">
-              BMS Sanctuary
+            <span className="text-base font-light uppercase tracking-widest text-white block font-mono">
+              +
             </span>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
               {tab === "signup"

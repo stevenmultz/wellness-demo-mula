@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BMS — Minimalist Longevity & Movement Sanctuary",
+  title: "+ — Minimalist Longevity & Movement Sanctuary",
   description: "Curated daily physical vitality protocols, anti-inflammatory nutrition, and mindful habit tracking.",
   manifest: "/manifest.json",
 };

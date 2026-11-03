@@ -45,6 +45,7 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LayoutDashboard,
   Play,
   AlertTriangle,
@@ -243,7 +244,8 @@ export function DashboardClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "profile">("my_plan");
   const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
-  const [profileSubTab, setProfileSubTab] = useState<"personal" | "medical" | "payments" | "account">("personal");
+  const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
+  const [profileActiveDetail, setProfileActiveDetail] = useState<null | "personal" | "medical" | "payments" | "account">(null);
 
   // Scroll Hide / Show for Top Header (Scroll down hides, scroll up reveals)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
@@ -1129,32 +1131,26 @@ export function DashboardClient({
 
   return (
     <div className="min-h-screen text-zinc-100 flex flex-col relative overflow-x-hidden bg-neutral-950 font-mono">
-      {/* Top Minimalist Header (Hides on scroll down, reveals on scroll up; displays ONLY logo & user profile image) */}
+      {/* Top Minimalist Header: Left Avatar, Center '+', Right 'My Plan' Dropdown */}
       <header
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-4 rounded-full blur-dock flex items-center justify-between border border-white/10 shadow-2xl transition-all duration-300 font-mono ${
+        className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-3 sm:px-4 rounded-full blur-dock flex items-center justify-between border border-white/10 shadow-2xl transition-all duration-300 font-mono ${
           isHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-24 opacity-0 pointer-events-none"
         }`}
       >
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-          <span className="font-light text-xs uppercase tracking-[0.3em] text-white font-geometric">
-            BMS
-          </span>
-        </Link>
-
-        {/* User Profile Image on Right (Only profile image as requested) */}
-        <div className="flex items-center gap-2">
+        {/* LEFT: User Profile Avatar */}
+        <div className="flex items-center">
           <button
             type="button"
             onClick={() => {
               setActiveTab("profile");
               setIsViewingPlanDetail(false);
+              setProfileActiveDetail(null);
             }}
             className="relative group focus:outline-none"
             title="Open Profile"
           >
-            <div className="w-8 h-8 rounded-full border border-white/20 bg-gradient-to-tr from-zinc-800 to-zinc-700 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-white/60 shadow-sm">
+            <div className="w-8 h-8 rounded-full border border-white/20 bg-zinc-900 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-white/60 shadow-sm">
               {healthProfile?.photoFrontUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -1163,12 +1159,131 @@ export function DashboardClient({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-white uppercase tracking-wider font-mono">
                   {user.fullName ? user.fullName.charAt(0) : "U"}
                 </span>
               )}
             </div>
           </button>
+        </div>
+
+        {/* CENTER: Minimalist '+' Logo */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+          <Link href="/" className="flex items-center justify-center group focus:outline-none" title="Home">
+            <span className="font-mono font-light text-2xl text-white leading-none tracking-normal group-hover:opacity-80 transition select-none">
+              +
+            </span>
+          </Link>
+        </div>
+
+        {/* RIGHT: Dropdown Menu containing My Plan */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsPlanDropdownOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-mono uppercase tracking-wider transition active:scale-95"
+          >
+            <Calendar className="w-3 h-3 text-zinc-300" />
+            <span className="font-semibold">My Plan</span>
+            <ChevronDown
+              className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${
+                isPlanDropdownOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {/* Floating Dropdown */}
+          {isPlanDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
+                onClick={() => setIsPlanDropdownOpen(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-neutral-950/95 backdrop-blur-2xl border border-white/15 p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 font-mono">
+                <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-semibold">
+                    Enrolled Protocols ({myEnrolledPrograms.length})
+                  </span>
+                </div>
+
+                <div className="py-1 max-h-60 overflow-y-auto space-y-1">
+                  {myEnrolledPrograms.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-zinc-500 font-light">
+                      No active enrolled plans.
+                    </div>
+                  ) : (
+                    myEnrolledPrograms.map((prog) => {
+                      const isSelected = selectedProgId === prog.id && isViewingPlanDetail;
+                      const completedCount = prog.days.filter((d) => d.userProgress?.isCompleted).length;
+                      const progressPct =
+                        prog.days.length > 0 ? Math.round((completedCount / prog.days.length) * 100) : 0;
+                      return (
+                        <button
+                          key={prog.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProgId(prog.id);
+                            const currentIdx = prog.days.findIndex(
+                              (d) => d.isCalendarUnlocked && !d.isPast2359
+                            );
+                            setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
+                            setIsViewingPlanDetail(true);
+                            setActiveTab("my_plan");
+                            setIsPlanDropdownOpen(false);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className={`w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 ${
+                            isSelected ? "bg-white text-zinc-950" : "hover:bg-white/5 text-zinc-200"
+                          }`}
+                        >
+                          <div className="space-y-0.5 truncate">
+                            <span
+                              className={`text-xs block font-light uppercase tracking-tight truncate ${
+                                isSelected ? "text-zinc-950 font-medium" : "text-white"
+                              }`}
+                            >
+                              {prog.title}
+                            </span>
+                            <span
+                              className={`text-[10px] block font-mono ${
+                                isSelected ? "text-zinc-700" : "text-zinc-400"
+                              }`}
+                            >
+                              Coach {prog.coachName} &bull; {prog.dayCount} Days
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span
+                              className={`text-[10px] font-bold font-mono ${
+                                isSelected ? "text-zinc-950" : "text-zinc-300"
+                              }`}
+                            >
+                              {progressPct}%
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="pt-1.5 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("my_plan");
+                      setIsViewingPlanDetail(false);
+                      setIsPlanDropdownOpen(false);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="w-full py-2 px-3 rounded-lg text-center text-[10px] uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-white/5 transition font-semibold"
+                  >
+                    View All Plans Overview &rarr;
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -1300,77 +1415,154 @@ export function DashboardClient({
                 {/* PART 1: GRAFIK & METRIK POLA TIDUR + UNIFIED DAILY TASKS      */}
                 {/* ============================================================= */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-                  {/* Left Column: Sleep Patterns Graph & Recovery Metrics (7 Cols) */}
+                  {/* Left Column: Sleep Patterns Line Graph & Precision Numbers (7 Cols) */}
                   <div className="lg:col-span-7 rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-zinc-900/60 border border-white/10 space-y-5 shadow-xl flex flex-col justify-between">
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
                       <div className="flex items-center gap-2">
-                        <Moon className="w-4 h-4 text-blue-400" />
+                        <Moon className="w-4 h-4 text-white" />
                         <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white font-mono">
                           Sleep Pattern &bull; 7-Day Circadian
                         </span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] uppercase font-bold tracking-wider">
+                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/20 text-[10px] uppercase font-bold tracking-wider">
                         88% Restored
                       </span>
                     </div>
 
-                    {/* Sleep Duration Bar Chart */}
-                    <div className="space-y-2 py-1">
-                      <div className="flex items-end justify-between gap-2 h-36 px-2 pt-4">
-                        {[
-                          { day: "Mon", hrs: 7.2, target: 8 },
-                          { day: "Tue", hrs: 7.8, target: 8 },
-                          { day: "Wed", hrs: 6.5, target: 8 },
-                          { day: "Thu", hrs: 8.0, target: 8 },
-                          { day: "Fri", hrs: 7.4, target: 8 },
-                          { day: "Sat", hrs: 8.5, target: 8 },
-                          { day: "Sun", hrs: 7.6, target: 8, isToday: true },
-                        ].map((bar, i) => {
-                          const heightPct = Math.min(100, (bar.hrs / 9) * 100);
-                          const isOpt = bar.hrs >= 7.5;
-                          return (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                              <span className="text-[9px] font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {bar.hrs}h
-                              </span>
-                              <div className="w-full max-w-[28px] bg-white/5 rounded-t-lg h-full flex items-end overflow-hidden p-0.5">
-                                <div
-                                  style={{ height: `${heightPct}%` }}
-                                  className={`w-full rounded-t-md transition-all duration-500 ${
-                                    bar.isToday
-                                      ? "bg-gradient-to-t from-emerald-500 to-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.5)]"
-                                      : isOpt
-                                      ? "bg-gradient-to-t from-blue-500 to-blue-300"
-                                      : "bg-gradient-to-t from-zinc-600 to-zinc-400"
-                                  }`}
-                                />
-                              </div>
-                              <span className={`text-[10px] font-mono uppercase tracking-wider ${bar.isToday ? "text-emerald-400 font-bold" : "text-zinc-500"}`}>
-                                {bar.day}
-                              </span>
-                            </div>
-                          );
-                        })}
+                    {/* Prominent Precision Numbers */}
+                    <div className="grid grid-cols-3 gap-2 text-center font-mono py-1 border-b border-white/5 pb-3">
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Avg Duration</span>
+                        <div className="text-base sm:text-lg font-bold text-white">
+                          7.6 <span className="text-[10px] font-normal text-zinc-400">Hours</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-zinc-500 px-2 pt-1 border-t border-white/5">
-                        <span>Target: 7.5h – 8.5h Rest</span>
-                        <span className="text-zinc-300 font-semibold">Today: 7.6h &bull; Deep REM</span>
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Bedtime</span>
+                        <div className="text-base sm:text-lg font-bold text-white">
+                          22:30 <span className="text-[10px] font-normal text-zinc-400">WIB</span>
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Wake-up</span>
+                        <div className="text-base sm:text-lg font-bold text-white">
+                          06:15 <span className="text-[10px] font-normal text-zinc-400">WIB</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Quick Sleep Telemetry Strip */}
-                    <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 text-center font-mono">
-                      <div className="p-2.5 rounded-xl bg-white/5">
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Avg Duration</span>
-                        <span className="text-sm font-bold text-white">7.6 Hours</span>
+                    {/* Precision Line Graph (Garis & Angka) */}
+                    <div className="space-y-3 py-1">
+                      <div className="w-full overflow-hidden px-1">
+                        <svg
+                          viewBox="0 0 320 85"
+                          className="w-full h-24 overflow-visible"
+                        >
+                          <defs>
+                            <linearGradient id="sleepAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.18" />
+                              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.00" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* Target Reference Line at 8.0h (y=28) */}
+                          <line
+                            x1="10"
+                            y1="28"
+                            x2="310"
+                            y2="28"
+                            stroke="rgba(255,255,255,0.18)"
+                            strokeDasharray="3 3"
+                            strokeWidth="1"
+                          />
+                          <text
+                            x="310"
+                            y="23"
+                            fill="rgba(255,255,255,0.45)"
+                            fontSize="7.5"
+                            textAnchor="end"
+                            fontFamily="monospace"
+                          >
+                            8.0H TARGET
+                          </text>
+
+                          {/* Shaded Area under Line */}
+                          <polygon
+                            points="20,44 65,32 110,58 155,28 200,40 245,18 290,36 290,75 20,75"
+                            fill="url(#sleepAreaGrad)"
+                          />
+
+                          {/* Hairline Data Trajectory Line */}
+                          <polyline
+                            points="20,44 65,32 110,58 155,28 200,40 245,18 290,36"
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+
+                          {/* Data Nodes & Angka (Numbers) */}
+                          {[
+                            { x: 20, y: 44, val: "7.2h", day: "MON" },
+                            { x: 65, y: 32, val: "7.8h", day: "TUE" },
+                            { x: 110, y: 58, val: "6.5h", day: "WED" },
+                            { x: 155, y: 28, val: "8.0h", day: "THU" },
+                            { x: 200, y: 40, val: "7.4h", day: "FRI" },
+                            { x: 245, y: 18, val: "8.5h", day: "SAT" },
+                            { x: 290, y: 36, val: "7.6h", day: "SUN", isToday: true },
+                          ].map((pt, i) => (
+                            <g key={i}>
+                              {/* Outer ring for today */}
+                              {pt.isToday && (
+                                <circle
+                                  cx={pt.x}
+                                  cy={pt.y}
+                                  r="5.5"
+                                  fill="none"
+                                  stroke="white"
+                                  strokeWidth="1"
+                                  opacity="0.8"
+                                />
+                              )}
+                              <circle
+                                cx={pt.x}
+                                cy={pt.y}
+                                r={pt.isToday ? "3" : "2.5"}
+                                fill="white"
+                              />
+                              {/* Exact Number */}
+                              <text
+                                x={pt.x}
+                                y={pt.y - 6}
+                                fill={pt.isToday ? "#ffffff" : "rgba(255,255,255,0.75)"}
+                                fontSize="7.5"
+                                fontWeight={pt.isToday ? "bold" : "normal"}
+                                textAnchor="middle"
+                                fontFamily="monospace"
+                              >
+                                {pt.val}
+                              </text>
+                              {/* Day Label */}
+                              <text
+                                x={pt.x}
+                                y={83}
+                                fill={pt.isToday ? "#ffffff" : "rgba(255,255,255,0.4)"}
+                                fontSize="7.5"
+                                fontWeight={pt.isToday ? "bold" : "normal"}
+                                textAnchor="middle"
+                                fontFamily="monospace"
+                              >
+                                {pt.day}
+                              </text>
+                            </g>
+                          ))}
+                        </svg>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-white/5">
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Bedtime</span>
-                        <span className="text-sm font-bold text-white">22:30 WIB</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-white/5">
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Wake-up</span>
-                        <span className="text-sm font-bold text-white">06:15 WIB</span>
+
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400 px-1 pt-1 border-t border-white/5">
+                        <span>Rest Window: 7.5h – 8.5h</span>
+                        <span className="text-white font-semibold">Today: 7.6h &bull; Deep REM</span>
                       </div>
                     </div>
                   </div>
@@ -1379,12 +1571,12 @@ export function DashboardClient({
                   <div className="lg:col-span-5 rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-zinc-900/60 border border-white/10 space-y-4 shadow-xl flex flex-col justify-between">
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
                       <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-400" />
+                        <Activity className="w-4 h-4 text-white" />
                         <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white font-mono">
                           Daily Task Telemetry
                         </span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 text-[10px] font-bold tracking-wider">
+                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 text-[10px] font-bold tracking-wider">
                         {currentActiveCalendarDay?.userProgress?.isCompleted ? "3 / 3 Complete" : "1 Done • 2 Pending"}
                       </span>
                     </div>
@@ -1395,9 +1587,9 @@ export function DashboardClient({
                       <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 truncate">
                           {currentActiveCalendarDay?.userProgress?.isCompleted || currentActiveCalendarDay?.userProgress?.videoWatched ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
                           ) : (
-                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                            <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
                           )}
                           <div className="space-y-0.5 truncate">
                             <span className="text-xs text-white font-medium block truncate">
@@ -1409,7 +1601,7 @@ export function DashboardClient({
                           </div>
                         </div>
                         <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
-                          currentActiveCalendarDay?.userProgress?.isCompleted ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                          currentActiveCalendarDay?.userProgress?.isCompleted ? "bg-white text-zinc-950" : "bg-white/5 text-zinc-400 border border-white/10"
                         }`}>
                           {currentActiveCalendarDay?.userProgress?.isCompleted ? "Done" : "Pending"}
                         </span>
@@ -1419,9 +1611,9 @@ export function DashboardClient({
                       <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 truncate">
                           {currentActiveCalendarDay?.userProgress?.mealCompliance ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
                           ) : (
-                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                            <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
                           )}
                           <div className="space-y-0.5 truncate">
                             <span className="text-xs text-white font-medium block truncate">
@@ -1433,7 +1625,7 @@ export function DashboardClient({
                           </div>
                         </div>
                         <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
-                          currentActiveCalendarDay?.userProgress?.mealCompliance ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                          currentActiveCalendarDay?.userProgress?.mealCompliance ? "bg-white text-zinc-950" : "bg-white/5 text-zinc-400 border border-white/10"
                         }`}>
                           {currentActiveCalendarDay?.userProgress?.mealCompliance ? "Done" : "Pending"}
                         </span>
@@ -1443,9 +1635,9 @@ export function DashboardClient({
                       <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 truncate">
                           {currentActiveCalendarDay?.userProgress?.dailyReflection ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
                           ) : (
-                            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                            <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
                           )}
                           <div className="space-y-0.5 truncate">
                             <span className="text-xs text-white font-medium block truncate">
@@ -1457,7 +1649,7 @@ export function DashboardClient({
                           </div>
                         </div>
                         <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
-                          currentActiveCalendarDay?.userProgress?.dailyReflection ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                          currentActiveCalendarDay?.userProgress?.dailyReflection ? "bg-white text-zinc-950" : "bg-white/5 text-zinc-400 border border-white/10"
                         }`}>
                           {currentActiveCalendarDay?.userProgress?.dailyReflection ? "Done" : "Pending"}
                         </span>
@@ -1487,7 +1679,7 @@ export function DashboardClient({
                 <div className="space-y-4 pt-2">
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
                       <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-400">
                         Enrolled Protocols
                       </span>
@@ -1532,7 +1724,7 @@ export function DashboardClient({
                               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 uppercase tracking-wider font-bold text-white">
                                 Active Protocol
                               </span>
-                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 uppercase tracking-wider font-bold">
+                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white text-zinc-950 uppercase tracking-wider font-bold">
                                 Day {currentDayForProg?.dayNumber || 1} of {prog.days.length}
                               </span>
                               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/15 backdrop-blur-md uppercase tracking-wider">
@@ -1567,7 +1759,7 @@ export function DashboardClient({
                             {/* Today's Focus Strip */}
                             <div className="p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 max-w-lg text-xs text-zinc-200 flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 truncate">
-                                <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <Calendar className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
                                 <span className="truncate">
                                   <strong>Day {currentDayForProg?.dayNumber || 1}:</strong> {currentDayForProg?.title || "Movement Sequence"}
                                 </span>
@@ -1613,7 +1805,7 @@ export function DashboardClient({
                 <div className="space-y-4 pt-4 border-t border-white/10">
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
                       <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-400">
                         New Releases
                       </span>
@@ -1666,7 +1858,7 @@ export function DashboardClient({
                             <span className="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[9px] uppercase tracking-wider font-semibold text-white">
                               {prog.dayCount} Days
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] uppercase tracking-wider font-bold">
+                            <span className="px-2 py-0.5 rounded-full bg-white/10 text-white border border-white/20 text-[9px] uppercase tracking-wider font-bold">
                               Open Reg.
                             </span>
                           </div>
@@ -1795,13 +1987,13 @@ export function DashboardClient({
                               Day {day.dayNumber}
                             </span>
                             {isCompleted ? (
-                              <CheckCircle className={`w-3 h-3 ${isSelected ? "text-zinc-950" : "text-emerald-400"}`} />
+                              <CheckCircle className={`w-3 h-3 ${isSelected ? "text-zinc-950" : "text-white"}`} />
                             ) : isSkipped ? (
                               <AlertTriangle className="w-3 h-3 text-zinc-500" />
                             ) : isLockedFuture ? (
                               <Lock className="w-3 h-3 opacity-60" />
                             ) : (
-                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-zinc-950" : isToday ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-zinc-950" : isToday ? "bg-white animate-pulse" : "bg-zinc-500"}`} />
                             )}
                           </div>
 
@@ -2137,7 +2329,7 @@ export function DashboardClient({
                                     <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white font-mono">
                                       {currentDay.onsiteVenue ||
                                         currentProgram.venueAddress ||
-                                        "The BMS Sanctuary, Senopati, Jakarta"}
+                                        "The Sanctuary, Senopati, Jakarta"}
                                     </p>
                                   </div>
 
@@ -2364,7 +2556,7 @@ export function DashboardClient({
               {/* Header */}
               <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-1.5 shadow-xl">
                 <div className="flex items-center gap-1.5 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
                     Curated Cohorts
                   </span>
@@ -2552,15 +2744,15 @@ export function DashboardClient({
 
                           <div className="flex items-center gap-1.5">
                             {isActive ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] uppercase tracking-wider font-bold">
+                              <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] uppercase tracking-wider font-bold">
                                 Enrolled
                               </span>
                             ) : isPending ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-[10px] uppercase tracking-wider font-bold">
+                              <span className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-zinc-300 text-[10px] uppercase tracking-wider font-bold">
                                 Pending
                               </span>
                             ) : publicBadge === "Open Registration" ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] uppercase tracking-wider font-bold">
+                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 text-white text-[10px] uppercase tracking-wider font-bold">
                                 Open
                               </span>
                             ) : (
@@ -2626,7 +2818,7 @@ export function DashboardClient({
                                   type="button"
                                   onClick={() => handleOpenQrisCheckout(prog.id)}
                                   disabled={enrollingId === prog.id}
-                                  className="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                  className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
                                 >
                                   {enrollingId === prog.id ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2642,7 +2834,7 @@ export function DashboardClient({
                                   type="button"
                                   onClick={() => handleOpenQrisCheckout(prog.id)}
                                   disabled={enrollingId === prog.id}
-                                  className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                  className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
                                 >
                                   {enrollingId === prog.id ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2655,10 +2847,10 @@ export function DashboardClient({
                                 </button>
                               ) : publicBadge === "Coming Soon" ? (
                                 <a
-                                  href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo BMS Concierge, saya ingin bergabung ke waitlist untuk program: ${prog.title}`)}`}
+                                  href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo Concierge, saya ingin bergabung ke waitlist untuk program: ${prog.title}`)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
+                                  className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
                                 >
                                   <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
                                   <span>Waitlist</span>
@@ -2667,7 +2859,7 @@ export function DashboardClient({
                                 <button
                                   type="button"
                                   disabled
-                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-purple-500/30 text-purple-300/80 text-xs font-semibold tracking-wide cursor-not-allowed"
+                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-white/15 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
                                 >
                                   <span>Cohort Full</span>
                                 </button>
@@ -2683,7 +2875,7 @@ export function DashboardClient({
                                 <button
                                   type="button"
                                   disabled
-                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-blue-500/30 text-blue-300/80 text-xs font-semibold tracking-wide cursor-not-allowed"
+                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-white/15 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
                                 >
                                   <span>In Progress</span>
                                 </button>
@@ -2751,75 +2943,210 @@ export function DashboardClient({
         })()}
 
         {/* ===================================================================== */}
-        {/* TAB 3: PROFILE (PERSONAL, MEDICAL, PAYMENTS & ACCOUNT MANAGEMENT)     */}
+        {/* TAB 3: PROFILE (STACKED MENU -> DEDICATED DETAIL VIEW)                */}
         {/* ===================================================================== */}
         {activeTab === "profile" && (
-          <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6 font-mono">
-            {/* Header */}
-            <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-1.5 shadow-xl">
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
-                  Member Profile
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
-                Profile &amp; Health
-              </h1>
-              <p className="text-xs text-zinc-400 font-light">
-                Personal info, medical baseline, and account settings.
-              </p>
-            </div>
-
-            {/* Sub-Tab Navigation Bar */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 overflow-x-auto scrollbar-none text-[10px] font-bold uppercase tracking-wider">
-              {[
-                { id: "personal", label: "Personal", icon: User },
-                { id: "medical", label: "Medical", icon: Activity },
-                { id: "payments", label: "Payments", icon: CreditCard },
-                { id: "account", label: "Security", icon: Sliders },
-              ].map((sub) => {
-                const Icon = sub.icon;
-                const isSel = profileSubTab === sub.id;
-                return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => setProfileSubTab(sub.id as any)}
-                    className={`px-3 py-1.5 rounded-lg transition shrink-0 flex items-center gap-1.5 ${
-                      isSel
-                        ? "bg-white text-zinc-950 shadow-sm"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    <span>{sub.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* SUB-TAB 1: PERSONAL INFORMATION */}
-            {profileSubTab === "personal" && (
-              <form
-                onSubmit={handleUpdateProfile}
-                className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-4 shadow-sm"
-              >
-                <div className="space-y-0.5">
-                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
-                    Identity Details
-                  </span>
-                  <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
-                    Personal Information
-                  </h3>
+          <div className="max-w-2xl mx-auto space-y-4 font-mono">
+            {profileActiveDetail === null ? (
+              /* VIEW 1: STACKED MENU OVERVIEW (MOBILE & DESKTOP STACK) */
+              <div className="space-y-4">
+                {/* Header User Identity Card */}
+                <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-full border border-white/20 bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {healthProfile?.photoFrontUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={healthProfile.photoFrontUrl}
+                          alt={user.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-base font-semibold text-white uppercase font-mono">
+                          {user.fullName ? user.fullName.charAt(0) : "U"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5 truncate">
+                      <h2 className="text-base font-light tracking-tight text-white uppercase font-geometric truncate">
+                        {user.fullName}
+                      </h2>
+                      <span className="text-xs text-zinc-400 font-mono block truncate">
+                        {user.email}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                    <span>Role: {user.role || "MEMBER"}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/10 text-white border border-white/15 uppercase font-bold tracking-wider">
+                      Active Member
+                    </span>
+                  </div>
                 </div>
+
+                {/* The Clean Stack of Profile Sections */}
+                <div className="space-y-2.5 font-mono">
+                  {/* Item 1: Personal Info */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileActiveDetail("personal");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="w-full text-left p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border border-white/10 transition flex items-center justify-between group active:scale-[0.99] shadow-sm"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0 group-hover:bg-white/10 transition">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5 truncate">
+                        <span className="text-xs font-semibold text-white block uppercase tracking-wide">
+                          Personal Information
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block truncate">
+                          {profileForm.fullName || user.fullName} &bull; {profileForm.phone || "No phone added"}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition group-hover:translate-x-0.5 shrink-0" />
+                  </button>
+
+                  {/* Item 2: Medical & Lifestyle Baseline */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileActiveDetail("medical");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="w-full text-left p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border border-white/10 transition flex items-center justify-between group active:scale-[0.99] shadow-sm"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0 group-hover:bg-white/10 transition">
+                        <Activity className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5 truncate">
+                        <span className="text-xs font-semibold text-white block uppercase tracking-wide">
+                          Medical &amp; Lifestyle Baseline
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block truncate">
+                          {healthProfile.weightKg ? `${healthProfile.weightKg}kg` : "Weight pending"} &bull; {healthProfile.heightCm ? `${healthProfile.heightCm}cm` : "Height pending"} &bull; {healthProfile.dietType || "Diet"}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition group-hover:translate-x-0.5 shrink-0" />
+                  </button>
+
+                  {/* Item 3: Payment History */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileActiveDetail("payments");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="w-full text-left p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border border-white/10 transition flex items-center justify-between group active:scale-[0.99] shadow-sm"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0 group-hover:bg-white/10 transition">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5 truncate">
+                        <span className="text-xs font-semibold text-white block uppercase tracking-wide">
+                          Payment History
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block truncate">
+                          {myPrograms.length} {myPrograms.length === 1 ? "Transaction record" : "Transaction records"}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition group-hover:translate-x-0.5 shrink-0" />
+                  </button>
+
+                  {/* Item 4: Security & Account */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileActiveDetail("account");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="w-full text-left p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border border-white/10 transition flex items-center justify-between group active:scale-[0.99] shadow-sm"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0 group-hover:bg-white/10 transition">
+                        <Sliders className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5 truncate">
+                        <span className="text-xs font-semibold text-white block uppercase tracking-wide">
+                          Security &amp; Account Settings
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block truncate">
+                          Password update, home screen PWA, delete account
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition group-hover:translate-x-0.5 shrink-0" />
+                  </button>
+                </div>
+
+                {/* Quick Sign Out Action Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="w-full py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white transition flex items-center justify-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4 text-zinc-400" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* VIEW 2: DEDICATED DETAIL VIEW WITH BACK BUTTON */
+              <div className="space-y-4">
+                {/* Top Back Navigation Bar */}
+                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileActiveDetail(null);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-mono uppercase tracking-wider text-white transition flex items-center gap-1.5"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Back to Profile</span>
+                  </button>
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">
+                    {profileActiveDetail === "personal"
+                      ? "Personal Information"
+                      : profileActiveDetail === "medical"
+                      ? "Medical Baseline"
+                      : profileActiveDetail === "payments"
+                      ? "Payment History"
+                      : "Security & Account"}
+                  </span>
+                </div>
+
+                {/* DETAIL 1: PERSONAL INFORMATION */}
+                {profileActiveDetail === "personal" && (
+                  <form
+                    onSubmit={handleUpdateProfile}
+                    className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-4 shadow-sm"
+                  >
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
+                        Identity Details
+                      </span>
+                      <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+                        Personal Information
+                      </h3>
+                    </div>
 
                 {profileMsg && (
                   <div
-                    className={`p-3 rounded-xl text-xs font-medium font-mono ${
+                    className={`p-3 rounded-xl text-xs font-medium font-mono border ${
                       profileMsg.type === "success"
-                        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
-                        : "bg-red-500/10 border border-red-500/20 text-red-300"
+                        ? "bg-white/10 border-white/20 text-white"
+                        : "bg-white/5 border-white/10 text-zinc-300"
                     }`}
                   >
                     {profileMsg.text}
@@ -3006,15 +3333,15 @@ export function DashboardClient({
               </form>
             )}
 
-            {/* SUB-TAB 2: HEALTH & BODY ASSESSMENT */}
-            {profileSubTab === "medical" && (
-              <form
-                onSubmit={handleSaveHealthProfile}
-                className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-5 shadow-sm"
-              >
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                {/* DETAIL 2: HEALTH & BODY ASSESSMENT */}
+                {profileActiveDetail === "medical" && (
+                  <form
+                    onSubmit={handleSaveHealthProfile}
+                    className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-5 shadow-sm"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
                     <span className="text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-400 font-mono block">
                       Physical Baseline
                     </span>
@@ -3552,110 +3879,110 @@ export function DashboardClient({
               </form>
             )}
 
-            {/* SUB-TAB 3: PAYMENT HISTORY */}
-            {profileSubTab === "payments" && (
-              <div className="space-y-6">
-                <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-4 border border-zinc-200/70 dark:border-white/10 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                        Billing &amp; Transactions
-                      </span>
-                      <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
-                        Payment History
-                      </h3>
+                {/* DETAIL 3: PAYMENT HISTORY */}
+                {profileActiveDetail === "payments" && (
+                  <div className="space-y-6">
+                    <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-4 border border-zinc-200/70 dark:border-white/10 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                            Billing &amp; Transactions
+                          </span>
+                          <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                            Payment History
+                          </h3>
+                        </div>
+                        <span className="text-micro font-semibold px-3 py-1 rounded-full glass-panel-subtle text-zinc-600 dark:text-zinc-300">
+                          {myPrograms.length} Invoices
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                        Review your program tuitions, QRIS invoice status, and receipt history.
+                      </p>
                     </div>
-                    <span className="text-micro font-semibold px-3 py-1 rounded-full glass-panel-subtle text-zinc-600 dark:text-zinc-300">
-                      {myPrograms.length} Invoices
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                    Review your program tuitions, QRIS invoice status, and receipt history.
-                  </p>
-                </div>
 
-                {myPrograms.length === 0 ? (
-                  <div className="glass-panel rounded-3xl p-12 text-center border border-zinc-200/70 dark:border-white/10 space-y-4">
-                    <CreditCard className="w-8 h-8 text-zinc-400 mx-auto opacity-50" />
-                    <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                      No Payment Records Found
-                    </h4>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto font-light">
-                      You haven&apos;t enrolled in any paid programs yet. Explore our longevity protocols to begin.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("all_plan")}
-                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-2"
-                    >
-                      <span>Explore Programs</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {myPrograms.map((enr) => {
-                      const isPaid = enr.status === "ACTIVE";
-                      const isPending = enr.status === "PENDING";
-
-                      return (
-                        <div
-                          key={enr.enrollmentId}
-                          className="glass-panel rounded-2xl p-5 sm:p-6 border border-zinc-200/70 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+                    {myPrograms.length === 0 ? (
+                      <div className="glass-panel rounded-3xl p-12 text-center border border-zinc-200/70 dark:border-white/10 space-y-4">
+                        <CreditCard className="w-8 h-8 text-zinc-400 mx-auto opacity-50" />
+                        <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                          No Payment Records Found
+                        </h4>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto font-light">
+                          You haven&apos;t enrolled in any paid programs yet. Explore our longevity protocols to begin.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("all_plan")}
+                          className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-2"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-xl overflow-hidden relative shrink-0 bg-zinc-900 border border-zinc-200/50 dark:border-white/10">
-                              <Image
-                                src={enr.coverImage || "/test.jpg"}
-                                alt={enr.title}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
-                                  {enr.title}
-                                </h4>
-                                <span
-                                  className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full ${
-                                    isPaid
-                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                      : isPending
-                                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                      : "bg-zinc-500/15 text-zinc-500 border border-zinc-500/20"
-                                  }`}
-                                >
-                                  {isPaid ? "Paid & Active" : isPending ? "Payment Pending" : enr.status}
+                          <span>Explore Programs</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {myPrograms.map((enr) => {
+                          const isPaid = enr.status === "ACTIVE";
+                          const isPending = enr.status === "PENDING";
+
+                          return (
+                            <div
+                              key={enr.enrollmentId}
+                              className="glass-panel rounded-2xl p-5 sm:p-6 border border-zinc-200/70 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 rounded-xl overflow-hidden relative shrink-0 bg-zinc-900 border border-zinc-200/50 dark:border-white/10">
+                                  <Image
+                                    src={enr.coverImage || "/test.jpg"}
+                                    alt={enr.title}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
+                                      {enr.title}
+                                    </h4>
+                                    <span
+                                      className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full ${
+                                        isPaid
+                                          ? "bg-white text-zinc-950 font-bold border border-white"
+                                          : isPending
+                                          ? "bg-white/10 text-white border border-white/20"
+                                          : "bg-zinc-800 text-zinc-400 border border-white/10"
+                                      }`}
+                                    >
+                                      {isPaid ? "Paid & Active" : isPending ? "Payment Pending" : enr.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                                    Coach: {enr.coachName} &bull; Ref: {enr.paymentReference || enr.enrollmentId.slice(-8).toUpperCase()}
+                                  </p>
+                                  <div className="text-[11px] text-zinc-400 font-mono pt-0.5">
+                                    {isPaid && enr.paidAt && (
+                                      <span>Paid on {new Date(enr.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                                    )}
+                                    {isPending && enr.invoiceExpiresAt && (
+                                      <span className="text-zinc-400">
+                                        Expires {new Date(enr.invoiceExpiresAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-white/5">
+                                <span className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                                  Rp {enr.price.toLocaleString("id-ID")}
                                 </span>
-                              </div>
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                                Coach: {enr.coachName} &bull; Ref: {enr.paymentReference || enr.enrollmentId.slice(-8).toUpperCase()}
-                              </p>
-                              <div className="text-[11px] text-zinc-400 font-mono pt-0.5">
-                                {isPaid && enr.paidAt && (
-                                  <span>Paid on {new Date(enr.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                                )}
-                                {isPending && enr.invoiceExpiresAt && (
-                                  <span className="text-amber-600 dark:text-amber-400">
-                                    Expires {new Date(enr.invoiceExpiresAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
 
-                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-white/5">
-                            <span className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
-                              Rp {enr.price.toLocaleString("id-ID")}
-                            </span>
-
-                            {isPending && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenQrisCheckout(enr.programId)}
-                                className="px-4 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
-                              >
+                                {isPending && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenQrisCheckout(enr.programId)}
+                                    className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
+                                  >
                                 <QrCode className="w-3.5 h-3.5" />
                                 <span>Pay with QRIS</span>
                               </button>
@@ -3669,8 +3996,8 @@ export function DashboardClient({
               </div>
             )}
 
-            {/* SUB-TAB 4: ACCOUNT MANAGEMENT & SECURITY */}
-            {profileSubTab === "account" && (
+                {/* DETAIL 4: ACCOUNT MANAGEMENT & SECURITY */}
+                {profileActiveDetail === "account" && (
               <div className="space-y-8">
                 {/* 1. Daily Push Reminders */}
                 <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm">
@@ -3750,7 +4077,7 @@ export function DashboardClient({
                       <span>Install on Home Screen (PWA Sanctuary)</span>
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
-                      For native ambient immersion and reliable push alerts, install BMS onto your device home screen:
+                      For native ambient immersion and reliable push alerts, install onto your device home screen:
                     </p>
                     <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-400 list-decimal list-inside font-light">
                       <li>In <strong>Safari (iOS)</strong>, tap Share &rarr; &ldquo;Add to Home Screen&rdquo;.</li>
@@ -3879,21 +4206,21 @@ export function DashboardClient({
                 </form>
 
                 {/* 3. Danger Zone */}
-                <div className="glass-panel rounded-3xl p-7 sm:p-9 border border-red-500/20 space-y-4 shadow-sm">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-red-500 block">
+                <div className="glass-panel rounded-3xl p-7 sm:p-9 border border-white/10 space-y-4 shadow-sm">
+                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 block">
                     Irreversible Action
                   </span>
-                  <h3 className="text-lg font-light tracking-tight text-red-600 dark:text-red-400">
+                  <h3 className="text-lg font-light tracking-tight text-white font-geometric">
                     Delete Account
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
-                    Permanently purge your BMS account, personal logs, streak histories, and active program enrollments. This cannot be reversed.
+                  <p className="text-xs text-zinc-400 leading-relaxed font-light">
+                    Permanently purge your account, personal logs, streak histories, and active program enrollments. This cannot be reversed.
                   </p>
                   <div className="pt-2">
                     <button
                       type="button"
                       onClick={() => setDeleteModalOpen(true)}
-                      className="px-5 py-2.5 rounded-full border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium tracking-wide transition"
+                      className="px-5 py-2.5 rounded-full border border-white/20 text-zinc-300 hover:bg-white/10 hover:text-white text-xs font-medium tracking-wide transition"
                     >
                       Delete Account
                     </button>
@@ -3903,6 +4230,8 @@ export function DashboardClient({
             )}
           </div>
         )}
+      </div>
+    )}
       </main>
 
       {/* Delete Account Modal */}
@@ -4299,7 +4628,7 @@ export function DashboardClient({
                         setDetailedProgram(null);
                         handleOpenQrisCheckout(progId);
                       }}
-                      className="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2"
+                      className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2"
                     >
                       <QrCode className="w-3.5 h-3.5" /> Complete Payment
                     </button>
@@ -4309,7 +4638,7 @@ export function DashboardClient({
                 if (publicBadge === "Coming Soon") {
                   return (
                     <a
-                      href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo BMS Concierge, saya ingin bergabung ke waitlist untuk program: ${detailedProgram.title}`)}`}
+                      href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo Concierge, saya ingin bergabung ke waitlist untuk program: ${detailedProgram.title}`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2 transition font-mono shadow-md"

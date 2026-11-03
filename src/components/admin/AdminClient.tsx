@@ -4000,8 +4000,8 @@ export function AdminClient({
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <Link href="/" className="group inline-block">
-                  <h1 className="font-geometric font-extralight text-sm tracking-[0.34em] text-zinc-900 dark:text-white uppercase">
-                    BMS
+                  <h1 className="font-mono font-light text-xl text-zinc-900 dark:text-white leading-none">
+                    +
                   </h1>
                 </Link>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate font-normal">
