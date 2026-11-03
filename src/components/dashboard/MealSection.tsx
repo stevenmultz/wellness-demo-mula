@@ -42,70 +42,46 @@ export function MealSection({
   };
 
   return (
-    <div className="rounded-2xl p-4 sm:p-6 space-y-4 relative overflow-hidden group bg-zinc-900/60 border border-white/10 shadow-xl">
+    <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-white/10 pb-3">
-        <div className="space-y-1">
-          <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
-            Clean Nourishment
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="space-y-0.5">
+          <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+            Nourishment Protocol
           </span>
-          <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
-            Nutrition Protocol
+          <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+            Fuel &amp; Nutrition
           </h3>
-          <p className="text-xs text-zinc-400 font-light max-w-md leading-relaxed font-mono">
-            Whole-food nutrition protocol for steady metabolic energy.
-          </p>
         </div>
 
-        <div className="shrink-0 font-mono">
-          <span className="text-micro px-3.5 py-1.5 rounded-full font-medium tracking-wider uppercase bg-white/10 border border-white/20 text-white backdrop-blur-md">
-            Whole Food Protocol
-          </span>
-        </div>
-      </div>
-
-      {/* Visual Culinary Banner */}
-      <div className="relative h-44 w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/60 dark:border-white/10 shadow-lg">
-        <Image
-          src="/image.jpg"
-          alt="Clean Nourishment"
-          fill
-          className="object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20" />
-        <div className="absolute bottom-4 left-4 right-4 p-4 rounded-xl glass-image-overlay flex items-center justify-between text-white">
-          <div className="space-y-0.5">
-            <span className="text-xs font-semibold block">Anti-Inflammatory Curation</span>
-            <span className="text-[11px] text-zinc-300 font-light font-mono">
-              Focus on mineral hydration, leafy greens, and healthy fats.
-            </span>
-          </div>
-        </div>
+        <span className="text-[10px] px-3 py-1 rounded-full uppercase tracking-wider font-semibold bg-white/10 border border-white/15 text-white">
+          Whole Food
+        </span>
       </div>
 
       {/* Coach Meal Recommendation Text */}
-      <div className="space-y-2">
-        <span className="text-micro uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 block font-mono">
-          Today&apos;s Curated Nutrition
+      <div className="space-y-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
+          Daily Recommendation
         </span>
         {mealRecommendation ? (
-          <div className="p-5 rounded-2xl glass-panel-subtle text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 font-light leading-relaxed whitespace-pre-line border border-zinc-200/60 dark:border-white/10 font-mono">
+          <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-300 font-light leading-relaxed whitespace-pre-line">
             {mealRecommendation}
           </div>
         ) : (
-          <p className="text-xs text-zinc-500 italic p-4 rounded-2xl glass-panel-subtle font-mono">
-            Whole-food protocol, minimal seed oils, and maintain at least 2.5L cellular hydration.
+          <p className="text-xs text-zinc-400 italic p-3 rounded-xl bg-black/40 border border-white/5">
+            Maintain clean hydration and balanced whole foods.
           </p>
         )}
       </div>
 
       {/* Compliance Status Selector */}
-      <div className="space-y-3 pt-2 font-mono">
-        <div className="flex items-center justify-between">
-          <span className="text-micro uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-            Protocol Compliance
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+            Compliance
           </span>
-          <span className="text-xs font-medium text-zinc-300">
+          <span className="text-zinc-300 font-medium">
             {compliance === "FULL"
               ? "100% Compliant"
               : compliance === "PARTIAL"
@@ -114,71 +90,55 @@ export function MealSection({
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5">
-          <button
-            type="button"
-            disabled={isPast2359}
-            onClick={() => setCompliance("FULL")}
-            className={`py-3 px-2 rounded-2xl text-xs font-medium tracking-wide border transition-all text-center font-mono ${
-              compliance === "FULL"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-md"
-                : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
-            }`}
-          >
-            100% Compliant
-          </button>
-
-          <button
-            type="button"
-            disabled={isPast2359}
-            onClick={() => setCompliance("PARTIAL")}
-            className={`py-3 px-2 rounded-2xl text-xs font-medium tracking-wide border transition-all text-center font-mono ${
-              compliance === "PARTIAL"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-md"
-                : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
-            }`}
-          >
-            Modified
-          </button>
-
-          <button
-            type="button"
-            disabled={isPast2359}
-            onClick={() => setCompliance("OFF_TRACK")}
-            className={`py-3 px-2 rounded-2xl text-xs font-medium tracking-wide border transition-all text-center font-mono ${
-              compliance === "OFF_TRACK"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-md"
-                : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
-            }`}
-          >
-            Off-Track
-          </button>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {[
+            { key: "FULL", label: "Compliant" },
+            { key: "PARTIAL", label: "Modified" },
+            { key: "OFF_TRACK", label: "Off-Track" },
+          ].map((item) => {
+            const isSelected = compliance === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                disabled={isPast2359}
+                onClick={() => setCompliance(item.key)}
+                className={`py-2 px-2 rounded-xl text-xs font-semibold tracking-wider uppercase border transition-all text-center ${
+                  isSelected
+                    ? "bg-white text-zinc-950 border-white shadow-md"
+                    : "bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Notes Textarea */}
-      <div className="space-y-2 font-mono">
-        <label className="text-micro uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 block">
-          What You Ate Today (Food Feedback Note)
+      <div className="space-y-1.5">
+        <label className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
+          Meal Notes
         </label>
         <textarea
-          rows={3}
+          rows={2}
           value={notes}
           disabled={isPast2359}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Enter your meals and nutrition logs for today..."
-          className="w-full p-4 rounded-2xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
+          placeholder="Log meals, supplements, or dietary notes..."
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs font-light text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 placeholder:text-zinc-600"
         />
       </div>
 
       {/* Save Button */}
       {!isPast2359 && (
-        <div className="pt-2 flex justify-end font-mono">
+        <div className="flex justify-end pt-1">
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2 transition duration-200 shadow-md font-mono"
+            className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm"
           >
             {isSaving ? (
               <>
@@ -187,11 +147,11 @@ export function MealSection({
               </>
             ) : savedSuccess ? (
               <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-950" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
                 <span>Saved</span>
               </>
             ) : (
-              <span>Save Food Feedback</span>
+              <span>Save Meal</span>
             )}
           </button>
         </div>

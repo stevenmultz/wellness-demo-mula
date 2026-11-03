@@ -177,7 +177,7 @@ export function AuthModal({
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-200/70 dark:border-white/10">
           <div className="space-y-0.5">
             <span className="text-base font-light uppercase tracking-widest text-white block font-mono">
-              +
+              + BMS
             </span>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
               {tab === "signup"

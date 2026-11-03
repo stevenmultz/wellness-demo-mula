@@ -172,9 +172,12 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
         className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-4 sm:px-6 rounded-full blur-dock flex items-center justify-between transition-all duration-300 border border-white/10 shadow-2xl font-mono"
       >
-        <Link href="/" className="flex items-center group shrink-0" title="Home">
-          <span className="font-mono font-light text-2xl text-white leading-none">
+        <Link href="/" className="flex items-center gap-1.5 group shrink-0" title="Home">
+          <span className="font-mono font-light text-xl text-white leading-none">
             +
+          </span>
+          <span className="font-geometric font-light text-xs tracking-[0.28em] text-white uppercase">
+            BMS
           </span>
         </Link>
 
@@ -697,11 +700,12 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
           <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px]">
             <div className="flex items-center gap-2">
               <span className="text-white font-light text-xl font-mono leading-none">+</span>
+              <span className="text-white font-light text-xs tracking-[0.28em] uppercase">BMS</span>
               <span className="text-zinc-600">•</span>
               <span className="text-zinc-400">Minimalist Longevity Sanctuary</span>
             </div>
 
-            <span className="text-zinc-500">© 2026 Longevity Sanctuary</span>
+            <span className="text-zinc-500">© 2026 BMS Sanctuary</span>
           </div>
         </div>
       </footer>

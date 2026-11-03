@@ -51,112 +51,74 @@ export function SleepTrackerCard({
   const isOptimal = sleepCalc ? sleepCalc.totalMinutes >= 420 : false;
 
   return (
-    <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 relative overflow-hidden group border border-zinc-200/70 dark:border-white/10 shadow-xl">
-      {/* Background Soft Ambient Aura */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header with High Negative Space */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-        <div className="space-y-1.5">
-          <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
-            Phase 01 • Morning Awakening
+    <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="space-y-0.5">
+          <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+            Phase 01 &bull; Awakening
           </span>
-          <h3 className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
-            Circadian Sleep &amp; Rest Log
+          <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+            Sleep &amp; Rest Log
           </h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-md leading-relaxed font-mono">
-            Record last night&apos;s rest and wake time to track your cellular circadian rhythm.
-          </p>
         </div>
 
         {sleepCalc && (
-          <div className="shrink-0 flex items-center font-mono">
-            <span
-              className={`text-xs px-4 py-1.5 rounded-full font-medium border flex items-center gap-2 backdrop-blur-md ${
-                isOptimal
-                  ? "bg-white/10 border-white/20 text-white"
-                  : "bg-zinc-200/60 dark:bg-white/10 border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300"
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 text-zinc-400" />
-              <span>{sleepCalc.formatted} Rest</span>
-            </span>
-          </div>
+          <span className="text-[10px] px-3 py-1 rounded-full font-semibold uppercase tracking-wider bg-white/10 border border-white/15 text-white flex items-center gap-1.5">
+            <Clock className="w-3 h-3 text-zinc-300" />
+            <span>{sleepCalc.formatted}</span>
+          </span>
         )}
       </div>
 
       {/* Coach Sleep Recommendation */}
       {sleepRecommendation && (
-        <div className="p-4 sm:p-5 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-3 font-mono">
-          <Sparkles className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-mono">
-              Coach Circadian Recommendation
-            </span>
-            <span className="font-light leading-relaxed">{sleepRecommendation}</span>
-          </div>
+        <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-300 flex items-start gap-2.5">
+          <Sparkles className="w-3.5 h-3.5 text-zinc-400 shrink-0 mt-0.5" />
+          <span className="font-light leading-relaxed">{sleepRecommendation}</span>
         </div>
       )}
 
-      {/* Input Hours Grid with Elegant Frosted Inputs */}
-      <div className="grid sm:grid-cols-2 gap-4 font-mono">
-        <div className="space-y-2">
-          <label className="text-micro uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-            <Moon className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Bedtime Last Night</span>
+      {/* Input Hours Grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1">
+            <Moon className="w-3 h-3 text-zinc-400" /> Bedtime
           </label>
           <input
             type="time"
             value={bedtime}
             disabled={isPast2359}
             onChange={(e) => setBedtime(e.target.value)}
-            className="w-full h-12 px-4 rounded-2xl glass-input text-xs sm:text-sm font-medium text-zinc-900 dark:text-white transition focus:ring-1 focus:ring-white/40 font-mono"
+            className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs font-mono font-medium text-white focus:outline-none focus:border-white/40"
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-micro uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-            <Sunrise className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Wake Time This Morning</span>
+        <div className="space-y-1">
+          <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1">
+            <Sunrise className="w-3 h-3 text-zinc-400" /> Wake Time
           </label>
           <input
             type="time"
             value={wakeTime}
             disabled={isPast2359}
             onChange={(e) => setWakeTime(e.target.value)}
-            className="w-full h-12 px-4 rounded-2xl glass-input text-xs sm:text-sm font-medium text-zinc-900 dark:text-white transition focus:ring-1 focus:ring-white/40 font-mono"
+            className="w-full h-10 px-3 rounded-xl bg-black/40 border border-white/10 text-xs font-mono font-medium text-white focus:outline-none focus:border-white/40"
           />
         </div>
       </div>
 
-      {/* Calculated Insight & Save Action */}
-      <div className="pt-3 flex flex-wrap items-center justify-between gap-4 border-t border-zinc-900/[0.06] dark:border-white/10 font-mono">
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-          {sleepCalc ? (
-            <span className="flex items-center gap-2">
-              {isOptimal ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-zinc-300" />
-                  <span>Optimal rest quality • {sleepCalc.formatted}</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="w-4 h-4 text-zinc-400" />
-                  <span>Below recommended 7 hours • {sleepCalc.formatted}</span>
-                </>
-              )}
-            </span>
-          ) : (
-            <span>Set bedtime and wake time</span>
-          )}
-        </div>
-
-        {!isPast2359 && (
+      {/* Save Action */}
+      {!isPast2359 && (
+        <div className="pt-1 flex items-center justify-between border-t border-white/10">
+          <span className="text-[10px] text-zinc-400 font-light truncate max-w-[200px]">
+            {sleepCalc ? (isOptimal ? "Optimal rest" : "Below 7h target") : "Set sleep duration"}
+          </span>
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2 transition duration-200 shadow-md font-mono"
+            className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm"
           >
             {isSaving ? (
               <>
@@ -165,15 +127,15 @@ export function SleepTrackerCard({
               </>
             ) : savedSuccess ? (
               <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950 dark:text-zinc-950" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
                 <span>Saved</span>
               </>
             ) : (
-              <span>Save Sleep Log</span>
+              <span>Save Rest</span>
             )}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

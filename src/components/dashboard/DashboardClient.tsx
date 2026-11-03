@@ -242,9 +242,11 @@ export function DashboardClient({
   initialHealthProfile,
 }: DashboardProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "profile">("my_plan");
+  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications">("my_plan");
   const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
   const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
+  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
+  const [activeDetailPhase, setActiveDetailPhase] = useState<"movement" | "fuel" | "recovery">("movement");
   const [profileActiveDetail, setProfileActiveDetail] = useState<null | "personal" | "medical" | "payments" | "account">(null);
 
   // Scroll Hide / Show for Top Header (Scroll down hides, scroll up reveals)
@@ -1143,12 +1145,11 @@ export function DashboardClient({
           <button
             type="button"
             onClick={() => {
-              setActiveTab("profile");
-              setIsViewingPlanDetail(false);
+              setIsProfileSidebarOpen(true);
               setProfileActiveDetail(null);
             }}
             className="relative group focus:outline-none"
-            title="Open Profile"
+            title="Open Profile Sidebar"
           >
             <div className="w-8 h-8 rounded-full border border-white/20 bg-zinc-900 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-white/60 shadow-sm">
               {healthProfile?.photoFrontUrl ? (
@@ -1167,11 +1168,14 @@ export function DashboardClient({
           </button>
         </div>
 
-        {/* CENTER: Minimalist '+' Logo */}
+        {/* CENTER: Minimalist '+ BMS' Logo */}
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
-          <Link href="/" className="flex items-center justify-center group focus:outline-none" title="Home">
-            <span className="font-mono font-light text-2xl text-white leading-none tracking-normal group-hover:opacity-80 transition select-none">
+          <Link href="/" className="flex items-center gap-1.5 group focus:outline-none" title="Home">
+            <span className="font-mono font-light text-xl text-white leading-none tracking-normal group-hover:opacity-80 transition select-none">
               +
+            </span>
+            <span className="font-geometric font-light text-xs tracking-[0.28em] text-white uppercase">
+              BMS
             </span>
           </Link>
         </div>
@@ -1287,7 +1291,7 @@ export function DashboardClient({
         </div>
       </header>
 
-      {/* Unified Bottom Floating Dock (3 Menus: My Plan, Explore, Profile) */}
+      {/* Unified Bottom Floating Dock (3 Menus: My Plan, Explore, Alerts) */}
       <nav
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-xs h-12 rounded-full blur-dock px-1.5 flex items-center justify-between border border-white/15 bg-neutral-950/85 backdrop-blur-2xl shadow-2xl font-mono"
@@ -1310,7 +1314,10 @@ export function DashboardClient({
 
         <button
           type="button"
-          onClick={() => setActiveTab("all_plan")}
+          onClick={() => {
+            setActiveTab("all_plan");
+            setIsViewingPlanDetail(false);
+          }}
           className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "all_plan"
               ? "bg-white text-zinc-950 shadow-sm"
@@ -1323,20 +1330,26 @@ export function DashboardClient({
 
         <button
           type="button"
-          onClick={() => setActiveTab("profile")}
+          onClick={() => {
+            setActiveTab("notifications");
+            setIsViewingPlanDetail(false);
+          }}
           className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
-            activeTab === "profile"
+            activeTab === "notifications"
               ? "bg-white text-zinc-950 shadow-sm"
               : "text-zinc-400 hover:text-white"
           }`}
         >
-          <User className="w-3.5 h-3.5" />
-          <span>Profile</span>
+          <Bell className="w-3.5 h-3.5" />
+          <span>Alerts</span>
         </button>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto px-3.5 sm:px-8 pt-18 sm:pt-24 pb-24 sm:pb-28 flex-1 w-full space-y-5 sm:space-y-8">
+      {/* Main Content Area with safe-area spacing */}
+      <main
+        style={{ paddingTop: "max(6rem, calc(4.75rem + env(safe-area-inset-top)))" }}
+        className="max-w-5xl mx-auto px-3.5 sm:px-8 pb-28 sm:pb-32 flex-1 w-full space-y-6 sm:space-y-8"
+      >
         {actionNotice && (
           <div
             className={`glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border shadow-lg ${
@@ -2172,250 +2185,144 @@ export function DashboardClient({
                       </div>
                     ) : (
                       /* UNLOCKED 3-PHASE CURRICULUM LAYOUT */
-                      <div className="space-y-6 sm:space-y-8">
-                        {/* 1. FASE PAGI: SLEEP & RECOVERY LOG */}
-                        <SleepTrackerCard
-                          dayNumber={currentDay.dayNumber}
-                          sleepRecommendation={currentDay.sleepRecommendation || null}
-                          initialBedtime={dayBedtimes[currentDay.id] || currentDay.userProgress?.bedtime || "22:30"}
-                          initialWakeTime={dayWakeTimes[currentDay.id] || currentDay.userProgress?.wakeTime || "06:30"}
-                          initialSleepMinutes={currentDay.userProgress?.sleepDurationMinutes}
-                          isPast2359={currentDay.isPast2359}
-                          onSaveSleep={handleSaveSleep}
-                        />
+                      <div className="space-y-5 sm:space-y-6">
+                        {/* Phase Switcher Navigation Tabs */}
+                        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-900/80 border border-white/10 font-mono text-[10px] uppercase font-bold tracking-wider">
+                          <button
+                            type="button"
+                            onClick={() => setActiveDetailPhase("movement")}
+                            className={`flex-1 py-2 px-2.5 rounded-xl text-center transition flex items-center justify-center gap-1.5 ${
+                              activeDetailPhase === "movement"
+                                ? "bg-white text-zinc-950 shadow-md font-bold"
+                                : "text-zinc-400 hover:text-white"
+                            }`}
+                          >
+                            <Dumbbell className="w-3.5 h-3.5" />
+                            <span>01 Movement</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveDetailPhase("fuel")}
+                            className={`flex-1 py-2 px-2.5 rounded-xl text-center transition flex items-center justify-center gap-1.5 ${
+                              activeDetailPhase === "fuel"
+                                ? "bg-white text-zinc-950 shadow-md font-bold"
+                                : "text-zinc-400 hover:text-white"
+                            }`}
+                          >
+                            <Utensils className="w-3.5 h-3.5" />
+                            <span>02 Fuel &amp; Sleep</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveDetailPhase("recovery")}
+                            className={`flex-1 py-2 px-2.5 rounded-xl text-center transition flex items-center justify-center gap-1.5 ${
+                              activeDetailPhase === "recovery"
+                                ? "bg-white text-zinc-950 shadow-md font-bold"
+                                : "text-zinc-400 hover:text-white"
+                            }`}
+                          >
+                            <Smile className="w-3.5 h-3.5" />
+                            <span>03 Recovery</span>
+                          </button>
+                        </div>
 
-                        {/* 2. FASE SIANG: MAIN CURRICULUM PROTOCOL (TRAINING / REST / CONNECTION) */}
-                        {currentDay.dayType === "TRAINING_DAY" ? (
-                          <div className="grid lg:grid-cols-12 gap-6 items-start">
-                            {/* Left (7 Columns): Video YouTube Premium Card & Workout Section */}
-                            <div className="lg:col-span-7 space-y-6">
-                              <VideoThumbnailLinkCard
-                                title={currentDay.title}
-                                videoUrl={currentDay.videoUrl}
-                                videoWatched={getVideoWatched(currentDay)}
-                                isPast2359={currentDay.isPast2359}
-                                onToggleWatched={handleToggleVideoWatched}
-                              />
+                        {/* PHASE 01: MOVEMENT (TRAINING / REST / CONNECTION) */}
+                        {activeDetailPhase === "movement" && (
+                          <div className="space-y-5">
+                            {currentDay.dayType === "TRAINING_DAY" ? (
+                              <div className="space-y-5">
+                                <VideoThumbnailLinkCard
+                                  title={currentDay.title}
+                                  videoUrl={currentDay.videoUrl}
+                                  videoWatched={getVideoWatched(currentDay)}
+                                  isPast2359={currentDay.isPast2359}
+                                  onToggleWatched={handleToggleVideoWatched}
+                                />
 
-                              <WorkoutSection
-                                dayNumber={currentDay.dayNumber}
-                                availableOptions={currentDay.workoutOptions || []}
-                                selectedWorkout={dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout}
-                                photoBeforeUrl={dayPhotosBefore[currentDay.id] || currentDay.userProgress?.photoBeforeUrl}
-                                photoAfterUrl={dayPhotosAfter[currentDay.id] || currentDay.userProgress?.photoAfterUrl}
-                                workoutNotes={dayWorkoutNotes[currentDay.id] !== undefined ? dayWorkoutNotes[currentDay.id] : currentDay.userProgress?.workoutNotes}
-                                checklist={currentDay.videoChecklist || []}
-                                completedChecklist={getCheckedItems(currentDay)}
-                                isPast2359={currentDay.isPast2359}
-                                onSelectWorkout={handleSelectWorkout}
-                                onUploadPhoto={handleUploadPhoto}
-                                onToggleChecklistItem={handleToggleChecklist}
-                                onSaveWorkoutNotes={handleSaveWorkoutNotes}
-                                onUpdateChecklistRep={handleUpdateChecklistRep}
-                              />
-                            </div>
-
-                            {/* Right (5 Columns): Meal Recommendation & Compliance */}
-                            <div className="lg:col-span-5 space-y-6">
-                              <MealSection
-                                mealRecommendation={currentDay.mealRecommendation}
-                                initialCompliance={dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || "FULL"}
-                                initialNotes={dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || ""}
-                                isPast2359={currentDay.isPast2359}
-                                onSaveMeal={handleSaveMeal}
-                              />
-                            </div>
-                          </div>
-                        ) : currentDay.dayType === "REST_DAY" ? (
-                          <div className="grid lg:grid-cols-12 gap-6 items-start">
-                            <div className="lg:col-span-7 space-y-6">
-                              <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 group">
+                                <WorkoutSection
+                                  dayNumber={currentDay.dayNumber}
+                                  availableOptions={currentDay.workoutOptions || []}
+                                  selectedWorkout={dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout}
+                                  photoBeforeUrl={dayPhotosBefore[currentDay.id] || currentDay.userProgress?.photoBeforeUrl}
+                                  photoAfterUrl={dayPhotosAfter[currentDay.id] || currentDay.userProgress?.photoAfterUrl}
+                                  workoutNotes={dayWorkoutNotes[currentDay.id] !== undefined ? dayWorkoutNotes[currentDay.id] : currentDay.userProgress?.workoutNotes}
+                                  checklist={currentDay.videoChecklist || []}
+                                  completedChecklist={getCheckedItems(currentDay)}
+                                  isPast2359={currentDay.isPast2359}
+                                  onSelectWorkout={handleSelectWorkout}
+                                  onUploadPhoto={handleUploadPhoto}
+                                  onToggleChecklistItem={handleToggleChecklist}
+                                  onSaveWorkoutNotes={handleSaveWorkoutNotes}
+                                  onUpdateChecklistRep={handleUpdateChecklistRep}
+                                />
+                              </div>
+                            ) : currentDay.dayType === "REST_DAY" ? (
+                              <div className="rounded-2xl p-5 sm:p-6 space-y-4 bg-zinc-900/60 border border-white/10 font-mono shadow-lg">
                                 <div className="space-y-1">
-                                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                                    Phase 02 &bull; Parasympathetic Restoration
+                                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
+                                    Phase 01 &bull; Active Recovery
                                   </span>
-                                  <h3 className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white">
-                                    Rest &amp; Deep Recovery
+                                  <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
+                                    Rest &amp; Deep Regeneration
                                   </h3>
                                 </div>
 
-                                <div className="relative h-64 w-full rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/80 dark:border-white/10">
-                                  <Image
-                                    src="/image.jpg"
-                                    alt="Rest Day"
-                                    fill
-                                    className="object-cover scale-110 blur-[1px] group-hover:blur-0 group-hover:scale-105 transition-all duration-700"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                                  <div className="absolute bottom-5 left-5 right-5 p-4 rounded-2xl glass-image-overlay backdrop-blur-xl border border-white/15">
-                                    <span className="text-micro uppercase tracking-[0.2em] text-zinc-300 block mb-0.5">
-                                      Circadian Regeneration
-                                    </span>
-                                    <h4 className="text-sm sm:text-base font-light text-white tracking-tight">
-                                      {currentDay.title}
-                                    </h4>
-                                  </div>
-                                </div>
-
-                                <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed font-light whitespace-pre-line">
+                                <div className="p-4 rounded-xl bg-black/40 border border-white/10 text-xs sm:text-sm text-zinc-300 leading-relaxed font-light whitespace-pre-line">
                                   {currentDay.restInstructions ||
-                                    "Take a gentle 25-minute sunlight walk, practice box breathing, and allow somatic tissues to fully decompress."}
-                                </p>
+                                    "Take a gentle 25-minute sunlight walk, practice box breathing, and allow neuromuscular tissues to fully decompress."}
+                                </div>
                               </div>
-                            </div>
-
-                            <div className="lg:col-span-5 space-y-6">
-                              <MealSection
-                                mealRecommendation={currentDay.mealRecommendation}
-                                initialCompliance={dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || "FULL"}
-                                initialNotes={dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || ""}
-                                isPast2359={currentDay.isPast2359}
-                                onSaveMeal={handleSaveMeal}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          /* CONNECTION_DAY / MEETUP_DAY */
-                          <div className="grid lg:grid-cols-12 gap-6 items-start">
-                            <div className="lg:col-span-7 space-y-6">
-                              <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 group">
+                            ) : (
+                              /* CONNECTION_DAY / MEETUP */
+                              <div className="rounded-2xl p-5 sm:p-6 space-y-4 bg-zinc-900/60 border border-white/10 font-mono shadow-lg">
                                 <div className="space-y-1">
-                                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                                    Phase 02 &bull; Connection Sanctuary
+                                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
+                                    Phase 01 &bull; Connection
                                   </span>
-                                  <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
+                                  <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
                                     {currentDay.eventTitle || "Community & Facetime Circle"}
                                   </h3>
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light font-mono">
-                                    In-person immersion, mentor alignment, and community synergy.
-                                  </p>
                                 </div>
 
-                                <div className="relative h-60 w-full rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/80 dark:border-white/10">
-                                  <Image
-                                    src="/image.jpg"
-                                    alt="Connection Day"
-                                    fill
-                                    className="object-cover object-right scale-110 blur-[1px] group-hover:blur-0 group-hover:scale-105 transition-all duration-700"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-                                  <div className="absolute bottom-5 left-5 right-5 p-4 rounded-2xl glass-image-overlay backdrop-blur-xl border border-white/15">
-                                    <span className="text-micro uppercase tracking-[0.2em] text-zinc-300 block mb-0.5">
-                                      Live Immersion
+                                <div className="grid sm:grid-cols-2 gap-3">
+                                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-1">
+                                    <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
+                                      <Clock className="w-3.5 h-3.5" /> Schedule
                                     </span>
-                                    <h4 className="text-sm sm:text-base font-light text-white tracking-tight">
-                                      {currentDay.title}
-                                    </h4>
-                                  </div>
-                                </div>
-
-                                {/* Event Details 2-Column Grid */}
-                                <div className="grid sm:grid-cols-2 gap-4 font-mono">
-                                  {/* Schedule */}
-                                  <div className="p-4 sm:p-5 rounded-2xl glass-panel-subtle space-y-1 border border-zinc-200/60 dark:border-white/10">
-                                    <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 flex items-center gap-1.5 font-mono">
-                                      <Clock className="w-3.5 h-3.5 text-zinc-400" /> Session Schedule
-                                    </span>
-                                    <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white font-mono">
+                                    <p className="text-xs font-medium text-white">
                                       {currentDay.onsiteSchedule || "09:00 AM – 11:30 AM WIB"}
                                     </p>
                                   </div>
 
-                                  {/* Venue */}
-                                  <div className="p-4 sm:p-5 rounded-2xl glass-panel-subtle space-y-1 border border-zinc-200/60 dark:border-white/10">
-                                    <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 flex items-center gap-1.5 font-mono">
-                                      <MapPin className="w-3.5 h-3.5 text-zinc-400" /> Sanctuary Venue
+                                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-1">
+                                    <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
+                                      <MapPin className="w-3.5 h-3.5" /> Venue
                                     </span>
-                                    <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white font-mono">
-                                      {currentDay.onsiteVenue ||
-                                        currentProgram.venueAddress ||
-                                        "The Sanctuary, Senopati, Jakarta"}
+                                    <p className="text-xs font-medium text-white truncate">
+                                      {currentDay.onsiteVenue || currentProgram.venueAddress || "The Sanctuary, Jakarta"}
                                     </p>
-                                  </div>
-
-                                  {/* Host / Who You Will Meet */}
-                                  <div className="p-4 sm:p-5 rounded-2xl glass-panel-subtle space-y-1 border border-zinc-200/60 dark:border-white/10">
-                                    <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 flex items-center gap-1.5 font-mono">
-                                      <Users className="w-3.5 h-3.5 text-zinc-400" /> Who You Will Meet
-                                    </span>
-                                    <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white font-mono">
-                                      {currentDay.eventHost || currentDay.coachName || currentProgram.coachName || "Coach & Community Leads"}
-                                    </p>
-                                  </div>
-
-                                  {/* Google Maps Link */}
-                                  <div className="p-4 sm:p-5 rounded-2xl glass-panel-subtle space-y-2 border border-zinc-200/60 dark:border-white/10 flex flex-col justify-between">
-                                    <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 flex items-center gap-1.5 font-mono">
-                                      <Compass className="w-3.5 h-3.5 text-zinc-400" /> Venue Navigation
-                                    </span>
-                                    {currentDay.mapLink ? (
-                                      <a
-                                        href={currentDay.mapLink}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold hover:opacity-90 transition w-fit"
-                                      >
-                                        <span>Open Google Maps</span>
-                                        <ExternalLink className="w-3 h-3" />
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-zinc-400 font-light">
-                                        Location details confirmed via member chat
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
 
-                                {/* Event Rundown / Details */}
-                                {currentDay.eventDetails && (
-                                  <div className="p-5 rounded-2xl glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-2 font-mono">
-                                    <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 block font-mono">
-                                      Event Details &amp; Agenda Rundown
-                                    </span>
-                                    <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light whitespace-pre-line font-mono">
-                                      {currentDay.eventDetails}
-                                    </p>
-                                  </div>
+                                {currentDay.mapLink && (
+                                  <a
+                                    href={currentDay.mapLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-zinc-950 text-xs font-semibold hover:opacity-90 transition"
+                                  >
+                                    <span>Open Google Maps</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
                                 )}
 
-                                {/* Virtual Stream Link for Remote Members */}
-                                {currentDay.meetupLink && (
-                                  <div className="p-5 rounded-2xl glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-3 font-mono">
-                                    <div className="flex items-center gap-2 text-micro uppercase tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400 font-mono">
-                                      <Video className="w-3.5 h-3.5 text-zinc-400" />
-                                      <span>Virtual Broadcast &bull; Remote Access</span>
-                                    </div>
-                                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed font-light font-mono">
-                                      For remote members unable to attend the studio physically, access the live high-definition broadcast:
-                                    </p>
-                                    <a
-                                      href={currentDay.meetupLink}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm font-mono"
-                                    >
-                                      <span>Join Live Stream</span>
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </a>
-                                  </div>
-                                )}
-
-                                {/* Member Event Feedback Note Input */}
-                                <div className="p-6 rounded-2xl glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-3 font-mono">
-                                  <div className="space-y-1">
-                                    <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 block font-mono">
-                                      Member Event Feedback Note
-                                    </span>
-                                    <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                                      How was your Connect Day experience?
-                                    </h4>
-                                    <p className="text-xs text-zinc-500 font-light">
-                                      Share key takeaways, circle highlights, or reflections from today&apos;s session.
-                                    </p>
-                                  </div>
-
+                                {/* Feedback Note */}
+                                <div className="space-y-2 pt-2 border-t border-white/10">
+                                  <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold block">
+                                    Connect Session Notes
+                                  </label>
                                   <textarea
-                                    rows={3}
+                                    rows={2}
                                     disabled={currentDay.isPast2359}
                                     value={
                                       dayEventFeedback[currentDay.id] !== undefined
@@ -2426,12 +2333,11 @@ export function DashboardClient({
                                       const text = e.target.value;
                                       setDayEventFeedback((p) => ({ ...p, [currentDay.id]: text }));
                                     }}
-                                    placeholder="Enter your gathering feedback or notes..."
-                                    className="w-full p-4 rounded-xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
+                                    placeholder="Enter your circle takeaways or meetup reflections..."
+                                    className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 placeholder:text-zinc-600"
                                   />
-
                                   {!currentDay.isPast2359 && (
-                                    <div className="flex justify-end pt-1">
+                                    <div className="flex justify-end">
                                       <button
                                         type="button"
                                         disabled={isSavingFeedback}
@@ -2442,7 +2348,7 @@ export function DashboardClient({
                                               : currentDay.userProgress?.eventFeedback || "";
                                           handleSaveEventFeedback(val);
                                         }}
-                                        className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2 transition duration-200 shadow-md font-mono"
+                                        className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm"
                                       >
                                         {isSavingFeedback ? (
                                           <>
@@ -2451,39 +2357,136 @@ export function DashboardClient({
                                           </>
                                         ) : feedbackSaved ? (
                                           <>
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-950" />
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
                                             <span>Saved</span>
                                           </>
                                         ) : (
-                                          <span>Save Event Feedback</span>
+                                          <span>Save Feedback</span>
                                         )}
                                       </button>
                                     </div>
                                   )}
                                 </div>
                               </div>
-                            </div>
-
-                            <div className="lg:col-span-5 space-y-6">
-                              <MealSection
-                                mealRecommendation={currentDay.mealRecommendation}
-                                initialCompliance={dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || "FULL"}
-                                initialNotes={dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || ""}
-                                isPast2359={currentDay.isPast2359}
-                                onSaveMeal={handleSaveMeal}
-                              />
-                            </div>
+                            )}
                           </div>
                         )}
 
-                        {/* 3. FASE MALAM: DEAR DIARY REFLECTION & HAPPINESS RATE */}
-                        <DailyReflectionCard
-                          dayNumber={currentDay.dayNumber}
-                          initialReflection={dayReflections[currentDay.id] !== undefined ? dayReflections[currentDay.id] : currentDay.userProgress?.dailyReflection || ""}
-                          initialHappinessRate={dayHappiness[currentDay.id] || currentDay.userProgress?.happinessRate || 5}
-                          isPast2359={currentDay.isPast2359}
-                          onSaveReflection={handleSaveReflection}
-                        />
+                        {/* PHASE 02: FUEL & SLEEP */}
+                        {activeDetailPhase === "fuel" && (
+                          <div className="space-y-5">
+                            <SleepTrackerCard
+                              dayNumber={currentDay.dayNumber}
+                              sleepRecommendation={currentDay.sleepRecommendation || null}
+                              initialBedtime={dayBedtimes[currentDay.id] || currentDay.userProgress?.bedtime || "22:30"}
+                              initialWakeTime={dayWakeTimes[currentDay.id] || currentDay.userProgress?.wakeTime || "06:30"}
+                              initialSleepMinutes={currentDay.userProgress?.sleepDurationMinutes}
+                              isPast2359={currentDay.isPast2359}
+                              onSaveSleep={handleSaveSleep}
+                            />
+
+                            <MealSection
+                              mealRecommendation={currentDay.mealRecommendation}
+                              initialCompliance={dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || "FULL"}
+                              initialNotes={dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || ""}
+                              isPast2359={currentDay.isPast2359}
+                              onSaveMeal={handleSaveMeal}
+                            />
+                          </div>
+                        )}
+
+                        {/* PHASE 03: RECOVERY & ASSESSMENT */}
+                        {activeDetailPhase === "recovery" && (
+                          <div className="space-y-5">
+                            {/* Daily Assessment Card */}
+                            <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
+                              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                                <div className="space-y-0.5">
+                                  <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                                    Protocol Check
+                                  </span>
+                                  <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+                                    Daily Assessment
+                                  </h3>
+                                </div>
+                                <span className="text-[10px] px-3 py-1 rounded-full uppercase tracking-wider font-semibold bg-white/10 border border-white/15 text-white">
+                                  Day {currentDay.dayNumber}
+                                </span>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
+                                  Assessment Focus
+                                </span>
+                                <p className="text-xs text-zinc-300 font-light leading-relaxed p-3.5 rounded-xl bg-black/40 border border-white/10">
+                                  {currentDay.dailyAssessment ||
+                                    "Evaluate neuromuscular fatigue, joint comfort, and physical readiness for upcoming movement."}
+                                </p>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
+                                  Your Assessment Response
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  disabled={currentDay.isPast2359}
+                                  value={
+                                    dayAssessments[currentDay.id] !== undefined
+                                      ? dayAssessments[currentDay.id]
+                                      : currentDay.userProgress?.assessmentResponse || ""
+                                  }
+                                  onChange={(e) => {
+                                    const text = e.target.value;
+                                    setDayAssessments((p) => ({ ...p, [currentDay.id]: text }));
+                                  }}
+                                  placeholder="Record assessment scores, sensations, or recovery observations..."
+                                  className="w-full p-3.5 rounded-xl bg-black/40 border border-white/10 text-xs font-light text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 placeholder:text-zinc-600 font-mono"
+                                />
+                              </div>
+
+                              {!currentDay.isPast2359 && (
+                                <div className="flex justify-end pt-1">
+                                  <button
+                                    type="button"
+                                    disabled={isSavingProgress}
+                                    onClick={handleSaveAssessment}
+                                    className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm font-mono"
+                                  >
+                                    {isSavingProgress ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Saving...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
+                                        <span>Save Assessment</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Daily Reflection & Vitality Card */}
+                            <DailyReflectionCard
+                              dayNumber={currentDay.dayNumber}
+                              initialReflection={
+                                dayReflections[currentDay.id] !== undefined
+                                  ? dayReflections[currentDay.id]
+                                  : currentDay.userProgress?.dailyReflection || ""
+                              }
+                              initialHappinessRate={
+                                dayHappiness[currentDay.id] ||
+                                currentDay.userProgress?.happinessRate ||
+                                5
+                              }
+                              isPast2359={currentDay.isPast2359}
+                              onSaveReflection={handleSaveReflection}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2945,9 +2948,146 @@ export function DashboardClient({
         {/* ===================================================================== */}
         {/* TAB 3: PROFILE (STACKED MENU -> DEDICATED DETAIL VIEW)                */}
         {/* ===================================================================== */}
-        {activeTab === "profile" && (
-          <div className="max-w-2xl mx-auto space-y-4 font-mono">
-            {profileActiveDetail === null ? (
+        {activeTab === "notifications" && (
+          <div className="max-w-2xl mx-auto space-y-5 font-mono">
+            {/* Header Card */}
+            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-2 shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  Cadence Sync
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 text-[10px] uppercase font-bold tracking-wider">
+                  Push Active
+                </span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
+                Protocol Alerts &amp; Dispatch
+              </h2>
+              <p className="text-xs text-zinc-400 font-light leading-relaxed">
+                Scheduled circadian reminders and protocol unlocking cadences for enrolled cohorts.
+              </p>
+            </div>
+
+            {/* Daily Dispatch Cadence Schedule */}
+            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl">
+              <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                Standard Cadence
+              </span>
+              <div className="space-y-2">
+                {[
+                  { time: "07:00 WIB", label: "Awakening & Sleep Log", desc: "Morning rest logging and circadian alignment" },
+                  { time: "12:00 WIB", label: "Daily Movement Unlock", desc: "Access daily training sequence and meal protocol" },
+                  { time: "21:30 WIB", label: "Evening Reflection & Assessment", desc: "Log vitality score and daily self-assessment" },
+                  { time: "23:59 WIB", label: "Protocol Day Cutoff", desc: "Deadline to complete daily curriculum tasks" },
+                ].map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-white font-medium">{item.label}</strong>
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 font-mono">
+                          {item.time}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 font-light">{item.desc}</p>
+                    </div>
+                    <span className="w-2 h-2 rounded-full bg-white shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Program Specific Notification History / Logs */}
+            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl">
+              <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                Cohort Dispatch Log
+              </span>
+              {myEnrolledPrograms.length === 0 ? (
+                <p className="text-xs text-zinc-500 py-3 text-center">No enrolled programs for alert dispatch.</p>
+              ) : (
+                <div className="space-y-2">
+                  {myEnrolledPrograms.flatMap((prog) =>
+                    prog.days.flatMap((day) =>
+                      (day.dayNotifications && day.dayNotifications.length > 0
+                        ? day.dayNotifications.map((notif, nIdx) => ({
+                            id: `${prog.id}-${day.id}-${nIdx}`,
+                            programTitle: prog.title,
+                            dayNumber: day.dayNumber,
+                            time: notif.time,
+                            message: notif.message,
+                            isPast: day.isPast2359,
+                          }))
+                        : [
+                            {
+                              id: `${prog.id}-${day.id}-0`,
+                              programTitle: prog.title,
+                              dayNumber: day.dayNumber,
+                              time: "07:00 WIB",
+                              message: `Day ${day.dayNumber} awakening and recovery protocol is ready.`,
+                              isPast: day.isPast2359,
+                            },
+                          ]
+                      )
+                    )
+                  ).slice(0, 8).map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex items-start justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                            {item.programTitle} &bull; Day {item.dayNumber}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">{item.time}</span>
+                        </div>
+                        <p className="text-xs text-zinc-200 font-light">{item.message}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
+                        item.isPast ? "bg-white/5 text-zinc-500 border border-white/5" : "bg-white/10 text-white border border-white/15"
+                      }`}>
+                        {item.isPast ? "Dispatched" : "Active"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+      {/* ===================================================================== */}
+      {/* PROFILE SIDEBAR DRAWER (SLIDE-OVER MENU & DETAIL VIEW)                */}
+      {/* ===================================================================== */}
+      {isProfileSidebarOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end font-mono">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in"
+            onClick={() => setIsProfileSidebarOpen(false)}
+          />
+
+          {/* Drawer Container */}
+          <div className="relative z-10 w-full max-w-lg bg-neutral-950/98 backdrop-blur-2xl border-l border-white/10 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-200">
+            {/* Top Bar */}
+            <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between sticky top-0 bg-neutral-950/90 backdrop-blur-xl z-20">
+              <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                Member Profile
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsProfileSidebarOpen(false)}
+                className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="p-4 sm:p-6 space-y-4 flex-1">
+              {profileActiveDetail === null ? (
               /* VIEW 1: STACKED MENU OVERVIEW (MOBILE & DESKTOP STACK) */
               <div className="space-y-4">
                 {/* Header User Identity Card */}
@@ -4230,9 +4370,11 @@ export function DashboardClient({
             )}
           </div>
         )}
-      </div>
-    )}
-      </main>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Delete Account Modal */}
       {deleteModalOpen && (

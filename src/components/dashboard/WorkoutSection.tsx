@@ -255,35 +255,27 @@ export function WorkoutSection({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 1. SELEKSI JENIS TRAINING & SYNCHRONIZED MOVEMENT CHECKLIST */}
-      <div className="rounded-2xl p-4 sm:p-6 space-y-4 bg-zinc-900/60 border border-white/10 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-white/10 pb-3">
-          <div className="space-y-1">
-            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
-              Workout Selection
+      <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+              Movement Protocol
             </span>
-            <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
-              Movement Protocol &amp; Reps
+            <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+              Workouts &amp; Reps
             </h3>
-            <p className="text-xs text-zinc-400 font-light max-w-lg leading-relaxed font-mono">
-              Choose your workout track and tap to confirm completed repetitions.
-            </p>
           </div>
 
           {currentGroup && (
-            <div className="shrink-0 flex items-center gap-2">
-              <span className="text-[11px] px-3 py-1 rounded-full font-mono font-semibold bg-white/10 text-white">
-                {completedInCurrentGroup} / {currentGroup.movements.length} Completed
-              </span>
-            </div>
+            <span className="text-[10px] px-3 py-1 rounded-full font-semibold bg-white/10 border border-white/15 text-white">
+              {completedInCurrentGroup}/{currentGroup.movements.length} Done
+            </span>
           )}
         </div>
 
         {/* Workout Options Pill Selector */}
-        <div className="space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-            Choose Workout Option:
-          </span>
-          <div className="flex flex-wrap items-center gap-2.5">
+        {workoutGroups.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {workoutGroups.map((group) => {
               const isSelected =
                 currentGroup?.optionName.toLowerCase() ===
@@ -294,186 +286,148 @@ export function WorkoutSection({
                   type="button"
                   disabled={isPast2359}
                   onClick={() => handleWorkoutClick(group.optionName)}
-                  className={`px-4 py-2.5 rounded-full text-xs font-mono font-medium tracking-wide transition-all duration-200 flex items-center gap-2 ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 ${
                     isSelected
-                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-md scale-[1.02]"
-                      : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/60 dark:border-white/10"
+                      ? "bg-white text-zinc-950 shadow-md font-bold"
+                      : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
                   }`}
                 >
                   <span>{group.optionName}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                      isSelected
-                        ? "bg-white/20 text-white dark:bg-zinc-900/15 dark:text-zinc-900"
-                        : "bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
-                    }`}
-                  >
-                    {group.movements.length}
-                  </span>
+                  <span className="text-[10px] opacity-75">({group.movements.length})</span>
                 </button>
               );
             })}
           </div>
-        </div>
+        )}
 
         {/* Synchronized Movement Checklist for Selected Workout Option */}
         {currentGroup && currentGroup.movements.length > 0 && (
-          <div className="space-y-3 pt-2 border-t border-zinc-900/[0.06] dark:border-white/10 font-mono">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
-                {currentGroup.optionName} • Movement Checklist
-              </span>
-              <span className="text-[11px] text-zinc-400 font-light">
-                Tap check if matching recommendation, or type actual reps
-              </span>
-            </div>
+          <div className="space-y-2 pt-1">
+            {currentGroup.movements.map((mov, idx) => {
+              const itemKey = getItemKey(currentGroup.optionName, mov.name);
+              const plainKey = mov.name.trim();
+              const isChecked = isMovementChecked(
+                currentGroup.optionName,
+                mov.name
+              );
+              const currentVal =
+                repInputs[itemKey] !== undefined
+                  ? repInputs[itemKey]
+                  : repInputs[plainKey] !== undefined
+                  ? repInputs[plainKey]
+                  : isChecked
+                  ? mov.target
+                  : "";
 
-            <div className="space-y-2.5">
-              {currentGroup.movements.map((mov, idx) => {
-                const itemKey = getItemKey(currentGroup.optionName, mov.name);
-                const plainKey = mov.name.trim();
-                const isChecked = isMovementChecked(
-                  currentGroup.optionName,
-                  mov.name
-                );
-                const currentVal =
-                  repInputs[itemKey] !== undefined
-                    ? repInputs[itemKey]
-                    : repInputs[plainKey] !== undefined
-                    ? repInputs[plainKey]
-                    : isChecked
-                    ? mov.target
-                    : "";
+              return (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-xl border text-xs font-light transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                    isChecked
+                      ? "border-white/20 bg-white/[0.04]"
+                      : "border-white/10 bg-black/40 text-zinc-200"
+                  }`}
+                >
+                  {/* Left: Checkbox & Movement Name + Target */}
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      disabled={isPast2359}
+                      onClick={() =>
+                        handleToggleMovement(
+                          currentGroup.optionName,
+                          mov.name,
+                          mov.target
+                        )
+                      }
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition ${
+                        isChecked
+                          ? "bg-white text-zinc-950 border-white shadow-xs"
+                          : "border-white/30 hover:border-white"
+                      }`}
+                    >
+                      {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </button>
 
-                return (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-2xl border text-xs sm:text-sm font-light transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      isChecked
-                        ? "glass-panel-subtle border-zinc-400/50 dark:border-white/25 bg-zinc-900/[0.03] dark:bg-white/[0.06]"
-                        : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-900 dark:text-zinc-100"
-                    }`}
-                  >
-                    {/* Left: Checkbox & Movement Name + Recommended Target */}
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                      <button
-                        type="button"
-                        disabled={isPast2359}
-                        onClick={() =>
-                          handleToggleMovement(
-                            currentGroup.optionName,
-                            mov.name,
-                            mov.target
-                          )
-                        }
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition ${
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={`block text-xs font-medium truncate ${
                           isChecked
-                            ? "bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
-                            : "border-zinc-400 dark:border-zinc-600 hover:border-zinc-900 dark:hover:border-white"
+                            ? "line-through text-zinc-500"
+                            : "text-white"
                         }`}
-                        title={
-                          isChecked
-                            ? "Uncheck movement"
-                            : `Check off with recommended target (${mov.target})`
-                        }
                       >
-                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                      </button>
-
-                      <div className="min-w-0 flex-1">
-                        <span
-                          className={`block font-medium truncate ${
-                            isChecked
-                              ? "line-through text-zinc-500 dark:text-zinc-400"
-                              : "text-zinc-900 dark:text-white"
-                          }`}
-                        >
-                          {mov.name}
-                        </span>
-                        {mov.target && (
-                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block font-light">
-                            Recommended: <strong className="font-medium text-zinc-700 dark:text-zinc-300">{mov.target}</strong>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: Actual Reps Input Field */}
-                    <div className="flex items-center gap-2 pl-9 sm:pl-0 shrink-0">
-                      <span className="text-micro text-zinc-400 uppercase tracking-wider">
-                        Actual Reps:
+                        {mov.name}
                       </span>
-                      <input
-                        type="text"
-                        disabled={isPast2359}
-                        value={currentVal}
-                        onChange={(e) => handleRepChange(itemKey, e.target.value)}
-                        onBlur={() =>
+                      {mov.target && (
+                        <span className="text-[10px] text-zinc-400 block font-light">
+                          Target: {mov.target}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: Actual Reps Input Field */}
+                  <div className="flex items-center gap-1.5 pl-7 sm:pl-0 shrink-0">
+                    <input
+                      type="text"
+                      disabled={isPast2359}
+                      value={currentVal}
+                      onChange={(e) => handleRepChange(itemKey, e.target.value)}
+                      onBlur={() =>
+                        handleRepCommit(
+                          currentGroup.optionName,
+                          mov.name,
+                          mov.target
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
                           handleRepCommit(
                             currentGroup.optionName,
                             mov.name,
                             mov.target
-                          )
+                          );
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleRepCommit(
-                              currentGroup.optionName,
-                              mov.name,
-                              mov.target
-                            );
-                          }
-                        }}
-                        placeholder={
-                          mov.target
-                            ? `Enter actual (${mov.target})...`
-                            : "Enter actual reps..."
-                        }
-                        className="w-40 sm:w-44 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
-                      />
-                    </div>
+                      }}
+                      placeholder={mov.target ? `Actual (${mov.target})` : "Actual reps"}
+                      className="w-32 sm:w-36 px-2.5 py-1 rounded-lg bg-black/50 border border-white/15 text-[11px] font-mono text-white focus:outline-none focus:border-white/40 placeholder:text-zinc-600"
+                    />
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* 2. DUAL UPLOAD FOTO BEFORE & AFTER */}
-      <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-xl">
-        <div className="space-y-1.5 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-          <span className="text-micro text-zinc-400 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
-            Visual Accountability
-          </span>
-          <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-            Before &amp; After Photo Reflection
-          </h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-lg leading-relaxed font-mono">
-            Document physical readiness before session and post-workout vitality.
-          </p>
+      <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+              Visual Check
+            </span>
+            <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+              Photo Verification
+            </h3>
+          </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-3">
           {/* Slot 1: Foto Before */}
-          <div className="rounded-3xl border border-zinc-200/70 dark:border-white/10 p-5 glass-panel-subtle space-y-4 flex flex-col justify-between">
-            <div className="flex items-center justify-between border-b border-zinc-200/50 dark:border-white/10 pb-3 font-mono">
-              <div>
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider block">
-                  01 • Before Session
-                </span>
-                <span className="text-[11px] text-zinc-400 font-light">Mat &amp; gear preparation</span>
-              </div>
+          <div className="rounded-xl border border-white/10 p-3 bg-black/40 space-y-2 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+              <span>01 &bull; Before</span>
               {photoBeforeUrl && (
-                <span className="text-[11px] text-zinc-900 dark:text-zinc-200 font-medium flex items-center gap-1 font-mono">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400" /> Uploaded
+                <span className="text-white flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-zinc-300" /> Done
                 </span>
               )}
             </div>
 
-            {/* Preview or Upload Placeholder */}
-            <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-zinc-950/5 dark:bg-black/30 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center group/photo">
+            <div className="relative rounded-lg overflow-hidden aspect-[4/3] bg-zinc-950 border border-white/10 flex items-center justify-center group/photo">
               {photoBeforeUrl ? (
                 <>
                   <Image
@@ -483,9 +437,9 @@ export function WorkoutSection({
                     className="object-cover"
                   />
                   {!isPast2359 && (
-                    <label className="absolute inset-0 bg-black/55 opacity-0 group-hover/photo:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-xs font-medium gap-2 backdrop-blur-sm font-mono">
-                      <Camera className="w-5 h-5 text-zinc-300" />
-                      <span>Replace Before Photo</span>
+                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/photo:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-semibold gap-1 backdrop-blur-xs">
+                      <Camera className="w-4 h-4 text-zinc-300" />
+                      <span>Replace</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -496,18 +450,9 @@ export function WorkoutSection({
                   )}
                 </>
               ) : (
-                <label className="flex flex-col items-center justify-center p-6 text-center cursor-pointer space-y-2.5 w-full h-full hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-200/50 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 flex items-center justify-center">
-                    <Camera className="w-5 h-5" />
-                  </div>
-                  <div className="space-y-1 font-mono">
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-                      Upload Before Photo
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-light block">
-                      Tap to capture or choose from library
-                    </span>
-                  </div>
+                <label className="flex flex-col items-center justify-center p-3 text-center cursor-pointer space-y-1 w-full h-full hover:bg-white/5 transition">
+                  <Camera className="w-4 h-4 text-zinc-400" />
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">Upload</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -521,23 +466,17 @@ export function WorkoutSection({
           </div>
 
           {/* Slot 2: Foto After */}
-          <div className="rounded-3xl border border-zinc-200/70 dark:border-white/10 p-5 glass-panel-subtle space-y-4 flex flex-col justify-between">
-            <div className="flex items-center justify-between border-b border-zinc-200/50 dark:border-white/10 pb-3 font-mono">
-              <div>
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider block">
-                  02 • Post Workout
-                </span>
-                <span className="text-[11px] text-zinc-400 font-light">Sweat check &amp; vitality</span>
-              </div>
+          <div className="rounded-xl border border-white/10 p-3 bg-black/40 space-y-2 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+              <span>02 &bull; After</span>
               {photoAfterUrl && (
-                <span className="text-[11px] text-zinc-900 dark:text-zinc-200 font-medium flex items-center gap-1 font-mono">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400" /> Uploaded
+                <span className="text-white flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-zinc-300" /> Done
                 </span>
               )}
             </div>
 
-            {/* Preview or Upload Placeholder */}
-            <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-zinc-950/5 dark:bg-black/30 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center group/photo">
+            <div className="relative rounded-lg overflow-hidden aspect-[4/3] bg-zinc-950 border border-white/10 flex items-center justify-center group/photo">
               {photoAfterUrl ? (
                 <>
                   <Image
@@ -547,9 +486,9 @@ export function WorkoutSection({
                     className="object-cover"
                   />
                   {!isPast2359 && (
-                    <label className="absolute inset-0 bg-black/55 opacity-0 group-hover/photo:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-xs font-medium gap-2 backdrop-blur-sm font-mono">
-                      <Camera className="w-5 h-5 text-zinc-300" />
-                      <span>Replace After Photo</span>
+                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/photo:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-semibold gap-1 backdrop-blur-xs">
+                      <Camera className="w-4 h-4 text-zinc-300" />
+                      <span>Replace</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -560,18 +499,9 @@ export function WorkoutSection({
                   )}
                 </>
               ) : (
-                <label className="flex flex-col items-center justify-center p-6 text-center cursor-pointer space-y-2.5 w-full h-full hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-200/50 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div className="space-y-1 font-mono">
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-                      Upload After Photo
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-light block">
-                      Capture post-session feeling
-                    </span>
-                  </div>
+                <label className="flex flex-col items-center justify-center p-3 text-center cursor-pointer space-y-1 w-full h-full hover:bg-white/5 transition">
+                  <Sparkles className="w-4 h-4 text-zinc-400" />
+                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">Upload</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -586,39 +516,36 @@ export function WorkoutSection({
         </div>
       </div>
 
-      {/* 4. TODAY'S TRAINING NOTES & SENSATION */}
-      <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-5 border border-zinc-200/70 dark:border-white/10 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-          <div className="space-y-1.5">
-            <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
+      {/* 3. TODAY'S TRAINING NOTES & SENSATION */}
+      <div className="rounded-2xl p-4 sm:p-5 space-y-3 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="space-y-0.5">
+            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
               Session Feedback
             </span>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-              Today&apos;s Training Notes
+            <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+              Training Notes
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-md leading-relaxed font-mono">
-              Record how your body felt, personal bests, form adjustments, or recovery observations.
-            </p>
           </div>
         </div>
 
-        <div className="space-y-3 font-mono">
+        <div className="space-y-2 font-mono">
           <textarea
-            rows={3}
+            rows={2}
             value={trainingNotes}
             disabled={isPast2359}
             onChange={(e) => setTrainingNotes(e.target.value)}
-            placeholder="Enter your workout notes or movement observations..."
-            className="w-full p-4 rounded-2xl glass-input text-xs sm:text-sm font-light text-zinc-900 dark:text-white leading-relaxed resize-none transition focus:ring-1 focus:ring-white/40 font-mono"
+            placeholder="Log session sensations, PRs, or form notes..."
+            className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs font-light text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 font-mono placeholder:text-zinc-600"
           />
 
           {!isPast2359 && onSaveWorkoutNotes && (
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
               <button
                 type="button"
                 onClick={handleSaveNotes}
                 disabled={isSavingNotes}
-                className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2 transition duration-200 shadow-md font-mono"
+                className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm font-mono"
               >
                 {isSavingNotes ? (
                   <>
@@ -627,11 +554,11 @@ export function WorkoutSection({
                   </>
                 ) : notesSaved ? (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-950" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
                     <span>Saved</span>
                   </>
                 ) : (
-                  <span>Save Training Notes</span>
+                  <span>Save Notes</span>
                 )}
               </button>
             </div>
