@@ -73,7 +73,25 @@ import {
   Upload,
   Trash2,
   Award,
+  Server,
+  RefreshCw,
+  Radio,
 } from "lucide-react";
+
+const VAPID_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+  "BNWi5lDIv-G3f7GRj22k8hNtW2wAJXJNReSHFHlUddSELpcCyuDwKZQmC7p1Bpm_NpbBw41VZhJr-_b4BpNwvSs";
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 export interface ProgramDayItem {
   id: string;
@@ -332,6 +350,25 @@ export function DashboardClient({
   );
   const [morningTime, setMorningTime] = useState("07:00");
   const [eveningTime, setEveningTime] = useState("20:30");
+  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+  const [cronTriggerResult, setCronTriggerResult] = useState<Record<string, unknown> | null>(null);
+  const [isTriggeringCron, setIsTriggeringCron] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.ready
+        .then((reg) => {
+          return reg.pushManager.getSubscription();
+        })
+        .then((sub) => {
+          if (sub) {
+            setIsPushSubscribed(true);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // Profile Settings States
   const [profileForm, setProfileForm] = useState({
@@ -1026,28 +1063,114 @@ export function DashboardClient({
       });
       return;
     }
+    setIsSubscribingPush(true);
     try {
       const perm = await Notification.requestPermission();
       setNotifPermission(perm);
-      if (perm === "granted") {
+      if (perm !== "granted") {
+        setActionNotice({
+          type: "error",
+          text: "Notification permission was not granted.",
+        });
+        setTimeout(() => setActionNotice(null), 3500);
+        return;
+      }
+
+      // Handshake Web Push Subscription with Service Worker
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+
+        if (!sub) {
+          const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey,
+          });
+        }
+
+        if (sub) {
+          const subJson = sub.toJSON();
+          const res = await fetch("/api/push/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: subJson.keys?.p256dh,
+                auth: subJson.keys?.auth,
+              },
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            setIsPushSubscribed(true);
+            setActionNotice({
+              type: "success",
+              text: "+ BMS Web Push activated & synced with server dispatcher.",
+            });
+            setTimeout(() => setActionNotice(null), 4000);
+          } else {
+            setActionNotice({
+              type: "error",
+              text: data.message || "Failed to register push subscription on server.",
+            });
+            setTimeout(() => setActionNotice(null), 4000);
+          }
+        }
+      } else {
         fireBrowserNotification(
           "+ BMS • Reminders Activated",
           `Morning Awakening (${morningTime}) and Evening Reflection (${eveningTime}) alerts are now active.`
         );
         setActionNotice({
           type: "success",
-          text: "Push notification alert enabled successfully.",
-        });
-        setTimeout(() => setActionNotice(null), 3500);
-      } else {
-        setActionNotice({
-          type: "error",
-          text: "Notification permission was not granted.",
+          text: "Push notification alert enabled locally.",
         });
         setTimeout(() => setActionNotice(null), 3500);
       }
-    } catch (err) {
-      console.warn("Failed to request permission:", err);
+    } catch (err: unknown) {
+      console.warn("Failed to subscribe push:", err);
+      const errorMsg = err instanceof Error ? err.message : "Subscription failed";
+      setActionNotice({
+        type: "error",
+        text: `Push subscription notice: ${errorMsg}`,
+      });
+      setTimeout(() => setActionNotice(null), 4000);
+    } finally {
+      setIsSubscribingPush(false);
+    }
+  };
+
+  const handleTriggerCronServer = async (simulateTime?: string) => {
+    setIsTriggeringCron(true);
+    setCronTriggerResult(null);
+    try {
+      const url = simulateTime
+        ? `/api/cron/dispatch-notifications?simulateTime=${encodeURIComponent(simulateTime)}&bypass=true`
+        : `/api/cron/dispatch-notifications?bypass=true`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setCronTriggerResult(data);
+      if (data.success) {
+        setActionNotice({
+          type: "success",
+          text: `Server Cron: ${data.notificationsTriggered} alert(s) triggered, ${data.totalDispatched} push notification(s) sent.`,
+        });
+        setTimeout(() => setActionNotice(null), 5000);
+      } else {
+        setActionNotice({
+          type: "error",
+          text: data.error || data.message || "Failed to trigger server cron dispatcher.",
+        });
+        setTimeout(() => setActionNotice(null), 4000);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Cron request failed";
+      setActionNotice({ type: "error", text: msg });
+      setTimeout(() => setActionNotice(null), 4000);
+    } finally {
+      setIsTriggeringCron(false);
     }
   };
 
@@ -3056,30 +3179,44 @@ export function DashboardClient({
             <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3.5 shadow-xl font-mono">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                  Live Alert Testing
+                  Device Push Handshake
                 </span>
-                <span className={`text-[10px] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
-                  notifPermission === "granted"
-                    ? "bg-white text-zinc-950"
-                    : "bg-white/10 text-zinc-300 border border-white/15"
-                }`}>
-                  {notifPermission === "granted" ? "Permission Active" : "Action Required"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
+                    notifPermission === "granted"
+                      ? "bg-white text-zinc-950"
+                      : "bg-white/10 text-zinc-300 border border-white/15"
+                  }`}>
+                    {notifPermission === "granted" ? "Permission Active" : "Action Required"}
+                  </span>
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
+                    isPushSubscribed
+                      ? "bg-white/20 text-white border border-white/30"
+                      : "bg-white/5 text-zinc-500 border border-white/5"
+                  }`}>
+                    {isPushSubscribed ? "Cloud Synced" : "Unlinked"}
+                  </span>
+                </div>
               </div>
 
               <p className="text-xs text-zinc-300 font-light leading-relaxed">
-                Test the browser/device notification delivery immediately. Make sure to allow notifications when prompted by your browser.
+                Sync this device with the Vercel Web Push gateway (RFC 8292 / VAPID) so notifications arrive even when the browser or PWA is in the background.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                {notifPermission !== "granted" ? (
+                {notifPermission !== "granted" || !isPushSubscribed ? (
                   <button
                     type="button"
                     onClick={handleEnableNotifications}
-                    className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide uppercase flex items-center gap-2 shadow-sm"
+                    disabled={isSubscribingPush}
+                    className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide uppercase flex items-center gap-2 shadow-sm disabled:opacity-50"
                   >
-                    <Bell className="w-3.5 h-3.5" />
-                    <span>Enable Push Notifications</span>
+                    {isSubscribingPush ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Radio className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isSubscribingPush ? "Syncing Handshake..." : "Enable & Sync Web Push"}</span>
                   </button>
                 ) : (
                   <>
@@ -3089,7 +3226,7 @@ export function DashboardClient({
                       className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95"
                     >
                       <Clock className="w-3 h-3 text-zinc-300" />
-                      <span>Test Morning Alert (07:00)</span>
+                      <span>Test Local Awakening (07:00)</span>
                     </button>
                     <button
                       type="button"
@@ -3097,11 +3234,103 @@ export function DashboardClient({
                       className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95"
                     >
                       <Moon className="w-3 h-3 text-zinc-300" />
-                      <span>Test Evening Cutoff (21:30)</span>
+                      <span>Test Local Cutoff (21:30)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleEnableNotifications}
+                      disabled={isSubscribingPush}
+                      className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-xs font-medium uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 text-zinc-400 ${isSubscribingPush ? "animate-spin" : ""}`} />
+                      <span>Re-sync Keypair</span>
                     </button>
                   </>
                 )}
               </div>
+            </div>
+
+            {/* Production Cloud Scheduler & Cron Dispatcher */}
+            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3.5 shadow-xl font-mono">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  Cloud Automation &bull; Vercel Cron
+                </span>
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 uppercase font-bold tracking-wider">
+                  RFC 8292 Server-Side
+                </span>
+              </div>
+
+              <p className="text-xs text-zinc-300 font-light leading-relaxed">
+                Production architecture: Vercel Cron automatically calls <code className="px-1.5 py-0.5 rounded bg-black/60 text-white font-mono text-[11px]">/api/cron/dispatch-notifications</code> every minute. You can also manually trigger or simulate any cohort cadence below:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleTriggerCronServer()}
+                  disabled={isTriggeringCron}
+                  className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                >
+                  {isTriggeringCron ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Server className="w-3.5 h-3.5 text-zinc-300" />
+                  )}
+                  <span>Run Current Minute Cron</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerCronServer("16:40")}
+                  disabled={isTriggeringCron}
+                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                >
+                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Simulate 16:40 (Prog 1)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerCronServer("16:50")}
+                  disabled={isTriggeringCron}
+                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                >
+                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Simulate 16:50 (Prog 2)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerCronServer("17:00")}
+                  disabled={isTriggeringCron}
+                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                >
+                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Simulate 17:00 (Prog 3)</span>
+                </button>
+              </div>
+
+              {/* Server Response Terminal Viewer */}
+              {cronTriggerResult && (
+                <div className="mt-3 p-3.5 rounded-xl bg-black/80 border border-white/15 space-y-2 text-[11px] font-mono">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                    <span className="text-zinc-400 uppercase tracking-widest text-[9px] font-bold">
+                      Server Dispatch Output
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCronTriggerResult(null)}
+                      className="text-zinc-400 hover:text-white text-[10px] uppercase font-semibold"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <pre className="text-zinc-300 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 scrollbar-thin">
+                    {JSON.stringify(cronTriggerResult, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
 
             {/* Daily Dispatch Cadence Schedule */}
