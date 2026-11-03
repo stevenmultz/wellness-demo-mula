@@ -1104,30 +1104,30 @@ export function DashboardClient({
   };
 
   return (
-    <div className="min-h-screen text-zinc-900 dark:text-zinc-100 flex flex-col relative overflow-x-hidden silver-mint-canvas font-mono">
+    <div className="min-h-screen text-zinc-100 flex flex-col relative overflow-x-hidden bg-neutral-950 font-mono">
       {/* Top Floating Glassmorphic Navigation Dock */}
       <header
-        style={{ top: "max(1.25rem, env(safe-area-inset-top))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-5xl h-14 px-5 sm:px-6 rounded-full blur-dock flex items-center justify-between border border-zinc-200/70 dark:border-white/15 shadow-xl transition-all duration-300 font-mono"
+        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-5xl h-12 px-3.5 sm:px-6 rounded-full blur-dock flex items-center justify-between border border-white/10 shadow-2xl transition-all duration-300 font-mono"
       >
         <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-2 h-2 rounded-full bg-gradient-to-tr from-zinc-300 via-white to-zinc-500 shadow-sm border border-white/60 group-hover:scale-125 transition-transform" />
-          <span className="font-extralight text-xs uppercase tracking-[0.34em] text-zinc-900 dark:text-white font-geometric">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          <span className="font-light text-xs uppercase tracking-[0.3em] text-white font-geometric">
             BMS
           </span>
         </Link>
 
         {/* Desktop Navigation (3 Menus: My Program, Explore, Profile) */}
-        <nav className="hidden sm:flex items-center gap-1.5 shrink-0 text-xs font-mono font-medium">
+        <nav className="hidden sm:flex items-center gap-1 shrink-0 text-xs font-mono font-medium">
           <button
             onClick={() => {
               setActiveTab("my_plan");
               setIsViewingPlanDetail(false);
             }}
-            className={`px-4 py-1.5 rounded-full text-xs transition duration-200 flex items-center gap-2 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider font-semibold transition duration-200 flex items-center gap-1.5 ${
               activeTab === "my_plan"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                ? "bg-white text-zinc-950 shadow-sm"
+                : "text-zinc-400 hover:text-white"
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
@@ -1135,10 +1135,10 @@ export function DashboardClient({
           </button>
           <button
             onClick={() => setActiveTab("all_plan")}
-            className={`px-4 py-1.5 rounded-full text-xs transition duration-200 flex items-center gap-2 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider font-semibold transition duration-200 flex items-center gap-1.5 ${
               activeTab === "all_plan"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                ? "bg-white text-zinc-950 shadow-sm"
+                : "text-zinc-400 hover:text-white"
             }`}
           >
             <Compass className="w-3.5 h-3.5" />
@@ -1146,10 +1146,10 @@ export function DashboardClient({
           </button>
           <button
             onClick={() => setActiveTab("profile")}
-            className={`px-4 py-1.5 rounded-full text-xs transition duration-200 flex items-center gap-2 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider font-semibold transition duration-200 flex items-center gap-1.5 ${
               activeTab === "profile"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                ? "bg-white text-zinc-950 shadow-sm"
+                : "text-zinc-400 hover:text-white"
             }`}
           >
             <User className="w-3.5 h-3.5" />
@@ -1157,16 +1157,16 @@ export function DashboardClient({
           </button>
         </nav>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
 
           {user.role === "SUPERADMIN" && (
             <Link
               href="/admin"
-              className="px-3 py-1.5 rounded-full glass-panel-subtle text-[11px] font-medium text-zinc-900 dark:text-zinc-100 hover:bg-white/60 dark:hover:bg-white/10 transition inline-flex items-center gap-1.5 font-mono"
+              className="px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 hover:text-white transition inline-flex items-center gap-1"
               title="Admin Console"
             >
-              <Shield className="w-3 h-3 text-zinc-300" />
+              <Shield className="w-3 h-3 text-zinc-400" />
               <span className="hidden md:inline">Admin</span>
             </Link>
           )}
@@ -1174,7 +1174,7 @@ export function DashboardClient({
           <button
             onClick={handleSignOut}
             title="Sign Out"
-            className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+            className="p-1.5 rounded-full text-zinc-400 hover:text-white transition"
           >
             <LogOut className="w-3.5 h-3.5" />
           </button>
@@ -1183,8 +1183,8 @@ export function DashboardClient({
 
       {/* Mobile-First Bottom Floating Dock (sm:hidden) */}
       <nav
-        style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 sm:hidden w-[92%] max-w-sm h-14 rounded-full blur-dock px-3 flex items-center justify-around border border-zinc-200/70 dark:border-white/15 shadow-2xl font-mono"
+        style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        className="fixed left-1/2 -translate-x-1/2 z-50 sm:hidden w-[94%] max-w-xs h-12 rounded-full blur-dock px-1.5 flex items-center justify-between border border-white/15 bg-neutral-950/85 backdrop-blur-2xl shadow-2xl font-mono"
       >
         <button
           type="button"
@@ -1192,45 +1192,45 @@ export function DashboardClient({
             setActiveTab("my_plan");
             setIsViewingPlanDetail(false);
           }}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+          className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "my_plan"
-              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-              : "text-zinc-500 dark:text-zinc-400"
+              ? "bg-white text-zinc-950 shadow-sm"
+              : "text-zinc-400 hover:text-white"
           }`}
         >
           <Calendar className="w-3.5 h-3.5" />
-          <span className="text-[11px]">My Program</span>
+          <span>My Plan</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("all_plan")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+          className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "all_plan"
-              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-              : "text-zinc-500 dark:text-zinc-400"
+              ? "bg-white text-zinc-950 shadow-sm"
+              : "text-zinc-400 hover:text-white"
           }`}
         >
           <Compass className="w-3.5 h-3.5" />
-          <span className="text-[11px]">Explore</span>
+          <span>Explore</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("profile")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 ${
+          className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "profile"
-              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-              : "text-zinc-500 dark:text-zinc-400"
+              ? "bg-white text-zinc-950 shadow-sm"
+              : "text-zinc-400 hover:text-white"
           }`}
         >
           <User className="w-3.5 h-3.5" />
-          <span className="text-[11px]">Profile</span>
+          <span>Profile</span>
         </button>
       </nav>
 
-      {/* Main Content Area with Generous Luxury Negative Space */}
-      <main className="max-w-5xl mx-auto px-5 sm:px-8 pt-28 sm:pt-36 pb-36 sm:pb-32 flex-1 w-full space-y-10 sm:space-y-14">
+      {/* Main Content Area */}
+      <main className="max-w-5xl mx-auto px-3.5 sm:px-8 pt-18 sm:pt-24 pb-24 sm:pb-28 flex-1 w-full space-y-5 sm:space-y-8">
         {actionNotice && (
           <div
             className={`glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border shadow-lg ${
@@ -1289,27 +1289,24 @@ export function DashboardClient({
               </div>
             ) : !isViewingPlanDetail ? (
               /* VIEW 1: DASHBOARD VIEW (Metrics & My Plan Hero Card) */
-              <div className="space-y-8 sm:space-y-10 font-mono">
+              <div className="space-y-5 sm:space-y-6 font-mono">
                 {/* Header Welcome Banner */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono pb-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono pb-1 border-b border-white/10">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                      <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
                         Member Dashboard
                       </span>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
-                      Welcome back, <span className="font-normal">{user.fullName.split(" ")[0]}</span>
+                    <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
+                      Welcome, <span className="font-normal">{user.fullName.split(" ")[0]}</span>
                     </h1>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                      Today is {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                    </p>
                   </div>
 
                   {myEnrolledPrograms.length > 1 && (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                      <span className="text-micro font-semibold text-zinc-400 shrink-0 uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                      <span className="text-[10px] font-semibold text-zinc-500 shrink-0 uppercase tracking-wider">
                         Program:
                       </span>
                       {myEnrolledPrograms.map((p) => (
@@ -1320,10 +1317,10 @@ export function DashboardClient({
                             setSelectedProgId(p.id);
                             setActiveDayIndex(0);
                           }}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition ${
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 transition ${
                             p.id === currentProgram.id
-                              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                              : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                              ? "bg-white text-zinc-950 shadow-sm"
+                              : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white"
                           }`}
                         >
                           {p.title}
@@ -1334,73 +1331,73 @@ export function DashboardClient({
                 </div>
 
                 {/* 4-Box Metrics Bento Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 font-mono">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 font-mono">
                   {/* Metric 1: Consistency */}
-                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
-                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
                       Consistency
                     </span>
-                    <div className="my-2">
-                      <p className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-900 dark:text-white">
+                    <div className="my-1.5">
+                      <p className="text-xl sm:text-2xl font-light tracking-tight text-white">
                         {completedDaysCount}
-                        <span className="text-xs text-zinc-400 ml-1">/ {totalDays} Days</span>
+                        <span className="text-xs text-zinc-500 ml-1">/ {totalDays} D</span>
                       </p>
                     </div>
-                    <span className="text-micro text-zinc-600 dark:text-zinc-300 font-medium">
+                    <span className="text-[10px] text-zinc-400 font-medium">
                       {totalDays > 0 ? Math.round((completedDaysCount / totalDays) * 100) : 0}% Protocol Done
                     </span>
                   </div>
 
                   {/* Metric 2: Today's Status */}
-                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
-                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
                       Today&apos;s Protocol
                     </span>
-                    <div className="my-2 flex items-center gap-2">
+                    <div className="my-1.5 flex items-center gap-1.5">
                       {currentActiveCalendarDay?.userProgress?.isCompleted ? (
                         <>
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          <span className="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span className="text-xs sm:text-sm font-bold uppercase text-emerald-400">
                             Completed
                           </span>
                         </>
                       ) : (
                         <>
-                          <Clock className="w-5 h-5 text-amber-500" />
-                          <span className="text-sm sm:text-base font-semibold text-amber-600 dark:text-amber-400">
+                          <Clock className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs sm:text-sm font-bold uppercase text-amber-400">
                             In Progress
                           </span>
                         </>
                       )}
                     </div>
-                    <span className="text-micro text-zinc-500">
+                    <span className="text-[10px] text-zinc-500">
                       23:59 WIB Cutoff
                     </span>
                   </div>
 
                   {/* Metric 3: Current Day */}
-                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
-                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
                       Current Day
                     </span>
-                    <div className="my-2">
-                      <p className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-900 dark:text-white">
+                    <div className="my-1.5">
+                      <p className="text-xl sm:text-2xl font-light tracking-tight text-white">
                         Day {currentActiveCalendarDay?.dayNumber || 1}
-                        <span className="text-xs font-light text-zinc-400 ml-1">/ {totalDays}</span>
+                        <span className="text-xs text-zinc-500 ml-1">/ {totalDays}</span>
                       </p>
                     </div>
-                    <span className="text-micro text-zinc-400">
+                    <span className="text-[10px] text-zinc-400">
                       00:00 Daily Unlock
                     </span>
                   </div>
 
                   {/* Metric 4: Health Baseline */}
-                  <div className="glass-panel p-5 sm:p-6 rounded-3xl flex flex-col justify-between border border-zinc-200/70 dark:border-white/10 shadow-sm">
-                    <span className="text-micro text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-zinc-900/60 border border-white/10 backdrop-blur-md flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
                       Health Baseline
                     </span>
-                    <div className="my-2">
-                      <p className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white">
+                    <div className="my-1.5">
+                      <p className="text-lg sm:text-2xl font-light tracking-tight text-white truncate">
                         {healthProfile.weightKg && healthProfile.heightCm
                           ? `BMI ${(healthProfile.weightKg / Math.pow(healthProfile.heightCm / 100, 2)).toFixed(1)}`
                           : healthProfile.weightKg
@@ -1408,58 +1405,41 @@ export function DashboardClient({
                           : "Baseline Set"}
                       </p>
                     </div>
-                    <span className="text-micro text-zinc-600 dark:text-zinc-400 truncate">
+                    <span className="text-[10px] text-zinc-400 truncate">
                       {healthProfile.dietType || "Omnivore"}
                     </span>
                   </div>
                 </div>
 
                 {/* My Plan Hero Card (Click to open Plan Detail) */}
-                <div className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 p-7 sm:p-10 flex flex-col justify-between group shadow-2xl min-h-[380px] font-mono">
-                  {/* Full Background Cover Image */}
+                <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 p-4 sm:p-7 flex flex-col justify-between group shadow-2xl min-h-[300px] sm:min-h-[360px] font-mono bg-zinc-950">
+                  {/* Background Cover Image with Deep Athletic Vignette */}
                   <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <Image
                       src={currentProgram.coverImage || "/test.jpg"}
                       alt={currentProgram.title}
                       fill
-                      className="object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
+                      className="object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out brightness-[0.55]"
                     />
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/35 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/35 pointer-events-none" />
 
                   {/* Top Badges */}
-                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-micro px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/25 uppercase tracking-[0.2em] font-semibold text-white">
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 uppercase tracking-wider font-bold text-white">
                         My Plan
                       </span>
                       {hasActiveAccess ? (
-                        <span className="text-micro px-3 py-1 rounded-full chrome-badge text-white uppercase tracking-wider font-semibold">
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 uppercase tracking-wider font-bold">
                           Active Access
                         </span>
                       ) : (
-                        <span className="text-micro px-3 py-1 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/40 backdrop-blur-md uppercase tracking-wider font-semibold">
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/40 uppercase tracking-wider font-bold">
                           Tuition Pending
                         </span>
                       )}
-                      {currentProgram.locationType === "ONSITE" && (
-                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md flex items-center gap-1.5">
-                          <MapPin className="w-3 h-3 text-zinc-300" />
-                          <span>On-Site • {currentProgram.city || "Studio"}</span>
-                        </span>
-                      )}
-                      {currentProgram.locationType === "HYBRID" && (
-                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md flex items-center gap-1.5">
-                          <MapPin className="w-3 h-3 text-zinc-300" />
-                          <span>Hybrid • {currentProgram.city || "Studio"}</span>
-                        </span>
-                      )}
-                      {(!currentProgram.locationType || currentProgram.locationType === "ONLINE") && (
-                        <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md">
-                          Online Sanctuary
-                        </span>
-                      )}
-                      <span className="text-micro px-3 py-1 rounded-full bg-white/15 text-zinc-200 border border-white/20 backdrop-blur-md">
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/15 backdrop-blur-md uppercase tracking-wider">
                         {currentProgram.dayCount} Days
                       </span>
                     </div>
@@ -1469,7 +1449,7 @@ export function DashboardClient({
                         href={currentProgram.communityLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3.5 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 text-micro flex items-center gap-1.5 transition"
+                        className="px-3 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1 transition"
                       >
                         <span>Sanctuary Circle</span>
                         <ExternalLink className="w-3 h-3 opacity-70" />
@@ -1478,42 +1458,39 @@ export function DashboardClient({
                   </div>
 
                   {/* Center Content */}
-                  <div className="relative z-10 space-y-3 py-8 text-white">
-                    <span className="text-micro text-zinc-300 block tracking-[0.24em] uppercase font-semibold">
-                      Current Active Program
-                    </span>
-                    <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white leading-tight font-geometric">
+                  <div className="relative z-10 space-y-2 py-4 text-white">
+                    <h2 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
                       {currentProgram.title}
                     </h2>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 font-light">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-300">
                       {currentProgram.coachName && (
-                        <span>Lead Coach: <strong className="font-normal text-white">{currentProgram.coachName}</strong></span>
+                        <span>Coach: <strong className="font-semibold text-white">{currentProgram.coachName}</strong></span>
                       )}
                       <span>•</span>
                       <span>{formatShortDate(currentProgram.startDate)} – {formatShortDate(currentProgram.endDate)}</span>
                     </div>
-                    <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 max-w-xl text-xs text-zinc-200 flex items-center gap-3">
-                      <Calendar className="w-4 h-4 text-zinc-300 shrink-0" />
-                      <span>
-                        <strong>Today&apos;s Focus:</strong> Day {currentActiveCalendarDay?.dayNumber || 1} &bull; {currentActiveCalendarDay?.title || "Movement & Longevity"}
+                    <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 max-w-lg text-xs text-zinc-200 flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span className="truncate">
+                        <strong>Day {currentActiveCalendarDay?.dayNumber || 1}:</strong> {currentActiveCalendarDay?.title || "Movement Protocol"}
                       </span>
                     </div>
                   </div>
 
                   {/* Bottom Action Area */}
-                  <div className="relative z-10 pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-4">
+                  <div className="relative z-10 pt-3 border-t border-white/15 flex flex-wrap items-center justify-between gap-3">
                     {!hasActiveAccess ? (
                       <button
                         type="button"
                         onClick={() => handleOpenQrisCheckout(currentProgram.id)}
                         disabled={enrollingId === currentProgram.id}
-                        className="px-6 py-3 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2 shadow-xl transition"
+                        className="px-5 py-2 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl transition"
                       >
                         {enrollingId === currentProgram.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <>
-                            <QrCode className="w-4 h-4" /> Complete QRIS Payment
+                            <QrCode className="w-3.5 h-3.5" /> Complete QRIS Payment
                           </>
                         )}
                       </button>
@@ -1528,63 +1505,63 @@ export function DashboardClient({
                           setIsViewingPlanDetail(true);
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className="px-7 py-3 rounded-full chrome-button text-xs font-bold tracking-wide flex items-center gap-2.5 shadow-2xl transition hover:scale-[1.02]"
+                        className="px-5 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl transition active:scale-[0.98]"
                       >
                         <span>View Plan Detail</span>
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     )}
 
-                    <span className="text-[11px] text-zinc-300 font-light">
-                      Tap to open today&apos;s workout video, meal protocol, and daily reflection &rarr;
+                    <span className="text-[10px] text-zinc-400 font-light">
+                      Workout video &bull; meal protocol &bull; reflection &rarr;
                     </span>
                   </div>
                 </div>
               </div>
             ) : (
               /* VIEW 2: PLAN DETAIL (Hari ini apa saja gitu) */
-              <div className="space-y-8 font-mono">
+              <div className="space-y-5 sm:space-y-6 font-mono">
                 {/* Top Navigation Bar with Back Button */}
-                <div className="flex items-center justify-between border-b border-zinc-200/70 dark:border-white/10 pb-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <button
                     type="button"
                     onClick={() => {
                       setIsViewingPlanDetail(false);
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="px-4 py-2 rounded-full glass-panel-subtle text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white transition flex items-center gap-2"
+                    className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase tracking-wider text-zinc-200 hover:text-white transition flex items-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to Dashboard</span>
+                    <span>Dashboard</span>
                   </button>
 
                   <div className="text-right">
-                    <span className="text-micro text-zinc-400 uppercase tracking-wider block">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider block font-semibold">
                       {currentProgram.title}
                     </span>
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-white">
+                    <span className="text-[11px] font-semibold text-white">
                       Day {currentDay?.dayNumber || 1} of {totalDays}
                     </span>
                   </div>
                 </div>
 
                 {/* Day Selector Timeline */}
-                <div className="glass-panel p-6 sm:p-7 rounded-3xl space-y-4 border border-zinc-200/70 dark:border-white/10 shadow-xl font-mono">
-                  <div className="flex items-center justify-between border-b border-zinc-900/[0.06] dark:border-white/10 pb-4">
+                <div className="p-3.5 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl font-mono">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
                     <div className="space-y-0.5">
-                      <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
+                      <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
                         Curriculum Track
                       </span>
-                      <h3 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
+                      <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
                         Daily Schedule
                       </h3>
                     </div>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-light font-mono">
-                      23:59 Daily Streak Cutoff
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                      23:59 Cutoff
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none font-mono">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none font-mono">
                     {currentProgram.days.map((day, idx) => {
                       const isSelected = activeDayIndex === idx;
                       const isCompleted = !!day.userProgress?.isCompleted;
@@ -1597,42 +1574,42 @@ export function DashboardClient({
                           key={day.id}
                           type="button"
                           onClick={() => setActiveDayIndex(idx)}
-                          className={`min-w-[120px] p-4 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between shrink-0 gap-3 font-mono ${
+                          className={`min-w-[95px] sm:min-w-[110px] p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between shrink-0 gap-2 font-mono ${
                             isSelected
-                              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xl scale-[1.02]"
+                              ? "bg-white text-zinc-950 border-white shadow-xl scale-[1.02]"
                               : isCompleted
-                              ? "glass-panel-subtle border-white/30 text-zinc-700 dark:text-zinc-200"
+                              ? "bg-white/10 border-white/20 text-zinc-200"
                               : isSkipped
-                              ? "glass-panel-subtle border-zinc-300 dark:border-white/10 text-zinc-500 opacity-60"
+                              ? "bg-white/5 border-white/5 text-zinc-500 opacity-60"
                               : isLockedFuture
-                              ? "glass-panel-subtle border-zinc-200/40 dark:border-white/5 text-zinc-400 opacity-60"
-                              : "glass-panel-subtle border-zinc-200/60 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                              ? "bg-white/5 border-white/5 text-zinc-500 opacity-60"
+                              : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20"
                           }`}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="text-micro uppercase tracking-wider font-semibold">
+                            <span className="text-[10px] uppercase tracking-wider font-bold">
                               Day {day.dayNumber}
                             </span>
                             {isCompleted ? (
-                              <CheckCircle className={`w-3.5 h-3.5 ${isSelected ? "text-white dark:text-zinc-950" : "text-zinc-200"}`} />
+                              <CheckCircle className={`w-3 h-3 ${isSelected ? "text-zinc-950" : "text-emerald-400"}`} />
                             ) : isSkipped ? (
-                              <AlertTriangle className="w-3.5 h-3.5 text-zinc-400" />
+                              <AlertTriangle className="w-3 h-3 text-zinc-500" />
                             ) : isLockedFuture ? (
-                              <Lock className="w-3.5 h-3.5 opacity-60" />
+                              <Lock className="w-3 h-3 opacity-60" />
                             ) : (
-                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : isToday ? "bg-white animate-pulse" : "bg-zinc-400"}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-zinc-950" : isToday ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
                             )}
                           </div>
 
                           <div className="space-y-0.5">
-                            <span className="text-[11px] block truncate font-medium">
+                            <span className="text-[10px] block truncate font-semibold uppercase">
                               {day.dayType === "TRAINING_DAY"
                                 ? "Training"
                                 : day.dayType === "REST_DAY"
                                 ? "Recovery"
                                 : "Connection"}
                             </span>
-                            <span className="text-[10px] opacity-70 block font-light">
+                            <span className="text-[9px] opacity-70 block font-light">
                               {formatShortDate(day.unlockDate)}
                             </span>
                           </div>
@@ -1644,23 +1621,23 @@ export function DashboardClient({
 
                 {/* Daily Content Bento Grid */}
                 {currentDay && (
-                  <div className="space-y-6 sm:space-y-8">
+                  <div className="space-y-4 sm:space-y-6">
                     {/* Day Title Banner */}
-                    <div className="glass-panel rounded-3xl p-7 sm:p-9 border border-zinc-200/70 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500">
+                    <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400">
                             Day {currentDay.dayNumber} &bull; {formatShortDate(currentDay.unlockDate)}
                           </span>
-                          <span className="text-micro uppercase tracking-[0.18em] font-semibold px-3 py-1 rounded-full glass-panel-subtle text-zinc-700 dark:text-zinc-300">
+                          <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-white/10 text-zinc-300">
                             {currentDay.dayType === "TRAINING_DAY"
-                              ? "Training &bull; Movement Sequence"
+                              ? "Training Protocol"
                               : currentDay.dayType === "REST_DAY"
-                              ? "Recovery &bull; Parasympathetic"
-                              : "Connection &bull; Live Circle"}
+                              ? "Recovery Protocol"
+                              : "Connection Circle"}
                           </span>
                         </div>
-                        <h2 className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                        <h2 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
                           {currentDay.title}
                         </h2>
                         {currentDay.dayType !== "REST_DAY" && (currentDay.coachName || currentDay.recommendedFor) && (
@@ -2179,28 +2156,28 @@ export function DashboardClient({
           );
 
           return (
-            <div className="space-y-8 sm:space-y-10 font-mono">
-              {/* Editorial Header */}
-              <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-zinc-200/70 dark:border-white/10 space-y-3">
-                <div className="flex items-center gap-2 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                  <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
-                    Curated Programs
+            <div className="space-y-5 sm:space-y-6 font-mono">
+              {/* Header */}
+              <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-1.5 shadow-xl">
+                <div className="flex items-center gap-1.5 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
+                    Curated Cohorts
                   </span>
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
-                  Longevity &amp; Movement <span className="font-geometric italic text-zinc-500 dark:text-zinc-400 font-light">Protocols</span>
+                <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
+                  Available Programs
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-xl font-light leading-relaxed">
-                  Choose your structured longevity and movement protocol. Strictly capped at 35 members per program to preserve intimate coach attention.
+                <p className="text-xs text-zinc-400 font-light">
+                  Precision longevity and movement curriculums. 35-member cohort cap.
                 </p>
               </div>
 
               {/* Search Bar & Filter Controls */}
-              <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-zinc-200/70 dark:border-white/10 space-y-4">
+              <div className="rounded-2xl p-3.5 sm:p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-lg">
                 {/* Search Bar */}
                 <div className="relative">
-                  <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={programSearch}
@@ -2208,8 +2185,8 @@ export function DashboardClient({
                       setProgramSearch(e.target.value);
                       setProgramsPage(1);
                     }}
-                    placeholder="Enter keyword to search programs..."
-                    className="w-full pl-11 pr-10 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                    placeholder="Enter keyword to search..."
+                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                   />
                   {programSearch && (
                     <button
@@ -2218,24 +2195,24 @@ export function DashboardClient({
                         setProgramSearch("");
                         setProgramsPage(1);
                       }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
 
                 {/* Filter Tabs (Format & Availability) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                   {/* Format Filters */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-micro uppercase tracking-wider text-zinc-400 mr-1 flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 mr-1 flex items-center gap-1 font-semibold">
                       <Filter className="w-3 h-3" /> Format:
                     </span>
                     {[
-                      { id: "ALL", label: "All Formats" },
-                      { id: "ONLINE", label: "Online Sanctuary" },
-                      { id: "ONSITE", label: "On-Site Studio" },
+                      { id: "ALL", label: "All" },
+                      { id: "ONLINE", label: "Online" },
+                      { id: "ONSITE", label: "On-Site" },
                       { id: "HYBRID", label: "Hybrid" },
                     ].map((fmt) => (
                       <button
@@ -2245,10 +2222,10 @@ export function DashboardClient({
                           setFormatFilter(fmt.id as any);
                           setProgramsPage(1);
                         }}
-                        className={`px-3 py-1.5 rounded-full text-xs transition ${
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
                           formatFilter === fmt.id
-                            ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
-                            : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                            ? "bg-white text-zinc-950 shadow-sm"
+                            : "bg-white/5 text-zinc-400 hover:text-white"
                         }`}
                       >
                         {fmt.label}
@@ -2257,13 +2234,13 @@ export function DashboardClient({
                   </div>
 
                   {/* Status Filters */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-micro uppercase tracking-wider text-zinc-400 mr-1">Status:</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 mr-1 font-semibold">Status:</span>
                     {[
-                      { id: "ALL", label: "All Status" },
-                      { id: "OPEN", label: "Open Reg." },
+                      { id: "ALL", label: "All" },
+                      { id: "OPEN", label: "Open" },
                       { id: "ACTIVE", label: "Active" },
-                      { id: "COMING_SOON", label: "Coming Soon" },
+                      { id: "COMING_SOON", label: "Soon" },
                     ].map((st) => (
                       <button
                         key={st.id}
@@ -2272,10 +2249,10 @@ export function DashboardClient({
                           setAvailabilityFilter(st.id as any);
                           setProgramsPage(1);
                         }}
-                        className={`px-3 py-1.5 rounded-full text-xs transition ${
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
                           availabilityFilter === st.id
-                            ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
-                            : "glass-panel-subtle text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                            ? "bg-white text-zinc-950 shadow-sm"
+                            : "bg-white/5 text-zinc-400 hover:text-white"
                         }`}
                       >
                         {st.label}
@@ -2287,13 +2264,13 @@ export function DashboardClient({
 
               {/* Programs Grid */}
               {paginatedPrograms.length === 0 ? (
-                <div className="glass-panel rounded-3xl p-12 text-center border border-zinc-200/70 dark:border-white/10 space-y-3">
-                  <Compass className="w-8 h-8 text-zinc-400 mx-auto opacity-50" />
-                  <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                <div className="rounded-2xl p-8 text-center bg-zinc-900/60 border border-white/10 space-y-2">
+                  <Compass className="w-6 h-6 text-zinc-500 mx-auto" />
+                  <h3 className="text-sm font-semibold text-white">
                     No programs found
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto font-light">
-                    No programs match your current search and filter criteria.
+                  <p className="text-xs text-zinc-400 max-w-sm mx-auto font-light">
+                    Try adjusting your search or filter keywords.
                   </p>
                   <button
                     type="button"
@@ -2303,13 +2280,13 @@ export function DashboardClient({
                       setAvailabilityFilter("ALL");
                       setProgramsPage(1);
                     }}
-                    className="px-5 py-2 rounded-full glass-panel-subtle text-xs font-semibold text-zinc-900 dark:text-white mt-2"
+                    className="px-4 py-1.5 rounded-full bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider mt-2"
                   >
                     Reset Filters
                   </button>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-6 sm:gap-8">
+                <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
                   {paginatedPrograms.map((prog, idx) => {
                     const enrolled = myPrograms.find((e) => e.programId === prog.id);
                     const isActive = enrolled?.status === "ACTIVE";
@@ -2328,7 +2305,7 @@ export function DashboardClient({
                     return (
                       <div
                         key={prog.id}
-                        className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 min-h-[460px] p-7 sm:p-8 flex flex-col justify-between group shadow-xl"
+                        className="relative rounded-2xl overflow-hidden border border-white/15 min-h-[320px] sm:min-h-[360px] p-4 sm:p-6 flex flex-col justify-between group shadow-xl bg-zinc-950"
                       >
                         {/* Full Background Image */}
                         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -2336,131 +2313,94 @@ export function DashboardClient({
                             src={prog.coverImage || (idx % 2 === 0 ? "/test.jpg" : "/pic.jpg")}
                             alt={prog.title}
                             fill
-                            className="object-cover object-center scale-105 group-hover:scale-110 transition-transform duration-700"
+                            className="object-cover object-center brightness-[0.55] scale-100 group-hover:scale-105 transition-transform duration-500"
                           />
                         </div>
-                        {/* Luminous light scrim */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30 pointer-events-none" />
 
                         {/* Top Badges */}
-                        <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5 font-mono">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-3 py-1 rounded-full glass-image-overlay text-micro uppercase tracking-[0.2em] font-semibold text-white">
+                        <div className="relative z-10 flex flex-wrap items-center justify-between gap-1.5 font-mono">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] uppercase tracking-wider font-semibold text-white">
                               {prog.dayCount} Days
                             </span>
 
                             {prog.locationType === "ONSITE" && (
-                              <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
+                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-zinc-300" />
                                 <span>On-Site &bull; {prog.city || "Studio"}</span>
                               </span>
                             )}
 
                             {prog.locationType === "HYBRID" && (
-                              <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
+                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-zinc-300" />
                                 <span>Hybrid &bull; {prog.city || "Studio"}</span>
                               </span>
                             )}
 
                             {(!prog.locationType || prog.locationType === "ONLINE") && (
-                              <span className="px-3 py-1 rounded-full glass-image-overlay border border-white/20 text-micro uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md">
-                                Online Protocol
+                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md">
+                                Online
                               </span>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {isActive ? (
-                              <span className="px-3 py-1 rounded-full chrome-badge text-white text-micro uppercase tracking-[0.2em] font-semibold">
-                                Active Plan
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] uppercase tracking-wider font-bold">
+                                Enrolled
                               </span>
                             ) : isPending ? (
-                              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-micro uppercase tracking-[0.2em] font-semibold">
-                                Pending Payment
+                              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-[10px] uppercase tracking-wider font-bold">
+                                Pending
                               </span>
-                            ) : publicBadge === "Coming Soon" ? (
-                              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                <span>Coming Soon</span>
-                              </span>
-                            ) : publicBadge === "Full" ? (
-                              <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400 text-purple-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
-                                <span>Full (0 spots)</span>
-                              </span>
-                            ) : publicBadge === "Close Registration" ? (
-                              <span className="px-3 py-1 rounded-full bg-zinc-800/80 border border-zinc-600 text-zinc-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
-                                <span>Reg. Closed</span>
-                              </span>
-                            ) : publicBadge === "On going" ? (
-                              <span className="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400 text-blue-300 text-micro uppercase tracking-[0.2em] font-semibold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                                <span>On Going</span>
-                              </span>
-                            ) : publicBadge === "End" ? (
-                              <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 text-micro uppercase tracking-[0.2em] font-semibold flex items-center gap-1.5">
-                                <span>Concluded</span>
+                            ) : publicBadge === "Open Registration" ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] uppercase tracking-wider font-bold">
+                                Open
                               </span>
                             ) : (
-                              <span className="px-3 py-1 rounded-full glass-image-overlay text-micro uppercase tracking-wider font-medium text-white flex items-center gap-1.5">
-                                <Users className="w-3 h-3 text-zinc-300" />
-                                <span>{remainingSlots} spots left</span>
+                              <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 text-[10px] uppercase tracking-wider font-semibold">
+                                {publicBadge}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Bottom Floating Glassmorphic Content Card */}
-                        <div className="relative z-10 glass-image-overlay rounded-2xl p-6 space-y-4 text-white border border-white/15 backdrop-blur-xl">
-                          <div className="space-y-1.5 font-mono">
-                            <div className="flex items-center gap-2 text-micro uppercase tracking-[0.18em] text-zinc-300 font-medium">
+                        {/* Floating Content Card */}
+                        <div className="relative z-10 rounded-xl p-3.5 sm:p-4 space-y-2 text-white border border-white/15 bg-black/60 backdrop-blur-md">
+                          <div className="space-y-1 font-mono">
+                            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-zinc-400">
                               <span>{prog.coachName}</span>
                               <span>&bull;</span>
                               <span>Starts {formatShortDate(prog.startDate)}</span>
                             </div>
 
-                            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-geometric">
+                            <h3 className="text-base sm:text-lg font-light uppercase tracking-tight text-white font-geometric">
                               {prog.title}
                             </h3>
 
-                            <p className="text-xs text-zinc-200/90 line-clamp-2 leading-relaxed font-light font-mono">
+                            <p className="text-[11px] text-zinc-300 line-clamp-1 font-light font-mono">
                               {prog.description}
                             </p>
-
-                            {prog.locationType !== "ONLINE" && prog.virtualFallbackAvailable && (
-                              <div className="pt-1 flex items-center gap-1.5 text-micro uppercase tracking-wider text-zinc-300 font-medium font-mono">
-                                <Video className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
-                                <span>Live streaming broadcast included</span>
-                              </div>
-                            )}
                           </div>
 
-                          <div className="pt-3 border-t border-white/15 flex items-center justify-between gap-3 font-mono">
+                          <div className="pt-2 border-t border-white/15 flex items-center justify-between gap-2 font-mono">
                             <div>
-                              <span className="text-micro uppercase tracking-[0.2em] text-zinc-400 block mb-0.5">
-                                {publicBadge === "Coming Soon" ? "Registration" : "Tuition"}
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Tuition</span>
+                              <span className="text-xs sm:text-sm font-bold text-white tracking-tight">
+                                Rp {prog.price.toLocaleString("id-ID")}
                               </span>
-                              {publicBadge === "Coming Soon" ? (
-                                <span className="text-xs font-medium text-zinc-300">
-                                  {prog.registrationOpenDate
-                                    ? `Opens ${formatShortDate(prog.registrationOpenDate)}`
-                                    : "Announced Soon (TBA)"}
-                                </span>
-                              ) : (
-                                <span className="text-base font-bold text-white tracking-tight">
-                                  Rp {prog.price.toLocaleString("id-ID")}
-                                </span>
-                              )}
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => setDetailedProgram(prog)}
-                                className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition"
-                                title="View Overview"
+                                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition"
+                                title="View Details"
                               >
-                                <Info className="w-4 h-4" />
+                                <Info className="w-3.5 h-3.5" />
                               </button>
 
                               {isActive ? (
@@ -2610,30 +2550,30 @@ export function DashboardClient({
         {/* TAB 3: PROFILE (PERSONAL, MEDICAL, PAYMENTS & ACCOUNT MANAGEMENT)     */}
         {/* ===================================================================== */}
         {activeTab === "profile" && (
-          <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10 font-mono">
+          <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6 font-mono">
             {/* Header */}
-            <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-zinc-200/70 dark:border-white/10 space-y-3">
-              <div className="flex items-center gap-2 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-                <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono">
+            <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-1.5 shadow-xl">
+              <div className="flex items-center gap-1.5 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
                   Member Profile
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extralight tracking-tight text-zinc-900 dark:text-white font-geometric">
-                Account &amp; <span className="font-geometric italic text-zinc-500 dark:text-zinc-400 font-light">Wellness Profile</span>
+              <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
+                Profile &amp; Health
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-light leading-relaxed">
-                Manage your personal information, customer-filled medical baseline, payment history, and account credentials.
+              <p className="text-xs text-zinc-400 font-light">
+                Personal info, medical baseline, and account settings.
               </p>
             </div>
 
             {/* Sub-Tab Navigation Bar */}
-            <div className="flex items-center gap-1.5 p-1.5 rounded-2xl glass-panel border border-zinc-200/70 dark:border-white/10 overflow-x-auto scrollbar-none text-xs">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 overflow-x-auto scrollbar-none text-[10px] font-bold uppercase tracking-wider">
               {[
-                { id: "personal", label: "Personal Info", icon: User },
-                { id: "medical", label: "Health & Medical", icon: Activity },
-                { id: "payments", label: "Payment History", icon: CreditCard },
-                { id: "account", label: "Account & Security", icon: Sliders },
+                { id: "personal", label: "Personal", icon: User },
+                { id: "medical", label: "Medical", icon: Activity },
+                { id: "payments", label: "Payments", icon: CreditCard },
+                { id: "account", label: "Security", icon: Sliders },
               ].map((sub) => {
                 const Icon = sub.icon;
                 const isSel = profileSubTab === sub.id;
@@ -2642,13 +2582,13 @@ export function DashboardClient({
                     key={sub.id}
                     type="button"
                     onClick={() => setProfileSubTab(sub.id as any)}
-                    className={`px-4 py-2 rounded-xl font-medium transition shrink-0 flex items-center gap-2 ${
+                    className={`px-3 py-1.5 rounded-lg transition shrink-0 flex items-center gap-1.5 ${
                       isSel
-                        ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-sm"
-                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "text-zinc-400 hover:text-white"
                     }`}
                   >
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className="w-3 h-3" />
                     <span>{sub.label}</span>
                   </button>
                 );
@@ -2659,35 +2599,32 @@ export function DashboardClient({
             {profileSubTab === "personal" && (
               <form
                 onSubmit={handleUpdateProfile}
-                className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-sm"
+                className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-4 shadow-sm"
               >
-                <div className="space-y-1">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
                     Identity Details
                   </span>
-                  <h3 className="text-lg font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
+                  <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
                     Personal Information
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                    Update your contact details, personal bio, and address.
-                  </p>
                 </div>
 
                 {profileMsg && (
                   <div
-                    className={`p-4 rounded-2xl text-xs font-medium font-mono ${
+                    className={`p-3 rounded-xl text-xs font-medium font-mono ${
                       profileMsg.type === "success"
-                        ? "bg-white/10 border border-white/20 text-zinc-900 dark:text-white"
-                        : "bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300"
+                        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
+                        : "bg-red-500/10 border border-red-500/20 text-red-300"
                     }`}
                   >
                     {profileMsg.text}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Full Name
                     </label>
                     <input
@@ -2698,25 +2635,25 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, fullName: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Email Address
                     </label>
                     <input
                       type="email"
                       disabled
                       value={user.email}
-                      className="w-full px-4 py-3 rounded-2xl glass-panel-subtle text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 cursor-not-allowed border border-zinc-200/50 dark:border-white/5"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 text-xs text-zinc-500 cursor-not-allowed border border-white/5"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                      WhatsApp / Phone Number
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
+                      WhatsApp / Phone
                     </label>
                     <input
                       type="tel"
@@ -2725,12 +2662,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, phone: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Age
                     </label>
                     <input
@@ -2740,12 +2677,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, age: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Gender
                     </label>
                     <select
@@ -2753,7 +2690,7 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, gender: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm cursor-pointer"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-white/10 text-xs text-white cursor-pointer focus:outline-none focus:border-white/30"
                     >
                       <option value="">Select gender</option>
                       <option value="Male">Male</option>
@@ -2763,7 +2700,7 @@ export function DashboardClient({
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Occupation
                     </label>
                     <input
@@ -2773,12 +2710,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, occupation: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Street Address
                     </label>
                     <input
@@ -2788,12 +2725,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, address: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       City
                     </label>
                     <input
@@ -2803,12 +2740,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, city: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Province / State
                     </label>
                     <input
@@ -2818,12 +2755,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, province: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Emergency Contact Name
                     </label>
                     <input
@@ -2833,12 +2770,12 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, emergencyContactName: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
+                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">
                       Emergency Contact Phone
                     </label>
                     <input
@@ -2848,7 +2785,7 @@ export function DashboardClient({
                       onChange={(e) =>
                         setProfileForm((p) => ({ ...p, emergencyContactPhone: e.target.value }))
                       }
-                      className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
                     />
                   </div>
                 </div>
@@ -2857,7 +2794,7 @@ export function DashboardClient({
                   <button
                     type="submit"
                     disabled={isUpdatingProfile}
-                    className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
+                    className="px-5 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-bold uppercase tracking-wider shadow-sm transition active:scale-[0.98]"
                   >
                     {isUpdatingProfile ? "Saving..." : "Save Changes"}
                   </button>
@@ -2869,27 +2806,27 @@ export function DashboardClient({
             {profileSubTab === "medical" && (
               <form
                 onSubmit={handleSaveHealthProfile}
-                className="glass-panel rounded-3xl p-7 sm:p-9 space-y-8 border border-zinc-200/70 dark:border-white/10 shadow-sm"
+                className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-5 shadow-sm"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 font-mono block">
-                      Physical &amp; Lifestyle Baseline
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span className="text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-400 font-mono block">
+                      Physical Baseline
                     </span>
                   </div>
-                  <h3 className="text-xl font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
-                    Health &amp; Body Assessment
+                  <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+                    Health &amp; Body Telemetry
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                    Track your posture baseline photos, anthropometric measurements, dietary style, energy levels, and routine consistency.
+                  <p className="text-xs text-zinc-400 font-light">
+                    Measurements, dietary preferences, and posture baselines.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-zinc-900/5 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 font-light flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-zinc-300 font-light flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                   <span>
-                    This section is exclusively self-managed by you. BMS coaches view this as read-only telemetry to tailor workout adaptations safely.
+                    Self-managed by you. Coaches view as read-only telemetry.
                   </span>
                 </div>
 

@@ -51,21 +51,21 @@ export function DailyReflectionCard({
   const currentLevel = HAPPINESS_LEVELS.find((h) => h.rate === rate) || HAPPINESS_LEVELS[4];
 
   return (
-    <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 relative overflow-hidden group border border-zinc-200/70 dark:border-white/10 shadow-xl">
+    <div className="rounded-2xl p-4 sm:p-6 space-y-4 relative overflow-hidden group bg-zinc-900/60 border border-white/10 shadow-xl">
       {/* Background Soft Metallic Aura */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Header with High Negative Space */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-        <div className="space-y-1.5">
-          <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
-            Phase 03 • Evening Decompression
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-white/10 pb-3">
+        <div className="space-y-1">
+          <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
+            Phase 03 &bull; Recovery
           </span>
-          <h3 className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white font-geometric">
-            Dear Diary &amp; Daily Fulfillment
+          <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
+            Daily Reflection &amp; Vitality
           </h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-md leading-relaxed font-mono">
-            Take 3 minutes before sleep to decompress your mind and log your daily fulfillment.
+          <p className="text-xs text-zinc-400 font-light max-w-md leading-relaxed font-mono">
+            Evening decompression and daily vitality rate.
           </p>
         </div>
 

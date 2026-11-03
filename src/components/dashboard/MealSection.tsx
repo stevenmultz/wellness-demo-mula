@@ -42,18 +42,18 @@ export function MealSection({
   };
 
   return (
-    <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 relative overflow-hidden group border border-zinc-200/70 dark:border-white/10 shadow-xl">
-      {/* Header with High Negative Space */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-        <div className="space-y-1.5">
-          <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
+    <div className="rounded-2xl p-4 sm:p-6 space-y-4 relative overflow-hidden group bg-zinc-900/60 border border-white/10 shadow-xl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-white/10 pb-3">
+        <div className="space-y-1">
+          <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
             Clean Nourishment
           </span>
-          <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-            Nutrition &amp; Dietary Protocol
+          <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
+            Nutrition Protocol
           </h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-md leading-relaxed font-mono">
-            Anti-inflammatory whole food protocol for steady cellular energy.
+          <p className="text-xs text-zinc-400 font-light max-w-md leading-relaxed font-mono">
+            Whole-food nutrition protocol for steady metabolic energy.
           </p>
         </div>
 

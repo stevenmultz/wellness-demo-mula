@@ -253,26 +253,26 @@ export function WorkoutSection({
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 1. SELEKSI JENIS TRAINING & SYNCHRONIZED MOVEMENT CHECKLIST */}
-      <div className="glass-panel rounded-3xl p-7 sm:p-9 space-y-6 border border-zinc-200/70 dark:border-white/10 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-900/[0.06] dark:border-white/10 pb-5">
-          <div className="space-y-1.5">
-            <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-mono">
-              Workout Option &amp; Checklist
+      <div className="rounded-2xl p-4 sm:p-6 space-y-4 bg-zinc-900/60 border border-white/10 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-white/10 pb-3">
+          <div className="space-y-1">
+            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
+              Workout Selection
             </span>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-              Today&apos;s Workout Selection &amp; Checklist
+            <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
+              Movement Protocol &amp; Reps
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light max-w-lg leading-relaxed font-mono">
-              Select your preferred workout option for Day {dayNumber}. If your reps match the recommendation, simply tap the checklist button—or enter your actual reps achieved.
+            <p className="text-xs text-zinc-400 font-light max-w-lg leading-relaxed font-mono">
+              Choose your workout track and tap to confirm completed repetitions.
             </p>
           </div>
 
           {currentGroup && (
             <div className="shrink-0 flex items-center gap-2">
-              <span className="text-xs px-4 py-1.5 rounded-full font-mono font-medium glass-panel-subtle border border-zinc-200/70 dark:border-white/15 text-zinc-900 dark:text-white">
-                {completedInCurrentGroup} of {currentGroup.movements.length} Completed
+              <span className="text-[11px] px-3 py-1 rounded-full font-mono font-semibold bg-white/10 text-white">
+                {completedInCurrentGroup} / {currentGroup.movements.length} Completed
               </span>
             </div>
           )}
