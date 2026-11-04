@@ -59,10 +59,11 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Always reuse client instance in serverless environments to prevent connection exhaustion
+globalForPrisma.prisma = prisma;
 
-// Optimize SQLite Concurrency (WAL Mode + 5-second Busy Timeout) to prevent SQLITE_BUSY locks
-if (!dbUrl || dbUrl.startsWith("file:")) {
+// Optimize SQLite Concurrency (WAL Mode + 5-second Busy Timeout) strictly when file SQLite is used
+if (dbUrl && dbUrl.startsWith("file:")) {
   prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;").catch(() => {});
   prisma.$queryRawUnsafe("PRAGMA busy_timeout = 5000;").catch(() => {});
 }
