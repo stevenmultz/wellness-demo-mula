@@ -185,7 +185,7 @@ async function main() {
         dayType: "TRAINING_DAY",
         dayNotifications: JSON.stringify([
           {
-            time: "13:05",
+            time: "13:20",
             message: "reminder test satu oi oi",
             label: "Movement Protocol",
           },
@@ -323,7 +323,7 @@ async function main() {
         dayType: "REST_DAY",
         dayNotifications: JSON.stringify([
           {
-            time: "13:07",
+            time: "13:22",
             message: "reminder test 2 woi oioioioi",
             label: "Recovery Alert",
           },
@@ -459,7 +459,7 @@ async function main() {
         dayType: "CONNECTION_DAY",
         dayNotifications: JSON.stringify([
           {
-            time: "13:10",
+            time: "13:24",
             message: "mimimii ketiga",
             label: "Sanctuary Circle",
           },
