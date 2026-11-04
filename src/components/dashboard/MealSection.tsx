@@ -42,34 +42,34 @@ export function MealSection({
   };
 
   return (
-    <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
+    <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm font-mono transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-3">
         <div className="space-y-0.5">
-          <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
             Nourishment Protocol
           </span>
-          <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+          <h3 className="text-sm sm:text-base font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
             Fuel &amp; Nutrition
           </h3>
         </div>
 
-        <span className="text-[10px] px-3 py-1 rounded-full uppercase tracking-wider font-semibold bg-white/10 border border-white/15 text-white">
+        <span className="text-[10px] px-3 py-1 rounded-full uppercase tracking-wider font-semibold bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white">
           Whole Food
         </span>
       </div>
 
       {/* Coach Meal Recommendation Text */}
       <div className="space-y-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block font-semibold">
           Daily Recommendation
         </span>
         {mealRecommendation ? (
-          <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-300 font-light leading-relaxed whitespace-pre-line">
+          <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-white/10 text-xs text-zinc-800 dark:text-zinc-300 font-light leading-relaxed whitespace-pre-line">
             {mealRecommendation}
           </div>
         ) : (
-          <p className="text-xs text-zinc-400 italic p-3 rounded-xl bg-black/40 border border-white/5">
+          <p className="text-xs text-zinc-500 italic p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/60 dark:border-white/5">
             Maintain clean hydration and balanced whole foods.
           </p>
         )}
@@ -78,10 +78,10 @@ export function MealSection({
       {/* Compliance Status Selector */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+          <span className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
             Compliance
           </span>
-          <span className="text-zinc-300 font-medium">
+          <span className="text-zinc-700 dark:text-zinc-300 font-medium">
             {compliance === "FULL"
               ? "100% Compliant"
               : compliance === "PARTIAL"
@@ -105,8 +105,8 @@ export function MealSection({
                 onClick={() => setCompliance(item.key)}
                 className={`py-2 px-2 rounded-xl text-xs font-semibold tracking-wider uppercase border transition-all text-center ${
                   isSelected
-                    ? "bg-white text-zinc-950 border-white shadow-md"
-                    : "bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white shadow-sm"
+                    : "bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-white/20"
                 }`}
               >
                 {item.label}
@@ -118,7 +118,7 @@ export function MealSection({
 
       {/* Notes Textarea */}
       <div className="space-y-1.5">
-        <label className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
+        <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block font-semibold">
           Meal Notes
         </label>
         <textarea
@@ -127,7 +127,7 @@ export function MealSection({
           disabled={isPast2359}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Log meals, supplements, or dietary notes..."
-          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs font-light text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 placeholder:text-zinc-600"
+          className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-white/10 text-xs font-light text-zinc-900 dark:text-white leading-relaxed resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-white/40 placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
         />
       </div>
 
@@ -138,7 +138,7 @@ export function MealSection({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm"
+            className="px-5 py-2 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm transition active:scale-95"
           >
             {isSaving ? (
               <>
@@ -147,7 +147,7 @@ export function MealSection({
               </>
             ) : savedSuccess ? (
               <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Saved</span>
               </>
             ) : (

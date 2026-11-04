@@ -1289,7 +1289,7 @@ export function DashboardClient({
     };
 
     checkScheduledDispatches();
-    const interval = setInterval(checkScheduledDispatches, 5000);
+    const interval = setInterval(checkScheduledDispatches, 30000);
     return () => clearInterval(interval);
   }, [myEnrolledPrograms, dispatchedCadenceKeys]);
 
@@ -1398,175 +1398,206 @@ export function DashboardClient({
     currentProgram?.days?.find((d) => d.isCalendarUnlocked && !d.isPast2359) ||
     currentProgram?.days?.[0];
 
+  const isWorkoutDone = !!(
+    currentActiveCalendarDay?.userProgress?.isCompleted ||
+    currentActiveCalendarDay?.userProgress?.videoWatched
+  );
+  const isMealDone = !!currentActiveCalendarDay?.userProgress?.mealCompliance;
+  const isReflectionDone = !!currentActiveCalendarDay?.userProgress?.dailyReflection;
+  const completedTasksCount = (isWorkoutDone ? 1 : 0) + (isMealDone ? 1 : 0) + (isReflectionDone ? 1 : 0);
+
   const formatShortDate = (iso: string | Date) => {
     const d = new Date(iso);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   return (
-    <div className="min-h-screen text-zinc-100 flex flex-col relative overflow-x-hidden bg-neutral-950 font-mono">
-      {/* Top Minimalist Header: Left Avatar, Center '+', Right 'My Plan' Dropdown */}
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden font-mono bg-zinc-50 dark:bg-[#070709] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+      {/* Top Minimalist Header: Left Avatar & Name, Right '+ BMS' Dropdown Trigger */}
       <header
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-3 sm:px-4 rounded-full blur-dock flex items-center justify-between border border-white/10 shadow-2xl transition-all duration-300 font-mono ${
+        className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-14 px-3.5 sm:px-5 rounded-full flex items-center justify-between border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl shadow-lg transition-all duration-300 font-mono ${
           isHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-24 opacity-0 pointer-events-none"
         }`}
       >
-        {/* LEFT: User Profile Avatar */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsProfileSidebarOpen(true);
-              setProfileActiveDetail(null);
-            }}
-            className="relative group focus:outline-none"
-            title="Open Profile Sidebar"
-          >
-            <div className="w-8 h-8 rounded-full border border-white/20 bg-zinc-900 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-white/60 shadow-sm">
-              {healthProfile?.photoFrontUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={healthProfile.photoFrontUrl}
-                  alt={user.fullName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-[11px] font-semibold text-white uppercase tracking-wider font-mono">
-                  {user.fullName ? user.fullName.charAt(0) : "U"}
-                </span>
-              )}
-            </div>
-          </button>
-        </div>
-
-        {/* CENTER: Minimalist '+ BMS' Logo */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
-          <Link href="/" className="flex items-center gap-1.5 group focus:outline-none" title="Home">
-            <span className="font-mono font-light text-xl text-white leading-none tracking-normal group-hover:opacity-80 transition select-none">
-              +
-            </span>
-            <span className="font-geometric font-light text-xs tracking-[0.28em] text-white uppercase">
-              BMS
-            </span>
-          </Link>
-        </div>
-
-        {/* RIGHT: Dropdown Menu containing My Plan */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsPlanDropdownOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-mono uppercase tracking-wider transition active:scale-95"
-          >
-            <Calendar className="w-3 h-3 text-zinc-300" />
-            <span className="font-semibold">My Plan</span>
-            <ChevronDown
-              className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${
-                isPlanDropdownOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {/* Floating Dropdown */}
-          {isPlanDropdownOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
-                onClick={() => setIsPlanDropdownOpen(false)}
+        {/* LEFT: User Profile Avatar & Name */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsProfileSidebarOpen(true);
+            setProfileActiveDetail(null);
+          }}
+          className="flex items-center gap-2.5 sm:gap-3 group focus:outline-none text-left"
+          title="Open Profile Settings"
+        >
+          <div className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/20 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-zinc-400 dark:group-hover:border-white/50 shadow-sm shrink-0">
+            {healthProfile?.photoFrontUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={healthProfile.photoFrontUrl}
+                alt={user.fullName}
+                className="w-full h-full object-cover"
               />
-              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-neutral-950/95 backdrop-blur-2xl border border-white/15 p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 font-mono">
-                <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-semibold">
-                    Enrolled Protocols ({myEnrolledPrograms.length})
-                  </span>
-                </div>
+            ) : (
+              <span className="text-[11px] font-semibold text-zinc-800 dark:text-white uppercase tracking-wider font-mono">
+                {user.fullName ? user.fullName.charAt(0) : "U"}
+              </span>
+            )}
+          </div>
+          <span className="text-xs sm:text-sm font-medium tracking-tight text-zinc-900 dark:text-white truncate max-w-[130px] sm:max-w-[200px]">
+            {user.fullName}
+          </span>
+        </button>
 
-                <div className="py-1 max-h-60 overflow-y-auto space-y-1">
-                  {myEnrolledPrograms.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-zinc-500 font-light">
-                      No active enrolled plans.
-                    </div>
-                  ) : (
-                    myEnrolledPrograms.map((prog) => {
-                      const isSelected = selectedProgId === prog.id && isViewingPlanDetail;
-                      const completedCount = prog.days.filter((d) => d.userProgress?.isCompleted).length;
-                      const progressPct =
-                        prog.days.length > 0 ? Math.round((completedCount / prog.days.length) * 100) : 0;
-                      return (
+        {/* RIGHT: Theme Toggle & '+ BMS' Brand Dropdown */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle className="w-8 h-8 p-1.5" />
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsPlanDropdownOpen((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white text-xs font-mono uppercase tracking-wider transition active:scale-95"
+              title="My Enrolled Plans"
+            >
+              <span className="font-mono font-light text-base leading-none select-none">+</span>
+              <span className="font-geometric font-semibold text-xs tracking-[0.22em] uppercase">BMS</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 transition-transform duration-200 ${
+                  isPlanDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {/* Floating Dropdown */}
+            {isPlanDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40 bg-black/30 dark:bg-black/60 backdrop-blur-xs"
+                  onClick={() => setIsPlanDropdownOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 font-mono">
+                  <div className="px-2 py-1.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 font-semibold">
+                      My Enrolled Plans ({myEnrolledPrograms.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPlanDropdownOpen(false)}
+                      className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="py-2 max-h-72 overflow-y-auto space-y-1">
+                    {myEnrolledPrograms.length === 0 ? (
+                      <div className="p-4 text-center space-y-3">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
+                          You haven&apos;t enrolled in any protocols yet.
+                        </p>
                         <button
-                          key={prog.id}
                           type="button"
                           onClick={() => {
-                            setSelectedProgId(prog.id);
-                            const currentIdx = prog.days.findIndex(
-                              (d) => d.isCalendarUnlocked && !d.isPast2359
-                            );
-                            setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
-                            setIsViewingPlanDetail(true);
-                            setActiveTab("my_plan");
+                            setActiveTab("all_plan");
                             setIsPlanDropdownOpen(false);
                             window.scrollTo({ top: 0, behavior: "smooth" });
                           }}
-                          className={`w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 ${
-                            isSelected ? "bg-white text-zinc-950" : "hover:bg-white/5 text-zinc-200"
-                          }`}
+                          className="w-full py-2 px-3 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition hover:opacity-90 shadow-sm"
                         >
-                          <div className="space-y-0.5 truncate">
-                            <span
-                              className={`text-xs block font-light uppercase tracking-tight truncate ${
-                                isSelected ? "text-zinc-950 font-medium" : "text-white"
-                              }`}
-                            >
-                              {prog.title}
-                            </span>
-                            <span
-                              className={`text-[10px] block font-mono ${
-                                isSelected ? "text-zinc-700" : "text-zinc-400"
-                              }`}
-                            >
-                              Coach {prog.coachName} &bull; {prog.dayCount} Days
-                            </span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span
-                              className={`text-[10px] font-bold font-mono ${
-                                isSelected ? "text-zinc-950" : "text-zinc-300"
-                              }`}
-                            >
-                              {progressPct}%
-                            </span>
-                          </div>
+                          <Compass className="w-3.5 h-3.5" />
+                          <span>Explore Plans</span>
                         </button>
-                      );
-                    })
+                      </div>
+                    ) : (
+                      myEnrolledPrograms.map((prog) => {
+                        const isSelected = selectedProgId === prog.id;
+                        const completedCount = prog.days.filter((d) => d.userProgress?.isCompleted).length;
+                        const progressPct =
+                          prog.days.length > 0 ? Math.round((completedCount / prog.days.length) * 100) : 0;
+                        return (
+                          <button
+                            key={prog.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProgId(prog.id);
+                              const currentIdx = prog.days.findIndex(
+                                (d) => d.isCalendarUnlocked && !d.isPast2359
+                              );
+                              setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
+                              setIsViewingPlanDetail(true);
+                              setActiveTab("my_plan");
+                              setIsPlanDropdownOpen(false);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className={`w-full text-left p-3 rounded-xl transition flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-medium shadow-sm"
+                                : "hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-800 dark:text-zinc-200"
+                            }`}
+                          >
+                            <div className="space-y-0.5 truncate">
+                              <span className="text-xs block uppercase tracking-tight truncate font-semibold">
+                                {prog.title}
+                              </span>
+                              <span
+                                className={`text-[10px] block font-mono ${
+                                  isSelected ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"
+                                }`}
+                              >
+                                Coach {prog.coachName} &bull; {prog.dayCount} Days
+                              </span>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] font-bold font-mono">
+                                {progressPct}%
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {myEnrolledPrograms.length > 0 && (
+                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("my_plan");
+                          setIsViewingPlanDetail(false);
+                          setIsPlanDropdownOpen(false);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="text-[10px] uppercase tracking-wider text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition font-medium"
+                      >
+                        Overview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("all_plan");
+                          setIsPlanDropdownOpen(false);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="text-[10px] uppercase tracking-wider text-zinc-900 dark:text-white font-semibold flex items-center gap-1 hover:underline"
+                      >
+                        <span>Explore More</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
                 </div>
-
-                <div className="pt-1.5 border-t border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("my_plan");
-                      setIsViewingPlanDetail(false);
-                      setIsPlanDropdownOpen(false);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="w-full py-2 px-3 rounded-lg text-center text-[10px] uppercase tracking-wider text-zinc-400 hover:text-white hover:bg-white/5 transition font-semibold"
-                  >
-                    View All Plans Overview &rarr;
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Unified Bottom Floating Dock (3 Menus: My Plan, Explore, Alerts) */}
       <nav
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-xs h-12 rounded-full blur-dock px-1.5 flex items-center justify-between border border-white/15 bg-neutral-950/85 backdrop-blur-2xl shadow-2xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-xs h-12 rounded-full px-1.5 flex items-center justify-between border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
       >
         <button
           type="button"
@@ -1576,8 +1607,8 @@ export function DashboardClient({
           }}
           className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "my_plan"
-              ? "bg-white text-zinc-950 shadow-sm"
-              : "text-zinc-400 hover:text-white"
+              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
           }`}
         >
           <Calendar className="w-3.5 h-3.5" />
@@ -1592,8 +1623,8 @@ export function DashboardClient({
           }}
           className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "all_plan"
-              ? "bg-white text-zinc-950 shadow-sm"
-              : "text-zinc-400 hover:text-white"
+              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
           }`}
         >
           <Compass className="w-3.5 h-3.5" />
@@ -1608,8 +1639,8 @@ export function DashboardClient({
           }}
           className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
             activeTab === "notifications"
-              ? "bg-white text-zinc-950 shadow-sm"
-              : "text-zinc-400 hover:text-white"
+              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
           }`}
         >
           <Bell className="w-3.5 h-3.5" />
@@ -1644,34 +1675,26 @@ export function DashboardClient({
           <div className="space-y-10 sm:space-y-12 font-mono">
             {!currentProgram ? (
               /* Empty state if user has NOT enrolled in any program yet */
-              <div className="relative rounded-3xl overflow-hidden glass-panel border border-zinc-200/70 dark:border-white/10 p-10 sm:p-16 text-center flex flex-col items-center justify-center space-y-6 shadow-2xl min-h-[420px]">
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <Image
-                    src="/test.jpg"
-                    alt=""
-                    fill
-                    className="object-cover scale-105 opacity-20 dark:opacity-10"
-                  />
-                </div>
-                <div className="w-16 h-16 rounded-full glass-panel-subtle border border-zinc-200/60 dark:border-white/10 text-zinc-400 flex items-center justify-center relative z-10 shadow-sm">
-                  <Calendar className="w-8 h-8" />
+              <div className="relative rounded-3xl overflow-hidden bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 p-10 sm:p-16 text-center flex flex-col items-center justify-center space-y-6 shadow-sm min-h-[420px] transition-colors">
+                <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400 flex items-center justify-center relative z-10 shadow-sm">
+                  <Calendar className="w-8 h-8 text-zinc-600 dark:text-zinc-300" />
                 </div>
                 <div className="space-y-2.5 max-w-md relative z-10 font-mono">
-                  <span className="text-micro text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-semibold">
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-semibold">
                     No Enrolled Program
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
+                  <h2 className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-950 dark:text-white font-geometric">
                     You haven&apos;t joined a program yet.
                   </h2>
                   <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-light leading-relaxed font-mono">
-                    My Program exclusively displays the protocols you are participating in. Explore our curated active curriculums to unlock your daily movement protocols, whole food plans, and community channel.
+                    My Plan exclusively displays the protocols you are participating in. Explore our curated active curriculums to unlock your daily movement protocols, whole food plans, and community channel.
                   </p>
                 </div>
                 <div className="relative z-10 pt-2 font-mono">
                   <button
                     type="button"
                     onClick={() => setActiveTab("all_plan")}
-                    className="px-7 py-3 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-2 shadow-xl transition duration-200"
+                    className="px-7 py-3 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-2 shadow-lg transition duration-200 active:scale-95"
                   >
                     <span>Explore Programs</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1679,444 +1702,243 @@ export function DashboardClient({
                 </div>
               </div>
             ) : !isViewingPlanDetail ? (
-              /* VIEW 1: DASHBOARD VIEW (Redesigned: Sleep Pattern Graph & Unified Tasks -> Stacked My Plans -> 3 Newly Published Plans) */
-              <div className="space-y-10 sm:space-y-14 font-mono">
+              /* VIEW 1: DASHBOARD VIEW (Clean, Simple, 3 Indicators + My Plan Card + Generous Negative Space) */
+              <div className="space-y-8 sm:space-y-10 font-mono">
                 {/* Header Welcome Title */}
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 font-mono pb-2 border-b border-white/10">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-white/10">
                   <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
-                      Circadian Telemetry &bull; Daily Protocol
+                    <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400">
+                      Circadian Telemetry &bull; Protocol Overview
                     </span>
-                    <h1 className="text-xl sm:text-3xl font-light tracking-tight text-white uppercase font-geometric">
-                      Welcome, <span className="font-normal">{user.fullName.split(" ")[0]}</span>
+                    <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
+                      Welcome, <span className="font-medium">{user.fullName.split(" ")[0]}</span>
                     </h1>
                   </div>
-                  <span className="text-[11px] text-zinc-400 font-mono">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
                     {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                   </span>
                 </div>
 
                 {/* ============================================================= */}
-                {/* PART 1: GRAFIK & METRIK POLA TIDUR + UNIFIED DAILY TASKS      */}
+                {/* 1. 3 INDIKATOR WIDGET                                         */}
                 {/* ============================================================= */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-                  {/* Left Column: Sleep Patterns Line Graph & Precision Numbers (7 Cols) */}
-                  <div className="lg:col-span-7 rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-zinc-900/60 border border-white/10 space-y-5 shadow-xl flex flex-col justify-between">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div className="flex items-center gap-2">
-                        <Moon className="w-4 h-4 text-white" />
-                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white font-mono">
-                          Sleep Pattern &bull; 7-Day Circadian
-                        </span>
-                      </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/20 text-[10px] uppercase font-bold tracking-wider">
-                        88% Restored
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {/* Widget 1: Circadian Rest */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-3 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
+                        Circadian Rest
                       </span>
-                    </div>
-
-                    {/* Prominent Precision Numbers */}
-                    <div className="grid grid-cols-3 gap-2 text-center font-mono py-1 border-b border-white/5 pb-3">
-                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Avg Duration</span>
-                        <div className="text-base sm:text-lg font-bold text-white">
-                          7.6 <span className="text-[10px] font-normal text-zinc-400">Hours</span>
-                        </div>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Bedtime</span>
-                        <div className="text-base sm:text-lg font-bold text-white">
-                          22:30 <span className="text-[10px] font-normal text-zinc-400">WIB</span>
-                        </div>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                        <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Wake-up</span>
-                        <div className="text-base sm:text-lg font-bold text-white">
-                          06:15 <span className="text-[10px] font-normal text-zinc-400">WIB</span>
-                        </div>
+                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center">
+                        <Moon className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
                       </div>
                     </div>
-
-                    {/* Precision Line Graph (Garis & Angka) */}
-                    <div className="space-y-3 py-1">
-                      <div className="w-full overflow-hidden px-1">
-                        <svg
-                          viewBox="0 0 320 85"
-                          className="w-full h-24 overflow-visible"
-                        >
-                          <defs>
-                            <linearGradient id="sleepAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.18" />
-                              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.00" />
-                            </linearGradient>
-                          </defs>
-
-                          {/* Target Reference Line at 8.0h (y=28) */}
-                          <line
-                            x1="10"
-                            y1="28"
-                            x2="310"
-                            y2="28"
-                            stroke="rgba(255,255,255,0.18)"
-                            strokeDasharray="3 3"
-                            strokeWidth="1"
-                          />
-                          <text
-                            x="310"
-                            y="23"
-                            fill="rgba(255,255,255,0.45)"
-                            fontSize="7.5"
-                            textAnchor="end"
-                            fontFamily="monospace"
-                          >
-                            8.0H TARGET
-                          </text>
-
-                          {/* Shaded Area under Line */}
-                          <polygon
-                            points="20,44 65,32 110,58 155,28 200,40 245,18 290,36 290,75 20,75"
-                            fill="url(#sleepAreaGrad)"
-                          />
-
-                          {/* Hairline Data Trajectory Line */}
-                          <polyline
-                            points="20,44 65,32 110,58 155,28 200,40 245,18 290,36"
-                            fill="none"
-                            stroke="white"
-                            strokeWidth="1.75"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-
-                          {/* Data Nodes & Angka (Numbers) */}
-                          {[
-                            { x: 20, y: 44, val: "7.2h", day: "MON" },
-                            { x: 65, y: 32, val: "7.8h", day: "TUE" },
-                            { x: 110, y: 58, val: "6.5h", day: "WED" },
-                            { x: 155, y: 28, val: "8.0h", day: "THU" },
-                            { x: 200, y: 40, val: "7.4h", day: "FRI" },
-                            { x: 245, y: 18, val: "8.5h", day: "SAT" },
-                            { x: 290, y: 36, val: "7.6h", day: "SUN", isToday: true },
-                          ].map((pt, i) => (
-                            <g key={i}>
-                              {/* Outer ring for today */}
-                              {pt.isToday && (
-                                <circle
-                                  cx={pt.x}
-                                  cy={pt.y}
-                                  r="5.5"
-                                  fill="none"
-                                  stroke="white"
-                                  strokeWidth="1"
-                                  opacity="0.8"
-                                />
-                              )}
-                              <circle
-                                cx={pt.x}
-                                cy={pt.y}
-                                r={pt.isToday ? "3" : "2.5"}
-                                fill="white"
-                              />
-                              {/* Exact Number */}
-                              <text
-                                x={pt.x}
-                                y={pt.y - 6}
-                                fill={pt.isToday ? "#ffffff" : "rgba(255,255,255,0.75)"}
-                                fontSize="7.5"
-                                fontWeight={pt.isToday ? "bold" : "normal"}
-                                textAnchor="middle"
-                                fontFamily="monospace"
-                              >
-                                {pt.val}
-                              </text>
-                              {/* Day Label */}
-                              <text
-                                x={pt.x}
-                                y={83}
-                                fill={pt.isToday ? "#ffffff" : "rgba(255,255,255,0.4)"}
-                                fontSize="7.5"
-                                fontWeight={pt.isToday ? "bold" : "normal"}
-                                textAnchor="middle"
-                                fontFamily="monospace"
-                              >
-                                {pt.day}
-                              </text>
-                            </g>
-                          ))}
-                        </svg>
+                    <div className="space-y-1">
+                      <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-zinc-950 dark:text-white">
+                        7.6 <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Hours</span>
                       </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-zinc-400 px-1 pt-1 border-t border-white/5">
-                        <span>Rest Window: 7.5h – 8.5h</span>
-                        <span className="text-white font-semibold">Today: 7.6h &bull; Deep REM</span>
+                      <div className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>88% Restored &bull; Target 8.0h</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Column: Unified Daily Tasks (Done vs Pending) (5 Cols) */}
-                  <div className="lg:col-span-5 rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-zinc-900/60 border border-white/10 space-y-4 shadow-xl flex flex-col justify-between">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-white" />
-                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white font-mono">
-                          Daily Task Telemetry
-                        </span>
-                      </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 text-[10px] font-bold tracking-wider">
-                        {currentActiveCalendarDay?.userProgress?.isCompleted ? "3 / 3 Complete" : "1 Done • 2 Pending"}
+                  {/* Widget 2: Daily Protocol */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-3 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
+                        Daily Protocol
                       </span>
-                    </div>
-
-                    {/* Tasks List */}
-                    <div className="space-y-2 font-mono">
-                      {/* Task 1: Workout */}
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 truncate">
-                          {currentActiveCalendarDay?.userProgress?.isCompleted || currentActiveCalendarDay?.userProgress?.videoWatched ? (
-                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                          ) : (
-                            <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
-                          )}
-                          <div className="space-y-0.5 truncate">
-                            <span className="text-xs text-white font-medium block truncate">
-                              {currentActiveCalendarDay?.title || "Morning Mobility Protocol"}
-                            </span>
-                            <span className="text-[10px] text-zinc-400 block">
-                              {currentActiveCalendarDay?.dayType === "TRAINING_DAY" ? "Movement Routine (25m)" : "Active Rest"}
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
-                          currentActiveCalendarDay?.userProgress?.isCompleted ? "bg-white text-zinc-950" : "bg-white/5 text-zinc-400 border border-white/10"
-                        }`}>
-                          {currentActiveCalendarDay?.userProgress?.isCompleted ? "Done" : "Pending"}
-                        </span>
-                      </div>
-
-                      {/* Task 2: Meal Protocol */}
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 truncate">
-                          {currentActiveCalendarDay?.userProgress?.mealCompliance ? (
-                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                          ) : (
-                            <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
-                          )}
-                          <div className="space-y-0.5 truncate">
-                            <span className="text-xs text-white font-medium block truncate">
-                              Whole-Food Nutrition Intake
-                            </span>
-                            <span className="text-[10px] text-zinc-400 block">
-                              Clean Anti-Inflammatory Fuel
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
-                          currentActiveCalendarDay?.userProgress?.mealCompliance ? "bg-white text-zinc-950" : "bg-white/5 text-zinc-400 border border-white/10"
-                        }`}>
-                          {currentActiveCalendarDay?.userProgress?.mealCompliance ? "Done" : "Pending"}
-                        </span>
-                      </div>
-
-                      {/* Task 3: Evening Reflection */}
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 truncate">
-                          {currentActiveCalendarDay?.userProgress?.dailyReflection ? (
-                            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                          ) : (
-                            <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
-                          )}
-                          <div className="space-y-0.5 truncate">
-                            <span className="text-xs text-white font-medium block truncate">
-                              Circadian Reflection &amp; Vitality
-                            </span>
-                            <span className="text-[10px] text-zinc-400 block">
-                              Evening Mental Decompression
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shrink-0 ${
-                          currentActiveCalendarDay?.userProgress?.dailyReflection ? "bg-white text-zinc-950" : "bg-white/5 text-zinc-400 border border-white/10"
-                        }`}>
-                          {currentActiveCalendarDay?.userProgress?.dailyReflection ? "Done" : "Pending"}
-                        </span>
+                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center">
+                        <Activity className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-zinc-950 dark:text-white">
+                        {completedTasksCount} / 3 <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Tasks</span>
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${completedTasksCount === 3 ? "bg-emerald-500" : "bg-amber-500"}`} />
+                        <span>{completedTasksCount === 3 ? "All Complete Today" : `${3 - completedTasksCount} Pending • 23:59 Cutoff`}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                    <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Cutoff: 23:59 WIB Daily</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsViewingPlanDetail(true);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        className="text-white hover:underline flex items-center gap-1 font-semibold uppercase tracking-wider"
-                      >
-                        <span>Check In Today</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
+                  {/* Widget 3: Consistency Rate */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-3 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
+                        Consistency Rate
+                      </span>
+                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center">
+                        <Sparkles className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-zinc-950 dark:text-white">
+                        {currentProgram ? Math.round((completedDaysCount / Math.max(1, totalDays)) * 100) : 0}%
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 dark:bg-white" />
+                        <span>{completedDaysCount} of {totalDays} Days Adherence</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* ============================================================= */}
-                {/* PART 2: LIST MY PLAN YANG DI STACK                            */}
+                {/* 2. DIBALIKNYA ADA "MY PLAN": DAY X OF Y, NAMA PROGRAM, VIEW DETAIL */}
                 {/* ============================================================= */}
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-400">
-                        Enrolled Protocols
+                <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm sm:shadow-lg space-y-6 transition-colors">
+                  {/* Top Tag & Metadata */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono font-bold tracking-wider uppercase">
+                        Day {currentActiveCalendarDay?.dayNumber || 1} of {totalDays}
+                      </span>
+                      <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                        &bull; Active Protocol
                       </span>
                     </div>
-                    <div className="flex items-baseline justify-between">
-                      <h2 className="text-lg sm:text-2xl font-light uppercase tracking-tight text-white font-geometric">
-                        My Enrolled Plans
-                      </h2>
-                      <span className="text-xs text-zinc-400 font-mono">
-                        {myEnrolledPrograms.length} Active {myEnrolledPrograms.length === 1 ? "Plan" : "Plans"}
-                      </span>
+
+                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                      <span>Coach {currentProgram.coachName}</span>
+                      <span>&bull;</span>
+                      <span>{currentProgram.dayCount} Days</span>
                     </div>
                   </div>
 
-                  {/* Stacked Cards */}
-                  <div className="space-y-4">
-                    {myEnrolledPrograms.map((prog, idx) => {
-                      const todayIdx = prog.days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
-                      const currentDayForProg = todayIdx >= 0 ? prog.days[todayIdx] : prog.days[0];
-                      const completedCount = prog.days.filter((d) => d.userProgress?.isCompleted).length;
-                      const progressPct = prog.days.length > 0 ? Math.round((completedCount / prog.days.length) * 100) : 0;
+                  {/* Program Title & Overview */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400 block">
+                      Enrolled Protocol
+                    </span>
+                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
+                      {currentProgram.title}
+                    </h2>
+                    {currentProgram.description && (
+                      <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 font-mono font-light line-clamp-2 leading-relaxed max-w-2xl">
+                        {currentProgram.description}
+                      </p>
+                    )}
+                  </div>
 
-                      return (
+                  {/* Today's Focus Strip */}
+                  <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                        Today&apos;s Curriculum Focus
+                      </span>
+                      <div className="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 dark:bg-white" />
+                        <span>Day {currentActiveCalendarDay?.dayNumber || 1}: {currentActiveCalendarDay?.title || "Movement & Mobility"}</span>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right font-mono shrink-0">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                        {completedDaysCount} / {totalDays} Days Finished
+                      </span>
+                      <div className="w-full sm:w-36 h-1.5 bg-zinc-200 dark:bg-white/10 rounded-full mt-1.5 overflow-hidden">
                         <div
-                          key={prog.id}
-                          className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 p-5 sm:p-7 flex flex-col justify-between group shadow-xl bg-zinc-950 transition-all duration-300 hover:border-white/30"
-                        >
-                          {/* Background Cover with Vignette */}
-                          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                            <Image
-                              src={prog.coverImage || (idx % 2 === 0 ? "/test.jpg" : "/pic.jpg")}
-                              alt={prog.title}
-                              fill
-                              className="object-cover object-center brightness-[0.45] scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
-                            />
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40 pointer-events-none" />
+                          className="h-full bg-zinc-950 dark:bg-white rounded-full transition-all duration-500"
+                          style={{ width: `${totalDays > 0 ? (completedDaysCount / totalDays) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                          {/* Top Badges */}
-                          <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-1.5 font-mono">
-                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 uppercase tracking-wider font-bold text-white">
-                                Active Protocol
-                              </span>
-                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white text-zinc-950 uppercase tracking-wider font-bold">
-                                Day {currentDayForProg?.dayNumber || 1} of {prog.days.length}
-                              </span>
-                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/15 backdrop-blur-md uppercase tracking-wider">
-                                {prog.dayCount} Days
-                              </span>
-                            </div>
+                  {/* Bottom CTA: Tombol View Detail */}
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-white/10">
+                    <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-2 order-2 sm:order-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Daily check-in closes at 23:59 WIB</span>
+                    </div>
 
-                            {prog.communityLink && (
-                              <a
-                                href={prog.communityLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1 transition"
-                              >
-                                <span>Circle</span>
-                                <ExternalLink className="w-3 h-3 opacity-70" />
-                              </a>
-                            )}
-                          </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsViewingPlanDetail(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="w-full sm:w-auto px-7 py-3 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition active:scale-[0.98] order-1 sm:order-2"
+                    >
+                      <span>View Detail</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
 
-                          {/* Center Content */}
-                          <div className="relative z-10 space-y-2.5 py-5 text-white">
-                            <h3 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
-                              {prog.title}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-300 font-mono">
-                              <span>Coach {prog.coachName}</span>
-                              <span>&bull;</span>
-                              <span>{formatShortDate(prog.startDate)} – {formatShortDate(prog.endDate)}</span>
-                            </div>
-
-                            {/* Today's Focus Strip */}
-                            <div className="p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 max-w-lg text-xs text-zinc-200 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2 truncate">
-                                <Calendar className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
-                                <span className="truncate">
-                                  <strong>Day {currentDayForProg?.dayNumber || 1}:</strong> {currentDayForProg?.title || "Movement Sequence"}
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-mono text-zinc-400 shrink-0">
-                                {progressPct}% Done
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Bottom Action Area */}
-                          <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between gap-3 font-mono">
-                            <span className="text-[10px] text-zinc-400 font-light">
-                              {prog.days.filter((d) => d.userProgress?.isCompleted).length} of {prog.days.length} Daily Sessions Finished
-                            </span>
-
+                {/* Other Enrolled Plans (if user has > 1) */}
+                {myEnrolledPrograms.length > 1 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
+                        Other Enrolled Protocols ({myEnrolledPrograms.length - 1})
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {myEnrolledPrograms
+                        .filter((p) => p.id !== currentProgram.id)
+                        .map((otherProg) => {
+                          const otherDone = otherProg.days.filter((d) => d.userProgress?.isCompleted).length;
+                          const otherPct = otherProg.days.length > 0 ? Math.round((otherDone / otherProg.days.length) * 100) : 0;
+                          return (
                             <button
+                              key={otherProg.id}
                               type="button"
                               onClick={() => {
-                                setSelectedProgId(prog.id);
-                                const currentIdx = prog.days.findIndex(
+                                setSelectedProgId(otherProg.id);
+                                const currentIdx = otherProg.days.findIndex(
                                   (d) => d.isCalendarUnlocked && !d.isPast2359
                                 );
                                 setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
-                                setIsViewingPlanDetail(true);
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }}
-                              className="px-5 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl transition active:scale-[0.98]"
+                              className="p-4 rounded-2xl bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-white/10 text-left hover:border-zinc-400 dark:hover:border-white/30 transition flex items-center justify-between gap-3 shadow-sm"
                             >
-                              <span>Open Plan Detail</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
+                              <div className="space-y-0.5 truncate">
+                                <span className="text-xs uppercase font-semibold text-zinc-950 dark:text-white block truncate">
+                                  {otherProg.title}
+                                </span>
+                                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-mono">
+                                  Coach {otherProg.coachName} &bull; {otherProg.dayCount} Days
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white shrink-0">
+                                {otherPct}%
+                              </span>
                             </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* ============================================================= */}
-                {/* PART 3: 3 NEWLY PUBLISHED PLANS DI BAGIAN BAWAH              */}
-                {/* ============================================================= */}
-                <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-400">
+                {/* Newly Published Programs (Clean Monochrome) */}
+                <div className="space-y-4 pt-6 border-t border-zinc-200 dark:border-white/10">
+                  <div className="flex items-baseline justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400 block">
                         New Releases
                       </span>
-                    </div>
-                    <div className="flex items-baseline justify-between">
-                      <h2 className="text-lg sm:text-2xl font-light uppercase tracking-tight text-white font-geometric">
-                        Newly Published Programs
+                      <h2 className="text-lg sm:text-xl font-light uppercase tracking-tight text-zinc-950 dark:text-white font-geometric">
+                        Explore Open Curriculums
                       </h2>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab("all_plan");
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-mono uppercase tracking-wider"
-                      >
-                        <span>View All ({allPrograms.length})</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
                     </div>
-                    <p className="text-xs text-zinc-400 font-light font-mono">
-                      Curated cohorts recently opened for registration.
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("all_plan");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 font-mono uppercase tracking-wider"
+                    >
+                      <span>View All ({allPrograms.length})</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
                   </div>
 
-                  {/* 3 Program Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
                     {newlyPublishedPrograms.map((prog, idx) => {
                       const enrolled = myPrograms.find((e) => e.programId === prog.id);
@@ -2125,73 +1947,59 @@ export function DashboardClient({
                       return (
                         <div
                           key={prog.id}
-                          className="relative rounded-2xl overflow-hidden border border-white/15 p-4 flex flex-col justify-between min-h-[300px] group shadow-xl bg-zinc-950"
+                          className="rounded-2xl p-5 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 flex flex-col justify-between min-h-[220px] shadow-sm transition hover:border-zinc-400 dark:hover:border-white/25"
                         >
-                          {/* Background image */}
-                          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                            <Image
-                              src={prog.coverImage || (idx % 2 === 0 ? "/pic.jpg" : "/test.jpg")}
-                              alt={prog.title}
-                              fill
-                              className="object-cover object-center brightness-[0.5] scale-100 group-hover:scale-105 transition-transform duration-500"
-                            />
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30 pointer-events-none" />
-
-                          {/* Top Badges */}
-                          <div className="relative z-10 flex items-center justify-between gap-1.5">
-                            <span className="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[9px] uppercase tracking-wider font-semibold text-white">
-                              {prog.dayCount} Days
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-white/10 text-white border border-white/20 text-[9px] uppercase tracking-wider font-bold">
-                              Open Reg.
-                            </span>
-                          </div>
-
-                          {/* Bottom Content */}
-                          <div className="relative z-10 space-y-2 pt-6">
-                            <div className="space-y-1">
-                              <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-[9px] uppercase tracking-wider font-semibold">
+                                {prog.dayCount} Days
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-[9px] uppercase tracking-wider font-bold">
+                                Open Reg.
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                                 Coach {prog.coachName}
                               </span>
-                              <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase leading-snug">
+                              <h3 className="text-sm font-medium tracking-tight text-zinc-950 dark:text-white uppercase leading-snug mt-0.5">
                                 {prog.title}
                               </h3>
                             </div>
+                          </div>
 
-                            <div className="pt-2 border-t border-white/15 flex items-center justify-between gap-2">
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Tuition</span>
-                                <span className="text-xs font-bold text-white">
-                                  Rp {prog.price.toLocaleString("id-ID")}
-                                </span>
-                              </div>
-
-                              {isEnrolled ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedProgId(prog.id);
-                                    setIsViewingPlanDetail(true);
-                                    window.scrollTo({ top: 0, behavior: "smooth" });
-                                  }}
-                                  className="px-3.5 py-1.5 rounded-full bg-white/15 text-white text-[10px] font-bold uppercase tracking-wider"
-                                >
-                                  Enrolled
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDetailedProgram(prog);
-                                  }}
-                                  className="px-3.5 py-1.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md transition active:scale-95"
-                                >
-                                  <span>Details</span>
-                                  <ArrowRight className="w-3 h-3" />
-                                </button>
-                              )}
+                          <div className="pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2 mt-4">
+                            <div>
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">Tuition</span>
+                              <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                                Rp {prog.price.toLocaleString("id-ID")}
+                              </span>
                             </div>
+
+                            {isEnrolled ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProgId(prog.id);
+                                  setIsViewingPlanDetail(true);
+                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                }}
+                                className="px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-white/15 text-zinc-900 dark:text-white text-[10px] font-bold uppercase tracking-wider"
+                              >
+                                Enrolled
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDetailedProgram(prog);
+                                }}
+                                className="px-3.5 py-1.5 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm transition active:scale-95"
+                              >
+                                <span>Details</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -2203,37 +2011,37 @@ export function DashboardClient({
               /* VIEW 2: PLAN DETAIL (Hari ini apa saja gitu) */
               <div className="space-y-5 sm:space-y-6 font-mono">
                 {/* Top Navigation Bar with Back Button */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-3">
                   <button
                     type="button"
                     onClick={() => {
                       setIsViewingPlanDetail(false);
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase tracking-wider text-zinc-200 hover:text-white transition flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200 dark:bg-white/10 dark:hover:bg-white/20 dark:text-zinc-200 dark:border-transparent text-[10px] font-bold uppercase tracking-wider transition flex items-center gap-1.5"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Dashboard</span>
                   </button>
 
                   <div className="text-right">
-                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider block font-semibold">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
                       {currentProgram.title}
                     </span>
-                    <span className="text-[11px] font-semibold text-white">
+                    <span className="text-[11px] font-semibold text-zinc-950 dark:text-white">
                       Day {currentDay?.dayNumber || 1} of {totalDays}
                     </span>
                   </div>
                 </div>
 
                 {/* Day Selector Timeline */}
-                <div className="p-3.5 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl font-mono">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 space-y-3 shadow-sm font-mono transition-colors">
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-2">
                     <div className="space-y-0.5">
-                      <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
                         Curriculum Track
                       </span>
-                      <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+                      <h3 className="text-sm sm:text-base font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
                         Daily Schedule
                       </h3>
                     </div>
@@ -2257,14 +2065,12 @@ export function DashboardClient({
                           onClick={() => setActiveDayIndex(idx)}
                           className={`min-w-[95px] sm:min-w-[110px] p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between shrink-0 gap-2 font-mono ${
                             isSelected
-                              ? "bg-white text-zinc-950 border-white shadow-xl scale-[1.02]"
+                              ? "bg-zinc-950 text-white border-zinc-950 shadow-md dark:bg-white dark:text-zinc-950 dark:border-white scale-[1.02]"
                               : isCompleted
-                              ? "bg-white/10 border-white/20 text-zinc-200"
-                              : isSkipped
-                              ? "bg-white/5 border-white/5 text-zinc-500 opacity-60"
-                              : isLockedFuture
-                              ? "bg-white/5 border-white/5 text-zinc-500 opacity-60"
-                              : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20"
+                              ? "bg-zinc-100 border-zinc-300 text-zinc-900 dark:bg-white/10 dark:border-white/20 dark:text-zinc-200"
+                              : isSkipped || isLockedFuture
+                              ? "bg-zinc-50 border-zinc-200 text-zinc-400 opacity-60 dark:bg-white/5 dark:border-white/5 dark:text-zinc-500"
+                              : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-zinc-400 dark:bg-white/5 dark:border-white/10 dark:text-zinc-300 dark:hover:border-white/20"
                           }`}
                         >
                           <div className="flex items-center justify-between w-full">
@@ -2272,13 +2078,13 @@ export function DashboardClient({
                               Day {day.dayNumber}
                             </span>
                             {isCompleted ? (
-                              <CheckCircle className={`w-3 h-3 ${isSelected ? "text-zinc-950" : "text-white"}`} />
+                              <CheckCircle className={`w-3 h-3 ${isSelected ? "text-white dark:text-zinc-950" : "text-emerald-500"}`} />
                             ) : isSkipped ? (
-                              <AlertTriangle className="w-3 h-3 text-zinc-500" />
+                              <AlertTriangle className="w-3 h-3 text-zinc-400" />
                             ) : isLockedFuture ? (
                               <Lock className="w-3 h-3 opacity-60" />
                             ) : (
-                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-zinc-950" : isToday ? "bg-white animate-pulse" : "bg-zinc-500"}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white dark:bg-zinc-950" : isToday ? "bg-zinc-900 dark:bg-white animate-pulse" : "bg-zinc-400"}`} />
                             )}
                           </div>
 
@@ -2304,13 +2110,13 @@ export function DashboardClient({
                 {currentDay && (
                   <div className="space-y-4 sm:space-y-6">
                     {/* Day Title Banner */}
-                    <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="rounded-2xl p-4 sm:p-6 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400">
+                          <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
                             Day {currentDay.dayNumber} &bull; {formatShortDate(currentDay.unlockDate)}
                           </span>
-                          <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-white/10 text-zinc-300">
+                          <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-300">
                             {currentDay.dayType === "TRAINING_DAY"
                               ? "Training Protocol"
                               : currentDay.dayType === "REST_DAY"
@@ -2318,7 +2124,7 @@ export function DashboardClient({
                               : "Connection Circle"}
                           </span>
                         </div>
-                        <h2 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
+                        <h2 className="text-lg sm:text-2xl font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
                           {currentDay.title}
                         </h2>
                         {currentDay.dayType !== "REST_DAY" && (currentDay.coachName || currentDay.recommendedFor) && (

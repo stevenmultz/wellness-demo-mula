@@ -14,7 +14,17 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    // Initialize Lenis for buttery-smooth luxury scrolling
+    // On mobile & touch devices, bypass Lenis entirely.
+    // iOS Safari has native 120Hz hardware-accelerated momentum scrolling with 0% battery/CPU heat.
+    const isTouchDevice =
+      typeof window !== "undefined" &&
+      ("ontouchstart" in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
+
+    if (isTouchDevice) {
+      return;
+    }
+
+    // Initialize Lenis strictly on desktop
     const lenis = new Lenis({
       duration: 1.15,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -22,7 +32,6 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       gestureOrientation: "vertical",
       smoothWheel: true,
       wheelMultiplier: 0.9,
-      touchMultiplier: 1.6,
       infinite: false,
     });
 

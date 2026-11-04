@@ -255,19 +255,19 @@ export function WorkoutSection({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 1. SELEKSI JENIS TRAINING & SYNCHRONIZED MOVEMENT CHECKLIST */}
-      <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm font-mono transition-colors">
+        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-3">
           <div className="space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
               Movement Protocol
             </span>
-            <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+            <h3 className="text-sm sm:text-base font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
               Workouts &amp; Reps
             </h3>
           </div>
 
           {currentGroup && (
-            <span className="text-[10px] px-3 py-1 rounded-full font-semibold bg-white/10 border border-white/15 text-white">
+            <span className="text-[10px] px-3 py-1 rounded-full font-semibold bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white">
               {completedInCurrentGroup}/{currentGroup.movements.length} Done
             </span>
           )}
@@ -288,8 +288,8 @@ export function WorkoutSection({
                   onClick={() => handleWorkoutClick(group.optionName)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 ${
                     isSelected
-                      ? "bg-white text-zinc-950 shadow-md font-bold"
-                      : "bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm font-bold"
+                      : "bg-zinc-100 border border-zinc-200 text-zinc-600 dark:bg-white/5 dark:border-white/10 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
                   }`}
                 >
                   <span>{group.optionName}</span>
@@ -324,8 +324,8 @@ export function WorkoutSection({
                   key={idx}
                   className={`p-3 rounded-xl border text-xs font-light transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
                     isChecked
-                      ? "border-white/20 bg-white/[0.04]"
-                      : "border-white/10 bg-black/40 text-zinc-200"
+                      ? "border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/[0.04]"
+                      : "border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-black/40 text-zinc-800 dark:text-zinc-200"
                   }`}
                 >
                   {/* Left: Checkbox & Movement Name + Target */}
@@ -342,8 +342,8 @@ export function WorkoutSection({
                       }
                       className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition ${
                         isChecked
-                          ? "bg-white text-zinc-950 border-white shadow-xs"
-                          : "border-white/30 hover:border-white"
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white shadow-xs"
+                          : "border-zinc-300 dark:border-white/30 hover:border-zinc-500 dark:hover:border-white"
                       }`}
                     >
                       {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -353,14 +353,14 @@ export function WorkoutSection({
                       <span
                         className={`block text-xs font-medium truncate ${
                           isChecked
-                            ? "line-through text-zinc-500"
-                            : "text-white"
+                            ? "line-through text-zinc-400 dark:text-zinc-500"
+                            : "text-zinc-950 dark:text-white"
                         }`}
                       >
                         {mov.name}
                       </span>
                       {mov.target && (
-                        <span className="text-[10px] text-zinc-400 block font-light">
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-light">
                           Target: {mov.target}
                         </span>
                       )}
@@ -392,7 +392,7 @@ export function WorkoutSection({
                         }
                       }}
                       placeholder={mov.target ? `Actual (${mov.target})` : "Actual reps"}
-                      className="w-32 sm:w-36 px-2.5 py-1 rounded-lg bg-black/50 border border-white/15 text-[11px] font-mono text-white focus:outline-none focus:border-white/40 placeholder:text-zinc-600"
+                      className="w-32 sm:w-36 px-2.5 py-1 rounded-lg bg-white dark:bg-black/50 border border-zinc-200 dark:border-white/15 text-[11px] font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-zinc-400 dark:focus:border-white/40 placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
                     />
                   </div>
                 </div>
@@ -403,13 +403,13 @@ export function WorkoutSection({
       </div>
 
       {/* 2. DUAL UPLOAD FOTO BEFORE & AFTER */}
-      <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm font-mono transition-colors">
+        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-3">
           <div className="space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
               Visual Check
             </span>
-            <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+            <h3 className="text-sm sm:text-base font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
               Photo Verification
             </h3>
           </div>
@@ -417,17 +417,17 @@ export function WorkoutSection({
 
         <div className="grid grid-cols-2 gap-3">
           {/* Slot 1: Foto Before */}
-          <div className="rounded-xl border border-white/10 p-3 bg-black/40 space-y-2 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 p-3 bg-zinc-50 dark:bg-black/40 space-y-2 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
               <span>01 &bull; Before</span>
               {photoBeforeUrl && (
-                <span className="text-white flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-zinc-300" /> Done
+                <span className="text-zinc-900 dark:text-white flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Done
                 </span>
               )}
             </div>
 
-            <div className="relative rounded-lg overflow-hidden aspect-[4/3] bg-zinc-950 border border-white/10 flex items-center justify-center group/photo">
+            <div className="relative rounded-lg overflow-hidden aspect-[4/3] bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 flex items-center justify-center group/photo">
               {photoBeforeUrl ? (
                 <>
                   <Image
@@ -450,9 +450,9 @@ export function WorkoutSection({
                   )}
                 </>
               ) : (
-                <label className="flex flex-col items-center justify-center p-3 text-center cursor-pointer space-y-1 w-full h-full hover:bg-white/5 transition">
+                <label className="flex flex-col items-center justify-center p-3 text-center cursor-pointer space-y-1 w-full h-full hover:bg-zinc-200/50 dark:hover:bg-white/5 transition">
                   <Camera className="w-4 h-4 text-zinc-400" />
-                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">Upload</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-semibold">Upload</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -466,17 +466,17 @@ export function WorkoutSection({
           </div>
 
           {/* Slot 2: Foto After */}
-          <div className="rounded-xl border border-white/10 p-3 bg-black/40 space-y-2 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 p-3 bg-zinc-50 dark:bg-black/40 space-y-2 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
               <span>02 &bull; After</span>
               {photoAfterUrl && (
-                <span className="text-white flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-zinc-300" /> Done
+                <span className="text-zinc-900 dark:text-white flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Done
                 </span>
               )}
             </div>
 
-            <div className="relative rounded-lg overflow-hidden aspect-[4/3] bg-zinc-950 border border-white/10 flex items-center justify-center group/photo">
+            <div className="relative rounded-lg overflow-hidden aspect-[4/3] bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 flex items-center justify-center group/photo">
               {photoAfterUrl ? (
                 <>
                   <Image
@@ -499,9 +499,9 @@ export function WorkoutSection({
                   )}
                 </>
               ) : (
-                <label className="flex flex-col items-center justify-center p-3 text-center cursor-pointer space-y-1 w-full h-full hover:bg-white/5 transition">
+                <label className="flex flex-col items-center justify-center p-3 text-center cursor-pointer space-y-1 w-full h-full hover:bg-zinc-200/50 dark:hover:bg-white/5 transition">
                   <Sparkles className="w-4 h-4 text-zinc-400" />
-                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">Upload</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase font-semibold">Upload</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -517,13 +517,13 @@ export function WorkoutSection({
       </div>
 
       {/* 3. TODAY'S TRAINING NOTES & SENSATION */}
-      <div className="rounded-2xl p-4 sm:p-5 space-y-3 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="rounded-2xl p-4 sm:p-5 space-y-3 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm font-mono transition-colors">
+        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-3">
           <div className="space-y-0.5">
-            <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
               Session Feedback
             </span>
-            <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
+            <h3 className="text-sm sm:text-base font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
               Training Notes
             </h3>
           </div>
@@ -536,7 +536,7 @@ export function WorkoutSection({
             disabled={isPast2359}
             onChange={(e) => setTrainingNotes(e.target.value)}
             placeholder="Log session sensations, PRs, or form notes..."
-            className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs font-light text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 font-mono placeholder:text-zinc-600"
+            className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-white/10 text-xs font-light text-zinc-900 dark:text-white leading-relaxed resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-white/40 font-mono placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
           />
 
           {!isPast2359 && onSaveWorkoutNotes && (
@@ -545,7 +545,7 @@ export function WorkoutSection({
                 type="button"
                 onClick={handleSaveNotes}
                 disabled={isSavingNotes}
-                className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm font-mono"
+                className="px-5 py-2 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm font-mono transition active:scale-95"
               >
                 {isSavingNotes ? (
                   <>
@@ -554,7 +554,7 @@ export function WorkoutSection({
                   </>
                 ) : notesSaved ? (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                     <span>Saved</span>
                   </>
                 ) : (

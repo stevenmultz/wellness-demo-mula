@@ -1,6 +1,6 @@
 {
-  "name": "BMS — Longevity & Movement Sanctuary",
-  "short_name": "BMS",
+  "name": "+ BMS — Longevity & Movement Sanctuary",
+  "short_name": "+ BMS",
   "description": "Cohort-based wellness community platform with sequential daily curriculum, anti-inflammatory nutrition, and habit tracking.",
   "start_url": "/dashboard",
   "display": "standalone",
@@ -18,6 +18,12 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]

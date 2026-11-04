@@ -328,6 +328,14 @@ body {
   animation: motion-streak 12s ease-in-out infinite;
 }
 
+@media (max-width: 768px), (prefers-reduced-motion: reduce) {
+  .animate-motion-glide,
+  .animate-motion-streak {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -351,4 +359,14 @@ body {
 
 .pwa-bottom-safe {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Mobile Hardware Thermal Optimization: Disable expensive blur computations on mobile */
+@media (max-width: 768px) {
+  *,
+  ::before,
+  ::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
