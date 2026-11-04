@@ -185,8 +185,8 @@ async function main() {
         dayType: "TRAINING_DAY",
         dayNotifications: JSON.stringify([
           {
-            time: "16:40",
-            message: "Posture & Core Reset: Waktunya aktivasi deep spinal stabilizers dan wall holds.",
+            time: "11:05",
+            message: "reminder test satu oi oi",
             label: "Movement Protocol",
           },
         ]),
@@ -323,8 +323,8 @@ async function main() {
         dayType: "REST_DAY",
         dayNotifications: JSON.stringify([
           {
-            time: "16:50",
-            message: "Parasympathetic Surge: Waktunya dekompresi syaraf dan istirahat NSDR 10 menit.",
+            time: "11:10",
+            message: "reminder test 2 woi oioioioi",
             label: "Recovery Alert",
           },
         ]),
@@ -459,8 +459,8 @@ async function main() {
         dayType: "CONNECTION_DAY",
         dayNotifications: JSON.stringify([
           {
-            time: "17:00",
-            message: "Breath & Longevity: Sesi Live Opening Circle bersama Dr. Julian dimulai pukul 17.00 WIB.",
+            time: "11:12",
+            message: "mimimii ketiga",
             label: "Sanctuary Circle",
           },
         ]),
