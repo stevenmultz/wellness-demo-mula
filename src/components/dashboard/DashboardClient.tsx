@@ -3331,32 +3331,32 @@ export function DashboardClient({
 
                 <button
                   type="button"
-                  onClick={() => handleTriggerCronServer("11:05")}
+                  onClick={() => handleTriggerCronServer("11:23")}
                   disabled={isTriggeringCron}
                   className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
                 >
                   <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Simulate 11:05 (Prog 1)</span>
+                  <span>Simulate 11:23 (Prog 1)</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleTriggerCronServer("11:10")}
+                  onClick={() => handleTriggerCronServer("11:25")}
                   disabled={isTriggeringCron}
                   className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
                 >
                   <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Simulate 11:10 (Prog 2)</span>
+                  <span>Simulate 11:25 (Prog 2)</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleTriggerCronServer("11:12")}
+                  onClick={() => handleTriggerCronServer("11:27")}
                   disabled={isTriggeringCron}
                   className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
                 >
                   <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Simulate 11:12 (Prog 3)</span>
+                  <span>Simulate 11:27 (Prog 3)</span>
                 </button>
               </div>
 
