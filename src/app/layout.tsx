@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   title: "+ BMS — Minimalist Longevity & Movement Sanctuary",
   description: "Curated daily physical vitality protocols, anti-inflammatory nutrition, and mindful habit tracking.",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "+ BMS",
+  },
 };
 
 export const viewport: Viewport = {
@@ -46,6 +51,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="+ BMS" />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{const t=localStorage.getItem("wellness-theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}}catch(e){}`,

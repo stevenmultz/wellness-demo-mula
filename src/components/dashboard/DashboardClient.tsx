@@ -354,19 +354,30 @@ export function DashboardClient({
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
   const [cronTriggerResult, setCronTriggerResult] = useState<Record<string, unknown> | null>(null);
   const [isTriggeringCron, setIsTriggeringCron] = useState(false);
+  const [isIosDevice, setIsIosDevice] = useState(false);
+  const [isStandalonePwa, setIsStandalonePwa] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.ready
-        .then((reg) => {
-          return reg.pushManager.getSubscription();
-        })
-        .then((sub) => {
-          if (sub) {
-            setIsPushSubscribed(true);
-          }
-        })
-        .catch(() => {});
+    if (typeof window !== "undefined") {
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isStandalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+      setIsIosDevice(isIos);
+      setIsStandalonePwa(isStandalone);
+
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready
+          .then((reg) => {
+            return reg.pushManager ? reg.pushManager.getSubscription() : null;
+          })
+          .then((sub) => {
+            if (sub) {
+              setIsPushSubscribed(true);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, []);
 
@@ -1056,7 +1067,23 @@ export function DashboardClient({
   };
 
   const handleEnableNotifications = async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
+    if (typeof window === "undefined") return;
+
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+    if (isIos && !isStandalone) {
+      setActionNotice({
+        type: "error",
+        text: "Syarat iPhone: Ketuk ikon Share (kotak panah) di Safari > 'Add to Home Screen' lalu buka dari Home Screen untuk mengaktifkan notifikasi saat layar mati.",
+      });
+      setTimeout(() => setActionNotice(null), 8000);
+      return;
+    }
+
+    if (!("Notification" in window)) {
       setActionNotice({
         type: "error",
         text: "Browser notifications are not supported on this device.",
@@ -1077,8 +1104,12 @@ export function DashboardClient({
       }
 
       // Handshake Web Push Subscription with Service Worker
-      if ("serviceWorker" in navigator) {
+      if ("serviceWorker" in navigator && "PushManager" in window) {
         const reg = await navigator.serviceWorker.ready;
+        if (!reg.pushManager) {
+          throw new Error("PushManager is not available in this browser context.");
+        }
+
         let sub = await reg.pushManager.getSubscription();
 
         if (!sub) {
@@ -1136,7 +1167,7 @@ export function DashboardClient({
         type: "error",
         text: `Push subscription notice: ${errorMsg}`,
       });
-      setTimeout(() => setActionNotice(null), 4000);
+      setTimeout(() => setActionNotice(null), 6000);
     } finally {
       setIsSubscribingPush(false);
     }
@@ -3174,6 +3205,24 @@ export function DashboardClient({
                 Scheduled circadian reminders and protocol unlocking cadences for enrolled cohorts.
               </p>
             </div>
+
+            {/* iOS Safari Standalone Guide Banner */}
+            {isIosDevice && !isStandalonePwa && (
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/20 text-white text-xs space-y-2.5 shadow-xl font-mono">
+                <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[11px] text-white">
+                  <Smartphone className="w-4 h-4 text-zinc-300" />
+                  <span>Syarat Apple iOS (iPhone)</span>
+                </div>
+                <p className="font-light leading-relaxed text-zinc-300 text-[11px]">
+                  Kebijakan resmi Apple: Notifikasi di iPhone <strong>hanya diizinkan masuk saat aplikasi ditutup</strong> jika website telah ditambahkan ke Layar Utama (*Home Screen*).
+                </p>
+                <div className="bg-black/60 rounded-xl p-3 text-[11px] space-y-1.5 font-mono text-zinc-300 border border-white/10">
+                  <p>1. Ketuk ikon <strong className="text-white">Share</strong> (kotak panah ke atas) di bagian bawah Safari.</p>
+                  <p>2. Pilih <strong className="text-white">&quot;Add to Home Screen&quot;</strong> (*Tambah ke Layar Utama*).</p>
+                  <p>3. Buka ikon <strong className="text-white">+ BMS</strong> dari Home Screen, lalu tekan tombol sinkronisasi di bawah.</p>
+                </div>
+              </div>
+            )}
 
             {/* Interactive Browser Push Trigger & Test Panel */}
             <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3.5 shadow-xl font-mono">
