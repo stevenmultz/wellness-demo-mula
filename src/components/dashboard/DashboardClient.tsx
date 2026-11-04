@@ -1177,10 +1177,44 @@ export function DashboardClient({
     setIsTriggeringCron(true);
     setCronTriggerResult(null);
     try {
-      const url = simulateTime
-        ? `/api/cron/dispatch-notifications?simulateTime=${encodeURIComponent(simulateTime)}&bypass=true`
-        : `/api/cron/dispatch-notifications?bypass=true`;
-      const res = await fetch(url);
+      let clientSub: { endpoint: string; p256dh: string; auth: string } | null = null;
+      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          if (reg.pushManager) {
+            let s = await reg.pushManager.getSubscription();
+            if (!s) {
+              const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+              s = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedKey,
+              });
+            }
+            if (s) {
+              const sJson = s.toJSON();
+              if (sJson.keys?.p256dh && sJson.keys?.auth) {
+                clientSub = {
+                  endpoint: s.endpoint,
+                  p256dh: sJson.keys.p256dh,
+                  auth: sJson.keys.auth,
+                };
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[Cron] Could not read active client subscription:", err);
+        }
+      }
+
+      const res = await fetch("/api/cron/dispatch-notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          simulateTime,
+          bypass: true,
+          clientSubscription: clientSub,
+        }),
+      });
       const data = await res.json();
       setCronTriggerResult(data);
       if (data.success) {

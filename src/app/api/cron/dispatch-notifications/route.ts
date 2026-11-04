@@ -12,6 +12,12 @@ interface DayNotificationItem {
   label?: string;
 }
 
+interface ClientSubscriptionPayload {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
 async function handleCronDispatch(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -19,15 +25,31 @@ async function handleCronDispatch(req: NextRequest) {
     const secretQuery = searchParams.get("secret");
     const cronSecret = process.env.CRON_SECRET || "bms_sanctuary_cron_secure_key_2026";
 
+    let bodyJson: {
+      simulateTime?: string;
+      secret?: string;
+      bypass?: boolean;
+      clientSubscription?: ClientSubscriptionPayload;
+    } = {};
+
+    if (req.method === "POST") {
+      try {
+        bodyJson = await req.json();
+      } catch {
+        // empty body
+      }
+    }
+
     // 1. Verify Secret
     // Vercel Cron automatically provides `Authorization: Bearer <CRON_SECRET>`
     const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
-    const providedSecret = bearerSecret || secretQuery;
+    const providedSecret = bearerSecret || secretQuery || bodyJson.secret;
 
     const isAuthorized =
       providedSecret === cronSecret ||
       process.env.NODE_ENV === "development" ||
-      searchParams.get("bypass") === "true";
+      searchParams.get("bypass") === "true" ||
+      bodyJson.bypass === true;
 
     if (!isAuthorized) {
       return NextResponse.json(
@@ -43,9 +65,46 @@ async function handleCronDispatch(req: NextRequest) {
     const currentMinutes = String(wibDate.getUTCMinutes()).padStart(2, "0");
     const defaultTimeStr = `${currentHours}:${currentMinutes}`;
 
-    // Allow manual simulation parameter (e.g. ?simulateTime=16:40 or ?simulateTime=17:00)
-    const simulateTime = searchParams.get("simulateTime");
+    // Allow manual simulation parameter (e.g. ?simulateTime=11:23)
+    const simulateTime = searchParams.get("simulateTime") || bodyJson.simulateTime;
     const targetTimeStr = simulateTime ? simulateTime.trim() : defaultTimeStr;
+
+    // Optional direct client subscription injected from active UI session
+    const clientSub = bodyJson.clientSubscription;
+
+    // If clientSubscription was provided, persist to database in this container immediately
+    if (clientSub?.endpoint && clientSub?.p256dh && clientSub?.auth) {
+      try {
+        const steven = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: { contains: "steven" } },
+              { fullName: { contains: "Steven" } },
+            ],
+          },
+          select: { id: true },
+        });
+
+        if (steven) {
+          await prisma.pushSubscription.upsert({
+            where: { endpoint: clientSub.endpoint },
+            update: {
+              userId: steven.id,
+              p256dh: clientSub.p256dh,
+              auth: clientSub.auth,
+            },
+            create: {
+              userId: steven.id,
+              endpoint: clientSub.endpoint,
+              p256dh: clientSub.p256dh,
+              auth: clientSub.auth,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn("[Cron] Auto-upsert client subscription notice:", err);
+      }
+    }
 
     // 3. Query all published programs with active enrollments & their days
     const programs = await prisma.program.findMany({
@@ -78,6 +137,7 @@ async function handleCronDispatch(req: NextRequest) {
       recipientsCount: number;
       sentSuccess: number;
       sentFailed: number;
+      errors?: string[];
     }> = [];
 
     const deadEndpoints: string[] = [];
@@ -105,6 +165,7 @@ async function handleCronDispatch(req: NextRequest) {
         // Collect all distinct active push subscriptions for enrolled users
         const activeSubscribersMap = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
 
+        // 1. From database records
         for (const enrollment of prog.enrollments) {
           const userSubs = enrollment.user?.pushSubscriptions || [];
           for (const sub of userSubs) {
@@ -118,11 +179,21 @@ async function handleCronDispatch(req: NextRequest) {
           }
         }
 
+        // 2. Also inject client subscription if active session provided it
+        if (clientSub?.endpoint && clientSub?.p256dh && clientSub?.auth) {
+          activeSubscribersMap.set(clientSub.endpoint, {
+            endpoint: clientSub.endpoint,
+            p256dh: clientSub.p256dh,
+            auth: clientSub.auth,
+          });
+        }
+
         const subscribers = Array.from(activeSubscribersMap.values());
 
         for (const notif of matchingNotifs) {
           let sentSuccess = 0;
           let sentFailed = 0;
+          const errors: string[] = [];
 
           for (const sub of subscribers) {
             const sendRes = await sendWebPushNotification(sub, {
@@ -137,6 +208,9 @@ async function handleCronDispatch(req: NextRequest) {
               totalDispatched++;
             } else {
               sentFailed++;
+              if (sendRes.error) {
+                errors.push(sendRes.error);
+              }
               if (sendRes.isGone) {
                 deadEndpoints.push(sub.endpoint);
               }
@@ -152,6 +226,7 @@ async function handleCronDispatch(req: NextRequest) {
             recipientsCount: subscribers.length,
             sentSuccess,
             sentFailed,
+            ...(errors.length > 0 ? { errors } : {}),
           });
         }
       }
@@ -174,6 +249,7 @@ async function handleCronDispatch(req: NextRequest) {
       currentTimeWIB: defaultTimeStr,
       targetTimeWIB: targetTimeStr,
       simulated: !!simulateTime,
+      clientSubscriptionInjected: !!clientSub?.endpoint,
       totalProgramsChecked: programs.length,
       notificationsTriggered: dispatchResults.length,
       totalDispatched,
