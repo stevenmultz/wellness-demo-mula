@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { hashPassword } from "../security/password";
+import { createUserNotifications } from "../integrations/user-notifications";
 import { WellnessActionResult } from "./auth";
 
 function revalidateAdminRoutes() {
@@ -209,6 +210,17 @@ export async function wellnessAdminApprovePayment(
         },
       });
     });
+
+    await createUserNotifications([
+      {
+        userId: enrollment.userId,
+        type: "PAYMENT",
+        title: "Payment confirmed",
+        body: `Your payment for "${enrollment.program.title}" is confirmed. Your plan is now active.`,
+        url: "/dashboard",
+        dedupeKey: `payment-active:${enrollment.id}`,
+      },
+    ]);
 
     revalidateAdminRoutes();
     return {

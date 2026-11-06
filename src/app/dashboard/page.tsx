@@ -17,6 +17,7 @@ import {
   DEFAULT_METHODOLOGY,
 } from "@/wellness/utils/json";
 import { getProgramDayWibWindow } from "@/wellness/utils/timezone";
+import { resolveProgramDailyPlan, ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export default async function DashboardPage() {
         fullName: true,
         phone: true,
         age: true,
+        dateOfBirth: true,
+        avatarUrl: true,
         gender: true,
         occupation: true,
         address: true,
@@ -124,6 +127,39 @@ export default async function DashboardPage() {
   }));
 
   const now = new Date();
+
+  // Today's / tomorrow's tasks per ACTIVE program, resolved on the server in WIB (app timezone)
+  const dailyPlans: ProgramDailyPlan[] = allProgramsData
+    .filter((p) => userActiveProgramIds.has(p.id))
+    .map((p) =>
+      resolveProgramDailyPlan(
+        p.id,
+        p.startDate,
+        p.days.map((d) => {
+          const prog = d.progress[0] || null;
+          return {
+            id: d.id,
+            dayNumber: d.dayNumber,
+            title: d.title,
+            dayType: d.dayType,
+            videoUrl: d.videoUrl,
+            mealRecommendation: d.mealRecommendation,
+            restInstructions: d.restInstructions,
+            eventTitle: d.eventTitle,
+            eventDetails: d.eventDetails,
+            progress: prog
+              ? {
+                  videoWatched: prog.videoWatched,
+                  isCompleted: prog.isCompleted,
+                  mealCompliance: prog.mealCompliance,
+                  dailyReflection: prog.dailyReflection,
+                }
+              : null,
+          };
+        }),
+        now
+      )
+    );
 
   const allPrograms = allProgramsData.map((p) => {
     const isPaidMember = userActiveProgramIds.has(p.id);
@@ -278,23 +314,30 @@ export default async function DashboardPage() {
     };
   });
 
-  const user = dbUser || {
-    id: session.userId,
-    email: session.email,
-    fullName: session.fullName,
-    phone: session.phone,
-    age: null,
-    gender: null,
-    occupation: null,
-    address: null,
-    city: null,
-    province: null,
-    emergencyContactName: null,
-    emergencyContactPhone: null,
-    role: session.role,
-    status: session.status,
-    createdAt: session.createdAt,
-  };
+  const user = dbUser
+    ? {
+        ...dbUser,
+        dateOfBirth: dbUser.dateOfBirth ? dbUser.dateOfBirth.toISOString().slice(0, 10) : null,
+      }
+    : {
+        id: session.userId,
+        email: session.email,
+        fullName: session.fullName,
+        phone: session.phone,
+        age: null,
+        dateOfBirth: null,
+        avatarUrl: null,
+        gender: null,
+        occupation: null,
+        address: null,
+        city: null,
+        province: null,
+        emergencyContactName: null,
+        emergencyContactPhone: null,
+        role: session.role,
+        status: session.status,
+        createdAt: session.createdAt,
+      };
 
   return (
     <Suspense fallback={<div className="min-h-screen" />}>
@@ -302,6 +345,7 @@ export default async function DashboardPage() {
         user={user}
         myPrograms={myPrograms}
         allPrograms={allPrograms}
+        dailyPlans={dailyPlans}
         initialHealthProfile={healthProfile}
       />
     </Suspense>

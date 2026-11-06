@@ -5,8 +5,9 @@ import { prisma } from "../db";
 import { requireAuth } from "../security/guards";
 import { hashPassword, verifyPassword } from "../security/password";
 import { createSessionToken, setSessionCookie, clearSessionCookie } from "../security/session";
-import { UpdateProfileSchema, ChangePasswordSchema, DeleteAccountSchema, HealthProfileSchema } from "../validators/auth";
+import { UpdateProfileSchema, ChangePasswordSchema, DeleteAccountSchema, HealthProfileSchema, calculateAgeFromDob } from "../validators/auth";
 import { createQrisInvoiceAdapter } from "../integrations/payment-gateway";
+import { createUserNotifications } from "../integrations/user-notifications";
 import { isRegistrationClosedInWib } from "../utils/timezone";
 import { normalizeProgramStatus, resolvePublicBadge } from "../utils/timeline";
 import { WellnessActionResult } from "./auth";
@@ -59,6 +60,7 @@ export async function wellnessUpdateProfile(
     fullName,
     phone,
     age,
+    dateOfBirth,
     gender,
     occupation,
     address,
@@ -68,12 +70,19 @@ export async function wellnessUpdateProfile(
     emergencyContactPhone,
   } = validation.data;
 
+  // dateOfBirth is the source of truth; `age` is derived from it so the two never drift apart.
+  const dobProvided = dateOfBirth !== undefined;
+  const dobValue = dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : null;
+  const derivedAge = dateOfBirth ? calculateAgeFromDob(dateOfBirth) : null;
+
   const updatedUser = await prisma.user.update({
     where: { id: session.userId },
     data: {
       fullName,
       phone: phone || null,
-      age: age !== undefined ? age : undefined,
+      ...(dobProvided
+        ? { dateOfBirth: dobValue, age: derivedAge }
+        : { age: age !== undefined ? age : undefined }),
       gender: gender !== undefined ? (gender?.trim() || null) : undefined,
       occupation: occupation !== undefined ? (occupation?.trim() || null) : undefined,
       address: address !== undefined ? (address?.trim() || null) : undefined,
@@ -94,6 +103,7 @@ export async function wellnessUpdateProfile(
       fullName: true,
       phone: true,
       age: true,
+      dateOfBirth: true,
       gender: true,
       occupation: true,
       address: true,
@@ -410,6 +420,17 @@ export async function wellnessEnrollProgram(
         });
       });
 
+      await createUserNotifications([
+        {
+          userId: session.userId,
+          type: "PROGRAM",
+          title: "Enrollment successful",
+          body: `You are enrolled in "${program.title}". Your plan is now active.`,
+          url: "/dashboard",
+          dedupeKey: `payment-active:${enrollment.id}`,
+        },
+      ]);
+
       return {
         success: true,
         message: `Enrolled successfully! Full access unlocked for "${program.title}".`,
@@ -491,6 +512,17 @@ export async function wellnessEnrollProgram(
       invoiceExpiresAt: gatewayInvoice.invoiceExpiresAt,
     },
   });
+
+  await createUserNotifications([
+    {
+      userId: session.userId,
+      type: "PAYMENT",
+      title: "Payment pending",
+      body: `Complete your QRIS payment for "${program.title}" before the invoice expires.`,
+      url: "/dashboard",
+      dedupeKey: `payment-pending:${enrollment.id}:${enrollment.paymentReference ?? ""}`,
+    },
+  ]);
 
   return {
     success: true,
@@ -603,6 +635,17 @@ export async function wellnessConfirmQrisPayment(
     } catch {
       // Ignore outside request context
     }
+
+    await createUserNotifications([
+      {
+        userId: session.userId,
+        type: "PAYMENT",
+        title: "Payment confirmed",
+        body: `Your payment for "${enrollment.program.title}" is confirmed. Your plan is now active.`,
+        url: "/dashboard",
+        dedupeKey: `payment-active:${enrollment.id}`,
+      },
+    ]);
 
     return {
       success: true,

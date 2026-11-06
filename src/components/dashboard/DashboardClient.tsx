@@ -23,6 +23,11 @@ import { VideoThumbnailLinkCard } from "./VideoThumbnailLinkCard";
 import { WorkoutSection } from "./WorkoutSection";
 import { MealSection } from "./MealSection";
 import { DailyReflectionCard } from "./DailyReflectionCard";
+import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
+import { MyPlanHeader, MyPlanOverview } from "./tabs/MyPlanTab";
+import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
+import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
+import { ProfileTab } from "./tabs/ProfileTab";
 import {
   CheckCircle,
   CheckCircle2,
@@ -210,6 +215,8 @@ export interface UserProfile {
   fullName: string;
   phone: string | null;
   age?: number | null;
+  dateOfBirth?: string | null;
+  avatarUrl?: string | null;
   gender?: string | null;
   occupation?: string | null;
   address?: string | null;
@@ -250,6 +257,7 @@ interface DashboardProps {
   user: UserProfile;
   myPrograms: EnrollmentItem[];
   allPrograms: ProgramItem[];
+  dailyPlans: ProgramDailyPlan[];
   initialHealthProfile?: HealthProfileData | null;
 }
 
@@ -257,10 +265,11 @@ export function DashboardClient({
   user,
   myPrograms,
   allPrograms,
+  dailyPlans,
   initialHealthProfile,
 }: DashboardProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications">("my_plan");
+  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
   const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
   const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
   const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
@@ -1411,241 +1420,82 @@ export function DashboardClient({
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
+  // My Plan tab: only plans the user actually holds (ACTIVE enrollments)
+  const activeEnrollments = myPrograms.filter((e) => e.status === "ACTIVE");
+  const planOptions = activeEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
+  const overviewEnrollment =
+    activeEnrollments.find((e) => e.programId === selectedProgId) || activeEnrollments[0] || null;
+  const overviewPlan = overviewEnrollment
+    ? dailyPlans.find((p) => p.programId === overviewEnrollment.programId) ?? null
+    : null;
+
+  const handleOpenToday = () => {
+    if (!overviewEnrollment) return;
+    const prog = myEnrolledPrograms.find((p) => p.id === overviewEnrollment.programId);
+    if (!prog) return;
+    const todayNo = overviewPlan?.today?.dayNumber;
+    const idx = todayNo ? prog.days.findIndex((d) => d.dayNumber === todayNo) : -1;
+    setSelectedProgId(prog.id);
+    setActiveDayIndex(idx >= 0 ? idx : 0);
+    setIsViewingPlanDetail(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden font-mono bg-zinc-50 dark:bg-[#070709] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
-      {/* Top Minimalist Header: Left Avatar & Name, Right '+ BMS' Dropdown Trigger */}
-      <header
-        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-14 px-3.5 sm:px-5 rounded-full flex items-center justify-between border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl shadow-lg transition-all duration-300 font-mono ${
-          isHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-24 opacity-0 pointer-events-none"
-        }`}
-      >
-        {/* LEFT: User Profile Avatar & Name */}
-        <button
-          type="button"
-          onClick={() => {
-            setIsProfileSidebarOpen(true);
-            setProfileActiveDetail(null);
-          }}
-          className="flex items-center gap-2.5 sm:gap-3 group focus:outline-none text-left"
-          title="Open Profile Settings"
-        >
-          <div className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/20 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105 group-hover:border-zinc-400 dark:group-hover:border-white/50 shadow-sm shrink-0">
-            {healthProfile?.photoFrontUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={healthProfile.photoFrontUrl}
-                alt={user.fullName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-[11px] font-semibold text-zinc-800 dark:text-white uppercase tracking-wider font-mono">
-                {user.fullName ? user.fullName.charAt(0) : "U"}
-              </span>
-            )}
-          </div>
-          <span className="text-xs sm:text-sm font-medium tracking-tight text-zinc-900 dark:text-white truncate max-w-[130px] sm:max-w-[200px]">
-            {user.fullName}
-          </span>
-        </button>
-
-        {/* RIGHT: Theme Toggle & '+ BMS' Brand Dropdown */}
-        <div className="flex items-center gap-2">
-          <ThemeToggle className="w-8 h-8 p-1.5" />
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsPlanDropdownOpen((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white text-xs font-mono uppercase tracking-wider transition active:scale-95"
-              title="My Enrolled Plans"
-            >
-              <span className="font-mono font-light text-base leading-none select-none">+</span>
-              <span className="font-geometric font-semibold text-xs tracking-[0.22em] uppercase">BMS</span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 transition-transform duration-200 ${
-                  isPlanDropdownOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {/* Floating Dropdown */}
-            {isPlanDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40 bg-black/30 dark:bg-black/60 backdrop-blur-xs"
-                  onClick={() => setIsPlanDropdownOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 font-mono">
-                  <div className="px-2 py-1.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 font-semibold">
-                      My Enrolled Plans ({myEnrolledPrograms.length})
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsPlanDropdownOpen(false)}
-                      className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="py-2 max-h-72 overflow-y-auto space-y-1">
-                    {myEnrolledPrograms.length === 0 ? (
-                      <div className="p-4 text-center space-y-3">
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-light">
-                          You haven&apos;t enrolled in any protocols yet.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab("all_plan");
-                            setIsPlanDropdownOpen(false);
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          }}
-                          className="w-full py-2 px-3 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition hover:opacity-90 shadow-sm"
-                        >
-                          <Compass className="w-3.5 h-3.5" />
-                          <span>Explore Plans</span>
-                        </button>
-                      </div>
-                    ) : (
-                      myEnrolledPrograms.map((prog) => {
-                        const isSelected = selectedProgId === prog.id;
-                        const completedCount = prog.days.filter((d) => d.userProgress?.isCompleted).length;
-                        const progressPct =
-                          prog.days.length > 0 ? Math.round((completedCount / prog.days.length) * 100) : 0;
-                        return (
-                          <button
-                            key={prog.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedProgId(prog.id);
-                              const currentIdx = prog.days.findIndex(
-                                (d) => d.isCalendarUnlocked && !d.isPast2359
-                              );
-                              setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
-                              setIsViewingPlanDetail(true);
-                              setActiveTab("my_plan");
-                              setIsPlanDropdownOpen(false);
-                              window.scrollTo({ top: 0, behavior: "smooth" });
-                            }}
-                            className={`w-full text-left p-3 rounded-xl transition flex items-center justify-between gap-3 ${
-                              isSelected
-                                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-medium shadow-sm"
-                                : "hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-800 dark:text-zinc-200"
-                            }`}
-                          >
-                            <div className="space-y-0.5 truncate">
-                              <span className="text-xs block uppercase tracking-tight truncate font-semibold">
-                                {prog.title}
-                              </span>
-                              <span
-                                className={`text-[10px] block font-mono ${
-                                  isSelected ? "opacity-75" : "text-zinc-500 dark:text-zinc-400"
-                                }`}
-                              >
-                                Coach {prog.coachName} &bull; {prog.dayCount} Days
-                              </span>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className="text-[10px] font-bold font-mono">
-                                {progressPct}%
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {myEnrolledPrograms.length > 0 && (
-                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab("my_plan");
-                          setIsViewingPlanDetail(false);
-                          setIsPlanDropdownOpen(false);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        className="text-[10px] uppercase tracking-wider text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition font-medium"
-                      >
-                        Overview
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab("all_plan");
-                          setIsPlanDropdownOpen(false);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        className="text-[10px] uppercase tracking-wider text-zinc-900 dark:text-white font-semibold flex items-center gap-1 hover:underline"
-                      >
-                        <span>Explore More</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Unified Bottom Floating Dock (3 Menus: My Plan, Explore, Alerts) */}
-      <nav
-        style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-xs h-12 rounded-full px-1.5 flex items-center justify-between border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("my_plan");
+      {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
+      {activeTab === "my_plan" && (
+        <MyPlanHeader
+          visible={isHeaderVisible}
+          plans={planOptions}
+          selectedProgramId={overviewEnrollment?.programId ?? ""}
+          onSelect={(id) => {
+            setSelectedProgId(id);
+            const prog = myEnrolledPrograms.find((p) => p.id === id);
+            const idx = prog ? prog.days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359) : -1;
+            setActiveDayIndex(idx >= 0 ? idx : 0);
             setIsViewingPlanDetail(false);
           }}
-          className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
-            activeTab === "my_plan"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-              : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>My Plan</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
+          onExplore={() => {
             setActiveTab("all_plan");
-            setIsViewingPlanDetail(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
-            activeTab === "all_plan"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-              : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-          }`}
-        >
-          <Compass className="w-3.5 h-3.5" />
-          <span>Explore</span>
-        </button>
+        />
+      )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("notifications");
-            setIsViewingPlanDetail(false);
-          }}
-          className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
-            activeTab === "notifications"
-              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-              : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-          }`}
-        >
-          <Bell className="w-3.5 h-3.5" />
-          <span>Alerts</span>
-        </button>
+      {/* Unified Bottom Floating Dock (4 Menus: My Plan, Explore, Alerts, Profile) */}
+      <nav
+        aria-label="Primary"
+        style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-1.5 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
+      >
+        {(
+          [
+            { key: "my_plan", label: "My Plan", Icon: Calendar },
+            { key: "all_plan", label: "Explore", Icon: Compass },
+            { key: "notifications", label: "Alerts", Icon: Bell },
+            { key: "profile", label: "Profile", Icon: User },
+          ] as const
+        ).map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            aria-current={activeTab === key ? "page" : undefined}
+            onClick={() => {
+              setActiveTab(key);
+              setIsViewingPlanDetail(false);
+              window.scrollTo({ top: 0 });
+            }}
+            className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
+              activeTab === key
+                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            <span>{label}</span>
+          </button>
+        ))}
       </nav>
 
       {/* Main Content Area with safe-area spacing */}
@@ -1673,340 +1523,25 @@ export function DashboardClient({
         {/* TAB 1: DAILY CURRICULUM & BENTO GRID (ONLY ENROLLED PROGRAMS) */}
         {activeTab === "my_plan" && (
           <div className="space-y-10 sm:space-y-12 font-mono">
-            {!currentProgram ? (
-              /* Empty state if user has NOT enrolled in any program yet */
-              <div className="relative rounded-3xl overflow-hidden bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 p-10 sm:p-16 text-center flex flex-col items-center justify-center space-y-6 shadow-sm min-h-[420px] transition-colors">
-                <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400 flex items-center justify-center relative z-10 shadow-sm">
-                  <Calendar className="w-8 h-8 text-zinc-600 dark:text-zinc-300" />
-                </div>
-                <div className="space-y-2.5 max-w-md relative z-10 font-mono">
-                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.24em] uppercase font-semibold">
-                    No Enrolled Program
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-950 dark:text-white font-geometric">
-                    You haven&apos;t joined a program yet.
-                  </h2>
-                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-light leading-relaxed font-mono">
-                    My Plan exclusively displays the protocols you are participating in. Explore our curated active curriculums to unlock your daily movement protocols, whole food plans, and community channel.
-                  </p>
-                </div>
-                <div className="relative z-10 pt-2 font-mono">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("all_plan")}
-                    className="px-7 py-3 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-2 shadow-lg transition duration-200 active:scale-95"
-                  >
-                    <span>Explore Programs</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ) : !isViewingPlanDetail ? (
-              /* VIEW 1: DASHBOARD VIEW (Clean, Simple, 3 Indicators + My Plan Card + Generous Negative Space) */
-              <div className="space-y-8 sm:space-y-10 font-mono">
-                {/* Header Welcome Title */}
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-white/10">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400">
-                      Circadian Telemetry &bull; Protocol Overview
-                    </span>
-                    <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
-                      Welcome, <span className="font-medium">{user.fullName.split(" ")[0]}</span>
-                    </h1>
-                  </div>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
-                    {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </span>
-                </div>
-
-                {/* ============================================================= */}
-                {/* 1. 3 INDIKATOR WIDGET                                         */}
-                {/* ============================================================= */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {/* Widget 1: Circadian Rest */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-3 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
-                        Circadian Rest
-                      </span>
-                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center">
-                        <Moon className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-zinc-950 dark:text-white">
-                        7.6 <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Hours</span>
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span>88% Restored &bull; Target 8.0h</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Widget 2: Daily Protocol */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-3 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
-                        Daily Protocol
-                      </span>
-                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center">
-                        <Activity className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-zinc-950 dark:text-white">
-                        {completedTasksCount} / 3 <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Tasks</span>
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${completedTasksCount === 3 ? "bg-emerald-500" : "bg-amber-500"}`} />
-                        <span>{completedTasksCount === 3 ? "All Complete Today" : `${3 - completedTasksCount} Pending • 23:59 Cutoff`}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Widget 3: Consistency Rate */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-3 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
-                        Consistency Rate
-                      </span>
-                      <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center">
-                        <Sparkles className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-zinc-950 dark:text-white">
-                        {currentProgram ? Math.round((completedDaysCount / Math.max(1, totalDays)) * 100) : 0}%
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 dark:bg-white" />
-                        <span>{completedDaysCount} of {totalDays} Days Adherence</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ============================================================= */}
-                {/* 2. DIBALIKNYA ADA "MY PLAN": DAY X OF Y, NAMA PROGRAM, VIEW DETAIL */}
-                {/* ============================================================= */}
-                <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm sm:shadow-lg space-y-6 transition-colors">
-                  {/* Top Tag & Metadata */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono font-bold tracking-wider uppercase">
-                        Day {currentActiveCalendarDay?.dayNumber || 1} of {totalDays}
-                      </span>
-                      <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                        &bull; Active Protocol
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                      <span>Coach {currentProgram.coachName}</span>
-                      <span>&bull;</span>
-                      <span>{currentProgram.dayCount} Days</span>
-                    </div>
-                  </div>
-
-                  {/* Program Title & Overview */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400 block">
-                      Enrolled Protocol
-                    </span>
-                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
-                      {currentProgram.title}
-                    </h2>
-                    {currentProgram.description && (
-                      <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 font-mono font-light line-clamp-2 leading-relaxed max-w-2xl">
-                        {currentProgram.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Today's Focus Strip */}
-                  <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                        Today&apos;s Curriculum Focus
-                      </span>
-                      <div className="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 dark:bg-white" />
-                        <span>Day {currentActiveCalendarDay?.dayNumber || 1}: {currentActiveCalendarDay?.title || "Movement & Mobility"}</span>
-                      </div>
-                    </div>
-                    <div className="text-left sm:text-right font-mono shrink-0">
-                      <span className="text-xs font-bold text-zinc-900 dark:text-white">
-                        {completedDaysCount} / {totalDays} Days Finished
-                      </span>
-                      <div className="w-full sm:w-36 h-1.5 bg-zinc-200 dark:bg-white/10 rounded-full mt-1.5 overflow-hidden">
-                        <div
-                          className="h-full bg-zinc-950 dark:bg-white rounded-full transition-all duration-500"
-                          style={{ width: `${totalDays > 0 ? (completedDaysCount / totalDays) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom CTA: Tombol View Detail */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-white/10">
-                    <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400 flex items-center gap-2 order-2 sm:order-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Daily check-in closes at 23:59 WIB</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsViewingPlanDetail(true);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className="w-full sm:w-auto px-7 py-3 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition active:scale-[0.98] order-1 sm:order-2"
-                    >
-                      <span>View Detail</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Other Enrolled Plans (if user has > 1) */}
-                {myEnrolledPrograms.length > 1 && (
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-mono tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
-                        Other Enrolled Protocols ({myEnrolledPrograms.length - 1})
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {myEnrolledPrograms
-                        .filter((p) => p.id !== currentProgram.id)
-                        .map((otherProg) => {
-                          const otherDone = otherProg.days.filter((d) => d.userProgress?.isCompleted).length;
-                          const otherPct = otherProg.days.length > 0 ? Math.round((otherDone / otherProg.days.length) * 100) : 0;
-                          return (
-                            <button
-                              key={otherProg.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedProgId(otherProg.id);
-                                const currentIdx = otherProg.days.findIndex(
-                                  (d) => d.isCalendarUnlocked && !d.isPast2359
-                                );
-                                setActiveDayIndex(currentIdx >= 0 ? currentIdx : 0);
-                                window.scrollTo({ top: 0, behavior: "smooth" });
-                              }}
-                              className="p-4 rounded-2xl bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-white/10 text-left hover:border-zinc-400 dark:hover:border-white/30 transition flex items-center justify-between gap-3 shadow-sm"
-                            >
-                              <div className="space-y-0.5 truncate">
-                                <span className="text-xs uppercase font-semibold text-zinc-950 dark:text-white block truncate">
-                                  {otherProg.title}
-                                </span>
-                                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block font-mono">
-                                  Coach {otherProg.coachName} &bull; {otherProg.dayCount} Days
-                                </span>
-                              </div>
-                              <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white shrink-0">
-                                {otherPct}%
-                              </span>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Newly Published Programs (Clean Monochrome) */}
-                <div className="space-y-4 pt-6 border-t border-zinc-200 dark:border-white/10">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400 block">
-                        New Releases
-                      </span>
-                      <h2 className="text-lg sm:text-xl font-light uppercase tracking-tight text-zinc-950 dark:text-white font-geometric">
-                        Explore Open Curriculums
-                      </h2>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab("all_plan");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 font-mono uppercase tracking-wider"
-                    >
-                      <span>View All ({allPrograms.length})</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
-                    {newlyPublishedPrograms.map((prog, idx) => {
-                      const enrolled = myPrograms.find((e) => e.programId === prog.id);
-                      const isEnrolled = !!enrolled;
-
-                      return (
-                        <div
-                          key={prog.id}
-                          className="rounded-2xl p-5 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 flex flex-col justify-between min-h-[220px] shadow-sm transition hover:border-zinc-400 dark:hover:border-white/25"
-                        >
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-1.5">
-                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-[9px] uppercase tracking-wider font-semibold">
-                                {prog.dayCount} Days
-                              </span>
-                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-[9px] uppercase tracking-wider font-bold">
-                                Open Reg.
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
-                                Coach {prog.coachName}
-                              </span>
-                              <h3 className="text-sm font-medium tracking-tight text-zinc-950 dark:text-white uppercase leading-snug mt-0.5">
-                                {prog.title}
-                              </h3>
-                            </div>
-                          </div>
-
-                          <div className="pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2 mt-4">
-                            <div>
-                              <span className="text-[9px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">Tuition</span>
-                              <span className="text-xs font-bold text-zinc-900 dark:text-white">
-                                Rp {prog.price.toLocaleString("id-ID")}
-                              </span>
-                            </div>
-
-                            {isEnrolled ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedProgId(prog.id);
-                                  setIsViewingPlanDetail(true);
-                                  window.scrollTo({ top: 0, behavior: "smooth" });
-                                }}
-                                className="px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-white/15 text-zinc-900 dark:text-white text-[10px] font-bold uppercase tracking-wider"
-                              >
-                                Enrolled
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDetailedProgram(prog);
-                                }}
-                                className="px-3.5 py-1.5 rounded-full bg-zinc-950 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm transition active:scale-95"
-                              >
-                                <span>Details</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+            {!currentProgram || !isViewingPlanDetail ? (
+              <MyPlanOverview
+                program={
+                  overviewEnrollment
+                    ? {
+                        title: overviewEnrollment.title,
+                        startDate: overviewEnrollment.startDate,
+                        endDate: overviewEnrollment.endDate,
+                        communityLink: overviewEnrollment.communityLink,
+                      }
+                    : null
+                }
+                plan={overviewPlan}
+                onExplore={() => {
+                  setActiveTab("all_plan");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                onOpenToday={handleOpenToday}
+              />
             ) : (
               /* VIEW 2: PLAN DETAIL (Hari ini apa saja gitu) */
               <div className="space-y-5 sm:space-y-6 font-mono">
@@ -2589,750 +2124,40 @@ export function DashboardClient({
           </div>
         )}
 
-        {/* ===================================================================== */}
-        {/* TAB 2: ALL PROGRAMS (SEARCH, FILTER & PAGINATION)                    */}
-        {/* ===================================================================== */}
-        {activeTab === "all_plan" && (() => {
-          const filteredPrograms = allPrograms.filter((prog) => {
-            const q = programSearch.trim().toLowerCase();
-            const matchesSearch =
-              !q ||
-              prog.title.toLowerCase().includes(q) ||
-              prog.coachName.toLowerCase().includes(q) ||
-              (prog.city && prog.city.toLowerCase().includes(q)) ||
-              (prog.description && prog.description.toLowerCase().includes(q));
+        {/* TAB 2: EXPLORE PLAN */}
+        {activeTab === "all_plan" && (
+          <ExplorePlanTab
+            headerVisible={isHeaderVisible}
+            registeringId={enrollingId}
+            onRegister={(id) => handleOpenQrisCheckout(id)}
+            onViewDetails={(id) => {
+              const prog = allPrograms.find((p) => p.id === id);
+              if (prog) setDetailedProgram(prog);
+            }}
+            onOpenPlan={(id) => {
+              setSelectedProgId(id);
+              setIsViewingPlanDetail(false);
+              setActiveTab("my_plan");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        )}
 
-            const matchesFormat =
-              formatFilter === "ALL" ||
-              (formatFilter === "ONLINE" && (!prog.locationType || prog.locationType === "ONLINE")) ||
-              prog.locationType === formatFilter;
+        {/* TAB 3: NOTIFICATION & HISTORY */}
+        {activeTab === "notifications" && <NotificationsHistoryTab headerVisible={isHeaderVisible} />}
 
-            const publicBadge = resolvePublicBadge({
-              status: prog.status,
-              registrationOpenDate: prog.registrationOpenDate,
-              registrationDeadline: prog.registrationDeadline,
-              startDate: prog.startDate,
-              endDate: prog.endDate,
-              maxQuota: prog.maxQuota,
-              enrolledCount: prog.enrolledCount,
-            }) || "Open Registration";
-
-            const matchesAvailability =
-              availabilityFilter === "ALL" ||
-              (availabilityFilter === "OPEN" && publicBadge === "Open Registration") ||
-              (availabilityFilter === "ACTIVE" && publicBadge === "On going") ||
-              (availabilityFilter === "COMING_SOON" && publicBadge === "Coming Soon");
-
-            return matchesSearch && matchesFormat && matchesAvailability;
-          });
-
-          const totalProgramPages = Math.max(1, Math.ceil(filteredPrograms.length / ITEMS_PER_PAGE));
-          const paginatedPrograms = filteredPrograms.slice(
-            (programsPage - 1) * ITEMS_PER_PAGE,
-            programsPage * ITEMS_PER_PAGE
-          );
-
-          return (
-            <div className="space-y-5 sm:space-y-6 font-mono">
-              {/* Header */}
-              <div className="rounded-2xl p-4 sm:p-6 bg-zinc-900/60 border border-white/10 space-y-1.5 shadow-xl">
-                <div className="flex items-center gap-1.5 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                  <span className="text-[10px] uppercase tracking-[0.24em] font-semibold text-zinc-400">
-                    Curated Cohorts
-                  </span>
-                </div>
-                <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white uppercase font-geometric">
-                  Available Programs
-                </h1>
-                <p className="text-xs text-zinc-400 font-light">
-                  Precision longevity and movement curriculums. 35-member cohort cap.
-                </p>
-              </div>
-
-              {/* Search Bar & Filter Controls */}
-              <div className="rounded-2xl p-3.5 sm:p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-lg">
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={programSearch}
-                    onChange={(e) => {
-                      setProgramSearch(e.target.value);
-                      setProgramsPage(1);
-                    }}
-                    placeholder="Enter keyword to search..."
-                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30"
-                  />
-                  {programSearch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProgramSearch("");
-                        setProgramsPage(1);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Filter Tabs (Format & Availability) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-                  {/* Format Filters */}
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 mr-1 flex items-center gap-1 font-semibold">
-                      <Filter className="w-3 h-3" /> Format:
-                    </span>
-                    {[
-                      { id: "ALL", label: "All" },
-                      { id: "ONLINE", label: "Online" },
-                      { id: "ONSITE", label: "On-Site" },
-                      { id: "HYBRID", label: "Hybrid" },
-                    ].map((fmt) => (
-                      <button
-                        key={fmt.id}
-                        type="button"
-                        onClick={() => {
-                          setFormatFilter(fmt.id as any);
-                          setProgramsPage(1);
-                        }}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
-                          formatFilter === fmt.id
-                            ? "bg-white text-zinc-950 shadow-sm"
-                            : "bg-white/5 text-zinc-400 hover:text-white"
-                        }`}
-                      >
-                        {fmt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Status Filters */}
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 mr-1 font-semibold">Status:</span>
-                    {[
-                      { id: "ALL", label: "All" },
-                      { id: "OPEN", label: "Open" },
-                      { id: "ACTIVE", label: "Active" },
-                      { id: "COMING_SOON", label: "Soon" },
-                    ].map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => {
-                          setAvailabilityFilter(st.id as any);
-                          setProgramsPage(1);
-                        }}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition ${
-                          availabilityFilter === st.id
-                            ? "bg-white text-zinc-950 shadow-sm"
-                            : "bg-white/5 text-zinc-400 hover:text-white"
-                        }`}
-                      >
-                        {st.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Programs Grid */}
-              {paginatedPrograms.length === 0 ? (
-                <div className="rounded-2xl p-8 text-center bg-zinc-900/60 border border-white/10 space-y-2">
-                  <Compass className="w-6 h-6 text-zinc-500 mx-auto" />
-                  <h3 className="text-sm font-semibold text-white">
-                    No programs found
-                  </h3>
-                  <p className="text-xs text-zinc-400 max-w-sm mx-auto font-light">
-                    Try adjusting your search or filter keywords.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProgramSearch("");
-                      setFormatFilter("ALL");
-                      setAvailabilityFilter("ALL");
-                      setProgramsPage(1);
-                    }}
-                    className="px-4 py-1.5 rounded-full bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider mt-2"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
-                  {paginatedPrograms.map((prog, idx) => {
-                    const enrolled = myPrograms.find((e) => e.programId === prog.id);
-                    const isActive = enrolled?.status === "ACTIVE";
-                    const isPending = enrolled?.status === "PENDING";
-                    const remainingSlots = Math.max(0, prog.maxQuota - prog.enrolledCount);
-                    const publicBadge = resolvePublicBadge({
-                      status: prog.status,
-                      registrationOpenDate: prog.registrationOpenDate,
-                      registrationDeadline: prog.registrationDeadline,
-                      startDate: prog.startDate,
-                      endDate: prog.endDate,
-                      maxQuota: prog.maxQuota,
-                      enrolledCount: prog.enrolledCount,
-                    }) || "Open Registration";
-
-                    return (
-                      <div
-                        key={prog.id}
-                        className="relative rounded-2xl overflow-hidden border border-white/15 min-h-[320px] sm:min-h-[360px] p-4 sm:p-6 flex flex-col justify-between group shadow-xl bg-zinc-950"
-                      >
-                        {/* Full Background Image */}
-                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                          <Image
-                            src={prog.coverImage || (idx % 2 === 0 ? "/test.jpg" : "/pic.jpg")}
-                            alt={prog.title}
-                            fill
-                            className="object-cover object-center brightness-[0.55] scale-100 group-hover:scale-105 transition-transform duration-500"
-                          />
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30 pointer-events-none" />
-
-                        {/* Top Badges */}
-                        <div className="relative z-10 flex flex-wrap items-center justify-between gap-1.5 font-mono">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] uppercase tracking-wider font-semibold text-white">
-                              {prog.dayCount} Days
-                            </span>
-
-                            {prog.locationType === "ONSITE" && (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-zinc-300" />
-                                <span>On-Site &bull; {prog.city || "Studio"}</span>
-                              </span>
-                            )}
-
-                            {prog.locationType === "HYBRID" && (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-zinc-300" />
-                                <span>Hybrid &bull; {prog.city || "Studio"}</span>
-                              </span>
-                            )}
-
-                            {(!prog.locationType || prog.locationType === "ONLINE") && (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] uppercase tracking-wider font-semibold text-zinc-200 backdrop-blur-md">
-                                Online
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5">
-                            {isActive ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] uppercase tracking-wider font-bold">
-                                Enrolled
-                              </span>
-                            ) : isPending ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-zinc-300 text-[10px] uppercase tracking-wider font-bold">
-                                Pending
-                              </span>
-                            ) : publicBadge === "Open Registration" ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 text-white text-[10px] uppercase tracking-wider font-bold">
-                                Open
-                              </span>
-                            ) : (
-                              <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 text-[10px] uppercase tracking-wider font-semibold">
-                                {publicBadge}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Floating Content Card */}
-                        <div className="relative z-10 rounded-xl p-3.5 sm:p-4 space-y-2 text-white border border-white/15 bg-black/60 backdrop-blur-md">
-                          <div className="space-y-1 font-mono">
-                            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-zinc-400">
-                              <span>{prog.coachName}</span>
-                              <span>&bull;</span>
-                              <span>Starts {formatShortDate(prog.startDate)}</span>
-                            </div>
-
-                            <h3 className="text-base sm:text-lg font-light uppercase tracking-tight text-white font-geometric">
-                              {prog.title}
-                            </h3>
-
-                            <p className="text-[11px] text-zinc-300 line-clamp-1 font-light font-mono">
-                              {prog.description}
-                            </p>
-                          </div>
-
-                          <div className="pt-2 border-t border-white/15 flex items-center justify-between gap-2 font-mono">
-                            <div>
-                              <span className="text-[9px] uppercase tracking-wider text-zinc-400 block">Tuition</span>
-                              <span className="text-xs sm:text-sm font-bold text-white tracking-tight">
-                                Rp {prog.price.toLocaleString("id-ID")}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setDetailedProgram(prog)}
-                                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition"
-                                title="View Details"
-                              >
-                                <Info className="w-3.5 h-3.5" />
-                              </button>
-
-                              {isActive ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedProgId(prog.id);
-                                    setActiveDayIndex(0);
-                                    setActiveTab("my_plan");
-                                    setIsViewingPlanDetail(true);
-                                  }}
-                                  className="px-5 py-2.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                                >
-                                  <span>Open Plan</span>
-                                  <ArrowRight className="w-3.5 h-3.5" />
-                                </button>
-                              ) : isPending ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenQrisCheckout(prog.id)}
-                                  disabled={enrollingId === prog.id}
-                                  className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                                >
-                                  {enrollingId === prog.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <QrCode className="w-3.5 h-3.5" />
-                                      <span>Complete Payment</span>
-                                    </>
-                                  )}
-                                </button>
-                              ) : publicBadge === "Open Registration" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenQrisCheckout(prog.id)}
-                                  disabled={enrollingId === prog.id}
-                                  className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                                >
-                                  {enrollingId === prog.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <QrCode className="w-3.5 h-3.5" />
-                                      <span>Join Program</span>
-                                    </>
-                                  )}
-                                </button>
-                              ) : publicBadge === "Coming Soon" ? (
-                                <a
-                                  href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo Concierge, saya ingin bergabung ke waitlist untuk program: ${prog.title}`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 transition shadow"
-                                >
-                                  <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-                                  <span>Waitlist</span>
-                                </a>
-                              ) : publicBadge === "Full" ? (
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-white/15 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
-                                >
-                                  <span>Cohort Full</span>
-                                </button>
-                              ) : publicBadge === "Close Registration" ? (
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
-                                >
-                                  <span>Registration Closed</span>
-                                </button>
-                              ) : publicBadge === "On going" ? (
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-white/15 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
-                                >
-                                  <span>In Progress</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="px-5 py-2.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 text-xs font-semibold tracking-wide cursor-not-allowed"
-                                >
-                                  <span>Ended</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Pagination Controls */}
-              {totalProgramPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-200/60 dark:border-white/10 text-xs">
-                  <span className="text-zinc-500 dark:text-zinc-400 font-light">
-                    Showing {Math.min((programsPage - 1) * ITEMS_PER_PAGE + 1, filteredPrograms.length)} –{" "}
-                    {Math.min(programsPage * ITEMS_PER_PAGE, filteredPrograms.length)} of {filteredPrograms.length} programs
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={programsPage <= 1}
-                      onClick={() => {
-                        setProgramsPage((p) => Math.max(1, p - 1));
-                        window.scrollTo({ top: 300, behavior: "smooth" });
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl glass-panel-subtle disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 hover:text-zinc-950 dark:hover:text-white transition"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                      <span>Prev</span>
-                    </button>
-
-                    <span className="px-3.5 py-1.5 rounded-xl glass-panel text-zinc-900 dark:text-white font-semibold">
-                      {programsPage} / {totalProgramPages}
-                    </span>
-
-                    <button
-                      type="button"
-                      disabled={programsPage >= totalProgramPages}
-                      onClick={() => {
-                        setProgramsPage((p) => Math.min(totalProgramPages, p + 1));
-                        window.scrollTo({ top: 300, behavior: "smooth" });
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl glass-panel-subtle disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 hover:text-zinc-950 dark:hover:text-white transition"
-                    >
-                      <span>Next</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* ===================================================================== */}
-        {/* TAB 3: PROFILE (STACKED MENU -> DEDICATED DETAIL VIEW)                */}
-        {/* ===================================================================== */}
-        {activeTab === "notifications" && (
-          <div className="max-w-2xl mx-auto space-y-5 font-mono">
-            {/* Header Card */}
-            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-2 shadow-xl">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                  Cadence Sync
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 text-[10px] uppercase font-bold tracking-wider">
-                  Push Active
-                </span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
-                Protocol Alerts &amp; Dispatch
-              </h2>
-              <p className="text-xs text-zinc-400 font-light leading-relaxed">
-                Scheduled circadian reminders and protocol unlocking cadences for enrolled cohorts.
-              </p>
-            </div>
-
-            {/* iOS Safari Standalone Guide Banner */}
-            {isIosDevice && !isStandalonePwa && (
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/20 text-white text-xs space-y-2.5 shadow-xl font-mono">
-                <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[11px] text-white">
-                  <Smartphone className="w-4 h-4 text-zinc-300" />
-                  <span>Syarat Apple iOS (iPhone)</span>
-                </div>
-                <p className="font-light leading-relaxed text-zinc-300 text-[11px]">
-                  Kebijakan resmi Apple: Notifikasi di iPhone <strong>hanya diizinkan masuk saat aplikasi ditutup</strong> jika website telah ditambahkan ke Layar Utama (*Home Screen*).
-                </p>
-                <div className="bg-black/60 rounded-xl p-3 text-[11px] space-y-1.5 font-mono text-zinc-300 border border-white/10">
-                  <p>1. Ketuk ikon <strong className="text-white">Share</strong> (kotak panah ke atas) di bagian bawah Safari.</p>
-                  <p>2. Pilih <strong className="text-white">&quot;Add to Home Screen&quot;</strong> (*Tambah ke Layar Utama*).</p>
-                  <p>3. Buka ikon <strong className="text-white">+ BMS</strong> dari Home Screen, lalu tekan tombol sinkronisasi di bawah.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Interactive Browser Push Trigger & Test Panel */}
-            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3.5 shadow-xl font-mono">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                  Device Push Handshake
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
-                    notifPermission === "granted"
-                      ? "bg-white text-zinc-950"
-                      : "bg-white/10 text-zinc-300 border border-white/15"
-                  }`}>
-                    {notifPermission === "granted" ? "Permission Active" : "Action Required"}
-                  </span>
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
-                    isPushSubscribed
-                      ? "bg-white/20 text-white border border-white/30"
-                      : "bg-white/5 text-zinc-500 border border-white/5"
-                  }`}>
-                    {isPushSubscribed ? "Cloud Synced" : "Unlinked"}
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-xs text-zinc-300 font-light leading-relaxed">
-                Sync this device with the Vercel Web Push gateway (RFC 8292 / VAPID) so notifications arrive even when the browser or PWA is in the background.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {notifPermission !== "granted" || !isPushSubscribed ? (
-                  <button
-                    type="button"
-                    onClick={handleEnableNotifications}
-                    disabled={isSubscribingPush}
-                    className="px-5 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide uppercase flex items-center gap-2 shadow-sm disabled:opacity-50"
-                  >
-                    {isSubscribingPush ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Radio className="w-3.5 h-3.5" />
-                    )}
-                    <span>{isSubscribingPush ? "Syncing Handshake..." : "Enable & Sync Web Push"}</span>
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleTestReminder("morning")}
-                      className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95"
-                    >
-                      <Clock className="w-3 h-3 text-zinc-300" />
-                      <span>Test Local Awakening (07:00)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestReminder("evening")}
-                      className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95"
-                    >
-                      <Moon className="w-3 h-3 text-zinc-300" />
-                      <span>Test Local Cutoff (21:30)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleEnableNotifications}
-                      disabled={isSubscribingPush}
-                      className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-xs font-medium uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3 h-3 text-zinc-400 ${isSubscribingPush ? "animate-spin" : ""}`} />
-                      <span>Re-sync Keypair</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Production Cloud Scheduler & Cron Dispatcher */}
-            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3.5 shadow-xl font-mono">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                  Cloud Automation &bull; Vercel Cron
-                </span>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 uppercase font-bold tracking-wider">
-                  RFC 8292 Server-Side
-                </span>
-              </div>
-
-              <p className="text-xs text-zinc-300 font-light leading-relaxed">
-                Production architecture: Vercel Cron automatically calls <code className="px-1.5 py-0.5 rounded bg-black/60 text-white font-mono text-[11px]">/api/cron/dispatch-notifications</code> every minute. You can also manually trigger or simulate any cohort cadence below:
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleTriggerCronServer()}
-                  disabled={isTriggeringCron}
-                  className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-                >
-                  {isTriggeringCron ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Server className="w-3.5 h-3.5 text-zinc-300" />
-                  )}
-                  <span>Run Current Minute Cron</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTriggerCronServer("13:20")}
-                  disabled={isTriggeringCron}
-                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-                >
-                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Simulate 13:20 (Prog 1)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTriggerCronServer("13:22")}
-                  disabled={isTriggeringCron}
-                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-                >
-                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Simulate 13:22 (Prog 2)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTriggerCronServer("13:24")}
-                  disabled={isTriggeringCron}
-                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 text-xs font-medium uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-                >
-                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Simulate 13:24 (Prog 3)</span>
-                </button>
-              </div>
-
-              {/* Server Response Terminal Viewer */}
-              {cronTriggerResult && (
-                <div className="mt-3 p-3.5 rounded-xl bg-black/80 border border-white/15 space-y-2 text-[11px] font-mono">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-                    <span className="text-zinc-400 uppercase tracking-widest text-[9px] font-bold">
-                      Server Dispatch Output
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setCronTriggerResult(null)}
-                      className="text-zinc-400 hover:text-white text-[10px] uppercase font-semibold"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <pre className="text-zinc-300 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 scrollbar-thin">
-                    {JSON.stringify(cronTriggerResult, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-
-            {/* Daily Dispatch Cadence Schedule */}
-            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl">
-              <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                Standard Cadence
-              </span>
-              <div className="space-y-2">
-                {[
-                  { time: "07:00 WIB", label: "Awakening & Sleep Log", desc: "Morning rest logging and circadian alignment" },
-                  { time: "12:00 WIB", label: "Daily Movement Unlock", desc: "Access daily training sequence and meal protocol" },
-                  { time: "21:30 WIB", label: "Evening Reflection & Assessment", desc: "Log vitality score and daily self-assessment" },
-                  { time: "23:59 WIB", label: "Protocol Day Cutoff", desc: "Deadline to complete daily curriculum tasks" },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <strong className="text-white font-medium">{item.label}</strong>
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 font-mono">
-                          {item.time}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 font-light">{item.desc}</p>
-                    </div>
-                    <span className="w-2 h-2 rounded-full bg-white shrink-0" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Program Specific Notification History / Logs */}
-            <div className="rounded-2xl p-5 bg-zinc-900/60 border border-white/10 space-y-3 shadow-xl">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                  Cohort Dispatch Log &amp; Real-Time Triggers
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono">
-                  Auto-Dispatches at Scheduled Minute
-                </span>
-              </div>
-              {myEnrolledPrograms.length === 0 ? (
-                <p className="text-xs text-zinc-500 py-3 text-center">No enrolled programs for alert dispatch.</p>
-              ) : (
-                <div className="space-y-2">
-                  {myEnrolledPrograms.flatMap((prog) =>
-                    prog.days.flatMap((day) =>
-                      (day.dayNotifications && day.dayNotifications.length > 0
-                        ? day.dayNotifications.map((notif, nIdx) => ({
-                            id: `${prog.id}-${day.id}-${nIdx}`,
-                            programTitle: prog.title,
-                            dayNumber: day.dayNumber,
-                            time: notif.time,
-                            message: notif.message,
-                            isPast: day.isPast2359,
-                          }))
-                        : [
-                            {
-                              id: `${prog.id}-${day.id}-0`,
-                              programTitle: prog.title,
-                              dayNumber: day.dayNumber,
-                              time: "07:00 WIB",
-                              message: `Day ${day.dayNumber} awakening and recovery protocol is ready.`,
-                              isPast: day.isPast2359,
-                            },
-                          ]
-                      )
-                    )
-                  ).slice(0, 8).map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold text-zinc-300 uppercase tracking-wider truncate">
-                            {item.programTitle} &bull; Day {item.dayNumber}
-                          </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 text-white font-mono font-bold shrink-0">
-                            {item.time} WIB
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-200 font-light leading-relaxed">{item.message}</p>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleFireSpecificNotification(item.programTitle, item.time, item.message)}
-                          className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold uppercase tracking-wider transition active:scale-95 flex items-center gap-1"
-                          title="Simulasikan notifikasi ini sekarang"
-                        >
-                          <Bell className="w-3 h-3 text-zinc-300" />
-                          <span>Test Fire</span>
-                        </button>
-                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase ${
-                          dispatchedCadenceKeys[item.id]
-                            ? "bg-white text-zinc-950 font-bold"
-                            : item.isPast
-                            ? "bg-white/5 text-zinc-500 border border-white/5"
-                            : "bg-white/10 text-white border border-white/15"
-                        }`}>
-                          {dispatchedCadenceKeys[item.id] ? "Dispatched" : "Scheduled"}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* TAB 4: PROFILE & SETTINGS */}
+        {activeTab === "profile" && (
+          <ProfileTab
+            user={user}
+            headerVisible={isHeaderVisible}
+            onLogout={handleSignOut}
+            onOpenHealthProfile={() => {
+              setIsProfileSidebarOpen(true);
+              setProfileActiveDetail("medical");
+            }}
+            onDeleteAccount={() => setDeleteModalOpen(true)}
+          />
         )}
       </main>
       {/* ===================================================================== */}

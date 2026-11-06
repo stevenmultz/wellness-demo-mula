@@ -59,6 +59,29 @@ export const ResetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** Whole years between a YYYY-MM-DD birth date and `now` (UTC calendar math, DOB has no time zone). */
+export function calculateAgeFromDob(dob: string, now: Date = new Date()): number {
+  const [y, m, d] = dob.split("-").map(Number);
+  let age = now.getUTCFullYear() - y;
+  const hadBirthday =
+    now.getUTCMonth() + 1 > m || (now.getUTCMonth() + 1 === m && now.getUTCDate() >= d);
+  if (!hadBirthday) age -= 1;
+  return age;
+}
+
+const DateOfBirthSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be in YYYY-MM-DD format")
+  .refine((v) => {
+    const [y, m, d] = v.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  }, "Date of birth is not a valid date")
+  .refine((v) => calculateAgeFromDob(v) >= 10, "You must be at least 10 years old")
+  .refine((v) => calculateAgeFromDob(v) <= 120, "Date of birth is not realistic");
+
+export const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
+
 export const UpdateProfileSchema = z.object({
   fullName: z
     .string({ required_error: "Full name is required" })
@@ -73,7 +96,11 @@ export const UpdateProfileSchema = z.object({
     .optional()
     .or(z.literal("")),
   age: z.number().int().min(10).max(120).nullable().optional(),
-  gender: z.string().max(20).nullable().optional(),
+  dateOfBirth: z.union([DateOfBirthSchema, z.literal("")]).nullable().optional(),
+  gender: z
+    .union([z.enum(GENDER_OPTIONS), z.literal("")])
+    .nullable()
+    .optional(),
   occupation: z.string().max(100).nullable().optional(),
   address: z.string().max(255).nullable().optional(),
   city: z.string().max(100).nullable().optional(),

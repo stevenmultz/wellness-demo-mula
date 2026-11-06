@@ -22,6 +22,8 @@ model User {
   gender                String?              @map("gender")
   occupation            String?              @map("occupation")
   address               String?              @map("address")
+  dateOfBirth           DateTime?            @map("date_of_birth") @db.Date // Source of truth for age (age is derived on save)
+  avatarUrl             String?              @map("avatar_url") // Profile picture (small, server-validated image data URL)
   city                  String?              @map("city")
   province              String?              @map("province")
   emergencyContactName  String?              @map("emergency_contact_name")
@@ -36,6 +38,7 @@ model User {
   pushSubscriptions PushSubscription[]
   dayProgress       ProgramDayProgress[]
   healthProfile     CustomerHealthProfile?
+  notifications     UserNotification[]
 
   @@index([role])
   @@index([status])
@@ -370,6 +373,26 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// In-app notification inbox (program info, daily task updates, payment, reminders, announcements)
+model UserNotification {
+  id        String    @id @default(cuid()) @map("id")
+  userId    String    @map("user_id")
+  type      String    @default("INFO") @map("type") // "PROGRAM" | "TASK" | "PAYMENT" | "REMINDER" | "ANNOUNCEMENT" | "INFO"
+  title     String    @map("title")
+  body      String    @map("body")
+  url       String?   @map("url")
+  dedupeKey String?   @map("dedupe_key") // Prevents duplicate rows when a dispatcher retries
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("user_notifications")
 }
 
 // ============================================================================

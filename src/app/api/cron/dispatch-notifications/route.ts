@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { sendWebPushNotification } from "@/wellness/integrations/web-push";
+import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { safeJsonParse } from "@/wellness/utils/json";
 import { getProgramDayWibWindow, WIB_OFFSET_MS } from "@/wellness/utils/timezone";
 
@@ -189,8 +190,23 @@ async function handleCronDispatch(req: NextRequest) {
         }
 
         const subscribers = Array.from(activeSubscribersMap.values());
+        const wibDateKey = wibDate.toISOString().slice(0, 10);
+        let notifIdx = 0;
 
         for (const notif of matchingNotifs) {
+          // Persist to each enrolled user's in-app inbox (idempotent via dedupeKey)
+          await createUserNotifications(
+            prog.enrollments.map((enrollment) => ({
+              userId: enrollment.userId,
+              type: "TASK" as const,
+              title: prog.title,
+              body: notif.message,
+              url: "/dashboard",
+              dedupeKey: `cadence:${day.id}:${wibDateKey}:${targetTimeStr}:${notifIdx}`,
+            }))
+          );
+          notifIdx++;
+
           let sentSuccess = 0;
           let sentFailed = 0;
           const errors: string[] = [];
