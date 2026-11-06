@@ -993,6 +993,26 @@ export function DashboardClient({
     return true;
   };
 
+  const handleCompleteProgramDay = async (dayId: string): Promise<boolean> => {
+    const target = currentProgram?.days.find((d) => d.id === dayId);
+    if (!target) return false;
+    const res = await wellnessUserSubmitDayProgress({
+      programDayId: target.id,
+      isCompleted: true,
+      checklistCompleted: getCheckedItems(target),
+      videoWatched: getVideoWatched(target),
+    });
+    if (!res.success) {
+      setActionNotice({ type: "error", text: res.message || "Could not complete the day." });
+      setTimeout(() => setActionNotice(null), 4000);
+      return false;
+    }
+    setActionNotice({ type: "success", text: `Day ${target.dayNumber} completed.` });
+    setTimeout(() => setActionNotice(null), 3000);
+    router.refresh();
+    return true;
+  };
+
   const handleSaveAssessment = async () => {
     if (!currentDay) return;
     const responseText =
@@ -1639,6 +1659,7 @@ export function DashboardClient({
             onSaveMeal={handleSaveMeal}
             onSaveReflection={handleSaveReflection}
             onSaveAttendance={handleSaveEventFeedback}
+            onCompleteDay={handleCompleteProgramDay}
           />
         )}
 

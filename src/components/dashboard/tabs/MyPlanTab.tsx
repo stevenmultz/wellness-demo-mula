@@ -5,7 +5,7 @@ import { CheckCircle2, ChevronDown, Compass, ExternalLink, Info } from "lucide-r
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
-import { EmptyState, FloatingHeader, formatDateWib, safeHttpUrl } from "./shared";
+import { EmptyState, FloatingHeader, safeHttpUrl } from "./shared";
 
 export interface PlanDay {
   id: string;
@@ -224,6 +224,7 @@ export function MyPlanOverview({
   onSaveAttendance,
   onSaveWorkoutNotes,
   onUploadPhoto,
+  onCompleteDay,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -242,6 +243,7 @@ export function MyPlanOverview({
   onSaveAttendance: (notes: string, dayId: string) => Promise<void | boolean>;
   onSaveWorkoutNotes: (notes: string, dayId: string) => Promise<void | boolean>;
   onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => Promise<void | boolean>;
+  onCompleteDay: (dayId: string) => Promise<void | boolean>;
 }) {
   const progress = day?.userProgress;
   const checks = day ? checkedList(day, checklist) : [];
@@ -320,8 +322,7 @@ export function MyPlanOverview({
       ) : (
         <>
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3">
-            <h2 className="text-sm font-semibold">Program Progress</h2>
-            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <dl className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <dt className="text-[11px] text-zinc-500">Completed Day</dt>
                 <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.completed}</dd>
@@ -335,27 +336,16 @@ export function MyPlanOverview({
                 <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.remaining}</dd>
               </div>
             </dl>
-            <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 dark:border-white/10 pt-3 text-sm">
-              <div>
-                <dt className="text-[11px] text-zinc-500">Start Date</dt>
-                <dd className="mt-0.5 font-medium">{formatDateWib(program.startDate)}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500">End Date</dt>
-                <dd className="mt-0.5 font-medium">{formatDateWib(program.endDate)}</dd>
-              </div>
-            </dl>
           </section>
 
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-4">
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-4 flex items-center justify-between gap-3">
             <p className="text-xl font-medium tracking-tight tabular-nums">
               {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
               <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
             </p>
-            <p className="mt-1 text-xs font-semibold tracking-[0.18em] text-zinc-950 dark:text-white">
+            <p className="text-xs font-semibold tracking-[0.18em] text-zinc-950 dark:text-white text-right">
               {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
             </p>
-            <p className="mt-2 text-xs text-zinc-500">Daily Reset: 00:00 WIB (UTC+7)</p>
           </section>
 
           {day ? (
@@ -376,6 +366,7 @@ export function MyPlanOverview({
               onUploadPhoto={onUploadPhoto}
               onSaveMeal={onSaveMeal}
               onSaveReflection={onSaveReflection}
+              onCompleteDay={onCompleteDay}
             />
           ) : (
             <EmptyState title="No tasks today" description="There is no open session for today." />

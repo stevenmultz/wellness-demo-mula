@@ -133,7 +133,7 @@ export function ProgramDetailView({
 
   return (
     <div className="fixed inset-0 z-[60] bg-zinc-50 dark:bg-[#070709] overflow-y-auto">
-      <div className="max-w-3xl mx-auto pb-28">
+      <div className={`max-w-3xl mx-auto ${enrolled ? "pb-10" : "pb-28"}`}>
         <div className="relative aspect-[16/9] sm:aspect-[21/9] bg-zinc-800">
           {program.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -178,16 +178,9 @@ export function ProgramDetailView({
               })}
           </dl>
 
-          {activities.length > 0 && (
-            <ul className="text-sm divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-2xl">
-              {activities.map((item) => (
-                <li key={item} className="px-3 py-2">{item}</li>
-              ))}
-            </ul>
-          )}
-
           <div className="space-y-2">
             {[
+              activities.length > 0 ? ["Included", activities.join("\n")] : null,
               program.description ? ["Overview", program.description] : null,
               program.methodology ? ["Objectives", program.methodology] : null,
               program.targetState ? ["Expected outcome", program.targetState] : null,
@@ -202,50 +195,54 @@ export function ProgramDetailView({
               .map((row) => {
                 const [label, value] = row as [string, string];
                 return (
-                  <details key={label} className="group rounded-2xl border border-zinc-200 dark:border-white/10">
-                    <summary className="cursor-pointer list-none flex items-center justify-between px-3 py-2.5 text-sm font-medium">
+                  <details key={label} className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414]">
+                    <summary className="cursor-pointer list-none flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium">
                       {label}
-                      <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
+                      <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform shrink-0" />
                     </summary>
                     <p className="px-3 pb-3 text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-line">{value}</p>
                   </details>
                 );
               })}
-          </div>
-
-          {program.days.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-sm font-medium">Schedule</h2>
-              <ol className="space-y-2">
-                {program.days.slice(0, 12).map((day) => (
-                  <li key={day.dayNumber} className="flex gap-3 text-sm">
-                    <span className="w-14 shrink-0 text-zinc-500">Day {day.dayNumber}</span>
-                    <span className="min-w-0">
-                      <span className="font-medium">{day.title}</span>
-                      <span className="text-zinc-500"> · {dayLabel(day.dayType)}</span>
-                      {day.dayType !== "TRAINING_DAY" && day.dayType !== "REST_DAY" && (day.onsiteSchedule || day.meetupLink) && (
-                        <span className="block text-xs text-zinc-500 mt-0.5">
-                          {day.onsiteSchedule}
-                          {day.meetupLink ? " · Online session" : ""}
+            {program.days.length > 0 && (
+              <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414]">
+                <summary className="cursor-pointer list-none flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium">
+                  Schedule
+                  <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform shrink-0" />
+                </summary>
+                <div className="px-3 pb-3 space-y-2">
+                  <ol className="space-y-2">
+                    {program.days.map((day) => (
+                      <li key={day.dayNumber} className="flex gap-3 text-sm">
+                        <span className="w-14 shrink-0 text-zinc-500">Day {day.dayNumber}</span>
+                        <span className="min-w-0">
+                          <span className="font-medium">{day.title}</span>
+                          <span className="text-zinc-500"> · {dayLabel(day.dayType)}</span>
+                          {day.dayType !== "TRAINING_DAY" && day.dayType !== "REST_DAY" && (day.onsiteSchedule || day.meetupLink) && (
+                            <span className="block text-xs text-zinc-500 mt-0.5">
+                              {day.onsiteSchedule}
+                              {day.meetupLink ? " · Online session" : ""}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              {onsite && (program.venueAddress || program.city) && (
-                <p className="text-sm text-zinc-600 dark:text-zinc-300 flex items-start gap-1.5">
-                  <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                  {[program.venueAddress, program.city].filter(Boolean).join(", ")}
-                </p>
-              )}
-              {!onsite && sessions.some((s) => s.meetupLink) && (
-                <p className="text-sm text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Video className="w-4 h-4" /> Online sessions are included in the schedule.
-                </p>
-              )}
-            </section>
-          )}
+                      </li>
+                    ))}
+                  </ol>
+                  {onsite && (program.venueAddress || program.city) && (
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 flex items-start gap-1.5">
+                      <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                      {[program.venueAddress, program.city].filter(Boolean).join(", ")}
+                    </p>
+                  )}
+                  {!onsite && sessions.some((s) => s.meetupLink) && (
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5">
+                      <Video className="w-4 h-4" /> Online sessions are included in the schedule.
+                    </p>
+                  )}
+                </div>
+              </details>
+            )}
+          </div>
         </div>
       </div>
       {!enrolled && (

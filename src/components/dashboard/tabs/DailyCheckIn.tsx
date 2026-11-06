@@ -6,9 +6,12 @@ import {
   Angry,
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Frown,
   Laugh,
+  ListTodo,
   Loader2,
   Meh,
   Smile,
@@ -35,6 +38,7 @@ export interface DailyCheckInProps {
   onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
+  onCompleteDay: (dayId: string) => SaveResult;
 }
 
 const TASKS = [
@@ -485,7 +489,7 @@ function TaskForm({
       <div className="flex items-center justify-end">
         <button type="button" disabled={locked || busy || !valid[step] || photoBusy !== null} onClick={next} className={primaryBtn}>
           {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {onCloseEdit ? "Save" : step === 3 ? "Complete" : "Save"}
+          Save
           {!busy && <Check className="w-3.5 h-3.5" />}
         </button>
       </div>
@@ -504,29 +508,49 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   const firstOpen = done.findIndex((item) => !item);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [focusStep, setFocusStep] = useState(0);
+  const [step, setStep] = useState(0);
+  const [completing, setCompleting] = useState(false);
 
-  const openDetail = (step: number) => {
-    setFocusStep(step);
+  const openDetail = (index: number) => {
+    setStep(index);
     setDetailOpen(true);
   };
 
-  useEffect(() => {
-    if (!detailOpen) return;
-    const node = document.getElementById(`daily-task-${focusStep}`);
-    node?.scrollIntoView({ block: "start" });
-  }, [detailOpen, focusStep]);
+  const markDone = (index: number) => {
+    setDone((prev) => prev.map((item, i) => (i === index ? true : item)));
+  };
 
-  const markDone = (step: number) => {
-    setDone((prev) => prev.map((item, index) => (index === step ? true : item)));
+  const task = TASKS[step];
+  const completed = done[step];
+  const active = !completed && step === firstOpen;
+  const taskLocked = locked || (!completed && !active);
+  const allDone = done.every(Boolean);
+
+  const finishDay = async () => {
+    if (!allDone || completing) return;
+    setCompleting(true);
+    try {
+      const ok = (await props.onCompleteDay(day.id)) !== false;
+      if (ok) setDetailOpen(false);
+    } finally {
+      setCompleting(false);
+    }
   };
 
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-tight">Daily Task</h2>
-        <button type="button" onClick={() => openDetail(Math.max(0, firstOpen))} className={ghostBtn}>
-          Daily Task Detail
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight">Daily Task</h2>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Daily Reset: 00:00 WIB (UTC+7)</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Daily Task Detail"
+          onClick={() => openDetail(Math.max(0, firstOpen))}
+          className="w-9 h-9 rounded-full border border-zinc-300 dark:border-white/20 inline-flex items-center justify-center shrink-0"
+        >
+          <ListTodo className="w-4 h-4" />
         </button>
       </div>
 
@@ -571,47 +595,59 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#f6f6f4] dark:bg-[#0e0e0e]">
-            <div className="max-w-lg mx-auto px-4 pt-4 pb-16 space-y-3">
+          <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
+            <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">Daily Task Detail</h2>
+                <p className="text-sm font-semibold tabular-nums">
+                  {step + 1}
+                  <span className="text-zinc-400 font-normal"> / {TASKS.length}</span>
+                </p>
                 <button type="button" onClick={() => setDetailOpen(false)} className={ghostBtn}>
                   <ArrowLeft className="w-3.5 h-3.5" /> Back
                 </button>
               </div>
-              {TASKS.map((task, index) => {
-                const completed = done[index];
-                const active = !completed && index === firstOpen;
-                const taskLocked = locked || (!completed && !active);
-                return (
-                  <section
-                    key={task.title}
-                    id={`daily-task-${index}`}
-                    className={`rounded-2xl border bg-white dark:bg-[#141414] p-4 space-y-3 ${
-                      active ? "border-zinc-950 dark:border-white" : "border-zinc-200 dark:border-white/10"
-                    } ${taskLocked ? "opacity-70" : ""}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-semibold">{task.title}</h3>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{task.description}</p>
-                      </div>
-                      <span className="text-[11px] font-semibold text-zinc-500 shrink-0">
-                        {completed ? "Completed" : active ? "Active" : "Locked"}
-                      </span>
-                    </div>
-                    <TaskForm
-                      day={day}
-                      locked={taskLocked}
-                      activities={activities}
-                      checks={checks}
-                      step={index}
-                      onAdvance={() => markDone(index)}
-                      props={props}
-                    />
-                  </section>
-                );
-              })}
+              <section
+                className={`rounded-2xl border bg-white dark:bg-[#141414] p-4 space-y-3 ${
+                  active ? "border-zinc-950 dark:border-white" : "border-zinc-200 dark:border-white/10"
+                } ${taskLocked ? "opacity-70" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold">{task.title}</h2>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">{task.description}</p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-zinc-500 shrink-0">
+                    {completed ? "Completed" : active ? "Active" : "Locked"}
+                  </span>
+                </div>
+                <TaskForm
+                  key={`${day.id}-${step}`}
+                  day={day}
+                  locked={taskLocked}
+                  activities={activities}
+                  checks={checks}
+                  step={step}
+                  onAdvance={() => markDone(step)}
+                  props={props}
+                />
+              </section>
+            </div>
+            <div className="fixed bottom-0 inset-x-0 border-t border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414]">
+              <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-2">
+                <button type="button" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} className={ghostBtn}>
+                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                </button>
+                {step < TASKS.length - 1 ? (
+                  <button type="button" disabled={!completed} onClick={() => setStep((current) => Math.min(TASKS.length - 1, current + 1))} className={primaryBtn}>
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button type="button" disabled={!allDone || completing} onClick={finishDay} className={primaryBtn}>
+                    {completing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Complete Day
+                  </button>
+                )}
+              </div>
             </div>
           </div>,
           document.body
