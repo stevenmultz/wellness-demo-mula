@@ -538,23 +538,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414]">
+      <div className="flex items-center justify-between gap-3 px-3.5 py-3 border-b border-zinc-100 dark:border-white/10">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight">Daily Task</h2>
+          <h2 className="text-sm font-medium">Daily Task</h2>
           <p className="mt-0.5 text-[11px] text-zinc-500">Daily Reset: 00:00 WIB (UTC+7)</p>
         </div>
         <button
           type="button"
           aria-label="Daily Task Detail"
           onClick={() => openDetail(Math.max(0, firstOpen))}
-          className="w-9 h-9 rounded-full border border-zinc-300 dark:border-white/20 inline-flex items-center justify-center shrink-0"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center shrink-0"
         >
-          <ListTodo className="w-4 h-4" />
+          <ListTodo className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <ol className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] divide-y divide-zinc-100 dark:divide-white/10">
+      <ol className="divide-y divide-zinc-100 dark:divide-white/10">
         {TASKS.map((task, index) => {
           const completed = done[index];
           const active = !completed && index === firstOpen;

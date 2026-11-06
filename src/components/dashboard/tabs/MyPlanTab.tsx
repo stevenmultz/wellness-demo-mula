@@ -322,6 +322,13 @@ export function MyPlanOverview({
       ) : (
         <>
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3">
+            <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-zinc-100 dark:border-white/10 text-sm">
+              <p className="font-medium tabular-nums">
+                {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+                <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
+              </p>
+              <p className="font-medium text-right">{day ? schedule.label.toUpperCase() : "NO OPEN DAY"}</p>
+            </div>
             <dl className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <dt className="text-[11px] text-zinc-500">Completed Day</dt>
@@ -336,16 +343,6 @@ export function MyPlanOverview({
                 <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.remaining}</dd>
               </div>
             </dl>
-          </section>
-
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-4 flex items-center justify-between gap-3">
-            <p className="text-xl font-medium tracking-tight tabular-nums">
-              {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-              <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
-            </p>
-            <p className="text-xs font-semibold tracking-[0.18em] text-zinc-950 dark:text-white text-right">
-              {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
-            </p>
           </section>
 
           {day ? (
