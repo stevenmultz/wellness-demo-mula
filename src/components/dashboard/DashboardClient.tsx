@@ -16,7 +16,6 @@ import {
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { normalizeVideoEmbed } from "@/wellness/integrations/video-provider";
-import { normalizeWibTime } from "@/wellness/utils/notification-schedule";
 import { parseWorkoutOptionGroups, parseTermsChapters, ProgramTermChapter } from "@/wellness/utils/json";
 import { resolvePublicBadge, PublicProgramBadge } from "@/wellness/utils/timeline";
 import { SleepTrackerCard } from "./SleepTrackerCard";
@@ -1338,43 +1337,37 @@ export function DashboardClient({
     }
   };
 
-  // Cadence uses admin dayNotifications, compared in WIB (UTC+7), not the device timezone.
-  const [dispatchedCadenceKeys, setDispatchedCadenceKeys] = useState<Record<string, boolean>>({});
-
+  // Hobby cron runs once a day. While this session is open, ask the server (WIB clock) to send whatever is due.
   useEffect(() => {
-    const checkScheduledDispatches = () => {
-      // Admin times are WIB (UTC+7); never use device-local time (user may be in another timezone)
+    let lastMinute = "";
+    let stopped = false;
+    const tick = async () => {
       const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
-      const currentTimeStr = `${String(wibNow.getUTCHours()).padStart(2, "0")}:${String(wibNow.getUTCMinutes()).padStart(2, "0")}`;
-
-      myEnrolledPrograms.forEach((prog) => {
-        const todayDay = prog.days.find((d) => d.isCalendarUnlocked && !d.isPast2359);
-        if (!todayDay || !todayDay.dayNotifications) return;
-
-        todayDay.dayNotifications.forEach((notif, nIdx) => {
-          const key = `${prog.id}-${todayDay.id}-${nIdx}`;
-          const scheduled = normalizeWibTime(notif.time);
-          if (scheduled && scheduled === currentTimeStr && notif.message?.trim() && !dispatchedCadenceKeys[key]) {
-            setDispatchedCadenceKeys((prev) => ({ ...prev, [key]: true }));
-
-            const title = `+ BMS • ${prog.title}`;
-            const body = notif.message;
-            fireBrowserNotification(title, body);
-
-            setActionNotice({
-              type: "success",
-              text: `[${notif.time} WIB] ${prog.title}: ${notif.message}`,
-            });
-            setTimeout(() => setActionNotice(null), 6000);
-          }
-        });
-      });
+      const minute = wibNow.toISOString().slice(0, 16);
+      if (minute === lastMinute) return;
+      lastMinute = minute;
+      try {
+        const res = await fetch("/api/notifications/tick", { method: "POST" });
+        const data = await res.json().catch(() => null);
+        const sent = data?.dispatchedDetails?.[0];
+        if (!stopped && res.ok && sent?.message) {
+          setActionNotice({
+            type: "success",
+            text: `[${sent.scheduledTime} WIB] ${sent.programTitle}: ${sent.message}`,
+          });
+          setTimeout(() => setActionNotice(null), 6000);
+        }
+      } catch {
+        // The next minute retries. A failed tick does not invent a message.
+      }
     };
-
-    checkScheduledDispatches();
-    const interval = setInterval(checkScheduledDispatches, 30000);
-    return () => clearInterval(interval);
-  }, [myEnrolledPrograms, dispatchedCadenceKeys]);
+    tick();
+    const interval = setInterval(tick, 20000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleFireSpecificNotification = (progTitle: string, time: string, message: string) => {
     const title = `+ BMS • ${progTitle}`;

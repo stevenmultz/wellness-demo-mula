@@ -33,7 +33,7 @@ function run(nowIso: string, lookback = 1) {
   return sent;
 }
 
-// 07:00 WIB == 00:00 UTC. Production cron runs every minute so any admin HH:mm is delivered.
+// 07:00 WIB == 00:00 UTC. Hobby cron runs once then; open member sessions tick the same dispatcher.
 let r = run("2026-11-06T00:00:10.000Z");
 assert.equal(r.length, 1);
 assert.equal(r[0].body, ADMIN_MESSAGE);
