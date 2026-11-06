@@ -579,6 +579,9 @@ export function DashboardClient({
           happinessRate: dayHappiness[currentDay.id] ?? currentDay.userProgress?.happinessRate,
           bedtime: dayBedtimes[currentDay.id] ?? currentDay.userProgress?.bedtime,
           wakeTime: dayWakeTimes[currentDay.id] ?? currentDay.userProgress?.wakeTime,
+          photoBeforeUrl: dayPhotosBefore[currentDay.id] ?? currentDay.userProgress?.photoBeforeUrl,
+          photoAfterUrl: dayPhotosAfter[currentDay.id] ?? currentDay.userProgress?.photoAfterUrl,
+          workoutNotes: dayWorkoutNotes[currentDay.id] ?? currentDay.userProgress?.workoutNotes,
         },
       }
     : null;
@@ -745,8 +748,8 @@ export function DashboardClient({
     bedtime: string,
     wakeTime: string,
     sleepDurationMinutes: number
-  ) => {
-    if (!currentDay) return;
+  ): Promise<boolean> => {
+    if (!currentDay) return false;
     setDayBedtimes((prev) => ({ ...prev, [currentDay.id]: bedtime }));
     setDayWakeTimes((prev) => ({ ...prev, [currentDay.id]: wakeTime }));
 
@@ -763,11 +766,12 @@ export function DashboardClient({
     if (!res.success) {
       setActionNotice({ type: "error", text: res.message || "Failed to save sleep log." });
       setTimeout(() => setActionNotice(null), 4000);
-    } else {
-      setActionNotice({ type: "success", text: "Sleep log saved successfully." });
-      setTimeout(() => setActionNotice(null), 3000);
-      router.refresh();
+      return false;
     }
+    setActionNotice({ type: "success", text: "Sleep log saved successfully." });
+    setTimeout(() => setActionNotice(null), 3000);
+    router.refresh();
+    return true;
   };
 
   const handleSelectWorkout = async (workout: string) => {
@@ -791,8 +795,8 @@ export function DashboardClient({
     }
   };
 
-  const handleUploadPhoto = async (type: "before" | "after", base64OrUrl: string) => {
-    if (!currentDay) return;
+  const handleUploadPhoto = async (type: "before" | "after", base64OrUrl: string): Promise<boolean> => {
+    if (!currentDay) return false;
     if (type === "before") {
       setDayPhotosBefore((prev) => ({ ...prev, [currentDay.id]: base64OrUrl }));
     } else {
@@ -811,17 +815,18 @@ export function DashboardClient({
     if (!res.success) {
       setActionNotice({ type: "error", text: res.message || "Failed to upload progress photo." });
       setTimeout(() => setActionNotice(null), 4000);
-    } else {
-      setActionNotice({
-        type: "success",
-        text: type === "before" ? "Before photo uploaded successfully." : "After photo uploaded successfully.",
-      });
-      setTimeout(() => setActionNotice(null), 3000);
+      return false;
     }
+    setActionNotice({
+      type: "success",
+      text: type === "before" ? "Before photo uploaded successfully." : "After photo uploaded successfully.",
+    });
+    setTimeout(() => setActionNotice(null), 3000);
+    return true;
   };
 
-  const handleSaveWorkoutNotes = async (notes: string) => {
-    if (!currentDay) return;
+  const handleSaveWorkoutNotes = async (notes: string): Promise<boolean> => {
+    if (!currentDay) return false;
     setDayWorkoutNotes((prev) => ({ ...prev, [currentDay.id]: notes }));
 
     const res = await wellnessUserSubmitDayProgress({
@@ -835,10 +840,11 @@ export function DashboardClient({
     if (!res.success) {
       setActionNotice({ type: "error", text: res.message || "Failed to save workout notes." });
       setTimeout(() => setActionNotice(null), 4000);
-    } else {
-      setActionNotice({ type: "success", text: "Training notes saved successfully." });
-      setTimeout(() => setActionNotice(null), 3000);
+      return false;
     }
+    setActionNotice({ type: "success", text: "Training notes saved successfully." });
+    setTimeout(() => setActionNotice(null), 3000);
+    return true;
   };
 
   const handleUpdateChecklistRep = async (task: string, repVal: string) => {
@@ -904,8 +910,8 @@ export function DashboardClient({
     }
   };
 
-  const handleSaveMeal = async (compliance: string, notes: string) => {
-    if (!currentDay) return;
+  const handleSaveMeal = async (compliance: string, notes: string): Promise<boolean> => {
+    if (!currentDay) return false;
     setDayMealCompliance((prev) => ({ ...prev, [currentDay.id]: compliance }));
     setDayMealNotes((prev) => ({ ...prev, [currentDay.id]: notes }));
 
@@ -921,15 +927,16 @@ export function DashboardClient({
     if (!res.success) {
       setActionNotice({ type: "error", text: res.message || "Failed to save nutrition notes." });
       setTimeout(() => setActionNotice(null), 4000);
-    } else {
-      setActionNotice({ type: "success", text: "Nutrition notes saved successfully." });
-      setTimeout(() => setActionNotice(null), 3000);
-      router.refresh();
+      return false;
     }
+    setActionNotice({ type: "success", text: "Nutrition notes saved successfully." });
+    setTimeout(() => setActionNotice(null), 3000);
+    router.refresh();
+    return true;
   };
 
-  const handleSaveReflection = async (reflection: string, happinessRate: number) => {
-    if (!currentDay) return;
+  const handleSaveReflection = async (reflection: string, happinessRate: number): Promise<boolean> => {
+    if (!currentDay) return false;
     setDayReflections((prev) => ({ ...prev, [currentDay.id]: reflection }));
     setDayHappiness((prev) => ({ ...prev, [currentDay.id]: happinessRate }));
 
@@ -945,11 +952,12 @@ export function DashboardClient({
     if (!res.success) {
       setActionNotice({ type: "error", text: res.message || "Failed to save Dear Diary reflection." });
       setTimeout(() => setActionNotice(null), 4000);
-    } else {
-      setActionNotice({ type: "success", text: "Daily reflection saved." });
-      setTimeout(() => setActionNotice(null), 3000);
-      router.refresh();
+      return false;
     }
+    setActionNotice({ type: "success", text: "Daily reflection saved." });
+    setTimeout(() => setActionNotice(null), 3000);
+    router.refresh();
+    return true;
   };
 
   const handleSaveAssessment = async () => {
@@ -1585,7 +1593,26 @@ export function DashboardClient({
             }
             plan={overviewPlan}
             day={liveDay}
-            completedDays={currentProgram?.days.filter((d) => d.userProgress?.isCompleted).length || 0}
+            stats={{
+              completed: completedDaysCount,
+              skipped: skippedDaysCount,
+              remaining: currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted).length || 0,
+              segments: (currentProgram?.days || []).map((d) =>
+                d.userProgress?.isCompleted
+                  ? ("done" as const)
+                  : d.isCalendarUnlocked && !d.isPast2359
+                    ? ("today" as const)
+                    : d.isPast2359
+                      ? ("skipped" as const)
+                      : ("upcoming" as const)
+              ),
+            }}
+            onOpenDetails={() => {
+              const prog = allPrograms.find((p) => p.id === overviewEnrollment?.programId);
+              if (prog) setDetailedProgram(prog);
+            }}
+            onUploadPhoto={handleUploadPhoto}
+            onSaveWorkoutNotes={handleSaveWorkoutNotes}
             checklist={currentDay ? dayChecklists[currentDay.id] : undefined}
             onExplore={() => {
               setActiveTab("all_plan");

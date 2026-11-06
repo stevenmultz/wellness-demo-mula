@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { Calendar, ChevronLeft, ChevronRight, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
 import { EmptyState, ErrorState, FloatingHeader, LoadingState, formatDateWib, formatIdr } from "./shared";
@@ -176,7 +177,7 @@ function ChipGroup({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(opt)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border ${
+              className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border transition active:scale-95 ${
                 on
                   ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
                   : "border-zinc-300 dark:border-white/15 text-zinc-700 dark:text-zinc-200"
@@ -222,6 +223,20 @@ export function ExplorePlanTab({
     setPage(1);
   }, [debouncedSearch, applied]);
 
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFiltersOpen(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [filtersOpen]);
+
   const load = useCallback(async (signal: AbortSignal) => {
     setState({ status: "loading" });
     try {
@@ -243,7 +258,7 @@ export function ExplorePlanTab({
     return () => controller.abort();
   }, [load, reloadKey]);
 
-  const catalog = state.status === "ready" ? state.programs : [];
+  const catalog = useMemo(() => (state.status === "ready" ? state.programs : []), [state]);
   const supported = useMemo(() => {
     const formats = new Set(catalog.map((p) => p.locationType));
     const intensities = new Set(catalog.map((p) => intensityOf(p.difficultyLevel)));
@@ -320,9 +335,15 @@ export function ExplorePlanTab({
             type="button"
             onClick={() => {
               setDraft(applied);
-              setFiltersOpen((v) => !v);
+              setFiltersOpen(true);
             }}
-            className="shrink-0 h-11 px-3.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-white/10 text-xs font-semibold inline-flex items-center gap-1.5"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            className={`shrink-0 h-11 px-3.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+              activeCount > 0
+                ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-white/20"
+                : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/10"
+            }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             Filter
@@ -333,16 +354,33 @@ export function ExplorePlanTab({
             )}
           </button>
 
-          {filtersOpen && (
-            <>
-              <button type="button" aria-label="Close filters" className="fixed inset-0 z-40 bg-black/40 md:bg-transparent" onClick={() => setFiltersOpen(false)} />
-              <div className="fixed inset-x-0 bottom-0 z-50 max-h-[86vh] overflow-y-auto rounded-t-3xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 p-5 pb-8 shadow-2xl space-y-4 md:absolute md:inset-x-0 md:bottom-auto md:top-full md:mt-2 md:max-h-[70vh] md:rounded-2xl">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Filters</p>
-                  <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close">
-                    <X className="w-4 h-4" />
-                  </button>
+        </div>
+      </FloatingHeader>
+
+      {filtersOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center" role="dialog" aria-modal="true" aria-label="Filters">
+            <style>{`
+              @keyframes fx-fade { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes fx-sheet { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+              .fx-fade { animation: fx-fade .2s ease-out both }
+              .fx-sheet { animation: fx-sheet .26s cubic-bezier(.2,.8,.2,1) both }
+              @media (prefers-reduced-motion: reduce) { .fx-fade, .fx-sheet { animation: none } }
+            `}</style>
+            <button type="button" aria-label="Close filters" className="fx-fade absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} />
+            <div className="fx-sheet relative w-full md:max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 shadow-2xl font-mono">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-white">Filters</p>
+                  <p className="text-[11px] text-zinc-500">{countActive(draft) > 0 ? `${countActive(draft)} selected` : "Choose what you want to see"}</p>
                 </div>
+                <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
+                {catalog.length === 0 && <p className="text-xs text-zinc-500">No programs loaded yet, so there are no options to filter.</p>}
                 <ChipGroup
                   label="Program format"
                   options={supported.format.map((o) => o.label)}
@@ -359,42 +397,43 @@ export function ExplorePlanTab({
                   <div className="space-y-2">
                     <ChipGroup label="Price range" options={PRICE_OPTIONS} selected={draft.price} onToggle={(v) => toggle("price", v)} />
                     <div className="grid grid-cols-2 gap-2">
-                      <input inputMode="numeric" placeholder="Min price" value={draft.priceMin} onChange={(e) => setDraft((f) => ({ ...f, priceMin: e.target.value.replace(/[^\d]/g, "") }))} className="h-11 rounded-xl border border-zinc-200 dark:border-white/15 bg-transparent px-3 text-base" />
-                      <input inputMode="numeric" placeholder="Max price" value={draft.priceMax} onChange={(e) => setDraft((f) => ({ ...f, priceMax: e.target.value.replace(/[^\d]/g, "") }))} className="h-11 rounded-xl border border-zinc-200 dark:border-white/15 bg-transparent px-3 text-base" />
+                      <input inputMode="numeric" placeholder="Min price" aria-label="Minimum price" value={draft.priceMin} onChange={(e) => setDraft((f) => ({ ...f, priceMin: e.target.value.replace(/[^\d]/g, "") }))} className="h-11 rounded-xl border border-zinc-200 dark:border-white/15 bg-transparent px-3 text-base" />
+                      <input inputMode="numeric" placeholder="Max price" aria-label="Maximum price" value={draft.priceMax} onChange={(e) => setDraft((f) => ({ ...f, priceMax: e.target.value.replace(/[^\d]/g, "") }))} className="h-11 rounded-xl border border-zinc-200 dark:border-white/15 bg-transparent px-3 text-base" />
                     </div>
                   </div>
                 )}
                 <ChipGroup label="Experience level" options={supported.experience} selected={draft.experience} onToggle={(v) => toggle("experience", v)} />
                 <ChipGroup label="Schedule" options={supported.schedule} selected={draft.schedule} onToggle={(v) => toggle("schedule", v)} />
-                <div className="flex items-center justify-between pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraft(EMPTY);
-                      setApplied(EMPTY);
-                      setPage(1);
-                    }}
-                    className="text-xs font-semibold text-zinc-500"
-                  >
-                    Clear all
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setApplied(draft);
-                      setPage(1);
-                      setFiltersOpen(false);
-                    }}
-                    className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase tracking-wider"
-                  >
-                    Apply filters
-                  </button>
-                </div>
               </div>
-            </>
-          )}
-        </div>
-      </FloatingHeader>
+              <div className="flex items-center gap-3 px-5 py-4 border-t border-zinc-100 dark:border-white/10">
+                <button
+                  type="button"
+                  disabled={countActive(draft) === 0 && countActive(applied) === 0}
+                  onClick={() => {
+                    setDraft(EMPTY);
+                    setApplied(EMPTY);
+                    setPage(1);
+                  }}
+                  className="px-4 py-2.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold disabled:opacity-40 active:scale-95 transition"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApplied(draft);
+                    setPage(1);
+                    setFiltersOpen(false);
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
+                >
+                  Apply · {catalog.filter((p) => matches(p, draft)).length} result{catalog.filter((p) => matches(p, draft)).length === 1 ? "" : "s"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       <div className="space-y-3">
         {chips.length > 0 && (
