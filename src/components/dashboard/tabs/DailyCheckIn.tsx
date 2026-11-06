@@ -1,66 +1,64 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
+  Angry,
   ArrowLeft,
-  ArrowRight,
-  Camera,
   Check,
-  CheckCircle2,
-  ImagePlus,
+  ExternalLink,
+  Frown,
+  History,
+  Laugh,
   Loader2,
-  Moon,
+  Meh,
   Pencil,
   Smile,
-  Utensils,
-  Dumbbell,
+  X,
 } from "lucide-react";
+import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
+import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import { formatDateWib } from "./shared";
 import type { PlanDay } from "./MyPlanTab";
 
 type SaveResult = Promise<void | boolean>;
 
 export interface DailyCheckInProps {
   day: PlanDay;
+  pastDays: PlanDay[];
   locked: boolean;
   activities: string[];
   checks: string[];
   initialDone: [boolean, boolean, boolean, boolean];
-  onToggleCheck: (task: string) => Promise<void> | void;
-  onSaveSleep: (bedtime: string, wakeTime: string, minutes: number) => SaveResult;
-  onSaveAttendance: (notes: string) => SaveResult;
-  onSaveWorkoutNotes: (notes: string) => SaveResult;
-  onUploadPhoto: (type: "before" | "after", url: string) => SaveResult;
-  onSaveMeal: (compliance: string, notes: string) => SaveResult;
-  onSaveReflection: (reflection: string, happiness: number) => SaveResult;
+  onToggleCheck: (task: string, dayId: string) => Promise<void> | void;
+  onSelectWorkout: (workout: string, dayId: string) => SaveResult;
+  onOpenVideo: (dayId: string) => SaveResult;
+  onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string) => SaveResult;
+  onSaveAttendance: (notes: string, dayId: string) => SaveResult;
+  onSaveWorkoutNotes: (notes: string, dayId: string) => SaveResult;
+  onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => SaveResult;
+  onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
+  onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
 }
 
-const STEPS = [
-  { title: "Sleep Schedule", description: "Log when you went to bed and when you woke up.", Icon: Moon },
-  { title: "Training & Progress Photos", description: "Tell us what you trained and add your progress photos.", Icon: Dumbbell },
-  { title: "Food & Nutrition", description: "Record what you ate today.", Icon: Utensils },
-  { title: "Daily Review", description: "Reflect on your day in a few words.", Icon: Smile },
+const STEP_TITLES = ["Sleep Tracking", "Daily Training", "Meal Recommendation", "Daily Reflection"] as const;
+
+const FACES = [
+  { score: 1, Icon: Angry, label: "Very unsatisfied" },
+  { score: 2, Icon: Frown, label: "Unsatisfied" },
+  { score: 3, Icon: Meh, label: "Neutral" },
+  { score: 4, Icon: Smile, label: "Satisfied" },
+  { score: 5, Icon: Laugh, label: "Very satisfied" },
 ] as const;
 
-const glassCls =
-  "relative overflow-hidden rounded-[28px] bg-gradient-to-br from-white/80 via-white/50 to-zinc-200/60 dark:from-white/10 dark:via-white/5 dark:to-white/[0.02] backdrop-blur-xl border border-white/70 dark:border-white/15 shadow-lg shadow-zinc-900/5 p-5 sm:p-6 space-y-5";
-
-function Blobs() {
-  return (
-    <>
-      <div aria-hidden className="pointer-events-none absolute -top-20 -left-16 w-60 h-60 rounded-full bg-zinc-400/25 dark:bg-white/10 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-24 -right-12 w-64 h-64 rounded-full bg-zinc-900/10 dark:bg-white/5 blur-3xl" />
-    </>
-  );
-}
-
 const fieldCls =
-  "w-full px-3.5 py-3 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-500 disabled:opacity-50";
+  "w-full h-10 px-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white disabled:opacity-50";
+const areaCls =
+  "w-full px-3 py-2.5 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white disabled:opacity-50 resize-none";
 const primaryBtn =
-  "px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider disabled:opacity-40 inline-flex items-center justify-center gap-2 active:scale-95 transition";
+  "h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5";
 const ghostBtn =
-  "px-4 py-2.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 disabled:opacity-40 inline-flex items-center gap-1.5 active:scale-95 transition";
-
-/* ---------- helpers ---------- */
+  "h-9 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 disabled:opacity-40 inline-flex items-center gap-1";
 
 function sleepMinutes(bed: string, wake: string): number {
   const [bh, bm] = bed.split(":").map(Number);
@@ -72,69 +70,40 @@ function sleepMinutes(bed: string, wake: string): number {
 }
 
 function formatDuration(mins: number): string {
+  if (!mins) return "—";
   return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`;
 }
 
 function parseMeals(text: string | null | undefined): string[] {
-  const out: string[] = [];
-  if (!text) return out;
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    if (!line) continue;
-    const heading = line.match(/^(breakfast|lunch|dinner|snacks?)\b[:\-\s]*(.*)$/i);
-    const body = (heading ? heading[2] : line).replace(/^[\s\-*–—\d.)]+/, "").trim();
-    if (body) out.push(heading ? `${heading[1][0].toUpperCase()}${heading[1].slice(1).toLowerCase()}: ${body}` : body);
-  }
-  return out;
+  if (!text) return [];
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
+    .filter((line) => line.length > 1);
 }
 
 interface MealDraft {
   followed: boolean | null;
-  checked: string[];
   actual: string;
 }
 
 function readMealDraft(compliance: string | null | undefined, notes: string | null | undefined): MealDraft {
   if (notes) {
     try {
-      const parsed = JSON.parse(notes) as Partial<MealDraft> & { v?: number };
+      const parsed = JSON.parse(notes) as { v?: number; followed?: boolean; actual?: string };
       if (parsed && parsed.v === 1) {
         return {
           followed: typeof parsed.followed === "boolean" ? parsed.followed : compliance === "FULL" ? true : compliance ? false : null,
-          checked: Array.isArray(parsed.checked) ? parsed.checked.filter((x) => typeof x === "string") : [],
           actual: typeof parsed.actual === "string" ? parsed.actual : "",
         };
       }
     } catch {
-      /* plain text notes */
+      /* plain text */
     }
   }
-  if (compliance === "FULL") return { followed: true, checked: [], actual: "" };
-  if (compliance) return { followed: false, checked: [], actual: notes || "" };
-  return { followed: null, checked: [], actual: notes || "" };
-}
-
-interface AttendDraft {
-  attended: "yes" | "no" | null;
-  learned: string;
-  reason: string;
-}
-
-function readAttend(raw: string | null | undefined): AttendDraft {
-  if (!raw) return { attended: null, learned: "", reason: "" };
-  try {
-    const parsed = JSON.parse(raw) as Partial<AttendDraft> & { v?: number };
-    if (parsed && parsed.v === 1) {
-      return {
-        attended: parsed.attended === "yes" || parsed.attended === "no" ? parsed.attended : null,
-        learned: parsed.learned || "",
-        reason: parsed.reason || "",
-      };
-    }
-  } catch {
-    /* legacy free text */
-  }
-  return { attended: "yes", learned: raw, reason: "" };
+  if (compliance === "FULL") return { followed: true, actual: "" };
+  if (compliance) return { followed: false, actual: notes || "" };
+  return { followed: null, actual: "" };
 }
 
 function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<string> {
@@ -145,7 +114,7 @@ function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<st
       const raw = event.target?.result as string;
       if (!raw) return reject(new Error("Empty image data."));
       const img = new window.Image();
-      img.onerror = () => reject(new Error("Unsupported image. Please choose a JPG, PNG or WebP photo."));
+      img.onerror = () => reject(new Error("Unsupported image."));
       img.onload = () => {
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
@@ -171,137 +140,107 @@ function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<st
   });
 }
 
-function PhotoSlot({
-  label,
-  url,
-  busy,
-  disabled,
-  onPick,
-}: {
-  label: string;
-  url: string | null | undefined;
-  busy: boolean;
-  disabled: boolean;
-  onPick: (file: File) => void;
-}) {
-  return (
-    <label
-      className={`relative block aspect-[3/4] rounded-2xl overflow-hidden border-2 border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 ${
-        disabled ? "opacity-60" : "cursor-pointer hover:border-zinc-500 dark:hover:border-white/40"
-      } transition`}
-    >
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={`${label} photo`} className="absolute inset-0 w-full h-full object-cover" />
-      ) : (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-zinc-500">
-          <ImagePlus className="w-6 h-6" />
-          <span className="text-[11px] font-semibold uppercase tracking-wider">Add photo</span>
-        </span>
-      )}
-      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold uppercase tracking-wider">
-        {label}
-      </span>
-      {url && !busy && (
-        <span className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center">
-          <Camera className="w-4 h-4" />
-        </span>
-      )}
-      {busy && (
-        <span className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
-          <Loader2 className="w-6 h-6 animate-spin" />
-        </span>
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        disabled={disabled || busy}
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) onPick(file);
-        }}
-      />
-    </label>
+function answersOf(day: PlanDay, activities: string[], checks: string[]) {
+  const progress = day.userProgress;
+  const bed = progress?.bedtime || "";
+  const wake = progress?.wakeTime || "";
+  const meal = readMealDraft(progress?.mealCompliance, progress?.mealNotes);
+  const checked = activities.filter((name) =>
+    checks.some((c) => c === name || c.toLowerCase().includes(name.toLowerCase()))
   );
+  return [
+    { label: "Sleep Duration", value: bed && wake ? formatDuration(sleepMinutes(bed, wake)) : "—" },
+    {
+      label: "Training Status",
+      value: progress?.isCompleted || progress?.videoWatched || checked.length ? "Completed" : "—",
+    },
+    { label: "Meal", value: meal.followed === true ? "Followed" : meal.followed === false ? meal.actual || "Own meal" : "—" },
+    {
+      label: "Satisfaction",
+      value: progress?.happinessRate ? `${Math.min(5, progress.happinessRate)}/5` : "—",
+    },
+  ];
 }
 
-/* ---------- widget ---------- */
-
-export function DailyCheckIn(props: DailyCheckInProps) {
-  const { day, locked, activities, checks, initialDone } = props;
+function TaskForm({
+  day,
+  locked,
+  activities,
+  checks,
+  step,
+  onAdvance,
+  onBack,
+  onCloseEdit,
+  props,
+}: {
+  day: PlanDay;
+  locked: boolean;
+  activities: string[];
+  checks: string[];
+  step: number;
+  onAdvance: () => void;
+  onBack: () => void;
+  onCloseEdit?: () => void;
+  props: DailyCheckInProps;
+}) {
   const progress = day.userProgress;
-
-  const [done, setDone] = useState<boolean[]>([...initialDone]);
-  const initialKey = initialDone.join(",");
-  useEffect(() => {
-    setDone((prev) => prev.map((v, i) => v || initialDone[i]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialKey]);
-
-  const firstOpen = done.findIndex((d) => !d);
-  const [step, setStep] = useState(firstOpen === -1 ? 0 : firstOpen);
-  const [dir, setDir] = useState<"fwd" | "back">("fwd");
-  const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // drafts (kept while navigating between steps)
   const [bed, setBed] = useState(progress?.bedtime || "");
   const [wake, setWake] = useState(progress?.wakeTime || "");
+  const [workout, setWorkout] = useState(progress?.selectedWorkout || "");
   const [notes, setNotes] = useState(progress?.workoutNotes || "");
-  const [attend, setAttend] = useState<AttendDraft>(() => readAttend(progress?.eventFeedback));
-  const [photos, setPhotos] = useState<{ before: string | null; after: string | null }>({
-    before: progress?.photoBeforeUrl || null,
-    after: progress?.photoAfterUrl || null,
-  });
+  const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
   const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
   const [meal, setMeal] = useState<MealDraft>(() => readMealDraft(progress?.mealCompliance, progress?.mealNotes));
   const [review, setReview] = useState(progress?.dailyReflection || "");
-  const [score, setScore] = useState(progress?.happinessRate || 0);
+  const [score, setScore] = useState(progress?.happinessRate ? Math.min(5, progress.happinessRate) : 0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localChecks, setLocalChecks] = useState(checks);
+
+  useEffect(() => {
+    setLocalChecks(checks);
+  }, [checks]);
 
   const isTraining = day.dayType === "TRAINING_DAY";
-  const isRest = day.dayType === "REST_DAY";
-  const isConnect = !isTraining && !isRest;
+  const isConnect = day.dayType !== "TRAINING_DAY" && day.dayType !== "REST_DAY";
   const recommended = useMemo(() => parseMeals(day.mealRecommendation), [day.mealRecommendation]);
+  const videos = useMemo(() => parseDayVideoLinks(day.videoUrl), [day.videoUrl]);
+  const groups = useMemo(() => {
+    if (!isTraining) return [];
+    const hasAdmin = (day.workoutOptions && day.workoutOptions.length > 0) || day.videoChecklist.length > 0;
+    return hasAdmin ? parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist) : [];
+  }, [isTraining, day.workoutOptions, day.videoChecklist]);
+  const activeWorkout = workout || groups[0]?.optionName || "";
+  const groupMoves = groups.find((g) => g.optionName === activeWorkout)?.movements.map((m) => m.name) || [];
+  const movements = groupMoves.length > 0 ? groupMoves : activities;
 
-  const isChecked = (name: string) => checks.some((c) => c === name || c.toLowerCase().includes(name.toLowerCase()));
-  const anyActivityChecked = activities.some(isChecked);
+  const isChecked = (name: string) =>
+    localChecks.some((c) => {
+      const key = (c.includes("=") ? c.split("=")[0] : c).trim().toLowerCase();
+      return key === name.trim().toLowerCase() || key.includes(name.trim().toLowerCase());
+    });
 
-  const valid: boolean[] = [
+  const valid = [
     !!bed && !!wake,
     isConnect
-      ? attend.attended === "yes"
-        ? attend.learned.trim().length > 0
-        : attend.attended === "no"
-      : anyActivityChecked || notes.trim().length > 0,
-    meal.followed === true
-      ? meal.checked.length > 0 || meal.actual.trim().length > 0 || recommended.length === 0
-      : meal.followed === false && meal.actual.trim().length > 1,
+      ? notes.trim().length > 0
+      : movements.length === 0
+        ? notes.trim().length > 0 || true
+        : movements.every(isChecked),
+    meal.followed === true || (meal.followed === false && meal.actual.trim().length > 1),
     review.trim().length >= 3 && score > 0,
   ];
 
-  const allDone = done.every(Boolean);
-  const showSummary = allDone && !editing;
-  const canGo = (target: number) => !locked && done.slice(0, target).every(Boolean);
-
-  const go = (target: number) => {
-    setDir(target >= step ? "fwd" : "back");
-    setError(null);
-    setStep(target);
-  };
-
-  const persist = async (): Promise<boolean> => {
-    if (step === 0) {
-      return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake))) !== false;
-    }
+  const persist = async () => {
+    if (step === 0) return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id)) !== false;
     if (step === 1) {
-      if (isConnect) {
-        return (await props.onSaveAttendance(JSON.stringify({ v: 1, ...attend, feedback: "" }))) !== false;
+      if (isConnect) return (await props.onSaveAttendance(notes.trim(), day.id)) !== false;
+      if (activeWorkout) {
+        const picked = await props.onSelectWorkout(activeWorkout, day.id);
+        if (picked === false) return false;
       }
       if (notes.trim() !== (progress?.workoutNotes || "").trim()) {
-        return (await props.onSaveWorkoutNotes(notes.trim())) !== false;
+        return (await props.onSaveWorkoutNotes(notes.trim(), day.id)) !== false;
       }
       return true;
     }
@@ -309,11 +248,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       return (
         (await props.onSaveMeal(
           meal.followed ? "FULL" : "OFF_TRACK",
-          JSON.stringify({ v: 1, followed: meal.followed, checked: meal.checked, actual: meal.actual.trim() })
+          JSON.stringify({ v: 1, followed: meal.followed, actual: meal.followed ? "" : meal.actual.trim() }),
+          day.id
         )) !== false
       );
     }
-    return (await props.onSaveReflection(review.trim(), score)) !== false;
+    return (await props.onSaveReflection(review.trim(), score, day.id)) !== false;
   };
 
   const next = async () => {
@@ -323,29 +263,25 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     try {
       const ok = await persist();
       if (!ok) {
-        setError("We could not save this step. Please try again.");
+        setError("Could not save. Try again.");
         return;
       }
-      setDone((prev) => prev.map((v, i) => (i === step ? true : v)));
-      if (editing) {
-        setEditing(false);
-      } else if (step < STEPS.length - 1) {
-        go(step + 1);
-      }
+      if (onCloseEdit) onCloseEdit();
+      else onAdvance();
     } catch {
-      setError("Something went wrong while saving. Please try again.");
+      setError("Could not save. Try again.");
     } finally {
       setBusy(false);
     }
   };
 
   const pickPhoto = async (type: "before" | "after", file: File) => {
-    setError(null);
     if (file.size > 15 * 1024 * 1024) {
-      setError("That photo is too large. Please choose one under 15 MB.");
+      setError("Photo must be under 15 MB.");
       return;
     }
     setPhotoBusy(type);
+    setError(null);
     try {
       const dataUrl = await compressImageFile(file);
       const res = await fetch("/api/upload", {
@@ -355,367 +291,413 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success || !json.url) throw new Error(json?.message || "Upload failed.");
-      const ok = (await props.onUploadPhoto(type, json.url)) !== false;
+      const ok = (await props.onUploadPhoto(type, json.url, day.id)) !== false;
       if (!ok) throw new Error("Could not save the photo.");
       setPhotos((p) => ({ ...p, [type]: json.url as string }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Photo upload failed.");
+      setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setPhotoBusy(null);
     }
   };
 
-  /* ---------- completion state ---------- */
-  if (showSummary) {
-    const summaries = [
-      bed && wake ? `${bed} → ${wake} · ${formatDuration(sleepMinutes(bed, wake))}` : "—",
-      isConnect
-        ? attend.attended === "yes"
-          ? "Attended the session"
-          : "Did not attend"
-        : [
-            activities.filter(isChecked).length ? `${activities.filter(isChecked).length} activities done` : null,
-            photos.before || photos.after ? "Photos added" : null,
-            notes.trim() ? "Notes added" : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || "—",
-      meal.followed ? "Followed the meal plan" : "Logged own meals",
-      score ? `Mood ${score}/10 · ${review.trim().slice(0, 48)}${review.trim().length > 48 ? "…" : ""}` : "—",
-    ];
-    return (
-      <section className={glassCls}>
-        <Blobs />
-        <div className="relative flex items-center gap-3">
-          <span className="w-11 h-11 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center">
-            <CheckCircle2 className="w-6 h-6" />
-          </span>
-          <div>
-            <h3 className="text-lg font-medium text-zinc-950 dark:text-white">Check-in complete</h3>
-            <p className="text-xs text-zinc-500">All 4 tasks for Day {day.dayNumber} are submitted. See you tomorrow.</p>
-          </div>
-        </div>
-        <ul className="relative divide-y divide-zinc-900/10 dark:divide-white/10">
-          {STEPS.map((s, i) => (
-            <li key={s.title} className="py-3 flex items-center gap-3">
-              <s.Icon className="w-4 h-4 text-zinc-400 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">{s.title}</p>
-                <p className="text-sm text-zinc-950 dark:text-white truncate">{summaries[i]}</p>
-              </div>
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => {
-                  setEditing(true);
-                  go(i);
-                }}
-                className="shrink-0 p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-30"
-                aria-label={`Edit ${s.title}`}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
-        {locked && <p className="text-xs text-zinc-500">Submission is closed for this day, so answers are read-only.</p>}
-      </section>
-    );
-  }
-
-  const meta = STEPS[step];
-  const lastStep = step === STEPS.length - 1;
+  const toggle = async (name: string) => {
+    const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
+    setLocalChecks((prev) => (isChecked(name) ? prev.filter((c) => !c.toLowerCase().includes(name.toLowerCase())) : [...prev, scoped]));
+    await props.onToggleCheck(scoped, day.id);
+  };
 
   return (
-    <section className={glassCls}>
-      <Blobs />
-      <style>{`
-        @keyframes ci-in-fwd { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
-        @keyframes ci-in-back { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
-        .ci-fwd { animation: ci-in-fwd .28s ease-out both; }
-        .ci-back { animation: ci-in-back .28s ease-out both; }
-        @media (prefers-reduced-motion: reduce) { .ci-fwd, .ci-back { animation: none; } }
-      `}</style>
-
-      {/* step indicator */}
-      <div className="relative space-y-2.5">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-500">Daily check-in</p>
-          <p className="text-[11px] font-semibold text-zinc-500 tabular-nums">
-            {step + 1} of {STEPS.length}
-            {editing ? " · editing" : ""}
-          </p>
-        </div>
-        <ol className="flex gap-1.5" aria-label="Check-in steps">
-          {STEPS.map((s, i) => {
-            const reachable = canGo(i) && !editing;
-            return (
-              <li key={s.title} className="flex-1">
-                <button
-                  type="button"
-                  disabled={!reachable && i !== step}
-                  onClick={() => reachable && go(i)}
-                  aria-label={`Step ${i + 1}: ${s.title}`}
-                  aria-current={i === step ? "step" : undefined}
-                  className={`block w-full h-1.5 rounded-full transition-colors ${
-                    i === step ? "bg-zinc-950 dark:bg-white" : done[i] ? "bg-zinc-500" : "bg-zinc-200 dark:bg-white/15"
-                  }`}
-                />
-              </li>
-            );
-          })}
-        </ol>
-        <p className="text-[11px] text-zinc-500">
-          {editing ? "Update your answer, then save." : `${STEPS.length - step - 1} step${STEPS.length - step - 1 === 1 ? "" : "s"} left after this one`}
-        </p>
+    <div key={step} className="task-shift space-y-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">{STEP_TITLES[step]}</h3>
+        <span className="text-[11px] tabular-nums text-zinc-400">{step + 1}/4</span>
       </div>
 
-      <div key={`${step}-${editing}`} className={`relative ${dir === "fwd" ? "ci-fwd" : "ci-back"} space-y-5`}>
-        <div>
-          <h3 className="text-xl font-medium text-zinc-950 dark:text-white flex items-center gap-2">
-            <meta.Icon className="w-5 h-5 text-zinc-500" /> {meta.title}
-          </h3>
-          <p className="mt-1 text-sm text-zinc-500">{meta.description}</p>
-        </div>
-
-        {locked && (
-          <p className="text-xs rounded-xl bg-zinc-100 dark:bg-white/10 px-3 py-2 text-zinc-600 dark:text-zinc-300">
-            {!day.isCalendarUnlocked ? "This day is not open yet." : "Submission is closed for this day."}
-          </p>
-        )}
-
-        {step === 0 && (
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-              Bedtime
-              <input type="time" value={bed} disabled={locked} onChange={(e) => setBed(e.target.value)} className={`${fieldCls} mt-1.5`} />
-            </label>
-            <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-              Wake-up time
-              <input type="time" value={wake} disabled={locked} onChange={(e) => setWake(e.target.value)} className={`${fieldCls} mt-1.5`} />
-            </label>
-            {bed && wake && (
-              <p className="col-span-2 text-sm text-zinc-600 dark:text-zinc-300">
-                Total sleep: <span className="font-semibold text-zinc-950 dark:text-white">{formatDuration(sleepMinutes(bed, wake))}</span>
-              </p>
-            )}
-          </div>
-        )}
-
-        {step === 1 && !isConnect && (
-          <div className="space-y-5">
-            {activities.length > 0 && (
-              <ul className="space-y-2">
-                {activities.map((name) => (
-                  <li key={name}>
-                    <label className="flex items-center gap-3 rounded-2xl border border-zinc-200 dark:border-white/10 px-3.5 py-3 text-sm">
-                      <input type="checkbox" disabled={locked} checked={isChecked(name)} onChange={() => props.onToggleCheck(name)} />
-                      <span>{name}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-              {activities.length > 0 ? "Anything else you did? (optional)" : "What training did you complete?"}
-              <textarea
-                value={notes}
-                disabled={locked}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                maxLength={1000}
-                placeholder="e.g. 30 min strength, 5 km walk"
-                className={`${fieldCls} mt-1.5`}
-              />
-            </label>
-            {isTraining && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Progress photos (optional)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <PhotoSlot label="Before" url={photos.before} busy={photoBusy === "before"} disabled={locked} onPick={(f) => pickPhoto("before", f)} />
-                  <PhotoSlot label="After" url={photos.after} busy={photoBusy === "after"} disabled={locked} onPick={(f) => pickPhoto("after", f)} />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === 1 && isConnect && (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 space-y-1">
-              <p className="text-base font-medium text-zinc-950 dark:text-white">{day.eventTitle || day.title}</p>
-              {day.onsiteSchedule && <p className="text-xs text-zinc-500">{day.onsiteSchedule}</p>}
-              {day.eventDetails && <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">{day.eventDetails}</p>}
-            </div>
-            <fieldset className="flex gap-2">
-              <legend className="sr-only">Did you attend today&apos;s session?</legend>
-              {(["yes", "no"] as const).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  disabled={locked}
-                  aria-pressed={attend.attended === opt}
-                  onClick={() => setAttend((d) => ({ ...d, attended: opt }))}
-                  className={`flex-1 py-3 rounded-2xl text-sm font-semibold border transition ${
-                    attend.attended === opt
-                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
-                      : "border-zinc-200 dark:border-white/15 text-zinc-700 dark:text-zinc-200"
-                  }`}
-                >
-                  {opt === "yes" ? "I attended" : "I could not attend"}
-                </button>
-              ))}
-            </fieldset>
-            {attend.attended === "yes" && (
-              <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                What did you learn?
-                <textarea value={attend.learned} disabled={locked} onChange={(e) => setAttend((d) => ({ ...d, learned: e.target.value }))} rows={3} className={`${fieldCls} mt-1.5`} />
-              </label>
-            )}
-            {attend.attended === "no" && (
-              <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                Reason (optional)
-                <textarea value={attend.reason} disabled={locked} onChange={(e) => setAttend((d) => ({ ...d, reason: e.target.value }))} rows={3} className={`${fieldCls} mt-1.5`} />
-              </label>
-            )}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-4">
-            {recommended.length > 0 && (
-              <div className="rounded-2xl bg-zinc-50 dark:bg-white/5 px-4 py-3 space-y-1">
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500">Coach recommendation</p>
-                {recommended.map((m) => (
-                  <p key={m} className="text-sm text-zinc-800 dark:text-zinc-200">{m}</p>
-                ))}
-              </div>
-            )}
-            <fieldset className="flex gap-2">
-              <legend className="sr-only">Did you follow the meal recommendation?</legend>
-              {([true, false] as const).map((opt) => (
-                <button
-                  key={String(opt)}
-                  type="button"
-                  disabled={locked}
-                  aria-pressed={meal.followed === opt}
-                  onClick={() => setMeal((d) => ({ ...d, followed: opt }))}
-                  className={`flex-1 py-3 rounded-2xl text-sm font-semibold border transition ${
-                    meal.followed === opt
-                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
-                      : "border-zinc-200 dark:border-white/15 text-zinc-700 dark:text-zinc-200"
-                  }`}
-                >
-                  {opt ? "I followed the plan" : "I ate something else"}
-                </button>
-              ))}
-            </fieldset>
-            {meal.followed === true && recommended.length > 0 && (
-              <ul className="space-y-2">
-                {recommended.map((m) => (
-                  <li key={m}>
-                    <label className="flex items-center gap-3 rounded-2xl border border-zinc-200 dark:border-white/10 px-3.5 py-2.5 text-sm">
-                      <input
-                        type="checkbox"
-                        disabled={locked}
-                        checked={meal.checked.includes(m)}
-                        onChange={() =>
-                          setMeal((d) => ({ ...d, checked: d.checked.includes(m) ? d.checked.filter((x) => x !== m) : [...d.checked, m] }))
-                        }
-                      />
-                      <span>{m}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {meal.followed !== null && (
-              <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                {meal.followed ? "Extra notes (optional)" : "What did you eat today?"}
-                <textarea
-                  value={meal.actual}
-                  disabled={locked}
-                  onChange={(e) => setMeal((d) => ({ ...d, actual: e.target.value }))}
-                  rows={4}
-                  maxLength={1000}
-                  placeholder="Breakfast, lunch, dinner, snacks…"
-                  className={`${fieldCls} mt-1.5`}
-                />
-              </label>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-5">
-            <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-              How was your day?
-              <textarea
-                value={review}
-                disabled={locked}
-                onChange={(e) => setReview(e.target.value)}
-                rows={5}
-                maxLength={2000}
-                placeholder="A few honest words about today"
-                className={`${fieldCls} mt-1.5`}
-              />
-            </label>
-            <div>
-              <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">How happy are you today?</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    disabled={locked}
-                    aria-pressed={score === n}
-                    onClick={() => setScore(n)}
-                    className={`w-9 h-9 rounded-full text-sm font-semibold transition ${
-                      score === n ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 scale-110" : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-200"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-            {error}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between gap-3 pt-1">
-          {editing ? (
-            <button type="button" onClick={() => setEditing(false)} className={ghostBtn}>
-              Cancel
-            </button>
-          ) : (
-            <button type="button" disabled={step === 0 || busy} onClick={() => go(step - 1)} className={ghostBtn}>
-              <ArrowLeft className="w-3.5 h-3.5" /> Back
-            </button>
+      {step === 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-[11px] text-zinc-500">
+            Bedtime
+            <input type="time" value={bed} disabled={locked} onChange={(e) => setBed(e.target.value)} className={`${fieldCls} mt-1`} />
+          </label>
+          <label className="block text-[11px] text-zinc-500">
+            Wake time
+            <input type="time" value={wake} disabled={locked} onChange={(e) => setWake(e.target.value)} className={`${fieldCls} mt-1`} />
+          </label>
+          {bed && wake && (
+            <p className="col-span-2 text-sm">
+              <span className="text-zinc-500">Sleep Duration</span>
+              <span className="float-right font-medium tabular-nums">{formatDuration(sleepMinutes(bed, wake))}</span>
+            </p>
           )}
-          <button type="button" disabled={locked || busy || !valid[step] || photoBusy !== null} onClick={next} className={primaryBtn}>
-            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            {editing ? (
-              <>
-                Save <Check className="w-3.5 h-3.5" />
-              </>
-            ) : lastStep ? (
-              <>
-                Submit <Check className="w-3.5 h-3.5" />
-              </>
-            ) : (
-              <>
-                Next <ArrowRight className="w-3.5 h-3.5" />
-              </>
-            )}
+        </div>
+      )}
+
+      {step === 1 && !isConnect && (
+        <div className="space-y-3">
+          {isTraining && videos[0] && (
+            <a
+              href={videos[0].url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => props.onOpenVideo(day.id)}
+              className="flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={extractVideoThumbnail(videos[0].url, "/image.jpg")} alt="" className="w-24 h-16 object-cover bg-zinc-200" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium truncate">{videos[0].title || day.title}</span>
+                <span className="text-[11px] text-zinc-500 inline-flex items-center gap-1">
+                  YouTube <ExternalLink className="w-3 h-3" />
+                </span>
+              </span>
+            </a>
+          )}
+          {groups.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {groups.map((g) => (
+                <button
+                  key={g.optionName}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={activeWorkout === g.optionName}
+                  onClick={() => setWorkout(g.optionName)}
+                  className={`h-8 px-3 rounded-full text-[11px] border ${
+                    activeWorkout === g.optionName
+                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
+                      : "border-zinc-300 dark:border-white/15"
+                  }`}
+                >
+                  {g.optionName}
+                </button>
+              ))}
+            </div>
+          )}
+          {movements.length > 0 && (
+            <ul className="divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-xl">
+              {movements.map((name) => (
+                <li key={name}>
+                  <label className="flex items-center gap-2.5 px-3 py-2 text-sm">
+                    <input type="checkbox" disabled={locked} checked={isChecked(name)} onChange={() => toggle(name)} />
+                    <span>{name}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          {isTraining && (
+            <div className="grid grid-cols-2 gap-2">
+              {(["before", "after"] as const).map((type) => (
+                <label key={type} className="block text-[11px] text-zinc-500">
+                  {type === "before" ? "Before Exercise" : "After Exercise"}
+                  <span className="mt-1 flex h-16 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5">
+                    {photos[type] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photos[type]} alt="" className="w-full h-full object-cover" />
+                    ) : photoBusy === type ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Upload"
+                    )}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={locked || photoBusy !== null}
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) pickPhoto(type, file);
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 1 && isConnect && (
+        <label className="block text-[11px] text-zinc-500">
+          {day.eventTitle || day.title}
+          <textarea value={notes} disabled={locked} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${areaCls} mt-1`} />
+        </label>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-3">
+          {recommended.length > 0 && (
+            <div className="text-sm space-y-1">
+              <p className="text-[11px] text-zinc-500">Recommendation</p>
+              {recommended.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={locked}
+              aria-pressed={meal.followed === true}
+              onClick={() => setMeal({ followed: true, actual: "" })}
+              className={`h-10 rounded-xl text-xs font-medium border ${
+                meal.followed === true ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-300 dark:border-white/15"
+              }`}
+            >
+              Follow Recommendation
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              aria-pressed={meal.followed === false}
+              onClick={() => setMeal((d) => ({ ...d, followed: false }))}
+              className={`h-10 rounded-xl text-xs font-medium border ${
+                meal.followed === false ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-300 dark:border-white/15"
+              }`}
+            >
+              Not Following
+            </button>
+          </div>
+          {meal.followed === false && (
+            <label className="block text-[11px] text-zinc-500">
+              Meal note
+              <textarea
+                value={meal.actual}
+                disabled={locked}
+                onChange={(e) => setMeal((d) => ({ ...d, actual: e.target.value }))}
+                rows={3}
+                className={`${areaCls} mt-1`}
+              />
+            </label>
+          )}
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-3">
+          <label className="block text-[11px] text-zinc-500">
+            Daily Reflection
+            <textarea value={review} disabled={locked} onChange={(e) => setReview(e.target.value)} rows={4} maxLength={2000} className={`${areaCls} mt-1`} />
+          </label>
+          <div>
+            <p className="text-[11px] text-zinc-500 mb-1.5">Satisfaction</p>
+            <div className="flex gap-1.5" role="radiogroup" aria-label="Satisfaction">
+              {FACES.map(({ score: n, Icon, label }) => (
+                <button
+                  key={n}
+                  type="button"
+                  role="radio"
+                  aria-checked={score === n}
+                  aria-label={label}
+                  disabled={locked}
+                  onClick={() => setScore(n)}
+                  className={`w-9 h-9 rounded-full border inline-flex items-center justify-center ${
+                    score === n ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-200 dark:border-white/15 text-zinc-500"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between">
+        {onCloseEdit ? (
+          <button type="button" onClick={onCloseEdit} className={ghostBtn}>
+            Cancel
           </button>
+        ) : (
+          <button type="button" disabled={step === 0 || busy} onClick={onBack} className={ghostBtn}>
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </button>
+        )}
+        <button type="button" disabled={locked || busy || !valid[step] || photoBusy !== null} onClick={next} className={primaryBtn}>
+          {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {onCloseEdit ? "Save" : step === 3 ? "Complete" : "Save"}
+          {!busy && <Check className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function DailyCheckIn(props: DailyCheckInProps) {
+  const { day, locked, activities, checks, initialDone, pastDays } = props;
+  const [done, setDone] = useState<boolean[]>([...initialDone]);
+  const initialKey = initialDone.join(",");
+  useEffect(() => {
+    setDone((prev) => prev.map((v, i) => v || initialDone[i]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialKey]);
+
+  const firstOpen = done.findIndex((d) => !d);
+  const [step, setStep] = useState(firstOpen === -1 ? 3 : firstOpen);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{ day: PlanDay; step: number } | null>(null);
+
+  const allDone = done.every(Boolean);
+  const behind = STEP_TITLES.map((title, i) => ({ title, i })).filter((s) => s.i > step && !allDone);
+
+  const advance = () => {
+    setDone((prev) => prev.map((v, i) => (i === step ? true : v)));
+    setStep((current) => Math.min(3, current + 1));
+  };
+
+  const summary = answersOf(day, activities, checks);
+
+  return (
+    <section className="space-y-3">
+      <style>{`
+        @keyframes task-shift { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .task-shift { animation: task-shift .28s ease both; }
+        @media (prefers-reduced-motion: reduce) { .task-shift { animation: none; } }
+      `}</style>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold tracking-tight">Daily Task</h2>
+        <button type="button" onClick={() => setHistoryOpen(true)} className={ghostBtn}>
+          <History className="w-3.5 h-3.5" /> History
+        </button>
+      </div>
+
+      <div className="relative" style={{ paddingBottom: behind.length ? 28 : 0 }}>
+        {behind.map((item, index) => (
+          <div
+            key={item.title}
+            aria-hidden
+            className="absolute inset-x-0 h-11 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900 pointer-events-none"
+            style={{ bottom: index * 8, zIndex: behind.length - index, transform: `scale(${1 - (behind.length - index) * 0.015})` }}
+          >
+            <span className="absolute left-4 bottom-2 text-[11px] text-zinc-400">{item.title}</span>
+          </div>
+        ))}
+
+        <div className="relative z-10 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4">
+          {allDone ? (
+            <div className="space-y-3 task-shift">
+              <p className="text-sm font-medium">Daily task completed</p>
+              <dl className="divide-y divide-zinc-100 dark:divide-white/10">
+                {summary.map((row) => (
+                  <div key={row.label} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <dt className="text-zinc-500">{row.label}</dt>
+                    <dd className="font-medium text-right truncate">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : (
+            <TaskForm
+              key={`${day.id}-${step}`}
+              day={day}
+              locked={locked}
+              activities={activities}
+              checks={checks}
+              step={step}
+              onAdvance={advance}
+              onBack={() => setStep((current) => Math.max(0, current - 1))}
+              props={props}
+            />
+          )}
         </div>
       </div>
+
+      {historyOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
+            <button type="button" aria-label="Close history" className="absolute inset-0 bg-black/40" onClick={() => { setHistoryOpen(false); setEdit(null); setDetailId(null); }} />
+            <div className="relative w-full sm:max-w-md max-h-[86vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">{edit ? STEP_TITLES[edit.step] : "History"}</h3>
+                <button type="button" aria-label="Close" onClick={() => { setHistoryOpen(false); setEdit(null); }} className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {edit ? (
+                <TaskForm
+                  day={edit.day}
+                  locked={false}
+                  activities={activitiesFor(edit.day)}
+                  checks={checksFor(edit.day)}
+                  step={edit.step}
+                  onAdvance={() => setEdit(null)}
+                  onBack={() => setEdit(null)}
+                  onCloseEdit={() => setEdit(null)}
+                  props={props}
+                />
+              ) : pastDays.length === 0 ? (
+                <p className="text-sm text-zinc-500 py-6 text-center">No saved daily tasks yet.</p>
+              ) : (
+                <ul className="divide-y divide-zinc-100 dark:divide-white/10">
+                  {pastDays.map((past) => {
+                    const open = detailId === past.id;
+                    const rows = answersOf(past, activitiesFor(past), checksFor(past));
+                    return (
+                      <li key={past.id} className="py-2.5">
+                        <button type="button" onClick={() => setDetailId(open ? null : past.id)} className="w-full flex items-center justify-between text-left">
+                          <span className="text-sm">Day {past.dayNumber}</span>
+                          <span className="text-[11px] text-zinc-500">{formatDateWib(past.unlockDate)}</span>
+                        </button>
+                        {open && (
+                          <dl className="mt-2 space-y-1.5">
+                            {rows.map((row, i) => (
+                              <div key={row.label} className="flex items-center justify-between gap-2 text-sm">
+                                <dt className="text-zinc-500">{row.label}</dt>
+                                <dd className="flex items-center gap-2 font-medium">
+                                  <span className="truncate max-w-[140px]">{row.value}</span>
+                                  <button type="button" aria-label={`Edit ${row.label}`} onClick={() => setEdit({ day: past, step: i })} className="text-zinc-400">
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                </dd>
+                              </div>
+                            ))}
+                            {past.userProgress?.dailyReflection && (
+                              <p className="text-xs text-zinc-500 pt-1">{past.userProgress.dailyReflection}</p>
+                            )}
+                          </dl>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </section>
   );
+}
+
+function activitiesFor(day: PlanDay): string[] {
+  if (day.dayType === "REST_DAY") {
+    return (day.restInstructions || "")
+      .split(/\n|•|·/)
+      .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
+      .filter((line) => line.length > 1);
+  }
+  if (day.dayType !== "TRAINING_DAY") return [];
+  const groups = parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist);
+  const selected = day.userProgress?.selectedWorkout || groups[0]?.optionName;
+  const group = groups.find((g) => g.optionName === selected) || groups[0];
+  return (group?.movements || []).map((m) => m.name);
+}
+
+function checksFor(day: PlanDay): string[] {
+  if (!day.userProgress?.checklistCompleted) return [];
+  try {
+    const parsed = JSON.parse(day.userProgress.checklistCompleted);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }

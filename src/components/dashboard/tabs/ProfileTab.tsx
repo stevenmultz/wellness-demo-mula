@@ -571,16 +571,10 @@ function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
 
 function NotificationPrefs() {
   const push = usePushNotifications();
-  const [morning, setMorning] = useState("07:00");
-  const [evening, setEvening] = useState("20:30");
-  useEffect(() => {
-    setMorning(localStorage.getItem("bms-morning-reminder") || "07:00");
-    setEvening(localStorage.getItem("bms-evening-reminder") || "20:30");
-  }, []);
-  const [msg, setMsg] = useState<Msg>(null);
   return (
     <div className="space-y-3">
       <p className="text-sm text-zinc-500">Notifications are {push.status === "on" ? "on" : "off"} for this device.</p>
+      <p className="text-xs text-zinc-500">Message and delivery time follow the program schedule in WIB (Asia/Jakarta).</p>
       {(push.status === "on" || push.status === "off" || push.status === "checking") && (
         <button type="button" disabled={push.busy || push.status === "checking"} onClick={push.status === "on" ? push.disable : push.enable} className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase">
           {push.status === "on" ? "Turn Off Notification" : "Turn On Notification"}
@@ -588,20 +582,6 @@ function NotificationPrefs() {
       )}
       {push.status === "denied" && <p className="text-xs text-red-600">Notifications are blocked in the browser settings.</p>}
       {push.error && <p className="text-xs text-red-600">{push.error}</p>}
-      <label className="block text-xs font-semibold">Morning reminder<input type="time" value={morning} onChange={(e) => setMorning(e.target.value)} className={`${inputCls} mt-1.5`} /></label>
-      <label className="block text-xs font-semibold">Evening reminder<input type="time" value={evening} onChange={(e) => setEvening(e.target.value)} className={`${inputCls} mt-1.5`} /></label>
-      <button
-        type="button"
-        onClick={() => {
-          localStorage.setItem("bms-morning-reminder", morning);
-          localStorage.setItem("bms-evening-reminder", evening);
-          setMsg({ type: "success", text: "Reminder times saved on this device." });
-        }}
-        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase"
-      >
-        Save changes
-      </button>
-      <Banner msg={msg} />
     </div>
   );
 }

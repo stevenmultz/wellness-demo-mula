@@ -1006,14 +1006,7 @@ export async function wellnessUserSubmitDayProgress(
     };
   }
 
-  if (isPast2359) {
-    return {
-      success: false,
-      message: `The 23:59 WIB cutoff for Day ${programDay.dayNumber} has passed. Past days are read-only.`,
-    };
-  }
-
-  // Check existing progress to preserve previous values if not explicitly passed
+  // Existing answers stay editable after 23:59 WIB. A day with no saved row stays closed.
   const existingProgress = await prisma.programDayProgress.findUnique({
     where: {
       userId_programDayId: {
@@ -1022,6 +1015,13 @@ export async function wellnessUserSubmitDayProgress(
       },
     },
   });
+
+  if (isPast2359 && !existingProgress) {
+    return {
+      success: false,
+      message: `The 23:59 WIB cutoff for Day ${programDay.dayNumber} has passed. Past days are read-only.`,
+    };
+  }
 
   const nextVideoWatched =
     videoWatched !== undefined

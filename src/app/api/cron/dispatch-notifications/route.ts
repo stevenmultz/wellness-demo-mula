@@ -3,34 +3,37 @@ import { prisma } from "@/wellness/db";
 import { sendWebPushNotification } from "@/wellness/integrations/web-push";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { safeJsonParse } from "@/wellness/utils/json";
-import { getProgramDayWibWindow, WIB_OFFSET_MS } from "@/wellness/utils/timezone";
+import {
+  buildCadenceDedupeKey,
+  getDueSlots,
+  normalizeWibTime,
+  selectDueNotifications,
+  toWibSlot,
+  type DayNotificationItem,
+  type DueSlot,
+} from "@/wellness/utils/notification-schedule";
 
 export const dynamic = "force-dynamic";
 
-interface DayNotificationItem {
-  time: string;
-  message: string;
-  label?: string;
-}
-
-interface ClientSubscriptionPayload {
-  endpoint: string;
-  p256dh: string;
-  auth: string;
-}
+/**
+ * Minutes looked back from "now" (WIB). The production cron runs every minute; lookback covers
+ * jitter. Inbox createdAt is the scheduled WIB minute, and the body is the admin message.
+ */
+const DEFAULT_LOOKBACK_MINUTES = 15;
 
 async function handleCronDispatch(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const authHeader = req.headers.get("authorization");
     const secretQuery = searchParams.get("secret");
-    const cronSecret = process.env.CRON_SECRET || "bms_sanctuary_cron_secure_key_2026";
+    const isProd = process.env.NODE_ENV === "production";
+    // In production CRON_SECRET MUST be configured; no hardcoded fallback.
+    const cronSecret = process.env.CRON_SECRET || (isProd ? "" : "bms_sanctuary_cron_secure_key_2026");
 
     let bodyJson: {
       simulateTime?: string;
       secret?: string;
-      bypass?: boolean;
-      clientSubscription?: ClientSubscriptionPayload;
+      lookbackMinutes?: number;
     } = {};
 
     if (req.method === "POST") {
@@ -41,16 +44,12 @@ async function handleCronDispatch(req: NextRequest) {
       }
     }
 
-    // 1. Verify Secret
     // Vercel Cron automatically provides `Authorization: Bearer <CRON_SECRET>`
     const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     const providedSecret = bearerSecret || secretQuery || bodyJson.secret;
 
     const isAuthorized =
-      providedSecret === cronSecret ||
-      process.env.NODE_ENV === "development" ||
-      searchParams.get("bypass") === "true" ||
-      bodyJson.bypass === true;
+      (!!cronSecret && providedSecret === cronSecret) || process.env.NODE_ENV === "development";
 
     if (!isAuthorized) {
       return NextResponse.json(
@@ -59,55 +58,25 @@ async function handleCronDispatch(req: NextRequest) {
       );
     }
 
-    // 2. Resolve Western Indonesia Time (WIB = UTC+7)
+    // Resolve the minute window(s) in WIB (UTC+7) - independent of server timezone (Vercel = UTC)
     const nowUtc = new Date();
-    const wibDate = new Date(nowUtc.getTime() + WIB_OFFSET_MS);
-    const currentHours = String(wibDate.getUTCHours()).padStart(2, "0");
-    const currentMinutes = String(wibDate.getUTCMinutes()).padStart(2, "0");
-    const defaultTimeStr = `${currentHours}:${currentMinutes}`;
+    const nowSlot = toWibSlot(nowUtc);
 
-    // Allow manual simulation parameter (e.g. ?simulateTime=11:23)
-    const simulateTime = searchParams.get("simulateTime") || bodyJson.simulateTime;
-    const targetTimeStr = simulateTime ? simulateTime.trim() : defaultTimeStr;
-
-    // Optional direct client subscription injected from active UI session
-    const clientSub = bodyJson.clientSubscription;
-
-    // If clientSubscription was provided, persist to database in this container immediately
-    if (clientSub?.endpoint && clientSub?.p256dh && clientSub?.auth) {
-      try {
-        const steven = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { email: { contains: "steven" } },
-              { fullName: { contains: "Steven" } },
-            ],
-          },
-          select: { id: true },
-        });
-
-        if (steven) {
-          await prisma.pushSubscription.upsert({
-            where: { endpoint: clientSub.endpoint },
-            update: {
-              userId: steven.id,
-              p256dh: clientSub.p256dh,
-              auth: clientSub.auth,
-            },
-            create: {
-              userId: steven.id,
-              endpoint: clientSub.endpoint,
-              p256dh: clientSub.p256dh,
-              auth: clientSub.auth,
-            },
-          });
-        }
-      } catch (err) {
-        console.warn("[Cron] Auto-upsert client subscription notice:", err);
-      }
+    const simulateRaw = searchParams.get("simulateTime") || bodyJson.simulateTime;
+    const simulateTime = simulateRaw ? normalizeWibTime(simulateRaw) : null;
+    if (simulateRaw && !simulateTime) {
+      return NextResponse.json({ success: false, error: "Invalid simulateTime, expected HH:mm (WIB)" }, { status: 400 });
     }
 
-    // 3. Query all published programs with active enrollments & their days
+    const lookbackParam = Number(searchParams.get("lookback") ?? bodyJson.lookbackMinutes);
+    const lookback =
+      Number.isFinite(lookbackParam) && lookbackParam >= 1 ? Math.min(lookbackParam, 120) : DEFAULT_LOOKBACK_MINUTES;
+
+    const slots: DueSlot[] = simulateTime
+      ? [{ dateKey: nowSlot.dateKey, time: simulateTime, instant: nowUtc }]
+      : getDueSlots(nowUtc, lookback);
+
+    // Published programs with ACTIVE enrollments only
     const programs = await prisma.program.findMany({
       where: {
         OR: [{ status: "PUBLISHED" }, { isPublished: true }],
@@ -134,8 +103,10 @@ async function handleCronDispatch(req: NextRequest) {
       programTitle: string;
       dayNumber: number;
       scheduledTime: string;
+      scheduledDate: string;
       message: string;
       recipientsCount: number;
+      skippedAlreadySent: number;
       sentSuccess: number;
       sentFailed: number;
       errors?: string[];
@@ -145,110 +116,98 @@ async function handleCronDispatch(req: NextRequest) {
     let totalDispatched = 0;
 
     for (const prog of programs) {
-      // Find which days match targetTimeStr in their dayNotifications
+      if (prog.enrollments.length === 0) continue;
+
       for (const day of prog.days) {
-        // Check if day is unlocked today unless simulateTime is provided
-        const { isCalendarUnlocked, isPast2359 } = getProgramDayWibWindow(prog.startDate, day.dayNumber, nowUtc);
-        const isDayActiveToday = simulateTime ? true : isCalendarUnlocked && !isPast2359;
-
-        if (!isDayActiveToday) continue;
-
         const notifications = safeJsonParse<DayNotificationItem[]>(day.dayNotifications, []);
-        const matchingNotifs = notifications.filter((n) => {
-          if (!n.time) return false;
-          // Normalise "16:40 WIB" or "16:40"
-          const cleanTime = n.time.replace("WIB", "").trim();
-          return cleanTime === targetTimeStr;
-        });
+        if (!Array.isArray(notifications) || notifications.length === 0) continue;
 
-        if (matchingNotifs.length === 0) continue;
+        for (const slot of slots) {
+          // Simulation ignores the calendar-day window so admins can test any day
+          const due = simulateTime
+            ? notifications
+                .map((item, index) => ({ item, index }))
+                .filter(({ item }) => item?.message?.trim() && normalizeWibTime(item.time) === slot.time)
+            : selectDueNotifications({ dayNumber: day.dayNumber, dayNotifications: notifications }, prog.startDate, slot);
 
-        // Collect all distinct active push subscriptions for enrolled users
-        const activeSubscribersMap = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
+          for (const { index, item } of due) {
+            const dedupeKey = buildCadenceDedupeKey(day.id, slot, index);
+            const enrolledUserIds = prog.enrollments.map((e) => e.userId);
 
-        // 1. From database records
-        for (const enrollment of prog.enrollments) {
-          const userSubs = enrollment.user?.pushSubscriptions || [];
-          for (const sub of userSubs) {
-            if (sub.endpoint && sub.p256dh && sub.auth) {
-              activeSubscribersMap.set(sub.endpoint, {
-                endpoint: sub.endpoint,
-                p256dh: sub.p256dh,
-                auth: sub.auth,
-              });
-            }
-          }
-        }
-
-        // 2. Also inject client subscription if active session provided it
-        if (clientSub?.endpoint && clientSub?.p256dh && clientSub?.auth) {
-          activeSubscribersMap.set(clientSub.endpoint, {
-            endpoint: clientSub.endpoint,
-            p256dh: clientSub.p256dh,
-            auth: clientSub.auth,
-          });
-        }
-
-        const subscribers = Array.from(activeSubscribersMap.values());
-        const wibDateKey = wibDate.toISOString().slice(0, 10);
-        let notifIdx = 0;
-
-        for (const notif of matchingNotifs) {
-          // Persist to each enrolled user's in-app inbox (idempotent via dedupeKey)
-          await createUserNotifications(
-            prog.enrollments.map((enrollment) => ({
-              userId: enrollment.userId,
-              type: "TASK" as const,
-              title: prog.title,
-              body: notif.message,
-              url: "/dashboard",
-              dedupeKey: `cadence:${day.id}:${wibDateKey}:${targetTimeStr}:${notifIdx}`,
-            }))
-          );
-          notifIdx++;
-
-          let sentSuccess = 0;
-          let sentFailed = 0;
-          const errors: string[] = [];
-
-          for (const sub of subscribers) {
-            const sendRes = await sendWebPushNotification(sub, {
-              title: `+ BMS • ${prog.title}`,
-              body: `[${notif.time} WIB] ${notif.message}`,
-              url: "/dashboard",
-              tag: `bms-cadence-${prog.id}-${day.id}-${targetTimeStr}`,
+            // Users that already received this exact notification (idempotency across cron runs)
+            const already = await prisma.userNotification.findMany({
+              where: { dedupeKey, userId: { in: enrolledUserIds } },
+              select: { userId: true },
             });
+            const alreadySet = new Set(already.map((a) => a.userId));
+            const recipients = prog.enrollments.filter((e) => !alreadySet.has(e.userId));
+            if (recipients.length === 0) continue;
 
-            if (sendRes.success) {
-              sentSuccess++;
-              totalDispatched++;
-            } else {
-              sentFailed++;
-              if (sendRes.error) {
-                errors.push(sendRes.error);
-              }
-              if (sendRes.isGone) {
-                deadEndpoints.push(sub.endpoint);
+            const message = item.message.trim();
+
+            // In-app inbox row: SAME message as the push payload
+            await createUserNotifications(
+              recipients.map((enrollment) => ({
+                userId: enrollment.userId,
+                type: "TASK" as const,
+                title: prog.title,
+                body: message,
+                url: "/dashboard",
+                dedupeKey,
+                createdAt: slot.instant,
+              }))
+            );
+
+            const subscribers = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
+            for (const enrollment of recipients) {
+              for (const sub of enrollment.user?.pushSubscriptions || []) {
+                if (sub.endpoint && sub.p256dh && sub.auth) {
+                  subscribers.set(sub.endpoint, { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
+                }
               }
             }
-          }
 
-          dispatchResults.push({
-            programId: prog.id,
-            programTitle: prog.title,
-            dayNumber: day.dayNumber,
-            scheduledTime: notif.time,
-            message: notif.message,
-            recipientsCount: subscribers.length,
-            sentSuccess,
-            sentFailed,
-            ...(errors.length > 0 ? { errors } : {}),
-          });
+            let sentSuccess = 0;
+            let sentFailed = 0;
+            const errors: string[] = [];
+
+            for (const sub of Array.from(subscribers.values())) {
+              const sendRes = await sendWebPushNotification(sub, {
+                title: prog.title,
+                body: message,
+                url: "/dashboard",
+                tag: `bms-cadence-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
+              });
+
+              if (sendRes.success) {
+                sentSuccess++;
+                totalDispatched++;
+              } else {
+                sentFailed++;
+                if (sendRes.error) errors.push(sendRes.error);
+                if (sendRes.isGone) deadEndpoints.push(sub.endpoint);
+              }
+            }
+
+            dispatchResults.push({
+              programId: prog.id,
+              programTitle: prog.title,
+              dayNumber: day.dayNumber,
+              scheduledTime: slot.time,
+              scheduledDate: slot.dateKey,
+              message,
+              recipientsCount: recipients.length,
+              skippedAlreadySent: alreadySet.size,
+              sentSuccess,
+              sentFailed,
+              ...(errors.length > 0 ? { errors } : {}),
+            });
+          }
         }
       }
     }
 
-    // 4. Auto-clean expired subscriptions (410/404 Gone)
+    // Auto-clean expired subscriptions (410/404 Gone)
     let deadCleanedCount = 0;
     if (deadEndpoints.length > 0) {
       const cleanRes = await prisma.pushSubscription.deleteMany({
@@ -262,10 +221,10 @@ async function handleCronDispatch(req: NextRequest) {
     return NextResponse.json({
       success: true,
       timestampUTC: nowUtc.toISOString(),
-      currentTimeWIB: defaultTimeStr,
-      targetTimeWIB: targetTimeStr,
+      currentTimeWIB: nowSlot.time,
+      currentDateWIB: nowSlot.dateKey,
+      windowWIB: slots.map((s) => s.time),
       simulated: !!simulateTime,
-      clientSubscriptionInjected: !!clientSub?.endpoint,
       totalProgramsChecked: programs.length,
       notificationsTriggered: dispatchResults.length,
       totalDispatched,

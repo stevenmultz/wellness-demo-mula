@@ -45,7 +45,13 @@ const FORMAT_OPTIONS = [
 const INTENSITY_OPTIONS = ["Low", "Moderate", "High", "Very High"] as const;
 const CATEGORY_OPTIONS = ["Fitness", "Nutrition", "Mental Wellness", "Lifestyle", "Personal Development"] as const;
 const DURATION_OPTIONS = ["7 Days", "14 Days", "30 Days", "60 Days", "90 Days", "Custom Duration"] as const;
-const PRICE_OPTIONS = ["Free", "Paid"] as const;
+const PRICE_BANDS = [
+  { id: "free", label: "Free" },
+  { id: "u100", label: "Under Rp100.000" },
+  { id: "100-300", label: "Rp100.000 – 300.000" },
+  { id: "300-500", label: "Rp300.000 – 500.000" },
+  { id: "500+", label: "Rp500.000+" },
+] as const;
 const EXPERIENCE_OPTIONS = ["Beginner", "Intermediate", "Advanced", "All Levels"] as const;
 const SCHEDULE_OPTIONS = ["Flexible Schedule", "Fixed Schedule"] as const;
 
@@ -55,8 +61,6 @@ type Filters = {
   category: string[];
   duration: string[];
   price: string[];
-  priceMin: string;
-  priceMax: string;
   experience: string[];
   schedule: string[];
 };
@@ -67,11 +71,17 @@ const EMPTY: Filters = {
   category: [],
   duration: [],
   price: [],
-  priceMin: "",
-  priceMax: "",
   experience: [],
   schedule: [],
 };
+
+function priceBand(amount: number): string {
+  if (amount <= 0) return "free";
+  if (amount < 100000) return "u100";
+  if (amount < 300000) return "100-300";
+  if (amount < 500000) return "300-500";
+  return "500+";
+}
 
 function intensityOf(level: string): (typeof INTENSITY_OPTIONS)[number] {
   const value = (level || "").toUpperCase();
@@ -128,8 +138,7 @@ function countActive(f: Filters): number {
     f.duration.length +
     f.price.length +
     f.experience.length +
-    f.schedule.length +
-    (f.priceMin || f.priceMax ? 1 : 0)
+    f.schedule.length
   );
 }
 
@@ -143,13 +152,7 @@ function matches(program: ExploreProgram, f: Filters): boolean {
     const s = scheduleOf(program);
     if (!s || !f.schedule.includes(s)) return false;
   }
-  const wantsFree = f.price.includes("Free");
-  const wantsPaid = f.price.includes("Paid");
-  if ((wantsFree || wantsPaid) && !(wantsFree && program.price <= 0) && !(wantsPaid && program.price > 0)) return false;
-  const min = f.priceMin ? Number(f.priceMin) : null;
-  const max = f.priceMax ? Number(f.priceMax) : null;
-  if (min !== null && !Number.isNaN(min) && program.price < min) return false;
-  if (max !== null && !Number.isNaN(max) && program.price > max) return false;
+  if (f.price.length && !f.price.includes(priceBand(program.price))) return false;
   return true;
 }
 
@@ -166,8 +169,8 @@ function ChipGroup({
 }) {
   if (options.length === 0) return null;
   return (
-    <fieldset className="space-y-2">
-      <legend className="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-500">{label}</legend>
+    <fieldset className="space-y-2 rounded-xl border border-zinc-200 dark:border-white/10 p-3">
+      <legend className="px-1 text-[11px] font-semibold text-zinc-950 dark:text-white">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
           const on = selected.includes(opt);
@@ -196,7 +199,7 @@ export function ExplorePlanTab({
   headerVisible,
   onRegister,
   onViewDetails,
-  onOpenPlan,
+  onOpenPlan: _onOpenPlan,
   registeringId,
 }: {
   headerVisible: boolean;
@@ -205,6 +208,7 @@ export function ExplorePlanTab({
   onOpenPlan: (programId: string) => void;
   registeringId: string | null;
 }) {
+  void _onOpenPlan;
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -293,7 +297,6 @@ export function ExplorePlanTab({
 
   const removeChip = (key: keyof Filters, value?: string) => {
     setApplied((f) => {
-      if (key === "priceMin" || key === "priceMax") return { ...f, priceMin: "", priceMax: "" };
       const list = f[key];
       if (!Array.isArray(list) || !value) return f;
       return { ...f, [key]: list.filter((v) => v !== value) };
@@ -306,12 +309,9 @@ export function ExplorePlanTab({
     ...applied.intensity.map((value) => ({ key: "intensity" as const, value, label: value })),
     ...applied.category.map((value) => ({ key: "category" as const, value, label: value })),
     ...applied.duration.map((value) => ({ key: "duration" as const, value, label: value })),
-    ...applied.price.map((value) => ({ key: "price" as const, value, label: value })),
+    ...applied.price.map((value) => ({ key: "price" as const, value, label: PRICE_BANDS.find((b) => b.id === value)?.label || value })),
     ...applied.experience.map((value) => ({ key: "experience" as const, value, label: value })),
     ...applied.schedule.map((value) => ({ key: "schedule" as const, value, label: value })),
-    ...(applied.priceMin || applied.priceMax
-      ? [{ key: "priceMin" as const, value: "range", label: `${applied.priceMin || "0"}–${applied.priceMax || "any"}` }]
-      : []),
   ];
 
   return (
@@ -394,13 +394,15 @@ export function ExplorePlanTab({
                 <ChipGroup label="Program category" options={supported.category} selected={draft.category} onToggle={(v) => toggle("category", v)} />
                 <ChipGroup label="Program duration" options={supported.duration} selected={draft.duration} onToggle={(v) => toggle("duration", v)} />
                 {supported.price && (
-                  <div className="space-y-2">
-                    <ChipGroup label="Price range" options={PRICE_OPTIONS} selected={draft.price} onToggle={(v) => toggle("price", v)} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input inputMode="numeric" placeholder="Min price" aria-label="Minimum price" value={draft.priceMin} onChange={(e) => setDraft((f) => ({ ...f, priceMin: e.target.value.replace(/[^\d]/g, "") }))} className="h-11 rounded-xl border border-zinc-200 dark:border-white/15 bg-transparent px-3 text-base" />
-                      <input inputMode="numeric" placeholder="Max price" aria-label="Maximum price" value={draft.priceMax} onChange={(e) => setDraft((f) => ({ ...f, priceMax: e.target.value.replace(/[^\d]/g, "") }))} className="h-11 rounded-xl border border-zinc-200 dark:border-white/15 bg-transparent px-3 text-base" />
-                    </div>
-                  </div>
+                  <ChipGroup
+                    label="Price"
+                    options={PRICE_BANDS.filter((b) => catalog.some((p) => priceBand(p.price) === b.id)).map((b) => b.label)}
+                    selected={draft.price.map((id) => PRICE_BANDS.find((b) => b.id === id)?.label || id)}
+                    onToggle={(label) => {
+                      const id = PRICE_BANDS.find((b) => b.label === label)?.id;
+                      if (id) toggle("price", id);
+                    }}
+                  />
                 )}
                 <ChipGroup label="Experience level" options={supported.experience} selected={draft.experience} onToggle={(v) => toggle("experience", v)} />
                 <ChipGroup label="Schedule" options={supported.schedule} selected={draft.schedule} onToggle={(v) => toggle("schedule", v)} />
@@ -479,7 +481,7 @@ export function ExplorePlanTab({
                   <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col">
                     <div className="relative h-40 bg-zinc-200 dark:bg-zinc-800">
                       <Image src={p.coverImage || "/image.jpg"} alt="" fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)} className="object-cover" />
-                      <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border backdrop-blur ${meta.colorClass}`}>{meta.label}</span>
+                      <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white text-zinc-950 border border-zinc-200">{meta.label}</span>
                     </div>
                     <div className="p-4 flex-1 flex flex-col gap-3">
                       <div>
@@ -494,9 +496,7 @@ export function ExplorePlanTab({
                         <span className="text-base font-semibold">{p.price > 0 ? formatIdr(p.price) : "Free"}</span>
                         <div className="flex gap-2">
                           <button type="button" onClick={() => onViewDetails(p.id)} className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold">View</button>
-                          {p.enrollmentStatus === "ACTIVE" ? (
-                            <button type="button" onClick={() => onOpenPlan(p.id)} className="px-3.5 py-1.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold uppercase">Open</button>
-                          ) : p.canEnroll ? (
+                          {p.canEnroll ? (
                             <button type="button" disabled={registeringId === p.id} onClick={() => onRegister(p.id)} className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50">
                               {p.enrollmentStatus === "PENDING" ? "Pay now" : registeringId === p.id ? "..." : "Register"}
                             </button>

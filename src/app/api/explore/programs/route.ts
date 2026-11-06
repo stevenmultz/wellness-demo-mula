@@ -69,10 +69,14 @@ export async function GET(req: NextRequest) {
     ]);
 
     const enrollmentByProgram = new Map(enrollments.map((e) => [e.programId, e.status]));
+    const alreadyFollowed = new Set(["ACTIVE", "EXPIRED", "COMPLETED", "FINISHED"]);
     const now = new Date();
 
     let items: ExploreProgramItem[] = programs
       .filter((p) => normalizeProgramStatus(p.status) === "PUBLISH")
+      // Enrolled or finished programs come from program_enrollments, not a client-side hide.
+      // PENDING stays visible so an unpaid invoice can still be completed.
+      .filter((p) => !alreadyFollowed.has((enrollmentByProgram.get(p.id) || "").toUpperCase()))
       .map((p) => {
         const badge =
           resolvePublicBadge({

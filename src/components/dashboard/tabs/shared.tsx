@@ -56,7 +56,7 @@ export function FloatingHeader({
   return (
     <header
       style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-      className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl min-h-14 px-3.5 sm:px-5 py-2 rounded-3xl flex items-center justify-between gap-3 border border-zinc-200 dark:border-white/10 bg-white/85 dark:bg-[#09090b]/85 backdrop-blur-xl shadow-lg transition-all duration-300 font-mono ${
+      className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl min-h-12 px-3.5 sm:px-5 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] shadow-sm transition-all duration-300 ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-28 opacity-0 pointer-events-none"
       }`}
     >

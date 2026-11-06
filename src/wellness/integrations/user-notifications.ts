@@ -16,6 +16,8 @@ export interface UserNotificationInput {
   url?: string | null;
   /** Unique per user; a repeated key is silently skipped (idempotent dispatch). */
   dedupeKey?: string | null;
+  /** When set, the inbox timestamp matches the admin schedule instead of dispatch time. */
+  createdAt?: Date;
 }
 
 /**
@@ -33,6 +35,7 @@ export async function createUserNotifications(items: UserNotificationInput[]): P
         body: i.body.slice(0, 1000),
         url: i.url ?? null,
         dedupeKey: i.dedupeKey ?? null,
+        ...(i.createdAt ? { createdAt: i.createdAt } : {}),
       })),
       skipDuplicates: true,
     });

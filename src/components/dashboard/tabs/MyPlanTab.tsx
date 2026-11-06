@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, ChevronDown, Compass, Dumbbell, ExternalLink, Info, Leaf, Users } from "lucide-react";
+import { CheckCircle2, ChevronDown, Compass, ExternalLink, Info } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
@@ -155,13 +155,9 @@ const fieldCls =
   "w-full px-3.5 py-3 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-500";
 
 function scheduleMeta(dayType: string | undefined) {
-  if (dayType === "REST_DAY") {
-    return { label: "Rest Day", tone: "bg-teal-100 text-teal-800 dark:bg-teal-950/50 dark:text-teal-200", Icon: Leaf };
-  }
-  if (dayType === "TRAINING_DAY") {
-    return { label: "Training Day", tone: "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200", Icon: Dumbbell };
-  }
-  return { label: "Connect Day", tone: "bg-violet-100 text-violet-900 dark:bg-violet-950/50 dark:text-violet-200", Icon: Users };
+  if (dayType === "REST_DAY") return { label: "Rest Day" };
+  if (dayType === "TRAINING_DAY") return { label: "Training Day" };
+  return { label: "Connect Day" };
 }
 
 function splitActivities(text: string | null | undefined): string[] {
@@ -230,9 +226,12 @@ export function MyPlanOverview({
   day,
   stats,
   checklist,
+  historyDays,
   onExplore,
   onOpenDetails,
   onToggleCheck,
+  onSelectWorkout,
+  onOpenVideo,
   onSaveSleep,
   onSaveMeal,
   onSaveReflection,
@@ -247,13 +246,16 @@ export function MyPlanOverview({
   checklist: string[] | undefined;
   onExplore: () => void;
   onOpenDetails: () => void;
-  onToggleCheck: (task: string) => Promise<void> | void;
-  onSaveSleep: (bedtime: string, wakeTime: string, minutes: number) => Promise<void | boolean>;
-  onSaveMeal: (compliance: string, notes: string) => Promise<void | boolean>;
-  onSaveReflection: (reflection: string, happiness: number) => Promise<void | boolean>;
-  onSaveAttendance: (notes: string) => Promise<void | boolean>;
-  onSaveWorkoutNotes: (notes: string) => Promise<void | boolean>;
-  onUploadPhoto: (type: "before" | "after", url: string) => Promise<void | boolean>;
+  historyDays: PlanDay[];
+  onToggleCheck: (task: string, dayId: string) => Promise<void> | void;
+  onSelectWorkout: (workout: string, dayId: string) => Promise<void | boolean>;
+  onOpenVideo: (dayId: string) => Promise<void | boolean>;
+  onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string) => Promise<void | boolean>;
+  onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;
+  onSaveReflection: (reflection: string, happiness: number, dayId: string) => Promise<void | boolean>;
+  onSaveAttendance: (notes: string, dayId: string) => Promise<void | boolean>;
+  onSaveWorkoutNotes: (notes: string, dayId: string) => Promise<void | boolean>;
+  onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => Promise<void | boolean>;
 }) {
   const progress = day?.userProgress;
   const checks = day ? checkedList(day, checklist) : [];
@@ -287,37 +289,26 @@ export function MyPlanOverview({
   const locked = !day || !day.isCalendarUnlocked || day.isPast2359;
   const community = safeHttpUrl(program?.communityLink);
 
-  const segmentCls: Record<PlanStats["segments"][number], string> = {
-    done: "bg-white",
-    today: "bg-white/55 animate-pulse",
-    skipped: "bg-white/25",
-    upcoming: "bg-white/10",
-  };
-
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {/* Section 1 — Program banner */}
-      <section className="overflow-hidden rounded-[28px] bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 shadow-sm">
-        <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full">
+    <div className="space-y-3">
+      <section className="overflow-hidden rounded-2xl bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10">
+        <div className="relative aspect-[2/1] w-full">
           {program?.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-700 to-zinc-900" />
+            <div className="absolute inset-0 bg-zinc-800" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7 text-white flex items-end justify-between gap-3">
+          <div className="absolute inset-0 bg-black/45" />
+          <div className="absolute bottom-0 left-0 right-0 p-4 text-white flex items-end justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-2xl sm:text-3xl font-light tracking-tight font-geometric leading-tight">
+              <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
                 {program?.title || "No active program"}
               </h2>
               {program && (
-                <>
-                  <p className="mt-1 text-sm text-white/80 truncate">Coach {program.coachName || "—"}</p>
-                  <p className="mt-1.5 text-[10px] tracking-wide text-white/55">
-                    {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
-                  </p>
-                </>
+                <p className="mt-1 text-xs text-white/80 truncate">
+                  {program.coachName || "—"} · {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
+                </p>
               )}
             </div>
             {program && (
@@ -325,9 +316,9 @@ export function MyPlanOverview({
                 type="button"
                 onClick={onOpenDetails}
                 aria-label="Program details"
-                className="shrink-0 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border border-white/25 flex items-center justify-center active:scale-90 transition"
+                className="shrink-0 w-8 h-8 rounded-full bg-white/15 border border-white/25 flex items-center justify-center"
               >
-                <Info className="w-4 h-4" />
+                <Info className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -346,59 +337,34 @@ export function MyPlanOverview({
         />
       ) : (
         <>
-          {/* Section 2 — Training day & progress */}
-          <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-zinc-900 via-zinc-800 to-black dark:from-zinc-700 dark:via-zinc-800 dark:to-zinc-950 border border-zinc-800 dark:border-white/15 shadow-xl shadow-zinc-900/20 p-5 sm:p-6 space-y-6 text-white">
-            <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 w-56 h-56 rounded-full bg-white/10 blur-3xl" />
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="relative text-5xl font-extralight tracking-tight tabular-nums text-white leading-none">
-                  {currentDayNumber > 0 ? `Day ${String(currentDayNumber).padStart(2, "0")}` : "—"}
-                </p>
-                <p className="mt-2 text-xs text-white/60 uppercase tracking-[0.2em]">
-                  {day ? schedule.label : currentDayNumber > 0 ? "Session closed" : "Not started"}
-                </p>
-              </div>
-              <p className="relative text-[11px] text-white/45 tabular-nums pb-1">of {totalProgramDays} days</p>
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-medium">
+                {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+                <span className="text-zinc-500 font-normal"> / {totalProgramDays}</span>
+              </p>
+              <p className="text-[11px] text-zinc-500">{day ? schedule.label : "Closed"}</p>
             </div>
-
-            <div
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={totalProgramDays}
-              aria-valuenow={stats.completed}
-              aria-label="Program progress"
-              className="relative flex gap-[2px] h-2"
-            >
-              {stats.segments.map((s, i) => (
-                <span key={i} className={`flex-1 rounded-full ${segmentCls[s]}`} />
-              ))}
-            </div>
-
-            <dl className="relative grid grid-cols-3 text-center divide-x divide-white/10 rounded-2xl bg-white/5 backdrop-blur border border-white/10 py-4">
-              {[
-                ["Days completed", stats.completed],
-                ["Days skipped", stats.skipped],
-                ["Days remaining", stats.remaining],
-              ].map(([label, value]) => (
-                <div key={label} className="px-2">
-                  <dd className="text-3xl font-light tabular-nums text-white">{value}</dd>
-                  <dt className="mt-1 text-[10px] uppercase tracking-wider text-white/45">{label}</dt>
-                </div>
-              ))}
+            <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div><dt className="text-zinc-500">Completed</dt><dd className="font-medium tabular-nums">{stats.completed}</dd></div>
+              <div><dt className="text-zinc-500">Skipped</dt><dd className="font-medium tabular-nums">{stats.skipped}</dd></div>
+              <div><dt className="text-zinc-500">Remaining</dt><dd className="font-medium tabular-nums">{stats.remaining}</dd></div>
             </dl>
-            {day && <p className="relative text-[11px] text-white/45 text-center">{deadline.label}</p>}
+            {day && <p className="mt-2 text-[11px] text-zinc-400">{deadline.label}</p>}
           </section>
 
-          {/* Section 3 — Daily tasks (guided check-in) */}
           {day ? (
             <DailyCheckIn
               key={day.id}
               day={day}
+              pastDays={historyDays}
               locked={locked}
               activities={activities}
               checks={checks}
               initialDone={initialDone}
               onToggleCheck={onToggleCheck}
+              onSelectWorkout={onSelectWorkout}
+              onOpenVideo={onOpenVideo}
               onSaveSleep={onSaveSleep}
               onSaveAttendance={onSaveAttendance}
               onSaveWorkoutNotes={onSaveWorkoutNotes}
@@ -407,28 +373,22 @@ export function MyPlanOverview({
               onSaveReflection={onSaveReflection}
             />
           ) : (
-            <EmptyState title="No tasks today" description="There is no open session for today in this program." />
+            <EmptyState title="No tasks today" description="There is no open session for today." />
           )}
 
-          <section className="rounded-[28px] bg-gradient-to-br from-zinc-200 via-zinc-100 to-zinc-300 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800 border border-zinc-300/70 dark:border-white/10 p-4 sm:p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/70 dark:bg-white/10 backdrop-blur flex items-center justify-center shrink-0">
-              <Users className="w-6 h-6 text-zinc-700 dark:text-zinc-200" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-zinc-950 dark:text-white">{program.title} Community</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Connect with your coach and the people in this program.</p>
-            </div>
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">Community</p>
             {community ? (
               <a
                 href={community}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+                className="h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1"
               >
                 Open <ExternalLink className="w-3 h-3" />
               </a>
             ) : (
-              <span className="text-[11px] text-zinc-400 shrink-0">Not set</span>
+              <span className="text-[11px] text-zinc-400">Not set</span>
             )}
           </section>
         </>

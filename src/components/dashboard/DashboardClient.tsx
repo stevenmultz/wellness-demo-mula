@@ -16,6 +16,7 @@ import {
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { normalizeVideoEmbed } from "@/wellness/integrations/video-provider";
+import { normalizeWibTime } from "@/wellness/utils/notification-schedule";
 import { parseWorkoutOptionGroups, parseTermsChapters, ProgramTermChapter } from "@/wellness/utils/json";
 import { resolvePublicBadge, PublicProgramBadge } from "@/wellness/utils/timeline";
 import { SleepTrackerCard } from "./SleepTrackerCard";
@@ -362,8 +363,6 @@ export function DashboardClient({
       ? Notification.permission
       : "default"
   );
-  const [morningTime, setMorningTime] = useState("07:00");
-  const [eveningTime, setEveningTime] = useState("20:30");
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
   const [cronTriggerResult, setCronTriggerResult] = useState<Record<string, unknown> | null>(null);
@@ -551,40 +550,53 @@ export function DashboardClient({
   const hasActiveAccess = currentEnrollment?.status === "ACTIVE";
   const todayIndex = currentProgram?.days?.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359) ?? -1;
   const currentDay = todayIndex >= 0 ? currentProgram?.days?.[todayIndex] || null : null;
-  const liveDay = currentDay
-    ? {
-        ...currentDay,
-        userProgress: {
-          ...(currentDay.userProgress || {
-            id: "",
-            videoWatched: false,
-            isCompleted: false,
-            checklistCompleted: null,
-          }),
-          videoWatched: dayVideoWatched[currentDay.id] ?? !!currentDay.userProgress?.videoWatched,
-          checklistCompleted:
-            dayChecklists[currentDay.id] !== undefined
-              ? JSON.stringify(dayChecklists[currentDay.id])
-              : currentDay.userProgress?.checklistCompleted || null,
-          eventFeedback: dayEventFeedback[currentDay.id] ?? currentDay.userProgress?.eventFeedback,
-          mealCompliance: dayMealCompliance[currentDay.id] ?? currentDay.userProgress?.mealCompliance,
-          mealNotes:
-            dayMealNotes[currentDay.id] !== undefined
-              ? dayMealNotes[currentDay.id]
-              : currentDay.userProgress?.mealNotes,
-          dailyReflection:
-            dayReflections[currentDay.id] !== undefined
-              ? dayReflections[currentDay.id]
-              : currentDay.userProgress?.dailyReflection,
-          happinessRate: dayHappiness[currentDay.id] ?? currentDay.userProgress?.happinessRate,
-          bedtime: dayBedtimes[currentDay.id] ?? currentDay.userProgress?.bedtime,
-          wakeTime: dayWakeTimes[currentDay.id] ?? currentDay.userProgress?.wakeTime,
-          photoBeforeUrl: dayPhotosBefore[currentDay.id] ?? currentDay.userProgress?.photoBeforeUrl,
-          photoAfterUrl: dayPhotosAfter[currentDay.id] ?? currentDay.userProgress?.photoAfterUrl,
-          workoutNotes: dayWorkoutNotes[currentDay.id] ?? currentDay.userProgress?.workoutNotes,
-        },
-      }
-    : null;
+  const calendarDay = currentDay;
+  const overlayDay = (day: ProgramDayItem): ProgramDayItem => ({
+    ...day,
+    userProgress: {
+      ...(day.userProgress || {
+        id: "",
+        videoWatched: false,
+        isCompleted: false,
+        checklistCompleted: null,
+      }),
+      videoWatched: dayVideoWatched[day.id] ?? !!day.userProgress?.videoWatched,
+      checklistCompleted:
+        dayChecklists[day.id] !== undefined
+          ? JSON.stringify(dayChecklists[day.id])
+          : day.userProgress?.checklistCompleted || null,
+      eventFeedback: dayEventFeedback[day.id] ?? day.userProgress?.eventFeedback,
+      mealCompliance: dayMealCompliance[day.id] ?? day.userProgress?.mealCompliance,
+      mealNotes: dayMealNotes[day.id] !== undefined ? dayMealNotes[day.id] : day.userProgress?.mealNotes,
+      dailyReflection: dayReflections[day.id] !== undefined ? dayReflections[day.id] : day.userProgress?.dailyReflection,
+      happinessRate: dayHappiness[day.id] ?? day.userProgress?.happinessRate,
+      bedtime: dayBedtimes[day.id] ?? day.userProgress?.bedtime,
+      wakeTime: dayWakeTimes[day.id] ?? day.userProgress?.wakeTime,
+      photoBeforeUrl: dayPhotosBefore[day.id] ?? day.userProgress?.photoBeforeUrl,
+      photoAfterUrl: dayPhotosAfter[day.id] ?? day.userProgress?.photoAfterUrl,
+      workoutNotes: dayWorkoutNotes[day.id] ?? day.userProgress?.workoutNotes,
+      selectedWorkout: dayWorkouts[day.id] ?? day.userProgress?.selectedWorkout,
+    },
+  });
+  const liveDay = currentDay ? overlayDay(currentDay) : null;
+  const historyDays = (currentProgram?.days || [])
+    .filter((d) => {
+      const p = d.userProgress;
+      if (!p) return false;
+      return !!(
+        p.bedtime ||
+        p.wakeTime ||
+        p.mealCompliance ||
+        p.dailyReflection ||
+        p.checklistCompleted ||
+        p.eventFeedback ||
+        p.workoutNotes ||
+        p.photoBeforeUrl ||
+        p.photoAfterUrl ||
+        p.isCompleted
+      );
+    })
+    .map(overlayDay);
 
   const getCheckedItems = (day: ProgramDayItem): string[] => {
     if (dayChecklists[day.id] !== undefined) {
@@ -638,6 +650,23 @@ export function DashboardClient({
     });
   };
 
+  const handleOpenVideo = async (dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!currentDay || getVideoWatched(currentDay)) return true;
+    setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: true }));
+    const res = await wellnessUserSubmitDayProgress({
+      programDayId: currentDay.id,
+      videoWatched: true,
+      checklistCompleted: getCheckedItems(currentDay),
+      isCompleted: !!currentDay.userProgress?.isCompleted,
+    });
+    if (!res.success) {
+      setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: false }));
+      return false;
+    }
+    return true;
+  };
+
   const handleToggleVideoWatched = async () => {
     if (!currentDay) return;
     const prevVideo = getVideoWatched(currentDay);
@@ -680,7 +709,8 @@ export function DashboardClient({
     router.refresh();
   };
 
-  const handleToggleChecklist = async (task: string) => {
+  const handleToggleChecklist = async (task: string, dayId?: string) => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return;
     const existing = getCheckedItems(currentDay);
     const updated = existing.includes(task)
@@ -747,8 +777,10 @@ export function DashboardClient({
   const handleSaveSleep = async (
     bedtime: string,
     wakeTime: string,
-    sleepDurationMinutes: number
+    sleepDurationMinutes: number,
+    dayId?: string
   ): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
     setDayBedtimes((prev) => ({ ...prev, [currentDay.id]: bedtime }));
     setDayWakeTimes((prev) => ({ ...prev, [currentDay.id]: wakeTime }));
@@ -774,8 +806,9 @@ export function DashboardClient({
     return true;
   };
 
-  const handleSelectWorkout = async (workout: string) => {
-    if (!currentDay) return;
+  const handleSelectWorkout = async (workout: string, dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!currentDay) return false;
     setDayWorkouts((prev) => ({ ...prev, [currentDay.id]: workout }));
 
     const res = await wellnessUserSubmitDayProgress({
@@ -787,15 +820,15 @@ export function DashboardClient({
     });
 
     if (!res.success) {
-      setActionNotice({ type: "error", text: res.message || "Failed to select workout discipline." });
+      setActionNotice({ type: "error", text: res.message || "Failed to select workout." });
       setTimeout(() => setActionNotice(null), 4000);
-    } else {
-      setActionNotice({ type: "success", text: `Workout selected: ${workout}` });
-      setTimeout(() => setActionNotice(null), 2500);
+      return false;
     }
+    return true;
   };
 
-  const handleUploadPhoto = async (type: "before" | "after", base64OrUrl: string): Promise<boolean> => {
+  const handleUploadPhoto = async (type: "before" | "after", base64OrUrl: string, dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
     if (type === "before") {
       setDayPhotosBefore((prev) => ({ ...prev, [currentDay.id]: base64OrUrl }));
@@ -825,7 +858,8 @@ export function DashboardClient({
     return true;
   };
 
-  const handleSaveWorkoutNotes = async (notes: string): Promise<boolean> => {
+  const handleSaveWorkoutNotes = async (notes: string, dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
     setDayWorkoutNotes((prev) => ({ ...prev, [currentDay.id]: notes }));
 
@@ -878,8 +912,9 @@ export function DashboardClient({
     });
   };
 
-  const handleSaveEventFeedback = async (feedbackText: string) => {
-    if (!currentDay) return;
+  const handleSaveEventFeedback = async (feedbackText: string, dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!currentDay) return false;
     setIsSavingFeedback(true);
     setFeedbackSaved(false);
     try {
@@ -896,21 +931,19 @@ export function DashboardClient({
       if (!res.success) {
         setActionNotice({ type: "error", text: res.message || "Failed to save event feedback." });
         setTimeout(() => setActionNotice(null), 4000);
-      } else {
-        setFeedbackSaved(true);
-        setActionNotice({ type: "success", text: "Session saved." });
-        router.refresh();
-        setTimeout(() => {
-          setFeedbackSaved(false);
-          setActionNotice(null);
-        }, 3000);
+        return false;
       }
+      setFeedbackSaved(true);
+      router.refresh();
+      setTimeout(() => setFeedbackSaved(false), 3000);
+      return true;
     } finally {
       setIsSavingFeedback(false);
     }
   };
 
-  const handleSaveMeal = async (compliance: string, notes: string): Promise<boolean> => {
+  const handleSaveMeal = async (compliance: string, notes: string, dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
     setDayMealCompliance((prev) => ({ ...prev, [currentDay.id]: compliance }));
     setDayMealNotes((prev) => ({ ...prev, [currentDay.id]: notes }));
@@ -935,7 +968,8 @@ export function DashboardClient({
     return true;
   };
 
-  const handleSaveReflection = async (reflection: string, happinessRate: number): Promise<boolean> => {
+  const handleSaveReflection = async (reflection: string, happinessRate: number, dayId?: string): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
     setDayReflections((prev) => ({ ...prev, [currentDay.id]: reflection }));
     setDayHappiness((prev) => ({ ...prev, [currentDay.id]: happinessRate }));
@@ -1216,8 +1250,8 @@ export function DashboardClient({
         }
       } else {
         fireBrowserNotification(
-          "+ BMS • Reminders Activated",
-          `Morning Awakening (${morningTime}) and Evening Reflection (${eveningTime}) alerts are now active.`
+          "Notifications on",
+          "Reminders follow your program schedule in WIB."
         );
         setActionNotice({
           type: "success",
@@ -1304,31 +1338,14 @@ export function DashboardClient({
     }
   };
 
-  const handleTestReminder = (type: "morning" | "evening") => {
-    const title =
-      type === "morning"
-        ? "+ BMS • Morning Awakening Protocol"
-        : "+ BMS • Evening Reflection & Cutoff";
-    const msg =
-      type === "morning"
-        ? currentDay?.pendingReminder ||
-          "Good morning. Daily curriculum, sleep check, and movement sequence are now unlocked."
-        : "Evening Check: Complete your movement reps and reflection before the 23:59 cutoff.";
-
-    fireBrowserNotification(title, msg);
-    setActionNotice({ type: "success", text: `Dispatched test alert: "${title}"` });
-    setTimeout(() => setActionNotice(null), 4500);
-  };
-
-  // Realtime Cadence Dispatcher: checks every 5 seconds against current device time (HH:mm)
+  // Cadence uses admin dayNotifications, compared in WIB (UTC+7), not the device timezone.
   const [dispatchedCadenceKeys, setDispatchedCadenceKeys] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const checkScheduledDispatches = () => {
-      const now = new Date();
-      const hours = String(now.getHours()).padStart(2, "0");
-      const minutes = String(now.getMinutes()).padStart(2, "0");
-      const currentTimeStr = `${hours}:${minutes}`;
+      // Admin times are WIB (UTC+7); never use device-local time (user may be in another timezone)
+      const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
+      const currentTimeStr = `${String(wibNow.getUTCHours()).padStart(2, "0")}:${String(wibNow.getUTCMinutes()).padStart(2, "0")}`;
 
       myEnrolledPrograms.forEach((prog) => {
         const todayDay = prog.days.find((d) => d.isCalendarUnlocked && !d.isPast2359);
@@ -1336,11 +1353,12 @@ export function DashboardClient({
 
         todayDay.dayNotifications.forEach((notif, nIdx) => {
           const key = `${prog.id}-${todayDay.id}-${nIdx}`;
-          if (notif.time === currentTimeStr && !dispatchedCadenceKeys[key]) {
+          const scheduled = normalizeWibTime(notif.time);
+          if (scheduled && scheduled === currentTimeStr && notif.message?.trim() && !dispatchedCadenceKeys[key]) {
             setDispatchedCadenceKeys((prev) => ({ ...prev, [key]: true }));
 
             const title = `+ BMS • ${prog.title}`;
-            const body = `[${notif.time} WIB] ${notif.message}`;
+            const body = notif.message;
             fireBrowserNotification(title, body);
 
             setActionNotice({
@@ -1613,7 +1631,10 @@ export function DashboardClient({
             }}
             onUploadPhoto={handleUploadPhoto}
             onSaveWorkoutNotes={handleSaveWorkoutNotes}
+            historyDays={historyDays}
             checklist={currentDay ? dayChecklists[currentDay.id] : undefined}
+            onSelectWorkout={handleSelectWorkout}
+            onOpenVideo={handleOpenVideo}
             onExplore={() => {
               setActiveTab("all_plan");
               window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2747,69 +2768,26 @@ export function DashboardClient({
                       <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
                         Circadian Push Notifications
                       </span>
-                      <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
+                      <h3 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
                         <Bell className="w-4 h-4 text-zinc-400" />
-                        <span>Daily Reminder Schedule</span>
+                        <span>Notifications</span>
                       </h3>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-light">
-                        Synchronize reminders for your morning practice and evening 23:59 checklist cutoff.
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Message and delivery time follow the program schedule in WIB (Asia/Jakarta).
                       </p>
                     </div>
-                    <span className="text-micro uppercase tracking-[0.18em] font-semibold px-3 py-1 rounded-full glass-panel-subtle shrink-0 text-zinc-700 dark:text-zinc-300">
-                      {notifPermission === "granted" ? "Active" : "Disabled"}
+                    <span className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-zinc-200 dark:border-white/15 shrink-0 text-zinc-700 dark:text-zinc-300">
+                      {notifPermission === "granted" ? "On" : "Off"}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                        Morning Routine
-                      </label>
-                      <input
-                        type="time"
-                        value={morningTime}
-                        onChange={(e) => setMorningTime(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-micro uppercase tracking-[0.2em] font-semibold text-zinc-400 dark:text-zinc-500 mb-2">
-                        Evening Cutoff (23:59)
-                      </label>
-                      <input
-                        type="time"
-                        value={eveningTime}
-                        onChange={(e) => setEveningTime(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl glass-input text-xs sm:text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                    <button
-                      type="button"
-                      onClick={handleEnableNotifications}
-                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide shadow-sm"
-                    >
-                      {notifPermission === "granted"
-                        ? "Save Schedule"
-                        : "Enable Notifications"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestReminder("morning")}
-                      className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 transition"
-                    >
-                      Test Morning Alert
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTestReminder("evening")}
-                      className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5 transition"
-                    >
-                      Test Evening Alert
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEnableNotifications}
+                    className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold"
+                  >
+                    {notifPermission === "granted" ? "Notifications on" : "Turn on notifications"}
+                  </button>
 
                   {/* PWA Home Screen Guide */}
                   <div className="pt-5 border-t border-zinc-200/60 dark:border-white/10 space-y-2">

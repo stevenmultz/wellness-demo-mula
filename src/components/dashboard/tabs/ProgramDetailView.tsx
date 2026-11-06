@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, MapPin, Video } from "lucide-react";
+import { ArrowLeft, ChevronDown, MapPin, Video } from "lucide-react";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import { formatDateWib, formatIdr, safeHttpUrl } from "./shared";
 
@@ -105,7 +105,6 @@ export function ProgramDetailView({
     sessions.length ? `${sessions.length} coaching sessions` : null,
     community ? "Community access" : null,
     hasVideo ? "Learning videos" : null,
-    ...(program.programGuidelines || []).slice(0, 4),
   ].filter(Boolean) as string[];
 
   let action: React.ReactNode;
@@ -144,7 +143,7 @@ export function ProgramDetailView({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
           ) : null}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/20" />
+          <div className="absolute inset-0 bg-black/45" />
           <button type="button" onClick={onClose} className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 text-white text-xs">
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </button>
@@ -156,80 +155,71 @@ export function ProgramDetailView({
               <span className="px-2 py-1 rounded-full bg-white/15">{program.durationDays || program.dayCount} days</span>
               <span className="px-2 py-1 rounded-full bg-white/15">{program.price > 0 ? formatIdr(program.price) : "Free"}</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-light tracking-tight font-geometric">{program.title}</h1>
+            <h1 className="text-2xl font-medium tracking-tight">{program.title}</h1>
           </div>
         </div>
 
-        <div className="px-4 sm:px-8 py-8 space-y-8">
-          <section className="space-y-3">
-            <h2 className="text-lg font-medium">Overview</h2>
-            <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{program.description}</p>
-            {program.methodology && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Objectives</p>
-                <p className="text-sm mt-1 text-zinc-800 dark:text-zinc-200">{program.methodology}</p>
-              </div>
-            )}
-            {program.targetState && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Expected outcome</p>
-                <p className="text-sm mt-1 text-zinc-800 dark:text-zinc-200">{program.targetState}</p>
-              </div>
-            )}
-            {program.expectedBenefits && program.expectedBenefits.length > 0 && (
-              <ul className="grid sm:grid-cols-2 gap-2">
-                {program.expectedBenefits.slice(0, 6).map((b) => (
-                  <li key={b} className="text-sm rounded-2xl bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 px-3 py-2">{b}</li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="grid grid-cols-2 gap-2.5">
+        <div className="px-4 sm:px-8 py-6 space-y-4">
+          <dl className="rounded-2xl border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 text-sm">
             {[
               ["Duration", `${program.durationDays || program.dayCount} days`],
               ["Schedule", `${formatDateWib(program.startDate)} – ${formatDateWib(program.endDate)}`],
               ["Format", formatLabel(program.locationType)],
               ["Intensity", intensityLabel(program.difficultyLevel)],
-              ["Coach", program.coachName],
+              ["Coach", program.coachTitle ? `${program.coachName} · ${program.coachTitle}` : program.coachName],
+              ["Price", program.price > 0 ? formatIdr(program.price) : "Free"],
               onsite ? ["Location", program.city || program.venueAddress || "Onsite"] : null,
             ]
               .filter(Boolean)
               .map((row) => {
                 const [label, value] = row as [string, string];
                 return (
-                  <div key={label} className="rounded-2xl bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</p>
-                    <p className="text-sm font-medium mt-1">{value}</p>
+                  <div key={label} className="flex items-baseline justify-between gap-4 px-3 py-2.5">
+                    <dt className="text-zinc-500 shrink-0">{label}</dt>
+                    <dd className="font-medium text-right">{value}</dd>
                   </div>
                 );
               })}
-          </section>
+          </dl>
 
           {activities.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-lg font-medium">What to expect</h2>
-              <ul className="grid sm:grid-cols-2 gap-2">
-                {activities.map((item) => (
-                  <li key={item} className="rounded-2xl border border-zinc-200 dark:border-white/10 px-3 py-3 text-sm">{item}</li>
-                ))}
-              </ul>
-            </section>
+            <ul className="text-sm divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-2xl">
+              {activities.map((item) => (
+                <li key={item} className="px-3 py-2">{item}</li>
+              ))}
+            </ul>
           )}
 
-          <section className="flex gap-3 items-center">
-            <div className="w-14 h-14 rounded-full bg-zinc-200 dark:bg-white/10 flex items-center justify-center text-lg font-semibold">
-              {program.coachName.slice(0, 1)}
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">{program.coachName}</h2>
-              {program.coachTitle && <p className="text-sm text-zinc-500">{program.coachTitle}</p>}
-            </div>
-          </section>
+          <div className="space-y-2">
+            {[
+              program.description ? ["Overview", program.description] : null,
+              program.methodology ? ["Objectives", program.methodology] : null,
+              program.targetState ? ["Expected outcome", program.targetState] : null,
+              program.expectedBenefits && program.expectedBenefits.length > 0
+                ? ["Benefits", program.expectedBenefits.join("\n")]
+                : null,
+              program.programGuidelines && program.programGuidelines.length > 0
+                ? ["Guidelines", program.programGuidelines.join("\n")]
+                : null,
+            ]
+              .filter(Boolean)
+              .map((row) => {
+                const [label, value] = row as [string, string];
+                return (
+                  <details key={label} className="group rounded-2xl border border-zinc-200 dark:border-white/10">
+                    <summary className="cursor-pointer list-none flex items-center justify-between px-3 py-2.5 text-sm font-medium">
+                      {label}
+                      <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
+                    </summary>
+                    <p className="px-3 pb-3 text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-line">{value}</p>
+                  </details>
+                );
+              })}
+          </div>
 
           {program.days.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-medium">Schedule</h2>
+              <h2 className="text-sm font-medium">Schedule</h2>
               <ol className="space-y-2">
                 {program.days.slice(0, 12).map((day) => (
                   <li key={day.dayNumber} className="flex gap-3 text-sm">
