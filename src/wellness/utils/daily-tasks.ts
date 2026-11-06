@@ -10,7 +10,7 @@ import { WIB_OFFSET_MS, getProgramDayWibWindow } from "./timezone";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type DailyTaskKind = "WORKOUT" | "MEAL" | "REFLECTION" | "REST" | "EVENT";
+export type DailyTaskKind = "SLEEP" | "WORKOUT" | "MEAL" | "REFLECTION" | "REST" | "EVENT";
 
 export interface DailyTask {
   id: string; // stable: `${programDayId}:${kind}`
@@ -35,6 +35,10 @@ export interface DailyTaskDayInput {
     isCompleted: boolean;
     mealCompliance: string | null;
     dailyReflection: string | null;
+    bedtime?: string | null;
+    wakeTime?: string | null;
+    eventFeedback?: string | null;
+    checklistCompleted?: string | null;
   } | null;
 }
 
@@ -50,15 +54,33 @@ export function getWibDayStartMs(now: Date): number {
   return Math.floor(wibMs / DAY_MS) * DAY_MS - WIB_OFFSET_MS;
 }
 
+function checklistHasItems(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0;
+  } catch {
+    return raw.trim().length > 0;
+  }
+}
+
 export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
   const p = day.progress;
   const tasks: DailyTask[] = [];
+
+  tasks.push({
+    id: `${day.id}:SLEEP`,
+    kind: "SLEEP",
+    name: "Sleep Tracking",
+    description: "Record yesterday's sleep time and today's wake-up time.",
+    isDone: !!p?.bedtime && !!p?.wakeTime,
+  });
 
   if (day.dayType === "TRAINING_DAY") {
     tasks.push({
       id: `${day.id}:WORKOUT`,
       kind: "WORKOUT",
-      name: "Daily Workout",
+      name: "Daily Activity",
       description: day.title,
       isDone: !!p && (p.isCompleted || p.videoWatched),
     });
@@ -66,29 +88,27 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     tasks.push({
       id: `${day.id}:REST`,
       kind: "REST",
-      name: "Rest & Recovery",
+      name: "Daily Activity",
       description: day.restInstructions || day.title,
-      isDone: !!p?.isCompleted,
+      isDone: !!p?.isCompleted || checklistHasItems(p?.checklistCompleted),
     });
   } else {
     tasks.push({
       id: `${day.id}:EVENT`,
       kind: "EVENT",
-      name: day.eventTitle || day.title,
-      description: day.eventDetails || day.title,
-      isDone: !!p?.isCompleted,
+      name: "Daily Activity",
+      description: day.eventTitle || day.eventDetails || day.title,
+      isDone: !!p?.isCompleted || !!p?.eventFeedback,
     });
   }
 
-  if (day.mealRecommendation) {
-    tasks.push({
-      id: `${day.id}:MEAL`,
-      kind: "MEAL",
-      name: "Meal Log",
-      description: "Log how closely you followed today's meal recommendation.",
-      isDone: !!p?.mealCompliance,
-    });
-  }
+  tasks.push({
+    id: `${day.id}:MEAL`,
+    kind: "MEAL",
+    name: "Meal Tracking",
+    description: "Log whether you followed today's meal recommendation.",
+    isDone: !!p?.mealCompliance,
+  });
 
   tasks.push({
     id: `${day.id}:REFLECTION`,

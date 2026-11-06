@@ -1,19 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Camera,
-  CheckCircle2,
-  ChevronDown,
-  HeartPulse,
-  Loader2,
-  LogOut,
-  Trash2,
-  User as UserIcon,
-} from "lucide-react";
-import { wellnessChangePassword, wellnessUpdateProfile } from "@/wellness/actions/account";
+import { ArrowLeft, Camera, ChevronRight, Loader2, LogOut, Trash2, User as UserIcon } from "lucide-react";
+import { wellnessChangePassword, wellnessUpdateHealthProfile, wellnessUpdateProfile } from "@/wellness/actions/account";
 import { GENDER_OPTIONS, calculateAgeFromDob } from "@/wellness/validators/auth";
+import { usePushNotifications } from "./usePushNotifications";
 import { FloatingHeader, formatDateWib } from "./shared";
 
 export interface ProfileUser {
@@ -21,114 +13,81 @@ export interface ProfileUser {
   email: string;
   fullName: string;
   phone: string | null;
-  dateOfBirth?: string | null; // YYYY-MM-DD
+  dateOfBirth?: string | null;
   avatarUrl?: string | null;
   gender?: string | null;
+  occupation?: string | null;
   address?: string | null;
   city?: string | null;
   province?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
   status: string;
   createdAt: Date | string;
 }
 
-type Msg = { type: "success" | "error"; text: string } | null;
-
-const inputCls =
-  "w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-300 dark:border-white/15 text-xs text-zinc-950 dark:text-white outline-none focus:border-zinc-600 dark:focus:border-white/50";
-
-function Avatar({ src, label, size }: { src?: string | null; label: string; size: string }) {
-  return (
-    <div
-      className={`${size} rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-white/20 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center`}
-    >
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="Profile picture" className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-sm font-semibold uppercase text-zinc-700 dark:text-zinc-200">
-          {label.charAt(0) || <UserIcon className="w-4 h-4" />}
-        </span>
-      )}
-    </div>
-  );
+export interface HealthProfileData {
+  photoFrontUrl?: string | null;
+  photoSideUrl?: string | null;
+  photoBackUrl?: string | null;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  waistCm?: number | null;
+  chestCm?: number | null;
+  hipsCm?: number | null;
+  dietType?: string | null;
+  foodAllergies?: string | null;
+  injuriesOrConditions?: string | null;
+  primaryGoal?: string | null;
+  currentMood?: string | null;
+  energyLevel?: number | null;
+  routineConfidence?: number | null;
+  workoutFrequency?: string | null;
+  averageBedtime?: string | null;
+  averageWakeTime?: string | null;
+  sleepQualityNotes?: string | null;
+  eatingPatterns?: string | null;
 }
 
-function FieldError({ text }: { text?: string }) {
-  return text ? (
-    <p role="alert" className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-      {text}
-    </p>
-  ) : null;
+type Msg = { type: "success" | "error"; text: string } | null;
+type View =
+  | "basic"
+  | "contact"
+  | "emergency"
+  | "body"
+  | "health"
+  | "fitness"
+  | "nutrition"
+  | "lifestyle"
+  | "goals"
+  | "security"
+  | "notifications"
+  | "privacy"
+  | "account";
+
+const inputCls =
+  "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-300 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-600";
+
+function filled(value: unknown) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  return true;
+}
+
+function percent(values: unknown[]) {
+  if (!values.length) return 0;
+  return Math.round((values.filter(filled).length / values.length) * 100);
 }
 
 function Banner({ msg }: { msg: Msg }) {
   if (!msg) return null;
   return (
-    <p
-      role={msg.type === "error" ? "alert" : "status"}
-      className={`text-xs px-3 py-2 rounded-xl ${
-        msg.type === "error"
-          ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300"
-          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-      }`}
-    >
+    <p role={msg.type === "error" ? "alert" : "status"} className={`text-xs px-3 py-2 rounded-xl ${msg.type === "error" ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"}`}>
       {msg.text}
     </p>
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h2 className="px-1 text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-500 dark:text-zinc-400">
-        {title}
-      </h2>
-      <div className="rounded-3xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm divide-y divide-zinc-100 dark:divide-white/10 overflow-hidden">
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function Row({
-  icon,
-  label,
-  open,
-  onToggle,
-  danger,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  open?: boolean;
-  onToggle: () => void;
-  danger?: boolean;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={children ? !!open : undefined}
-        className={`w-full px-5 py-4 flex items-center justify-between gap-3 text-left text-sm hover:bg-zinc-50 dark:hover:bg-white/5 transition ${
-          danger ? "text-red-600 dark:text-red-400" : "text-zinc-950 dark:text-white"
-        }`}
-      >
-        <span className="flex items-center gap-3">
-          {icon}
-          <span className="font-medium">{label}</span>
-        </span>
-        {children && (
-          <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
-        )}
-      </button>
-      {open && children && <div className="px-5 pb-5 pt-1">{children}</div>}
-    </div>
-  );
-}
-
-/** Downscale + center-crop to a small square JPEG so uploads stay tiny. */
 function resizeToAvatar(file: File, size = 384): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -152,458 +111,497 @@ function resizeToAvatar(file: File, size = 384): Promise<string> {
   });
 }
 
-type OpenPanel = "account" | "password" | "personal" | null;
+const TITLES: Record<View, string> = {
+  basic: "Basic Information",
+  contact: "Contact Information",
+  emergency: "Emergency Contact",
+  body: "Body & Measurements",
+  health: "Health Background",
+  fitness: "Fitness Profile",
+  nutrition: "Nutrition Profile",
+  lifestyle: "Lifestyle Habits",
+  goals: "Goals & Preferences",
+  security: "Login & Security",
+  notifications: "Notification Preferences",
+  privacy: "Privacy Settings",
+  account: "Account Management",
+};
 
 export function ProfileTab({
   user,
+  health,
   headerVisible,
   onLogout,
-  onOpenHealthProfile,
   onDeleteAccount,
 }: {
   user: ProfileUser;
+  health: HealthProfileData;
   headerVisible: boolean;
   onLogout: () => void;
-  onOpenHealthProfile: () => void;
   onDeleteAccount: () => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState<OpenPanel>("personal");
-  const toggle = (p: Exclude<OpenPanel, null>) => setOpen((cur) => (cur === p ? null : p));
-
-  /* ---------------- avatar ---------------- */
+  const [view, setView] = useState<View | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl ?? null);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [avatarMsg, setAvatarMsg] = useState<Msg>(null);
+  const [msg, setMsg] = useState<Msg>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const onPickAvatar = async (file: File | undefined) => {
-    if (!file) return;
-    setAvatarMsg(null);
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
-      setAvatarMsg({ type: "error", text: "Please choose a JPEG, PNG, or WebP image." });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setAvatarMsg({ type: "error", text: "Image is too large. Choose a file under 10 MB." });
-      return;
-    }
-    setAvatarBusy(true);
-    try {
-      const dataUrl = await resizeToAvatar(file);
-      const res = await fetch("/api/profile/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) throw new Error(json?.message || "Upload failed.");
-      setAvatarUrl(json.avatarUrl);
-      setAvatarMsg({ type: "success", text: "Profile picture updated." });
-      router.refresh();
-    } catch (err) {
-      setAvatarMsg({ type: "error", text: err instanceof Error ? err.message : "Upload failed." });
-    } finally {
-      setAvatarBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-
-  const onRemoveAvatar = async () => {
-    setAvatarBusy(true);
-    setAvatarMsg(null);
-    try {
-      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to remove picture.");
-      setAvatarUrl(null);
-      router.refresh();
-    } catch (err) {
-      setAvatarMsg({ type: "error", text: err instanceof Error ? err.message : "Failed to remove picture." });
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
-
-  /* ---------------- personal information ---------------- */
   const [form, setForm] = useState({
     fullName: user.fullName || "",
     phone: user.phone || "",
     dateOfBirth: user.dateOfBirth || "",
     gender: user.gender || "",
+    occupation: user.occupation || "",
     address: user.address || "",
     city: user.city || "",
     province: user.province || "",
+    emergencyContactName: user.emergencyContactName || "",
+    emergencyContactPhone: user.emergencyContactPhone || "",
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [healthForm, setHealthForm] = useState<HealthProfileData>({
+    photoFrontUrl: health.photoFrontUrl || null,
+    photoSideUrl: health.photoSideUrl || null,
+    photoBackUrl: health.photoBackUrl || null,
+    weightKg: health.weightKg ?? null,
+    heightCm: health.heightCm ?? null,
+    waistCm: health.waistCm ?? null,
+    chestCm: health.chestCm ?? null,
+    hipsCm: health.hipsCm ?? null,
+    dietType: health.dietType || "",
+    foodAllergies: health.foodAllergies || "",
+    injuriesOrConditions: health.injuriesOrConditions || "",
+    primaryGoal: health.primaryGoal || "",
+    currentMood: health.currentMood || "",
+    energyLevel: health.energyLevel ?? null,
+    routineConfidence: health.routineConfidence ?? null,
+    workoutFrequency: health.workoutFrequency || "",
+    averageBedtime: health.averageBedtime || "",
+    averageWakeTime: health.averageWakeTime || "",
+    sleepQualityNotes: health.sleepQualityNotes || "",
+    eatingPatterns: health.eatingPatterns || "",
+  });
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<Msg>(null);
-  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [pw, setPw] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
 
-  const validate = (): Record<string, string> => {
-    const e: Record<string, string> = {};
+  const personalPct = percent([
+    form.fullName,
+    form.dateOfBirth,
+    form.gender,
+    avatarUrl,
+    user.email,
+    form.phone,
+    form.address,
+    form.emergencyContactName,
+    form.emergencyContactPhone,
+  ]);
+  const healthPct = percent([
+    healthForm.weightKg,
+    healthForm.heightCm,
+    healthForm.waistCm,
+    healthForm.chestCm,
+    healthForm.hipsCm,
+    healthForm.injuriesOrConditions,
+    healthForm.dietType,
+    healthForm.foodAllergies,
+    healthForm.workoutFrequency,
+    healthForm.primaryGoal,
+    healthForm.averageBedtime,
+    healthForm.averageWakeTime,
+    healthForm.eatingPatterns,
+    healthForm.currentMood,
+  ]);
+
+  const saveProfile = async () => {
+    setMsg(null);
     const name = form.fullName.trim();
-    if (name.length < 3) e.fullName = "Full name must be at least 3 characters.";
-    else if (name.length > 60) e.fullName = "Full name cannot exceed 60 characters.";
-
-    const phone = form.phone.trim();
-    if (phone) {
-      if (!/^[0-9+\s-]*$/.test(phone)) e.phone = "Phone may only contain digits, +, spaces, or hyphens.";
-      else if (phone.length < 10 || phone.length > 18) e.phone = "Phone number must be 10–18 characters.";
-    }
-
+    if (name.length < 3) return setMsg({ type: "error", text: "Full name must be at least 3 characters." });
     if (form.dateOfBirth) {
-      const dob = new Date(`${form.dateOfBirth}T00:00:00Z`);
-      if (isNaN(dob.getTime())) e.dateOfBirth = "Enter a valid date.";
-      else {
-        const age = calculateAgeFromDob(form.dateOfBirth);
-        if (dob.getTime() > Date.now() || age < 10) e.dateOfBirth = "You must be at least 10 years old.";
-        else if (age > 120) e.dateOfBirth = "Enter a realistic date of birth.";
-      }
+      const age = calculateAgeFromDob(form.dateOfBirth);
+      if (age < 10 || age > 120) return setMsg({ type: "error", text: "Enter a realistic date of birth." });
     }
-    if (form.gender && !(GENDER_OPTIONS as readonly string[]).includes(form.gender)) {
-      e.gender = "Choose one of the listed options.";
-    }
-    if (form.address.length > 255) e.address = "Address cannot exceed 255 characters.";
-    if (form.city.length > 100) e.city = "City cannot exceed 100 characters.";
-    if (form.province.length > 100) e.province = "Province cannot exceed 100 characters.";
-    return e;
-  };
-
-  const onSave = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    setSaveMsg(null);
-    const e = validate();
-    setErrors(e);
-    if (Object.keys(e).length > 0) return;
-
     setSaving(true);
     try {
       const res = await wellnessUpdateProfile({
-        fullName: form.fullName.trim(),
+        fullName: name,
         phone: form.phone.trim(),
         dateOfBirth: form.dateOfBirth || "",
         gender: form.gender || "",
+        occupation: form.occupation.trim(),
         address: form.address.trim(),
         city: form.city.trim(),
         province: form.province.trim(),
+        emergencyContactName: form.emergencyContactName.trim(),
+        emergencyContactPhone: form.emergencyContactPhone.trim(),
       });
-      if (res.success) {
-        setSaveMsg({ type: "success", text: "Personal information saved." });
-        router.refresh();
-      } else {
-        const serverErrors: Record<string, string> = {};
-        Object.entries(res.errors ?? {}).forEach(([k, v]) => {
-          if (v?.[0]) serverErrors[k] = v[0];
-        });
-        setErrors(serverErrors);
-        setSaveMsg({ type: "error", text: res.message || "Failed to save." });
+      if (!res.success) {
+        setMsg({ type: "error", text: res.message || "Failed to save." });
+        return;
       }
+      setMsg({ type: "success", text: "Changes saved." });
+      router.refresh();
     } catch {
-      setSaveMsg({ type: "error", text: "Connection error. Please try again." });
+      setMsg({ type: "error", text: "Connection error. Please try again." });
     } finally {
       setSaving(false);
     }
   };
 
-  /* ---------------- change password ---------------- */
-  const [pw, setPw] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
-  const [pwBusy, setPwBusy] = useState(false);
-  const [pwMsg, setPwMsg] = useState<Msg>(null);
-
-  const onChangePassword = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    setPwMsg(null);
-    if (!pw.currentPassword) return setPwMsg({ type: "error", text: "Enter your current password." });
-    if (pw.newPassword.length < 8 || !/[A-Z]/.test(pw.newPassword) || !/\d/.test(pw.newPassword)) {
-      return setPwMsg({
-        type: "error",
-        text: "New password needs at least 8 characters, 1 uppercase letter and 1 number.",
-      });
-    }
-    if (pw.newPassword !== pw.confirmPassword) {
-      return setPwMsg({ type: "error", text: "New passwords do not match." });
-    }
-    if (pw.newPassword === pw.currentPassword) {
-      return setPwMsg({ type: "error", text: "New password must differ from the current one." });
-    }
-    setPwBusy(true);
+  const saveHealth = async () => {
+    setMsg(null);
+    setSaving(true);
     try {
-      const res = await wellnessChangePassword(pw);
-      if (res.success) {
-        setPwMsg({ type: "success", text: "Password updated. Other devices were signed out." });
-        setPw({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      } else {
-        setPwMsg({ type: "error", text: res.message || "Failed to update password." });
+      const res = await wellnessUpdateHealthProfile({
+        ...healthForm,
+        weightKg: healthForm.weightKg ? Number(healthForm.weightKg) : null,
+        heightCm: healthForm.heightCm ? Number(healthForm.heightCm) : null,
+        waistCm: healthForm.waistCm ? Number(healthForm.waistCm) : null,
+        chestCm: healthForm.chestCm ? Number(healthForm.chestCm) : null,
+        hipsCm: healthForm.hipsCm ? Number(healthForm.hipsCm) : null,
+        energyLevel: healthForm.energyLevel ? Number(healthForm.energyLevel) : null,
+        routineConfidence: healthForm.routineConfidence ? Number(healthForm.routineConfidence) : null,
+      });
+      if (!res.success) {
+        setMsg({ type: "error", text: res.message || "Failed to save." });
+        return;
       }
+      setMsg({ type: "success", text: "Changes saved." });
+      router.refresh();
     } catch {
-      setPwMsg({ type: "error", text: "Connection error. Please try again." });
+      setMsg({ type: "error", text: "Connection error. Please try again." });
     } finally {
-      setPwBusy(false);
+      setSaving(false);
     }
   };
 
-  const label = (text: string, htmlFor: string) => (
-    <label htmlFor={htmlFor} className="block mb-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
-      {text}
+  const onPickAvatar = async (file: File | undefined) => {
+    if (!file) return;
+    setMsg(null);
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return setMsg({ type: "error", text: "Please choose a JPEG, PNG, or WebP image." });
+    setAvatarBusy(true);
+    try {
+      const dataUrl = await resizeToAvatar(file);
+      const res = await fetch("/api/profile/avatar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl }) });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) throw new Error(json?.message || "Upload failed.");
+      setAvatarUrl(json.avatarUrl);
+      setMsg({ type: "success", text: "Profile picture updated." });
+      router.refresh();
+    } catch (err) {
+      setMsg({ type: "error", text: err instanceof Error ? err.message : "Upload failed." });
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const uploadBodyPhoto = async (key: "front" | "side" | "back", file: File) => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const dataUrl = await resizeToAvatar(file, 1080);
+      const res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl, type: key }) });
+      const data = await res.json();
+      if (!data.success || !data.url) throw new Error(data.message || "Upload failed.");
+      const field = key === "front" ? "photoFrontUrl" : key === "side" ? "photoSideUrl" : "photoBackUrl";
+      setHealthForm((h) => ({ ...h, [field]: data.url }));
+      setMsg({ type: "success", text: "Photo uploaded. Save changes to keep it." });
+    } catch (err) {
+      setMsg({ type: "error", text: err instanceof Error ? err.message : "Upload failed." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const num = (key: keyof HealthProfileData, label: string) => (
+    <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+      {label}
+      <input
+        inputMode="decimal"
+        value={healthForm[key] ?? ""}
+        onChange={(e) => setHealthForm((h) => ({ ...h, [key]: e.target.value === "" ? null : Number(e.target.value) }))}
+        className={`${inputCls} mt-1.5`}
+      />
     </label>
+  );
+
+  const text = (key: keyof HealthProfileData, label: string, area = false) => (
+    <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+      {label}
+      {area ? (
+        <textarea value={String(healthForm[key] || "")} onChange={(e) => setHealthForm((h) => ({ ...h, [key]: e.target.value }))} rows={4} className={`${inputCls} mt-1.5`} />
+      ) : (
+        <input value={String(healthForm[key] || "")} onChange={(e) => setHealthForm((h) => ({ ...h, [key]: e.target.value }))} className={`${inputCls} mt-1.5`} />
+      )}
+    </label>
+  );
+
+  const menu = useMemo(
+    () => [
+      {
+        title: "Personal Information",
+        pct: personalPct,
+        items: [
+          ["basic", "Basic Information"],
+          ["contact", "Contact Information"],
+          ["emergency", "Emergency Contact"],
+        ] as const,
+      },
+      {
+        title: "Health & Lifestyle Profile",
+        pct: healthPct,
+        items: [
+          ["body", "Body & Measurements"],
+          ["health", "Health Background"],
+          ["fitness", "Fitness Profile"],
+          ["nutrition", "Nutrition Profile"],
+          ["lifestyle", "Lifestyle Habits"],
+          ["goals", "Goals & Preferences"],
+        ] as const,
+      },
+      {
+        title: "Account Settings",
+        pct: null,
+        items: [
+          ["security", "Login & Security"],
+          ["notifications", "Notification Preferences"],
+          ["privacy", "Privacy Settings"],
+          ["account", "Account Management"],
+        ] as const,
+      },
+    ],
+    [personalPct, healthPct]
   );
 
   return (
     <>
-      {/* HEADER: profile picture + email only */}
       <FloatingHeader visible={headerVisible}>
-        <div className="flex items-center gap-3 min-w-0">
-          <Avatar src={avatarUrl} label={user.fullName || user.email} size="w-9 h-9" />
-          <span className="text-xs sm:text-sm font-medium text-zinc-950 dark:text-white truncate">
-            {user.email}
-          </span>
-        </div>
+        {view ? (
+          <button type="button" onClick={() => { setView(null); setMsg(null); }} className="inline-flex items-center gap-1.5 text-sm font-medium">
+            <ArrowLeft className="w-4 h-4" /> {TITLES[view]}
+          </button>
+        ) : (
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="w-4 h-4" />
+              )}
+            </div>
+            <span className="text-sm truncate">{user.email}</span>
+          </div>
+        )}
       </FloatingHeader>
 
-      <div className="space-y-6 font-mono max-w-2xl mx-auto">
-        <Group title="Account Settings">
-          <Row
-            icon={<UserIcon className="w-4 h-4" />}
-            label="Account information"
-            open={open === "account"}
-            onToggle={() => toggle("account")}
-          >
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-              <dt className="text-zinc-500">Email</dt>
-              <dd className="text-zinc-950 dark:text-white break-all">{user.email}</dd>
-              <dt className="text-zinc-500">Status</dt>
-              <dd className="text-zinc-950 dark:text-white capitalize">{user.status.toLowerCase()}</dd>
-              <dt className="text-zinc-500">Member since</dt>
-              <dd className="text-zinc-950 dark:text-white">{formatDateWib(user.createdAt)}</dd>
+      {!view && (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {menu.map((group) => (
+            <section key={group.title} className="space-y-2">
+              <div className="px-1 flex items-center justify-between">
+                <h2 className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-500">{group.title}</h2>
+                {group.pct !== null && <span className="text-[11px] font-semibold text-zinc-500">{group.pct}%</span>}
+              </div>
+              <div className="rounded-3xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 overflow-hidden">
+                {group.items.map(([id, label]) => (
+                  <button key={id} type="button" onClick={() => { setMsg(null); setView(id); }} className="w-full px-5 py-4 flex items-center justify-between text-sm">
+                    <span>{label}</span>
+                    <ChevronRight className="w-4 h-4 text-zinc-400" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {view && (
+        <div className="max-w-xl mx-auto space-y-4">
+          <Banner msg={msg} />
+          {view === "basic" && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                  {avatarUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <button type="button" disabled={avatarBusy} onClick={() => fileRef.current?.click()} className="px-3 py-2 rounded-full border text-xs inline-flex items-center gap-1.5">
+                  {avatarBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />} Profile picture
+                </button>
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => onPickAvatar(e.target.files?.[0])} />
+              </div>
+              <label className="block text-xs font-semibold">Full name<input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Date of birth<input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Gender
+                <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className={`${inputCls} mt-1.5`}>
+                  <option value="">Not specified</option>
+                  {GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+              <Save busy={saving} onClick={saveProfile} />
+            </div>
+          )}
+          {view === "contact" && (
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold">Email address<input value={user.email} disabled className={`${inputCls} mt-1.5 opacity-70`} /></label>
+              <label className="block text-xs font-semibold">Phone number<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Address<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">City<input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Province<input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <Save busy={saving} onClick={saveProfile} />
+            </div>
+          )}
+          {view === "emergency" && (
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold">Contact person<input value={form.emergencyContactName} onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Emergency phone number<input value={form.emergencyContactPhone} onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <Save busy={saving} onClick={saveProfile} />
+            </div>
+          )}
+          {view === "body" && (
+            <div className="space-y-3">
+              {num("heightCm", "Height (cm)")}
+              {num("weightKg", "Weight (kg)")}
+              {num("waistCm", "Waist (cm)")}
+              {num("chestCm", "Chest (cm)")}
+              {num("hipsCm", "Hips (cm)")}
+              <div className="grid grid-cols-3 gap-2">
+                {(["front", "side", "back"] as const).map((key) => (
+                  <label key={key} className="text-[11px] text-center">
+                    <span className="block capitalize mb-1">{key}</span>
+                    <input type="file" accept="image/*" className="text-[10px]" onChange={(e) => e.target.files?.[0] && uploadBodyPhoto(key, e.target.files[0])} />
+                  </label>
+                ))}
+              </div>
+              <Save busy={saving} onClick={saveHealth} />
+            </div>
+          )}
+          {view === "health" && (
+            <div className="space-y-3">
+              {text("injuriesOrConditions", "Medical history and conditions", true)}
+              {text("currentMood", "Current mood")}
+              {num("energyLevel", "Energy level (1–10)")}
+              <Save busy={saving} onClick={saveHealth} />
+            </div>
+          )}
+          {view === "fitness" && (
+            <div className="space-y-3">
+              {text("workoutFrequency", "Current activity level")}
+              {num("routineConfidence", "Routine confidence (1–5)")}
+              {text("primaryGoal", "Fitness goals", true)}
+              <Save busy={saving} onClick={saveHealth} />
+            </div>
+          )}
+          {view === "nutrition" && (
+            <div className="space-y-3">
+              {text("dietType", "Dietary preferences")}
+              {text("foodAllergies", "Allergies and restrictions", true)}
+              {text("eatingPatterns", "Eating patterns", true)}
+              <Save busy={saving} onClick={saveHealth} />
+            </div>
+          )}
+          {view === "lifestyle" && (
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold">Usual bedtime<input type="time" value={String(healthForm.averageBedtime || "")} onChange={(e) => setHealthForm((h) => ({ ...h, averageBedtime: e.target.value }))} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Usual wake time<input type="time" value={String(healthForm.averageWakeTime || "")} onChange={(e) => setHealthForm((h) => ({ ...h, averageWakeTime: e.target.value }))} className={`${inputCls} mt-1.5`} /></label>
+              {text("sleepQualityNotes", "Sleep habits", true)}
+              <label className="block text-xs font-semibold">Daily occupation<input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <Save busy={saving} onClick={async () => { await saveHealth(); await saveProfile(); }} />
+            </div>
+          )}
+          {view === "goals" && (
+            <div className="space-y-3">
+              {text("primaryGoal", "Personal goals", true)}
+              {text("workoutFrequency", "Preferred activity rhythm")}
+              {text("currentMood", "How you want coaching to feel")}
+              <Save busy={saving} onClick={saveHealth} />
+            </div>
+          )}
+          {view === "security" && (
+            <form
+              className="space-y-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setMsg(null);
+                setSaving(true);
+                try {
+                  const res = await wellnessChangePassword(pw);
+                  setMsg(res.success ? { type: "success", text: "Password updated." } : { type: "error", text: res.message || "Failed to update password." });
+                  if (res.success) setPw({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              <label className="block text-xs font-semibold">Current password<input type="password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">New password<input type="password" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <label className="block text-xs font-semibold">Confirm new password<input type="password" value={pw.confirmPassword} onChange={(e) => setPw({ ...pw, confirmPassword: e.target.value })} className={`${inputCls} mt-1.5`} /></label>
+              <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider disabled:opacity-50">Save changes</button>
+            </form>
+          )}
+          {view === "notifications" && <NotificationPrefs />}
+          {view === "privacy" && (
+            <dl className="rounded-3xl border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 text-sm">
+              <div className="px-4 py-3 flex justify-between gap-3"><dt className="text-zinc-500">Email</dt><dd>{user.email}</dd></div>
+              <div className="px-4 py-3 flex justify-between gap-3"><dt className="text-zinc-500">Account status</dt><dd className="capitalize">{user.status.toLowerCase()}</dd></div>
+              <div className="px-4 py-3 flex justify-between gap-3"><dt className="text-zinc-500">Member since</dt><dd>{formatDateWib(user.createdAt)}</dd></div>
             </dl>
-          </Row>
-
-          <Row
-            icon={<CheckCircle2 className="w-4 h-4" />}
-            label="Change password"
-            open={open === "password"}
-            onToggle={() => toggle("password")}
-          >
-            <form onSubmit={onChangePassword} className="space-y-3" noValidate>
-              <div>
-                {label("Current password", "pw-current")}
-                <input
-                  id="pw-current"
-                  type="password"
-                  autoComplete="current-password"
-                  value={pw.currentPassword}
-                  onChange={(e) => setPw((p) => ({ ...p, currentPassword: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                {label("New password", "pw-new")}
-                <input
-                  id="pw-new"
-                  type="password"
-                  autoComplete="new-password"
-                  value={pw.newPassword}
-                  onChange={(e) => setPw((p) => ({ ...p, newPassword: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                {label("Confirm new password", "pw-confirm")}
-                <input
-                  id="pw-confirm"
-                  type="password"
-                  autoComplete="new-password"
-                  value={pw.confirmPassword}
-                  onChange={(e) => setPw((p) => ({ ...p, confirmPassword: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <Banner msg={pwMsg} />
-              <button
-                type="submit"
-                disabled={pwBusy}
-                className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider disabled:opacity-50 flex items-center gap-2"
-              >
-                {pwBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Update password
-              </button>
-            </form>
-          </Row>
-
-          <Row icon={<LogOut className="w-4 h-4" />} label="Logout" onToggle={onLogout} />
-        </Group>
-
-        <Group title="Personal Information">
-          <Row
-            icon={<UserIcon className="w-4 h-4" />}
-            label="Edit personal information"
-            open={open === "personal"}
-            onToggle={() => toggle("personal")}
-          >
-            <form onSubmit={onSave} className="space-y-4" noValidate>
-              <div className="flex items-center gap-4">
-                <Avatar src={avatarUrl} label={user.fullName || user.email} size="w-16 h-16" />
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={avatarBusy}
-                      onClick={() => fileRef.current?.click()}
-                      className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      {avatarBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
-                      {avatarUrl ? "Change picture" : "Upload picture"}
-                    </button>
-                    {avatarUrl && (
-                      <button
-                        type="button"
-                        disabled={avatarBusy}
-                        onClick={onRemoveAvatar}
-                        className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-red-600 dark:text-red-400 disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-zinc-500">JPEG, PNG or WebP. Cropped to a square automatically.</p>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) => onPickAvatar(e.target.files?.[0])}
-                  />
-                </div>
-              </div>
-              <Banner msg={avatarMsg} />
-
-              <div>
-                {label("Full name", "pi-name")}
-                <input
-                  id="pi-name"
-                  value={form.fullName}
-                  onChange={(e) => set("fullName", e.target.value)}
-                  autoComplete="name"
-                  maxLength={60}
-                  className={inputCls}
-                />
-                <FieldError text={errors.fullName} />
-              </div>
-
-              <div>
-                {label("Phone number", "pi-phone")}
-                <input
-                  id="pi-phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  autoComplete="tel"
-                  maxLength={18}
-                  placeholder="+62 812 3456 7890"
-                  className={inputCls}
-                />
-                <FieldError text={errors.phone} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  {label("Date of birth", "pi-dob")}
-                  <input
-                    id="pi-dob"
-                    type="date"
-                    value={form.dateOfBirth}
-                    onChange={(e) => set("dateOfBirth", e.target.value)}
-                    max={new Date().toISOString().slice(0, 10)}
-                    className={inputCls}
-                  />
-                  <FieldError text={errors.dateOfBirth} />
-                </div>
-                <div>
-                  {label("Gender (optional)", "pi-gender")}
-                  <select
-                    id="pi-gender"
-                    value={form.gender}
-                    onChange={(e) => set("gender", e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Not specified</option>
-                    {GENDER_OPTIONS.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <FieldError text={errors.gender} />
-                </div>
-              </div>
-
-              <div>
-                {label("Address", "pi-address")}
-                <textarea
-                  id="pi-address"
-                  value={form.address}
-                  onChange={(e) => set("address", e.target.value)}
-                  autoComplete="street-address"
-                  rows={2}
-                  maxLength={255}
-                  className={inputCls}
-                />
-                <FieldError text={errors.address} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  {label("City", "pi-city")}
-                  <input
-                    id="pi-city"
-                    value={form.city}
-                    onChange={(e) => set("city", e.target.value)}
-                    autoComplete="address-level2"
-                    maxLength={100}
-                    className={inputCls}
-                  />
-                  <FieldError text={errors.city} />
-                </div>
-                <div>
-                  {label("Province", "pi-province")}
-                  <input
-                    id="pi-province"
-                    value={form.province}
-                    onChange={(e) => set("province", e.target.value)}
-                    autoComplete="address-level1"
-                    maxLength={100}
-                    className={inputCls}
-                  />
-                  <FieldError text={errors.province} />
-                </div>
-              </div>
-
-              <Banner msg={saveMsg} />
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider disabled:opacity-50 flex items-center gap-2"
-              >
-                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Save changes
-              </button>
-            </form>
-          </Row>
-
-          <Row
-            icon={<HeartPulse className="w-4 h-4" />}
-            label="Health & lifestyle profile"
-            onToggle={onOpenHealthProfile}
-          />
-          <Row
-            icon={<Trash2 className="w-4 h-4" />}
-            label="Delete account"
-            danger
-            onToggle={onDeleteAccount}
-          />
-        </Group>
-      </div>
+          )}
+          {view === "account" && (
+            <div className="space-y-2">
+              <button type="button" onClick={onLogout} className="w-full px-4 py-3 rounded-2xl border border-zinc-200 dark:border-white/10 text-sm flex items-center gap-2"><LogOut className="w-4 h-4" /> Logout</button>
+              <button type="button" onClick={onDeleteAccount} className="w-full px-4 py-3 rounded-2xl border border-red-200 text-red-600 text-sm flex items-center gap-2"><Trash2 className="w-4 h-4" /> Delete account</button>
+            </div>
+          )}
+        </div>
+      )}
     </>
+  );
+}
+
+function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  return (
+    <button type="button" disabled={busy} onClick={onClick} className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2">
+      {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save changes
+    </button>
+  );
+}
+
+function NotificationPrefs() {
+  const push = usePushNotifications();
+  const [morning, setMorning] = useState("07:00");
+  const [evening, setEvening] = useState("20:30");
+  useEffect(() => {
+    setMorning(localStorage.getItem("bms-morning-reminder") || "07:00");
+    setEvening(localStorage.getItem("bms-evening-reminder") || "20:30");
+  }, []);
+  const [msg, setMsg] = useState<Msg>(null);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-zinc-500">Notifications are {push.status === "on" ? "on" : "off"} for this device.</p>
+      {(push.status === "on" || push.status === "off" || push.status === "checking") && (
+        <button type="button" disabled={push.busy || push.status === "checking"} onClick={push.status === "on" ? push.disable : push.enable} className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase">
+          {push.status === "on" ? "Turn Off Notification" : "Turn On Notification"}
+        </button>
+      )}
+      {push.status === "denied" && <p className="text-xs text-red-600">Notifications are blocked in the browser settings.</p>}
+      {push.error && <p className="text-xs text-red-600">{push.error}</p>}
+      <label className="block text-xs font-semibold">Morning reminder<input type="time" value={morning} onChange={(e) => setMorning(e.target.value)} className={`${inputCls} mt-1.5`} /></label>
+      <label className="block text-xs font-semibold">Evening reminder<input type="time" value={evening} onChange={(e) => setEvening(e.target.value)} className={`${inputCls} mt-1.5`} /></label>
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.setItem("bms-morning-reminder", morning);
+          localStorage.setItem("bms-evening-reminder", evening);
+          setMsg({ type: "success", text: "Reminder times saved on this device." });
+        }}
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase"
+      >
+        Save changes
+      </button>
+      <Banner msg={msg} />
+    </div>
   );
 }

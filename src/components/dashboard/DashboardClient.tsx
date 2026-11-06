@@ -28,6 +28,7 @@ import { MyPlanHeader, MyPlanOverview } from "./tabs/MyPlanTab";
 import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
+import { ProgramDetailView } from "./tabs/ProgramDetailView";
 import {
   CheckCircle,
   CheckCircle2,
@@ -155,6 +156,10 @@ export interface ProgramItem {
   coverImage?: string | null;
   recommendedFor?: string;
   coachName: string;
+  coachTitle?: string | null;
+  category?: string;
+  difficultyLevel?: string;
+  dailyCommitment?: string | null;
   durationDays?: number;
   price: number;
   maxQuota: number;
@@ -544,7 +549,39 @@ export function DashboardClient({
     ? myPrograms.find((e) => e.programId === currentProgram.id)
     : null;
   const hasActiveAccess = currentEnrollment?.status === "ACTIVE";
-  const currentDay = currentProgram?.days?.[activeDayIndex] || currentProgram?.days?.[0] || null;
+  const todayIndex = currentProgram?.days?.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359) ?? -1;
+  const currentDay = todayIndex >= 0 ? currentProgram?.days?.[todayIndex] || null : null;
+  const liveDay = currentDay
+    ? {
+        ...currentDay,
+        userProgress: {
+          ...(currentDay.userProgress || {
+            id: "",
+            videoWatched: false,
+            isCompleted: false,
+            checklistCompleted: null,
+          }),
+          videoWatched: dayVideoWatched[currentDay.id] ?? !!currentDay.userProgress?.videoWatched,
+          checklistCompleted:
+            dayChecklists[currentDay.id] !== undefined
+              ? JSON.stringify(dayChecklists[currentDay.id])
+              : currentDay.userProgress?.checklistCompleted || null,
+          eventFeedback: dayEventFeedback[currentDay.id] ?? currentDay.userProgress?.eventFeedback,
+          mealCompliance: dayMealCompliance[currentDay.id] ?? currentDay.userProgress?.mealCompliance,
+          mealNotes:
+            dayMealNotes[currentDay.id] !== undefined
+              ? dayMealNotes[currentDay.id]
+              : currentDay.userProgress?.mealNotes,
+          dailyReflection:
+            dayReflections[currentDay.id] !== undefined
+              ? dayReflections[currentDay.id]
+              : currentDay.userProgress?.dailyReflection,
+          happinessRate: dayHappiness[currentDay.id] ?? currentDay.userProgress?.happinessRate,
+          bedtime: dayBedtimes[currentDay.id] ?? currentDay.userProgress?.bedtime,
+          wakeTime: dayWakeTimes[currentDay.id] ?? currentDay.userProgress?.wakeTime,
+        },
+      }
+    : null;
 
   const getCheckedItems = (day: ProgramDayItem): string[] => {
     if (dayChecklists[day.id] !== undefined) {
@@ -653,7 +690,14 @@ export function DashboardClient({
       currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
         ? true
         : getVideoWatched(currentDay);
-    const allTasksDone = areActiveWorkoutMovementsCompleted(currentDay, updated);
+    const restItems = (currentDay.restInstructions || "")
+      .split(/\n|•|·/)
+      .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
+      .filter((line) => line.length > 1);
+    const allTasksDone =
+      currentDay.dayType === "REST_DAY"
+        ? restItems.length === 0 || restItems.every((name) => updated.includes(name))
+        : areActiveWorkoutMovementsCompleted(currentDay, updated);
 
     const autoComplete = videoDone && allTasksDone;
 
@@ -722,6 +766,7 @@ export function DashboardClient({
     } else {
       setActionNotice({ type: "success", text: "Sleep log saved successfully." });
       setTimeout(() => setActionNotice(null), 3000);
+      router.refresh();
     }
   };
 
@@ -847,7 +892,8 @@ export function DashboardClient({
         setTimeout(() => setActionNotice(null), 4000);
       } else {
         setFeedbackSaved(true);
-        setActionNotice({ type: "success", text: "Event feedback saved successfully." });
+        setActionNotice({ type: "success", text: "Session saved." });
+        router.refresh();
         setTimeout(() => {
           setFeedbackSaved(false);
           setActionNotice(null);
@@ -878,6 +924,7 @@ export function DashboardClient({
     } else {
       setActionNotice({ type: "success", text: "Nutrition notes saved successfully." });
       setTimeout(() => setActionNotice(null), 3000);
+      router.refresh();
     }
   };
 
@@ -899,8 +946,9 @@ export function DashboardClient({
       setActionNotice({ type: "error", text: res.message || "Failed to save Dear Diary reflection." });
       setTimeout(() => setActionNotice(null), 4000);
     } else {
-      setActionNotice({ type: "success", text: "Dear Diary & Daily Fulfillment saved." });
+      setActionNotice({ type: "success", text: "Daily reflection saved." });
       setTimeout(() => setActionNotice(null), 3000);
+      router.refresh();
     }
   };
 
@@ -1520,608 +1568,35 @@ export function DashboardClient({
           </div>
         )}
 
-        {/* TAB 1: DAILY CURRICULUM & BENTO GRID (ONLY ENROLLED PROGRAMS) */}
         {activeTab === "my_plan" && (
-          <div className="space-y-10 sm:space-y-12 font-mono">
-            {!currentProgram || !isViewingPlanDetail ? (
-              <MyPlanOverview
-                program={
-                  overviewEnrollment
-                    ? {
-                        title: overviewEnrollment.title,
-                        startDate: overviewEnrollment.startDate,
-                        endDate: overviewEnrollment.endDate,
-                        communityLink: overviewEnrollment.communityLink,
-                      }
-                    : null
-                }
-                plan={overviewPlan}
-                onExplore={() => {
-                  setActiveTab("all_plan");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                onOpenToday={handleOpenToday}
-              />
-            ) : (
-              /* VIEW 2: PLAN DETAIL (Hari ini apa saja gitu) */
-              <div className="space-y-5 sm:space-y-6 font-mono">
-                {/* Top Navigation Bar with Back Button */}
-                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsViewingPlanDetail(false);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="px-3.5 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200 dark:bg-white/10 dark:hover:bg-white/20 dark:text-zinc-200 dark:border-transparent text-[10px] font-bold uppercase tracking-wider transition flex items-center gap-1.5"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Dashboard</span>
-                  </button>
-
-                  <div className="text-right">
-                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                      {currentProgram.title}
-                    </span>
-                    <span className="text-[11px] font-semibold text-zinc-950 dark:text-white">
-                      Day {currentDay?.dayNumber || 1} of {totalDays}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Day Selector Timeline */}
-                <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 space-y-3 shadow-sm font-mono transition-colors">
-                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-2">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block tracking-[0.2em] uppercase font-semibold font-mono">
-                        Curriculum Track
-                      </span>
-                      <h3 className="text-sm sm:text-base font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
-                        Daily Schedule
-                      </h3>
-                    </div>
-                    <span className="text-[10px] text-zinc-500 font-mono">
-                      23:59 Cutoff
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none font-mono">
-                    {currentProgram.days.map((day, idx) => {
-                      const isSelected = activeDayIndex === idx;
-                      const isCompleted = !!day.userProgress?.isCompleted;
-                      const isSkipped = day.isSkipped && !isCompleted;
-                      const isLockedFuture = !day.isCalendarUnlocked;
-                      const isToday = day.isCalendarUnlocked && !day.isPast2359;
-
-                      return (
-                        <button
-                          key={day.id}
-                          type="button"
-                          onClick={() => setActiveDayIndex(idx)}
-                          className={`min-w-[95px] sm:min-w-[110px] p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between shrink-0 gap-2 font-mono ${
-                            isSelected
-                              ? "bg-zinc-950 text-white border-zinc-950 shadow-md dark:bg-white dark:text-zinc-950 dark:border-white scale-[1.02]"
-                              : isCompleted
-                              ? "bg-zinc-100 border-zinc-300 text-zinc-900 dark:bg-white/10 dark:border-white/20 dark:text-zinc-200"
-                              : isSkipped || isLockedFuture
-                              ? "bg-zinc-50 border-zinc-200 text-zinc-400 opacity-60 dark:bg-white/5 dark:border-white/5 dark:text-zinc-500"
-                              : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-zinc-400 dark:bg-white/5 dark:border-white/10 dark:text-zinc-300 dark:hover:border-white/20"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[10px] uppercase tracking-wider font-bold">
-                              Day {day.dayNumber}
-                            </span>
-                            {isCompleted ? (
-                              <CheckCircle className={`w-3 h-3 ${isSelected ? "text-white dark:text-zinc-950" : "text-emerald-500"}`} />
-                            ) : isSkipped ? (
-                              <AlertTriangle className="w-3 h-3 text-zinc-400" />
-                            ) : isLockedFuture ? (
-                              <Lock className="w-3 h-3 opacity-60" />
-                            ) : (
-                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white dark:bg-zinc-950" : isToday ? "bg-zinc-900 dark:bg-white animate-pulse" : "bg-zinc-400"}`} />
-                            )}
-                          </div>
-
-                          <div className="space-y-0.5">
-                            <span className="text-[10px] block truncate font-semibold uppercase">
-                              {day.dayType === "TRAINING_DAY"
-                                ? "Training"
-                                : day.dayType === "REST_DAY"
-                                ? "Recovery"
-                                : "Connection"}
-                            </span>
-                            <span className="text-[9px] opacity-70 block font-light">
-                              {formatShortDate(day.unlockDate)}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Daily Content Bento Grid */}
-                {currentDay && (
-                  <div className="space-y-4 sm:space-y-6">
-                    {/* Day Title Banner */}
-                    <div className="rounded-2xl p-4 sm:p-6 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-500 dark:text-zinc-400">
-                            Day {currentDay.dayNumber} &bull; {formatShortDate(currentDay.unlockDate)}
-                          </span>
-                          <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-300">
-                            {currentDay.dayType === "TRAINING_DAY"
-                              ? "Training Protocol"
-                              : currentDay.dayType === "REST_DAY"
-                              ? "Recovery Protocol"
-                              : "Connection Circle"}
-                          </span>
-                        </div>
-                        <h2 className="text-lg sm:text-2xl font-light tracking-tight text-zinc-950 dark:text-white uppercase font-geometric">
-                          {currentDay.title}
-                        </h2>
-                        {currentDay.dayType !== "REST_DAY" && (currentDay.coachName || currentDay.recommendedFor) && (
-                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
-                            {currentDay.coachName && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full chrome-badge text-micro uppercase tracking-wider font-semibold font-mono">
-                                Coach: {currentDay.coachName}
-                              </span>
-                            )}
-                            {currentDay.recommendedFor && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 text-micro uppercase tracking-wider font-medium font-mono">
-                                Target: {currentDay.recommendedFor}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 shrink-0 font-mono">
-                        {currentDay.userProgress?.isCompleted ? (
-                          <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-900 dark:text-white bg-white/10 border border-white/20 px-4 py-2 rounded-full">
-                            <CheckCircle className="w-4 h-4 text-white" /> Day Completed
-                          </span>
-                        ) : currentDay.isSkipped ? (
-                          <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 glass-panel-subtle border border-zinc-200/60 dark:border-white/10 px-4 py-2 rounded-full">
-                            <AlertTriangle className="w-4 h-4 text-zinc-400" /> Past Cutoff
-                          </span>
-                        ) : !currentDay.isCalendarUnlocked ? (
-                          <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 glass-panel-subtle px-4 py-2 rounded-full">
-                            <Lock className="w-3.5 h-3.5" /> Unlocks {formatShortDate(currentDay.unlockDate)} at 00:00
-                          </span>
-                        ) : null}
-
-                        {hasActiveAccess &&
-                          currentDay.isCalendarUnlocked &&
-                          !currentDay.isPast2359 && (
-                            <button
-                              type="button"
-                              onClick={handleToggleCompleteDay}
-                              disabled={isSavingProgress}
-                              className={`px-5 py-2.5 rounded-full text-xs font-semibold tracking-wide transition flex items-center gap-2 font-mono ${
-                                currentDay.userProgress?.isCompleted
-                                  ? "glass-panel-subtle text-zinc-800 dark:text-zinc-200"
-                                  : "chrome-button"
-                              }`}
-                            >
-                              {isSavingProgress ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : currentDay.userProgress?.isCompleted ? (
-                                <>Reopen Day</>
-                              ) : (
-                                <>
-                                  Complete Day <CheckCircle className="w-3.5 h-3.5" />
-                                </>
-                              )}
-                            </button>
-                          )}
-                      </div>
-                    </div>
-
-                    {/* Today Push Notification Schedule Banner */}
-                    {hasActiveAccess && currentDay.isCalendarUnlocked && currentDay.dayNotifications && currentDay.dayNotifications.length > 0 && (
-                      <div className="glass-panel rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs border border-zinc-200/60 dark:border-white/10 font-mono">
-                        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-                          <Bell className="w-4 h-4 text-zinc-400 shrink-0" />
-                          <span className="text-micro uppercase tracking-[0.2em] font-semibold text-zinc-900 dark:text-white font-mono">
-                            Today&apos;s Dispatch Schedule
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 font-mono">
-                          {currentDay.dayNotifications.map((notif, i) => (
-                            <span
-                              key={i}
-                              className="px-3 py-1.5 rounded-full glass-panel-subtle text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-2"
-                              title={notif.message}
-                            >
-                              <Clock className="w-3 h-3 text-zinc-400" />
-                              <strong className="text-zinc-900 dark:text-white font-medium">{notif.time}</strong>
-                              <span className="truncate max-w-[140px] sm:max-w-[220px] font-light">{notif.message}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* GATE 1: Unpaid User */}
-                    {!hasActiveAccess ? (
-                      <div className="glass-panel rounded-3xl p-10 sm:p-14 text-center space-y-5 border border-zinc-200/70 dark:border-white/10">
-                        <div className="w-12 h-12 rounded-full glass-panel-subtle flex items-center justify-center mx-auto text-zinc-400">
-                          <Lock className="w-5 h-5 stroke-[1.5]" />
-                        </div>
-                        <div className="space-y-2">
-                          <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                            Member Sanctuary Protocol
-                          </span>
-                          <h3 className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white">
-                            Members-Only Curriculum
-                          </h3>
-                          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed font-light">
-                            Enroll in this program to unlock daily movement sequences, circadian recovery guidance, and personalized self-assessments.
-                          </p>
-                        </div>
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenQrisCheckout(currentProgram.id)}
-                            disabled={enrollingId === currentProgram.id}
-                            className="px-8 py-3.5 rounded-full chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-2.5 shadow-lg"
-                          >
-                            <QrCode className="w-4 h-4" /> Enroll Now &bull; Rp{" "}
-                            {currentProgram.price.toLocaleString("id-ID")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : !currentDay.isCalendarUnlocked ? (
-                      /* GATE 2: Future Calendar Day */
-                      <div className="glass-panel rounded-3xl p-10 sm:p-14 text-center space-y-4 border border-zinc-200/70 dark:border-white/10">
-                        <div className="w-12 h-12 rounded-full glass-panel-subtle flex items-center justify-center mx-auto text-zinc-400">
-                          <Clock className="w-5 h-5 stroke-[1.5]" />
-                        </div>
-                        <div className="space-y-2">
-                          <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                            Temporal Alignment
-                          </span>
-                          <h3 className="text-xl sm:text-2xl font-light tracking-tight text-zinc-900 dark:text-white">
-                            Scheduled for {formatShortDate(currentDay.unlockDate)}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed font-light">
-                            Day {currentDay.dayNumber} unlocks at midnight (00:00 WIB) on{" "}
-                            <span className="text-zinc-900 dark:text-white font-medium">
-                              {formatShortDate(currentDay.unlockDate)}
-                            </span>{" "}
-                            in synchronization with your batch schedule.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      /* UNLOCKED 3-PHASE CURRICULUM LAYOUT */
-                      <div className="space-y-5 sm:space-y-6">
-                        {/* Phase Switcher Navigation Tabs */}
-                        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-900/80 border border-white/10 font-mono text-[10px] uppercase font-bold tracking-wider">
-                          <button
-                            type="button"
-                            onClick={() => setActiveDetailPhase("movement")}
-                            className={`flex-1 py-2 px-2.5 rounded-xl text-center transition flex items-center justify-center gap-1.5 ${
-                              activeDetailPhase === "movement"
-                                ? "bg-white text-zinc-950 shadow-md font-bold"
-                                : "text-zinc-400 hover:text-white"
-                            }`}
-                          >
-                            <Dumbbell className="w-3.5 h-3.5" />
-                            <span>01 Movement</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveDetailPhase("fuel")}
-                            className={`flex-1 py-2 px-2.5 rounded-xl text-center transition flex items-center justify-center gap-1.5 ${
-                              activeDetailPhase === "fuel"
-                                ? "bg-white text-zinc-950 shadow-md font-bold"
-                                : "text-zinc-400 hover:text-white"
-                            }`}
-                          >
-                            <Utensils className="w-3.5 h-3.5" />
-                            <span>02 Fuel &amp; Sleep</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveDetailPhase("recovery")}
-                            className={`flex-1 py-2 px-2.5 rounded-xl text-center transition flex items-center justify-center gap-1.5 ${
-                              activeDetailPhase === "recovery"
-                                ? "bg-white text-zinc-950 shadow-md font-bold"
-                                : "text-zinc-400 hover:text-white"
-                            }`}
-                          >
-                            <Smile className="w-3.5 h-3.5" />
-                            <span>03 Recovery</span>
-                          </button>
-                        </div>
-
-                        {/* PHASE 01: MOVEMENT (TRAINING / REST / CONNECTION) */}
-                        {activeDetailPhase === "movement" && (
-                          <div className="space-y-5">
-                            {currentDay.dayType === "TRAINING_DAY" ? (
-                              <div className="space-y-5">
-                                <VideoThumbnailLinkCard
-                                  title={currentDay.title}
-                                  videoUrl={currentDay.videoUrl}
-                                  videoWatched={getVideoWatched(currentDay)}
-                                  isPast2359={currentDay.isPast2359}
-                                  onToggleWatched={handleToggleVideoWatched}
-                                />
-
-                                <WorkoutSection
-                                  dayNumber={currentDay.dayNumber}
-                                  availableOptions={currentDay.workoutOptions || []}
-                                  selectedWorkout={dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout}
-                                  photoBeforeUrl={dayPhotosBefore[currentDay.id] || currentDay.userProgress?.photoBeforeUrl}
-                                  photoAfterUrl={dayPhotosAfter[currentDay.id] || currentDay.userProgress?.photoAfterUrl}
-                                  workoutNotes={dayWorkoutNotes[currentDay.id] !== undefined ? dayWorkoutNotes[currentDay.id] : currentDay.userProgress?.workoutNotes}
-                                  checklist={currentDay.videoChecklist || []}
-                                  completedChecklist={getCheckedItems(currentDay)}
-                                  isPast2359={currentDay.isPast2359}
-                                  onSelectWorkout={handleSelectWorkout}
-                                  onUploadPhoto={handleUploadPhoto}
-                                  onToggleChecklistItem={handleToggleChecklist}
-                                  onSaveWorkoutNotes={handleSaveWorkoutNotes}
-                                  onUpdateChecklistRep={handleUpdateChecklistRep}
-                                />
-                              </div>
-                            ) : currentDay.dayType === "REST_DAY" ? (
-                              <div className="rounded-2xl p-5 sm:p-6 space-y-4 bg-zinc-900/60 border border-white/10 font-mono shadow-lg">
-                                <div className="space-y-1">
-                                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
-                                    Phase 01 &bull; Active Recovery
-                                  </span>
-                                  <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
-                                    Rest &amp; Deep Regeneration
-                                  </h3>
-                                </div>
-
-                                <div className="p-4 rounded-xl bg-black/40 border border-white/10 text-xs sm:text-sm text-zinc-300 leading-relaxed font-light whitespace-pre-line">
-                                  {currentDay.restInstructions ||
-                                    "Take a gentle 25-minute sunlight walk, practice box breathing, and allow neuromuscular tissues to fully decompress."}
-                                </div>
-                              </div>
-                            ) : (
-                              /* CONNECTION_DAY / MEETUP */
-                              <div className="rounded-2xl p-5 sm:p-6 space-y-4 bg-zinc-900/60 border border-white/10 font-mono shadow-lg">
-                                <div className="space-y-1">
-                                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-zinc-400 block">
-                                    Phase 01 &bull; Connection
-                                  </span>
-                                  <h3 className="text-base sm:text-xl font-light tracking-tight text-white uppercase font-geometric">
-                                    {currentDay.eventTitle || "Community & Facetime Circle"}
-                                  </h3>
-                                </div>
-
-                                <div className="grid sm:grid-cols-2 gap-3">
-                                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-1">
-                                    <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
-                                      <Clock className="w-3.5 h-3.5" /> Schedule
-                                    </span>
-                                    <p className="text-xs font-medium text-white">
-                                      {currentDay.onsiteSchedule || "09:00 AM – 11:30 AM WIB"}
-                                    </p>
-                                  </div>
-
-                                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-1">
-                                    <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
-                                      <MapPin className="w-3.5 h-3.5" /> Venue
-                                    </span>
-                                    <p className="text-xs font-medium text-white truncate">
-                                      {currentDay.onsiteVenue || currentProgram.venueAddress || "The Sanctuary, Jakarta"}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {currentDay.mapLink && (
-                                  <a
-                                    href={currentDay.mapLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-zinc-950 text-xs font-semibold hover:opacity-90 transition"
-                                  >
-                                    <span>Open Google Maps</span>
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
-
-                                {/* Feedback Note */}
-                                <div className="space-y-2 pt-2 border-t border-white/10">
-                                  <label className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold block">
-                                    Connect Session Notes
-                                  </label>
-                                  <textarea
-                                    rows={2}
-                                    disabled={currentDay.isPast2359}
-                                    value={
-                                      dayEventFeedback[currentDay.id] !== undefined
-                                        ? dayEventFeedback[currentDay.id]
-                                        : currentDay.userProgress?.eventFeedback || ""
-                                    }
-                                    onChange={(e) => {
-                                      const text = e.target.value;
-                                      setDayEventFeedback((p) => ({ ...p, [currentDay.id]: text }));
-                                    }}
-                                    placeholder="Enter your circle takeaways or meetup reflections..."
-                                    className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-xs text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 placeholder:text-zinc-600"
-                                  />
-                                  {!currentDay.isPast2359 && (
-                                    <div className="flex justify-end">
-                                      <button
-                                        type="button"
-                                        disabled={isSavingFeedback}
-                                        onClick={() => {
-                                          const val =
-                                            dayEventFeedback[currentDay.id] !== undefined
-                                              ? dayEventFeedback[currentDay.id]
-                                              : currentDay.userProgress?.eventFeedback || "";
-                                          handleSaveEventFeedback(val);
-                                        }}
-                                        className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm"
-                                      >
-                                        {isSavingFeedback ? (
-                                          <>
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            <span>Saving...</span>
-                                          </>
-                                        ) : feedbackSaved ? (
-                                          <>
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
-                                            <span>Saved</span>
-                                          </>
-                                        ) : (
-                                          <span>Save Feedback</span>
-                                        )}
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* PHASE 02: FUEL & SLEEP */}
-                        {activeDetailPhase === "fuel" && (
-                          <div className="space-y-5">
-                            <SleepTrackerCard
-                              dayNumber={currentDay.dayNumber}
-                              sleepRecommendation={currentDay.sleepRecommendation || null}
-                              initialBedtime={dayBedtimes[currentDay.id] || currentDay.userProgress?.bedtime || "22:30"}
-                              initialWakeTime={dayWakeTimes[currentDay.id] || currentDay.userProgress?.wakeTime || "06:30"}
-                              initialSleepMinutes={currentDay.userProgress?.sleepDurationMinutes}
-                              isPast2359={currentDay.isPast2359}
-                              onSaveSleep={handleSaveSleep}
-                            />
-
-                            <MealSection
-                              mealRecommendation={currentDay.mealRecommendation}
-                              initialCompliance={dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || "FULL"}
-                              initialNotes={dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || ""}
-                              isPast2359={currentDay.isPast2359}
-                              onSaveMeal={handleSaveMeal}
-                            />
-                          </div>
-                        )}
-
-                        {/* PHASE 03: RECOVERY & ASSESSMENT */}
-                        {activeDetailPhase === "recovery" && (
-                          <div className="space-y-5">
-                            {/* Daily Assessment Card */}
-                            <div className="rounded-2xl p-4 sm:p-5 space-y-4 bg-zinc-900/60 border border-white/10 shadow-lg font-mono">
-                              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                                <div className="space-y-0.5">
-                                  <span className="text-[10px] text-zinc-400 block tracking-[0.2em] uppercase font-semibold">
-                                    Protocol Check
-                                  </span>
-                                  <h3 className="text-sm sm:text-base font-light tracking-tight text-white uppercase font-geometric">
-                                    Daily Assessment
-                                  </h3>
-                                </div>
-                                <span className="text-[10px] px-3 py-1 rounded-full uppercase tracking-wider font-semibold bg-white/10 border border-white/15 text-white">
-                                  Day {currentDay.dayNumber}
-                                </span>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
-                                  Assessment Focus
-                                </span>
-                                <p className="text-xs text-zinc-300 font-light leading-relaxed p-3.5 rounded-xl bg-black/40 border border-white/10">
-                                  {currentDay.dailyAssessment ||
-                                    "Evaluate neuromuscular fatigue, joint comfort, and physical readiness for upcoming movement."}
-                                </p>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
-                                  Your Assessment Response
-                                </label>
-                                <textarea
-                                  rows={3}
-                                  disabled={currentDay.isPast2359}
-                                  value={
-                                    dayAssessments[currentDay.id] !== undefined
-                                      ? dayAssessments[currentDay.id]
-                                      : currentDay.userProgress?.assessmentResponse || ""
-                                  }
-                                  onChange={(e) => {
-                                    const text = e.target.value;
-                                    setDayAssessments((p) => ({ ...p, [currentDay.id]: text }));
-                                  }}
-                                  placeholder="Record assessment scores, sensations, or recovery observations..."
-                                  className="w-full p-3.5 rounded-xl bg-black/40 border border-white/10 text-xs font-light text-white leading-relaxed resize-none focus:outline-none focus:border-white/40 placeholder:text-zinc-600 font-mono"
-                                />
-                              </div>
-
-                              {!currentDay.isPast2359 && (
-                                <div className="flex justify-end pt-1">
-                                  <button
-                                    type="button"
-                                    disabled={isSavingProgress}
-                                    onClick={handleSaveAssessment}
-                                    className="px-5 py-2 rounded-full chrome-button text-[11px] font-semibold tracking-wider uppercase flex items-center gap-1.5 shadow-sm font-mono"
-                                  >
-                                    {isSavingProgress ? (
-                                      <>
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        <span>Saving...</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950" />
-                                        <span>Save Assessment</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Daily Reflection & Vitality Card */}
-                            <DailyReflectionCard
-                              dayNumber={currentDay.dayNumber}
-                              initialReflection={
-                                dayReflections[currentDay.id] !== undefined
-                                  ? dayReflections[currentDay.id]
-                                  : currentDay.userProgress?.dailyReflection || ""
-                              }
-                              initialHappinessRate={
-                                dayHappiness[currentDay.id] ||
-                                currentDay.userProgress?.happinessRate ||
-                                5
-                              }
-                              isPast2359={currentDay.isPast2359}
-                              onSaveReflection={handleSaveReflection}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Bottom Back Button */}
-                <div className="pt-6 border-t border-zinc-200/60 dark:border-white/10 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsViewingPlanDetail(false);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="px-6 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to Dashboard Overview</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <MyPlanOverview
+            program={
+              overviewEnrollment && currentProgram
+                ? {
+                    title: currentProgram.title,
+                    coachName: currentProgram.coachName,
+                    coverImage: currentProgram.coverImage || overviewEnrollment.coverImage || null,
+                    startDate: overviewEnrollment.startDate,
+                    endDate: overviewEnrollment.endDate,
+                    communityLink: overviewEnrollment.communityLink,
+                    totalDays: currentProgram.days.length,
+                  }
+                : null
+            }
+            plan={overviewPlan}
+            day={liveDay}
+            completedDays={currentProgram?.days.filter((d) => d.userProgress?.isCompleted).length || 0}
+            checklist={currentDay ? dayChecklists[currentDay.id] : undefined}
+            onExplore={() => {
+              setActiveTab("all_plan");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onToggleCheck={handleToggleChecklist}
+            onSaveSleep={handleSaveSleep}
+            onSaveMeal={handleSaveMeal}
+            onSaveReflection={handleSaveReflection}
+            onSaveAttendance={handleSaveEventFeedback}
+          />
         )}
 
         {/* TAB 2: EXPLORE PLAN */}
@@ -2150,12 +1625,9 @@ export function DashboardClient({
         {activeTab === "profile" && (
           <ProfileTab
             user={user}
+            health={healthProfile}
             headerVisible={isHeaderVisible}
             onLogout={handleSignOut}
-            onOpenHealthProfile={() => {
-              setIsProfileSidebarOpen(true);
-              setProfileActiveDetail("medical");
-            }}
             onDeleteAccount={() => setDeleteModalOpen(true)}
           />
         )}
@@ -3560,368 +3032,32 @@ export function DashboardClient({
         }
       />
 
-      {/* Program Detail Explanation Modal */}
       {detailedProgram && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/55 dark:bg-black/75 backdrop-blur-md animate-in fade-in duration-200 text-xs">
-          <div className="w-full max-w-xl glass-panel rounded-3xl flex flex-col max-h-[90vh] overflow-hidden shadow-2xl border border-white/70 dark:border-white/10">
-            {/* Modal Header with Full Background Image Header */}
-            <div className="relative h-44 w-full bg-zinc-900 overflow-hidden shrink-0">
-              <Image
-                src={detailedProgram.coverImage || "/image.jpg"}
-                alt={detailedProgram.title}
-                fill
-                className="object-cover scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
-
-              <button
-                type="button"
-                onClick={() => setDetailedProgram(null)}
-                className="absolute top-4 right-4 p-2 rounded-full glass-image-overlay text-white hover:bg-white/20 transition z-10"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="absolute bottom-4 left-5 right-5 text-white space-y-1">
-                <span className="px-2.5 py-0.5 rounded-full glass-image-overlay text-[10px] font-semibold uppercase tracking-wider">
-                  {detailedProgram.dayCount} Days Program
-                </span>
-                <h3 className="text-lg font-bold tracking-tight">
-                  {detailedProgram.title}
-                </h3>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
-              <div className="space-y-2">
-                <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                  Curriculum Overview
-                </span>
-                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
-                  {detailedProgram.description}
-                </p>
-                {detailedProgram.recommendedFor && (
-                  <div className="p-4 rounded-2xl glass-panel-subtle text-xs">
-                    <span className="text-micro uppercase tracking-wider font-semibold text-zinc-900 dark:text-white block mb-1">
-                      Recommended For:
-                    </span>
-                    <span className="text-zinc-600 dark:text-zinc-300 font-light">
-                      {detailedProgram.recommendedFor}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Program Schedule Details */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-4 rounded-2xl glass-panel-subtle space-y-1">
-                  <span className="text-micro uppercase tracking-wider text-zinc-400 block">
-                    Coach / Coaches
-                  </span>
-                  <strong className="font-medium text-zinc-900 dark:text-white">
-                    {detailedProgram.coachName}
-                  </strong>
-                </div>
-
-                <div className="p-4 rounded-2xl glass-panel-subtle space-y-1">
-                  <span className="text-micro uppercase tracking-wider text-zinc-400 block">
-                    Tuition Fee
-                  </span>
-                  <strong className="font-light text-zinc-900 dark:text-white">
-                    Rp {detailedProgram.price.toLocaleString("id-ID")}
-                  </strong>
-                </div>
-
-                <div className="p-4 rounded-2xl glass-panel-subtle space-y-1">
-                  <span className="text-micro uppercase tracking-wider text-zinc-400 block">
-                    Start Date
-                  </span>
-                  <strong className="font-medium text-zinc-900 dark:text-white">
-                    {new Date(detailedProgram.startDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </strong>
-                </div>
-
-                <div className="p-4 rounded-2xl glass-panel-subtle space-y-1">
-                  <span className="text-micro uppercase tracking-wider text-zinc-400 block">
-                    Seats Availability
-                  </span>
-                  <strong className="font-medium text-zinc-900 dark:text-white">
-                    {Math.max(0, detailedProgram.maxQuota - detailedProgram.enrolledCount)} of {detailedProgram.maxQuota} Spots Open
-                  </strong>
-                </div>
-              </div>
-
-              {/* Program Blueprint: Target State, Methodology, Benefits, References & Guidelines */}
-              {detailedProgram.targetState && (
-                <div className="space-y-2">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                    Target Physical, Mental &amp; Mind Condition
-                  </span>
-                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
-                    {detailedProgram.targetState}
-                  </div>
-                </div>
-              )}
-
-              {detailedProgram.methodology && (
-                <div className="space-y-2">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                    Objectives &amp; Methodology
-                  </span>
-                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
-                    {detailedProgram.methodology}
-                  </div>
-                </div>
-              )}
-
-              {detailedProgram.expectedBenefits && detailedProgram.expectedBenefits.length > 0 && (
-                <div className="space-y-2.5">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                    Expected Benefits &amp; Tangible Outcomes ({detailedProgram.expectedBenefits.length})
-                  </span>
-                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10">
-                    <ul className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-light">
-                      {detailedProgram.expectedBenefits.map((benefit, idx) => (
-                        <li key={idx} className="flex items-start gap-2.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-white shrink-0 mt-0.5" />
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {detailedProgram.scientificReferences && detailedProgram.scientificReferences.length > 0 && (
-                <div className="space-y-2.5">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                    Scientific References &amp; Clinical Basis ({detailedProgram.scientificReferences.length})
-                  </span>
-                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 font-mono">
-                    <ol className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed font-light">
-                      {detailedProgram.scientificReferences.map((ref, idx) => (
-                        <li key={idx} className="leading-snug">
-                          <span>{ref.title}</span>
-                          {ref.url && (
-                            <a
-                              href={ref.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 ml-2 text-zinc-900 dark:text-white underline hover:opacity-80"
-                            >
-                              <span>Source</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-
-              {detailedProgram.programGuidelines && detailedProgram.programGuidelines.length > 0 && (
-                <div className="space-y-2.5">
-                  <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                    Program Guidelines &amp; Daily Principles ({detailedProgram.programGuidelines.length})
-                  </span>
-                  <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10">
-                    <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed font-light">
-                      {detailedProgram.programGuidelines.map((guide, idx) => (
-                        <li key={idx} className="leading-snug">
-                          {guide}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-
-              {/* What Happens Daily */}
-              <div className="space-y-3">
-                <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                  Daily Protocol Cadence
-                </span>
-                <div className="space-y-2.5 font-mono">
-                  <div className="flex items-start gap-3 p-3.5 rounded-2xl glass-panel-subtle text-xs">
-                    <Clock className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="font-semibold text-zinc-900 dark:text-white block font-mono">
-                        00:00 Morning Session Unlock
-                      </strong>
-                      <span className="text-zinc-500 dark:text-zinc-400 text-xs font-light font-mono">
-                        New workout video & anti-inflammatory meal guide ready each day.
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3.5 rounded-2xl glass-panel-subtle text-xs">
-                    <CheckCircle className="w-4 h-4 text-zinc-300 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="font-semibold text-zinc-900 dark:text-white block font-mono">
-                        23:59 Daily Streak Cutoff
-                      </strong>
-                      <span className="text-zinc-500 dark:text-zinc-400 text-xs font-light font-mono">
-                        Mark your video watched and checklist complete before midnight.
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Program Terms & Conditions (Chapters & Sub-bab Clauses) */}
-              {(() => {
-                const chapters =
-                  detailedProgram.termsChapters && detailedProgram.termsChapters.length > 0
-                    ? detailedProgram.termsChapters
-                    : parseTermsChapters(detailedProgram.customTerms);
-                const hasValidChapters = chapters.some(
-                  (c) => c.chapter.trim() || c.clauses.some((cl) => cl.trim())
-                );
-                if (!hasValidChapters) return null;
-
-                return (
-                  <div className="space-y-3">
-                    <span className="text-micro uppercase tracking-[0.22em] font-semibold text-zinc-400 dark:text-zinc-500 block">
-                      Program Terms &amp; Conditions ({chapters.length} {chapters.length === 1 ? "Chapter" : "Chapters"})
-                    </span>
-                    <div className="space-y-3">
-                      {chapters.map((ch, cIdx) => (
-                        <div
-                          key={cIdx}
-                          className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/60 dark:border-white/10 space-y-2.5 font-mono"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                              Bab {cIdx + 1}
-                            </span>
-                            <h4 className="text-xs font-semibold text-zinc-900 dark:text-white">
-                              {ch.chapter || `Chapter ${cIdx + 1}`}
-                            </h4>
-                          </div>
-                          <ol className="space-y-1.5 pl-0.5 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-light">
-                            {ch.clauses.map((clause, clIdx) => (
-                              <li key={clIdx} className="flex items-start gap-2">
-                                <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500 shrink-0 select-none">
-                                  {cIdx + 1}.{clIdx + 1}
-                                </span>
-                                <span className="leading-snug">{clause}</span>
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Modal Footer Actions */}
-            <div className="p-5 border-t border-zinc-200/60 dark:border-white/10 flex items-center justify-between gap-3 bg-white/40 dark:bg-white/[0.02] font-mono">
-              <button
-                type="button"
-                onClick={() => setDetailedProgram(null)}
-                className="px-5 py-2.5 rounded-full glass-panel-subtle text-xs font-medium text-zinc-700 dark:text-zinc-300 font-mono"
-              >
-                Close
-              </button>
-
-              {(() => {
-                const enrolled = myPrograms.find((e) => e.programId === detailedProgram.id);
-                const isActive = enrolled?.status === "ACTIVE";
-                const isPending = enrolled?.status === "PENDING";
-                const publicBadge = resolvePublicBadge({
-                  status: detailedProgram.status,
-                  registrationOpenDate: detailedProgram.registrationOpenDate,
-                  registrationDeadline: detailedProgram.registrationDeadline,
-                  startDate: detailedProgram.startDate,
-                  endDate: detailedProgram.endDate,
-                  maxQuota: detailedProgram.maxQuota,
-                  enrolledCount: detailedProgram.enrolledCount,
-                }) || "Open Registration";
-
-                if (isActive) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedProgId(detailedProgram.id);
-                        setActiveDayIndex(0);
-                        setActiveTab("my_plan");
-                        setIsViewingPlanDetail(true);
-                        setDetailedProgram(null);
-                      }}
-                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2"
-                    >
-                      Open Daily Plan <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  );
-                }
-
-                if (isPending) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const progId = detailedProgram.id;
-                        setDetailedProgram(null);
-                        handleOpenQrisCheckout(progId);
-                      }}
-                      className="px-6 py-2.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-semibold tracking-wide flex items-center gap-2"
-                    >
-                      <QrCode className="w-3.5 h-3.5" /> Complete Payment
-                    </button>
-                  );
-                }
-
-                if (publicBadge === "Coming Soon") {
-                  return (
-                    <a
-                      href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Halo Concierge, saya ingin bergabung ke waitlist untuk program: ${detailedProgram.title}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2 transition font-mono shadow-md"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-zinc-400" /> Join Waitlist
-                    </a>
-                  );
-                }
-
-                if (publicBadge === "Open Registration") {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const progId = detailedProgram.id;
-                        setDetailedProgram(null);
-                        handleOpenQrisCheckout(progId);
-                      }}
-                      className="px-6 py-2.5 rounded-full chrome-button text-xs font-semibold tracking-wide flex items-center gap-2"
-                    >
-                      <QrCode className="w-3.5 h-3.5" /> Enroll Now (Rp {detailedProgram.price.toLocaleString("id-ID")})
-                    </button>
-                  );
-                }
-
-                return (
-                  <button
-                    type="button"
-                    disabled
-                    className="px-6 py-2.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 text-xs font-semibold tracking-wide cursor-not-allowed"
-                  >
-                    Registration Closed ({publicBadge})
-                  </button>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
+        <ProgramDetailView
+          program={detailedProgram}
+          enrollmentStatus={(() => {
+            const enrolled = myPrograms.find((e) => e.programId === detailedProgram.id);
+            return enrolled?.status === "ACTIVE" || enrolled?.status === "PENDING" ? enrolled.status : null;
+          })()}
+          onClose={() => setDetailedProgram(null)}
+          onOpenPlan={() => {
+            setSelectedProgId(detailedProgram.id);
+            const prog = myEnrolledPrograms.find((item) => item.id === detailedProgram.id);
+            const idx = prog ? prog.days.findIndex((day) => day.isCalendarUnlocked && !day.isPast2359) : -1;
+            setActiveDayIndex(idx >= 0 ? idx : 0);
+            setActiveTab("my_plan");
+            setIsViewingPlanDetail(false);
+            setDetailedProgram(null);
+            window.scrollTo({ top: 0 });
+          }}
+          onEnroll={() => {
+            const progId = detailedProgram.id;
+            setDetailedProgram(null);
+            handleOpenQrisCheckout(progId);
+          }}
+        />
       )}
+
     </div>
   );
 }

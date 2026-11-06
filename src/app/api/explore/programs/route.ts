@@ -25,6 +25,10 @@ interface ExploreProgramItem {
   badge: string;
   canEnroll: boolean;
   enrollmentStatus: "ACTIVE" | "PENDING" | null;
+  difficultyLevel: string;
+  category: string;
+  recommendedFor: string;
+  dailyCommitment: string | null;
 }
 
 const PUBLISHED_STATUSES = ["PUBLISH", "PUBLISHED", "ACTIVE"];
@@ -101,6 +105,10 @@ export async function GET(req: NextRequest) {
           badge,
           canEnroll: getPublicBadgeMeta(badge as Parameters<typeof getPublicBadgeMeta>[0]).canEnroll,
           enrollmentStatus,
+          difficultyLevel: p.difficultyLevel,
+          category: p.category,
+          recommendedFor: p.recommendedFor,
+          dailyCommitment: p.dailyCommitment,
         };
       });
 
