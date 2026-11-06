@@ -73,7 +73,7 @@ export function ProgramDetailView({
   program,
   enrollmentStatus,
   onClose,
-  onOpenPlan,
+  onOpenPlan: _onOpenPlan,
   onEnroll,
 }: {
   program: DetailProgram;
@@ -82,6 +82,7 @@ export function ProgramDetailView({
   onOpenPlan: () => void;
   onEnroll: () => void;
 }) {
+  void _onOpenPlan;
   const badge =
     resolvePublicBadge({
       status: program.status,
@@ -98,6 +99,7 @@ export function ProgramDetailView({
   const sessions = program.days.filter((d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY");
   const hasVideo = program.days.some((d) => d.videoUrl);
   const community = safeHttpUrl(program.communityLink);
+  const enrolled = enrollmentStatus === "ACTIVE";
   const onsite = program.locationType !== "ONLINE";
   const activities = [
     training ? `${training} training days` : null,
@@ -107,14 +109,8 @@ export function ProgramDetailView({
     hasVideo ? "Learning videos" : null,
   ].filter(Boolean) as string[];
 
-  let action: React.ReactNode;
-  if (enrollmentStatus === "ACTIVE") {
-    action = (
-      <button type="button" onClick={onOpenPlan} className="px-6 py-3 rounded-full bg-white text-zinc-950 text-sm font-semibold">
-        Continue Program
-      </button>
-    );
-  } else if (enrollmentStatus === "PENDING" || badge === "Open Registration") {
+  let action: React.ReactNode = null;
+  if (enrollmentStatus === "PENDING" || (!enrolled && badge === "Open Registration")) {
     action = (
       <button type="button" onClick={onEnroll} className="px-6 py-3 rounded-full bg-white text-zinc-950 text-sm font-semibold">
         {enrollmentStatus === "PENDING" ? "Complete Payment" : program.price > 0 ? "Enroll Now" : "Join Program"}
@@ -153,7 +149,7 @@ export function ProgramDetailView({
               <span className="px-2 py-1 rounded-full bg-white/15">{formatLabel(program.locationType)}</span>
               <span className="px-2 py-1 rounded-full bg-white/15">{intensityLabel(program.difficultyLevel)}</span>
               <span className="px-2 py-1 rounded-full bg-white/15">{program.durationDays || program.dayCount} days</span>
-              <span className="px-2 py-1 rounded-full bg-white/15">{program.price > 0 ? formatIdr(program.price) : "Free"}</span>
+              {!enrolled && <span className="px-2 py-1 rounded-full bg-white/15">{program.price > 0 ? formatIdr(program.price) : "Free"}</span>}
             </div>
             <h1 className="text-2xl font-medium tracking-tight">{program.title}</h1>
           </div>
@@ -167,7 +163,7 @@ export function ProgramDetailView({
               ["Format", formatLabel(program.locationType)],
               ["Intensity", intensityLabel(program.difficultyLevel)],
               ["Coach", program.coachTitle ? `${program.coachName} · ${program.coachTitle}` : program.coachName],
-              ["Price", program.price > 0 ? formatIdr(program.price) : "Free"],
+              enrolled ? null : ["Price", program.price > 0 ? formatIdr(program.price) : "Free"],
               onsite ? ["Location", program.city || program.venueAddress || "Onsite"] : null,
             ]
               .filter(Boolean)
@@ -252,15 +248,17 @@ export function ProgramDetailView({
           )}
         </div>
       </div>
-      <div className="fixed bottom-0 inset-x-0 z-[61] border-t border-white/10 bg-zinc-950 text-white">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-white/60">{badge}</p>
-            <p className="text-sm font-semibold">{program.price > 0 ? formatIdr(program.price) : "Free"}</p>
+      {!enrolled && (
+        <div className="fixed bottom-0 inset-x-0 z-[61] border-t border-white/10 bg-zinc-950 text-white">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-white/60">{badge}</p>
+              <p className="text-sm font-semibold">{program.price > 0 ? formatIdr(program.price) : "Free"}</p>
+            </div>
+            {action}
           </div>
-          {action}
         </div>
-      </div>
+      )}
     </div>
   );
 }

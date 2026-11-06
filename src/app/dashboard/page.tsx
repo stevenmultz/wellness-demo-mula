@@ -252,7 +252,10 @@ export default async function DashboardPage() {
 
         const isFullyCompleted =
           !!progRecord?.isCompleted ||
-          (videoDone && checklistDone && (checklistItems.length === 0 || completedChecklist.length > 0));
+          (!!progRecord &&
+            videoDone &&
+            checklistDone &&
+            (checklistItems.length === 0 || completedChecklist.length > 0));
 
         // SOW 5.3 Skip Day Logic:
         // Automatically recorded as "Skipped Day" if user has not completed both workout video & daily assessment checklist by 23:59 on that day

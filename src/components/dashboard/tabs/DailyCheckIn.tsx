@@ -8,17 +8,13 @@ import {
   Check,
   ExternalLink,
   Frown,
-  History,
   Laugh,
   Loader2,
   Meh,
-  Pencil,
   Smile,
-  X,
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
-import { formatDateWib } from "./shared";
 import type { PlanDay } from "./MyPlanTab";
 
 type SaveResult = Promise<void | boolean>;
@@ -41,7 +37,12 @@ export interface DailyCheckInProps {
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
 }
 
-const STEP_TITLES = ["Sleep Tracking", "Daily Training", "Meal Recommendation", "Daily Reflection"] as const;
+const TASKS = [
+  { title: "Sleep", description: "Fill in your sleep schedule and sleep quality." },
+  { title: "Daily Routine", description: "Complete your daily training and routine." },
+  { title: "Meal", description: "Fill in your daily meal and nutrition information." },
+  { title: "Reflection", description: "Complete your daily reflection." },
+] as const;
 
 const FACES = [
   { score: 1, Icon: Angry, label: "Very unsatisfied" },
@@ -140,28 +141,6 @@ function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<st
   });
 }
 
-function answersOf(day: PlanDay, activities: string[], checks: string[]) {
-  const progress = day.userProgress;
-  const bed = progress?.bedtime || "";
-  const wake = progress?.wakeTime || "";
-  const meal = readMealDraft(progress?.mealCompliance, progress?.mealNotes);
-  const checked = activities.filter((name) =>
-    checks.some((c) => c === name || c.toLowerCase().includes(name.toLowerCase()))
-  );
-  return [
-    { label: "Sleep Duration", value: bed && wake ? formatDuration(sleepMinutes(bed, wake)) : "—" },
-    {
-      label: "Training Status",
-      value: progress?.isCompleted || progress?.videoWatched || checked.length ? "Completed" : "—",
-    },
-    { label: "Meal", value: meal.followed === true ? "Followed" : meal.followed === false ? meal.actual || "Own meal" : "—" },
-    {
-      label: "Satisfaction",
-      value: progress?.happinessRate ? `${Math.min(5, progress.happinessRate)}/5` : "—",
-    },
-  ];
-}
-
 function TaskForm({
   day,
   locked,
@@ -169,7 +148,6 @@ function TaskForm({
   checks,
   step,
   onAdvance,
-  onBack,
   onCloseEdit,
   props,
 }: {
@@ -179,7 +157,6 @@ function TaskForm({
   checks: string[];
   step: number;
   onAdvance: () => void;
-  onBack: () => void;
   onCloseEdit?: () => void;
   props: DailyCheckInProps;
 }) {
@@ -308,14 +285,9 @@ function TaskForm({
   };
 
   return (
-    <div key={step} className="task-shift space-y-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">{STEP_TITLES[step]}</h3>
-        <span className="text-[11px] tabular-nums text-zinc-400">{step + 1}/4</span>
-      </div>
-
+    <div key={step} className="space-y-4">
       {step === 0 && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 max-w-[17rem]">
           <label className="block text-[11px] text-zinc-500">
             Bedtime
             <input type="time" value={bed} disabled={locked} onChange={(e) => setBed(e.target.value)} className={`${fieldCls} mt-1`} />
@@ -510,16 +482,7 @@ function TaskForm({
         </p>
       )}
 
-      <div className="flex items-center justify-between">
-        {onCloseEdit ? (
-          <button type="button" onClick={onCloseEdit} className={ghostBtn}>
-            Cancel
-          </button>
-        ) : (
-          <button type="button" disabled={step === 0 || busy} onClick={onBack} className={ghostBtn}>
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </button>
-        )}
+      <div className="flex items-center justify-end">
         <button type="button" disabled={locked || busy || !valid[step] || photoBusy !== null} onClick={next} className={primaryBtn}>
           {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
           {onCloseEdit ? "Save" : step === 3 ? "Complete" : "Save"}
@@ -531,173 +494,128 @@ function TaskForm({
 }
 
 export function DailyCheckIn(props: DailyCheckInProps) {
-  const { day, locked, activities, checks, initialDone, pastDays } = props;
+  const { day, locked, activities, checks, initialDone } = props;
   const [done, setDone] = useState<boolean[]>([...initialDone]);
   const initialKey = initialDone.join(",");
   useEffect(() => {
-    setDone((prev) => prev.map((v, i) => v || initialDone[i]));
+    setDone(initialDone);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
-  const firstOpen = done.findIndex((d) => !d);
-  const [step, setStep] = useState(firstOpen === -1 ? 3 : firstOpen);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const [edit, setEdit] = useState<{ day: PlanDay; step: number } | null>(null);
+  const firstOpen = done.findIndex((item) => !item);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [focusStep, setFocusStep] = useState(0);
 
-  const allDone = done.every(Boolean);
-  const behind = STEP_TITLES.map((title, i) => ({ title, i })).filter((s) => s.i > step && !allDone);
-
-  const advance = () => {
-    setDone((prev) => prev.map((v, i) => (i === step ? true : v)));
-    setStep((current) => Math.min(3, current + 1));
+  const openDetail = (step: number) => {
+    setFocusStep(step);
+    setDetailOpen(true);
   };
 
-  const summary = answersOf(day, activities, checks);
+  useEffect(() => {
+    if (!detailOpen) return;
+    const node = document.getElementById(`daily-task-${focusStep}`);
+    node?.scrollIntoView({ block: "start" });
+  }, [detailOpen, focusStep]);
+
+  const markDone = (step: number) => {
+    setDone((prev) => prev.map((item, index) => (index === step ? true : item)));
+  };
 
   return (
     <section className="space-y-3">
-      <style>{`
-        @keyframes task-shift { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-        .task-shift { animation: task-shift .28s ease both; }
-        @media (prefers-reduced-motion: reduce) { .task-shift { animation: none; } }
-      `}</style>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold tracking-tight">Daily Task</h2>
-        <button type="button" onClick={() => setHistoryOpen(true)} className={ghostBtn}>
-          <History className="w-3.5 h-3.5" /> History
+        <button type="button" onClick={() => openDetail(Math.max(0, firstOpen))} className={ghostBtn}>
+          Daily Task Detail
         </button>
       </div>
 
-      <div className="relative" style={{ paddingBottom: behind.length ? 28 : 0 }}>
-        {behind.map((item, index) => (
-          <div
-            key={item.title}
-            aria-hidden
-            className="absolute inset-x-0 h-11 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900 pointer-events-none"
-            style={{ bottom: index * 8, zIndex: behind.length - index, transform: `scale(${1 - (behind.length - index) * 0.015})` }}
-          >
-            <span className="absolute left-4 bottom-2 text-[11px] text-zinc-400">{item.title}</span>
-          </div>
-        ))}
+      <ol className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] divide-y divide-zinc-100 dark:divide-white/10">
+        {TASKS.map((task, index) => {
+          const completed = done[index];
+          const active = !completed && index === firstOpen;
+          const taskLocked = locked || (!completed && !active);
+          return (
+            <li
+              key={task.title}
+              className={`px-3.5 py-3 flex items-center gap-3 ${active ? "bg-zinc-50 dark:bg-white/5" : ""} ${taskLocked && !completed ? "opacity-55" : ""}`}
+            >
+              <span
+                className={`w-6 h-6 rounded-full border text-[11px] font-semibold inline-flex items-center justify-center shrink-0 ${
+                  completed
+                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
+                    : active
+                      ? "border-zinc-950 text-zinc-950 dark:border-white dark:text-white"
+                      : "border-zinc-300 text-zinc-400"
+                }`}
+                aria-hidden
+              >
+                {completed ? <Check className="w-3.5 h-3.5" /> : index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{task.title}</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">{task.description}</p>
+              </div>
+              {completed ? (
+                <span className="text-[11px] font-semibold text-zinc-500 shrink-0">Completed</span>
+              ) : (
+                <button type="button" disabled={taskLocked} onClick={() => openDetail(index)} className={primaryBtn}>
+                  Do Task
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
 
-        <div className="relative z-10 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4">
-          {allDone ? (
-            <div className="space-y-3 task-shift">
-              <p className="text-sm font-medium">Daily task completed</p>
-              <dl className="divide-y divide-zinc-100 dark:divide-white/10">
-                {summary.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <dt className="text-zinc-500">{row.label}</dt>
-                    <dd className="font-medium text-right truncate">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ) : (
-            <TaskForm
-              key={`${day.id}-${step}`}
-              day={day}
-              locked={locked}
-              activities={activities}
-              checks={checks}
-              step={step}
-              onAdvance={advance}
-              onBack={() => setStep((current) => Math.max(0, current - 1))}
-              props={props}
-            />
-          )}
-        </div>
-      </div>
-
-      {historyOpen &&
+      {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
-            <button type="button" aria-label="Close history" className="absolute inset-0 bg-black/40" onClick={() => { setHistoryOpen(false); setEdit(null); setDetailId(null); }} />
-            <div className="relative w-full sm:max-w-md max-h-[86vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{edit ? STEP_TITLES[edit.step] : "History"}</h3>
-                <button type="button" aria-label="Close" onClick={() => { setHistoryOpen(false); setEdit(null); }} className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center">
-                  <X className="w-3.5 h-3.5" />
+          <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#f6f6f4] dark:bg-[#0e0e0e]">
+            <div className="max-w-lg mx-auto px-4 pt-4 pb-16 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">Daily Task Detail</h2>
+                <button type="button" onClick={() => setDetailOpen(false)} className={ghostBtn}>
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back
                 </button>
               </div>
-              {edit ? (
-                <TaskForm
-                  day={edit.day}
-                  locked={false}
-                  activities={activitiesFor(edit.day)}
-                  checks={checksFor(edit.day)}
-                  step={edit.step}
-                  onAdvance={() => setEdit(null)}
-                  onBack={() => setEdit(null)}
-                  onCloseEdit={() => setEdit(null)}
-                  props={props}
-                />
-              ) : pastDays.length === 0 ? (
-                <p className="text-sm text-zinc-500 py-6 text-center">No saved daily tasks yet.</p>
-              ) : (
-                <ul className="divide-y divide-zinc-100 dark:divide-white/10">
-                  {pastDays.map((past) => {
-                    const open = detailId === past.id;
-                    const rows = answersOf(past, activitiesFor(past), checksFor(past));
-                    return (
-                      <li key={past.id} className="py-2.5">
-                        <button type="button" onClick={() => setDetailId(open ? null : past.id)} className="w-full flex items-center justify-between text-left">
-                          <span className="text-sm">Day {past.dayNumber}</span>
-                          <span className="text-[11px] text-zinc-500">{formatDateWib(past.unlockDate)}</span>
-                        </button>
-                        {open && (
-                          <dl className="mt-2 space-y-1.5">
-                            {rows.map((row, i) => (
-                              <div key={row.label} className="flex items-center justify-between gap-2 text-sm">
-                                <dt className="text-zinc-500">{row.label}</dt>
-                                <dd className="flex items-center gap-2 font-medium">
-                                  <span className="truncate max-w-[140px]">{row.value}</span>
-                                  <button type="button" aria-label={`Edit ${row.label}`} onClick={() => setEdit({ day: past, step: i })} className="text-zinc-400">
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                </dd>
-                              </div>
-                            ))}
-                            {past.userProgress?.dailyReflection && (
-                              <p className="text-xs text-zinc-500 pt-1">{past.userProgress.dailyReflection}</p>
-                            )}
-                          </dl>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              {TASKS.map((task, index) => {
+                const completed = done[index];
+                const active = !completed && index === firstOpen;
+                const taskLocked = locked || (!completed && !active);
+                return (
+                  <section
+                    key={task.title}
+                    id={`daily-task-${index}`}
+                    className={`rounded-2xl border bg-white dark:bg-[#141414] p-4 space-y-3 ${
+                      active ? "border-zinc-950 dark:border-white" : "border-zinc-200 dark:border-white/10"
+                    } ${taskLocked ? "opacity-70" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold">{task.title}</h3>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">{task.description}</p>
+                      </div>
+                      <span className="text-[11px] font-semibold text-zinc-500 shrink-0">
+                        {completed ? "Completed" : active ? "Active" : "Locked"}
+                      </span>
+                    </div>
+                    <TaskForm
+                      day={day}
+                      locked={taskLocked}
+                      activities={activities}
+                      checks={checks}
+                      step={index}
+                      onAdvance={() => markDone(index)}
+                      props={props}
+                    />
+                  </section>
+                );
+              })}
             </div>
           </div>,
           document.body
         )}
     </section>
   );
-}
-
-function activitiesFor(day: PlanDay): string[] {
-  if (day.dayType === "REST_DAY") {
-    return (day.restInstructions || "")
-      .split(/\n|•|·/)
-      .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
-      .filter((line) => line.length > 1);
-  }
-  if (day.dayType !== "TRAINING_DAY") return [];
-  const groups = parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist);
-  const selected = day.userProgress?.selectedWorkout || groups[0]?.optionName;
-  const group = groups.find((g) => g.optionName === selected) || groups[0];
-  return (group?.movements || []).map((m) => m.name);
-}
-
-function checksFor(day: PlanDay): string[] {
-  if (!day.userProgress?.checklistCompleted) return [];
-  try {
-    const parsed = JSON.parse(day.userProgress.checklistCompleted);
-    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
 }

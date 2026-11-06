@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckCircle2, ChevronDown, Compass, ExternalLink, Info } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
@@ -179,20 +179,6 @@ function movementNames(day: PlanDay): string[] {
   return (day.videoChecklist || []).map((item) => item.split("=")[0].trim()).filter(Boolean);
 }
 
-function useDeadline(deadlineMs: number | null) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 30000);
-    return () => window.clearInterval(id);
-  }, []);
-  if (!deadlineMs) return { closed: false, label: "No submission window today" };
-  const diff = deadlineMs - now;
-  if (diff <= 0) return { closed: true, label: "Submission closed" };
-  const hours = Math.floor(diff / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours >= 1) return { closed: false, label: `Submission closes in ${hours} hour${hours === 1 ? "" : "s"}` };
-  return { closed: false, label: `Submission closes in ${Math.max(1, mins)} min` };
-}
 
 function Bar({ value }: { value: number }) {
   return (
@@ -284,8 +270,6 @@ export function MyPlanOverview({
 
   const totalProgramDays = program?.totalDays || 0;
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
-  const deadlineMs = day?.unlockDate ? new Date(day.unlockDate).getTime() + 24 * 60 * 60 * 1000 - 1000 : null;
-  const deadline = useDeadline(day?.isPast2359 ? Date.now() - 1000 : deadlineMs);
   const locked = !day || !day.isCalendarUnlocked || day.isPast2359;
   const community = safeHttpUrl(program?.communityLink);
 
@@ -306,9 +290,7 @@ export function MyPlanOverview({
                 {program?.title || "No active program"}
               </h2>
               {program && (
-                <p className="mt-1 text-xs text-white/80 truncate">
-                  {program.coachName || "—"} · {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
-                </p>
+                <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
               )}
             </div>
             {program && (
@@ -338,19 +320,42 @@ export function MyPlanOverview({
       ) : (
         <>
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium">
-                {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                <span className="text-zinc-500 font-normal"> / {totalProgramDays}</span>
-              </p>
-              <p className="text-[11px] text-zinc-500">{day ? schedule.label : "Closed"}</p>
-            </div>
-            <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
-              <div><dt className="text-zinc-500">Completed</dt><dd className="font-medium tabular-nums">{stats.completed}</dd></div>
-              <div><dt className="text-zinc-500">Skipped</dt><dd className="font-medium tabular-nums">{stats.skipped}</dd></div>
-              <div><dt className="text-zinc-500">Remaining</dt><dd className="font-medium tabular-nums">{stats.remaining}</dd></div>
+            <h2 className="text-sm font-semibold">Program Progress</h2>
+            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <dt className="text-[11px] text-zinc-500">Completed Day</dt>
+                <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.completed}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">Skipped Day</dt>
+                <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.skipped}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">Remaining Day</dt>
+                <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.remaining}</dd>
+              </div>
             </dl>
-            {day && <p className="mt-2 text-[11px] text-zinc-400">{deadline.label}</p>}
+            <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 dark:border-white/10 pt-3 text-sm">
+              <div>
+                <dt className="text-[11px] text-zinc-500">Start Date</dt>
+                <dd className="mt-0.5 font-medium">{formatDateWib(program.startDate)}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">End Date</dt>
+                <dd className="mt-0.5 font-medium">{formatDateWib(program.endDate)}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-4">
+            <p className="text-xl font-medium tracking-tight tabular-nums">
+              {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+              <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
+            </p>
+            <p className="mt-1 text-xs font-semibold tracking-[0.18em] text-zinc-950 dark:text-white">
+              {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">Daily Reset: 00:00 WIB (UTC+7)</p>
           </section>
 
           {day ? (

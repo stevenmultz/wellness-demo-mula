@@ -1466,7 +1466,9 @@ export function DashboardClient({
   };
 
   const completedDaysCount =
-    currentProgram?.days?.filter((d) => d.userProgress?.isCompleted).length || 0;
+    currentProgram?.days?.filter(
+      (d) => !!d.userProgress?.isCompleted || (d.isPast2359 && !d.isSkipped)
+    ).length || 0;
   const skippedDaysCount =
     currentProgram?.days?.filter((d) => d.isSkipped && !d.userProgress?.isCompleted).length || 0;
   const totalDays = currentProgram?.days?.length || 0;
