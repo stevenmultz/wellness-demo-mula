@@ -41,6 +41,18 @@ const STEPS = [
   { title: "Daily Review", description: "Reflect on your day in a few words.", Icon: Smile },
 ] as const;
 
+const glassCls =
+  "relative overflow-hidden rounded-[28px] bg-gradient-to-br from-white/80 via-white/50 to-zinc-200/60 dark:from-white/10 dark:via-white/5 dark:to-white/[0.02] backdrop-blur-xl border border-white/70 dark:border-white/15 shadow-lg shadow-zinc-900/5 p-5 sm:p-6 space-y-5";
+
+function Blobs() {
+  return (
+    <>
+      <div aria-hidden className="pointer-events-none absolute -top-20 -left-16 w-60 h-60 rounded-full bg-zinc-400/25 dark:bg-white/10 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-24 -right-12 w-64 h-64 rounded-full bg-zinc-900/10 dark:bg-white/5 blur-3xl" />
+    </>
+  );
+}
+
 const fieldCls =
   "w-full px-3.5 py-3 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-500 disabled:opacity-50";
 const primaryBtn =
@@ -372,9 +384,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       score ? `Mood ${score}/10 · ${review.trim().slice(0, 48)}${review.trim().length > 48 ? "…" : ""}` : "—",
     ];
     return (
-      <section className="rounded-[28px] bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 p-5 sm:p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <span className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+      <section className={glassCls}>
+        <Blobs />
+        <div className="relative flex items-center gap-3">
+          <span className="w-11 h-11 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center">
             <CheckCircle2 className="w-6 h-6" />
           </span>
           <div>
@@ -382,7 +395,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             <p className="text-xs text-zinc-500">All 4 tasks for Day {day.dayNumber} are submitted. See you tomorrow.</p>
           </div>
         </div>
-        <ul className="divide-y divide-zinc-100 dark:divide-white/10">
+        <ul className="relative divide-y divide-zinc-900/10 dark:divide-white/10">
           {STEPS.map((s, i) => (
             <li key={s.title} className="py-3 flex items-center gap-3">
               <s.Icon className="w-4 h-4 text-zinc-400 shrink-0" />
@@ -414,7 +427,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const lastStep = step === STEPS.length - 1;
 
   return (
-    <section className="rounded-[28px] bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 p-5 sm:p-6 space-y-5 overflow-hidden">
+    <section className={glassCls}>
+      <Blobs />
       <style>{`
         @keyframes ci-in-fwd { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
         @keyframes ci-in-back { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
@@ -424,7 +438,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       `}</style>
 
       {/* step indicator */}
-      <div className="space-y-2.5">
+      <div className="relative space-y-2.5">
         <div className="flex items-center justify-between">
           <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-500">Daily check-in</p>
           <p className="text-[11px] font-semibold text-zinc-500 tabular-nums">
@@ -444,7 +458,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   aria-label={`Step ${i + 1}: ${s.title}`}
                   aria-current={i === step ? "step" : undefined}
                   className={`block w-full h-1.5 rounded-full transition-colors ${
-                    i === step ? "bg-zinc-950 dark:bg-white" : done[i] ? "bg-emerald-500" : "bg-zinc-200 dark:bg-white/15"
+                    i === step ? "bg-zinc-950 dark:bg-white" : done[i] ? "bg-zinc-500" : "bg-zinc-200 dark:bg-white/15"
                   }`}
                 />
               </li>
@@ -456,7 +470,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </p>
       </div>
 
-      <div key={`${step}-${editing}`} className={dir === "fwd" ? "ci-fwd space-y-5" : "ci-back space-y-5"}>
+      <div key={`${step}-${editing}`} className={`relative ${dir === "fwd" ? "ci-fwd" : "ci-back"} space-y-5`}>
         <div>
           <h3 className="text-xl font-medium text-zinc-950 dark:text-white flex items-center gap-2">
             <meta.Icon className="w-5 h-5 text-zinc-500" /> {meta.title}

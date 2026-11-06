@@ -288,10 +288,10 @@ export function MyPlanOverview({
   const community = safeHttpUrl(program?.communityLink);
 
   const segmentCls: Record<PlanStats["segments"][number], string> = {
-    done: "bg-emerald-500",
-    today: "bg-zinc-950 dark:bg-white",
-    skipped: "bg-rose-300 dark:bg-rose-400/60",
-    upcoming: "bg-zinc-200 dark:bg-white/10",
+    done: "bg-white",
+    today: "bg-white/55 animate-pulse",
+    skipped: "bg-white/25",
+    upcoming: "bg-white/10",
   };
 
   return (
@@ -347,17 +347,18 @@ export function MyPlanOverview({
       ) : (
         <>
           {/* Section 2 — Training day & progress */}
-          <section className="rounded-[28px] bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 p-5 sm:p-6 space-y-6">
+          <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-zinc-900 via-zinc-800 to-black dark:from-zinc-700 dark:via-zinc-800 dark:to-zinc-950 border border-zinc-800 dark:border-white/15 shadow-xl shadow-zinc-900/20 p-5 sm:p-6 space-y-6 text-white">
+            <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 w-56 h-56 rounded-full bg-white/10 blur-3xl" />
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-5xl font-extralight tracking-tight tabular-nums text-zinc-950 dark:text-white leading-none">
+                <p className="relative text-5xl font-extralight tracking-tight tabular-nums text-white leading-none">
                   {currentDayNumber > 0 ? `Day ${String(currentDayNumber).padStart(2, "0")}` : "—"}
                 </p>
-                <p className="mt-2 text-xs text-zinc-500 uppercase tracking-[0.2em]">
+                <p className="mt-2 text-xs text-white/60 uppercase tracking-[0.2em]">
                   {day ? schedule.label : currentDayNumber > 0 ? "Session closed" : "Not started"}
                 </p>
               </div>
-              <p className="text-[11px] text-zinc-400 tabular-nums pb-1">of {totalProgramDays} days</p>
+              <p className="relative text-[11px] text-white/45 tabular-nums pb-1">of {totalProgramDays} days</p>
             </div>
 
             <div
@@ -366,26 +367,26 @@ export function MyPlanOverview({
               aria-valuemax={totalProgramDays}
               aria-valuenow={stats.completed}
               aria-label="Program progress"
-              className="flex gap-[2px] h-2"
+              className="relative flex gap-[2px] h-2"
             >
               {stats.segments.map((s, i) => (
                 <span key={i} className={`flex-1 rounded-full ${segmentCls[s]}`} />
               ))}
             </div>
 
-            <dl className="grid grid-cols-3 text-center divide-x divide-zinc-100 dark:divide-white/10">
+            <dl className="relative grid grid-cols-3 text-center divide-x divide-white/10 rounded-2xl bg-white/5 backdrop-blur border border-white/10 py-4">
               {[
                 ["Days completed", stats.completed],
                 ["Days skipped", stats.skipped],
                 ["Days remaining", stats.remaining],
               ].map(([label, value]) => (
                 <div key={label} className="px-2">
-                  <dd className="text-3xl font-light tabular-nums text-zinc-950 dark:text-white">{value}</dd>
-                  <dt className="mt-1 text-[10px] uppercase tracking-wider text-zinc-400">{label}</dt>
+                  <dd className="text-3xl font-light tabular-nums text-white">{value}</dd>
+                  <dt className="mt-1 text-[10px] uppercase tracking-wider text-white/45">{label}</dt>
                 </div>
               ))}
             </dl>
-            {day && <p className="text-[11px] text-zinc-400 text-center">{deadline.label}</p>}
+            {day && <p className="relative text-[11px] text-white/45 text-center">{deadline.label}</p>}
           </section>
 
           {/* Section 3 — Daily tasks (guided check-in) */}
@@ -409,8 +410,8 @@ export function MyPlanOverview({
             <EmptyState title="No tasks today" description="There is no open session for today in this program." />
           )}
 
-          <section className="rounded-[28px] bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 p-4 sm:p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+          <section className="rounded-[28px] bg-gradient-to-br from-zinc-200 via-zinc-100 to-zinc-300 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800 border border-zinc-300/70 dark:border-white/10 p-4 sm:p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/70 dark:bg-white/10 backdrop-blur flex items-center justify-center shrink-0">
               <Users className="w-6 h-6 text-zinc-700 dark:text-zinc-200" />
             </div>
             <div className="min-w-0 flex-1">

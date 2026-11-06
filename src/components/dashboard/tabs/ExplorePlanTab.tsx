@@ -427,7 +427,7 @@ export function ExplorePlanTab({
                   }}
                   className="flex-1 px-4 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
                 >
-                  Apply · {catalog.filter((p) => matches(p, draft)).length} result{catalog.filter((p) => matches(p, draft)).length === 1 ? "" : "s"}
+                  Apply Â· {catalog.filter((p) => matches(p, draft)).length} result{catalog.filter((p) => matches(p, draft)).length === 1 ? "" : "s"}
                 </button>
               </div>
             </div>
