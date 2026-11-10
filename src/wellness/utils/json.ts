@@ -514,6 +514,36 @@ export function parseWorkoutOptionGroups(
     }
   }
 
+  if (groupOrder.length <= 1 && safeOptions.length === 0) {
+    const existingMoves = groupMap.get(groupOrder[0] || "Workout") || [];
+    return [
+      {
+        optionName: "Option A: Kinetic Pilates & Mat",
+        movements: existingMoves.length > 0 ? existingMoves : [
+          { name: "Hundred Prep Flow", target: "15 reps" },
+          { name: "Single Leg Stretch Sequence", target: "12 reps" },
+          { name: "Scapular Alignment Wall Slide", target: "10 reps" },
+        ],
+      },
+      {
+        optionName: "Option B: Deep Fascial Mobility",
+        movements: [
+          { name: "Thoracic Spine Wave", target: "12 reps" },
+          { name: "90/90 Hip Capsule Release", target: "10 reps" },
+          { name: "Psoas Decompression Hold", target: "45 secs" },
+        ],
+      },
+      {
+        optionName: "Option C: Core & Postural Power",
+        movements: [
+          { name: "Deadbug Contralateral Control", target: "12 reps" },
+          { name: "Bird Dog Isometric Alignment", target: "10 reps" },
+          { name: "Low Plank Tension Hold", target: "45 secs" },
+        ],
+      },
+    ];
+  }
+
   return groupOrder.map((optName) => {
     const moves = groupMap.get(optName) || [];
     return {
