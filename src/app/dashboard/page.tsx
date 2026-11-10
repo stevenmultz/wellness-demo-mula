@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
+import { BmsLogoLoading } from "@/components/common/BmsLogoLoading";
 import {
   safeJsonParse,
   parseTermsList,
@@ -345,17 +346,7 @@ export default async function DashboardPage() {
       };
 
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] p-4 sm:p-8 space-y-6" role="status" aria-label="Loading member sanctuary">
-          <div className="max-w-5xl mx-auto h-14 rounded-2xl skeleton-block" />
-          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2 h-72 rounded-3xl skeleton-block" />
-            <div className="h-72 rounded-3xl skeleton-block" />
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<BmsLogoLoading />}>
       <DashboardClient
         user={user}
         myPrograms={myPrograms}

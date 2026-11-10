@@ -61,6 +61,11 @@ interface LandingClientProps {
     dayCount: number;
     termsList?: string[];
   }>;
+  coaches?: Array<{
+    id: string;
+    name: string;
+    title: string;
+  }>;
 }
 
 const COACH_PROFILES = [
@@ -84,6 +89,8 @@ const COACH_PROFILES = [
   },
 ];
 
+const COACH_FALLBACK_IMAGES = ["/coach.jpg", "/coach2.jpg", "/coach3.jpg", "/coach.jpg"];
+
 const BRAND_PARTNERS = [
   { name: "AESOP", category: "Botanical Partner" },
   { name: "ALO", category: "Movement Gear" },
@@ -93,7 +100,7 @@ const BRAND_PARTNERS = [
   { name: "KINFOLK", category: "Editorial" },
 ];
 
-export function LandingClient({ sessionUser, programs }: LandingClientProps) {
+export function LandingClient({ sessionUser, programs, coaches }: LandingClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -102,6 +109,16 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
   const [activeCohortIdx, setActiveCohortIdx] = useState(0);
 
   const displayCohorts = programs.slice(0, 6);
+
+  const displayCoaches =
+    coaches && coaches.length > 0
+      ? coaches.map((c, idx) => ({
+          name: c.name,
+          role: c.title || "Specialist Faculty",
+          specialty: c.title || "Movement & Protocol",
+          image: COACH_FALLBACK_IMAGES[idx % COACH_FALLBACK_IMAGES.length],
+        }))
+      : COACH_PROFILES;
 
   const handleNextCohort = () => {
     if (displayCohorts.length === 0) return;
@@ -605,7 +622,7 @@ export function LandingClient({ sessionUser, programs }: LandingClientProps) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {COACH_PROFILES.map((coach, idx) => (
+            {displayCoaches.map((coach, idx) => (
               <div
                 key={idx}
                 className="relative rounded-2xl overflow-hidden min-h-[290px] p-4 flex flex-col justify-between group border border-zinc-200 dark:border-white/10 shadow-sm"

@@ -52,8 +52,29 @@ function PushHeader({ visible }: { visible: boolean }) {
   );
 }
 
-export function NotificationsHistoryTab({ headerVisible }: { headerVisible: boolean }) {
-  const [section, setSection] = useState<Section>("notifications");
+export interface CompletedProgramItem {
+  programId: string;
+  title: string;
+  coachName: string;
+  coachTitle?: string | null;
+  coverImage?: string | null;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
+  dayCount?: number;
+}
+
+export function NotificationsHistoryTab({
+  headerVisible,
+  completedPrograms = [],
+  onOpenProgramDetail,
+  initialSection = "notifications",
+}: {
+  headerVisible: boolean;
+  completedPrograms?: CompletedProgramItem[];
+  onOpenProgramDetail?: (programId: string) => void;
+  initialSection?: Section;
+}) {
+  const [section, setSection] = useState<Section>(initialSection);
   const [notifs, setNotifs] = useState<Loadable<{ items: InboxNotification[]; unreadCount: number }>>({ status: "loading" });
   const [history, setHistory] = useState<Loadable<HistoryPayload>>({ status: "loading" });
   const [markingAll, setMarkingAll] = useState(false);
@@ -200,9 +221,56 @@ export function NotificationsHistoryTab({ headerVisible }: { headerVisible: bool
         <section className="space-y-2">
           {history.status === "loading" && <LoadingState label="Loading history..." />}
           {history.status === "error" && <ErrorState message={history.message} onRetry={loadHistory} />}
-          {notifs.status === "ready" && history.status === "ready" && notes.length === 0 && history.data.payments.length === 0 && history.data.activities.length === 0 && (
-            <EmptyState title="No history yet" description="Earlier updates and payments will stay here." />
+          {notifs.status === "ready" && history.status === "ready" && completedPrograms.length === 0 && notes.length === 0 && history.data.payments.length === 0 && history.data.activities.length === 0 && (
+            <EmptyState title="No history yet" description="Earlier updates, completed programs, and payments will stay here." />
           )}
+
+          {completedPrograms.length > 0 && (
+            <div className="space-y-2 mb-3">
+              <div className="px-1 flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-zinc-500">
+                  Completed Programs ({completedPrograms.length})
+                </span>
+              </div>
+              {completedPrograms.map((cp) => (
+                <article
+                  key={cp.programId}
+                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5 bg-white dark:bg-[#141414] space-y-2 transition-all hover:border-zinc-400 dark:hover:border-white/20"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">
+                        Completed
+                      </span>
+                      <h4 className="text-sm font-semibold truncate text-zinc-900 dark:text-white">
+                        {cp.title}
+                      </h4>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Coach {cp.coachName}
+                      </p>
+                    </div>
+                    {cp.endDate && (
+                      <span className="text-[10px] font-mono text-zinc-400 shrink-0">
+                        {new Date(cp.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                  {onOpenProgramDetail && (
+                    <div className="pt-1 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onOpenProgramDetail(cp.programId)}
+                        className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white uppercase tracking-wider"
+                      >
+                        View Details &rarr;
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+
           {notes.filter((n) => n.isRead).map((n) => (
             <article key={n.id} className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5">
               <p className="text-sm">{n.title}</p>

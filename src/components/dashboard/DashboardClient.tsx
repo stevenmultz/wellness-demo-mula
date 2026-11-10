@@ -311,12 +311,40 @@ export function DashboardClient({
     .filter((p) => !enrolledProgramIds.has(p.id) || myEnrolledPrograms.length === 0)
     .slice(0, 3);
 
-  const activeEnrollment = myPrograms.find((e) => e.status === "ACTIVE") || myPrograms[0];
-  const defaultProgramId = activeEnrollment?.programId || myEnrolledPrograms[0]?.id || "";
+  const isCohortEnded = (startDate?: string | Date | null, endDate?: string | Date | null, dayCount?: number) => {
+    const n = new Date();
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return n.getTime() > end.getTime();
+    }
+    if (startDate && dayCount) {
+      const end = new Date(startDate);
+      end.setDate(end.getDate() + dayCount);
+      end.setHours(23, 59, 59, 999);
+      return n.getTime() > end.getTime();
+    }
+    return false;
+  };
+
+  const isCohortUpcoming = (startDate?: string | Date | null) => {
+    if (!startDate) return false;
+    const n = new Date();
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    return n.getTime() < start.getTime();
+  };
+
+  const allActiveEnrollments = myPrograms.filter((e) => e.status === "ACTIVE");
+  const ongoingOrUpcomingEnrollment = allActiveEnrollments.find(
+    (e) => !isCohortEnded(e.startDate, e.endDate, e.dayCount)
+  );
+  const defaultProgramId = ongoingOrUpcomingEnrollment?.programId || allActiveEnrollments[0]?.programId || "";
   const [selectedProgId, setSelectedProgId] = useState<string>(defaultProgramId);
 
   const initialProg =
     myEnrolledPrograms.find((p) => p.id === defaultProgramId) ||
+    myEnrolledPrograms.find((p) => !isCohortEnded(p.startDate, p.endDate, p.dayCount)) ||
     myEnrolledPrograms[0] ||
     null;
   const initialTodayIdx = initialProg
@@ -1504,8 +1532,15 @@ export function DashboardClient({
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  // My Plan tab: only plans the user actually holds (ACTIVE enrollments)
-  const activeEnrollments = myPrograms.filter((e) => e.status === "ACTIVE");
+  // Separate completed/ended cohorts from active/upcoming cohorts
+  const completedEnrollments = allActiveEnrollments.filter((e) =>
+    isCohortEnded(e.startDate, e.endDate, e.dayCount)
+  );
+
+  // My Plan tab: strictly contains active ongoing or upcoming programs (completed are archived in History)
+  const activeEnrollments = allActiveEnrollments.filter(
+    (e) => !isCohortEnded(e.startDate, e.endDate, e.dayCount)
+  );
   const planOptions = activeEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
   const overviewEnrollment =
     activeEnrollments.find((e) => e.programId === selectedProgId) || activeEnrollments[0] || null;
@@ -1611,11 +1646,18 @@ export function DashboardClient({
                 ? {
                     title: currentProgram.title,
                     coachName: currentProgram.coachName,
+                    coachTitle: currentProgram.coachTitle,
+                    category: currentProgram.category,
+                    description: currentProgram.description,
+                    locationType: currentProgram.locationType,
+                    city: currentProgram.city,
+                    durationDays: currentProgram.durationDays,
                     coverImage: currentProgram.coverImage || overviewEnrollment.coverImage || null,
                     startDate: overviewEnrollment.startDate,
                     endDate: overviewEnrollment.endDate,
                     communityLink: overviewEnrollment.communityLink,
-                    totalDays: currentProgram.days.length,
+                    totalDays: currentProgram.days.length || currentProgram.durationDays || 0,
+                    isUpcoming: isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
                   }
                 : null
             }
@@ -1649,6 +1691,10 @@ export function DashboardClient({
               setActiveTab("all_plan");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
+            onViewHistory={() => {
+              setActiveTab("notifications");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             onToggleCheck={handleToggleChecklist}
             onSaveSleep={handleSaveSleep}
             onSaveMeal={handleSaveMeal}
@@ -1678,7 +1724,24 @@ export function DashboardClient({
         )}
 
         {/* TAB 3: NOTIFICATION & HISTORY */}
-        {activeTab === "notifications" && <NotificationsHistoryTab headerVisible={isHeaderVisible} />}
+        {activeTab === "notifications" && (
+          <NotificationsHistoryTab
+            headerVisible={isHeaderVisible}
+            completedPrograms={completedEnrollments.map((e) => ({
+              programId: e.programId,
+              title: e.title,
+              coachName: e.coachName,
+              coverImage: e.coverImage,
+              startDate: e.startDate,
+              endDate: e.endDate,
+              dayCount: e.dayCount,
+            }))}
+            onOpenProgramDetail={(progId) => {
+              const prog = allPrograms.find((p) => p.id === progId);
+              if (prog) setDetailedProgram(prog);
+            }}
+          />
+        )}
 
         {/* TAB 4: PROFILE & SETTINGS */}
         {activeTab === "profile" && (

@@ -39,6 +39,37 @@ export async function wellnessGetMasterData(): Promise<{
       ]);
 
     // Provide fallback defaults in memory if tables are unseeded (pure read, no database mutation side-effects)
+    const effectiveCoaches =
+      coaches.length > 0
+        ? coaches
+        : [
+            { id: "mc-1", name: "Marcus Vance", title: "Movement & Mobility Lead" },
+            { id: "mc-2", name: "Elena Rostova", title: "Nutrition & Longevity Director" },
+            { id: "mc-3", name: "Julian Thorne", title: "Breathwork & Recovery Lead" },
+            { id: "mc-4", name: "Dr. Maya Lin", title: "Sleep & Circadian Specialist" },
+          ];
+
+    const effectiveCategories =
+      categories.length > 0
+        ? categories
+        : [
+            { id: "cat-1", name: "Pilates" },
+            { id: "cat-2", name: "Strength & Conditioning" },
+            { id: "cat-3", name: "Mobility & Recovery" },
+            { id: "cat-4", name: "Breathwork & Mindfulness" },
+            { id: "cat-5", name: "Holistic Longevity" },
+          ];
+
+    const effectiveAudiences =
+      targetAudiences.length > 0
+        ? targetAudiences
+        : [
+            { id: "ta-1", name: "Beginner Friendly" },
+            { id: "ta-2", name: "Intermediate Practitioners" },
+            { id: "ta-3", name: "Desk Workers & Sedentary" },
+            { id: "ta-4", name: "Athletes & High Performers" },
+          ];
+
     const effectiveEquipment =
       equipment.length > 0
         ? equipment
@@ -64,7 +95,13 @@ export async function wellnessGetMasterData(): Promise<{
 
     return {
       success: true,
-      data: { coaches, targetAudiences, categories, equipment: effectiveEquipment, dailyCommitments: effectiveCommitments },
+      data: {
+        coaches: effectiveCoaches,
+        targetAudiences: effectiveAudiences,
+        categories: effectiveCategories,
+        equipment: effectiveEquipment,
+        dailyCommitments: effectiveCommitments,
+      },
     };
   } catch (error) {
     console.error("Failed to fetch master data:", error);

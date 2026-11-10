@@ -3,6 +3,7 @@ import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { LandingClient } from "@/components/home/LandingClient";
 import { parseTermsList } from "@/wellness/utils/json";
+import { BmsLogoLoading } from "@/components/common/BmsLogoLoading";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default async function HomePage() {
   const sessionUser = await getWellnessSession();
 
   // Optimized parallel queries with resilient fallback if database is unreachable
-  const [programs, userEnrollments] = await Promise.all([
+  const [programs, userEnrollments, masterCoaches] = await Promise.all([
     prisma.program
       .findMany({
         where: {
@@ -47,6 +48,11 @@ export default async function HomePage() {
           })
           .catch(() => [])
       : Promise.resolve([]),
+    prisma.masterCoach
+      .findMany({
+        orderBy: { name: "asc" },
+      })
+      .catch(() => []),
   ]);
 
   const userActiveProgramIds = new Set(userEnrollments.map((e) => e.programId));
@@ -93,18 +99,18 @@ export default async function HomePage() {
     };
   });
 
+  const coaches = masterCoaches.map((c) => ({
+    id: c.id,
+    name: c.name,
+    title: c.title,
+  }));
+
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] p-6 space-y-6" role="status" aria-label="Loading sanctuary">
-          <div className="max-w-4xl mx-auto h-12 rounded-full skeleton-block" />
-          <div className="max-w-4xl mx-auto h-[65vh] rounded-3xl skeleton-block" />
-        </div>
-      }
-    >
+    <Suspense fallback={<BmsLogoLoading />}>
       <LandingClient
         sessionUser={sessionUser}
         programs={formattedPrograms}
+        coaches={coaches}
       />
     </Suspense>
   );
