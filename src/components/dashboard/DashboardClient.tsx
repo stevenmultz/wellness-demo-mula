@@ -1685,6 +1685,7 @@ export function DashboardClient({
             onUploadPhoto={handleUploadPhoto}
             onSaveWorkoutNotes={handleSaveWorkoutNotes}
             historyDays={historyDays}
+            allProgramDays={(currentProgram?.days || []).map(overlayDay)}
             checklist={currentDay ? dayChecklists[currentDay.id] : undefined}
             onSelectWorkout={handleSelectWorkout}
             onOpenVideo={handleOpenVideo}

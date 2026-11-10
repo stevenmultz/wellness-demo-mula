@@ -242,6 +242,7 @@ export function MyPlanOverview({
   stats,
   checklist,
   historyDays,
+  allProgramDays,
   onExplore,
   onViewHistory,
   onOpenDetails,
@@ -265,6 +266,7 @@ export function MyPlanOverview({
   onViewHistory?: () => void;
   onOpenDetails: () => void;
   historyDays: PlanDay[];
+  allProgramDays?: PlanDay[];
   onToggleCheck: (task: string, dayId: string) => Promise<void> | void;
   onSelectWorkout: (workout: string, dayId: string) => Promise<void | boolean>;
   onOpenVideo: (dayId: string) => Promise<void | boolean>;
@@ -421,6 +423,7 @@ export function MyPlanOverview({
               key={day.id}
               day={day}
               pastDays={historyDays}
+              allProgramDays={allProgramDays}
               locked={locked}
               activities={activities}
               checks={checks}

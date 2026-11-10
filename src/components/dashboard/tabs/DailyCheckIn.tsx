@@ -5,15 +5,22 @@ import { createPortal } from "react-dom";
 import {
   Angry,
   ArrowLeft,
+  CalendarDays,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Dumbbell,
   ExternalLink,
   Frown,
   Laugh,
-  ListTodo,
   Loader2,
   Lock,
   Meh,
+  Moon,
   Smile,
+  Sparkles,
+  Utensils,
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
@@ -24,6 +31,7 @@ type SaveResult = Promise<void | boolean>;
 export interface DailyCheckInProps {
   day: PlanDay;
   pastDays: PlanDay[];
+  allProgramDays?: PlanDay[];
   locked: boolean;
   activities: string[];
   checks: string[];
@@ -633,6 +641,362 @@ function TaskForm({
   );
 }
 
+
+function formatDayDate(unlockDate: string | undefined, dayNumber: number): string {
+  if (!unlockDate) return `Day ${dayNumber}`;
+  const d = new Date(unlockDate);
+  if (isNaN(d.getTime())) return `Day ${dayNumber}`;
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getDayStatus(d: PlanDay, isToday: boolean) {
+  if (d.userProgress?.isCompleted) {
+    return {
+      label: "Completed",
+      cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40",
+      icon: Check,
+    };
+  }
+  const hasSomeLogs = !!(
+    d.userProgress?.bedtime ||
+    d.userProgress?.selectedWorkout ||
+    d.userProgress?.checklistCompleted ||
+    d.userProgress?.mealCompliance ||
+    d.userProgress?.dailyReflection ||
+    d.userProgress?.photoBeforeUrl
+  );
+  if (isToday) {
+    return {
+      label: hasSomeLogs ? "In Progress" : "Active Today",
+      cls: "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white",
+      icon: Clock,
+    };
+  }
+  if (hasSomeLogs) {
+    return {
+      label: "Partial Log",
+      cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
+      icon: Clock,
+    };
+  }
+  if (d.isPast2359) {
+    return {
+      label: "Skipped",
+      cls: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-white/10 dark:text-zinc-400 dark:border-white/10",
+      icon: null,
+    };
+  }
+  return {
+    label: "Upcoming",
+    cls: "bg-zinc-100 text-zinc-400 border-zinc-200 dark:bg-white/5 dark:text-zinc-500 dark:border-white/10",
+    icon: Lock,
+  };
+}
+
+function DayHistoryItem({
+  day,
+  isToday,
+  isExpanded,
+  onToggle,
+  onOpenTodayTask,
+}: {
+  day: PlanDay;
+  isToday: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onOpenTodayTask?: () => void;
+}) {
+  const p = day.userProgress;
+  const isCompleted = !!p?.isCompleted;
+  const status = getDayStatus(day, isToday);
+  const StatusIcon = status.icon;
+  const dateLabel = formatDayDate(day.unlockDate, day.dayNumber);
+
+  const groups = useMemo(
+    () => parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist),
+    [day.workoutOptions, day.videoChecklist]
+  );
+  const selectedWorkoutName = p?.selectedWorkout || groups[0]?.optionName;
+  const activeGroup = groups.find((g) => g.optionName === selectedWorkoutName) || groups[0];
+  const movements = activeGroup?.movements || [];
+
+  const checkedMovements = useMemo(() => {
+    if (!p?.checklistCompleted) return [];
+    try {
+      const arr = JSON.parse(p.checklistCompleted);
+      return Array.isArray(arr) ? (arr.filter((x) => typeof x === "string") as string[]) : [];
+    } catch {
+      return [];
+    }
+  }, [p?.checklistCompleted]);
+
+  const durationMins = p?.bedtime && p?.wakeTime ? sleepMinutes(p.bedtime, p.wakeTime) : 0;
+  const faceInfo = p?.happinessRate ? FACES.find((f) => f.score === p.happinessRate) : null;
+  const FaceIcon = faceInfo?.Icon;
+
+  return (
+    <div
+      className={`rounded-2xl border transition overflow-hidden ${
+        isToday
+          ? "border-zinc-950 dark:border-white bg-white dark:bg-[#141414] shadow-sm"
+          : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414]"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition select-none"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className={`w-9 h-9 rounded-xl border flex flex-col items-center justify-center shrink-0 ${
+              isCompleted
+                ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
+                : isToday
+                  ? "border-zinc-950 dark:border-white text-zinc-950 dark:text-white font-bold"
+                  : "border-zinc-200 dark:border-white/15 text-zinc-500 bg-zinc-50 dark:bg-white/5"
+            }`}
+          >
+            <span className="text-[9px] font-mono leading-none uppercase">Day</span>
+            <span className="text-xs font-bold leading-none mt-0.5">{day.dayNumber}</span>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
+                {dateLabel}
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
+                {day.dayType === "REST_DAY"
+                  ? "Rest"
+                  : day.dayType === "CONNECT_DAY" || day.dayType === "MEETUP_DAY"
+                    ? "Connect"
+                    : "Training"}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 truncate mt-0.5">{day.title}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border inline-flex items-center gap-1 ${status.cls}`}
+          >
+            {StatusIcon && <StatusIcon className="w-3 h-3" />}
+            <span>{status.label}</span>
+          </span>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-zinc-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-zinc-400" />
+          )}
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="p-4 pt-1 border-t border-zinc-100 dark:border-white/10 space-y-3.5 bg-zinc-50/50 dark:bg-white/[0.02]">
+          {/* SLEEP */}
+          <div className="p-3 rounded-xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#161616] space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 dark:text-white">
+              <span className="inline-flex items-center gap-1.5">
+                <Moon className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Sleep Protocol</span>
+              </span>
+              {durationMins > 0 && (
+                <span className="text-[11px] font-mono text-zinc-500">{formatDuration(durationMins)}</span>
+              )}
+            </div>
+            {p?.bedtime && p?.wakeTime ? (
+              <div className="grid grid-cols-2 gap-2 pt-1 text-xs font-mono">
+                <div className="p-2 rounded-lg bg-zinc-50 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5">
+                  <span className="text-[10px] uppercase text-zinc-400 block">Bedtime</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{p.bedtime}</span>
+                </div>
+                <div className="p-2 rounded-lg bg-zinc-50 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5">
+                  <span className="text-[10px] uppercase text-zinc-400 block">Wake Time</span>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">{p.wakeTime}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-400 italic">No sleep record logged for this day.</p>
+            )}
+          </div>
+
+          {/* MOVEMENT & ROUTINE */}
+          <div className="p-3 rounded-xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#161616] space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 dark:text-white">
+              <span className="inline-flex items-center gap-1.5">
+                <Dumbbell className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Movement & Routine</span>
+              </span>
+              {movements.length > 0 && (
+                <span className="text-[11px] font-mono text-zinc-500">
+                  {movements.filter((m) => checkedMovements.includes(m.name)).length}/{movements.length} done
+                </span>
+              )}
+            </div>
+
+            {day.dayType === "TRAINING_DAY" ? (
+              <div className="space-y-2 text-xs">
+                {selectedWorkoutName && (
+                  <div className="p-2 rounded-lg bg-zinc-50 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5">
+                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Routine Variation</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedWorkoutName}</span>
+                  </div>
+                )}
+
+                {movements.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Exercise Checklist:</span>
+                    <div className="divide-y divide-zinc-100 dark:divide-white/5 rounded-lg border border-zinc-200/60 dark:border-white/10 overflow-hidden bg-white dark:bg-white/[0.02]">
+                      {movements.map((m) => {
+                        const isDone = checkedMovements.includes(m.name);
+                        return (
+                          <div
+                            key={m.name}
+                            className="px-2.5 py-1.5 flex items-center justify-between text-xs gap-2"
+                          >
+                            <span
+                              className={`flex items-center gap-2 ${
+                                isDone ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-800 dark:text-zinc-200"
+                              }`}
+                            >
+                              <span
+                                className={`w-3.5 h-3.5 rounded border inline-flex items-center justify-center shrink-0 ${
+                                  isDone
+                                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
+                                    : "border-zinc-300"
+                                }`}
+                              >
+                                {isDone && <Check className="w-2.5 h-2.5" />}
+                              </span>
+                              <span>{m.name}</span>
+                            </span>
+                            {m.target && (
+                              <span className="text-[10px] font-mono text-zinc-400">{m.target}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {(p?.photoBeforeUrl || p?.photoAfterUrl) && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {p.photoBeforeUrl && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-mono uppercase text-zinc-400 block">Before Photo</span>
+                        <a href={p.photoBeforeUrl} target="_blank" rel="noopener noreferrer" className="block relative aspect-video rounded-lg overflow-hidden border border-zinc-200 dark:border-white/10 bg-zinc-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.photoBeforeUrl} alt="Before workout" className="w-full h-full object-cover" />
+                        </a>
+                      </div>
+                    )}
+                    {p.photoAfterUrl && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-mono uppercase text-zinc-400 block">After Photo</span>
+                        <a href={p.photoAfterUrl} target="_blank" rel="noopener noreferrer" className="block relative aspect-video rounded-lg overflow-hidden border border-zinc-200 dark:border-white/10 bg-zinc-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.photoAfterUrl} alt="After workout" className="w-full h-full object-cover" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {p?.workoutNotes && (
+                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5">
+                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Workout Notes</span>
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 whitespace-pre-wrap">{p.workoutNotes}</p>
+                  </div>
+                )}
+
+                {!selectedWorkoutName && checkedMovements.length === 0 && !p?.workoutNotes && !p?.photoBeforeUrl && (
+                  <p className="text-xs text-zinc-400 italic">No movement recorded for this day.</p>
+                )}
+              </div>
+            ) : day.dayType === "REST_DAY" ? (
+              <div className="space-y-1 text-xs">
+                <p className="text-zinc-600 dark:text-zinc-400">
+                  {day.restInstructions || "Rest and restorative recovery."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1 text-xs">
+                <p className="text-zinc-600 dark:text-zinc-400">
+                  {day.eventTitle || "Community Connect Session"}
+                </p>
+                {p?.eventFeedback && (
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 italic">{p.eventFeedback}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* NUTRITION & MEAL */}
+          <div className="p-3 rounded-xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#161616] space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 dark:text-white">
+              <span className="inline-flex items-center gap-1.5">
+                <Utensils className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Nutrition & Meal</span>
+              </span>
+              {p?.mealCompliance && (
+                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
+                  {p.mealCompliance === "YES" ? "Followed Protocol" : "Custom Meal"}
+                </span>
+              )}
+            </div>
+            {p?.mealNotes ? (
+              <p className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{p.mealNotes}</p>
+            ) : p?.mealCompliance ? (
+              <p className="text-xs text-zinc-500">Meal guidelines completed without additional notes.</p>
+            ) : (
+              <p className="text-xs text-zinc-400 italic">No meal log recorded for this day.</p>
+            )}
+          </div>
+
+          {/* REFLECTION */}
+          <div className="p-3 rounded-xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#161616] space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 dark:text-white">
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Daily Reflection</span>
+              </span>
+              {faceInfo && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+                  {FaceIcon && <FaceIcon className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />}
+                  <span>{faceInfo.label}</span>
+                </span>
+              )}
+            </div>
+            {p?.dailyReflection ? (
+              <p className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{p.dailyReflection}</p>
+            ) : (
+              <p className="text-xs text-zinc-400 italic">No reflection recorded for this day.</p>
+            )}
+          </div>
+
+          {isToday && !day.userProgress?.isCompleted && onOpenTodayTask && (
+            <button
+              type="button"
+              onClick={onOpenTodayTask}
+              className="w-full mt-2 h-9 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm"
+            >
+              <span>Continue Today&apos;s Tasks</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DailyCheckIn(props: DailyCheckInProps) {
   const { day, locked, activities, checks, initialDone } = props;
   const [done, setDone] = useState<boolean[]>([...initialDone]);
@@ -643,9 +1007,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   }, [initialKey]);
 
   const [detailOpen, setDetailOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [expandedDayId, setExpandedDayId] = useState<string | null>(day.id);
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+
+  const programDays = useMemo(() => {
+    const list =
+      props.allProgramDays && props.allProgramDays.length > 0
+        ? props.allProgramDays
+        : props.pastDays && props.pastDays.length > 0
+          ? props.pastDays
+          : [day];
+    return [...list].sort((a, b) => a.dayNumber - b.dayNumber);
+  }, [props.allProgramDays, props.pastDays, day]);
+
+  const totalCompleted = programDays.filter((d) => d.userProgress?.isCompleted).length;
 
   const openDetail = (index: number) => {
     setStep(index);
@@ -674,11 +1052,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
         <button
           type="button"
-          aria-label="View Tasks Overview"
-          onClick={() => openDetail(0)}
-          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+          aria-label="View Program Calendar and History"
+          onClick={() => {
+            setExpandedDayId(day.id);
+            setHistoryOpen(true);
+          }}
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
         >
-          <ListTodo className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
+          <CalendarDays className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
         </button>
       </div>
 
@@ -766,8 +1147,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         createPortal(
           <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
             <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-12 space-y-4">
-              {/* TOP HEADER: Back button on the LEFT, Task Category on the RIGHT (NO INDEX NUMBER) */}
-              <div className="flex items-center justify-between gap-3">
+              {/* TOP HEADER: Back button on the LEFT (NO INDEX NUMBER, NO TOP-RIGHT LABEL) */}
+              <div className="flex items-center justify-start">
                 <button
                   type="button"
                   onClick={() => setDetailOpen(false)}
@@ -776,9 +1157,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
-                <span className="text-xs font-mono font-bold tracking-[0.2em] text-zinc-500 dark:text-zinc-400 uppercase">
-                  {currentTask.category}
-                </span>
               </div>
 
               {/* TASK CARD */}
@@ -875,6 +1253,74 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   {completing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Submit & Lock</span>
                 </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* PROGRAM HISTORY & CALENDAR FULL-SCREEN MODAL */}
+      {historyOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
+            <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-12 space-y-4">
+              {/* TOP HEADER */}
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(false)}
+                  className="h-9 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back</span>
+                </button>
+                <span className="text-xs font-mono font-bold tracking-[0.15em] text-zinc-500 dark:text-zinc-400 uppercase">
+                  Schedule & History
+                </span>
+              </div>
+
+              {/* OVERVIEW SUMMARY BANNER */}
+              <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] shadow-sm space-y-2">
+                <h2 className="text-base font-semibold text-zinc-950 dark:text-white">
+                  Program Schedule & History
+                </h2>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Browse each calendar day of your cohort to inspect your logged activities, workouts, meals, and reflections.
+                </p>
+                <div className="flex items-center gap-4 pt-2 border-t border-zinc-100 dark:border-white/10 text-xs font-mono">
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Total Days</span>
+                    <span className="text-zinc-900 dark:text-zinc-100 font-semibold">{programDays.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Completed</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{totalCompleted}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-400 block text-[10px] uppercase">Active Today</span>
+                    <span className="text-zinc-900 dark:text-zinc-100 font-semibold">Day {day.dayNumber}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CALENDAR DAYS LIST */}
+              <div className="space-y-2.5">
+                {programDays.map((d) => (
+                  <DayHistoryItem
+                    key={d.id}
+                    day={d}
+                    isToday={d.id === day.id}
+                    isExpanded={expandedDayId === d.id}
+                    onToggle={() =>
+                      setExpandedDayId((prev) => (prev === d.id ? null : d.id))
+                    }
+                    onOpenTodayTask={() => {
+                      setHistoryOpen(false);
+                      openDetail(0);
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>,
