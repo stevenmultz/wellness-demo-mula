@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
 
     const [programs, enrollments] = await Promise.all([
       prisma.program.findMany({
+        take: 100, // Enforce maximum upper boundary to prevent unbounded query memory spikes
         where: {
           status: { in: PUBLISHED_STATUSES },
           ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),

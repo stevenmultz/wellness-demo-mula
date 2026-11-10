@@ -38,50 +38,33 @@ export async function wellnessGetMasterData(): Promise<{
         prisma.masterDailyCommitment.findMany({ orderBy: { name: "asc" } }),
       ]);
 
-    // Auto-seed defaults if equipment table is empty
-    if (equipment.length === 0) {
-      const defaultEquipments = [
-        "No Equipment",
-        "Yoga Mat",
-        "Resistance Bands",
-        "Light Dumbbells",
-        "Pilates Foam Roller",
-        "Pilates Ball",
-      ];
-      for (const name of defaultEquipments) {
-        await prisma.masterEquipment.upsert({
-          where: { name },
-          update: {},
-          create: { name },
-        });
-      }
-      equipment = await prisma.masterEquipment.findMany({ orderBy: { name: "asc" } });
-    }
+    // Provide fallback defaults in memory if tables are unseeded (pure read, no database mutation side-effects)
+    const effectiveEquipment =
+      equipment.length > 0
+        ? equipment
+        : [
+            { id: "eq-1", name: "No Equipment" },
+            { id: "eq-2", name: "Yoga Mat" },
+            { id: "eq-3", name: "Resistance Bands" },
+            { id: "eq-4", name: "Light Dumbbells" },
+            { id: "eq-5", name: "Pilates Foam Roller" },
+            { id: "eq-6", name: "Pilates Ball" },
+          ];
 
-    // Auto-seed defaults if daily commitments table is empty
-    if (dailyCommitments.length === 0) {
-      const defaultCommitments = [
-        "10 - 15 Mins / Day",
-        "15 - 20 Mins / Day",
-        "20 - 30 Mins / Day",
-        "30 - 45 Mins / Day",
-        "45 - 60 Mins / Day",
-      ];
-      for (const name of defaultCommitments) {
-        await prisma.masterDailyCommitment.upsert({
-          where: { name },
-          update: {},
-          create: { name },
-        });
-      }
-      dailyCommitments = await prisma.masterDailyCommitment.findMany({
-        orderBy: { name: "asc" },
-      });
-    }
+    const effectiveCommitments =
+      dailyCommitments.length > 0
+        ? dailyCommitments
+        : [
+            { id: "dc-1", name: "10 - 15 Mins / Day" },
+            { id: "dc-2", name: "15 - 20 Mins / Day" },
+            { id: "dc-3", name: "20 - 30 Mins / Day" },
+            { id: "dc-4", name: "30 - 45 Mins / Day" },
+            { id: "dc-5", name: "45 - 60 Mins / Day" },
+          ];
 
     return {
       success: true,
-      data: { coaches, targetAudiences, categories, equipment, dailyCommitments },
+      data: { coaches, targetAudiences, categories, equipment: effectiveEquipment, dailyCommitments: effectiveCommitments },
     };
   } catch (error) {
     console.error("Failed to fetch master data:", error);

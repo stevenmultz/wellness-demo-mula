@@ -76,8 +76,8 @@ function ResetPasswordForm() {
       )}
 
       {successMsg && (
-        <div className="flex items-start gap-2.5 p-3.5 text-xs rounded-2xl bg-white/10 border border-white/20 text-zinc-900 dark:text-white font-mono">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-zinc-300 mt-0.5" />
+        <div className="flex items-start gap-2.5 p-3.5 text-xs rounded-2xl bg-zinc-900/5 dark:bg-white/10 border border-zinc-300 dark:border-white/20 text-zinc-900 dark:text-white font-mono">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-zinc-900 dark:text-zinc-200 mt-0.5" />
           <p className="leading-relaxed">{successMsg}</p>
         </div>
       )}
@@ -113,6 +113,7 @@ function ResetPasswordForm() {
               />
               <button
                 type="button"
+                aria-label={peekNewPassword ? "Hide new password" : "Show new password"}
                 onClick={() => setPeekNewPassword(!peekNewPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition"
               >
@@ -138,6 +139,7 @@ function ResetPasswordForm() {
               />
               <button
                 type="button"
+                aria-label={peekConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                 onClick={() => setPeekConfirmPassword(!peekConfirmPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition"
               >
@@ -182,7 +184,22 @@ export default function ResetPasswordPage() {
       <div className="absolute top-5 right-5 z-20">
         <ThemeToggle />
       </div>
-      <Suspense fallback={<div className="text-xs text-zinc-500">Loading...</div>}>
+      <Suspense
+        fallback={
+          <div className="w-full max-w-md glass-panel rounded-3xl p-8 space-y-5" role="status" aria-label="Loading password reset form">
+            <div className="w-10 h-10 rounded-xl skeleton-block mx-auto" />
+            <div className="space-y-2">
+              <div className="h-5 w-40 skeleton-block mx-auto" />
+              <div className="h-3.5 w-56 skeleton-block mx-auto" />
+            </div>
+            <div className="space-y-3 pt-2">
+              <div className="h-10 w-full skeleton-block" />
+              <div className="h-10 w-full skeleton-block" />
+              <div className="h-10 w-full skeleton-block" />
+            </div>
+          </div>
+        }
+      >
         <ResetPasswordForm />
       </Suspense>
     </div>

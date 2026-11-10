@@ -9,14 +9,12 @@ import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegis
 const urbanist = Urbanist({
   subsets: ["latin"],
   variable: "--font-geometric",
-  weight: ["100", "200", "300", "400", "500", "600", "700"],
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
-  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -33,8 +31,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f4f8" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
   ],
   width: "device-width",
   initialScale: 1,

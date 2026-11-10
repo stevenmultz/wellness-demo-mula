@@ -82,7 +82,14 @@ function percent(values: unknown[]) {
 function Banner({ msg }: { msg: Msg }) {
   if (!msg) return null;
   return (
-    <p role={msg.type === "error" ? "alert" : "status"} className={`text-xs px-3 py-2 rounded-xl ${msg.type === "error" ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"}`}>
+    <p
+      role={msg.type === "error" ? "alert" : "status"}
+      className={`text-xs px-3.5 py-2.5 rounded-xl border font-mono ${
+        msg.type === "error"
+          ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/40"
+          : "bg-zinc-900/5 text-zinc-900 border-zinc-300 dark:bg-white/10 dark:text-zinc-100 dark:border-white/20"
+      }`}
+    >
       {msg.text}
     </p>
   );

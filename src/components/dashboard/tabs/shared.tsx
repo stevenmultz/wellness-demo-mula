@@ -100,10 +100,27 @@ export function LoadingState({ label = "Loading..." }: { label?: string }) {
   return (
     <div
       role="status"
-      className="py-10 flex flex-col items-center justify-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
+      aria-label={label}
+      className="py-4 space-y-3"
     >
-      <Loader2 className="w-5 h-5 animate-spin" />
-      <span>{label}</span>
+      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+        <span>{label}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 space-y-2.5">
+          <div className="h-3.5 w-24 skeleton-block" />
+          <div className="h-5 w-3/4 skeleton-block" />
+          <div className="h-3 w-full skeleton-block" />
+          <div className="h-8 w-28 rounded-full skeleton-block mt-2" />
+        </div>
+        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 space-y-2.5 hidden sm:block">
+          <div className="h-3.5 w-20 skeleton-block" />
+          <div className="h-5 w-2/3 skeleton-block" />
+          <div className="h-3 w-5/6 skeleton-block" />
+          <div className="h-8 w-28 rounded-full skeleton-block mt-2" />
+        </div>
+      </div>
     </div>
   );
 }

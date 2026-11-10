@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWellnessSession } from "@/wellness/security/session";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
+import { checkRateLimit } from "@/wellness/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,19 @@ export async function POST() {
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  }
+
+  // Rate limit: max 4 tick requests per minute per authenticated user
+  const rl = checkRateLimit(`tick:${session.userId}`, {
+    windowMs: 60 * 1000,
+    maxRequests: 4,
+  });
+
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, message: "Rate limit exceeded. Ticking too frequently." },
+      { status: 429 }
+    );
   }
 
   try {

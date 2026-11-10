@@ -9,39 +9,43 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const sessionUser = await getWellnessSession();
 
-  // Optimized parallel queries: Fetch published cohorts for the landing page
+  // Optimized parallel queries with resilient fallback if database is unreachable
   const [programs, userEnrollments] = await Promise.all([
-    prisma.program.findMany({
-      where: {
-        OR: [
-          { status: "PUBLISH" },
-          { status: "PUBLISHED" },
-          { isPublished: true },
-        ],
-        NOT: {
-          status: { in: ["DRAFT", "ARCHIVE"] },
-        },
-      },
-      include: {
-        _count: {
-          select: {
-            days: true,
-            enrollments: { where: { status: "ACTIVE" } },
+    prisma.program
+      .findMany({
+        where: {
+          OR: [
+            { status: "PUBLISH" },
+            { status: "PUBLISHED" },
+            { isPublished: true },
+          ],
+          NOT: {
+            status: { in: ["DRAFT", "ARCHIVE"] },
           },
         },
-        days: {
-          select: {
-            dayType: true,
+        include: {
+          _count: {
+            select: {
+              days: true,
+              enrollments: { where: { status: "ACTIVE" } },
+            },
+          },
+          days: {
+            select: {
+              dayType: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
+        orderBy: { createdAt: "asc" },
+      })
+      .catch(() => []),
     sessionUser
-      ? prisma.programEnrollment.findMany({
-          where: { userId: sessionUser.userId, status: "ACTIVE" },
-          select: { programId: true },
-        })
+      ? prisma.programEnrollment
+          .findMany({
+            where: { userId: sessionUser.userId, status: "ACTIVE" },
+            select: { programId: true },
+          })
+          .catch(() => [])
       : Promise.resolve([]),
   ]);
 
@@ -90,7 +94,14 @@ export default async function HomePage() {
   });
 
   return (
-    <Suspense fallback={<div className="min-h-screen" />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] p-6 space-y-6" role="status" aria-label="Loading sanctuary">
+          <div className="max-w-4xl mx-auto h-12 rounded-full skeleton-block" />
+          <div className="max-w-4xl mx-auto h-[65vh] rounded-3xl skeleton-block" />
+        </div>
+      }
+    >
       <LandingClient
         sessionUser={sessionUser}
         programs={formattedPrograms}

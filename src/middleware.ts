@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
+const rawSecret = process.env.JWT_SECRET;
 const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "wellness_platform_secure_jwt_token_key_2026_super_safe"
+  rawSecret || "wellness_platform_dev_only_jwt_secret_do_not_use_in_prod"
 );
 
 interface TokenPayload {

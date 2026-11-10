@@ -15,6 +15,7 @@ import {
   ResetPasswordSchema,
 } from "../validators/auth";
 import { sendTransactionalEmail } from "../integrations/email-service";
+import { checkRateLimit } from "../security/rate-limit";
 
 export interface WellnessActionResult<T = unknown> {
   success: boolean;
@@ -42,6 +43,18 @@ export async function wellnessSignUp(
     }
 
     const { fullName, email, phone, password } = validation.data;
+
+    // Rate limiting: max 5 registration attempts per 15 minutes per email
+    const rl = checkRateLimit(`signup:${email}`, {
+      windowMs: 15 * 60 * 1000,
+      maxRequests: 5,
+    });
+    if (!rl.allowed) {
+      return {
+        success: false,
+        message: "Too many registration attempts. Please try again in a few minutes.",
+      };
+    }
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -120,6 +133,18 @@ export async function wellnessSignIn(
 
     const { email, password } = validation.data;
 
+    // Rate limiting: max 5 failed attempts per 15 minutes per email
+    const rl = checkRateLimit(`signin:${email}`, {
+      windowMs: 15 * 60 * 1000,
+      maxRequests: 5,
+    });
+    if (!rl.allowed) {
+      return {
+        success: false,
+        message: "Too many sign-in attempts. Please try again after 15 minutes.",
+      };
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -169,7 +194,7 @@ export async function wellnessSignIn(
     console.error("[wellnessSignIn Error]:", errText);
     return {
       success: false,
-      message: error instanceof Error ? error.message : "An unexpected error occurred during sign in. Please try again.",
+      message: "An unexpected error occurred during sign in. Please try again.",
     };
   }
 }
@@ -202,6 +227,19 @@ export async function wellnessRequestPasswordReset(
     }
 
     const { email } = validation.data;
+
+    // Rate limiting: max 3 password reset requests per 15 minutes per email
+    const rl = checkRateLimit(`pwdreset:${email}`, {
+      windowMs: 15 * 60 * 1000,
+      maxRequests: 3,
+    });
+    if (!rl.allowed) {
+      return {
+        success: false,
+        message: "Too many password reset attempts. Please wait 15 minutes before requesting again.",
+      };
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
     });

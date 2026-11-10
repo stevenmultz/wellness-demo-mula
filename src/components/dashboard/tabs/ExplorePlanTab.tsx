@@ -369,7 +369,7 @@ export function ExplorePlanTab({
               @media (prefers-reduced-motion: reduce) { .fx-fade, .fx-sheet { animation: none } }
             `}</style>
             <button type="button" aria-label="Close filters" className="fx-fade absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} />
-            <div className="fx-sheet relative w-full md:max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 shadow-2xl font-mono">
+            <div className="fx-sheet relative w-full md:max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 shadow-2xl font-sans">
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <div>
                   <p className="text-sm font-semibold text-zinc-950 dark:text-white">Filters</p>

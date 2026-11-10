@@ -120,42 +120,42 @@ export function getPublicBadgeMeta(badge: PublicProgramBadge): {
       return {
         label: "Coming Soon",
         colorClass:
-          "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-700",
+          "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800/80 dark:text-zinc-200 dark:border-zinc-700",
         canEnroll: false,
       };
     case "Open Registration":
       return {
         label: "Open Registration",
         colorClass:
-          "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700",
+          "bg-neutral-900 text-white border-neutral-900 dark:bg-zinc-100 dark:text-neutral-950 dark:border-zinc-100",
         canEnroll: true,
       };
     case "Full":
       return {
         label: "Full",
         colorClass:
-          "bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-700",
+          "bg-zinc-200/80 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
         canEnroll: false,
       };
     case "Close Registration":
       return {
         label: "Close Registration",
         colorClass:
-          "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-white/10 dark:text-zinc-200 dark:border-white/15",
+          "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-white/10 dark:text-zinc-300 dark:border-white/15",
         canEnroll: false,
       };
     case "On going":
       return {
         label: "On going",
         colorClass:
-          "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-700",
+          "bg-zinc-900/10 text-zinc-900 border-zinc-400 dark:bg-white/15 dark:text-white dark:border-white/30",
         canEnroll: false,
       };
     case "End":
       return {
         label: "End",
         colorClass:
-          "bg-zinc-200/80 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700",
+          "bg-zinc-200/80 text-zinc-600 border-zinc-300 dark:bg-zinc-800/70 dark:text-zinc-400 dark:border-zinc-700",
         canEnroll: false,
       };
   }
@@ -229,7 +229,7 @@ export function resolveProgramStatus(program: {
       badgeLabel: "Review (Ready to Launch)",
       badgeSublabel: "Header & Curriculum 100% complete • Ready to publish",
       colorClass:
-        "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700",
+        "bg-zinc-900/10 text-zinc-900 border-zinc-400 dark:bg-white/15 dark:text-zinc-100 dark:border-white/30",
       isLocked: false,
       canPublish: true,
       canEnroll: false,
@@ -288,7 +288,7 @@ export function resolveProgramStatus(program: {
       ? "Header complete • Continue filling daily curriculum"
       : "Initial draft • Complete all 8 Program Header sections",
     colorClass: isReady
-      ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700"
+      ? "bg-zinc-900/10 text-zinc-900 border-zinc-400 dark:bg-white/15 dark:text-zinc-100 dark:border-white/30"
       : "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-white/10 dark:text-zinc-200 dark:border-white/15",
     isLocked: false,
     canPublish: isReady,

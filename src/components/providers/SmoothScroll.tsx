@@ -14,24 +14,32 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    // On mobile & touch devices, bypass Lenis entirely.
-    // iOS Safari has native 120Hz hardware-accelerated momentum scrolling with 0% battery/CPU heat.
-    const isTouchDevice =
-      typeof window !== "undefined" &&
-      ("ontouchstart" in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768);
+    // Bypass Lenis on touch/mobile devices, when reduced motion is requested,
+    // or inside app/admin workspaces (/dashboard, /admin) where native scrolling is instant and zero-overhead.
+    if (typeof window === "undefined") return;
 
-    if (isTouchDevice) {
+    const isAppWorkspace =
+      pathname?.startsWith("/admin") || pathname?.startsWith("/dashboard");
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const isTouchDevice =
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.innerWidth < 768;
+
+    if (isAppWorkspace || prefersReducedMotion || isTouchDevice) {
       return;
     }
 
-    // Initialize Lenis strictly on desktop
+    // Initialize Lenis strictly on desktop public pages
     const lenis = new Lenis({
-      duration: 1.15,
+      duration: 1.0,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: "vertical",
       gestureOrientation: "vertical",
       smoothWheel: true,
-      wheelMultiplier: 0.9,
+      wheelMultiplier: 0.95,
       infinite: false,
     });
 
@@ -49,7 +57,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       lenis.destroy();
       lenisRef.current = null;
     };
-  }, []);
+  }, [pathname]);
 
   return <>{children}</>;
 }

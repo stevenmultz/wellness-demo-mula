@@ -172,6 +172,8 @@ export function QrisCheckoutModal({
             </h3>
           </div>
           <button
+            type="button"
+            aria-label="Close checkout dialog"
             onClick={onClose}
             className="p-2 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition"
           >
@@ -324,14 +326,14 @@ export function QrisCheckoutModal({
 
           {/* Program Terms & Conditions Clickwrap Agreement */}
           {!paidSuccess && (
-            <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-3 font-mono">
-              <div className="flex items-center justify-between">
+            <div className="p-4 rounded-2xl glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-3 font-sans">
+              <div className="flex items-center justify-between font-mono">
                 <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-500 dark:text-zinc-400">
                   Terms &amp; Conditions ({programTerms?.length || 4})
                 </span>
                 <span className="text-[10px] text-zinc-400">Required</span>
               </div>
-              <ol className="max-h-28 overflow-y-auto pr-1 space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed font-light">
+              <ol className="max-h-28 overflow-y-auto pr-1 space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed">
                 {(programTerms && programTerms.length > 0
                   ? programTerms
                   : [
@@ -358,7 +360,7 @@ export function QrisCheckoutModal({
                   }}
                   className="mt-0.5 w-4 h-4 rounded border-zinc-300 dark:border-white/20 accent-zinc-900 dark:accent-white shrink-0"
                 />
-                <span className="text-[11px] text-zinc-700 dark:text-zinc-200 leading-snug font-light">
+                <span className="text-[11px] text-zinc-700 dark:text-zinc-200 leading-snug">
                   I have read, understood, and agree to the{" "}
                   <strong className="font-semibold text-zinc-900 dark:text-white">
                     Program Terms &amp; Conditions
@@ -370,8 +372,8 @@ export function QrisCheckoutModal({
           )}
 
           {paidSuccess ? (
-            <div className="p-3.5 rounded-xl bg-white/10 border border-white/20 text-xs text-zinc-900 dark:text-white flex items-center justify-center gap-2 font-medium font-mono">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
+            <div className="p-3.5 rounded-xl bg-zinc-900/5 dark:bg-white/10 border border-zinc-300 dark:border-white/20 text-xs text-zinc-900 dark:text-white flex items-center justify-center gap-2 font-medium font-mono">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-zinc-900 dark:text-white" />
               <span>Payment confirmed! Opening your program...</span>
             </div>
           ) : (

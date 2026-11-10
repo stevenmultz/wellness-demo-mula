@@ -59,6 +59,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SSRF Prevention: Validate endpoint domain belongs to authorized web push services
+    let endpointUrl: URL;
+    try {
+      endpointUrl = new URL(endpoint);
+    } catch {
+      return NextResponse.json({ success: false, message: "Malformed push endpoint URL." }, { status: 400 });
+    }
+
+    const hostname = endpointUrl.hostname.toLowerCase();
+    const isAllowedPushProvider =
+      hostname === "fcm.googleapis.com" ||
+      hostname === "android.googleapis.com" ||
+      hostname === "updates.push.services.mozilla.com" ||
+      hostname.endsWith(".push.services.mozilla.com") ||
+      hostname.endsWith(".push.apple.com") ||
+      hostname.endsWith(".notify.windows.com");
+
+    if (!isAllowedPushProvider) {
+      return NextResponse.json(
+        { success: false, message: "Push endpoint domain is not a recognized push service provider." },
+        { status: 400 }
+      );
+    }
+
     // Upsert subscription for current user
     const saved = await prisma.pushSubscription.upsert({
       where: { endpoint },

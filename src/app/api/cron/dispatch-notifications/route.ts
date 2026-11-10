@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
 import { normalizeWibTime } from "@/wellness/utils/notification-schedule";
 
@@ -35,8 +36,17 @@ async function handleCronDispatch(req: NextRequest) {
 
     const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     const providedSecret = bearerSecret || secretQuery || bodyJson.secret;
-    const isAuthorized =
-      (!!cronSecret && providedSecret === cronSecret) || process.env.NODE_ENV === "development";
+
+    let isAuthorized = false;
+    if (cronSecret && providedSecret) {
+      const a = Buffer.from(providedSecret);
+      const b = Buffer.from(cronSecret);
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        isAuthorized = true;
+      }
+    } else if (process.env.NODE_ENV === "development" && !cronSecret) {
+      isAuthorized = true;
+    }
 
     if (!isAuthorized) {
       return NextResponse.json(

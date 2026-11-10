@@ -21,21 +21,33 @@ export async function sendTransactionalEmail(
   const provider = process.env.EMAIL_PROVIDER || "CONSOLE_DEV";
 
   if (provider === "RESEND" && process.env.RESEND_API_KEY) {
-    // TODO [Third-Party Integration]:
-    // await fetch("https://api.resend.com/emails", {
-    //   method: "POST",
-    //   headers: {
-    //     Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({
-    //     from: process.env.EMAIL_FROM || "Wellness Sanctuary <no-reply@wellness.id>",
-    //     to: [payload.to],
-    //     subject: payload.subject,
-    //     html: payload.html,
-    //   }),
-    // });
-    return { delivered: true, provider: "RESEND" };
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM || "Wellness Sanctuary <no-reply@wellness.id>",
+          to: [payload.to],
+          subject: payload.subject,
+          html: payload.html,
+          ...(payload.text ? { text: payload.text } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        console.error(`[Email Adapter Error - Resend]: HTTP ${res.status}: ${errorText}`);
+        return { delivered: false, provider: "RESEND" };
+      }
+
+      return { delivered: true, provider: "RESEND" };
+    } catch (err) {
+      console.error("[Email Adapter Error - Resend Exception]:", err);
+      return { delivered: false, provider: "RESEND" };
+    }
   }
 
   console.log(`\n======================================================`);

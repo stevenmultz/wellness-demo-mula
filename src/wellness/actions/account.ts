@@ -564,13 +564,17 @@ export async function wellnessConfirmQrisPayment(
     return { success: true, message: "Payment already verified." };
   }
 
-  // Guard against self-activation when live payment gateway provider is configured
-  const provider = process.env.PAYMENT_PROVIDER || "INTERNAL_SIMULATION";
-  if (provider !== "INTERNAL_SIMULATION") {
+  // Guard against self-activation in production:
+  // Direct client payment self-confirmation is ONLY permitted in development or when explicitly enabled
+  const isSimulationAllowed =
+    process.env.ALLOW_PAYMENT_SIMULATION === "true" ||
+    process.env.NODE_ENV === "development";
+
+  if (!isSimulationAllowed) {
     return {
       success: false,
       message:
-        "Direct client confirmation is disabled. Your payment will be activated automatically via payment gateway webhook or Admin manual approval.",
+        "Direct client confirmation is disabled in production. Payments must be verified via payment gateway or Admin manual approval.",
     };
   }
 

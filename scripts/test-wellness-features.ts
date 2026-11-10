@@ -52,7 +52,10 @@ async function runFeatureTests() {
   // 3. Test Database Field Persistence
   console.log("\n3. Menguji Penyimpanan Progres Baru ke Database SQLite...");
   const user = await prisma.user.findFirst({ where: { role: "USER" } });
-  const program = await prisma.program.findFirst({ include: { days: true } });
+  const program = await prisma.program.findFirst({
+    where: { days: { some: {} } },
+    include: { days: { orderBy: { dayNumber: "asc" } } },
+  });
   if (!user || !program || program.days.length === 0) {
     throw new Error("User atau Program tidak ditemukan di database!");
   }

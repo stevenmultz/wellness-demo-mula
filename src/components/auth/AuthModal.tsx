@@ -7,7 +7,7 @@ import {
   wellnessSignUp,
   wellnessRequestPasswordReset,
 } from "@/wellness/actions/auth";
-import { X, Loader2, Eye, EyeOff, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { X, Loader2, Eye, EyeOff } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -22,7 +22,6 @@ export function AuthModal({
 }: AuthModalProps) {
   const router = useRouter();
   const [tab, setTab] = useState<"signin" | "signup" | "forgot">(initialTab);
-  const [signUpStep, setSignUpStep] = useState<1 | 2>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -48,26 +47,11 @@ export function AuthModal({
 
   const switchTab = (newTab: "signin" | "signup" | "forgot") => {
     resetStatus();
-    setSignUpStep(1);
     setTab(newTab);
   };
 
   const validatePassword = (pass: string) => {
     return pass.length >= 8 && /[A-Z]/.test(pass) && /\d/.test(pass);
-  };
-
-  const handleNextSignUpStep = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    if (!signUpData.fullName.trim()) {
-      setErrorMsg("Please enter your full name.");
-      return;
-    }
-    if (!signUpData.email.trim() || !signUpData.email.includes("@")) {
-      setErrorMsg("Please provide a valid email address.");
-      return;
-    }
-    setSignUpStep(2);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -175,18 +159,9 @@ export function AuthModal({
       >
         {/* Top Header Row with Switcher & Close Button */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-200/70 dark:border-white/10">
-          <div className="space-y-0.5">
-            <span className="text-base font-light uppercase tracking-widest text-white block font-mono">
-              + BMS
-            </span>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-geometric">
-              {tab === "signup"
-                ? "Create Sanctuary Profile"
-                : tab === "signin"
-                ? "Welcome Back"
-                : "Reset Password"}
-            </h2>
-          </div>
+          <span className="text-sm font-semibold tracking-[0.24em] text-zinc-900 dark:text-white block font-mono">
+            + BMS
+          </span>
 
           <div className="flex items-center gap-2.5">
             {tab !== "forgot" && (
@@ -248,164 +223,113 @@ export function AuthModal({
           </div>
         )}
 
-        {/* TAB 1: SIGN UP (2-STEP PROGRESS) */}
+        {/* TAB 1: SIGN UP (SINGLE STEP) */}
         {tab === "signup" && (
-          <div>
-            {/* Step indicator */}
-            <div className="flex items-center justify-between mb-5 px-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
-                    signUpStep === 1
-                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                      : "bg-zinc-700 text-white dark:bg-zinc-300 dark:text-zinc-900"
-                  }`}
-                >
-                  {signUpStep === 2 ? <Check className="w-3 h-3 stroke-[3]" /> : "1"}
-                </span>
-                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                  {signUpStep === 1 ? "Step 1: Identity" : "Step 2: Security"}
-                </span>
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  Full Name <span className="text-zinc-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={signUpData.fullName}
+                  onChange={(e) =>
+                    setSignUpData({ ...signUpData, fullName: e.target.value })
+                  }
+                  placeholder="Enter your full name"
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                />
               </div>
-              <span className="text-[11px] text-zinc-400 font-medium">
-                Step {signUpStep} of 2
-              </span>
-            </div>
 
-            {signUpStep === 1 ? (
-              <form onSubmit={handleNextSignUpStep} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Full Name *
-                  </label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  Email Address <span className="text-zinc-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={signUpData.email}
+                  onChange={(e) =>
+                    setSignUpData({ ...signUpData, email: e.target.value })
+                  }
+                  placeholder="Enter your email"
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  Phone / WhatsApp <span className="text-zinc-400 font-normal text-[11px]">(Optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={signUpData.phone}
+                  onChange={(e) =>
+                    setSignUpData({ ...signUpData, phone: e.target.value })
+                  }
+                  placeholder="Enter your phone number"
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  Password <span className="text-zinc-500">*</span>
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
-                    autoFocus
+                    type={peekPassword ? "text" : "password"}
                     required
-                    value={signUpData.fullName}
+                    value={signUpData.password}
                     onChange={(e) =>
-                      setSignUpData({ ...signUpData, fullName: e.target.value })
+                      setSignUpData({ ...signUpData, password: e.target.value })
                     }
-                    placeholder="e.g. Maya Sari"
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-sm"
+                    placeholder="Enter your password (min. 8 characters)"
+                    className="w-full pl-4 pr-11 py-2.5 rounded-xl glass-input text-sm"
                   />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={signUpData.email}
-                    onChange={(e) =>
-                      setSignUpData({ ...signUpData, email: e.target.value })
-                    }
-                    placeholder="name@example.com"
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-sm"
-                  />
-                </div>
-
-                <div className="pt-3 flex items-center justify-between gap-4">
-                  <span className="text-xs text-zinc-500">
-                    Already registered?{" "}
-                    <button
-                      type="button"
-                      onClick={() => switchTab("signin")}
-                      className="font-bold text-zinc-900 dark:text-white underline ml-0.5"
-                    >
-                      Sign In
-                    </button>
-                  </span>
-
-                  <button
-                    type="submit"
-                    className="chrome-button px-6 py-3 rounded-2xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Next</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Phone / WhatsApp <span className="text-zinc-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    autoFocus
-                    value={signUpData.phone}
-                    onChange={(e) =>
-                      setSignUpData({ ...signUpData, phone: e.target.value })
-                    }
-                    placeholder="e.g. 08123456789"
-                    className="w-full px-4 py-3 rounded-2xl glass-input text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Password *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={peekPassword ? "text" : "password"}
-                      required
-                      value={signUpData.password}
-                      onChange={(e) =>
-                        setSignUpData({ ...signUpData, password: e.target.value })
-                      }
-                      placeholder="Min. 8 characters with 1 uppercase & 1 number"
-                      className="w-full pl-4 pr-11 py-3 rounded-2xl glass-input text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPeekPassword(!peekPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-                      aria-label="Toggle password visibility"
-                    >
-                      {peekPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-zinc-400 mt-1">
-                    * Must be at least 8 characters with at least 1 uppercase letter and 1 number.
-                  </p>
-                </div>
-
-                <div className="pt-3 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      setErrorMsg(null);
-                      setSignUpStep(1);
-                    }}
-                    className="px-4 py-2.5 rounded-2xl glass-panel-subtle text-zinc-700 dark:text-zinc-200 font-semibold text-xs transition flex items-center gap-1.5"
+                    onClick={() => setPeekPassword(!peekPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition"
+                    aria-label="Toggle password visibility"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back</span>
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="chrome-button px-6 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Creating Account...</span>
-                      </>
-                    ) : (
-                      "Create Account"
-                    )}
+                    {peekPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </form>
-            )}
-          </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-zinc-500">
+                Already registered?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchTab("signin")}
+                  className="font-bold text-zinc-900 dark:text-white underline ml-0.5"
+                >
+                  Sign In
+                </button>
+              </span>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full sm:w-auto chrome-button px-7 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  "Create Account"
+                )}
+              </button>
+            </div>
+          </form>
         )}
 
         {/* TAB 2: SIGN IN */}
@@ -413,7 +337,7 @@ export function AuthModal({
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                Email Address *
+                Email Address <span className="text-zinc-500">*</span>
               </label>
               <input
                 type="email"
@@ -423,15 +347,15 @@ export function AuthModal({
                 onChange={(e) =>
                   setSignInData({ ...signInData, email: e.target.value })
                 }
-                placeholder="name@example.com"
-                className="w-full px-4 py-3 rounded-2xl glass-input text-sm"
+                placeholder="Enter your email"
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
               />
             </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                  Password *
+                  Password <span className="text-zinc-500">*</span>
                 </label>
                 <button
                   type="button"
@@ -450,12 +374,12 @@ export function AuthModal({
                     setSignInData({ ...signInData, password: e.target.value })
                   }
                   placeholder="Enter your password"
-                  className="w-full pl-4 pr-11 py-3 rounded-2xl glass-input text-sm"
+                  className="w-full pl-4 pr-11 py-2.5 rounded-xl glass-input text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setPeekPassword(!peekPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition"
                   aria-label="Toggle password visibility"
                 >
                   {peekPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -463,7 +387,7 @@ export function AuthModal({
               </div>
             </div>
 
-            <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-xs text-zinc-500">
                 Don&apos;t have an account?{" "}
                 <button
@@ -478,7 +402,7 @@ export function AuthModal({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full sm:w-auto chrome-button px-7 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                className="w-full sm:w-auto chrome-button px-7 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
               >
                 {isLoading ? (
                   <>
@@ -502,7 +426,7 @@ export function AuthModal({
 
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                Email Address *
+                Email Address <span className="text-zinc-500">*</span>
               </label>
               <input
                 type="email"
@@ -510,12 +434,12 @@ export function AuthModal({
                 required
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full px-4 py-3 rounded-2xl glass-input text-sm"
+                placeholder="Enter your email"
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
               />
             </div>
 
-            <div className="pt-3 flex items-center justify-between gap-3">
+            <div className="pt-2 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => switchTab("signin")}
@@ -527,7 +451,7 @@ export function AuthModal({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="chrome-button px-6 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                className="chrome-button px-6 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
               >
                 {isLoading ? (
                   <>

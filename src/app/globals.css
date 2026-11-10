@@ -3,22 +3,36 @@
 @tailwind utilities;
 
 :root {
+  /* 60% Primary Neutral Canvas */
   --background: #f6f6f4;
-  --foreground: #171717;
+  --surface-60: #f6f6f4;
+  /* 30% Structural Surfaces & Dividers */
   --card-bg: #ffffff;
+  --surface-30: #eeeeec;
   --card-border: #e6e6e4;
   --card-outer-border: #e6e6e4;
+  /* 10% High-Contrast Emphasis & Accents */
+  --foreground: #171717;
+  --accent-10: #171717;
+  --muted-foreground: #71717a;
   --card-shadow: 0 1px 2px rgba(23, 23, 23, 0.04);
   --radius-card: 16px;
   --radius-control: 12px;
 }
 
 .dark {
+  /* 60% Primary Neutral Canvas */
   --background: #0e0e0e;
-  --foreground: #f5f5f4;
+  --surface-60: #0e0e0e;
+  /* 30% Structural Surfaces & Dividers */
   --card-bg: #171717;
+  --surface-30: #1f1f1f;
   --card-border: #2a2a2a;
   --card-outer-border: #2a2a2a;
+  /* 10% High-Contrast Emphasis & Accents */
+  --foreground: #f5f5f4;
+  --accent-10: #f5f5f4;
+  --muted-foreground: #a1a1aa;
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
@@ -189,7 +203,7 @@ body {
 
 .chrome-button:hover {
   background-color: #d4d4d8;
-  border-color: #cbd5e1;
+  border-color: #a1a1aa;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.12);
 }
@@ -230,38 +244,29 @@ body {
   color: #e4e4e7;
 }
 
-/* Motion Blur & Kinetic Image Animations */
-@keyframes motion-glide-slow {
+/* Structured Monochromatic Skeleton Placeholders */
+@keyframes skeleton-pulse {
   0%, 100% {
-    transform: scale(1.12) translate3d(-2%, -1%, 0);
+    opacity: 0.55;
   }
   50% {
-    transform: scale(1.18) translate3d(2%, 1.5%, 0);
+    opacity: 0.9;
   }
 }
 
-@keyframes motion-streak {
-  0%, 100% {
-    transform: scaleX(1.22) scaleY(1.05) translate3d(-3%, 0, 0);
-  }
-  50% {
-    transform: scaleX(1.28) scaleY(1.08) translate3d(3%, 0, 0);
-  }
+.skeleton-block {
+  background-color: #e6e6e4;
+  border-radius: var(--radius-control);
+  animation: skeleton-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.animate-motion-glide {
-  animation: motion-glide-slow 16s ease-in-out infinite;
+.dark .skeleton-block {
+  background-color: #242424;
 }
 
-.animate-motion-streak {
-  animation: motion-streak 12s ease-in-out infinite;
-}
-
-@media (max-width: 768px), (prefers-reduced-motion: reduce) {
-  .animate-motion-glide,
-  .animate-motion-streak {
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block {
     animation: none !important;
-    transform: none !important;
   }
 }
 

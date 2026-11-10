@@ -2285,7 +2285,7 @@ export function AdminClient({
       <span
         className={`text-[10px] font-mono font-medium px-2.5 py-1 rounded-full transition whitespace-nowrap ${
           isComplete
-            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60 font-semibold"
+            ? "bg-zinc-50 text-zinc-700 border border-zinc-200 dark:bg-zinc-950/40 dark:text-zinc-400 dark:border-zinc-800/60 font-semibold"
             : filled > 0
             ? "bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/10"
             : "bg-zinc-100/60 dark:bg-white/5 text-zinc-400 dark:text-zinc-500 border border-zinc-200/40 dark:border-white/5"
@@ -5549,7 +5549,7 @@ export function AdminClient({
 
                     {createForm.locationType === "ONLINE" ? (
                       <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-500/10 text-zinc-500 flex items-center justify-center shrink-0">
                           <CheckCircle2 className="w-4 h-4" />
                         </div>
                         <div>
@@ -6825,7 +6825,7 @@ export function AdminClient({
                         <h4 className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 font-geometric">
                           <span>Program Header</span>
                           {programDetailTab === "info" && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                           )}
                         </h4>
                         <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono block">
@@ -6842,8 +6842,8 @@ export function AdminClient({
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                         headerCheck.isComplete
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+                          ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
+                          : "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
                       }`}
                     >
                       {headerCheck.isComplete ? "8/8 Complete" : `${8 - headerCheck.completedCount} Points Missing`}
@@ -6881,7 +6881,7 @@ export function AdminClient({
                         <h4 className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 font-geometric">
                           <span>Daily Management</span>
                           {programDetailTab === "schedule" && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                           )}
                         </h4>
                         <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono block">
@@ -6898,8 +6898,8 @@ export function AdminClient({
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                         isCurriculumComplete
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+                          ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
+                          : "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
                       }`}
                     >
                       {isCurriculumComplete ? "100% Ready" : `${targetDays - filledCount} Days Remaining`}
@@ -6938,7 +6938,7 @@ export function AdminClient({
                         <h4 className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 font-geometric">
                           <span>Responses</span>
                           {programDetailTab === "responses" && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                           )}
                         </h4>
                         <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono block">
@@ -7553,7 +7553,7 @@ export function AdminClient({
 
                           {metaForm.locationType === "ONLINE" ? (
                             <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                              <div className="w-8 h-8 rounded-lg bg-zinc-500/10 text-zinc-500 flex items-center justify-center shrink-0">
                                 <CheckCircle2 className="w-4 h-4" />
                               </div>
                               <div>
@@ -7997,7 +7997,7 @@ export function AdminClient({
                   {/* Visual Progress Bar */}
                   <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
+                      className="h-full bg-zinc-500 transition-all duration-300 rounded-full"
                       style={{ width: `${percentFilled}%` }}
                     />
                   </div>
@@ -8051,7 +8051,7 @@ export function AdminClient({
                                 className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
                                   isSelected
                                     ? "bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white"
-                                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                    : "bg-zinc-100 text-zinc-700 dark:bg-zinc-950/60 dark:text-zinc-400"
                                 }`}
                                 title="Completed"
                               >
@@ -8068,12 +8068,12 @@ export function AdminClient({
                                 isSelected
                                   ? "bg-white/15 text-white dark:bg-zinc-900/10 dark:text-zinc-900"
                                   : effectiveType === "TRAINING_DAY"
-                                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                                  ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-300"
                                   : effectiveType === "REST_DAY"
-                                  ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                  ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-300"
                                   : effectiveType === "CONNECTION_DAY" ||
                                     effectiveType === "MEETUP_DAY"
-                                  ? "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300"
+                                  ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-300"
                                   : "bg-zinc-100 dark:bg-white/5 text-zinc-400"
                               }`}
                             >
@@ -8118,10 +8118,10 @@ export function AdminClient({
                       <span
                         className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
                           dayForm.dayType === "TRAINING_DAY"
-                            ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                            ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-300"
                             : dayForm.dayType === "REST_DAY"
-                            ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                            : "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300"
+                            ? "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-300"
+                            : "bg-zinc-50 text-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-300"
                         }`}
                       >
                         {dayForm.dayType === "REST_DAY"
@@ -9233,7 +9233,7 @@ export function AdminClient({
                     <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-1">
                       <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
                         <span className="text-xs font-medium">Completed Days</span>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        <CheckCircle2 className="w-4 h-4 text-zinc-500" />
                       </div>
                       <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono">
                         {submissionStats.completedSubmissions}
@@ -9244,7 +9244,7 @@ export function AdminClient({
                     <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-1">
                       <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
                         <span className="text-xs font-medium">Photo Logs</span>
-                        <Camera className="w-4 h-4 text-blue-500" />
+                        <Camera className="w-4 h-4 text-zinc-500" />
                       </div>
                       <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono">
                         {submissionStats.photoSubmissions}
@@ -9255,7 +9255,7 @@ export function AdminClient({
                     <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-1">
                       <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
                         <span className="text-xs font-medium">Active Members</span>
-                        <Users className="w-4 h-4 text-purple-500" />
+                        <Users className="w-4 h-4 text-zinc-500" />
                       </div>
                       <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono">
                         {submissionStats.uniqueMembers}
@@ -9381,9 +9381,33 @@ export function AdminClient({
 
                   {/* Content State: Loading, Error, Empty, or Feed */}
                   {submissionsLoading ? (
-                    <div className="py-16 text-center space-y-3 bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10">
-                      <Loader2 className="w-6 h-6 animate-spin text-zinc-400 mx-auto" />
-                      <p className="text-xs text-zinc-500">Loading member submissions...</p>
+                    <div
+                      role="status"
+                      aria-label="Loading member submissions"
+                      className="p-6 space-y-4 bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10"
+                    >
+                      <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono">
+                        <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                        <span>Loading member submissions...</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="p-4 rounded-xl border border-zinc-200/70 dark:border-white/10 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-36 skeleton-block" />
+                            <div className="h-4 w-20 skeleton-block" />
+                          </div>
+                          <div className="h-3.5 w-3/4 skeleton-block" />
+                          <div className="h-12 w-full skeleton-block" />
+                        </div>
+                        <div className="p-4 rounded-xl border border-zinc-200/70 dark:border-white/10 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 w-32 skeleton-block" />
+                            <div className="h-4 w-20 skeleton-block" />
+                          </div>
+                          <div className="h-3.5 w-2/3 skeleton-block" />
+                          <div className="h-12 w-full skeleton-block" />
+                        </div>
+                      </div>
                     </div>
                   ) : submissionsError ? (
                     <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 flex items-start gap-3 text-xs text-red-700 dark:text-red-400">
@@ -9470,12 +9494,12 @@ export function AdminClient({
                                 </span>
 
                                 {sub.isCompleted ? (
-                                  <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-900/50 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-zinc-50 dark:bg-zinc-950/40 text-zinc-700 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-900/50 flex items-center gap-1">
                                     <Check className="w-3 h-3" />
                                     <span>Completed</span>
                                   </span>
                                 ) : (
-                                  <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/50">
+                                  <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-zinc-50 dark:bg-zinc-950/40 text-zinc-700 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-900/50">
                                     In Progress
                                   </span>
                                 )}
@@ -9526,9 +9550,12 @@ export function AdminClient({
                                   >
                                     {sub.photoBeforeUrl ? (
                                       <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                           src={sub.photoBeforeUrl}
                                           alt="Before"
+                                          loading="lazy"
+                                          decoding="async"
                                           className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                         />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -9559,9 +9586,12 @@ export function AdminClient({
                                   >
                                     {sub.photoAfterUrl ? (
                                       <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                           src={sub.photoAfterUrl}
                                           alt="After"
+                                          loading="lazy"
+                                          decoding="async"
                                           className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                         />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -9583,9 +9613,9 @@ export function AdminClient({
                             {(sub.dailyReflection || sub.workoutNotes || sub.eventFeedback || sub.assessmentResponse) && (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {sub.dailyReflection && (
-                                  <div className="p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/30 space-y-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
-                                      <Sparkles className="w-3 h-3 text-purple-500" />
+                                  <div className="p-3.5 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                      <Sparkles className="w-3 h-3 text-zinc-500" />
                                       <span>Daily Reflection</span>
                                     </span>
                                     <p className="text-xs text-zinc-800 dark:text-zinc-200 italic leading-relaxed">
@@ -9595,9 +9625,9 @@ export function AdminClient({
                                 )}
 
                                 {sub.workoutNotes && (
-                                  <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/30 space-y-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-                                      <Dumbbell className="w-3 h-3 text-blue-500" />
+                                  <div className="p-3.5 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                      <Dumbbell className="w-3 h-3 text-zinc-500" />
                                       <span>Workout Notes</span>
                                     </span>
                                     <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
@@ -9619,9 +9649,9 @@ export function AdminClient({
                                 )}
 
                                 {sub.eventFeedback && (
-                                  <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/30 space-y-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                                      <Users className="w-3 h-3 text-emerald-500" />
+                                  <div className="p-3.5 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                      <Users className="w-3 h-3 text-zinc-500" />
                                       <span>Event Feedback</span>
                                     </span>
                                     <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
@@ -9637,7 +9667,7 @@ export function AdminClient({
                               {/* Mood / Happiness */}
                               {sub.happinessRate !== null && sub.happinessRate !== undefined && (
                                 <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1 text-zinc-700 dark:text-zinc-300">
-                                  <Smile className="w-3.5 h-3.5 text-amber-500" />
+                                  <Smile className="w-3.5 h-3.5 text-zinc-500" />
                                   <span className="text-[11px] font-medium">Mood:</span>
                                   <div className="flex items-center gap-0.5">
                                     {Array.from({ length: 5 }, (_, idx) => (
@@ -9645,7 +9675,7 @@ export function AdminClient({
                                         key={idx}
                                         className={`w-3 h-3 ${
                                           idx < sub.happinessRate!
-                                            ? "text-amber-400 fill-amber-400"
+                                            ? "text-zinc-400 fill-amber-400"
                                             : "text-zinc-300 dark:text-zinc-600"
                                         }`}
                                       />
@@ -9657,7 +9687,7 @@ export function AdminClient({
                               {/* Sleep Telemetry */}
                               {(sub.sleepDurationMinutes || sub.bedtime) && (
                                 <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
-                                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                                  <Moon className="w-3.5 h-3.5 text-zinc-400" />
                                   <span className="text-[11px] font-medium">Sleep:</span>
                                   <span className="font-mono text-[11px]">
                                     {sub.sleepDurationMinutes
@@ -9670,7 +9700,7 @@ export function AdminClient({
                               {/* Meal Compliance */}
                               {sub.mealCompliance && (
                                 <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
-                                  <Utensils className="w-3.5 h-3.5 text-emerald-500" />
+                                  <Utensils className="w-3.5 h-3.5 text-zinc-500" />
                                   <span className="text-[11px] font-medium">Meal:</span>
                                   <span className="text-[11px] font-semibold">{sub.mealCompliance}</span>
                                 </div>
@@ -9695,7 +9725,7 @@ export function AdminClient({
                               {/* Checklist Items Count */}
                               {sub.checklistCompleted && sub.checklistCompleted.length > 0 && (
                                 <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-500" />
                                   <span className="text-[11px]">
                                     {sub.checklistCompleted.length} Checklist Tasks Done
                                   </span>
@@ -9789,13 +9819,13 @@ export function AdminClient({
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border ${
                         u.status === "ACTIVE"
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20"
                           : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
                       }`}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          u.status === "ACTIVE" ? "bg-emerald-500" : "bg-red-500"
+                          u.status === "ACTIVE" ? "bg-zinc-500" : "bg-red-500"
                         }`}
                       />
                       <span>{u.status}</span>
@@ -9811,7 +9841,7 @@ export function AdminClient({
                         href={waUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold border border-emerald-500/20 transition flex items-center gap-1.5"
+                        className="px-2.5 py-1 rounded-xl bg-zinc-500/10 hover:bg-zinc-500/20 text-zinc-600 dark:text-zinc-400 text-xs font-semibold border border-zinc-500/20 transition flex items-center gap-1.5"
                         title="Chat on WhatsApp"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
@@ -9953,7 +9983,7 @@ export function AdminClient({
                     </span>
                     <p
                       className={`text-sm font-bold mt-0.5 ${
-                        hasSafetyAlert ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
+                        hasSafetyAlert ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-400"
                       }`}
                     >
                       {hasSafetyAlert ? "Precaution Flagged" : "Cleared"}
@@ -10013,7 +10043,7 @@ export function AdminClient({
                           : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
                       }`}
                     >
-                      <Activity className={`w-4 h-4 ${hasSafetyAlert ? "text-amber-500" : ""}`} />
+                      <Activity className={`w-4 h-4 ${hasSafetyAlert ? "text-zinc-500" : ""}`} />
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-zinc-900 dark:text-white block font-geometric truncate">
@@ -10061,7 +10091,7 @@ export function AdminClient({
               {/* Sub-view Content Container */}
               <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-5 sm:p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-5">
                 {customerProfileSuccess && (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
+                  <div className="p-3 rounded-xl bg-zinc-500/10 border border-zinc-500/20 text-zinc-600 dark:text-zinc-400 text-xs flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span>{customerProfileSuccess}</span>
                   </div>
@@ -10119,9 +10149,9 @@ export function AdminClient({
                                         <span
                                           className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase ${
                                             e.status === "ACTIVE"
-                                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                              ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20"
                                               : e.status === "PENDING"
-                                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                              ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20"
                                               : "bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
                                           }`}
                                         >
@@ -10407,9 +10437,9 @@ export function AdminClient({
                                         <span
                                           className={`px-2 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 ${
                                             sub.mealCompliance === "FULL"
-                                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                              ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
                                               : sub.mealCompliance === "PARTIAL"
-                                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                              ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
                                               : "bg-red-500/10 text-red-600 dark:text-red-400"
                                           }`}
                                         >
@@ -10419,14 +10449,14 @@ export function AdminClient({
                                       )}
 
                                       {sub.happinessRate !== null && sub.happinessRate !== undefined && (
-                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                                          <Star className="w-3 h-3 fill-amber-400 text-zinc-400" />
                                           <span>{sub.happinessRate}/5</span>
                                         </span>
                                       )}
 
                                       {sub.isCompleted ? (
-                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20">
                                           Completed
                                         </span>
                                       ) : (
@@ -10457,7 +10487,7 @@ export function AdminClient({
                                     <div className="flex items-center gap-2 text-xs">
                                       <span className="text-[11px] text-zinc-400 font-mono">Video Session:</span>
                                       {sub.videoWatched ? (
-                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                                           <Video className="w-3 h-3" />
                                           Watched
                                         </span>
@@ -10514,9 +10544,12 @@ export function AdminClient({
                                           >
                                             {sub.photoBeforeUrl ? (
                                               <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
                                                   src={sub.photoBeforeUrl}
                                                   alt="Before"
+                                                  loading="lazy"
+                                                  decoding="async"
                                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                                 />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -10547,9 +10580,12 @@ export function AdminClient({
                                           >
                                             {sub.photoAfterUrl ? (
                                               <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
                                                   src={sub.photoAfterUrl}
                                                   alt="After"
+                                                  loading="lazy"
+                                                  decoding="async"
                                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                                 />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -10587,9 +10623,9 @@ export function AdminClient({
                                             {checklistItems.map((item, i) => (
                                               <span
                                                 key={i}
-                                                className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs font-medium flex items-center gap-1"
+                                                className="px-2 py-0.5 rounded-lg bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border border-zinc-500/20 text-xs font-medium flex items-center gap-1"
                                               >
-                                                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                <CheckCircle2 className="w-3 h-3 text-zinc-500 shrink-0" />
                                                 <span>{item}</span>
                                               </span>
                                             ))}
@@ -10602,9 +10638,9 @@ export function AdminClient({
                                     {(sub.dailyReflection || sub.workoutNotes || sub.mealNotes || sub.eventFeedback || sub.assessmentResponse) && (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                                         {sub.dailyReflection && (
-                                          <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/30 space-y-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1 font-mono">
-                                              <Sparkles className="w-3 h-3 text-purple-500" />
+                                          <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
+                                              <Sparkles className="w-3 h-3 text-zinc-500" />
                                               <span>Dear Diary Reflection</span>
                                             </span>
                                             <p className="text-xs text-zinc-800 dark:text-zinc-200 italic leading-relaxed">
@@ -10614,9 +10650,9 @@ export function AdminClient({
                                         )}
 
                                         {sub.workoutNotes && (
-                                          <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/30 space-y-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1 font-mono">
-                                              <Dumbbell className="w-3 h-3 text-blue-500" />
+                                          <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
+                                              <Dumbbell className="w-3 h-3 text-zinc-500" />
                                               <span>Workout Notes</span>
                                             </span>
                                             <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
@@ -10626,9 +10662,9 @@ export function AdminClient({
                                         )}
 
                                         {sub.mealNotes && (
-                                          <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30 space-y-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1 font-mono">
-                                              <Utensils className="w-3 h-3 text-amber-500" />
+                                          <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
+                                              <Utensils className="w-3 h-3 text-zinc-500" />
                                               <span>Meal Notes ({sub.mealCompliance || "Logged"})</span>
                                             </span>
                                             <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
@@ -10650,9 +10686,9 @@ export function AdminClient({
                                         )}
 
                                         {sub.eventFeedback && (
-                                          <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/30 space-y-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1 font-mono">
-                                              <Users className="w-3 h-3 text-emerald-500" />
+                                          <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
+                                              <Users className="w-3 h-3 text-zinc-500" />
                                               <span>Meetup Feedback</span>
                                             </span>
                                             <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
@@ -10667,7 +10703,7 @@ export function AdminClient({
                                     <div className="pt-2 border-t border-zinc-100 dark:border-white/5 flex flex-wrap items-center gap-2 text-xs">
                                       {sub.happinessRate !== null && sub.happinessRate !== undefined && (
                                         <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
-                                          <Smile className="w-3.5 h-3.5 text-amber-500" />
+                                          <Smile className="w-3.5 h-3.5 text-zinc-500" />
                                           <span className="text-[11px] font-medium">Mood:</span>
                                           <div className="flex items-center gap-0.5">
                                             {Array.from({ length: 5 }, (_, idx) => (
@@ -10675,7 +10711,7 @@ export function AdminClient({
                                                 key={idx}
                                                 className={`w-3 h-3 ${
                                                   idx < sub.happinessRate!
-                                                    ? "text-amber-400 fill-amber-400"
+                                                    ? "text-zinc-400 fill-amber-400"
                                                     : "text-zinc-300 dark:text-zinc-600"
                                                 }`}
                                               />
@@ -10685,8 +10721,8 @@ export function AdminClient({
                                       )}
 
                                       {(sub.bedtime || sub.wakeTime || sub.sleepDurationMinutes) && (
-                                        <div className="px-2.5 py-1 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/30 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 font-mono text-[11px]">
-                                          <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                                        <div className="px-2.5 py-1 rounded-lg bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 font-mono text-[11px]">
+                                          <Moon className="w-3.5 h-3.5 text-zinc-500" />
                                           <span>
                                             {sub.bedtime && sub.wakeTime ? `${sub.bedtime} – ${sub.wakeTime}` : "Sleep Logged"}
                                             {sub.sleepDurationMinutes ? ` (${Math.floor(sub.sleepDurationMinutes / 60)}h ${sub.sleepDurationMinutes % 60}m)` : ""}
@@ -10872,7 +10908,7 @@ export function AdminClient({
                       <div
                         className={`p-3.5 rounded-xl border space-y-1.5 ${
                           profile?.injuriesOrConditions
-                            ? "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20"
+                            ? "bg-zinc-500/5 dark:bg-zinc-500/10 border-zinc-500/20"
                             : "bg-zinc-50/70 dark:bg-white/5 border-zinc-200/70 dark:border-white/10"
                         }`}
                       >
@@ -10881,7 +10917,7 @@ export function AdminClient({
                             Physical Limitations &amp; Health Conditions
                           </span>
                           {profile?.injuriesOrConditions && (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-500/20 text-zinc-700 dark:text-zinc-300 font-semibold">
                               Movement Alert
                             </span>
                           )}
@@ -10909,9 +10945,12 @@ export function AdminClient({
                               >
                                 {url ? (
                                   <>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                       src={url}
                                       alt={label}
+                                      loading="lazy"
+                                      decoding="async"
                                       className="w-full h-44 object-cover group-hover:scale-105 transition duration-300"
                                     />
                                     <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-white">
@@ -11587,9 +11626,11 @@ export function AdminClient({
                 </span>
                 <div className="aspect-4/3 rounded-xl overflow-hidden bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center justify-center">
                   {lightboxData.beforeUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={lightboxData.beforeUrl}
                       alt="Before"
+                      decoding="async"
                       className="w-full h-full object-contain"
                     />
                   ) : (
@@ -11604,9 +11645,11 @@ export function AdminClient({
                 </span>
                 <div className="aspect-4/3 rounded-xl overflow-hidden bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center justify-center">
                   {lightboxData.afterUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={lightboxData.afterUrl}
                       alt="After"
+                      decoding="async"
                       className="w-full h-full object-contain"
                     />
                   ) : (

@@ -100,7 +100,7 @@ export async function dispatchDueNotifications(options: {
           if (recipients.length === 0) continue;
 
           const message = item.message.trim();
-          await createUserNotifications(
+          const createdCount = await createUserNotifications(
             recipients.map((enrollment) => ({
               userId: enrollment.userId,
               type: "TASK" as const,
@@ -111,6 +111,9 @@ export async function dispatchDueNotifications(options: {
               createdAt: slot.instant,
             }))
           );
+
+          // Atomic idempotency check: If 0 rows were inserted (due to duplicate key in concurrent execution), skip push dispatch!
+          if (createdCount === 0) continue;
 
           const subscribers = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
           for (const enrollment of recipients) {
