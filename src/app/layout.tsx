@@ -5,6 +5,7 @@ import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuraBackground } from "@/components/ui/AuraBackground";
 import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
+import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
 
 const urbanist = Urbanist({
   subsets: ["latin"],
@@ -61,7 +62,28 @@ export default function RootLayout({
       <body
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
       >
+        <div
+          id="bms-pwa-splash"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#0e0e0e",
+            color: "#ffffff",
+            userSelect: "none",
+            transition: "opacity 0.4s ease-out",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }} className="animate-pulse">
+            <span style={{ fontSize: "2rem", lineHeight: 1, opacity: 0.5 }}>+</span>
+            <span style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "0.28em" }}>BMS</span>
+          </div>
+        </div>
         <ThemeProvider>
+          <PwaSplashDismiss />
           <ServiceWorkerRegister />
           <SmoothScroll>
             <AuraBackground />

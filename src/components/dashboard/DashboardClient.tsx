@@ -1586,7 +1586,7 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-1.5 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
       >
         {(
           [
@@ -1599,20 +1599,21 @@ export function DashboardClient({
           <button
             key={key}
             type="button"
+            aria-label={label}
+            title={label}
             aria-current={activeTab === key ? "page" : undefined}
             onClick={() => {
               setActiveTab(key);
               setIsViewingPlanDetail(false);
               window.scrollTo({ top: 0 });
             }}
-            className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
+            className={`flex-1 h-9 rounded-full transition flex items-center justify-center ${
               activeTab === key
                 ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                 : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
-            <span>{label}</span>
+            <Icon className="w-4 h-4" />
           </button>
         ))}
       </nav>
