@@ -58,7 +58,7 @@ export default function RootLayout({
             __html: `
               @keyframes bmsPulse {
                 0%, 100% { opacity: 1; transform: scale(1); }
-                50% { opacity: 0.55; transform: scale(0.97); }
+                50% { opacity: 0.65; transform: scale(0.96); }
               }
               #bms-pwa-splash {
                 position: fixed;
@@ -68,15 +68,13 @@ export default function RootLayout({
                 align-items: center;
                 justify-content: center;
                 background-color: #0e0e0e;
-                color: #ffffff;
                 user-select: none;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 transition: opacity 0.4s ease-out;
               }
               #bms-pwa-splash .bms-pulse-logo {
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                justify-content: center;
                 animation: bmsPulse 1.4s ease-in-out infinite;
               }
             `,
@@ -91,10 +89,11 @@ export default function RootLayout({
       <body
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
       >
-        <div id="bms-pwa-splash">
+        <div id="bms-pwa-splash" aria-hidden="true">
           <div className="bms-pulse-logo">
-            <span style={{ fontSize: "32px", fontWeight: 300, color: "#a1a1aa", lineHeight: 1 }}>+</span>
-            <span style={{ fontSize: "24px", fontWeight: 700, letterSpacing: "0.28em", color: "#ffffff" }}>BMS</span>
+            <svg width="150" height="48" viewBox="0 0 150 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="34" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" font-weight="800" text-anchor="middle" letter-spacing="6">+ BMS</text>
+            </svg>
           </div>
         </div>
         <ThemeProvider>
