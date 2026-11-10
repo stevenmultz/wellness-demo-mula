@@ -49,10 +49,39 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="+ BMS" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @keyframes bmsPulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.55; transform: scale(0.97); }
+              }
+              #bms-pwa-splash {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #0e0e0e;
+                color: #ffffff;
+                user-select: none;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                transition: opacity 0.4s ease-out;
+              }
+              #bms-pwa-splash .bms-pulse-logo {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                animation: bmsPulse 1.4s ease-in-out infinite;
+              }
+            `,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{const t=localStorage.getItem("wellness-theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}}catch(e){}`,
@@ -62,24 +91,10 @@ export default function RootLayout({
       <body
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
       >
-        <div
-          id="bms-pwa-splash"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#0e0e0e",
-            color: "#ffffff",
-            userSelect: "none",
-            transition: "opacity 0.4s ease-out",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }} className="animate-pulse">
-            <span style={{ fontSize: "2rem", lineHeight: 1, opacity: 0.5 }}>+</span>
-            <span style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "0.28em" }}>BMS</span>
+        <div id="bms-pwa-splash">
+          <div className="bms-pulse-logo">
+            <span style={{ fontSize: "32px", fontWeight: 300, color: "#a1a1aa", lineHeight: 1 }}>+</span>
+            <span style={{ fontSize: "24px", fontWeight: 700, letterSpacing: "0.28em", color: "#ffffff" }}>BMS</span>
           </div>
         </div>
         <ThemeProvider>

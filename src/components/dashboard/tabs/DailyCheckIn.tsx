@@ -6,8 +6,6 @@ import {
   Angry,
   ArrowLeft,
   Check,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Frown,
   Laugh,
@@ -43,10 +41,26 @@ export interface DailyCheckInProps {
 }
 
 const TASKS = [
-  { title: "Sleep", description: "Catat jadwal waktu tidur dan kualitas istirahat Anda." },
-  { title: "Daily Routine", description: "Pilih dan selesaikan rangkaian gerakan latihan harian." },
-  { title: "Meal", description: "Pencatatan kepatuhan nutrisi dan pola makan hari ini." },
-  { title: "Reflection", description: "Evaluasi harian dan tingkat kepuasan ritual fisik & mental." },
+  {
+    category: "SLEEP",
+    title: "Sleep Protocol",
+    description: "Record your bedtime, wake time, and sleep duration.",
+  },
+  {
+    category: "TRAINING",
+    title: "Movement & Routine",
+    description: "Select your training variation and complete your daily checklist.",
+  },
+  {
+    category: "MEAL",
+    title: "Nutrition & Meal",
+    description: "Log your dietary compliance and meal protocol.",
+  },
+  {
+    category: "REFLECTION",
+    title: "Daily Reflection",
+    description: "Evaluate your daily fulfillment and energy index.",
+  },
 ] as const;
 
 const FACES = [
@@ -57,14 +71,10 @@ const FACES = [
   { score: 5, Icon: Laugh, label: "Very satisfied" },
 ] as const;
 
-const fieldCls =
-  "w-full h-11 px-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-sm font-mono text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50";
 const areaCls =
   "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
 const primaryBtn =
   "h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm";
-const ghostBtn =
-  "h-9 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 disabled:opacity-40 inline-flex items-center gap-1 active:scale-95 transition";
 
 function sleepMinutes(bed: string, wake: string): number {
   const [bh, bm] = bed.split(":").map(Number);
@@ -152,9 +162,7 @@ function TaskForm({
   activities,
   checks,
   step,
-  onAdvance,
-  onSkip,
-  onCloseEdit,
+  onFinish,
   props,
 }: {
   day: PlanDay;
@@ -162,9 +170,7 @@ function TaskForm({
   activities: string[];
   checks: string[];
   step: number;
-  onAdvance: () => void;
-  onSkip: () => void;
-  onCloseEdit?: () => void;
+  onFinish: () => void;
   props: DailyCheckInProps;
 }) {
   const progress = day.userProgress;
@@ -197,6 +203,19 @@ function TaskForm({
   const activeWorkout = workout || groups[0]?.optionName || "";
   const groupMoves = groups.find((g) => g.optionName === activeWorkout)?.movements.map((m) => m.name) || [];
   const movements = groupMoves.length > 0 ? groupMoves : activities;
+
+  // Dynamic video mapped to selected option
+  const activeOptionIdx = Math.max(0, groups.findIndex((g) => g.optionName === activeWorkout));
+  const activeVideo = useMemo(() => {
+    if (videos[activeOptionIdx]) return videos[activeOptionIdx];
+    if (videos[0]) {
+      return {
+        title: `${activeWorkout || "Movement"} • Guided Protocol`,
+        url: videos[0].url,
+      };
+    }
+    return null;
+  }, [videos, activeOptionIdx, activeWorkout]);
 
   const isChecked = (name: string) =>
     localChecks.some((c) => {
@@ -240,20 +259,19 @@ function TaskForm({
     return (await props.onSaveReflection(review.trim(), score, day.id)) !== false;
   };
 
-  const next = async () => {
+  const handleSave = async () => {
     if (locked || busy || !valid[step]) return;
     setBusy(true);
     setError(null);
     try {
       const ok = await persist();
       if (!ok) {
-        setError("Tidak dapat menyimpan. Silakan coba lagi.");
+        setError("Could not save. Please try again.");
         return;
       }
-      if (onCloseEdit) onCloseEdit();
-      else onAdvance();
+      onFinish();
     } catch {
-      setError("Tidak dapat menyimpan. Silakan coba lagi.");
+      setError("Could not save. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -261,7 +279,7 @@ function TaskForm({
 
   const pickPhoto = async (type: "before" | "after", file: File) => {
     if (file.size > 15 * 1024 * 1024) {
-      setError("Ukuran foto maksimal 15 MB.");
+      setError("Photo must be under 15 MB.");
       return;
     }
     setPhotoBusy(type);
@@ -274,12 +292,12 @@ function TaskForm({
         body: JSON.stringify({ dataUrl, type }),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success || !json.url) throw new Error(json?.message || "Upload gagal.");
+      if (!res.ok || !json?.success || !json.url) throw new Error(json?.message || "Upload failed.");
       const ok = (await props.onUploadPhoto(type, json.url, day.id)) !== false;
-      if (!ok) throw new Error("Gagal menyimpan foto.");
+      if (!ok) throw new Error("Could not save the photo.");
       setPhotos((p) => ({ ...p, [type]: json.url as string }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload gagal.");
+      setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setPhotoBusy(null);
     }
@@ -293,38 +311,42 @@ function TaskForm({
 
   return (
     <div key={step} className="space-y-4">
-      {/* STEP 0: SLEEP (STACKED & CLEAN) */}
+      {/* STEP 0: SLEEP */}
       {step === 0 && (
-        <div className="space-y-3.5 w-full">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Waktu Tidur (Bedtime)
-            </span>
-            <input
-              type="time"
-              value={bed}
-              disabled={locked}
-              onChange={(e) => setBed(e.target.value)}
-              className={fieldCls}
-            />
-          </label>
+        <div className="space-y-4 max-w-sm mx-auto w-full">
+          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-200/60 dark:border-white/10">
+              <div>
+                <span className="text-xs font-semibold text-zinc-900 dark:text-white block">Bedtime</span>
+                <span className="text-[11px] text-zinc-500">Target: Wind down before 22:30 WIB</span>
+              </div>
+              <input
+                type="time"
+                value={bed}
+                disabled={locked}
+                onChange={(e) => setBed(e.target.value)}
+                className="w-36 h-10 px-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-300 dark:border-white/20 text-sm font-mono font-semibold text-zinc-900 dark:text-white text-center outline-none focus:border-zinc-900 dark:focus:border-white transition"
+              />
+            </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Waktu Bangun (Wake Time)
-            </span>
-            <input
-              type="time"
-              value={wake}
-              disabled={locked}
-              onChange={(e) => setWake(e.target.value)}
-              className={fieldCls}
-            />
-          </label>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-semibold text-zinc-900 dark:text-white block">Wake Time</span>
+                <span className="text-[11px] text-zinc-500">Morning circadian reset</span>
+              </div>
+              <input
+                type="time"
+                value={wake}
+                disabled={locked}
+                onChange={(e) => setWake(e.target.value)}
+                className="w-36 h-10 px-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-300 dark:border-white/20 text-sm font-mono font-semibold text-zinc-900 dark:text-white text-center outline-none focus:border-zinc-900 dark:focus:border-white transition"
+              />
+            </div>
+          </div>
 
           {bed && wake && (
             <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-mono">
-              <span className="text-zinc-500 dark:text-zinc-400">Total Durasi Tidur</span>
+              <span className="text-zinc-500 dark:text-zinc-400">Total Sleep Duration</span>
               <span className="font-semibold text-zinc-950 dark:text-white tabular-nums">
                 {formatDuration(sleepMinutes(bed, wake))}
               </span>
@@ -333,33 +355,14 @@ function TaskForm({
         </div>
       )}
 
-      {/* STEP 1: DAILY ROUTINE / TRAINING */}
+      {/* STEP 1: TRAINING / ROUTINE */}
       {step === 1 && !isConnect && (
         <div className="space-y-4">
-          {isTraining && videos[0] && (
-            <a
-              href={videos[0].url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => props.onOpenVideo(day.id)}
-              className="flex items-center gap-3 p-2 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={extractVideoThumbnail(videos[0].url, "/coach.jpg")} alt="" className="w-24 h-16 object-cover rounded-lg bg-zinc-200 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">{videos[0].title || day.title}</span>
-                <span className="text-[11px] font-mono text-zinc-500 inline-flex items-center gap-1 mt-0.5">
-                  Panduan Video <ExternalLink className="w-3 h-3" />
-                </span>
-              </div>
-            </a>
-          )}
-
-          {/* Training Variation Options Selection */}
+          {/* 1. SELECT TRAINING ROUTINE FIRST */}
           {groups.length > 0 && (
             <div className="space-y-2">
               <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                Pilih Latihan Hari Ini:
+                Select Today&apos;s Training Routine:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {groups.map((g) => {
@@ -381,7 +384,7 @@ function TaskForm({
                         {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
                       </div>
                       <span className="text-[10px] font-mono opacity-70">
-                        {g.movements.length} Gerakan Checklist
+                        {g.movements.length} Movements Checklist
                       </span>
                     </button>
                   );
@@ -390,14 +393,34 @@ function TaskForm({
             </div>
           )}
 
-          {/* Checklist for Selected Training */}
-          {movements.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold">
-                  Checklist Gerakan ({movements.filter(isChecked).length}/{movements.length}):
+          {/* 2. DYNAMIC YOUTUBE VIDEO ACCORDING TO CHOICE */}
+          {isTraining && activeVideo && (
+            <a
+              href={activeVideo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => props.onOpenVideo(day.id)}
+              className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={extractVideoThumbnail(activeVideo.url, "/coach.jpg")} alt="" className="w-24 h-16 object-cover rounded-lg bg-zinc-200 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
+                  {activeVideo.title}
+                </span>
+                <span className="text-[11px] font-mono text-zinc-500 inline-flex items-center gap-1 mt-0.5">
+                  Watch on YouTube <ExternalLink className="w-3 h-3" />
                 </span>
               </div>
+            </a>
+          )}
+
+          {/* 3. CHECKLIST ACCORDING TO CHOICE */}
+          {movements.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
+                Movement Checklist ({movements.filter(isChecked).length}/{movements.length}):
+              </span>
               <ul className="divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#141414] overflow-hidden">
                 {movements.map((name) => {
                   const checked = isChecked(name);
@@ -431,16 +454,16 @@ function TaskForm({
             </div>
           )}
 
-          {/* Photo Check-in */}
+          {/* 4. PHOTO CHECK-IN (OPTIONAL) */}
           {isTraining && (
             <div className="space-y-2">
               <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                Foto Check-in (Opsional):
+                Photo Check-in (Optional):
               </span>
               <div className="grid grid-cols-2 gap-2">
                 {(["before", "after"] as const).map((type) => (
                   <label key={type} className="block text-[11px] text-zinc-500">
-                    {type === "before" ? "Before Exercise" : "After Exercise"}
+                    {type === "before" ? "Before Session" : "After Session"}
                     <span className="mt-1 flex h-16 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/10 transition">
                       {photos[type] ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -481,7 +504,7 @@ function TaskForm({
             disabled={locked}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Tuliskan catatan kehadiran atau feedback sesi komunitas..."
+            placeholder="Enter your attendance notes or session reflection..."
             className={areaCls}
           />
         </label>
@@ -492,7 +515,7 @@ function TaskForm({
         <div className="space-y-3.5">
           {recommended.length > 0 && (
             <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/10 text-xs space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Rekomendasi Menu:</p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Nutrition Protocol:</p>
               {recommended.map((line) => (
                 <p key={line} className="text-zinc-700 dark:text-zinc-300">{line}</p>
               ))}
@@ -508,7 +531,7 @@ function TaskForm({
                 meal.followed === true ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5"
               }`}
             >
-              Mengikuti Rekomendasi
+              Follow Protocol
             </button>
             <button
               type="button"
@@ -519,18 +542,18 @@ function TaskForm({
                 meal.followed === false ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5"
               }`}
             >
-              Menu Berbeda
+              Custom Meal
             </button>
           </div>
           {meal.followed === false && (
             <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Catatan Makanan</span>
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Custom Meal Notes</span>
               <textarea
                 value={meal.actual}
                 disabled={locked}
                 onChange={(e) => setMeal((d) => ({ ...d, actual: e.target.value }))}
                 rows={3}
-                placeholder="Tuliskan makanan yang Anda konsumsi..."
+                placeholder="Enter your meal notes and nutrition details..."
                 className={areaCls}
               />
             </label>
@@ -542,20 +565,20 @@ function TaskForm({
       {step === 3 && (
         <div className="space-y-4">
           <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Evaluasi & Refleksi Harian</span>
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Daily Reflection</span>
             <textarea
               value={review}
               disabled={locked}
               onChange={(e) => setReview(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="Bagaimana perasaan, energi, dan kesiapan tubuh Anda hari ini?"
+              placeholder="Enter your daily reflection, physical sensation, and thoughts..."
               className={areaCls}
             />
           </label>
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Tingkat Kepuasan & Energi Hari Ini</p>
-            <div className="flex gap-2" role="radiogroup" aria-label="Tingkat Kepuasan">
+            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Daily Fulfillment & Energy Index</p>
+            <div className="flex gap-2" role="radiogroup" aria-label="Satisfaction Rating">
               {FACES.map(({ score: n, Icon, label }) => (
                 <button
                   key={n}
@@ -590,7 +613,7 @@ function TaskForm({
         <button
           type="button"
           disabled={locked || busy}
-          onClick={onSkip}
+          onClick={onFinish}
           className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
         >
           Skip
@@ -599,7 +622,7 @@ function TaskForm({
         <button
           type="button"
           disabled={locked || busy || !valid[step] || photoBusy !== null}
-          onClick={next}
+          onClick={handleSave}
           className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
         >
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
@@ -619,7 +642,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
-  const firstOpen = done.findIndex((item) => !item);
   const [detailOpen, setDetailOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
@@ -634,27 +656,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setDone((prev) => prev.map((item, i) => (i === index ? true : item)));
   };
 
-  const task = TASKS[step];
-  const completed = done[step];
-  const active = !completed && step === firstOpen;
-  const taskLocked = locked || (!completed && !active);
+  const currentTask = TASKS[step];
   const allDone = done.every(Boolean);
 
-  const handleAdvanceStep = () => {
+  const handleFinishTask = () => {
     markDone(step);
-    if (step < TASKS.length - 1) {
-      setStep((curr) => curr + 1);
-    } else {
-      setDetailOpen(false);
-    }
-  };
-
-  const handleSkipStep = () => {
-    if (step < TASKS.length - 1) {
-      setStep((curr) => curr + 1);
-    } else {
-      setDetailOpen(false);
-    }
+    setDetailOpen(false);
   };
 
   return (
@@ -662,37 +669,33 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {/* Daily Task Card Header */}
       <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-zinc-100 dark:border-white/10">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Task</h2>
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
           <p className="mt-0.5 text-[11px] font-mono text-zinc-500">Daily Reset: 00:00 WIB (UTC+7)</p>
         </div>
         <button
           type="button"
-          aria-label="Daily Task Detail"
-          onClick={() => openDetail(Math.max(0, firstOpen >= 0 ? firstOpen : 0))}
+          aria-label="View Tasks Overview"
+          onClick={() => openDetail(0)}
           className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition"
         >
           <ListTodo className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
         </button>
       </div>
 
-      {/* Task List */}
+      {/* Task List (Non-sequential: any task can be clicked in any order) */}
       <ol className="divide-y divide-zinc-100 dark:divide-white/10">
         {TASKS.map((t, index) => {
           const isDone = done[index];
-          const isActive = !isDone && index === firstOpen;
-          const isItemLocked = locked || (!isDone && !isActive);
           return (
             <li
               key={t.title}
-              className={`px-4 py-3.5 flex items-center gap-3 transition ${isActive ? "bg-zinc-50 dark:bg-white/5" : ""} ${isItemLocked && !isDone ? "opacity-55" : ""}`}
+              className={`px-4 py-3.5 flex items-center gap-3 transition ${isDone ? "bg-zinc-50/50 dark:bg-white/[0.02]" : ""}`}
             >
               <span
                 className={`w-6 h-6 rounded-full border text-[11px] font-semibold inline-flex items-center justify-center shrink-0 ${
                   isDone
                     ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
-                    : isActive
-                      ? "border-zinc-950 text-zinc-950 dark:border-white dark:text-white"
-                      : "border-zinc-300 text-zinc-400"
+                    : "border-zinc-300 text-zinc-400"
                 }`}
                 aria-hidden
               >
@@ -709,14 +712,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   type="button"
                   disabled={locked}
                   onClick={() => openDetail(index)}
-                  className="h-8 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shrink-0"
+                  className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shrink-0"
                 >
                   <span>Edit</span>
                 </button>
               ) : (
                 <button
                   type="button"
-                  disabled={isItemLocked}
+                  disabled={locked}
                   onClick={() => openDetail(index)}
                   className={primaryBtn}
                 >
@@ -728,13 +731,13 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* BOTTOM ACTION: SUBMIT HARI INI */}
+      {/* BOTTOM ACTION: SUBMIT TODAY */}
       <div className="p-3.5 border-t border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
         {day.userProgress?.isCompleted ? (
           <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">
             <span className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Jurnal Hari Ini Selesai & Terkunci</span>
+              <span>Today&apos;s Routine Completed & Locked</span>
             </span>
             <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
               <Lock className="w-3 h-3" /> Locked
@@ -752,7 +755,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             ) : (
               <Check className="w-4 h-4" />
             )}
-            <span>Submit Hari Ini</span>
+            <span>Submit Today</span>
           </button>
         )}
       </div>
@@ -762,8 +765,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
-            <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-4">
-              {/* TOP HEADER: Back button on the LEFT, Task index on the RIGHT */}
+            <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-12 space-y-4">
+              {/* TOP HEADER: Back button on the LEFT, Task Category on the RIGHT (NO INDEX NUMBER) */}
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
@@ -773,71 +776,34 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
-                <p className="text-xs font-mono font-semibold text-zinc-500 tabular-nums">
-                  TASK {step + 1} <span className="font-normal text-zinc-400">/ {TASKS.length}</span>
-                </p>
+                <span className="text-xs font-mono font-bold tracking-[0.2em] text-zinc-500 dark:text-zinc-400 uppercase">
+                  {currentTask.category}
+                </span>
               </div>
 
               {/* TASK CARD */}
-              <section
-                className={`rounded-2xl border bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm ${
-                  active ? "border-zinc-950 dark:border-white" : "border-zinc-200 dark:border-white/10"
-                } ${taskLocked ? "opacity-70" : ""}`}
-              >
+              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3 pb-3 border-b border-zinc-100 dark:border-white/10">
                   <div>
-                    <h2 className="text-base font-semibold text-zinc-950 dark:text-white">{task.title}</h2>
-                    <p className="text-xs text-zinc-500 mt-0.5">{task.description}</p>
+                    <h2 className="text-base font-semibold text-zinc-950 dark:text-white">{currentTask.title}</h2>
+                    <p className="text-xs text-zinc-500 mt-0.5">{currentTask.description}</p>
                   </div>
                   <span className="text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 shrink-0">
-                    {completed ? "Completed" : active ? "Active" : "Locked"}
+                    {done[step] ? "Completed" : "Active"}
                   </span>
                 </div>
 
                 <TaskForm
                   key={`${day.id}-${step}`}
                   day={day}
-                  locked={taskLocked}
+                  locked={locked}
                   activities={activities}
                   checks={checks}
                   step={step}
-                  onAdvance={handleAdvanceStep}
-                  onSkip={handleSkipStep}
+                  onFinish={handleFinishTask}
                   props={props}
                 />
               </section>
-            </div>
-
-            {/* STICKY BOTTOM NAVIGATION BAR */}
-            <div className="fixed bottom-0 inset-x-0 border-t border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md">
-              <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  disabled={step === 0}
-                  onClick={() => setStep((current) => Math.max(0, current - 1))}
-                  className={ghostBtn}
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                </button>
-
-                {step < TASKS.length - 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => setStep((current) => Math.min(TASKS.length - 1, current + 1))}
-                    className={ghostBtn}
-                  >
-                    Next <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setDetailOpen(false)}
-                    className={ghostBtn}
-                  >
-                    Close
-                  </button>
-                )}
-              </div>
             </div>
           </div>,
           document.body
@@ -851,24 +817,24 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
               <div className="space-y-1">
                 <h3 className="text-base font-semibold text-zinc-950 dark:text-white">
-                  Submit & Kunci Task Hari Ini?
+                  Submit & Lock Today&apos;s Routine?
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Pastikan seluruh task hari ini sudah diisi dengan benar. Setelah disubmit, jurnal hari ini akan terkunci secara permanen.
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Please ensure all daily activities are complete. Once submitted, today&apos;s journal will be permanently locked and archived.
                 </p>
               </div>
 
               {/* Task Completion Checklist Status */}
-              <div className="space-y-2 p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-xs">
+              <div className="space-y-2 p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-xs font-mono">
                 {TASKS.map((t, i) => (
                   <div key={t.title} className="flex items-center justify-between">
                     <span className="text-zinc-600 dark:text-zinc-400">{t.title}</span>
                     {done[i] ? (
-                      <span className="inline-flex items-center gap-1 font-semibold text-zinc-950 dark:text-white">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Selesai
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                        <Check className="w-3.5 h-3.5" /> Completed
                       </span>
                     ) : (
-                      <span className="text-zinc-400 font-mono text-[11px]">Belum Diisi</span>
+                      <span className="text-zinc-400 text-[11px]">Not Logged</span>
                     )}
                   </div>
                 ))}
@@ -876,7 +842,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
               {!allDone && (
                 <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-white/10 text-[11px] text-zinc-600 dark:text-zinc-300">
-                  <p>Catatan: Masih ada task yang belum diselesaikan. Anda tetap dapat submit jika ingin mengunci hari ini.</p>
+                  <p>Note: Some tasks have not been completed yet. You can still submit if you wish to conclude today.</p>
                 </div>
               )}
 
@@ -887,7 +853,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   disabled={completing}
                   className="px-4 py-2 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -907,7 +873,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   className="px-5 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition active:scale-98 shadow-md"
                 >
                   {completing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Ya, Submit & Kunci</span>
+                  <span>Submit & Lock</span>
                 </button>
               </div>
             </div>
