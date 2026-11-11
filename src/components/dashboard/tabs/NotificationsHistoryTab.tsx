@@ -11,7 +11,16 @@ import {
   wellnessMarkNotificationRead,
 } from "@/wellness/actions/activity";
 import { usePushNotifications } from "./usePushNotifications";
-import { EmptyState, ErrorState, FloatingHeader, LoadingState, formatDateTimeWib, formatIdr } from "./shared";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingHeader,
+  LoadingState,
+  PullToRefreshBanner,
+  formatDateTimeWib,
+  formatIdr,
+  usePullToRefresh,
+} from "./shared";
 
 type Section = "notifications" | "activity" | "history";
 
@@ -65,11 +74,13 @@ export interface CompletedProgramItem {
 
 export function NotificationsHistoryTab({
   headerVisible,
+  isActive = true,
   completedPrograms = [],
   onOpenProgramDetail,
   initialSection = "notifications",
 }: {
   headerVisible: boolean;
+  isActive?: boolean;
   completedPrograms?: CompletedProgramItem[];
   onOpenProgramDetail?: (programId: string) => void;
   initialSection?: Section;
@@ -78,33 +89,63 @@ export function NotificationsHistoryTab({
   const [notifs, setNotifs] = useState<Loadable<{ items: InboxNotification[]; unreadCount: number }>>({ status: "loading" });
   const [history, setHistory] = useState<Loadable<HistoryPayload>>({ status: "loading" });
   const [markingAll, setMarkingAll] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadNotifs = useCallback(async () => {
-    setNotifs({ status: "loading" });
+  const loadNotifs = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) {
+      setNotifs((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+    }
     try {
       const res = await wellnessGetNotifications();
       if (res.success && res.data) setNotifs({ status: "ready", data: res.data });
-      else setNotifs({ status: "error", message: res.message || "Failed to load notifications." });
+      else
+        setNotifs((prev) =>
+          prev.status === "ready" ? prev : { status: "error", message: res.message || "Failed to load notifications." }
+        );
     } catch {
-      setNotifs({ status: "error", message: "Failed to load notifications." });
+      setNotifs((prev) =>
+        prev.status === "ready" ? prev : { status: "error", message: "Failed to load notifications." }
+      );
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    setHistory({ status: "loading" });
+  const loadHistory = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) {
+      setHistory((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+    }
     try {
       const res = await wellnessGetHistory();
       if (res.success && res.data) setHistory({ status: "ready", data: res.data });
-      else setHistory({ status: "error", message: res.message || "Failed to load history." });
+      else
+        setHistory((prev) =>
+          prev.status === "ready" ? prev : { status: "error", message: res.message || "Failed to load history." }
+        );
     } catch {
-      setHistory({ status: "error", message: "Failed to load history." });
+      setHistory((prev) =>
+        prev.status === "ready" ? prev : { status: "error", message: "Failed to load history." }
+      );
     }
   }, []);
 
   useEffect(() => {
-    loadNotifs();
-    loadHistory();
+    loadNotifs(false);
+    loadHistory(false);
   }, [loadNotifs, loadHistory]);
+
+  const handlePullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadNotifs(true), loadHistory(true)]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadNotifs, loadHistory]);
+
+  const { pullDistance } = usePullToRefresh({
+    active: isActive,
+    refreshing,
+    onRefresh: handlePullRefresh,
+  });
 
   const markRead = async (n: InboxNotification) => {
     if (n.isRead || notifs.status !== "ready") return;
@@ -147,6 +188,7 @@ export function NotificationsHistoryTab({
   return (
     <>
       <PushHeader visible={headerVisible} />
+      <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
       <div className="flex p-1 rounded-full bg-zinc-100 dark:bg-white/10">
         {(
           [
@@ -174,7 +216,7 @@ export function NotificationsHistoryTab({
             </button>
           )}
           {notifs.status === "loading" && <LoadingState label="Loading notifications..." />}
-          {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={loadNotifs} />}
+          {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={() => loadNotifs(false)} />}
           {notifs.status === "ready" && notes.length === 0 && (
             <EmptyState title="No notifications" description="Program updates and reminders will show up here." />
           )}
@@ -194,8 +236,8 @@ export function NotificationsHistoryTab({
       {section === "activity" && (
         <section className="space-y-2">
           {(notifs.status === "loading" || history.status === "loading") && <LoadingState label="Loading activity..." />}
-          {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={loadNotifs} />}
-          {history.status === "error" && <ErrorState message={history.message} onRetry={loadHistory} />}
+          {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={() => loadNotifs(false)} />}
+          {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
           {notifs.status === "ready" && history.status === "ready" && taskNotes.length === 0 && history.data.activities.length === 0 && (
             <EmptyState title="No recent activity" description="Completed tasks and program updates will appear here." />
           )}
@@ -220,7 +262,7 @@ export function NotificationsHistoryTab({
       {section === "history" && (
         <section className="space-y-2">
           {history.status === "loading" && <LoadingState label="Loading history..." />}
-          {history.status === "error" && <ErrorState message={history.message} onRetry={loadHistory} />}
+          {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
           {notifs.status === "ready" && history.status === "ready" && completedPrograms.length === 0 && notes.length === 0 && history.data.payments.length === 0 && history.data.activities.length === 0 && (
             <EmptyState title="No history yet" description="Earlier updates, completed programs, and payments will stay here." />
           )}

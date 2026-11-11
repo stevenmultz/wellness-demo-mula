@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { AlertTriangle, ArrowDown, Loader2 } from "lucide-react";
 
 /** App timezone: Western Indonesia Time. All user-facing dates use it (SSR and browser agree). */
 export const APP_TIMEZONE = "Asia/Jakarta";
@@ -164,6 +164,145 @@ export function EmptyState({
         </p>
       )}
       {action && <div className="pt-2">{action}</div>}
+    </div>
+  );
+}
+
+export function usePullToRefresh({
+  active = true,
+  refreshing,
+  onRefresh,
+}: {
+  active?: boolean;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const [pullDistance, setPullDistance] = useState(0);
+  const startYRef = useRef<number | null>(null);
+  const pullRef = useRef(0);
+  const atTopSinceRef = useRef<number>(Date.now());
+  const lastRefreshRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!active) {
+      setPullDistance(0);
+      pullRef.current = 0;
+      startYRef.current = null;
+      return;
+    }
+
+    const onScroll = () => {
+      if (window.scrollY <= 2) {
+        if (atTopSinceRef.current === 0) atTopSinceRef.current = Date.now();
+      } else {
+        atTopSinceRef.current = 0;
+      }
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (window.scrollY <= 2 && !refreshing && e.touches.length === 1) {
+        startYRef.current = e.touches[0].clientY;
+      } else {
+        startYRef.current = null;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (startYRef.current === null || refreshing) return;
+      if (window.scrollY > 2) {
+        startYRef.current = null;
+        pullRef.current = 0;
+        setPullDistance(0);
+        return;
+      }
+      const delta = e.touches[0].clientY - startYRef.current;
+      if (delta > 12) {
+        const next = Math.min(84, Math.round((delta - 12) * 0.55));
+        pullRef.current = next;
+        setPullDistance(next);
+      } else {
+        pullRef.current = 0;
+        setPullDistance(0);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (startYRef.current === null) return;
+      const dist = pullRef.current;
+      startYRef.current = null;
+      pullRef.current = 0;
+      setPullDistance(0);
+      if (dist >= 48 && !refreshing) {
+        lastRefreshRef.current = Date.now();
+        onRefresh();
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (refreshing) return;
+      const now = Date.now();
+      if (
+        window.scrollY <= 0 &&
+        atTopSinceRef.current > 0 &&
+        now - atTopSinceRef.current > 350 &&
+        now - lastRefreshRef.current > 2500 &&
+        e.deltaY < -55
+      ) {
+        lastRefreshRef.current = now;
+        onRefresh();
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("wheel", onWheel);
+    };
+  }, [active, refreshing, onRefresh]);
+
+  return { pullDistance };
+}
+
+export function PullToRefreshBanner({
+  pullDistance,
+  refreshing,
+}: {
+  pullDistance: number;
+  refreshing: boolean;
+}) {
+  if (!refreshing && pullDistance < 8) return null;
+  const ready = pullDistance >= 48;
+
+  return (
+    <div
+      style={{
+        height: refreshing ? 36 : Math.min(44, Math.max(28, pullDistance)),
+      }}
+      className="flex items-center justify-center overflow-hidden transition-all duration-150"
+    >
+      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/15 shadow-sm text-[11px] font-mono text-zinc-600 dark:text-zinc-300">
+        {refreshing ? (
+          <>
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>Refreshing latest data...</span>
+          </>
+        ) : (
+          <>
+            <ArrowDown
+              className={`w-3 h-3 transition-transform ${ready ? "rotate-180 text-zinc-950 dark:text-white" : ""}`}
+            />
+            <span>{ready ? "Release to refresh" : "Pull down to refresh"}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }

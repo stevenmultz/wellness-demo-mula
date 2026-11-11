@@ -164,6 +164,7 @@ export interface PlanProgramInfo {
   coachName: string;
   coachTitle?: string | null;
   category?: string | null;
+  difficultyLevel?: string | null;
   description?: string | null;
   locationType?: string | null;
   city?: string | null;
@@ -176,6 +177,16 @@ export interface PlanProgramInfo {
   communityLink: string | null;
   totalDays: number;
   isUpcoming?: boolean;
+}
+
+function formatIntensityBadge(level?: string | null): string {
+  const v = (level || "").trim().toUpperCase();
+  if (v.includes("VERY") && v.includes("HIGH")) return "Very High Intensity";
+  if (v === "ADVANCED" || v === "HIGH") return "High Intensity";
+  if (v === "INTERMEDIATE" || v === "MODERATE") return "Moderate Intensity";
+  if (v === "BEGINNER" || v === "LOW") return "Low Intensity";
+  if (v) return `${level} Intensity`;
+  return "Moderate Intensity";
 }
 
 function formatStartsIn(startDate: string | Date): { headline: string; dateLabel: string } {
@@ -327,6 +338,12 @@ export function MyPlanOverview({
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
   const locked = !day || !day.isCalendarUnlocked || day.isPast2359;
   const community = safeHttpUrl(program?.communityLink);
+  const fullProgramDays = allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays;
+  const trainingDaysTotal = fullProgramDays.filter((d) => d.dayType === "TRAINING_DAY").length;
+  const restDaysTotal = fullProgramDays.filter((d) => d.dayType === "REST_DAY").length;
+  const connectDaysTotal = fullProgramDays.filter(
+    (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
+  ).length;
 
   return (
     <div className="space-y-3">
@@ -339,6 +356,11 @@ export function MyPlanOverview({
             <div className="absolute inset-0 bg-zinc-800" />
           )}
           <div className="absolute inset-0 bg-black/45" />
+          {program && (
+            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+              {formatIntensityBadge(program.difficultyLevel)}
+            </span>
+          )}
           <div className="absolute bottom-0 left-0 right-0 p-4 text-white flex items-end justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
@@ -439,11 +461,18 @@ export function MyPlanOverview({
       ) : (
         <>
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3">
-            <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-zinc-100 dark:border-white/10 text-sm">
-              <p className="font-medium tabular-nums">
-                {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
-              </p>
+            <div className="flex items-center justify-between gap-3 pb-2.5 mb-2.5 border-b border-zinc-100 dark:border-white/10 text-sm">
+              <div>
+                <p className="font-medium tabular-nums">
+                  {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+                  <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
+                </p>
+                {fullProgramDays.length > 0 && (
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
+                  </p>
+                )}
+              </div>
               <p className="font-medium text-right">{day ? schedule.label.toUpperCase() : "NO OPEN DAY"}</p>
             </div>
             <dl className="grid grid-cols-3 gap-3 text-sm">
@@ -461,6 +490,11 @@ export function MyPlanOverview({
               </div>
             </dl>
           </section>
+
+          <CohortPerformanceCard
+            days={fullProgramDays}
+            currentDayNumber={currentDayNumber}
+          />
 
           {day ? (
             <DailyCheckIn
@@ -486,11 +520,6 @@ export function MyPlanOverview({
           ) : (
             <EmptyState title="No tasks today" description="There is no open session for today." />
           )}
-
-          <CohortPerformanceCard
-            days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
-            currentDayNumber={currentDayNumber}
-          />
 
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-sm font-medium">Community</p>
@@ -536,270 +565,129 @@ function formatSleepHours(mins: number): string {
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
+function FiveBarMeter({ score }: { score: number }) {
+  const safeScore = Math.max(0, Math.min(5, Math.round(score)));
+  return (
+    <div className="grid grid-cols-5 gap-1.5" aria-label={`Score ${safeScore} out of 5`}>
+      {[1, 2, 3, 4, 5].map((level) => (
+        <div
+          key={level}
+          className={`h-2 rounded-sm transition-all ${
+            level <= safeScore
+              ? "bg-zinc-950 dark:bg-white"
+              : "bg-zinc-100 dark:bg-white/10"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function CohortPerformanceCard({
   days,
-  currentDayNumber,
+  currentDayNumber: _currentDayNumber,
 }: {
   days: PlanDay[];
   currentDayNumber: number;
 }) {
+  void _currentDayNumber;
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
-  const activeOrPastDays = sorted.filter(
-    (d) => d.isPast2359 || d.isCalendarUnlocked || d.dayNumber <= currentDayNumber
-  );
 
-  // =========================================================================
-  // 1. SLEEP DURATION BAR CHART & DEFICIT / OPTIMAL CALCULATION
-  // =========================================================================
-  const TARGET_MIN_SLEEP = 420; // 7h 00m
-  const TARGET_MAX_SLEEP = 540; // 9h 00m
-  const TARGET_IDEAL_SLEEP = 480; // 8h 00m
+  // 1. Sleep Average (1–5 Score, 5 = Optimal >= 7h 30m)
+  const loggedSleeps = sorted
+    .map((d) => calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime))
+    .filter((mins) => mins > 0);
 
-  const sleepByDay = sorted.map((d) => ({
-    dayNumber: d.dayNumber,
-    mins: calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime),
-    isToday: d.dayNumber === currentDayNumber,
-  }));
-
-  const loggedSleeps = sleepByDay.filter((s) => s.mins > 0);
   const avgSleepMins =
     loggedSleeps.length > 0
-      ? Math.round(loggedSleeps.reduce((acc, s) => acc + s.mins, 0) / loggedSleeps.length)
+      ? Math.round(loggedSleeps.reduce((acc, m) => acc + m, 0) / loggedSleeps.length)
       : 0;
 
-  let sleepStatusText = "Log your bedtime & wake time to see your sleep gap";
-  let sleepBadgeLabel = "No Data Yet";
-  let sleepBadgeCls =
-    "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400";
+  const sleepScore =
+    avgSleepMins === 0
+      ? 0
+      : avgSleepMins >= 450 // >= 7h 30m
+        ? 5
+        : avgSleepMins >= 405 // 6h 45m - 7h 29m
+          ? 4
+          : avgSleepMins >= 360 // 6h 00m - 6h 44m
+            ? 3
+            : avgSleepMins >= 300 // 5h 00m - 5h 59m
+              ? 2
+              : 1;
 
-  if (avgSleepMins > 0) {
-    if (avgSleepMins < TARGET_MIN_SLEEP) {
-      const deficitMins = TARGET_MIN_SLEEP - avgSleepMins;
-      sleepStatusText = `Short by ${formatSleepHours(deficitMins)} from 7h minimum optimal target`;
-      sleepBadgeLabel = `-${formatSleepHours(deficitMins)} Deficit`;
-      sleepBadgeCls =
-        "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40";
-    } else if (avgSleepMins <= TARGET_MAX_SLEEP) {
-      const diffFrom8h = avgSleepMins - TARGET_IDEAL_SLEEP;
-      sleepStatusText =
-        diffFrom8h >= 0
-          ? `Optimal restorative zone (+${formatSleepHours(diffFrom8h)} above 8h baseline)`
-          : `Within optimal 7h–9h zone (${formatSleepHours(Math.abs(diffFrom8h))} to 8h peak)`;
-      sleepBadgeLabel = "Optimal (7–9h)";
-      sleepBadgeCls =
-        "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40";
-    } else {
-      const surplusMins = avgSleepMins - TARGET_MAX_SLEEP;
-      sleepStatusText = `${formatSleepHours(surplusMins)} above the 9h upper target window`;
-      sleepBadgeLabel = `+${formatSleepHours(surplusMins)} Surplus`;
-      sleepBadgeCls =
-        "bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-300";
-    }
-  }
+  // 2. Training Sessions Completed vs Total Training Days
+  const trainingDays = sorted.filter((d) => d.dayType === "TRAINING_DAY");
+  const trainingTotal = trainingDays.length;
+  const trainingDone = trainingDays.filter((d) => {
+    const p = d.userProgress;
+    if (!p) return false;
+    if (p.isCompleted || p.videoWatched) return true;
+    const checks = checkedList(d, undefined);
+    return checks.length > 0;
+  }).length;
+  const trainingScore =
+    trainingTotal > 0 ? Math.round((trainingDone / trainingTotal) * 5) : 0;
 
-  // =========================================================================
-  // 2. MEAL & NUTRITION ENERGY BAR / SEGMENTED INDICATOR
-  // =========================================================================
-  const mealFollowedCount = activeOrPastDays.filter(
+  // 3. Meal Guide Followed vs Total Program Days
+  const mealTotal = sorted.length;
+  const mealFollowed = sorted.filter(
     (d) =>
-      d.userProgress?.mealCompliance === "FULL" || d.userProgress?.mealCompliance === "YES"
+      d.userProgress?.mealCompliance === "FULL" ||
+      d.userProgress?.mealCompliance === "YES"
   ).length;
-  const mealOffTrackCount = activeOrPastDays.filter(
-    (d) =>
-      !!d.userProgress?.mealCompliance &&
-      d.userProgress?.mealCompliance !== "FULL" &&
-      d.userProgress?.mealCompliance !== "YES"
-  ).length;
-  const mealLoggedTotal = mealFollowedCount + mealOffTrackCount;
-  const mealCompliancePct =
-    mealLoggedTotal > 0
-      ? Math.round((mealFollowedCount / mealLoggedTotal) * 100)
-      : 0;
-
-  let mealGapText = "Log your daily meals to track nutrition compliance";
-  if (mealLoggedTotal > 0) {
-    if (mealCompliancePct >= 80) {
-      mealGapText = `On track with clean nutrition target (80%+ goal met)`;
-    } else {
-      const gapPct = 80 - mealCompliancePct;
-      mealGapText = `${gapPct}% below the 80% clean nutrition target`;
-    }
-  }
+  const mealScore =
+    mealTotal > 0 ? Math.round((mealFollowed / mealTotal) * 5) : 0;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-4">
-      {/* =================================================================== */}
-      {/* PART 1: SLEEP BAR CHART & OPTIMAL VS DEFICIT                        */}
-      {/* =================================================================== */}
-      <div className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-950 dark:text-white">
-              <Moon className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-              <span>Sleep Recovery & Duration</span>
-            </div>
-            <p className="text-[11px] text-zinc-500 leading-snug">{sleepStatusText}</p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-base font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
-              {formatSleepHours(avgSleepMins)}
-            </p>
-            <span className="text-[10px] font-mono text-zinc-400 block mt-1">
-              Target: 7h – 9h
-            </span>
-          </div>
-        </div>
-
-        {/* Status Pill & Optimal Benchmark Bar */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[10px] font-mono">
-            <span className={`px-2 py-0.5 rounded-full font-semibold ${sleepBadgeCls}`}>
-              {sleepBadgeLabel}
-            </span>
-            <span className="text-zinc-400">
-              {avgSleepMins > 0
-                ? `${Math.min(100, Math.round((avgSleepMins / TARGET_IDEAL_SLEEP) * 100))}% of 8h ideal`
-                : "0% of 8h ideal"}
-            </span>
-          </div>
-
-          {/* Horizontal Energy / Progress Bar with 7h minimum threshold marker */}
-          <div className="relative h-2.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-            {/* 7h minimum threshold line (at 7/9 = 77.7% of bar) */}
-            <div
-              className="absolute top-0 bottom-0 w-0.5 bg-zinc-400/70 dark:bg-white/40 z-10"
-              style={{ left: "77.7%" }}
-              title="7h Minimum Optimal Target"
-            />
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                avgSleepMins >= TARGET_MIN_SLEEP
-                  ? "bg-zinc-950 dark:bg-white"
-                  : "bg-amber-500 dark:bg-amber-400"
-              }`}
-              style={{
-                width: `${Math.min(100, Math.round((avgSleepMins / TARGET_MAX_SLEEP) * 100))}%`,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Daily Vertical Bar Chart across Program Days */}
-        <div className="pt-2 pb-1 px-2.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/60 dark:border-white/5">
-          <div className="relative h-24 flex items-end gap-1.5 overflow-x-auto no-scrollbar pt-4 pb-1">
-            {/* Dashed 7h target line across the chart */}
-            <div
-              className="absolute left-0 right-0 border-t border-dashed border-zinc-300 dark:border-white/15 pointer-events-none flex justify-end pr-1"
-              style={{ bottom: `${Math.round((TARGET_MIN_SLEEP / 600) * 68) + 18}px` }}
-            >
-              <span className="text-[9px] font-mono text-zinc-400 -mt-3.5 bg-zinc-50 dark:bg-[#181818] px-1 rounded">
-                7h min
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3.5">
+      {/* 1. SLEEP AVERAGE (1–5 BAR) */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+            <Moon className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Sleep Average</span>
+            {avgSleepMins > 0 && (
+              <span className="text-zinc-400 font-normal">
+                · {formatSleepHours(avgSleepMins)}
               </span>
-            </div>
-
-            {sleepByDay.map((item) => {
-              // Scale against 10h (600 mins) max height = 68px
-              const heightPx =
-                item.mins > 0
-                  ? Math.max(8, Math.min(68, Math.round((item.mins / 600) * 68)))
-                  : 4;
-              const isOptimal = item.mins >= TARGET_MIN_SLEEP;
-
-              return (
-                <div
-                  key={item.dayNumber}
-                  className="flex-1 min-w-[22px] flex flex-col items-center justify-end gap-1 z-10"
-                >
-                  <span className="text-[9px] font-mono text-zinc-400 tabular-nums leading-none">
-                    {item.mins > 0 ? `${(item.mins / 60).toFixed(1)}h` : ""}
-                  </span>
-                  <div
-                    className={`w-full max-w-[18px] rounded-t-md transition-all ${
-                      item.mins === 0
-                        ? "bg-zinc-200 dark:bg-white/10"
-                        : isOptimal
-                          ? "bg-zinc-950 dark:bg-white"
-                          : "bg-amber-500/85 dark:bg-amber-400/85"
-                    }`}
-                    style={{ height: `${heightPx}px` }}
-                  />
-                  <span
-                    className={`text-[9px] font-mono leading-none ${
-                      item.isToday
-                        ? "font-bold text-zinc-950 dark:text-white underline"
-                        : "text-zinc-400"
-                    }`}
-                  >
-                    D{item.dayNumber}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+            )}
+          </span>
+          <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+            {sleepScore} / 5
+          </span>
         </div>
+        <FiveBarMeter score={sleepScore} />
       </div>
 
-      {/* Divider */}
       <div className="border-t border-zinc-100 dark:border-white/10" />
 
-      {/* =================================================================== */}
-      {/* PART 2: MEAL & NUTRITION ENERGY BLOCKS                              */}
-      {/* =================================================================== */}
-      <div className="space-y-2.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-950 dark:text-white">
-              <Utensils className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-              <span>Meal & Nutrition Compliance</span>
-            </div>
-            <p className="text-[11px] text-zinc-500 leading-snug">{mealGapText}</p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-base font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
-              {mealCompliancePct}%
-            </p>
-            <span className="text-[10px] font-mono text-zinc-400 block mt-1">
-              {mealFollowedCount}/{activeOrPastDays.length} Days Followed
+      {/* 2 & 3. TRAINING & MEAL COUNTS */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-1 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Training</span>
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {trainingDone} / {trainingTotal}
             </span>
           </div>
+          <FiveBarMeter score={trainingScore} />
         </div>
 
-        {/* Segmented Energy Bar (1 block per program day) */}
-        <div className="flex items-center gap-1">
-          {sorted.map((d) => {
-            const comp = d.userProgress?.mealCompliance;
-            const isFollowed = comp === "FULL" || comp === "YES";
-            const isOff = !!comp && !isFollowed;
-            return (
-              <div
-                key={d.id}
-                title={`Day ${d.dayNumber}: ${
-                  isFollowed ? "Followed Guide" : isOff ? "Custom / Off-Track" : "Not Logged"
-                }`}
-                className={`h-2.5 flex-1 rounded-sm transition-all ${
-                  isFollowed
-                    ? "bg-zinc-950 dark:bg-white"
-                    : isOff
-                      ? "bg-amber-400 dark:bg-amber-500/80"
-                      : "bg-zinc-100 dark:bg-white/10"
-                }`}
-              />
-            );
-          })}
-        </div>
-
-        <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-zinc-950 dark:bg-white inline-block" />
-              <span>Followed ({mealFollowedCount})</span>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-1 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Utensils className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Meal</span>
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />
-              <span>Custom ({mealOffTrackCount})</span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {mealFollowed} / {mealTotal}
             </span>
           </div>
-          <span>Target: 80%+</span>
+          <FiveBarMeter score={mealScore} />
         </div>
       </div>
     </section>

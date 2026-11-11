@@ -275,6 +275,11 @@ export function DashboardClient({
 }: DashboardProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
+  const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
+
+  useEffect(() => {
+    setVisitedTabs((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
+  }, [activeTab]);
   const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
   const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
   const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
@@ -1649,7 +1654,7 @@ export function DashboardClient({
           </div>
         )}
 
-        {activeTab === "my_plan" && (
+        <div className={activeTab === "my_plan" ? "block" : "hidden"}>
           <MyPlanOverview
             program={
               overviewEnrollment && currentProgram
@@ -1658,6 +1663,7 @@ export function DashboardClient({
                     coachName: currentProgram.coachName,
                     coachTitle: currentProgram.coachTitle,
                     category: currentProgram.category,
+                    difficultyLevel: currentProgram.difficultyLevel,
                     description: currentProgram.description,
                     locationType: currentProgram.locationType,
                     city: currentProgram.city,
@@ -1715,56 +1721,64 @@ export function DashboardClient({
             onSaveAttendance={handleSaveEventFeedback}
             onCompleteDay={handleCompleteProgramDay}
           />
+        </div>
+
+        {/* TAB 2: EXPLORE PLAN (kept alive once visited) */}
+        {(visitedTabs.all_plan || activeTab === "all_plan") && (
+          <div className={activeTab === "all_plan" ? "block space-y-5" : "hidden"}>
+            <ExplorePlanTab
+              headerVisible={isHeaderVisible}
+              isActive={activeTab === "all_plan"}
+              registeringId={enrollingId}
+              onRegister={(id) => handleOpenQrisCheckout(id)}
+              onViewDetails={(id) => {
+                const prog = allPrograms.find((p) => p.id === id);
+                if (prog) setDetailedProgram(prog);
+              }}
+              onOpenPlan={(id) => {
+                setSelectedProgId(id);
+                setIsViewingPlanDetail(false);
+                setActiveTab("my_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          </div>
         )}
 
-        {/* TAB 2: EXPLORE PLAN */}
-        {activeTab === "all_plan" && (
-          <ExplorePlanTab
-            headerVisible={isHeaderVisible}
-            registeringId={enrollingId}
-            onRegister={(id) => handleOpenQrisCheckout(id)}
-            onViewDetails={(id) => {
-              const prog = allPrograms.find((p) => p.id === id);
-              if (prog) setDetailedProgram(prog);
-            }}
-            onOpenPlan={(id) => {
-              setSelectedProgId(id);
-              setIsViewingPlanDetail(false);
-              setActiveTab("my_plan");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          />
+        {/* TAB 3: NOTIFICATION & HISTORY (kept alive once visited) */}
+        {(visitedTabs.notifications || activeTab === "notifications") && (
+          <div className={activeTab === "notifications" ? "block space-y-5" : "hidden"}>
+            <NotificationsHistoryTab
+              headerVisible={isHeaderVisible}
+              isActive={activeTab === "notifications"}
+              completedPrograms={completedEnrollments.map((e) => ({
+                programId: e.programId,
+                title: e.title,
+                coachName: e.coachName,
+                coverImage: e.coverImage,
+                startDate: e.startDate,
+                endDate: e.endDate,
+                dayCount: e.dayCount,
+              }))}
+              onOpenProgramDetail={(progId) => {
+                const prog = allPrograms.find((p) => p.id === progId);
+                if (prog) setDetailedProgram(prog);
+              }}
+            />
+          </div>
         )}
 
-        {/* TAB 3: NOTIFICATION & HISTORY */}
-        {activeTab === "notifications" && (
-          <NotificationsHistoryTab
-            headerVisible={isHeaderVisible}
-            completedPrograms={completedEnrollments.map((e) => ({
-              programId: e.programId,
-              title: e.title,
-              coachName: e.coachName,
-              coverImage: e.coverImage,
-              startDate: e.startDate,
-              endDate: e.endDate,
-              dayCount: e.dayCount,
-            }))}
-            onOpenProgramDetail={(progId) => {
-              const prog = allPrograms.find((p) => p.id === progId);
-              if (prog) setDetailedProgram(prog);
-            }}
-          />
-        )}
-
-        {/* TAB 4: PROFILE & SETTINGS */}
-        {activeTab === "profile" && (
-          <ProfileTab
-            user={user}
-            health={healthProfile}
-            headerVisible={isHeaderVisible}
-            onLogout={handleSignOut}
-            onDeleteAccount={() => setDeleteModalOpen(true)}
-          />
+        {/* TAB 4: PROFILE & SETTINGS (kept alive once visited) */}
+        {(visitedTabs.profile || activeTab === "profile") && (
+          <div className={activeTab === "profile" ? "block space-y-5" : "hidden"}>
+            <ProfileTab
+              user={user}
+              health={healthProfile}
+              headerVisible={isHeaderVisible}
+              onLogout={handleSignOut}
+              onDeleteAccount={() => setDeleteModalOpen(true)}
+            />
+          </div>
         )}
       </main>
       {/* Delete Account Modal */}

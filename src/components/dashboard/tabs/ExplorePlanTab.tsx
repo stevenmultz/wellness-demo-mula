@@ -5,7 +5,16 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { Calendar, ChevronLeft, ChevronRight, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
-import { EmptyState, ErrorState, FloatingHeader, LoadingState, formatDateWib, formatIdr } from "./shared";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingHeader,
+  LoadingState,
+  PullToRefreshBanner,
+  formatDateWib,
+  formatIdr,
+  usePullToRefresh,
+} from "./shared";
 
 interface ExploreProgram {
   id: string;
@@ -197,12 +206,14 @@ function ChipGroup({
 
 export function ExplorePlanTab({
   headerVisible,
+  isActive = true,
   onRegister,
   onViewDetails,
   onOpenPlan: _onOpenPlan,
   registeringId,
 }: {
   headerVisible: boolean;
+  isActive?: boolean;
   onRegister: (programId: string) => void;
   onViewDetails: (programId: string) => void;
   onOpenPlan: (programId: string) => void;
@@ -217,6 +228,7 @@ export function ExplorePlanTab({
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -241,8 +253,13 @@ export function ExplorePlanTab({
     };
   }, [filtersOpen]);
 
-  const load = useCallback(async (signal: AbortSignal) => {
-    setState({ status: "loading" });
+  const load = useCallback(async (signal: AbortSignal, isBackgroundRefresh = false) => {
+    if (isBackgroundRefresh) {
+      setRefreshing(true);
+    } else {
+      setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+      setRefreshing(true);
+    }
     try {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set("q", debouncedSearch);
@@ -252,15 +269,31 @@ export function ExplorePlanTab({
       setState({ status: "ready", programs: json.programs as ExploreProgram[] });
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
-      setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load programs." });
+      setState((prev) =>
+        prev.status === "ready"
+          ? prev
+          : { status: "error", message: err instanceof Error ? err.message : "Failed to load programs." }
+      );
+    } finally {
+      if (!signal.aborted) setRefreshing(false);
     }
   }, [debouncedSearch]);
 
   useEffect(() => {
     const controller = new AbortController();
-    load(controller.signal);
+    load(controller.signal, reloadKey > 0);
     return () => controller.abort();
   }, [load, reloadKey]);
+
+  const handlePullRefresh = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  const { pullDistance } = usePullToRefresh({
+    active: isActive,
+    refreshing,
+    onRefresh: handlePullRefresh,
+  });
 
   const catalog = useMemo(() => (state.status === "ready" ? state.programs : []), [state]);
   const supported = useMemo(() => {
@@ -438,6 +471,10 @@ export function ExplorePlanTab({
         )}
 
       <div className="space-y-3">
+        <PullToRefreshBanner
+          pullDistance={pullDistance}
+          refreshing={refreshing && state.status === "ready"}
+        />
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {chips.map((chip) => (

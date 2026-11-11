@@ -1344,6 +1344,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             const isTodayItem = d.id === day.id;
             const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
             const isDoneItem = !!d.userProgress?.isCompleted;
+            const shortType =
+              d.dayType === "TRAINING_DAY"
+                ? "Train"
+                : d.dayType === "REST_DAY"
+                  ? "Rest"
+                  : "Connect";
 
             return (
               <button
@@ -1353,26 +1359,39 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 }}
                 type="button"
                 onClick={() => setSelectedDayId(d.id)}
-                className={`relative w-10 h-10 rounded-full shrink-0 flex flex-col items-center justify-center text-xs font-mono font-semibold transition active:scale-95 ${
-                  isActiveSelected
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm ring-2 ring-zinc-950/15 dark:ring-white/20"
-                    : isTodayItem
-                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
-                      : isDoneItem
-                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
-                        : isPastItem
-                          ? "bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                          : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
-                }`}
+                className="shrink-0 flex flex-col items-center gap-1 group focus:outline-none"
               >
-                <span>{d.dayNumber}</span>
-                {isTodayItem && (
-                  <span
-                    className={`w-1 h-1 rounded-full mt-0.5 ${
-                      isActiveSelected ? "bg-white dark:bg-zinc-950" : "bg-zinc-950 dark:bg-white"
-                    }`}
-                  />
-                )}
+                <span
+                  className={`relative w-10 h-10 rounded-full flex flex-col items-center justify-center text-xs font-mono font-semibold transition group-active:scale-95 ${
+                    isActiveSelected
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm ring-2 ring-zinc-950/15 dark:ring-white/20"
+                      : isTodayItem
+                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
+                        : isDoneItem
+                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+                          : isPastItem
+                            ? "bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
+                            : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
+                  }`}
+                >
+                  <span>{d.dayNumber}</span>
+                  {isTodayItem && (
+                    <span
+                      className={`w-1 h-1 rounded-full mt-0.5 ${
+                        isActiveSelected ? "bg-white dark:bg-zinc-950" : "bg-zinc-950 dark:bg-white"
+                      }`}
+                    />
+                  )}
+                </span>
+                <span
+                  className={`text-[9px] font-mono uppercase tracking-wider leading-none ${
+                    isActiveSelected
+                      ? "font-bold text-zinc-950 dark:text-white"
+                      : "text-zinc-400 dark:text-zinc-500"
+                  }`}
+                >
+                  {shortType}
+                </span>
               </button>
             );
           })}
@@ -1383,11 +1402,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
             {formatFullDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
           </span>
-          {isSelectedFuture && (
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
-              <Lock className="w-2.5 h-2.5" /> Locked
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold">
+              {selectedDay.dayType === "TRAINING_DAY"
+                ? "Training"
+                : selectedDay.dayType === "REST_DAY"
+                  ? "Rest"
+                  : "Connect"}
             </span>
-          )}
+            {isSelectedFuture && (
+              <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5" /> Locked
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
