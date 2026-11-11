@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
 import {
   EmptyState,
@@ -25,9 +25,12 @@ interface ExploreProgram {
   endDate: string;
   registrationDeadline: string;
   price: number;
+  actualPrice?: number;
+  discountPercentage?: number;
   durationDays: number;
   locationType: string;
   city: string | null;
+  maxQuota?: number;
   seatsLeft: number;
   badge: string;
   canEnroll: boolean;
@@ -36,6 +39,9 @@ interface ExploreProgram {
   category: string;
   recommendedFor: string;
   dailyCommitment: string | null;
+  trainingDaysTotal?: number;
+  connectDaysTotal?: number;
+  restDaysTotal?: number;
 }
 
 type LoadState =
@@ -514,27 +520,115 @@ export function ExplorePlanTab({
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {visible.map((p) => {
                 const meta = getPublicBadgeMeta(p.badge as PublicProgramBadge);
+                const locLabel = p.locationType === "ONLINE" ? "Online" : p.locationType === "HYBRID" ? "Hybrid" : "Onsite";
+                const cityLabel = p.city || (p.locationType === "ONLINE" ? "Global" : null);
+
                 return (
                   <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col">
-                    <div className="relative h-40 bg-zinc-200 dark:bg-zinc-800">
-                      <Image src={p.coverImage || "/image.webp"} alt="" fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)} className="object-cover" />
-                      <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white text-zinc-950 border border-zinc-200">{meta.label}</span>
+                    <div className="relative h-44 bg-zinc-200 dark:bg-zinc-800">
+                      <Image
+                        src={p.coverImage || "/image.webp"}
+                        alt=""
+                        fill
+                        sizes="(max-width: 640px) 100vw, 50vw"
+                        unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+
+                      {/* Top Badges: Status and Intensity */}
+                      <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
+                          {meta.label}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20">
+                          {intensityOf(p.difficultyLevel)}
+                        </span>
+                      </div>
+
+                      {/* Bottom Banner Labels: Location Type and City */}
+                      <div className="absolute bottom-2.5 left-3 right-3 flex items-center gap-1.5 flex-wrap text-[10px] font-mono uppercase text-white/95">
+                        <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
+                          {locLabel}
+                        </span>
+                        {cityLabel && (
+                          <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5 text-white/70" />
+                            <span>{cityLabel}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
+
                     <div className="p-4 flex-1 flex flex-col gap-3">
                       <div>
-                        <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2">{p.title}</h3>
-                        <p className="text-[11px] text-zinc-500 mt-1">Coach {p.coachName} · {p.durationDays} days · {intensityOf(p.difficultyLevel)}</p>
+                        <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
+                          {p.title}
+                        </h3>
+                        <p className="text-[11px] text-zinc-500 mt-1">
+                          Coach {p.coachName}
+                        </p>
                       </div>
-                      <div className="space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-                        <p className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{formatDateWib(p.startDate)} – {formatDateWib(p.endDate)}</p>
-                        <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{p.locationType === "ONLINE" ? "Online" : p.city || p.locationType}</p>
+
+                      <div className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                        <p className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                          <span>{formatDateWib(p.startDate)} – {formatDateWib(p.endDate)} · {p.durationDays} Days</span>
+                        </p>
+                        <p className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                          <span>{p.seatsLeft} of {p.maxQuota || p.seatsLeft} slots left</span>
+                        </p>
+                        <p className="text-[11px] text-zinc-500 line-clamp-1">
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">Target: </span>
+                          {p.recommendedFor || "All Levels"}
+                        </p>
                       </div>
+
+                      {/* Curriculum Breakdown: Training - Connect - Rest */}
+                      <div className="px-2.5 py-1.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
+                        <span>{p.trainingDaysTotal ?? 0} Training</span>
+                        <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                        <span>{p.connectDaysTotal ?? 0} Connect</span>
+                        <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                        <span>{p.restDaysTotal ?? 0} Rest</span>
+                      </div>
+
+                      {/* Pricing & Actions */}
                       <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
-                        <span className="text-base font-semibold">{p.price > 0 ? formatIdr(p.price) : "Free"}</span>
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-base font-bold text-zinc-950 dark:text-white">
+                              {p.price > 0 ? formatIdr(p.price) : "Free"}
+                            </span>
+                            {p.discountPercentage && p.discountPercentage > 0 && p.actualPrice && p.actualPrice > p.price ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                -{p.discountPercentage}%
+                              </span>
+                            ) : null}
+                          </div>
+                          {p.actualPrice && p.actualPrice > p.price && (
+                            <span className="text-[11px] text-zinc-400 line-through block">
+                              {formatIdr(p.actualPrice)}
+                            </span>
+                          )}
+                        </div>
+
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => onViewDetails(p.id)} className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold">View</button>
+                          <button
+                            type="button"
+                            onClick={() => onViewDetails(p.id)}
+                            className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition"
+                          >
+                            View
+                          </button>
                           {p.canEnroll ? (
-                            <button type="button" disabled={registeringId === p.id} onClick={() => onRegister(p.id)} className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50">
+                            <button
+                              type="button"
+                              disabled={registeringId === p.id}
+                              onClick={() => onRegister(p.id)}
+                              className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition"
+                            >
                               {p.enrollmentStatus === "PENDING" ? "Pay now" : registeringId === p.id ? "..." : "Register"}
                             </button>
                           ) : null}

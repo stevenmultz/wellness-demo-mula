@@ -18,9 +18,12 @@ interface ExploreProgramItem {
   endDate: string;
   registrationDeadline: string;
   price: number;
+  actualPrice: number;
+  discountPercentage: number;
   durationDays: number;
   locationType: string;
   city: string | null;
+  maxQuota: number;
   seatsLeft: number;
   badge: string;
   canEnroll: boolean;
@@ -29,6 +32,9 @@ interface ExploreProgramItem {
   category: string;
   recommendedFor: string;
   dailyCommitment: string | null;
+  trainingDaysTotal: number;
+  connectDaysTotal: number;
+  restDaysTotal: number;
 }
 
 const PUBLISHED_STATUSES = ["PUBLISH", "PUBLISHED", "ACTIVE"];
@@ -61,6 +67,7 @@ export async function GET(req: NextRequest) {
         },
         include: {
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+          days: { select: { dayType: true } },
         },
       }),
       prisma.programEnrollment.findMany({
@@ -94,6 +101,20 @@ export async function GET(req: NextRequest) {
         const enrollmentStatus =
           enrollStatus === "ACTIVE" || enrollStatus === "PENDING" ? enrollStatus : null;
 
+        const trainingDaysTotal = p.days.filter((d) => d.dayType === "TRAINING_DAY").length;
+        const restDaysTotal = p.days.filter((d) => d.dayType === "REST_DAY").length;
+        const connectDaysTotal = p.days.filter(
+          (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
+        ).length;
+
+        const effectiveActualPrice = p.actualPrice && p.actualPrice > p.price ? p.actualPrice : p.price;
+        const effectiveDiscount =
+          p.discountPercentage > 0
+            ? p.discountPercentage
+            : effectiveActualPrice > p.price && effectiveActualPrice > 0
+              ? Math.round(((effectiveActualPrice - p.price) / effectiveActualPrice) * 100)
+              : 0;
+
         return {
           id: p.id,
           title: p.title,
@@ -103,9 +124,12 @@ export async function GET(req: NextRequest) {
           endDate: p.endDate.toISOString(),
           registrationDeadline: p.registrationDeadline.toISOString(),
           price: p.price,
+          actualPrice: effectiveActualPrice,
+          discountPercentage: effectiveDiscount,
           durationDays: p.durationDays,
           locationType: p.locationType,
           city: p.city,
+          maxQuota: p.maxQuota,
           seatsLeft: Math.max(0, p.maxQuota - p._count.enrollments),
           badge,
           canEnroll: getPublicBadgeMeta(badge as Parameters<typeof getPublicBadgeMeta>[0]).canEnroll,
@@ -114,6 +138,9 @@ export async function GET(req: NextRequest) {
           category: p.category,
           recommendedFor: p.recommendedFor,
           dailyCommitment: p.dailyCommitment,
+          trainingDaysTotal,
+          connectDaysTotal,
+          restDaysTotal,
         };
       });
 

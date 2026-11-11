@@ -272,7 +272,7 @@ async function DashboardContent() {
           isSkipped,
           videoUrl: canAccessMedia ? d.videoUrl : null,
           videoChecklist: checklistItems,
-          mealRecommendation: isPaidMember ? d.mealRecommendation : null,
+          mealRecommendation: d.mealRecommendation,
           dailyAssessment: d.dailyAssessment,
           pendingReminder: d.pendingReminder,
           completedReminder: d.completedReminder,
