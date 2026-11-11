@@ -1294,6 +1294,18 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   }, []);
 
   const [detailOpen, setDetailOpen] = useState(false);
+  const [taskDetailHeaderVisible, setTaskDetailHeaderVisible] = useState(true);
+  const taskDetailScrollYRef = useRef(0);
+
+  const handleTaskDetailScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const currentScrollY = e.currentTarget.scrollTop;
+    if (currentScrollY > taskDetailScrollYRef.current && currentScrollY > 40) {
+      setTaskDetailHeaderVisible(false);
+    } else {
+      setTaskDetailHeaderVisible(true);
+    }
+    taskDetailScrollYRef.current = currentScrollY;
+  };
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
@@ -1622,42 +1634,26 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            {/* FLOATING TOP HEADER WITH BACK BUTTON */}
+          <div onScroll={handleTaskDetailScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
+            {/* FLOATING HEADER: ONLY BACK BUTTON (HIDES ON SCROLL-DOWN) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-              className="fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl min-h-12 px-3.5 sm:px-4 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200/80 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md shadow-md"
+              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-start pointer-events-none transition-all duration-300 ${
+                taskDetailHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
+              }`}
             >
               <button
                 type="button"
                 onClick={() => setDetailOpen(false)}
-                className="h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
+                className="pointer-events-auto h-9 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
-
-              <div className="min-w-0 flex-1 text-center px-2">
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">
-                  Day {selectedDay.dayNumber} · {currentTask.title}
-                </span>
-              </div>
-
-              <span
-                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${
-                  selectedDone[step]
-                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                    : isSelectedPast
-                      ? "bg-zinc-200/60 dark:bg-white/10 text-zinc-500"
-                      : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                }`}
-              >
-                {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
-              </span>
             </header>
 
-            {/* TOP BANNER IMAGE */}
-            <div className="relative h-60 sm:h-64 w-full overflow-hidden bg-zinc-900 shrink-0">
+            {/* TOP BANNER IMAGE (LARGE CONSISTENT SPACE SIZING) */}
+            <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentTask.image}
@@ -1668,19 +1664,32 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </div>
 
             {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
-              <div className="flex items-center gap-3 pb-2 border-b border-zinc-200/70 dark:border-white/10">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-800 dark:text-zinc-200">
-                  <CurrentTaskIcon className="w-5 h-5" />
+            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-7 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
+              <div className="flex items-center justify-between gap-3 pb-2 border-b border-zinc-200/70 dark:border-white/10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-800 dark:text-zinc-200">
+                    <CurrentTaskIcon className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-500 block">
+                      Day {selectedDay.dayNumber} · {currentTask.category}
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-950 dark:text-white truncate">
+                      {currentTask.title}
+                    </h2>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-500 block">
-                    Day {selectedDay.dayNumber} · {currentTask.category}
-                  </span>
-                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-950 dark:text-white truncate">
-                    {currentTask.title}
-                  </h2>
-                </div>
+                <span
+                  className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
+                    selectedDone[step]
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                      : isSelectedPast
+                        ? "bg-zinc-200/60 dark:bg-white/10 text-zinc-500"
+                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                  }`}
+                >
+                  {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
+                </span>
               </div>
 
               {/* Bordered Task Content Section */}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -206,40 +207,45 @@ export function ProgramDetailView({
     action = <span className="text-xs font-mono uppercase tracking-wider text-white/70">Registration Closed</span>;
   }
 
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollYRef = useRef(0);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const currentScrollY = e.currentTarget.scrollTop;
+    if (currentScrollY > lastScrollYRef.current && currentScrollY > 40) {
+      setHeaderVisible(false);
+    } else {
+      setHeaderVisible(true);
+    }
+    lastScrollYRef.current = currentScrollY;
+  };
+
   return (
-    <div className="fixed inset-0 z-[60] bg-[#f6f6f4] dark:bg-[#0e0e0e] overflow-y-auto">
+    <div onScroll={handleScroll} className="fixed inset-0 z-[60] bg-[#f6f6f4] dark:bg-[#0e0e0e] overflow-y-auto">
       {/* ================================================================= */}
-      {/* FIXED TOP HEADER WITH BACK BUTTON                                 */}
+      {/* FLOATING HEADER: ONLY BACK BUTTON (HIDES ON SCROLL-DOWN)          */}
       {/* ================================================================= */}
       <header
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-[70] w-[94%] max-w-2xl min-h-12 px-3.5 sm:px-4 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200/80 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md shadow-md"
+        className={`fixed left-1/2 -translate-x-1/2 z-[70] w-[94%] max-w-2xl flex items-center justify-start pointer-events-none transition-all duration-300 ${
+          headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
+        }`}
       >
         <button
           type="button"
           onClick={onClose}
-          className="h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
+          className="pointer-events-auto h-9 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back</span>
         </button>
-
-        <div className="min-w-0 flex-1 text-center px-2">
-          <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">
-            {program.title}
-          </span>
-        </div>
-
-        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 shrink-0">
-          {difficultyLabel(program.difficultyLevel)}
-        </span>
       </header>
 
       <div className="max-w-2xl mx-auto pb-32">
         {/* ================================================================= */}
-        {/* HERO BANNER IMAGE (TOP BANNER)                                    */}
+        {/* HERO BANNER IMAGE (LARGE CONSISTENT SPACE SIZING)                 */}
         {/* ================================================================= */}
-        <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-zinc-900">
+        <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
           {program.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={program.coverImage} alt={program.title} className="w-full h-full object-cover" />
@@ -253,7 +259,7 @@ export function ProgramDetailView({
         {/* ================================================================= */}
         {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE)         */}
         {/* ================================================================= */}
-        <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 space-y-4">
+        <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-7 px-4 sm:px-6 space-y-4">
           {/* Primary Program Identity */}
           <div className="space-y-2.5 pb-2 border-b border-zinc-200/70 dark:border-white/10">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
