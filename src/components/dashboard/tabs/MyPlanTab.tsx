@@ -15,6 +15,7 @@ import {
   Users,
   Utensils,
   Video,
+  X,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
@@ -496,6 +497,12 @@ export function MyPlanOverview({
             currentDayNumber={currentDayNumber}
           />
 
+          <ProgramPreparationWidgets
+            program={program}
+            days={fullProgramDays}
+            currentDayId={day?.id}
+          />
+
           {day ? (
             <DailyCheckIn
               key={day.id}
@@ -536,12 +543,6 @@ export function MyPlanOverview({
               <span className="text-[11px] text-zinc-400">Not set</span>
             )}
           </section>
-
-          <ProgramPreparationWidgets
-            program={program}
-            days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
-            currentDayId={day?.id}
-          />
         </>
       )}
     </div>
@@ -715,6 +716,7 @@ function ProgramPreparationWidgets({
   days: PlanDay[];
   currentDayId?: string;
 }) {
+  const [activeKey, setActiveKey] = useState<"meal" | "meetup" | "equipment" | null>(null);
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
 
   // 1. All Meal List across program days
@@ -741,217 +743,295 @@ function ProgramPreparationWidgets({
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+  const cards = [
+    {
+      key: "meal" as const,
+      title: "Meal Prep Guide",
+      subtitle: "Daily Menu",
+      badge: `${mealDays.length} ${mealDays.length === 1 ? "Day" : "Days"}`,
+      image: "/pic.webp",
+      Icon: Utensils,
+    },
+    {
+      key: "meetup" as const,
+      title: "Meetups & Live",
+      subtitle: "Zoom & Onsite",
+      badge: `${meetupDays.length} ${meetupDays.length === 1 ? "Session" : "Sessions"}`,
+      image: "/coach.webp",
+      Icon: Users,
+    },
+    {
+      key: "equipment" as const,
+      title: "Required Equipment",
+      subtitle: "Program Gear",
+      badge: `${equipmentItems.length} ${equipmentItems.length === 1 ? "Item" : "Items"}`,
+      image: "/image.webp",
+      Icon: Dumbbell,
+    },
+  ];
+
   return (
-    <div className="space-y-2.5">
-      {/* 1. ALL MEAL GUIDE & PREPARATION LIST */}
-      <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-        <summary className="cursor-pointer list-none px-4 py-3.5 flex items-center justify-between gap-3 select-none hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shrink-0">
-              <Utensils className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-zinc-950 dark:text-white truncate">
+    <section className="space-y-2.5">
+      {/* 3-Card Dimensional Image Showcase */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {cards.map(({ key, title, subtitle, badge, image, Icon }) => {
+          const isOpen = activeKey === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-expanded={isOpen}
+              onClick={() => setActiveKey((prev) => (prev === key ? null : key))}
+              className={`group relative h-32 sm:h-36 rounded-2xl overflow-hidden text-left p-3 flex flex-col justify-between transition-all duration-200 active:scale-[0.97] shadow-sm ${
+                isOpen
+                  ? "ring-2 ring-zinc-950 dark:ring-white shadow-md"
+                  : "border border-zinc-200/80 dark:border-white/15"
+              }`}
+            >
+              {/* Background WebP Image */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={image}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              {/* Dimensional Dark Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+
+              {/* Top Row: Glass Icon + Count Badge */}
+              <div className="relative z-10 flex items-center justify-between gap-1 w-full">
+                <span className="w-7 h-7 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-white flex items-center justify-center shrink-0">
+                  <Icon className="w-3.5 h-3.5" />
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[9px] font-mono uppercase tracking-wider text-white/90 font-semibold truncate">
+                  {badge}
+                </span>
+              </div>
+
+              {/* Bottom Row: Subtitle + Bold Title */}
+              <div className="relative z-10 space-y-0.5">
+                <p className="text-[9px] font-mono uppercase tracking-wider text-white/70 truncate">
+                  {subtitle}
+                </p>
+                <div className="flex items-end justify-between gap-1">
+                  <p className="text-xs font-semibold text-white leading-tight line-clamp-2">
+                    {title}
+                  </p>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-white/80 shrink-0 transition-transform ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Expanded Detail Drawer Below the 3 Cards */}
+      {activeKey === "meal" && (
+        <div className="rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] overflow-hidden shadow-sm animate-in fade-in">
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
                 Meal Preparation Guide
-              </p>
-              <p className="text-[11px] text-zinc-500 truncate">
+              </h3>
+              <p className="text-[11px] text-zinc-500">
                 Complete daily menu list to prepare your groceries ahead
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveKey(null)}
+              aria-label="Close meal preparation guide"
+              className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 flex items-center justify-center"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
-              {mealDays.length} {mealDays.length === 1 ? "Day" : "Days"}
-            </span>
-            <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
-          </div>
-        </summary>
-
-        <div className="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/10 max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-white/5">
-          {mealDays.length > 0 ? (
-            mealDays.map((d) => {
-              const isToday = d.id === currentDayId;
-              const lines = splitActivities(d.mealRecommendation);
-              return (
-                <div key={d.id} className="py-3 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2">
-                      <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
-                        Day {d.dayNumber}
+          <div className="px-4 pb-4 pt-2 max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-white/5">
+            {mealDays.length > 0 ? (
+              mealDays.map((d) => {
+                const isToday = d.id === currentDayId;
+                const lines = splitActivities(d.mealRecommendation);
+                return (
+                  <div key={d.id} className="py-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2">
+                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
+                          Day {d.dayNumber}
+                        </span>
+                        <span>{formatShortDayDate(d.unlockDate, d.dayNumber)}</span>
                       </span>
-                      <span>{formatShortDayDate(d.unlockDate, d.dayNumber)}</span>
-                    </span>
-                    {isToday && (
-                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
-                        Today
-                      </span>
+                      {isToday && (
+                        <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                          Today
+                        </span>
+                      )}
+                    </div>
+                    {lines.length > 1 ? (
+                      <ul className="space-y-1 pl-1">
+                        {lines.map((line, idx) => (
+                          <li
+                            key={idx}
+                            className="text-xs text-zinc-600 dark:text-zinc-300 flex items-start gap-2 leading-relaxed"
+                          >
+                            <span className="w-1 h-1 rounded-full bg-zinc-400 mt-2 shrink-0" />
+                            <span>{line}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                        {d.mealRecommendation}
+                      </p>
                     )}
                   </div>
-                  {lines.length > 1 ? (
-                    <ul className="space-y-1 pl-1">
-                      {lines.map((line, idx) => (
-                        <li
-                          key={idx}
-                          className="text-xs text-zinc-600 dark:text-zinc-300 flex items-start gap-2 leading-relaxed"
-                        >
-                          <span className="w-1 h-1 rounded-full bg-zinc-400 mt-2 shrink-0" />
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-                      {d.mealRecommendation}
-                    </p>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            <p className="py-3 text-xs text-zinc-400">
-              No specific daily meal menu has been listed for this program.
-            </p>
-          )}
-        </div>
-      </details>
-
-      {/* 2. ALL MEETUPS & ZOOM SCHEDULE */}
-      <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-        <summary className="cursor-pointer list-none px-4 py-3.5 flex items-center justify-between gap-3 select-none hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shrink-0">
-              <Users className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-zinc-950 dark:text-white truncate">
-                Meetups & Live Sessions
+                );
+              })
+            ) : (
+              <p className="py-3 text-xs text-zinc-400">
+                No specific daily meal menu has been listed for this program.
               </p>
-              <p className="text-[11px] text-zinc-500 truncate">
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeKey === "meetup" && (
+        <div className="rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] overflow-hidden shadow-sm animate-in fade-in">
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
+                Meetups & Live Sessions
+              </h3>
+              <p className="text-[11px] text-zinc-500">
                 Upcoming Zoom calls and in-person connection schedule
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveKey(null)}
+              aria-label="Close meetups schedule"
+              className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 flex items-center justify-center"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
-              {meetupDays.length} {meetupDays.length === 1 ? "Session" : "Sessions"}
-            </span>
-            <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
-          </div>
-        </summary>
-
-        <div className="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/10 max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-white/5">
-          {meetupDays.length > 0 ? (
-            meetupDays.map((d) => {
-              const meetUrl = safeHttpUrl(d.meetupLink);
-              const mapUrl = safeHttpUrl(d.mapLink);
-              return (
-                <div key={d.id} className="py-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                        Day {d.dayNumber} · {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                      </span>
-                      <p className="text-xs font-semibold text-zinc-900 dark:text-white mt-0.5">
-                        {d.eventTitle || d.title || "Community Connect Session"}
-                      </p>
+          <div className="px-4 pb-4 pt-2 max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-white/5">
+            {meetupDays.length > 0 ? (
+              meetupDays.map((d) => {
+                const meetUrl = safeHttpUrl(d.meetupLink);
+                const mapUrl = safeHttpUrl(d.mapLink);
+                return (
+                  <div key={d.id} className="py-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                          Day {d.dayNumber} · {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                        </span>
+                        <p className="text-xs font-semibold text-zinc-900 dark:text-white mt-0.5">
+                          {d.eventTitle || d.title || "Community Connect Session"}
+                        </p>
+                      </div>
+                      {d.onsiteSchedule && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
+                          <Clock className="w-2.5 h-2.5" />
+                          <span>{d.onsiteSchedule}</span>
+                        </span>
+                      )}
                     </div>
-                    {d.onsiteSchedule && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
-                        <Clock className="w-2.5 h-2.5" />
-                        <span>{d.onsiteSchedule}</span>
-                      </span>
+
+                    {d.eventDetails && (
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                        {d.eventDetails}
+                      </p>
+                    )}
+
+                    {(d.onsiteVenue || program.venueAddress) && (
+                      <div className="flex items-start gap-1.5 text-[11px] text-zinc-500">
+                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
+                        <span>{d.onsiteVenue || program.venueAddress}</span>
+                      </div>
+                    )}
+
+                    {(meetUrl || mapUrl) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {meetUrl && (
+                          <a
+                            href={meetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-7 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1.5"
+                          >
+                            <Video className="w-3 h-3" />
+                            <span>Join Zoom / Meet</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                        {mapUrl && (
+                          <a
+                            href={mapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-7 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1"
+                          >
+                            <MapPin className="w-3 h-3" />
+                            <span>Open Map</span>
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
-
-                  {d.eventDetails && (
-                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                      {d.eventDetails}
-                    </p>
-                  )}
-
-                  {(d.onsiteVenue || program.venueAddress) && (
-                    <div className="flex items-start gap-1.5 text-[11px] text-zinc-500">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                      <span>{d.onsiteVenue || program.venueAddress}</span>
-                    </div>
-                  )}
-
-                  {(meetUrl || mapUrl) && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {meetUrl && (
-                        <a
-                          href={meetUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-7 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1.5"
-                        >
-                          <Video className="w-3 h-3" />
-                          <span>Join Zoom / Meet</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
-                      )}
-                      {mapUrl && (
-                        <a
-                          href={mapUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-7 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1"
-                        >
-                          <MapPin className="w-3 h-3" />
-                          <span>Open Map</span>
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            <p className="py-3 text-xs text-zinc-400">
-              No scheduled live sessions or meetups for this cohort.
-            </p>
-          )}
-        </div>
-      </details>
-
-      {/* 3. REQUIRED EQUIPMENT LIST */}
-      <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-        <summary className="cursor-pointer list-none px-4 py-3.5 flex items-center justify-between gap-3 select-none hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shrink-0">
-              <Dumbbell className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-zinc-950 dark:text-white truncate">
-                Required Equipment
+                );
+              })
+            ) : (
+              <p className="py-3 text-xs text-zinc-400">
+                No scheduled live sessions or meetups for this cohort.
               </p>
-              <p className="text-[11px] text-zinc-500 truncate">
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeKey === "equipment" && (
+        <div className="rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] overflow-hidden shadow-sm animate-in fade-in">
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
+                Required Equipment
+              </h3>
+              <p className="text-[11px] text-zinc-500">
                 Gear and tools needed throughout this program
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveKey(null)}
+              aria-label="Close required equipment"
+              className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 flex items-center justify-center"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
-              {equipmentItems.length} {equipmentItems.length === 1 ? "Item" : "Items"}
-            </span>
-            <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
+          <div className="p-4">
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {equipmentItems.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2.5 text-xs font-medium text-zinc-800 dark:text-zinc-200"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-        </summary>
-
-        <div className="px-4 pb-4 pt-3 border-t border-zinc-100 dark:border-white/10">
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {equipmentItems.map((item, idx) => (
-              <li
-                key={idx}
-                className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2.5 text-xs font-medium text-zinc-800 dark:text-zinc-200"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
         </div>
-      </details>
-    </div>
+      )}
+    </section>
   );
 }
