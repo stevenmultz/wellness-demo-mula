@@ -4,8 +4,8 @@
   "description": "Cohort-based wellness community platform with sequential daily curriculum, anti-inflammatory nutrition, and habit tracking.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0e0e0e",
-  "theme_color": "#0e0e0e",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait-primary",
   "icons": [
     {

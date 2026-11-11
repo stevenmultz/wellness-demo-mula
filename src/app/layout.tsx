@@ -25,16 +25,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "+ BMS",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
-  ],
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
 };
@@ -51,11 +48,14 @@ export default function RootLayout({
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="+ BMS" />
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              html, body {
+                background-color: #ffffff;
+              }
               @keyframes bmsPulse {
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.45; }
@@ -67,14 +67,10 @@ export default function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #f6f6f4;
-                color: #09090b;
+                background-color: #ffffff !important;
+                color: #09090b !important;
                 user-select: none;
                 transition: opacity 0.35s ease-out;
-              }
-              .dark #bms-pwa-splash {
-                background-color: #0e0e0e;
-                color: #ffffff;
               }
               #bms-pwa-splash .bms-pulse-logo {
                 display: flex;

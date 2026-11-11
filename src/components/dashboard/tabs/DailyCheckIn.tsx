@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -1096,26 +1096,44 @@ function TaskForm({
         </p>
       )}
 
-      {/* SAVE & SKIP ACTION BUTTONS ONLY */}
+      {/* SAVE & SKIP ACTION BUTTONS (OR BACK BUTTON WHEN VIEWING HISTORY) */}
       <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-white/10 gap-2">
-        <button
-          type="button"
-          disabled={locked || busy}
-          onClick={onFinish}
-          className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
-        >
-          Skip
-        </button>
+        {locked ? (
+          <div className="w-full flex items-center justify-between gap-2">
+            <span className="text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5" />
+              <span>View-only history record</span>
+            </span>
+            <button
+              type="button"
+              onClick={onFinish}
+              className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onFinish}
+              className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
+            >
+              Skip
+            </button>
 
-        <button
-          type="button"
-          disabled={locked || busy || !valid[step] || photoBusy !== null}
-          onClick={handleSave}
-          className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
-        >
-          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-          <span>Save</span>
-        </button>
+            <button
+              type="button"
+              disabled={busy || !valid[step] || photoBusy !== null}
+              onClick={handleSave}
+              className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
+            >
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              <span>Save</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1366,6 +1384,64 @@ function DayHistoryItem({
   );
 }
 
+function getWibResetCountdown(): string {
+  const now = new Date();
+  const wibFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = wibFormatter.format(now).split(":").map(Number);
+  const h = parts[0] || 0;
+  const m = parts[1] || 0;
+  const minsRemaining = Math.max(1, 24 * 60 - (h * 60 + m));
+  const remH = Math.floor(minsRemaining / 60);
+  const remM = minsRemaining % 60;
+  return `Resets in ${remH}h ${String(remM).padStart(2, "0")}m`;
+}
+
+function deriveDayActivities(d: PlanDay): string[] {
+  if (d.dayType === "REST_DAY") {
+    return parseLines(d.restInstructions);
+  }
+  if (d.dayType === "TRAINING_DAY") {
+    const groups = parseWorkoutOptionGroups(d.workoutOptions, d.videoChecklist);
+    const selected = d.userProgress?.selectedWorkout || groups[0]?.optionName;
+    const group = groups.find((g) => g.optionName === selected) || groups[0];
+    const names = (group?.movements || []).map((m) => m.name.trim()).filter(Boolean);
+    if (names.length > 0) return names;
+    return (d.videoChecklist || []).map((item) => item.split("=")[0].trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function deriveDayChecks(d: PlanDay): string[] {
+  if (!d.userProgress?.checklistCompleted) return [];
+  try {
+    const parsed = JSON.parse(d.userProgress.checklistCompleted);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function deriveDayDone(d: PlanDay, acts: string[], chks: string[]): [boolean, boolean, boolean, boolean] {
+  const p = d.userProgress;
+  const sleepDone = !!p?.bedtime && !!p?.wakeTime;
+  const activityDone =
+    d.dayType === "TRAINING_DAY"
+      ? !!p?.videoWatched ||
+        !!p?.isCompleted ||
+        (acts.length > 0 && acts.every((name) => chks.some((c) => c.toLowerCase().includes(name.toLowerCase()))))
+      : d.dayType === "REST_DAY"
+        ? acts.length > 0
+          ? acts.every((name) => chks.includes(name))
+          : !!p?.isCompleted
+        : !!p?.eventFeedback || !!p?.isCompleted;
+  return [sleepDone, activityDone, !!p?.mealCompliance, !!p?.dailyReflection];
+}
+
 export function DailyCheckIn(props: DailyCheckInProps) {
   const { day, locked, activities, checks, initialDone } = props;
   const [done, setDone] = useState<boolean[]>([...initialDone]);
@@ -1375,14 +1451,28 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
+  const [selectedDayId, setSelectedDayId] = useState<string>(day.id);
+  useEffect(() => {
+    setSelectedDayId(day.id);
+  }, [day.id]);
+
+  const [resetCountdown, setResetCountdown] = useState<string>(() => getWibResetCountdown());
+  useEffect(() => {
+    setResetCountdown(getWibResetCountdown());
+    const interval = setInterval(() => {
+      setResetCountdown(getWibResetCountdown());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [detailOpen, setDetailOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedDayId, setExpandedDayId] = useState<string | null>(day.id);
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-
-  const tasks = useMemo(() => getTasksForDay(day.dayType), [day.dayType]);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const programDays = useMemo(() => {
     const list =
@@ -1394,23 +1484,65 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     return [...list].sort((a, b) => a.dayNumber - b.dayNumber);
   }, [props.allProgramDays, props.pastDays, day]);
 
+  const selectedDay = useMemo(
+    () => programDays.find((d) => d.id === selectedDayId) || day,
+    [programDays, selectedDayId, day]
+  );
+
+  const isSelectedToday = selectedDay.id === day.id;
+  const isSelectedPast = !isSelectedToday && (selectedDay.isPast2359 || selectedDay.dayNumber < day.dayNumber);
+  const isSelectedFuture = !isSelectedToday && !isSelectedPast;
+
+  // Center the active/selected day in the horizontal number strip
+  useEffect(() => {
+    const container = stripRef.current;
+    const btn = buttonRefs.current[selectedDay.id];
+    if (!container || !btn) return;
+    const targetLeft = btn.offsetLeft - container.clientWidth / 2 + btn.clientWidth / 2;
+    container.scrollTo({ left: Math.max(0, targetLeft), behavior: "smooth" });
+  }, [selectedDay.id, programDays.length]);
+
+  const selectedActivities = useMemo(
+    () => (isSelectedToday ? activities : deriveDayActivities(selectedDay)),
+    [isSelectedToday, activities, selectedDay]
+  );
+
+  const selectedChecks = useMemo(
+    () => (isSelectedToday ? checks : deriveDayChecks(selectedDay)),
+    [isSelectedToday, checks, selectedDay]
+  );
+
+  const selectedDone = useMemo(
+    () => (isSelectedToday ? done : deriveDayDone(selectedDay, selectedActivities, selectedChecks)),
+    [isSelectedToday, done, selectedDay, selectedActivities, selectedChecks]
+  );
+
+  const selectedLocked = isSelectedToday ? locked : true;
+
+  const tasks = useMemo(() => getTasksForDay(selectedDay.dayType), [selectedDay.dayType]);
+
   const totalCompleted = programDays.filter((d) => d.userProgress?.isCompleted).length;
 
   const openDetail = (index: number) => {
+    if (isSelectedFuture) return;
     setStep(index);
     setDetailOpen(true);
   };
 
   const markDone = (index: number) => {
-    setDone((prev) => prev.map((item, i) => (i === index ? true : item)));
+    if (isSelectedToday) {
+      setDone((prev) => prev.map((item, i) => (i === index ? true : item)));
+    }
   };
 
-  const currentTask = tasks[step];
+  const currentTask = tasks[step] || tasks[0];
   const CurrentTaskIcon = currentTask.Icon;
   const allDone = done.every(Boolean);
 
   const handleFinishTask = () => {
-    markDone(step);
+    if (isSelectedToday && !locked) {
+      markDone(step);
+    }
     setDetailOpen(false);
   };
 
@@ -1420,15 +1552,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-zinc-100 dark:border-white/10">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-          <p className="mt-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            {formatFullDayDate(day.unlockDate, day.dayNumber)}
+          <p className="mt-0.5 text-[11px] font-mono text-zinc-500">
+            Daily Reset: 00:00 WIB (UTC+7) · {resetCountdown}
           </p>
         </div>
         <button
           type="button"
           aria-label="View Program Calendar and History"
           onClick={() => {
-            setExpandedDayId(day.id);
+            setExpandedDayId(selectedDay.id);
             setHistoryOpen(true);
           }}
           className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
@@ -1437,14 +1569,83 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </button>
       </div>
 
-      {/* Task List */}
+      {/* Horizontal Centered Day Number Selector (1 2 3 4 5 ...) */}
+      <div className="px-3 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2">
+        <div
+          ref={stripRef}
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-2 scroll-smooth"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {programDays.map((d) => {
+            const isActiveSelected = d.id === selectedDay.id;
+            const isTodayItem = d.id === day.id;
+            const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
+            const isDoneItem = !!d.userProgress?.isCompleted;
+
+            return (
+              <button
+                key={d.id}
+                ref={(el) => {
+                  buttonRefs.current[d.id] = el;
+                }}
+                type="button"
+                onClick={() => setSelectedDayId(d.id)}
+                className={`relative w-10 h-10 rounded-full shrink-0 flex flex-col items-center justify-center text-xs font-mono font-semibold transition active:scale-95 ${
+                  isActiveSelected
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm ring-2 ring-zinc-950/15 dark:ring-white/20"
+                    : isTodayItem
+                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
+                      : isDoneItem
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+                        : isPastItem
+                          ? "bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
+                          : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
+                }`}
+              >
+                <span>{d.dayNumber}</span>
+                {isTodayItem && (
+                  <span
+                    className={`w-1 h-1 rounded-full mt-0.5 ${
+                      isActiveSelected ? "bg-white dark:bg-zinc-950" : "bg-zinc-950 dark:bg-white"
+                    }`}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Day Subtitle & Status Pill */}
+        <div className="px-1 flex items-center justify-between gap-2 text-[11px]">
+          <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
+            {formatFullDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
+          </span>
+          {isSelectedToday ? (
+            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold shrink-0">
+              Today
+            </span>
+          ) : isSelectedPast ? (
+            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
+              <Clock className="w-2.5 h-2.5" /> History (View Only)
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
+              <Lock className="w-2.5 h-2.5" /> Locked
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Task List for Selected Day */}
       <ol className="divide-y divide-zinc-100 dark:divide-white/10">
         {tasks.map((t, index) => {
-          const isDone = done[index];
+          const isDone = selectedDone[index];
           return (
             <li
               key={t.title}
-              className={`px-4 py-3.5 flex items-center gap-3 transition ${isDone ? "bg-zinc-50/50 dark:bg-white/[0.02]" : ""}`}
+              className={`px-4 py-3.5 flex items-center gap-3 transition ${
+                isDone ? "bg-zinc-50/50 dark:bg-white/[0.02]" : ""
+              } ${isSelectedFuture ? "opacity-75" : ""}`}
             >
               <span
                 className={`w-6 h-6 rounded-full border text-[11px] font-semibold inline-flex items-center justify-center shrink-0 ${
@@ -1461,14 +1662,26 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <p className="text-[11px] text-zinc-500 mt-0.5">{t.description}</p>
               </div>
 
-              {isDone ? (
+              {isSelectedFuture ? (
+                <span className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1 shrink-0">
+                  <Lock className="w-3 h-3" />
+                  <span>Locked</span>
+                </span>
+              ) : isSelectedPast ? (
                 <button
                   type="button"
-                  disabled={locked}
                   onClick={() => openDetail(index)}
                   className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shrink-0"
                 >
-                  <span>Edit</span>
+                  <span>View</span>
+                </button>
+              ) : isDone ? (
+                <button
+                  type="button"
+                  onClick={() => openDetail(index)}
+                  className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shrink-0"
+                >
+                  <span>{locked ? "View" : "Edit"}</span>
                 </button>
               ) : (
                 <button
@@ -1485,9 +1698,37 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* BOTTOM ACTION: SUBMIT TODAY */}
+      {/* BOTTOM ACTION: CONTEXT-AWARE FOR TODAY / PAST / FUTURE */}
       <div className="p-3.5 border-t border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
-        {day.userProgress?.isCompleted ? (
+        {isSelectedFuture ? (
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-500">
+            <span className="inline-flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span>Unlocks on {formatDayDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedDayId(day.id)}
+              className="text-[11px] font-semibold text-zinc-900 dark:text-white underline shrink-0"
+            >
+              Back to Today
+            </button>
+          </div>
+        ) : isSelectedPast ? (
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+            <span className="inline-flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+              <span>Viewing Day {selectedDay.dayNumber} History (Read-Only)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedDayId(day.id)}
+              className="text-[11px] font-semibold text-zinc-900 dark:text-white underline shrink-0"
+            >
+              Back to Today
+            </button>
+          </div>
+        ) : day.userProgress?.isCompleted ? (
           <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">
             <span className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -1541,7 +1782,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     </div>
                     <div className="min-w-0">
                       <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400 block">
-                        Day {day.dayNumber} • {currentTask.category}
+                        Day {selectedDay.dayNumber} • {currentTask.category}
                       </span>
                       <h2 className="text-base font-semibold text-zinc-950 dark:text-white truncate">
                         {currentTask.title}
@@ -1551,21 +1792,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   </div>
                   <span
                     className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
-                      done[step]
+                      selectedDone[step]
                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300"
+                        : isSelectedPast
+                          ? "bg-zinc-100 dark:bg-white/10 text-zinc-500"
+                          : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300"
                     }`}
                   >
-                    {done[step] ? "Completed" : "Active"}
+                    {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
                   </span>
                 </div>
 
                 <TaskForm
-                  key={`${day.id}-${step}`}
-                  day={day}
-                  locked={locked}
-                  activities={activities}
-                  checks={checks}
+                  key={`${selectedDay.id}-${step}`}
+                  day={selectedDay}
+                  locked={selectedLocked}
+                  activities={selectedActivities}
+                  checks={selectedChecks}
                   step={step}
                   onFinish={handleFinishTask}
                   props={props}
