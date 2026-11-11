@@ -191,38 +191,6 @@ export function NotificationsHistoryTab({
 
       <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
 
-      {/* IN-FLOW SUBTAB SWITCHER */}
-      <div className="flex p-1 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200/60 dark:border-white/5">
-        <button
-          type="button"
-          onClick={() => setSection("notifications")}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition ${
-            section === "notifications"
-              ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-          }`}
-        >
-          <span>Notifications</span>
-          {unreadCount > 0 && (
-            <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
-              {unreadCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSection("history")}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition ${
-            section === "history"
-              ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-          }`}
-        >
-          History
-        </button>
-      </div>
-
       {/* ================================================================= */}
       {/* 1. SUB-TAB: NOTIFICATIONS                                         */}
       {/* ================================================================= */}

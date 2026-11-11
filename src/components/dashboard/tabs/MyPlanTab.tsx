@@ -931,63 +931,69 @@ function ProgramPreparationWidgets({
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            {/* Static Full-Screen Image Background (0 GPU scroll listeners, 0 mask-image) */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={
-                activePage === "meal"
-                  ? "/pic.webp"
-                  : activePage === "meetup"
-                    ? "/coach.webp"
-                    : "/image.webp"
-              }
-              alt=""
-              className="fixed inset-0 w-full h-full object-cover pointer-events-none"
-            />
-            <div className="fixed inset-0 bg-[#f6f6f4]/80 dark:bg-[#0e0e0e]/85 pointer-events-none" />
+            {/* FLOATING TOP HEADER WITH BACK BUTTON */}
+            <header
+              style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+              className="fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl min-h-12 px-3.5 sm:px-4 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200/80 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md shadow-md"
+            >
+              <button
+                type="button"
+                onClick={() => setActivePage(null)}
+                className="h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
 
-            <div className="relative z-10 max-w-xl mx-auto w-full p-4 sm:p-6 pb-24 space-y-4">
-              {/* Bordered Hero Banner Card */}
-              <div className="relative aspect-[16/10] sm:aspect-[2/1] min-h-[210px] sm:min-h-[250px] w-full rounded-2xl border border-zinc-300/90 dark:border-white/20 bg-zinc-900 overflow-hidden shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={
-                    activePage === "meal"
-                      ? "/pic.webp"
-                      : activePage === "meetup"
-                        ? "/coach.webp"
-                        : "/image.webp"
-                  }
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20" />
+              <div className="min-w-0 flex-1 text-center px-2">
+                <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">
+                  {activePage === "meal"
+                    ? "Meal Preparation Guide"
+                    : activePage === "meetup"
+                      ? "Meetups & Live Sessions"
+                      : "Required Equipment"}
+                </span>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => setActivePage(null)}
-                  className="absolute top-3.5 left-3.5 h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-white text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back</span>
-                </button>
+              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 shrink-0 truncate max-w-[100px]">
+                {program.title}
+              </span>
+            </header>
 
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-white/75">
-                    {program.title}
-                  </p>
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mt-0.5">
-                    {activePage === "meal"
-                      ? "Meal Guide"
-                      : activePage === "meetup"
-                        ? "Meetups & Live"
-                        : "Equipment"}
-                  </h1>
-                </div>
+            {/* TOP BANNER IMAGE */}
+            <div className="relative h-60 sm:h-64 w-full overflow-hidden bg-zinc-900 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  activePage === "meal"
+                    ? "/pic.webp"
+                    : activePage === "meetup"
+                      ? "/coach.webp"
+                      : "/image.webp"
+                }
+                alt=""
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            </div>
+
+            {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
+              <div className="space-y-1 pb-1 border-b border-zinc-200/70 dark:border-white/10">
+                <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
+                  {program.title}
+                </p>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+                  {activePage === "meal"
+                    ? "Meal Preparation Guide"
+                    : activePage === "meetup"
+                      ? "Meetups & Live Sessions"
+                      : "Required Equipment"}
+                </h1>
               </div>
 
               {/* Bordered List Container Section */}
-              <section className="rounded-2xl border border-zinc-300/90 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 p-4 sm:p-5 space-y-3 shadow-sm">
+              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-sm">
                 {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
                 {activePage === "meal" && (
                   <>

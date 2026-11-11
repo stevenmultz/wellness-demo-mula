@@ -208,61 +208,86 @@ export function ProgramDetailView({
 
   return (
     <div className="fixed inset-0 z-[60] bg-[#f6f6f4] dark:bg-[#0e0e0e] overflow-y-auto">
+      {/* ================================================================= */}
+      {/* FIXED TOP HEADER WITH BACK BUTTON                                 */}
+      {/* ================================================================= */}
+      <header
+        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+        className="fixed left-1/2 -translate-x-1/2 z-[70] w-[94%] max-w-2xl min-h-12 px-3.5 sm:px-4 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200/80 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md shadow-md"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
+        </button>
+
+        <div className="min-w-0 flex-1 text-center px-2">
+          <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate block">
+            {program.title}
+          </span>
+        </div>
+
+        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 shrink-0">
+          {difficultyLabel(program.difficultyLevel)}
+        </span>
+      </header>
+
       <div className="max-w-2xl mx-auto pb-32">
         {/* ================================================================= */}
-        {/* HERO BANNER & PRIMARY LABELS                                      */}
+        {/* HERO BANNER IMAGE (TOP BANNER)                                    */}
         {/* ================================================================= */}
-        <div className="relative aspect-[16/10] sm:aspect-[21/9] bg-zinc-900 overflow-hidden">
+        <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-zinc-900">
           {program.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={program.coverImage} alt={program.title} className="absolute inset-0 w-full h-full object-cover" />
-          ) : null}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/30" />
+            <img src={program.coverImage} alt={program.title} className="w-full h-full object-cover" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/image.webp" alt="" className="w-full h-full object-cover" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 left-4 h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back</span>
-          </button>
-
-          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 text-white space-y-2.5">
-            {/* Intensity, Status, Location Type & City Badges */}
+        {/* ================================================================= */}
+        {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE)         */}
+        {/* ================================================================= */}
+        <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 space-y-4">
+          {/* Primary Program Identity */}
+          <div className="space-y-2.5 pb-2 border-b border-zinc-200/70 dark:border-white/10">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
-              <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950">
+              <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                 {enrolled ? "Enrolled Member" : badge}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/20">
+              <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
                 {difficultyLabel(program.difficultyLevel)}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/20">
+              <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
                 {program.locationType === "ONLINE" ? "Online" : program.locationType === "HYBRID" ? "Hybrid" : "Onsite"}
               </span>
               {program.city && (
-                <span className="px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/20">
+                <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
                   {program.city}
                 </span>
               )}
               {program.category && (
-                <span className="px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-sm">
+                <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
                   {program.category}
                 </span>
               )}
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-snug">
-              {program.title}
-            </h1>
-            <p className="text-xs text-white/80">
-              Coach <strong className="text-white">{program.coachName}</strong>
-              {program.coachTitle ? ` · ${program.coachTitle}` : ""}
-            </p>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-950 dark:text-white leading-snug">
+                {program.title}
+              </h1>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                Coach <strong className="text-zinc-950 dark:text-white">{program.coachName}</strong>
+                {program.coachTitle ? ` · ${program.coachTitle}` : ""}
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="px-4 sm:px-6 py-5 space-y-4">
           {/* ================================================================= */}
           {/* 1. OVERVIEW & SPECIFICATIONS                                      */}
           {/* ================================================================= */}
