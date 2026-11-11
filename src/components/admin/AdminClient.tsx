@@ -4851,7 +4851,7 @@ export function AdminClient({
 
                     const progMemory = calculateProgramMemoryFootprint(prog);
 
-                    const defaultCovers = ["/test.jpg", "/pic.jpg", "/image.jpg", "/coach.jpg", "/coach2.jpg"];
+                    const defaultCovers = ["/test.webp", "/pic.webp", "/image.webp", "/coach.webp", "/coach2.webp"];
                     const coverSrc =
                       prog.coverImage && prog.coverImage.trim().length > 0
                         ? prog.coverImage
@@ -11154,12 +11154,12 @@ export function AdminClient({
                   {paginatedMembers.map((m, idx) => {
                     const isSuperadmin = m.role === "SUPERADMIN";
                     const defaultCustomerCovers = [
-                      "/coach.jpg",
-                      "/coach2.jpg",
-                      "/coach3.jpg",
-                      "/pic.jpg",
-                      "/test.jpg",
-                      "/image.jpg",
+                      "/coach.webp",
+                      "/coach2.webp",
+                      "/coach3.webp",
+                      "/pic.webp",
+                      "/test.webp",
+                      "/image.webp",
                     ];
                     const fallbackCover = defaultCustomerCovers[idx % defaultCustomerCovers.length];
                     const coverSrc =

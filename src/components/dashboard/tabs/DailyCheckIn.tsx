@@ -610,7 +610,7 @@ function TaskForm({
                     <div className="relative w-28 h-16 rounded-lg overflow-hidden bg-zinc-900 shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={extractVideoThumbnail(activeVideo.url, "/coach.jpg")}
+                        src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
                         alt=""
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />

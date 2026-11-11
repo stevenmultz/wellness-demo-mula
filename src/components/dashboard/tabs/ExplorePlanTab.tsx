@@ -517,7 +517,7 @@ export function ExplorePlanTab({
                 return (
                   <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col">
                     <div className="relative h-40 bg-zinc-200 dark:bg-zinc-800">
-                      <Image src={p.coverImage || "/image.jpg"} alt="" fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)} className="object-cover" />
+                      <Image src={p.coverImage || "/image.webp"} alt="" fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)} className="object-cover" />
                       <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white text-zinc-950 border border-zinc-200">{meta.label}</span>
                     </div>
                     <div className="p-4 flex-1 flex flex-col gap-3">

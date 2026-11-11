@@ -73,23 +73,23 @@ const COACH_PROFILES = [
     name: "Marcus Vance",
     role: "Movement & Mobility Lead",
     specialty: "Functional Movement & Spine Longevity",
-    image: "/coach.jpg",
+    image: "/coach.webp",
   },
   {
     name: "Elena Rostova",
     role: "Nutrition & Longevity Director",
     specialty: "Anti-Inflammatory Protocols",
-    image: "/coach2.jpg",
+    image: "/coach2.webp",
   },
   {
     name: "Julian Thorne",
     role: "Breathwork & Recovery Lead",
     specialty: "Parasympathetic Recovery & Sleep",
-    image: "/coach3.jpg",
+    image: "/coach3.webp",
   },
 ];
 
-const COACH_FALLBACK_IMAGES = ["/coach.jpg", "/coach2.jpg", "/coach3.jpg", "/coach.jpg"];
+const COACH_FALLBACK_IMAGES = ["/coach.webp", "/coach2.webp", "/coach3.webp", "/coach.webp"];
 
 const BRAND_PARTNERS = [
   { name: "AESOP", category: "Botanical Partner" },
@@ -279,7 +279,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
             loop
             muted
             playsInline
-            poster="/pic.jpg"
+            poster="/pic.webp"
             className="w-full h-full object-cover scale-105 opacity-45"
           >
             <source src="/video.mp4" type="video/mp4" />
@@ -475,7 +475,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                     ? `On-Site • ${prog.city || "Jakarta"}`
                     : `Hybrid • ${prog.city || "Jakarta"}`;
 
-                const cohortImages = ["/test.jpg", "/pic.jpg", "/image.jpg", "/coach.jpg", "/coach2.jpg"];
+                const cohortImages = ["/test.webp", "/pic.webp", "/image.webp", "/coach.webp", "/coach2.webp"];
                 const cohortImage =
                   prog.coverImage && prog.coverImage.trim().length > 0
                     ? prog.coverImage

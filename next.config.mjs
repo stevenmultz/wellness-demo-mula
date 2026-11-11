@@ -2,6 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  async rewrites() {
+    return [
+      {
+        source: "/:name(coach|coach2|coach3|image|pic|test).jpg",
+        destination: "/:name.webp",
+      },
+    ];
+  },
   async headers() {
     return [
       {
