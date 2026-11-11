@@ -22,7 +22,15 @@ import { resolveProgramDailyPlan, ProgramDailyPlan } from "@/wellness/utils/dail
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<BmsLogoLoading />}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+async function DashboardContent() {
   const session = await getWellnessSession();
   if (!session) {
     redirect("/?auth=signin&target=dashboard");
@@ -352,14 +360,12 @@ export default async function DashboardPage() {
       };
 
   return (
-    <Suspense fallback={<BmsLogoLoading />}>
-      <DashboardClient
-        user={user}
-        myPrograms={myPrograms}
-        allPrograms={allPrograms}
-        dailyPlans={dailyPlans}
-        initialHealthProfile={healthProfile}
-      />
-    </Suspense>
+    <DashboardClient
+      user={user}
+      myPrograms={myPrograms}
+      allPrograms={allPrograms}
+      dailyPlans={dailyPlans}
+      initialHealthProfile={healthProfile}
+    />
   );
 }

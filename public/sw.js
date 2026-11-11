@@ -1,5 +1,5 @@
 // BMS Sanctuary Wellness PWA Service Worker
-const CACHE_NAME = "bms-wellness-pwa-v1";
+const CACHE_NAME = "bms-wellness-pwa-v3";
 
 const STATIC_ASSETS = [
   "/",

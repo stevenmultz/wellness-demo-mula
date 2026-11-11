@@ -1131,6 +1131,19 @@ function formatDayDate(unlockDate: string | undefined, dayNumber: number): strin
   });
 }
 
+function formatFullDayDate(unlockDate: string | undefined, dayNumber: number): string {
+  const baseDate = unlockDate ? new Date(unlockDate) : new Date();
+  const validDate = isNaN(baseDate.getTime()) ? new Date() : baseDate;
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(validDate);
+  return `${formatted} · Day ${dayNumber}`;
+}
+
 function getDayStatus(d: PlanDay, isToday: boolean) {
   if (d.userProgress?.isCompleted) {
     return {
@@ -1407,7 +1420,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-zinc-100 dark:border-white/10">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-          <p className="mt-0.5 text-[11px] font-mono text-zinc-500">Daily Reset: 00:00 WIB (UTC+7)</p>
+          <p className="mt-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {formatFullDayDate(day.unlockDate, day.dayNumber)}
+          </p>
         </div>
         <button
           type="button"

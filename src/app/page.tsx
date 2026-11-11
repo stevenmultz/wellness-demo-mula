@@ -7,7 +7,15 @@ import { BmsLogoLoading } from "@/components/common/BmsLogoLoading";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default function HomePage() {
+  return (
+    <Suspense fallback={<BmsLogoLoading />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+async function HomeContent() {
   const sessionUser = await getWellnessSession();
 
   // Optimized parallel queries with resilient fallback if database is unreachable
@@ -106,12 +114,10 @@ export default async function HomePage() {
   }));
 
   return (
-    <Suspense fallback={<BmsLogoLoading />}>
-      <LandingClient
-        sessionUser={sessionUser}
-        programs={formattedPrograms}
-        coaches={coaches}
-      />
-    </Suspense>
+    <LandingClient
+      sessionUser={sessionUser}
+      programs={formattedPrograms}
+      coaches={coaches}
+    />
   );
 }
