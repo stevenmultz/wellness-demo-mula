@@ -63,40 +63,46 @@ function getTasksForDay(dayType: string) {
     {
       category: "SLEEP PROTOCOL",
       title: "Sleep Protocol",
-      description: "Record your bedtime, wake time, and restorative sleep duration.",
+      description: "Log bedtime, wake time, and sleep duration.",
       Icon: Moon,
+      image: "/test.webp",
     },
     isRest
       ? {
           category: "REST & RECOVERY",
           title: "Rest & Recovery",
-          description: "Follow your active recovery guidelines and log your body check-in.",
+          description: "Active recovery guidelines and body check-in.",
           Icon: Heart,
+          image: "/coach2.webp",
         }
       : isConnect
         ? {
             category: "COMMUNITY CONNECT",
             title: "Community Connect",
-            description: "Review session details and record your attendance takeaways.",
+            description: "Session details and attendance takeaways.",
             Icon: Users,
+            image: "/coach.webp",
           }
         : {
             category: "TRAINING SESSION",
             title: "Movement & Routine",
-            description: "Select your training variation and complete your exercise checklist.",
+            description: "Select training variation and exercise checklist.",
             Icon: Dumbbell,
+            image: "/image.webp",
           },
     {
       category: "NUTRITION PROTOCOL",
       title: "Nutrition & Meal",
-      description: "Review today's nutrition guide and log your dietary compliance.",
+      description: "Today's nutrition guide and meal compliance.",
       Icon: Utensils,
+      image: "/pic.webp",
     },
     {
       category: "DAILY REFLECTION",
       title: "Daily Reflection",
-      description: "Evaluate your daily fulfillment, energy index, and journal notes.",
+      description: "Energy index, mood score, and daily journal.",
       Icon: Sparkles,
+      image: "/coach3.webp",
     },
   ] as const;
 }
@@ -1332,11 +1338,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       </div>
 
-      {/* Horizontal Centered Day Number Selector (1 2 3 4 5 ...) */}
-      <div className="px-3 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2">
+      {/* Horizontal Side-by-Side Day Selector (9 Training · 10 Rest ...) */}
+      <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2.5">
         <div
           ref={stripRef}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-2 scroll-smooth"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           {programDays.map((d) => {
@@ -1344,9 +1350,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             const isTodayItem = d.id === day.id;
             const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
             const isDoneItem = !!d.userProgress?.isCompleted;
-            const shortType =
+            const dayTypeWord =
               d.dayType === "TRAINING_DAY"
-                ? "Train"
+                ? "Training"
                 : d.dayType === "REST_DAY"
                   ? "Rest"
                   : "Connect";
@@ -1359,39 +1365,27 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 }}
                 type="button"
                 onClick={() => setSelectedDayId(d.id)}
-                className="shrink-0 flex flex-col items-center gap-1 group focus:outline-none"
+                className={`shrink-0 h-9 px-3.5 rounded-full inline-flex items-center gap-1.5 text-xs font-mono font-semibold transition active:scale-95 focus:outline-none ${
+                  isActiveSelected
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm ring-2 ring-zinc-950/15 dark:ring-white/20"
+                    : isTodayItem
+                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
+                      : isDoneItem
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+                        : isPastItem
+                          ? "bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
+                          : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
+                }`}
               >
-                <span
-                  className={`relative w-10 h-10 rounded-full flex flex-col items-center justify-center text-xs font-mono font-semibold transition group-active:scale-95 ${
-                    isActiveSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm ring-2 ring-zinc-950/15 dark:ring-white/20"
-                      : isTodayItem
-                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
-                        : isDoneItem
-                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
-                          : isPastItem
-                            ? "bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                            : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
-                  }`}
-                >
-                  <span>{d.dayNumber}</span>
-                  {isTodayItem && (
-                    <span
-                      className={`w-1 h-1 rounded-full mt-0.5 ${
-                        isActiveSelected ? "bg-white dark:bg-zinc-950" : "bg-zinc-950 dark:bg-white"
-                      }`}
-                    />
-                  )}
-                </span>
-                <span
-                  className={`text-[9px] font-mono uppercase tracking-wider leading-none ${
-                    isActiveSelected
-                      ? "font-bold text-zinc-950 dark:text-white"
-                      : "text-zinc-400 dark:text-zinc-500"
-                  }`}
-                >
-                  {shortType}
-                </span>
+                <span>{d.dayNumber}</span>
+                <span className="text-[10px] uppercase tracking-wider opacity-85">{dayTypeWord}</span>
+                {isTodayItem && (
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isActiveSelected ? "bg-white dark:bg-zinc-950" : "bg-zinc-950 dark:bg-white"
+                    }`}
+                  />
+                )}
               </button>
             );
           })}
@@ -1402,80 +1396,121 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
             {formatFullDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
           </span>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold">
-              {selectedDay.dayType === "TRAINING_DAY"
-                ? "Training"
-                : selectedDay.dayType === "REST_DAY"
-                  ? "Rest"
-                  : "Connect"}
+          {isSelectedFuture && (
+            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
+              <Lock className="w-2.5 h-2.5" /> Locked
             </span>
-            {isSelectedFuture && (
-              <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1">
-                <Lock className="w-2.5 h-2.5" /> Locked
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Task List for Selected Day */}
-      <ol className="divide-y divide-zinc-100 dark:divide-white/10">
+      {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}
+      <ol className="p-3.5 space-y-2.5">
         {tasks.map((t, index) => {
           const isDone = selectedDone[index];
+          const TaskIcon = t.Icon;
           return (
             <li
               key={t.title}
-              className={`px-4 py-3.5 flex items-center gap-3 transition ${
-                isDone ? "bg-zinc-50/50 dark:bg-white/[0.02]" : ""
-              } ${isSelectedFuture ? "opacity-75" : ""}`}
+              onClick={() => {
+                if (!isSelectedFuture && (!locked || isSelectedPast || isDone)) {
+                  openDetail(index);
+                } else if (!isSelectedFuture && !locked) {
+                  openDetail(index);
+                }
+              }}
+              className={`group relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between gap-3 transition ${
+                isDone
+                  ? "border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-[#181818]"
+                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/20"
+              } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
             >
-              <span
-                className={`w-6 h-6 rounded-full border text-[11px] font-semibold inline-flex items-center justify-center shrink-0 ${
-                  isDone
-                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
-                    : "border-zinc-300 text-zinc-400"
-                }`}
-                aria-hidden
-              >
-                {isDone ? <Check className="w-3.5 h-3.5" /> : index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-900 dark:text-white">{t.title}</p>
-                <p className="text-[11px] text-zinc-500 mt-0.5">{t.description}</p>
+              {/* Right-side Motion-Blur Image with Hardware-Accelerated Fade (0 mask-image) */}
+              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={t.image}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+                />
+                <div
+                  className={`absolute inset-0 bg-gradient-to-r ${
+                    isDone
+                      ? "from-zinc-50 via-zinc-50/85 to-transparent dark:from-[#181818] dark:via-[#181818]/85"
+                      : "from-white via-white/85 to-transparent dark:from-[#141414] dark:via-[#141414]/85"
+                  }`}
+                />
               </div>
 
-              {isSelectedFuture ? (
-                <span className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1 shrink-0">
-                  <Lock className="w-3 h-3" />
-                  <span>Locked</span>
-                </span>
-              ) : isSelectedPast ? (
-                <button
-                  type="button"
-                  onClick={() => openDetail(index)}
-                  className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shrink-0"
+              <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
+                    isDone
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                      : "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white"
+                  }`}
                 >
-                  <span>View</span>
-                </button>
-              ) : isDone ? (
-                <button
-                  type="button"
-                  onClick={() => openDetail(index)}
-                  className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shrink-0"
-                >
-                  <span>{locked ? "View" : "Edit"}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={locked}
-                  onClick={() => openDetail(index)}
-                  className={primaryBtn}
-                >
-                  Do Task
-                </button>
-              )}
+                  {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+                      0{index + 1} · {t.category}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate mt-0.5">
+                    {t.title}
+                  </p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                    {t.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative z-10 shrink-0">
+                {isSelectedFuture ? (
+                  <span className="h-8 px-3 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    <span>Locked</span>
+                  </span>
+                ) : isSelectedPast ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDetail(index);
+                    }}
+                    className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
+                  >
+                    <span>View</span>
+                  </button>
+                ) : isDone ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDetail(index);
+                    }}
+                    className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
+                  >
+                    <span>{locked ? "View" : "Edit"}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDetail(index);
+                    }}
+                    className={primaryBtn}
+                  >
+                    Do Task
+                  </button>
+                )}
+              </div>
             </li>
           );
         })}
@@ -1542,61 +1577,67 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
-            <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-12 space-y-4">
-              {/* TOP HEADER: Back button on the LEFT only */}
-              <div className="flex items-center justify-start">
+          <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
+            <div className="max-w-xl mx-auto w-full pb-20">
+              {/* Editorial Banner Image with Back Button */}
+              <div className="relative aspect-[16/10] sm:aspect-[2/1] min-h-[220px] sm:min-h-[260px] w-full bg-zinc-900 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentTask.image}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20" />
+
                 <button
                   type="button"
                   onClick={() => setDetailOpen(false)}
-                  className="h-9 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
+                  className="absolute top-4 left-4 h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-xs font-medium text-white inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
+
+                <span
+                  className={`absolute top-4 right-4 text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-md border ${
+                    selectedDone[step]
+                      ? "bg-emerald-500/25 border-emerald-400/30 text-emerald-200"
+                      : "bg-black/55 border-white/20 text-white"
+                  }`}
+                >
+                  {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
+                </span>
+
+                <div className="absolute bottom-5 left-5 right-5 text-white flex items-end gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0">
+                    <CurrentTaskIcon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-white/75 block">
+                      Day {selectedDay.dayNumber} · {currentTask.category}
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-semibold tracking-tight truncate">
+                      {currentTask.title}
+                    </h2>
+                  </div>
+                </div>
               </div>
 
-              {/* TASK CARD */}
-              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-zinc-100 dark:border-white/10">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
-                      <CurrentTaskIcon className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400 block">
-                        Day {selectedDay.dayNumber} • {currentTask.category}
-                      </span>
-                      <h2 className="text-base font-semibold text-zinc-950 dark:text-white truncate">
-                        {currentTask.title}
-                      </h2>
-                      <p className="text-xs text-zinc-500 mt-0.5">{currentTask.description}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
-                      selectedDone[step]
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : isSelectedPast
-                          ? "bg-zinc-100 dark:bg-white/10 text-zinc-500"
-                          : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300"
-                    }`}
-                  >
-                    {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
-                  </span>
-                </div>
-
-                <TaskForm
-                  key={`${selectedDay.id}-${step}`}
-                  day={selectedDay}
-                  locked={selectedLocked}
-                  activities={selectedActivities}
-                  checks={selectedChecks}
-                  step={step}
-                  onFinish={handleFinishTask}
-                  props={props}
-                />
-              </section>
+              {/* TASK CONTENT */}
+              <div className="p-4 sm:p-6">
+                <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
+                  <TaskForm
+                    key={`${selectedDay.id}-${step}`}
+                    day={selectedDay}
+                    locked={selectedLocked}
+                    activities={selectedActivities}
+                    checks={selectedChecks}
+                    step={step}
+                    onFinish={handleFinishTask}
+                    props={props}
+                  />
+                </section>
+              </div>
             </div>
           </div>,
           document.body

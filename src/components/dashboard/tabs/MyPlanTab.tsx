@@ -362,28 +362,27 @@ export function MyPlanOverview({
           )}
           <div className="absolute inset-0 bg-black/45" />
           {program && (
-            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
-              {formatIntensityBadge(program.difficultyLevel)}
-            </span>
-          )}
-          <div className="absolute bottom-0 left-0 right-0 p-4 text-white flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
-                {program?.title || "No active program"}
-              </h2>
-              {program && (
-                <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
-              )}
-            </div>
-            {program && (
+            <>
+              <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+                {formatIntensityBadge(program.difficultyLevel)}
+              </span>
               <button
                 type="button"
                 onClick={onOpenDetails}
                 aria-label="Program details"
-                className="shrink-0 w-8 h-8 rounded-full bg-white/15 border border-white/25 flex items-center justify-center"
+                className="absolute top-3 right-3 h-7 px-3 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[11px] font-medium text-white inline-flex items-center gap-1.5 active:scale-95 transition"
               >
                 <Info className="w-3.5 h-3.5" />
+                <span>Details</span>
               </button>
+            </>
+          )}
+          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+            <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
+              {program?.title || "No active program"}
+            </h2>
+            {program && (
+              <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
             )}
           </div>
         </div>
@@ -419,7 +418,7 @@ export function MyPlanOverview({
           const startsInInfo = formatStartsIn(program.startDate);
           return (
             <>
-              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4">
+              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5">
                 <div className="space-y-1">
                   <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
                     {startsInInfo.headline}
@@ -428,15 +427,6 @@ export function MyPlanOverview({
                     Program begins on <span className="font-medium text-zinc-800 dark:text-zinc-200">{startsInInfo.dateLabel}</span>
                   </p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={onOpenDetails}
-                  className="w-full py-2.5 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition active:scale-98 shadow-sm"
-                >
-                  <Info className="w-3.5 h-3.5" />
-                  <span>Program Details</span>
-                </button>
               </section>
 
               <ProgramPreparationWidgets
@@ -671,33 +661,34 @@ function CohortPerformanceCard({
 
       <div className="border-t border-zinc-100 dark:border-white/10" />
 
-      {/* 2 & 3. TRAINING & MEAL COUNTS */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-1 text-xs">
-            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
-              <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Training</span>
-            </span>
-            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {trainingDone} / {trainingTotal}
-            </span>
-          </div>
-          <FiveBarMeter score={trainingScore} />
+      {/* 2. TRAINING COUNT */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+            <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Training</span>
+          </span>
+          <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+            {trainingDone} / {trainingTotal}
+          </span>
         </div>
+        <FiveBarMeter score={trainingScore} />
+      </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-1 text-xs">
-            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
-              <Utensils className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Meal</span>
-            </span>
-            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {mealFollowed} / {mealTotal}
-            </span>
-          </div>
-          <FiveBarMeter score={mealScore} />
+      <div className="border-t border-zinc-100 dark:border-white/10" />
+
+      {/* 3. MEAL COUNT */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+            <Utensils className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Meal</span>
+          </span>
+          <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+            {mealFollowed} / {mealTotal}
+          </span>
         </div>
+        <FiveBarMeter score={mealScore} />
       </div>
     </section>
   );
@@ -810,11 +801,8 @@ function ProgramPreparationWidgets({
     [sortedDays]
   );
 
-  // Days that have meal guidance
-  const mealDays = useMemo(() => {
-    const withMeals = sortedDays.filter((d) => d.mealRecommendation && d.mealRecommendation.trim().length > 0);
-    return withMeals.length > 0 ? withMeals : sortedDays;
-  }, [sortedDays]);
+  // All program days from Day 1 to end for the Meal Guide
+  const mealDays = sortedDays;
 
   // Clean equipment checklist items
   const equipmentItems = useMemo(() => {
@@ -852,7 +840,7 @@ function ProgramPreparationWidgets({
               <Utensils className="w-3.5 h-3.5" />
             </div>
             <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-              {mealDays.length} days
+              {totalDaysCount} days
             </span>
           </div>
 
@@ -944,8 +932,8 @@ function ProgramPreparationWidgets({
         createPortal(
           <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
             <div className="max-w-xl mx-auto w-full pb-24">
-              {/* Header Banner */}
-              <div className="relative h-36 sm:h-40 w-full bg-zinc-900 overflow-hidden">
+              {/* Large Editorial Header Banner */}
+              <div className="relative aspect-[16/10] sm:aspect-[2/1] min-h-[240px] sm:min-h-[280px] w-full bg-zinc-900 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={
@@ -958,22 +946,22 @@ function ProgramPreparationWidgets({
                   alt=""
                   className="absolute inset-0 w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20" />
 
                 <button
                   type="button"
                   onClick={() => setActivePage(null)}
-                  className="absolute top-4 left-4 h-8 px-3 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition"
+                  className="absolute top-4 left-4 h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-white text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
 
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/70">
+                <div className="absolute bottom-5 left-5 right-5 text-white">
+                  <p className="text-[11px] font-mono uppercase tracking-wider text-white/75">
                     {program.title}
                   </p>
-                  <h1 className="text-base sm:text-lg font-semibold tracking-tight mt-0.5">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mt-0.5">
                     {activePage === "meal"
                       ? "Meal Guide"
                       : activePage === "meetup"
