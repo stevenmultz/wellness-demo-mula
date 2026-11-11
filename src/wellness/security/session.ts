@@ -89,6 +89,16 @@ export const getWellnessSession = safeCache(async (): Promise<{
   email: string;
   fullName: string;
   phone: string | null;
+  age: number | null;
+  dateOfBirth: Date | null;
+  avatarUrl: string | null;
+  gender: string | null;
+  occupation: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
   role: string;
   status: string;
   createdAt: Date;
@@ -101,7 +111,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
     const payload = await verifySessionToken(token);
     if (!payload || !payload.userId) return null;
 
-    // Verifikasi real-time dengan database (Cek status akun & tokenVersion)
+    // Verifikasi real-time dengan database (Cek status akun & tokenVersion + profil lengkap dalam 1 query)
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: {
@@ -109,6 +119,16 @@ export const getWellnessSession = safeCache(async (): Promise<{
         email: true,
         fullName: true,
         phone: true,
+        age: true,
+        dateOfBirth: true,
+        avatarUrl: true,
+        gender: true,
+        occupation: true,
+        address: true,
+        city: true,
+        province: true,
+        emergencyContactName: true,
+        emergencyContactPhone: true,
         role: true,
         status: true,
         createdAt: true,
@@ -125,6 +145,16 @@ export const getWellnessSession = safeCache(async (): Promise<{
       email: user.email,
       fullName: user.fullName,
       phone: user.phone,
+      age: user.age,
+      dateOfBirth: user.dateOfBirth,
+      avatarUrl: user.avatarUrl,
+      gender: user.gender,
+      occupation: user.occupation,
+      address: user.address,
+      city: user.city,
+      province: user.province,
+      emergencyContactName: user.emergencyContactName,
+      emergencyContactPhone: user.emergencyContactPhone,
       role: user.role,
       status: user.status,
       createdAt: user.createdAt,

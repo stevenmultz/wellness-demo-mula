@@ -36,30 +36,8 @@ async function DashboardContent() {
     redirect("/?auth=signin&target=dashboard");
   }
 
-  // Fetch full user details, enrollments, published programs, and health profile concurrently
-  const [dbUser, enrollments, allProgramsData, healthProfile] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        phone: true,
-        age: true,
-        dateOfBirth: true,
-        avatarUrl: true,
-        gender: true,
-        occupation: true,
-        address: true,
-        city: true,
-        province: true,
-        emergencyContactName: true,
-        emergencyContactPhone: true,
-        role: true,
-        status: true,
-        createdAt: true,
-      },
-    }),
+  // Fetch enrollments, published programs, and health profile concurrently
+  const [enrollments, allProgramsData, healthProfile] = await Promise.all([
     prisma.programEnrollment.findMany({
       where: { userId: session.userId },
       include: {
@@ -334,30 +312,25 @@ async function DashboardContent() {
     };
   });
 
-  const user = dbUser
-    ? {
-        ...dbUser,
-        dateOfBirth: dbUser.dateOfBirth ? dbUser.dateOfBirth.toISOString().slice(0, 10) : null,
-      }
-    : {
-        id: session.userId,
-        email: session.email,
-        fullName: session.fullName,
-        phone: session.phone,
-        age: null,
-        dateOfBirth: null,
-        avatarUrl: null,
-        gender: null,
-        occupation: null,
-        address: null,
-        city: null,
-        province: null,
-        emergencyContactName: null,
-        emergencyContactPhone: null,
-        role: session.role,
-        status: session.status,
-        createdAt: session.createdAt,
-      };
+  const user = {
+    id: session.userId,
+    email: session.email,
+    fullName: session.fullName,
+    phone: session.phone,
+    age: session.age,
+    dateOfBirth: session.dateOfBirth ? session.dateOfBirth.toISOString().slice(0, 10) : null,
+    avatarUrl: session.avatarUrl,
+    gender: session.gender,
+    occupation: session.occupation,
+    address: session.address,
+    city: session.city,
+    province: session.province,
+    emergencyContactName: session.emergencyContactName,
+    emergencyContactPhone: session.emergencyContactPhone,
+    role: session.role,
+    status: session.status,
+    createdAt: session.createdAt,
+  };
 
   return (
     <DashboardClient

@@ -9,6 +9,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Clock,
   Dumbbell,
@@ -240,6 +241,7 @@ function TaskForm({
   const [bed, setBed] = useState(progress?.bedtime || "");
   const [wake, setWake] = useState(progress?.wakeTime || "");
   const [workout, setWorkout] = useState(progress?.selectedWorkout || "");
+  const [trainingEntered, setTrainingEntered] = useState(false);
   const [pendingSwitchWorkout, setPendingSwitchWorkout] = useState<string | null>(null);
   const [notes, setNotes] = useState(progress?.workoutNotes || progress?.eventFeedback || "");
   const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
@@ -319,7 +321,15 @@ function TaskForm({
   const checkedCount = movements.filter(isChecked).length;
 
   const handleClickWorkoutOption = async (optionName: string) => {
-    if (locked || optionName === workout) return;
+    if (locked) {
+      if (!workout) setWorkout(optionName);
+      setTrainingEntered(true);
+      return;
+    }
+    if (optionName === workout) {
+      setTrainingEntered(true);
+      return;
+    }
     // If user already has checked items in current workout, ask for confirmation before resetting
     if (workout && checkedCount > 0) {
       setPendingSwitchWorkout(optionName);
@@ -327,6 +337,7 @@ function TaskForm({
     }
     setWorkout(optionName);
     setLocalChecks([]);
+    setTrainingEntered(true);
     await props.onSelectWorkout(optionName, day.id, true);
   };
 
@@ -336,6 +347,7 @@ function TaskForm({
     setPendingSwitchWorkout(null);
     setWorkout(nextOpt);
     setLocalChecks([]);
+    setTrainingEntered(true);
     await props.onSelectWorkout(nextOpt, day.id, true);
   };
 
@@ -519,99 +531,124 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 1A: TRAINING DAY                                                 */}
+      {/* STEP 1A: TRAINING DAY (2-STEP: 1. SELECT TRAINING -> 2. DO TRAINING)  */}
       {/* ===================================================================== */}
       {step === 1 && isTraining && (
         <div className="space-y-4">
-          {/* 1. CHOOSE TRAINING VARIATION */}
-          {groups.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold">
-                  1. Choose Training Variation
+          {/* SCREEN 1: CHOOSE WHICH TRAINING TO DO */}
+          {groups.length > 0 && !trainingEntered ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-0.5 pb-2 border-b border-zinc-200/70 dark:border-white/10">
+                <div>
+                  <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
+                    Select Training Session
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    Tap a session below to enter its workout detail and checklist
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-400 shrink-0">
+                  {groups.length} {groups.length === 1 ? "option" : "options"}
                 </span>
-                {activeWorkout && (
-                  <span className="text-[11px] font-mono text-zinc-400">
-                    Selected: <strong className="text-zinc-800 dark:text-zinc-200">{activeWorkout}</strong>
-                  </span>
-                )}
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 gap-3">
                 {groups.map((g, idx) => {
                   const isSelected = activeWorkout === g.optionName;
+                  const bgImg = ["/image.webp", "/coach.webp", "/coach2.webp", "/coach3.webp"][idx % 4];
+                  const previewNames = g.movements.slice(0, 3).map((m) => m.name);
+
                   return (
                     <button
                       key={g.optionName}
                       type="button"
-                      disabled={locked}
                       onClick={() => handleClickWorkoutOption(g.optionName)}
-                      className={`p-3.5 rounded-xl border text-left transition active:scale-[0.99] flex items-center justify-between gap-3 ${
+                      className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition active:scale-[0.99] flex items-center justify-between gap-3 ${
                         isSelected
-                          ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "bg-zinc-50/70 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+                          ? "border-zinc-950 dark:border-white bg-white dark:bg-[#181818] ring-1 ring-zinc-950/10 dark:ring-white/15 shadow-sm"
+                          : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] hover:border-zinc-400 dark:hover:border-white/25"
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className={`w-6 h-6 rounded-full text-[11px] font-mono font-bold inline-flex items-center justify-center shrink-0 border ${
-                            isSelected
-                              ? "bg-white text-zinc-950 border-white dark:bg-zinc-950 dark:text-white dark:border-zinc-950"
-                              : "border-zinc-300 dark:border-white/20 text-zinc-500"
-                          }`}
-                        >
-                          {isSelected ? <Check className="w-3.5 h-3.5" /> : String.fromCharCode(65 + idx)}
-                        </span>
-                        <div className="min-w-0">
-                          <span className="text-xs font-semibold block truncate">{g.optionName}</span>
-                          <span className={`text-[11px] font-mono ${isSelected ? "opacity-75" : "text-zinc-400"}`}>
-                            {g.movements.length} exercises in checklist
-                          </span>
-                        </div>
+                      {/* Right-side Motion-Blur Image with Gradient Fade */}
+                      <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={bgImg}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent dark:from-[#181818] dark:via-[#181818]/85" />
                       </div>
-                      <span
-                        className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
-                          isSelected
-                            ? "bg-white/15 text-white dark:bg-zinc-900/10 dark:text-zinc-950 font-semibold"
-                            : "bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
-                        }`}
-                      >
-                        {isSelected ? "Active" : "Select"}
-                      </span>
+
+                      <div className="relative z-10 min-w-0 flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
+                            Option {String.fromCharCode(65 + idx)}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-400">
+                            {g.movements.length} exercises
+                          </span>
+                          {isSelected && (
+                            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                              Active
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                          {g.optionName}
+                        </p>
+
+                        {previewNames.length > 0 && (
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                            {previewNames.join(" · ")}
+                            {g.movements.length > 3 ? ` +${g.movements.length - 3} more` : ""}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="relative z-10 shrink-0 h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1 shadow-sm">
+                        <span>{isSelected ? "Continue" : "Start"}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </div>
-          )}
-
-          {/* Prompt when user hasn't picked a training variation yet */}
-          {hasMultipleOptions && !activeWorkout ? (
-            <div className="p-6 rounded-2xl border border-dashed border-zinc-300 dark:border-white/15 bg-zinc-50/50 dark:bg-white/[0.02] text-center space-y-2">
-              <div className="w-10 h-10 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 mx-auto flex items-center justify-center">
-                <Dumbbell className="w-5 h-5" />
-              </div>
-              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                Select a Training Variation Above
-              </p>
-              <p className="text-[11px] text-zinc-500 max-w-xs mx-auto leading-relaxed">
-                Choose one of today&apos;s training variations to unlock its guided video session and movement checklist.
-              </p>
-            </div>
           ) : (
-            <>
-              {/* 2. GUIDED WORKOUT VIDEO */}
+            /* SCREEN 2: INSIDE SELECTED TRAINING DETAIL & WORKOUT CHECKLIST */
+            <div className="space-y-4">
+              {groups.length > 0 && (
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200/70 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setTrainingEntered(false)}
+                    className="h-8 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1.5 active:scale-95 transition"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>All Training Options</span>
+                  </button>
+                  <span className="text-xs font-mono font-semibold text-zinc-900 dark:text-white truncate">
+                    {activeWorkout || "Training Session"}
+                  </span>
+                </div>
+              )}
+
+              {/* 1. GUIDED WORKOUT VIDEO */}
               {activeVideo && (
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                    2. Guided Video Session
+                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-3.5 space-y-2">
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-semibold block">
+                    Guided Video Session
                   </span>
                   <a
                     href={activeVideo.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => props.onOpenVideo(day.id)}
-                    className="group flex items-center gap-3.5 p-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
+                    className="group flex items-center gap-3.5 p-2.5 rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
                   >
                     <div className="relative w-28 h-16 rounded-lg overflow-hidden bg-zinc-900 shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -631,26 +668,26 @@ function TaskForm({
                         {activeVideo.title}
                       </span>
                       <span className="text-[11px] font-mono text-zinc-500 inline-flex items-center gap-1 mt-1">
-                        Watch on YouTube <ExternalLink className="w-3 h-3" />
+                        Watch Video <ExternalLink className="w-3 h-3" />
                       </span>
                     </div>
                   </a>
                 </div>
               )}
 
-              {/* 3. MOVEMENT CHECKLIST */}
+              {/* 2. MOVEMENT CHECKLIST */}
               {movements.length > 0 && (
-                <div className="space-y-2">
+                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold">
-                      3. Movement Checklist
+                    <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                      Movement Checklist
                     </span>
                     <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                      {checkedCount} / {movements.length} Completed
+                      {checkedCount} / {movements.length} Done
                     </span>
                   </div>
 
-                  {/* Mini Progress Bar */}
+                  {/* Progress Bar */}
                   <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
@@ -658,14 +695,20 @@ function TaskForm({
                     />
                   </div>
 
-                  <ul className="divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#141414] overflow-hidden">
+                  <ul className="space-y-2">
                     {movements.map((name) => {
                       const checked = isChecked(name);
                       const moveObj = selectedGroup?.movements.find((m) => m.name === name);
                       const targetLabel = moveObj?.target;
                       return (
                         <li key={name}>
-                          <label className="flex items-center justify-between gap-3 px-3.5 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 transition select-none">
+                          <label
+                            className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${
+                              checked
+                                ? "border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5"
+                                : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
+                            }`}
+                          >
                             <div className="flex items-center gap-3 min-w-0">
                               <input
                                 type="checkbox"
@@ -697,10 +740,10 @@ function TaskForm({
                 </div>
               )}
 
-              {/* 4. PHOTO CHECK-IN & NOTES */}
-              <div className="space-y-3 pt-1">
-                <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                  4. Session Photos & Notes (Optional)
+              {/* 3. PHOTO CHECK-IN & NOTES */}
+              <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                  Session Photos & Notes
                 </span>
                 <div className="grid grid-cols-2 gap-2.5">
                   {(["before", "after"] as const).map((type) => (
@@ -747,7 +790,7 @@ function TaskForm({
                   />
                 </label>
               </div>
-            </>
+            </div>
           )}
 
           {/* VALIDATION MODAL FOR SWITCHING WORKOUT VARIATION */}
@@ -782,7 +825,7 @@ function TaskForm({
                     onClick={confirmSwitchWorkout}
                     className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
                   >
-                    Switch & Reset
+                    Switch & Enter
                   </button>
                 </div>
               </div>
@@ -1101,45 +1144,47 @@ function TaskForm({
         </p>
       )}
 
-      {/* SAVE & SKIP ACTION BUTTONS (OR BACK BUTTON WHEN VIEWING HISTORY) */}
-      <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-white/10 gap-2">
-        {locked ? (
-          <div className="w-full flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5" />
-              <span>View-only history record</span>
-            </span>
-            <button
-              type="button"
-              onClick={onFinish}
-              className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
-            >
-              Close
-            </button>
-          </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onFinish}
-              className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
-            >
-              Skip
-            </button>
+      {/* SAVE & SKIP ACTION BUTTONS (HIDDEN ON TRAINING SELECTION SCREEN) */}
+      {!(step === 1 && isTraining && groups.length > 0 && !trainingEntered) && (
+        <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-white/10 gap-2">
+          {locked ? (
+            <div className="w-full flex items-center justify-between gap-2">
+              <span className="text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5" />
+                <span>View-only history record</span>
+              </span>
+              <button
+                type="button"
+                onClick={onFinish}
+                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onFinish}
+                className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
+              >
+                Skip
+              </button>
 
-            <button
-              type="button"
-              disabled={busy || !valid[step] || photoBusy !== null}
-              onClick={handleSave}
-              className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
-            >
-              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-              <span>Save</span>
-            </button>
-          </>
-        )}
-      </div>
+              <button
+                type="button"
+                disabled={busy || !valid[step] || photoBusy !== null}
+                onClick={handleSave}
+                className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
+              >
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>Save</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1573,14 +1618,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         )}
       </div>
 
-      {/* TASK DETAIL FULL-SCREEN MODAL */}
+      {/* TASK DETAIL FULL-SCREEN MODAL WITH IMAGE BACKGROUND & BORDERED SECTIONS */}
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            <div className="max-w-xl mx-auto w-full pb-20">
-              {/* Editorial Banner Image with Back Button */}
-              <div className="relative aspect-[16/10] sm:aspect-[2/1] min-h-[220px] sm:min-h-[260px] w-full bg-zinc-900 overflow-hidden">
+            {/* Static Full-Screen Image Background (0 GPU scroll listeners, 0 mask-image) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={currentTask.image}
+              alt=""
+              className="fixed inset-0 w-full h-full object-cover pointer-events-none"
+            />
+            <div className="fixed inset-0 bg-[#f6f6f4]/80 dark:bg-[#0e0e0e]/85 pointer-events-none" />
+
+            <div className="relative z-10 max-w-xl mx-auto w-full p-4 sm:p-6 pb-24 space-y-4">
+              {/* Bordered Hero Banner Card */}
+              <div className="relative aspect-[16/10] sm:aspect-[2/1] min-h-[210px] sm:min-h-[250px] w-full rounded-2xl border border-zinc-300/90 dark:border-white/20 bg-zinc-900 overflow-hidden shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentTask.image}
@@ -1592,14 +1646,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <button
                   type="button"
                   onClick={() => setDetailOpen(false)}
-                  className="absolute top-4 left-4 h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-xs font-medium text-white inline-flex items-center gap-1.5 active:scale-95 transition"
+                  className="absolute top-3.5 left-3.5 h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-xs font-medium text-white inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
 
                 <span
-                  className={`absolute top-4 right-4 text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-md border ${
+                  className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-md border ${
                     selectedDone[step]
                       ? "bg-emerald-500/25 border-emerald-400/30 text-emerald-200"
                       : "bg-black/55 border-white/20 text-white"
@@ -1608,7 +1662,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
                 </span>
 
-                <div className="absolute bottom-5 left-5 right-5 text-white flex items-end gap-3">
+                <div className="absolute bottom-4 left-4 right-4 text-white flex items-end gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0">
                     <CurrentTaskIcon className="w-4 h-4 text-white" />
                   </div>
@@ -1623,21 +1677,19 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 </div>
               </div>
 
-              {/* TASK CONTENT */}
-              <div className="p-4 sm:p-6">
-                <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-                  <TaskForm
-                    key={`${selectedDay.id}-${step}`}
-                    day={selectedDay}
-                    locked={selectedLocked}
-                    activities={selectedActivities}
-                    checks={selectedChecks}
-                    step={step}
-                    onFinish={handleFinishTask}
-                    props={props}
-                  />
-                </section>
-              </div>
+              {/* Bordered Task Content Section */}
+              <section className="rounded-2xl border border-zinc-300/90 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 p-4 sm:p-5 space-y-4 shadow-sm">
+                <TaskForm
+                  key={`${selectedDay.id}-${step}`}
+                  day={selectedDay}
+                  locked={selectedLocked}
+                  activities={selectedActivities}
+                  checks={selectedChecks}
+                  step={step}
+                  onFinish={handleFinishTask}
+                  props={props}
+                />
+              </section>
             </div>
           </div>,
           document.body
