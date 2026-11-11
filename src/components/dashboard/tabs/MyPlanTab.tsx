@@ -9,11 +9,9 @@ import {
   Compass,
   Dumbbell,
   ExternalLink,
-  Flame,
   Info,
   MapPin,
   Moon,
-  Sparkles,
   Users,
   Utensils,
   Video,
@@ -464,11 +462,6 @@ export function MyPlanOverview({
             </dl>
           </section>
 
-          <CohortPerformanceCard
-            days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
-            currentDayNumber={currentDayNumber}
-          />
-
           {day ? (
             <DailyCheckIn
               key={day.id}
@@ -493,6 +486,11 @@ export function MyPlanOverview({
           ) : (
             <EmptyState title="No tasks today" description="There is no open session for today." />
           )}
+
+          <CohortPerformanceCard
+            days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
+            currentDayNumber={currentDayNumber}
+          />
 
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-sm font-medium">Community</p>
@@ -549,144 +547,260 @@ function CohortPerformanceCard({
   const activeOrPastDays = sorted.filter(
     (d) => d.isPast2359 || d.isCalendarUnlocked || d.dayNumber <= currentDayNumber
   );
-  const denom = Math.max(1, activeOrPastDays.length);
 
-  // 1. Average Sleep Duration
-  const sleepDurations = sorted
-    .map((d) => calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime))
-    .filter((mins) => mins > 0);
+  // =========================================================================
+  // 1. SLEEP DURATION BAR CHART & DEFICIT / OPTIMAL CALCULATION
+  // =========================================================================
+  const TARGET_MIN_SLEEP = 420; // 7h 00m
+  const TARGET_MAX_SLEEP = 540; // 9h 00m
+  const TARGET_IDEAL_SLEEP = 480; // 8h 00m
+
+  const sleepByDay = sorted.map((d) => ({
+    dayNumber: d.dayNumber,
+    mins: calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime),
+    isToday: d.dayNumber === currentDayNumber,
+  }));
+
+  const loggedSleeps = sleepByDay.filter((s) => s.mins > 0);
   const avgSleepMins =
-    sleepDurations.length > 0
-      ? Math.round(sleepDurations.reduce((acc, v) => acc + v, 0) / sleepDurations.length)
+    loggedSleeps.length > 0
+      ? Math.round(loggedSleeps.reduce((acc, s) => acc + s.mins, 0) / loggedSleeps.length)
       : 0;
 
-  // 2. Current Active Streak (consecutive days completed or logged up to today)
-  let streak = 0;
-  const checkDaysDesc = [...activeOrPastDays].sort((a, b) => b.dayNumber - a.dayNumber);
-  for (const d of checkDaysDesc) {
-    const p = d.userProgress;
-    const hasActivity = !!(
-      p?.isCompleted ||
-      p?.bedtime ||
-      p?.selectedWorkout ||
-      p?.checklistCompleted ||
-      p?.mealCompliance ||
-      p?.dailyReflection
-    );
-    if (hasActivity) {
-      streak += 1;
-    } else if (d.dayNumber === currentDayNumber) {
-      // Today is still in progress, don't break streak from yesterday
-      continue;
+  let sleepStatusText = "Log your bedtime & wake time to see your sleep gap";
+  let sleepBadgeLabel = "No Data Yet";
+  let sleepBadgeCls =
+    "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400";
+
+  if (avgSleepMins > 0) {
+    if (avgSleepMins < TARGET_MIN_SLEEP) {
+      const deficitMins = TARGET_MIN_SLEEP - avgSleepMins;
+      sleepStatusText = `Short by ${formatSleepHours(deficitMins)} from 7h minimum optimal target`;
+      sleepBadgeLabel = `-${formatSleepHours(deficitMins)} Deficit`;
+      sleepBadgeCls =
+        "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40";
+    } else if (avgSleepMins <= TARGET_MAX_SLEEP) {
+      const diffFrom8h = avgSleepMins - TARGET_IDEAL_SLEEP;
+      sleepStatusText =
+        diffFrom8h >= 0
+          ? `Optimal restorative zone (+${formatSleepHours(diffFrom8h)} above 8h baseline)`
+          : `Within optimal 7h–9h zone (${formatSleepHours(Math.abs(diffFrom8h))} to 8h peak)`;
+      sleepBadgeLabel = "Optimal (7–9h)";
+      sleepBadgeCls =
+        "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40";
     } else {
-      break;
+      const surplusMins = avgSleepMins - TARGET_MAX_SLEEP;
+      sleepStatusText = `${formatSleepHours(surplusMins)} above the 9h upper target window`;
+      sleepBadgeLabel = `+${formatSleepHours(surplusMins)} Surplus`;
+      sleepBadgeCls =
+        "bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-300";
     }
   }
 
-  // 3. Average Mood / Energy Score (1 - 5)
-  const moodScores = sorted
-    .map((d) => d.userProgress?.happinessRate || 0)
-    .filter((s) => s > 0);
-  const avgMood =
-    moodScores.length > 0
-      ? (moodScores.reduce((acc, v) => acc + v, 0) / moodScores.length).toFixed(1)
-      : null;
-
-  // 4. Four-Pillar Adherence Percentages
-  const sleepLoggedCount = activeOrPastDays.filter(
-    (d) => !!d.userProgress?.bedtime && !!d.userProgress?.wakeTime
-  ).length;
-  const movementLoggedCount = activeOrPastDays.filter((d) => {
-    const p = d.userProgress;
-    if (!p) return false;
-    if (p.isCompleted || p.videoWatched || p.eventFeedback) return true;
-    if (p.checklistCompleted) {
-      try {
-        const arr = JSON.parse(p.checklistCompleted);
-        return Array.isArray(arr) && arr.length > 0;
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  }).length;
+  // =========================================================================
+  // 2. MEAL & NUTRITION ENERGY BAR / SEGMENTED INDICATOR
+  // =========================================================================
   const mealFollowedCount = activeOrPastDays.filter(
     (d) =>
       d.userProgress?.mealCompliance === "FULL" || d.userProgress?.mealCompliance === "YES"
   ).length;
-  const reflectionLoggedCount = activeOrPastDays.filter(
-    (d) => !!d.userProgress?.dailyReflection
+  const mealOffTrackCount = activeOrPastDays.filter(
+    (d) =>
+      !!d.userProgress?.mealCompliance &&
+      d.userProgress?.mealCompliance !== "FULL" &&
+      d.userProgress?.mealCompliance !== "YES"
   ).length;
+  const mealLoggedTotal = mealFollowedCount + mealOffTrackCount;
+  const mealCompliancePct =
+    mealLoggedTotal > 0
+      ? Math.round((mealFollowedCount / mealLoggedTotal) * 100)
+      : 0;
 
-  const pillars = [
-    { label: "Sleep", pct: Math.min(100, Math.round((sleepLoggedCount / denom) * 100)) },
-    { label: "Movement", pct: Math.min(100, Math.round((movementLoggedCount / denom) * 100)) },
-    { label: "Nutrition", pct: Math.min(100, Math.round((mealFollowedCount / denom) * 100)) },
-    { label: "Mindfulness", pct: Math.min(100, Math.round((reflectionLoggedCount / denom) * 100)) },
-  ];
+  let mealGapText = "Log your daily meals to track nutrition compliance";
+  if (mealLoggedTotal > 0) {
+    if (mealCompliancePct >= 80) {
+      mealGapText = `On track with clean nutrition target (80%+ goal met)`;
+    } else {
+      const gapPct = 80 - mealCompliancePct;
+      mealGapText = `${gapPct}% below the 80% clean nutrition target`;
+    }
+  }
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-          Vitality & Protocol Statistics
-        </span>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-          Program Insights
-        </span>
-      </div>
-
-      {/* Top 3 Highlight Metrics: Average Sleep, Current Streak, Mood Index */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
-          <div className="flex items-center gap-1 text-[10px] font-mono uppercase text-zinc-400">
-            <Moon className="w-3 h-3 shrink-0" />
-            <span className="truncate">Avg Sleep</span>
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-4">
+      {/* =================================================================== */}
+      {/* PART 1: SLEEP BAR CHART & OPTIMAL VS DEFICIT                        */}
+      {/* =================================================================== */}
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-950 dark:text-white">
+              <Moon className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <span>Sleep Recovery & Duration</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-snug">{sleepStatusText}</p>
           </div>
-          <p className="text-sm sm:text-base font-semibold tabular-nums text-zinc-950 dark:text-white">
-            {formatSleepHours(avgSleepMins)}
-          </p>
+          <div className="text-right shrink-0">
+            <p className="text-base font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
+              {formatSleepHours(avgSleepMins)}
+            </p>
+            <span className="text-[10px] font-mono text-zinc-400 block mt-1">
+              Target: 7h – 9h
+            </span>
+          </div>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
-          <div className="flex items-center gap-1 text-[10px] font-mono uppercase text-zinc-400">
-            <Flame className="w-3 h-3 shrink-0" />
-            <span className="truncate">Streak</span>
+        {/* Status Pill & Optimal Benchmark Bar */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] font-mono">
+            <span className={`px-2 py-0.5 rounded-full font-semibold ${sleepBadgeCls}`}>
+              {sleepBadgeLabel}
+            </span>
+            <span className="text-zinc-400">
+              {avgSleepMins > 0
+                ? `${Math.min(100, Math.round((avgSleepMins / TARGET_IDEAL_SLEEP) * 100))}% of 8h ideal`
+                : "0% of 8h ideal"}
+            </span>
           </div>
-          <p className="text-sm sm:text-base font-semibold tabular-nums text-zinc-950 dark:text-white">
-            {streak} {streak === 1 ? "Day" : "Days"}
-          </p>
+
+          {/* Horizontal Energy / Progress Bar with 7h minimum threshold marker */}
+          <div className="relative h-2.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+            {/* 7h minimum threshold line (at 7/9 = 77.7% of bar) */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-zinc-400/70 dark:bg-white/40 z-10"
+              style={{ left: "77.7%" }}
+              title="7h Minimum Optimal Target"
+            />
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                avgSleepMins >= TARGET_MIN_SLEEP
+                  ? "bg-zinc-950 dark:bg-white"
+                  : "bg-amber-500 dark:bg-amber-400"
+              }`}
+              style={{
+                width: `${Math.min(100, Math.round((avgSleepMins / TARGET_MAX_SLEEP) * 100))}%`,
+              }}
+            />
+          </div>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
-          <div className="flex items-center gap-1 text-[10px] font-mono uppercase text-zinc-400">
-            <Sparkles className="w-3 h-3 shrink-0" />
-            <span className="truncate">Avg Mood</span>
-          </div>
-          <p className="text-sm sm:text-base font-semibold tabular-nums text-zinc-950 dark:text-white">
-            {avgMood ? `${avgMood} / 5` : "—"}
-          </p>
-        </div>
-      </div>
-
-      {/* 4-Pillar Adherence Breakdown */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-        {pillars.map((p) => (
-          <div key={p.label} className="space-y-1">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-zinc-500">{p.label}</span>
-              <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200 tabular-nums">
-                {p.pct}%
+        {/* Daily Vertical Bar Chart across Program Days */}
+        <div className="pt-2 pb-1 px-2.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/60 dark:border-white/5">
+          <div className="relative h-24 flex items-end gap-1.5 overflow-x-auto no-scrollbar pt-4 pb-1">
+            {/* Dashed 7h target line across the chart */}
+            <div
+              className="absolute left-0 right-0 border-t border-dashed border-zinc-300 dark:border-white/15 pointer-events-none flex justify-end pr-1"
+              style={{ bottom: `${Math.round((TARGET_MIN_SLEEP / 600) * 68) + 18}px` }}
+            >
+              <span className="text-[9px] font-mono text-zinc-400 -mt-3.5 bg-zinc-50 dark:bg-[#181818] px-1 rounded">
+                7h min
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
-                style={{ width: `${p.pct}%` }}
-              />
-            </div>
+
+            {sleepByDay.map((item) => {
+              // Scale against 10h (600 mins) max height = 68px
+              const heightPx =
+                item.mins > 0
+                  ? Math.max(8, Math.min(68, Math.round((item.mins / 600) * 68)))
+                  : 4;
+              const isOptimal = item.mins >= TARGET_MIN_SLEEP;
+
+              return (
+                <div
+                  key={item.dayNumber}
+                  className="flex-1 min-w-[22px] flex flex-col items-center justify-end gap-1 z-10"
+                >
+                  <span className="text-[9px] font-mono text-zinc-400 tabular-nums leading-none">
+                    {item.mins > 0 ? `${(item.mins / 60).toFixed(1)}h` : ""}
+                  </span>
+                  <div
+                    className={`w-full max-w-[18px] rounded-t-md transition-all ${
+                      item.mins === 0
+                        ? "bg-zinc-200 dark:bg-white/10"
+                        : isOptimal
+                          ? "bg-zinc-950 dark:bg-white"
+                          : "bg-amber-500/85 dark:bg-amber-400/85"
+                    }`}
+                    style={{ height: `${heightPx}px` }}
+                  />
+                  <span
+                    className={`text-[9px] font-mono leading-none ${
+                      item.isToday
+                        ? "font-bold text-zinc-950 dark:text-white underline"
+                        : "text-zinc-400"
+                    }`}
+                  >
+                    D{item.dayNumber}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-zinc-100 dark:border-white/10" />
+
+      {/* =================================================================== */}
+      {/* PART 2: MEAL & NUTRITION ENERGY BLOCKS                              */}
+      {/* =================================================================== */}
+      <div className="space-y-2.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-950 dark:text-white">
+              <Utensils className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <span>Meal & Nutrition Compliance</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-snug">{mealGapText}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-base font-bold tabular-nums text-zinc-950 dark:text-white leading-none">
+              {mealCompliancePct}%
+            </p>
+            <span className="text-[10px] font-mono text-zinc-400 block mt-1">
+              {mealFollowedCount}/{activeOrPastDays.length} Days Followed
+            </span>
+          </div>
+        </div>
+
+        {/* Segmented Energy Bar (1 block per program day) */}
+        <div className="flex items-center gap-1">
+          {sorted.map((d) => {
+            const comp = d.userProgress?.mealCompliance;
+            const isFollowed = comp === "FULL" || comp === "YES";
+            const isOff = !!comp && !isFollowed;
+            return (
+              <div
+                key={d.id}
+                title={`Day ${d.dayNumber}: ${
+                  isFollowed ? "Followed Guide" : isOff ? "Custom / Off-Track" : "Not Logged"
+                }`}
+                className={`h-2.5 flex-1 rounded-sm transition-all ${
+                  isFollowed
+                    ? "bg-zinc-950 dark:bg-white"
+                    : isOff
+                      ? "bg-amber-400 dark:bg-amber-500/80"
+                      : "bg-zinc-100 dark:bg-white/10"
+                }`}
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-zinc-950 dark:bg-white inline-block" />
+              <span>Followed ({mealFollowedCount})</span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />
+              <span>Custom ({mealOffTrackCount})</span>
+            </span>
+          </div>
+          <span>Target: 80%+</span>
+        </div>
       </div>
     </section>
   );
