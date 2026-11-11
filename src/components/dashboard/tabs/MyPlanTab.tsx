@@ -9,8 +9,11 @@ import {
   Compass,
   Dumbbell,
   ExternalLink,
+  Flame,
   Info,
   MapPin,
+  Moon,
+  Sparkles,
   Users,
   Utensils,
   Video,
@@ -461,6 +464,11 @@ export function MyPlanOverview({
             </dl>
           </section>
 
+          <CohortPerformanceCard
+            days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
+            currentDayNumber={currentDayNumber}
+          />
+
           {day ? (
             <DailyCheckIn
               key={day.id}
@@ -510,6 +518,177 @@ export function MyPlanOverview({
         </>
       )}
     </div>
+  );
+}
+
+function calcSleepMins(bed?: string | null, wake?: string | null): number {
+  if (!bed || !wake) return 0;
+  const [bh, bm] = bed.split(":").map(Number);
+  const [wh, wm] = wake.split(":").map(Number);
+  if ([bh, bm, wh, wm].some((n) => Number.isNaN(n))) return 0;
+  let mins = wh * 60 + wm - (bh * 60 + bm);
+  if (mins <= 0) mins += 24 * 60;
+  return mins;
+}
+
+function formatSleepHours(mins: number): string {
+  if (!mins || mins <= 0) return "—";
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
+function CohortPerformanceCard({
+  days,
+  currentDayNumber,
+}: {
+  days: PlanDay[];
+  currentDayNumber: number;
+}) {
+  const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+  const activeOrPastDays = sorted.filter(
+    (d) => d.isPast2359 || d.isCalendarUnlocked || d.dayNumber <= currentDayNumber
+  );
+  const denom = Math.max(1, activeOrPastDays.length);
+
+  // 1. Average Sleep Duration
+  const sleepDurations = sorted
+    .map((d) => calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime))
+    .filter((mins) => mins > 0);
+  const avgSleepMins =
+    sleepDurations.length > 0
+      ? Math.round(sleepDurations.reduce((acc, v) => acc + v, 0) / sleepDurations.length)
+      : 0;
+
+  // 2. Current Active Streak (consecutive days completed or logged up to today)
+  let streak = 0;
+  const checkDaysDesc = [...activeOrPastDays].sort((a, b) => b.dayNumber - a.dayNumber);
+  for (const d of checkDaysDesc) {
+    const p = d.userProgress;
+    const hasActivity = !!(
+      p?.isCompleted ||
+      p?.bedtime ||
+      p?.selectedWorkout ||
+      p?.checklistCompleted ||
+      p?.mealCompliance ||
+      p?.dailyReflection
+    );
+    if (hasActivity) {
+      streak += 1;
+    } else if (d.dayNumber === currentDayNumber) {
+      // Today is still in progress, don't break streak from yesterday
+      continue;
+    } else {
+      break;
+    }
+  }
+
+  // 3. Average Mood / Energy Score (1 - 5)
+  const moodScores = sorted
+    .map((d) => d.userProgress?.happinessRate || 0)
+    .filter((s) => s > 0);
+  const avgMood =
+    moodScores.length > 0
+      ? (moodScores.reduce((acc, v) => acc + v, 0) / moodScores.length).toFixed(1)
+      : null;
+
+  // 4. Four-Pillar Adherence Percentages
+  const sleepLoggedCount = activeOrPastDays.filter(
+    (d) => !!d.userProgress?.bedtime && !!d.userProgress?.wakeTime
+  ).length;
+  const movementLoggedCount = activeOrPastDays.filter((d) => {
+    const p = d.userProgress;
+    if (!p) return false;
+    if (p.isCompleted || p.videoWatched || p.eventFeedback) return true;
+    if (p.checklistCompleted) {
+      try {
+        const arr = JSON.parse(p.checklistCompleted);
+        return Array.isArray(arr) && arr.length > 0;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }).length;
+  const mealFollowedCount = activeOrPastDays.filter(
+    (d) =>
+      d.userProgress?.mealCompliance === "FULL" || d.userProgress?.mealCompliance === "YES"
+  ).length;
+  const reflectionLoggedCount = activeOrPastDays.filter(
+    (d) => !!d.userProgress?.dailyReflection
+  ).length;
+
+  const pillars = [
+    { label: "Sleep", pct: Math.min(100, Math.round((sleepLoggedCount / denom) * 100)) },
+    { label: "Movement", pct: Math.min(100, Math.round((movementLoggedCount / denom) * 100)) },
+    { label: "Nutrition", pct: Math.min(100, Math.round((mealFollowedCount / denom) * 100)) },
+    { label: "Mindfulness", pct: Math.min(100, Math.round((reflectionLoggedCount / denom) * 100)) },
+  ];
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+          Vitality & Protocol Statistics
+        </span>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+          Program Insights
+        </span>
+      </div>
+
+      {/* Top 3 Highlight Metrics: Average Sleep, Current Streak, Mood Index */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
+          <div className="flex items-center gap-1 text-[10px] font-mono uppercase text-zinc-400">
+            <Moon className="w-3 h-3 shrink-0" />
+            <span className="truncate">Avg Sleep</span>
+          </div>
+          <p className="text-sm sm:text-base font-semibold tabular-nums text-zinc-950 dark:text-white">
+            {formatSleepHours(avgSleepMins)}
+          </p>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
+          <div className="flex items-center gap-1 text-[10px] font-mono uppercase text-zinc-400">
+            <Flame className="w-3 h-3 shrink-0" />
+            <span className="truncate">Streak</span>
+          </div>
+          <p className="text-sm sm:text-base font-semibold tabular-nums text-zinc-950 dark:text-white">
+            {streak} {streak === 1 ? "Day" : "Days"}
+          </p>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
+          <div className="flex items-center gap-1 text-[10px] font-mono uppercase text-zinc-400">
+            <Sparkles className="w-3 h-3 shrink-0" />
+            <span className="truncate">Avg Mood</span>
+          </div>
+          <p className="text-sm sm:text-base font-semibold tabular-nums text-zinc-950 dark:text-white">
+            {avgMood ? `${avgMood} / 5` : "—"}
+          </p>
+        </div>
+      </div>
+
+      {/* 4-Pillar Adherence Breakdown */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+        {pillars.map((p) => (
+          <div key={p.label} className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-500">{p.label}</span>
+              <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200 tabular-nums">
+                {p.pct}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
+                style={{ width: `${p.pct}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
