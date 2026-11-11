@@ -21,6 +21,7 @@ import {
   Lock,
   MapPin,
   Meh,
+  MessageCircleQuestion,
   Moon,
   Play,
   Smile,
@@ -33,6 +34,7 @@ import {
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import type { PlanDay } from "./MyPlanTab";
+import { safeHttpUrl } from "./shared";
 
 type SaveResult = Promise<void | boolean>;
 
@@ -40,6 +42,8 @@ export interface DailyCheckInProps {
   day: PlanDay;
   pastDays: PlanDay[];
   allProgramDays?: PlanDay[];
+  communityLink?: string | null;
+  programTitle?: string;
   locked: boolean;
   activities: string[];
   checks: string[];
@@ -1635,10 +1639,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         typeof document !== "undefined" &&
         createPortal(
           <div onScroll={handleTaskDetailScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            {/* FLOATING HEADER: ONLY BACK BUTTON (HIDES ON SCROLL-DOWN) */}
+            {/* FLOATING HEADER: BACK BUTTON + ASK BUTTON (HIDES ON SCROLL-DOWN) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-start pointer-events-none transition-all duration-300 ${
+              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
                 taskDetailHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
               }`}
             >
@@ -1650,9 +1654,24 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
+
+              <a
+                href={
+                  (props.communityLink ? safeHttpUrl(props.communityLink) : null) ||
+                  `https://wa.me/6281290002026?text=${encodeURIComponent(
+                    `Halo Coach, saya ingin bertanya tentang tugas Day ${selectedDay.dayNumber} - ${currentTask.title}${props.programTitle ? ` (${props.programTitle})` : ""}`
+                  )}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pointer-events-auto h-9 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+              >
+                <MessageCircleQuestion className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Ask</span>
+              </a>
             </header>
 
-            {/* TOP BANNER IMAGE (LARGE CONSISTENT SPACE SIZING) */}
+            {/* TOP BANNER IMAGE (TITLE & METADATA OVERLAY) */}
             <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -1660,38 +1679,42 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 alt=""
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
+
+              {/* Title and metadata overlying the image banner */}
+              <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-5 sm:px-7 z-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 font-bold shadow-sm">
+                    Day {selectedDay.dayNumber}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
+                    {currentTask.category}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full font-semibold ${
+                      selectedDone[step]
+                        ? "bg-emerald-500/80 text-white"
+                        : isSelectedPast
+                          ? "bg-white/20 text-white/80"
+                          : "bg-white/30 backdrop-blur-md text-white"
+                    }`}
+                  >
+                    {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
+                  </span>
+                </div>
+
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight drop-shadow-md">
+                  {currentTask.title}
+                </h1>
+
+                <p className="text-xs text-white/80 font-medium drop-shadow-sm">
+                  {currentTask.description}
+                </p>
+              </div>
             </div>
 
             {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
-            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-7 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
-              <div className="flex items-center justify-between gap-3 pb-2 border-b border-zinc-200/70 dark:border-white/10">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-800 dark:text-zinc-200">
-                    <CurrentTaskIcon className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-500 block">
-                      Day {selectedDay.dayNumber} · {currentTask.category}
-                    </span>
-                    <h2 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-950 dark:text-white truncate">
-                      {currentTask.title}
-                    </h2>
-                  </div>
-                </div>
-                <span
-                  className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
-                    selectedDone[step]
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                      : isSelectedPast
-                        ? "bg-zinc-200/60 dark:bg-white/10 text-zinc-500"
-                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                  }`}
-                >
-                  {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
-                </span>
-              </div>
-
+            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
               {/* Bordered Task Content Section */}
               <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-4 shadow-sm">
                 <TaskForm

@@ -1,5 +1,5 @@
 // BMS Sanctuary Wellness PWA Service Worker (Instant Launch Loading Shell)
-const CACHE_NAME = "bms-wellness-pwa-v5";
+const CACHE_NAME = "bms-wellness-pwa-v6";
 
 const STATIC_ASSETS = [
   "/",
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   "/icon-192.png",
   "/icon-512.png",
   "/apple-touch-icon.png",
+  "/image.webp",
 ];
 
 // In-memory maps for 0ms navigation handoff during cold starts
@@ -21,42 +22,62 @@ function buildInstantLoadingHtml(navId, originalUrl) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#09090b" />
   <title>+ BMS</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%;
       height: 100%;
-      background-color: #ffffff;
-      color: #09090b;
+      background: #09090b url('/image.webp') center/cover no-repeat;
+      color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
       -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(9, 9, 11, 0.88), rgba(9, 9, 11, 0.45), rgba(9, 9, 11, 0.78));
+      pointer-events: none;
     }
     @keyframes bmsPulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
     }
     .bms-loader {
+      position: relative;
+      z-index: 10;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 9999px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       animation: bmsPulse 1.3s ease-in-out infinite;
     }
     .bms-plus {
       font-weight: 300;
       font-size: 18px;
       line-height: 1;
+      color: #ffffff;
     }
     .bms-word {
       font-weight: 600;
-      font-size: 14px;
-      letter-spacing: 0.22em;
+      font-size: 13px;
+      letter-spacing: 0.25em;
       text-transform: uppercase;
+      color: #ffffff;
     }
   </style>
 </head>

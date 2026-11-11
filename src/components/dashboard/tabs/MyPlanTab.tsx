@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Info,
   MapPin,
+  MessageCircleQuestion,
   Moon,
   Users,
   Utensils,
@@ -505,6 +506,8 @@ export function MyPlanOverview({
               day={day}
               pastDays={historyDays}
               allProgramDays={allProgramDays}
+              communityLink={program.communityLink}
+              programTitle={program.title}
               locked={locked}
               activities={activities}
               checks={checks}
@@ -943,10 +946,10 @@ function ProgramPreparationWidgets({
         typeof document !== "undefined" &&
         createPortal(
           <div onScroll={handlePrepScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            {/* FLOATING HEADER: ONLY BACK BUTTON (HIDES ON SCROLL-DOWN) */}
+            {/* FLOATING HEADER: BACK BUTTON + ASK BUTTON (HIDES ON SCROLL-DOWN) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-start pointer-events-none transition-all duration-300 ${
+              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
                 prepHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
               }`}
             >
@@ -958,9 +961,24 @@ function ProgramPreparationWidgets({
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
+
+              <a
+                href={
+                  safeHttpUrl(program.communityLink) ||
+                  `https://wa.me/6281290002026?text=${encodeURIComponent(
+                    `Halo Coach, saya ingin bertanya tentang ${activePage === "meal" ? "Meal Preparation" : activePage === "meetup" ? "Meetups & Sessions" : "Required Equipment"} di program: ${program.title}`
+                  )}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pointer-events-auto h-9 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+              >
+                <MessageCircleQuestion className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Ask</span>
+              </a>
             </header>
 
-            {/* TOP BANNER IMAGE (LARGE CONSISTENT SPACE SIZING) */}
+            {/* TOP BANNER IMAGE (TITLE & METADATA OVERLAY) */}
             <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -974,24 +992,43 @@ function ProgramPreparationWidgets({
                 alt=""
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
 
-            {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
-            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-7 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
-              <div className="space-y-1 pb-1 border-b border-zinc-200/70 dark:border-white/10">
-                <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-                  {program.title}
-                </p>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+              {/* Title and metadata overlying the image banner */}
+              <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-5 sm:px-7 z-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 font-bold shadow-sm">
+                    {program.title}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
+                    {activePage === "meal"
+                      ? "Nutrition Protocol"
+                      : activePage === "meetup"
+                        ? "Live Interactive"
+                        : "Gear Checklist"}
+                  </span>
+                </div>
+
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight drop-shadow-md">
                   {activePage === "meal"
                     ? "Meal Preparation Guide"
                     : activePage === "meetup"
                       ? "Meetups & Live Sessions"
                       : "Required Equipment"}
                 </h1>
-              </div>
 
+                <p className="text-xs text-white/80 font-medium drop-shadow-sm">
+                  {activePage === "meal"
+                    ? `Day 1 to Day ${totalDaysCount} Daily Protocols`
+                    : activePage === "meetup"
+                      ? "Cohort Workshops & Livestreams"
+                      : "Required Items & Setup"}
+                </p>
+              </div>
+            </div>
+
+            {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
+            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
               {/* Bordered List Container Section */}
               <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-sm">
                 {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}

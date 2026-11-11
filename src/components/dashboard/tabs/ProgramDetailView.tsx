@@ -7,6 +7,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Dumbbell,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
   Layers,
   Lock,
   MapPin,
+  MessageCircleQuestion,
   ShieldCheck,
   Sparkles,
   Tag,
@@ -207,6 +209,42 @@ export function ProgramDetailView({
     action = <span className="text-xs font-mono uppercase tracking-wider text-white/70">Registration Closed</span>;
   }
 
+  type SectionKey = "overview" | "timeline" | "sessions" | "meals" | "equipment" | "blueprint" | "terms";
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    overview: true,
+    timeline: true,
+    sessions: false,
+    meals: false,
+    equipment: false,
+    blueprint: false,
+    terms: false,
+  });
+
+  const allExpanded = Object.values(openSections).every(Boolean);
+
+  const toggleSection = (key: SectionKey) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleAll = () => {
+    const nextVal = !allExpanded;
+    setOpenSections({
+      overview: nextVal,
+      timeline: nextVal,
+      sessions: nextVal,
+      meals: nextVal,
+      equipment: nextVal,
+      blueprint: nextVal,
+      terms: nextVal,
+    });
+  };
+
+  const askUrl =
+    community ||
+    `https://wa.me/6281290002026?text=${encodeURIComponent(
+      `Halo Coach, saya ingin bertanya tentang program: ${program.title}`
+    )}`;
+
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollYRef = useRef(0);
 
@@ -223,11 +261,11 @@ export function ProgramDetailView({
   return (
     <div onScroll={handleScroll} className="fixed inset-0 z-[60] bg-[#f6f6f4] dark:bg-[#0e0e0e] overflow-y-auto">
       {/* ================================================================= */}
-      {/* FLOATING HEADER: ONLY BACK BUTTON (HIDES ON SCROLL-DOWN)          */}
+      {/* FLOATING HEADER: BACK BUTTON + ASK BUTTON (HIDES ON SCROLL-DOWN)  */}
       {/* ================================================================= */}
       <header
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className={`fixed left-1/2 -translate-x-1/2 z-[70] w-[94%] max-w-2xl flex items-center justify-start pointer-events-none transition-all duration-300 ${
+        className={`fixed left-1/2 -translate-x-1/2 z-[70] w-[94%] max-w-2xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
           headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
         }`}
       >
@@ -239,11 +277,21 @@ export function ProgramDetailView({
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back</span>
         </button>
+
+        <a
+          href={askUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pointer-events-auto h-9 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+        >
+          <MessageCircleQuestion className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Ask</span>
+        </a>
       </header>
 
       <div className="max-w-2xl mx-auto pb-32">
         {/* ================================================================= */}
-        {/* HERO BANNER IMAGE (LARGE CONSISTENT SPACE SIZING)                 */}
+        {/* HERO BANNER IMAGE (TITLE & METADATA OVERLAY)                      */}
         {/* ================================================================= */}
         <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
           {program.coverImage ? (
@@ -253,64 +301,105 @@ export function ProgramDetailView({
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/image.webp" alt="" className="w-full h-full object-cover" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        </div>
+          {/* Subtle multi-layer gradient ensuring crisp contrast for white text */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
 
-        {/* ================================================================= */}
-        {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE)         */}
-        {/* ================================================================= */}
-        <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-7 px-4 sm:px-6 space-y-4">
-          {/* Primary Program Identity */}
-          <div className="space-y-2.5 pb-2 border-b border-zinc-200/70 dark:border-white/10">
+          {/* Title and metadata overlying the image banner */}
+          <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-5 sm:px-7 z-0 space-y-2">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
-              <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+              <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 font-bold shadow-sm">
                 {enrolled ? "Enrolled Member" : badge}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
+              <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
                 {difficultyLabel(program.difficultyLevel)}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
+              <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
                 {program.locationType === "ONLINE" ? "Online" : program.locationType === "HYBRID" ? "Hybrid" : "Onsite"}
               </span>
               {program.city && (
-                <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
+                <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
                   {program.city}
                 </span>
               )}
               {program.category && (
-                <span className="px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300/60 dark:border-white/10">
+                <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
                   {program.category}
                 </span>
               )}
             </div>
 
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                {program.title}
-              </h1>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                Coach <strong className="text-zinc-950 dark:text-white">{program.coachName}</strong>
-                {program.coachTitle ? ` · ${program.coachTitle}` : ""}
-              </p>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight drop-shadow-md">
+              {program.title}
+            </h1>
+
+            <p className="text-xs text-white/80 font-medium drop-shadow-sm flex items-center gap-2 flex-wrap">
+              <span>Coach <strong className="text-white font-semibold">{program.coachName}</strong>{program.coachTitle ? ` · ${program.coachTitle}` : ""}</span>
+              <span className="text-white/40">•</span>
+              <span>{totalDays} Days Program</span>
+            </p>
+          </div>
+        </div>
+
+        {/* ================================================================= */}
+        {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE)         */}
+        {/* ================================================================= */}
+        <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-5 sm:pt-6 px-4 sm:px-6 space-y-4">
+          {/* Header Action: Modules Overview & Expand / Collapse All */}
+          <div className="flex items-center justify-between px-1 pb-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
+                Program Curriculum & Modules
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
+                7 Modules
+              </span>
             </div>
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="h-7 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shadow-2xs"
+            >
+              <span>{allExpanded ? "Collapse All" : "Expand All"}</span>
+            </button>
           </div>
           {/* ================================================================= */}
           {/* 1. OVERVIEW & SPECIFICATIONS                                      */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                <BookOpen className="w-4 h-4" />
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("overview")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Module 1
+                  </span>
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Program Overview & Directory
+                  </h2>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                  Program Overview
-                </span>
-                <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                  Description & Directory
-                </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                {!openSections.overview && (
+                  <span className="text-[10px] font-mono text-zinc-400 hidden sm:inline truncate max-w-[140px]">
+                    {difficultyLabel(program.difficultyLevel)} · {program.category || "Longevity"}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                    openSections.overview ? "rotate-180" : ""
+                  }`}
+                />
               </div>
-            </div>
+            </button>
+
+            {openSections.overview && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-4 border-t border-zinc-100 dark:border-white/5">
 
             <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
               {program.description}
@@ -367,25 +456,48 @@ export function ProgramDetailView({
                 <p className="font-medium text-zinc-900 dark:text-white">{program.venueAddress}</p>
               </div>
             )}
+              </div>
+            )}
           </section>
 
           {/* ================================================================= */}
           {/* 2. TIMELINE, SCHEDULE & CURRICULUM BREAKDOWN                     */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                <Calendar className="w-4 h-4" />
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("timeline")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Module 2
+                  </span>
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Timeline, Dates & Curriculum
+                  </h2>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                  Timeline & Logistics
-                </span>
-                <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                  Schedule, Dates & Curriculum
-                </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                {!openSections.timeline && (
+                  <span className="text-[10px] font-mono text-zinc-400 hidden sm:inline truncate max-w-[140px]">
+                    {totalDays} Days · {trainingDaysCount} Training
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                    openSections.timeline ? "rotate-180" : ""
+                  }`}
+                />
               </div>
-            </div>
+            </button>
+
+            {openSections.timeline && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-4 border-t border-zinc-100 dark:border-white/5">
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
               <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
@@ -438,30 +550,46 @@ export function ProgramDetailView({
                 {program.audience || program.recommendedFor || "All Levels • Mindful Movement & Longevity"}
               </p>
             </div>
+              </div>
+            )}
           </section>
 
           {/* ================================================================= */}
           {/* 3. SESSIONS: KAPAN SAJA, DIMANA, TANGGAL BERAPA                   */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("sessions")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Video className="w-4 h-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Meetups & Live Sessions
+                    Module 3
                   </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                    Live Calls, Studio Workshops & Meetups
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Meetups & Live Sessions
                   </h2>
                 </div>
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
-                {liveSessions.length} {liveSessions.length === 1 ? "Session" : "Sessions"}
-              </span>
-            </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
+                  {liveSessions.length} {liveSessions.length === 1 ? "Session" : "Sessions"}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                    openSections.sessions ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+            </button>
+
+            {openSections.sessions && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-3 border-t border-zinc-100 dark:border-white/5">
 
             {liveSessions.length > 0 ? (
               <div className="space-y-3">
@@ -568,30 +696,46 @@ export function ProgramDetailView({
                 </p>
               </div>
             )}
+              </div>
+            )}
           </section>
 
           {/* ================================================================= */}
           {/* 4. MEAL RECOMMENDATIONS (DAY 1 TO END)                            */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("meals")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Utensils className="w-4 h-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Nutrition Protocol
+                    Module 4
                   </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                    Meal Recommendations (Day 1 – {totalDays})
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Nutrition Protocol (Day 1 – {totalDays})
                   </h2>
                 </div>
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
-                {program.days.length} Days
-              </span>
-            </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
+                  {program.days.length} Days
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                    openSections.meals ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+            </button>
+
+            {openSections.meals && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-2.5 border-t border-zinc-100 dark:border-white/5">
 
             <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
               {program.days.map((day) => {
@@ -639,25 +783,46 @@ export function ProgramDetailView({
                 );
               })}
             </div>
+              </div>
+            )}
           </section>
 
           {/* ================================================================= */}
           {/* 5. REQUIRED EQUIPMENT                                             */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                <Dumbbell className="w-4 h-4" />
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("equipment")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                  <Dumbbell className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Module 5
+                  </span>
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Required Equipment & Gear
+                  </h2>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                  Equipment Checklist
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
+                  {equipmentList.length} Items
                 </span>
-                <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                  Required Equipment & Gear
-                </h2>
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                    openSections.equipment ? "rotate-180" : ""
+                  }`}
+                />
               </div>
-            </div>
+            </button>
+
+            {openSections.equipment && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-4 border-t border-zinc-100 dark:border-white/5">
 
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {equipmentList.map((item, idx) => (
@@ -665,30 +830,46 @@ export function ProgramDetailView({
                   key={idx}
                   className="p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-zinc-500 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                   <span className="font-medium">{item}</span>
                 </li>
               ))}
             </ul>
+              </div>
+            )}
           </section>
 
           {/* ================================================================= */}
           {/* 6. TARGET STATE, METHODOLOGY & SCIENTIFIC BLUEPRINT               */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                <Sparkles className="w-4 h-4" />
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("blueprint")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Module 6
+                  </span>
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Methodology & Scientific Blueprint
+                  </h2>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                  Methodology & Science
-                </span>
-                <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                  Target State & Scientific Blueprint
-                </h2>
-              </div>
-            </div>
+              <ChevronDown
+                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                  openSections.blueprint ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {openSections.blueprint && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-4 border-t border-zinc-100 dark:border-white/5">
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 space-y-1">
@@ -778,25 +959,41 @@ export function ProgramDetailView({
                 </ul>
               </div>
             )}
+              </div>
+            )}
           </section>
 
           {/* ================================================================= */}
           {/* 7. TERMS & CONDITIONS AND COMMUNITY WAIVER                        */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                <ShieldCheck className="w-4 h-4" />
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("terms")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Module 7
+                  </span>
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Terms, Conditions & Cohort Waiver
+                  </h2>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                  Legal & Protocol
-                </span>
-                <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                  Terms, Conditions & Cohort Waiver
-                </h2>
-              </div>
-            </div>
+              <ChevronDown
+                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                  openSections.terms ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {openSections.terms && (
+              <div className="px-4 pb-5 sm:px-5 sm:pb-5 pt-0 space-y-4 border-t border-zinc-100 dark:border-white/5">
 
             {/* Community Access Card */}
             <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 flex items-center justify-between gap-3">
@@ -863,6 +1060,8 @@ export function ProgramDetailView({
                 </ul>
               )}
             </div>
+              </div>
+            )}
           </section>
         </div>
       </div>
