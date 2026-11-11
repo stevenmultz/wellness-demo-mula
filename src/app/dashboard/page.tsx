@@ -66,7 +66,8 @@ export default async function DashboardPage() {
     prisma.program.findMany({
       where: {
         OR: [
-          { status: "PUBLISH" },
+          { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE", "COMING_SOON", "OPEN"] } },
+          { isPublished: true },
           { enrollments: { some: { userId: session.userId } } },
         ],
         NOT: {
@@ -188,8 +189,13 @@ export default async function DashboardPage() {
       difficultyLevel: p.difficultyLevel,
       dailyCommitment: p.dailyCommitment,
       durationDays: p.durationDays,
+      actualPrice: p.actualPrice ?? p.price,
+      discountPercentage: p.discountPercentage ?? 0,
       price: p.price,
       maxQuota: p.maxQuota,
+      equipment: p.equipment || p.equipmentCache || "No Equipment",
+      audience: p.audienceCache || p.recommendedFor || "All Levels",
+      termsType: p.termsType || "STANDARD",
       locationType: p.locationType,
       city: p.city,
       venueAddress: p.venueAddress,

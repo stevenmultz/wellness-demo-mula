@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  AlertTriangle,
   Angry,
   ArrowLeft,
   CalendarDays,
+  Camera,
   Check,
   ChevronDown,
   ChevronUp,
@@ -13,14 +15,20 @@ import {
   Dumbbell,
   ExternalLink,
   Frown,
+  Heart,
   Laugh,
   Loader2,
   Lock,
+  MapPin,
   Meh,
   Moon,
+  Play,
   Smile,
   Sparkles,
+  Sun,
+  Users,
   Utensils,
+  Video,
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
@@ -37,7 +45,7 @@ export interface DailyCheckInProps {
   checks: string[];
   initialDone: [boolean, boolean, boolean, boolean];
   onToggleCheck: (task: string, dayId: string) => Promise<void> | void;
-  onSelectWorkout: (workout: string, dayId: string) => SaveResult;
+  onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => SaveResult;
   onOpenVideo: (dayId: string) => SaveResult;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string) => SaveResult;
   onSaveAttendance: (notes: string, dayId: string) => SaveResult;
@@ -48,35 +56,58 @@ export interface DailyCheckInProps {
   onCompleteDay: (dayId: string) => SaveResult;
 }
 
-const TASKS = [
-  {
-    category: "SLEEP",
-    title: "Sleep Protocol",
-    description: "Record your bedtime, wake time, and sleep duration.",
-  },
-  {
-    category: "TRAINING",
-    title: "Movement & Routine",
-    description: "Select your training variation and complete your daily checklist.",
-  },
-  {
-    category: "MEAL",
-    title: "Nutrition & Meal",
-    description: "Log your dietary compliance and meal protocol.",
-  },
-  {
-    category: "REFLECTION",
-    title: "Daily Reflection",
-    description: "Evaluate your daily fulfillment and energy index.",
-  },
-] as const;
+function getTasksForDay(dayType: string) {
+  const isRest = dayType === "REST_DAY";
+  const isConnect = dayType !== "TRAINING_DAY" && dayType !== "REST_DAY";
+
+  return [
+    {
+      category: "SLEEP PROTOCOL",
+      title: "Sleep Protocol",
+      description: "Record your bedtime, wake time, and restorative sleep duration.",
+      Icon: Moon,
+    },
+    isRest
+      ? {
+          category: "REST & RECOVERY",
+          title: "Rest & Recovery",
+          description: "Follow your active recovery guidelines and log your body check-in.",
+          Icon: Heart,
+        }
+      : isConnect
+        ? {
+            category: "COMMUNITY CONNECT",
+            title: "Community Connect",
+            description: "Review session details and record your attendance takeaways.",
+            Icon: Users,
+          }
+        : {
+            category: "TRAINING SESSION",
+            title: "Movement & Routine",
+            description: "Select your training variation and complete your exercise checklist.",
+            Icon: Dumbbell,
+          },
+    {
+      category: "NUTRITION PROTOCOL",
+      title: "Nutrition & Meal",
+      description: "Review today's nutrition guide and log your dietary compliance.",
+      Icon: Utensils,
+    },
+    {
+      category: "DAILY REFLECTION",
+      title: "Daily Reflection",
+      description: "Evaluate your daily fulfillment, energy index, and journal notes.",
+      Icon: Sparkles,
+    },
+  ] as const;
+}
 
 const FACES = [
-  { score: 1, Icon: Angry, label: "Very unsatisfied" },
-  { score: 2, Icon: Frown, label: "Unsatisfied" },
+  { score: 1, Icon: Angry, label: "Very Low" },
+  { score: 2, Icon: Frown, label: "Low" },
   { score: 3, Icon: Meh, label: "Neutral" },
-  { score: 4, Icon: Smile, label: "Satisfied" },
-  { score: 5, Icon: Laugh, label: "Very satisfied" },
+  { score: 4, Icon: Smile, label: "Good" },
+  { score: 5, Icon: Laugh, label: "Great" },
 ] as const;
 
 const areaCls =
@@ -98,10 +129,29 @@ function formatDuration(mins: number): string {
   return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`;
 }
 
-function parseMeals(text: string | null | undefined): string[] {
+function sleepQualityLabel(mins: number): { label: string; cls: string } {
+  if (mins >= 420 && mins <= 540) {
+    return {
+      label: "Optimal Recovery (7–9h)",
+      cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40",
+    };
+  }
+  if (mins >= 360) {
+    return {
+      label: "Moderate Rest",
+      cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
+    };
+  }
+  return {
+    label: "Sleep Deficit (<6h)",
+    cls: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800/40",
+  };
+}
+
+function parseLines(text: string | null | undefined): string[] {
   if (!text) return [];
   return text
-    .split("\n")
+    .split(/\n|•|·/)
     .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
     .filter((line) => line.length > 1);
 }
@@ -185,7 +235,8 @@ function TaskForm({
   const [bed, setBed] = useState(progress?.bedtime || "");
   const [wake, setWake] = useState(progress?.wakeTime || "");
   const [workout, setWorkout] = useState(progress?.selectedWorkout || "");
-  const [notes, setNotes] = useState(progress?.workoutNotes || "");
+  const [pendingSwitchWorkout, setPendingSwitchWorkout] = useState<string | null>(null);
+  const [notes, setNotes] = useState(progress?.workoutNotes || progress?.eventFeedback || "");
   const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
   const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
   const [meal, setMeal] = useState<MealDraft>(() => readMealDraft(progress?.mealCompliance, progress?.mealNotes));
@@ -200,44 +251,100 @@ function TaskForm({
   }, [checks]);
 
   const isTraining = day.dayType === "TRAINING_DAY";
-  const isConnect = day.dayType !== "TRAINING_DAY" && day.dayType !== "REST_DAY";
-  const recommended = useMemo(() => parseMeals(day.mealRecommendation), [day.mealRecommendation]);
+  const isRest = day.dayType === "REST_DAY";
+  const isConnect = !isTraining && !isRest;
+
+  const recommendedMeals = useMemo(() => parseLines(day.mealRecommendation), [day.mealRecommendation]);
+  const restLines = useMemo(() => parseLines(day.restInstructions), [day.restInstructions]);
   const videos = useMemo(() => parseDayVideoLinks(day.videoUrl), [day.videoUrl]);
   const groups = useMemo(() => {
     if (!isTraining) return [];
     return parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist);
   }, [isTraining, day.workoutOptions, day.videoChecklist]);
 
-  const activeWorkout = workout || groups[0]?.optionName || "";
-  const groupMoves = groups.find((g) => g.optionName === activeWorkout)?.movements.map((m) => m.name) || [];
-  const movements = groupMoves.length > 0 ? groupMoves : activities;
+  // Require explicit choice when multiple training groups exist
+  const hasMultipleOptions = isTraining && groups.length > 0;
+  const activeWorkout = hasMultipleOptions ? workout : "";
+  const selectedGroup = groups.find((g) => g.optionName === activeWorkout) || (!hasMultipleOptions ? groups[0] : undefined);
+  const groupMoves = selectedGroup?.movements.map((m) => m.name) || [];
+  const movements = isTraining
+    ? hasMultipleOptions
+      ? activeWorkout
+        ? groupMoves
+        : []
+      : groupMoves.length > 0
+        ? groupMoves
+        : activities
+    : isRest
+      ? activities
+      : [];
 
   // Dynamic video mapped to selected option
   const activeOptionIdx = Math.max(0, groups.findIndex((g) => g.optionName === activeWorkout));
   const activeVideo = useMemo(() => {
+    if (!isTraining) return null;
+    if (hasMultipleOptions && !activeWorkout) return null;
     if (videos[activeOptionIdx]) return videos[activeOptionIdx];
     if (videos[0]) {
       return {
-        title: `${activeWorkout || "Movement"} • Guided Protocol`,
+        title: `${activeWorkout || "Movement"} • Guided Session`,
         url: videos[0].url,
       };
     }
     return null;
-  }, [videos, activeOptionIdx, activeWorkout]);
+  }, [isTraining, hasMultipleOptions, videos, activeOptionIdx, activeWorkout]);
 
-  const isChecked = (name: string) =>
-    localChecks.some((c) => {
-      const key = (c.includes("=") ? c.split("=")[0] : c).trim().toLowerCase();
-      return key === name.trim().toLowerCase() || key.includes(name.trim().toLowerCase());
+  const isChecked = (name: string) => {
+    const cleanTarget = name.trim().toLowerCase();
+    return localChecks.some((c) => {
+      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+      if (activeWorkout) {
+        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+        const lowerRaw = raw.toLowerCase();
+        if (lowerRaw.startsWith("[")) {
+          if (!lowerRaw.startsWith(expectedPrefix)) return false;
+          const stripped = lowerRaw.slice(expectedPrefix.length).trim();
+          return stripped === cleanTarget;
+        }
+      }
+      return raw.toLowerCase() === cleanTarget;
     });
+  };
+
+  const checkedCount = movements.filter(isChecked).length;
+
+  const handleClickWorkoutOption = async (optionName: string) => {
+    if (locked || optionName === workout) return;
+    // If user already has checked items in current workout, ask for confirmation before resetting
+    if (workout && checkedCount > 0) {
+      setPendingSwitchWorkout(optionName);
+      return;
+    }
+    setWorkout(optionName);
+    setLocalChecks([]);
+    await props.onSelectWorkout(optionName, day.id, true);
+  };
+
+  const confirmSwitchWorkout = async () => {
+    if (!pendingSwitchWorkout) return;
+    const nextOpt = pendingSwitchWorkout;
+    setPendingSwitchWorkout(null);
+    setWorkout(nextOpt);
+    setLocalChecks([]);
+    await props.onSelectWorkout(nextOpt, day.id, true);
+  };
 
   const valid = [
     !!bed && !!wake,
     isConnect
       ? notes.trim().length > 0
-      : movements.length === 0
-        ? notes.trim().length > 0 || true
-        : movements.every(isChecked),
+      : isRest
+        ? movements.length > 0
+          ? movements.every(isChecked)
+          : true
+        : hasMultipleOptions
+          ? !!activeWorkout && (movements.length === 0 || movements.every(isChecked))
+          : movements.length === 0 || movements.every(isChecked),
     meal.followed === true || (meal.followed === false && meal.actual.trim().length > 1),
     review.trim().length >= 3 && score > 0,
   ];
@@ -247,7 +354,7 @@ function TaskForm({
     if (step === 1) {
       if (isConnect) return (await props.onSaveAttendance(notes.trim(), day.id)) !== false;
       if (activeWorkout) {
-        const picked = await props.onSelectWorkout(activeWorkout, day.id);
+        const picked = await props.onSelectWorkout(activeWorkout, day.id, false);
         if (picked === false) return false;
       }
       if (notes.trim() !== (progress?.workoutNotes || "").trim()) {
@@ -313,86 +420,158 @@ function TaskForm({
 
   const toggle = async (name: string) => {
     const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
-    setLocalChecks((prev) => (isChecked(name) ? prev.filter((c) => !c.toLowerCase().includes(name.toLowerCase())) : [...prev, scoped]));
+    setLocalChecks((prev) =>
+      isChecked(name)
+        ? prev.filter((c) => !c.toLowerCase().includes(name.toLowerCase()))
+        : [...prev, scoped]
+    );
     await props.onToggleCheck(scoped, day.id);
   };
 
+  const totalSleepMins = bed && wake ? sleepMinutes(bed, wake) : 0;
+  const sleepQuality = totalSleepMins > 0 ? sleepQualityLabel(totalSleepMins) : null;
+
   return (
     <div key={step} className="space-y-4">
-      {/* STEP 0: SLEEP */}
+      {/* ===================================================================== */}
+      {/* STEP 0: SLEEP PROTOCOL                                                */}
+      {/* ===================================================================== */}
       {step === 0 && (
-        <div className="space-y-4 max-w-sm mx-auto w-full">
-          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-200/60 dark:border-white/10">
-              <div>
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white block">Bedtime</span>
-                <span className="text-[11px] text-zinc-500">Target: Wind down before 22:30 WIB</span>
+        <div className="space-y-3.5">
+          {/* Coach Sleep Guideline */}
+          <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0 mt-0.5">
+              <Moon className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                Circadian Target
+              </span>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 leading-relaxed">
+                {day.sleepRecommendation || "Wind down before 22:30 WIB and aim for 7.5 to 8.5 hours of uninterrupted restorative sleep."}
+              </p>
+            </div>
+          </div>
+
+          {/* 2-Column Time Selector Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex flex-col justify-between gap-2.5 cursor-pointer focus-within:border-zinc-900 dark:focus-within:border-white transition">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-zinc-900 dark:text-white">Bedtime</span>
+                <Moon className="w-3.5 h-3.5 text-zinc-400" />
               </div>
               <input
                 type="time"
                 value={bed}
                 disabled={locked}
                 onChange={(e) => setBed(e.target.value)}
-                className="w-36 h-10 px-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-300 dark:border-white/20 text-sm font-mono font-semibold text-zinc-900 dark:text-white text-center outline-none focus:border-zinc-900 dark:focus:border-white transition"
+                className="w-full h-10 px-2.5 rounded-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white text-center outline-none"
               />
-            </div>
+              <span className="text-[10px] text-zinc-400 font-mono">Night wind-down</span>
+            </label>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white block">Wake Time</span>
-                <span className="text-[11px] text-zinc-500">Morning circadian reset</span>
+            <label className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex flex-col justify-between gap-2.5 cursor-pointer focus-within:border-zinc-900 dark:focus-within:border-white transition">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-zinc-900 dark:text-white">Wake Time</span>
+                <Sun className="w-3.5 h-3.5 text-zinc-400" />
               </div>
               <input
                 type="time"
                 value={wake}
                 disabled={locked}
                 onChange={(e) => setWake(e.target.value)}
-                className="w-36 h-10 px-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-300 dark:border-white/20 text-sm font-mono font-semibold text-zinc-900 dark:text-white text-center outline-none focus:border-zinc-900 dark:focus:border-white transition"
+                className="w-full h-10 px-2.5 rounded-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white text-center outline-none"
               />
-            </div>
+              <span className="text-[10px] text-zinc-400 font-mono">Morning rise</span>
+            </label>
           </div>
 
-          {bed && wake && (
-            <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-mono">
-              <span className="text-zinc-500 dark:text-zinc-400">Total Sleep Duration</span>
-              <span className="font-semibold text-zinc-950 dark:text-white tabular-nums">
-                {formatDuration(sleepMinutes(bed, wake))}
-              </span>
+          {/* Duration & Quality Meter */}
+          {totalSleepMins > 0 && sleepQuality && (
+            <div className="p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                    Total Rest Duration
+                  </span>
+                  <span className="text-lg font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+                    {formatDuration(totalSleepMins)}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${sleepQuality.cls}`}>
+                  {sleepQuality.label}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
+                  style={{ width: `${Math.min(100, Math.round((totalSleepMins / 480) * 100))}%` }}
+                />
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* STEP 1: TRAINING / ROUTINE */}
-      {step === 1 && !isConnect && (
+      {/* ===================================================================== */}
+      {/* STEP 1A: TRAINING DAY                                                 */}
+      {/* ===================================================================== */}
+      {step === 1 && isTraining && (
         <div className="space-y-4">
-          {/* 1. SELECT TRAINING ROUTINE FIRST */}
+          {/* 1. CHOOSE TRAINING VARIATION */}
           {groups.length > 0 && (
             <div className="space-y-2">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                Select Today&apos;s Training Routine:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {groups.map((g) => {
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold">
+                  1. Choose Training Variation
+                </span>
+                {activeWorkout && (
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Selected: <strong className="text-zinc-800 dark:text-zinc-200">{activeWorkout}</strong>
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                {groups.map((g, idx) => {
                   const isSelected = activeWorkout === g.optionName;
                   return (
                     <button
                       key={g.optionName}
                       type="button"
                       disabled={locked}
-                      onClick={() => setWorkout(g.optionName)}
-                      className={`p-3 rounded-xl border text-left transition active:scale-98 flex flex-col justify-between gap-1.5 ${
+                      onClick={() => handleClickWorkoutOption(g.optionName)}
+                      className={`p-3.5 rounded-xl border text-left transition active:scale-[0.99] flex items-center justify-between gap-3 ${
                         isSelected
                           ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "bg-white dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
+                          : "bg-zinc-50/70 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-semibold truncate">{g.optionName}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={`w-6 h-6 rounded-full text-[11px] font-mono font-bold inline-flex items-center justify-center shrink-0 border ${
+                            isSelected
+                              ? "bg-white text-zinc-950 border-white dark:bg-zinc-950 dark:text-white dark:border-zinc-950"
+                              : "border-zinc-300 dark:border-white/20 text-zinc-500"
+                          }`}
+                        >
+                          {isSelected ? <Check className="w-3.5 h-3.5" /> : String.fromCharCode(65 + idx)}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block truncate">{g.optionName}</span>
+                          <span className={`text-[11px] font-mono ${isSelected ? "opacity-75" : "text-zinc-400"}`}>
+                            {g.movements.length} exercises in checklist
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-mono opacity-70">
-                        {g.movements.length} Movements Checklist
+                      <span
+                        className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
+                          isSelected
+                            ? "bg-white/15 text-white dark:bg-zinc-900/10 dark:text-zinc-950 font-semibold"
+                            : "bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
+                        }`}
+                      >
+                        {isSelected ? "Active" : "Select"}
                       </span>
                     </button>
                   );
@@ -401,59 +580,259 @@ function TaskForm({
             </div>
           )}
 
-          {/* 2. DYNAMIC YOUTUBE VIDEO ACCORDING TO CHOICE */}
-          {isTraining && activeVideo && (
-            <a
-              href={activeVideo.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => props.onOpenVideo(day.id)}
-              className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={extractVideoThumbnail(activeVideo.url, "/coach.jpg")} alt="" className="w-24 h-16 object-cover rounded-lg bg-zinc-200 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
-                  {activeVideo.title}
-                </span>
-                <span className="text-[11px] font-mono text-zinc-500 inline-flex items-center gap-1 mt-0.5">
-                  Watch on YouTube <ExternalLink className="w-3 h-3" />
-                </span>
+          {/* Prompt when user hasn't picked a training variation yet */}
+          {hasMultipleOptions && !activeWorkout ? (
+            <div className="p-6 rounded-2xl border border-dashed border-zinc-300 dark:border-white/15 bg-zinc-50/50 dark:bg-white/[0.02] text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 mx-auto flex items-center justify-center">
+                <Dumbbell className="w-5 h-5" />
               </div>
-            </a>
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                Select a Training Variation Above
+              </p>
+              <p className="text-[11px] text-zinc-500 max-w-xs mx-auto leading-relaxed">
+                Choose one of today&apos;s training variations to unlock its guided video session and movement checklist.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* 2. GUIDED WORKOUT VIDEO */}
+              {activeVideo && (
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
+                    2. Guided Video Session
+                  </span>
+                  <a
+                    href={activeVideo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => props.onOpenVideo(day.id)}
+                    className="group flex items-center gap-3.5 p-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
+                  >
+                    <div className="relative w-28 h-16 rounded-lg overflow-hidden bg-zinc-900 shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={extractVideoThumbnail(activeVideo.url, "/coach.jpg")}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <span className="w-7 h-7 rounded-full bg-white/90 text-zinc-950 flex items-center justify-center shadow">
+                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
+                        {activeVideo.title}
+                      </span>
+                      <span className="text-[11px] font-mono text-zinc-500 inline-flex items-center gap-1 mt-1">
+                        Watch on YouTube <ExternalLink className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </a>
+                </div>
+              )}
+
+              {/* 3. MOVEMENT CHECKLIST */}
+              {movements.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold">
+                      3. Movement Checklist
+                    </span>
+                    <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                      {checkedCount} / {movements.length} Completed
+                    </span>
+                  </div>
+
+                  {/* Mini Progress Bar */}
+                  <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
+                      style={{ width: `${movements.length > 0 ? Math.round((checkedCount / movements.length) * 100) : 0}%` }}
+                    />
+                  </div>
+
+                  <ul className="divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#141414] overflow-hidden">
+                    {movements.map((name) => {
+                      const checked = isChecked(name);
+                      const moveObj = selectedGroup?.movements.find((m) => m.name === name);
+                      const targetLabel = moveObj?.target;
+                      return (
+                        <li key={name}>
+                          <label className="flex items-center justify-between gap-3 px-3.5 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 transition select-none">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <input
+                                type="checkbox"
+                                disabled={locked}
+                                checked={checked}
+                                onChange={() => toggle(name)}
+                                className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0"
+                              />
+                              <span
+                                className={`text-xs sm:text-sm ${
+                                  checked
+                                    ? "line-through text-zinc-400 dark:text-zinc-500"
+                                    : "font-medium text-zinc-900 dark:text-white"
+                                }`}
+                              >
+                                {name}
+                              </span>
+                            </div>
+                            {targetLabel && (
+                              <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
+                                {targetLabel}
+                              </span>
+                            )}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {/* 4. PHOTO CHECK-IN & NOTES */}
+              <div className="space-y-3 pt-1">
+                <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
+                  4. Session Photos & Notes (Optional)
+                </span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {(["before", "after"] as const).map((type) => (
+                    <label key={type} className="block text-[11px] text-zinc-500 cursor-pointer">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        {type === "before" ? "Before Session" : "After Session"}
+                      </span>
+                      <span className="mt-1 flex h-20 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 transition">
+                        {photos[type] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={photos[type]} alt="" className="w-full h-full object-cover" />
+                        ) : photoBusy === type ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-mono text-zinc-400">
+                            <Camera className="w-3.5 h-3.5" /> Upload
+                          </span>
+                        )}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={locked || photoBusy !== null}
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) pickPhoto(type, file);
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Workout Notes</span>
+                  <textarea
+                    value={notes}
+                    disabled={locked}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Enter your session notes, weights used, or physical feedback..."
+                    className={areaCls}
+                  />
+                </label>
+              </div>
+            </>
           )}
 
-          {/* 3. CHECKLIST ACCORDING TO CHOICE */}
+          {/* VALIDATION MODAL FOR SWITCHING WORKOUT VARIATION */}
+          {pendingSwitchWorkout && (
+            <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                      Change Training Variation?
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Switching from <strong className="text-zinc-800 dark:text-zinc-200">{workout}</strong> to{" "}
+                      <strong className="text-zinc-800 dark:text-zinc-200">{pendingSwitchWorkout}</strong> will reset and delete the{" "}
+                      <strong>{checkedCount}</strong> checked movement(s) in your current checklist.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPendingSwitchWorkout(null)}
+                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmSwitchWorkout}
+                    className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
+                  >
+                    Switch & Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* STEP 1B: REST & RECOVERY DAY                                          */}
+      {/* ===================================================================== */}
+      {step === 1 && isRest && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-white">
+              <Heart className="w-4 h-4 text-zinc-500" />
+              <span>Active Recovery Protocol</span>
+            </div>
+            {restLines.length > 0 ? (
+              <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                {restLines.map((line, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="font-mono text-[10px] text-zinc-400 mt-0.5">{i + 1}.</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                Prioritize light mobility, deep nasal breathing, hydration, and tissue recovery today.
+              </p>
+            )}
+          </div>
+
           {movements.length > 0 && (
             <div className="space-y-2">
               <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                Movement Checklist ({movements.filter(isChecked).length}/{movements.length}):
+                Recovery Checklist ({checkedCount}/{movements.length})
               </span>
               <ul className="divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#141414] overflow-hidden">
                 {movements.map((name) => {
                   const checked = isChecked(name);
-                  const moveObj = groups.find((g) => g.optionName === activeWorkout)?.movements.find((m) => m.name === name);
-                  const targetLabel = moveObj?.target;
                   return (
                     <li key={name}>
-                      <label className="flex items-center justify-between gap-3 px-3.5 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 transition select-none">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <input
-                            type="checkbox"
-                            disabled={locked}
-                            checked={checked}
-                            onChange={() => toggle(name)}
-                            className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0"
-                          />
-                          <span className={`text-sm ${checked ? "line-through text-zinc-400 dark:text-zinc-500" : "font-medium text-zinc-900 dark:text-white"}`}>
-                            {name}
-                          </span>
-                        </div>
-                        {targetLabel && (
-                          <span className="text-[11px] font-mono text-zinc-400 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                            {targetLabel}
-                          </span>
-                        )}
+                      <label className="flex items-center gap-3 px-3.5 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 transition select-none">
+                        <input
+                          type="checkbox"
+                          disabled={locked}
+                          checked={checked}
+                          onChange={() => toggle(name)}
+                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0"
+                        />
+                        <span className={`text-xs sm:text-sm ${checked ? "line-through text-zinc-400" : "font-medium text-zinc-900 dark:text-white"}`}>
+                          {name}
+                        </span>
                       </label>
                     </li>
                   );
@@ -462,106 +841,187 @@ function TaskForm({
             </div>
           )}
 
-          {/* 4. PHOTO CHECK-IN (OPTIONAL) */}
-          {isTraining && (
-            <div className="space-y-2">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                Photo Check-in (Optional):
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {(["before", "after"] as const).map((type) => (
-                  <label key={type} className="block text-[11px] text-zinc-500">
-                    {type === "before" ? "Before Session" : "After Session"}
-                    <span className="mt-1 flex h-16 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/10 transition">
-                      {photos[type] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={photos[type]} alt="" className="w-full h-full object-cover" />
-                      ) : photoBusy === type ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <span className="text-xs font-mono text-zinc-400">+ Upload</span>
-                      )}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={locked || photoBusy !== null}
-                      className="sr-only"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (file) pickPhoto(type, file);
-                      }}
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Recovery & Body Check-in Notes</span>
+            <textarea
+              value={notes}
+              disabled={locked}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Enter how your body feels today and any recovery observations..."
+              className={areaCls}
+            />
+          </label>
         </div>
       )}
 
-      {/* STEP 1: CONNECT DAY */}
+      {/* ===================================================================== */}
+      {/* STEP 1C: COMMUNITY CONNECT / MEETUP DAY                               */}
+      {/* ===================================================================== */}
       {step === 1 && isConnect && (
-        <label className="block space-y-1.5">
-          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            {day.eventTitle || day.title}
-          </span>
-          <textarea
-            value={notes}
-            disabled={locked}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            placeholder="Enter your attendance notes or session reflection..."
-            className={areaCls}
-          />
-        </label>
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-3">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                Live Session Details
+              </span>
+              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                {day.eventTitle || day.title}
+              </h3>
+              {(day.eventHost || day.coachName) && (
+                <p className="text-xs text-zinc-500">Host: {day.eventHost || day.coachName}</p>
+              )}
+            </div>
+
+            {day.eventDetails && (
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                {day.eventDetails}
+              </p>
+            )}
+
+            {(day.onsiteSchedule || day.onsiteVenue) && (
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+                {day.onsiteSchedule && (
+                  <p className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span>{day.onsiteSchedule}</span>
+                  </p>
+                )}
+                {day.onsiteVenue && (
+                  <p className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span>{day.onsiteVenue}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {(day.meetupLink || day.mapLink) && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {day.meetupLink && (
+                  <a
+                    href={day.meetupLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5"
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span>Join Online Session</span>
+                  </a>
+                )}
+                {day.mapLink && (
+                  <a
+                    href={day.mapLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Open Venue Map</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              Session Takeaways & Attendance Log
+            </span>
+            <textarea
+              value={notes}
+              disabled={locked}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Enter your attendance notes and key takeaways from today's session..."
+              className={areaCls}
+            />
+          </label>
+        </div>
       )}
 
-      {/* STEP 2: MEAL */}
+      {/* ===================================================================== */}
+      {/* STEP 2: NUTRITION & MEAL                                              */}
+      {/* ===================================================================== */}
       {step === 2 && (
-        <div className="space-y-3.5">
-          {recommended.length > 0 && (
-            <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/10 text-xs space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Nutrition Protocol:</p>
-              {recommended.map((line) => (
-                <p key={line} className="text-zinc-700 dark:text-zinc-300">{line}</p>
-              ))}
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-white">
+              <Utensils className="w-3.5 h-3.5 text-zinc-500" />
+              <span>Daily Nutrition Guide</span>
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              disabled={locked}
-              aria-pressed={meal.followed === true}
-              onClick={() => setMeal({ followed: true, actual: "" })}
-              className={`h-11 rounded-xl text-xs font-semibold border transition ${
-                meal.followed === true ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5"
-              }`}
-            >
-              Follow Protocol
-            </button>
-            <button
-              type="button"
-              disabled={locked}
-              aria-pressed={meal.followed === false}
-              onClick={() => setMeal((d) => ({ ...d, followed: false }))}
-              className={`h-11 rounded-xl text-xs font-semibold border transition ${
-                meal.followed === false ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950" : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5"
-              }`}
-            >
-              Custom Meal
-            </button>
+            {recommendedMeals.length > 0 ? (
+              <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                {recommendedMeals.map((line, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1.5 shrink-0" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                Prioritize whole, anti-inflammatory foods, adequate lean protein, and proper hydration throughout the day.
+              </p>
+            )}
           </div>
+
+          <div className="space-y-2">
+            <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
+              Select Compliance Status
+            </span>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={locked}
+                aria-pressed={meal.followed === true}
+                onClick={() => setMeal({ followed: true, actual: "" })}
+                className={`p-3.5 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                  meal.followed === true
+                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">Followed Guide</span>
+                  {meal.followed === true && <Check className="w-3.5 h-3.5" />}
+                </div>
+                <span className={`text-[10px] ${meal.followed === true ? "opacity-75" : "text-zinc-400"}`}>
+                  Stuck to today&apos;s meal plan
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={locked}
+                aria-pressed={meal.followed === false}
+                onClick={() => setMeal((d) => ({ ...d, followed: false }))}
+                className={`p-3.5 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                  meal.followed === false
+                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">Custom Meal</span>
+                  {meal.followed === false && <Check className="w-3.5 h-3.5" />}
+                </div>
+                <span className={`text-[10px] ${meal.followed === false ? "opacity-75" : "text-zinc-400"}`}>
+                  Had a custom meal today
+                </span>
+              </button>
+            </div>
+          </div>
+
           {meal.followed === false && (
             <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Custom Meal Notes</span>
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Custom Meal Log</span>
               <textarea
                 value={meal.actual}
                 disabled={locked}
                 onChange={(e) => setMeal((d) => ({ ...d, actual: e.target.value }))}
                 rows={3}
-                placeholder="Enter your meal notes and nutrition details..."
+                placeholder="Enter the meals and nutrition you consumed today..."
                 className={areaCls}
               />
             </label>
@@ -569,11 +1029,54 @@ function TaskForm({
         </div>
       )}
 
-      {/* STEP 3: REFLECTION */}
+      {/* ===================================================================== */}
+      {/* STEP 3: DAILY REFLECTION                                              */}
+      {/* ===================================================================== */}
       {step === 3 && (
         <div className="space-y-4">
+          {day.dailyAssessment && (
+            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                Today&apos;s Reflection Prompt
+              </span>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                {day.dailyAssessment}
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+              Daily Fulfillment & Energy Index
+            </span>
+            <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Satisfaction Rating">
+              {FACES.map(({ score: n, Icon, label }) => {
+                const active = score === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={label}
+                    disabled={locked}
+                    onClick={() => setScore(n)}
+                    className={`py-2.5 px-1 rounded-xl border flex flex-col items-center justify-center gap-1 transition active:scale-95 ${
+                      active
+                        ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
+                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/60 dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" strokeWidth={1.75} />
+                    <span className="text-[10px] font-mono font-medium">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Daily Reflection</span>
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Daily Journal</span>
             <textarea
               value={review}
               disabled={locked}
@@ -584,29 +1087,6 @@ function TaskForm({
               className={areaCls}
             />
           </label>
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Daily Fulfillment & Energy Index</p>
-            <div className="flex gap-2" role="radiogroup" aria-label="Satisfaction Rating">
-              {FACES.map(({ score: n, Icon, label }) => (
-                <button
-                  key={n}
-                  type="button"
-                  role="radio"
-                  aria-checked={score === n}
-                  aria-label={label}
-                  disabled={locked}
-                  onClick={() => setScore(n)}
-                  className={`w-10 h-10 rounded-full border inline-flex items-center justify-center transition active:scale-95 ${
-                    score === n
-                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "border-zinc-200 dark:border-white/15 text-zinc-500 hover:border-zinc-400"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" strokeWidth={1.75} />
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 
@@ -640,7 +1120,6 @@ function TaskForm({
     </div>
   );
 }
-
 
 function formatDayDate(unlockDate: string | undefined, dayNumber: number): string {
   if (!unlockDate) return `Day ${dayNumber}`;
@@ -803,12 +1282,12 @@ function DayHistoryItem({
                 </div>
               )}
 
-              {day.dayType === "TRAINING_DAY" && (selectedWorkoutName || checkedMovements.length > 0) && (
+              {day.dayType === "TRAINING_DAY" && (p?.selectedWorkout || checkedMovements.length > 0) && (
                 <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
                   <span className="text-zinc-400 font-mono text-[11px] uppercase">Routine</span>
                   <span className="font-medium text-right truncate max-w-[200px]">
                     {selectedWorkoutName || "Training"}
-                    {movements.length > 0 && ` (${movements.filter((m) => checkedMovements.includes(m.name)).length}/${movements.length})`}
+                    {movements.length > 0 && ` (${checkedMovements.length}/${movements.length})`}
                   </span>
                 </div>
               )}
@@ -840,8 +1319,7 @@ function DayHistoryItem({
                 <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
                   <span className="text-zinc-400 font-mono text-[11px] uppercase">Meal</span>
                   <span className="font-medium">
-                    {p.mealCompliance === "YES" ? "Followed Protocol" : "Custom Meal"}
-                    {p.mealNotes ? ` (${p.mealNotes})` : ""}
+                    {p.mealCompliance === "FULL" || p.mealCompliance === "YES" ? "Followed Guide" : "Custom Meal"}
                   </span>
                 </div>
               )}
@@ -891,6 +1369,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [completing, setCompleting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
+  const tasks = useMemo(() => getTasksForDay(day.dayType), [day.dayType]);
+
   const programDays = useMemo(() => {
     const list =
       props.allProgramDays && props.allProgramDays.length > 0
@@ -912,7 +1392,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setDone((prev) => prev.map((item, i) => (i === index ? true : item)));
   };
 
-  const currentTask = TASKS[step];
+  const currentTask = tasks[step];
+  const CurrentTaskIcon = currentTask.Icon;
   const allDone = done.every(Boolean);
 
   const handleFinishTask = () => {
@@ -941,9 +1422,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </button>
       </div>
 
-      {/* Task List (Non-sequential: any task can be clicked in any order) */}
+      {/* Task List */}
       <ol className="divide-y divide-zinc-100 dark:divide-white/10">
-        {TASKS.map((t, index) => {
+        {tasks.map((t, index) => {
           const isDone = done[index];
           return (
             <li
@@ -965,7 +1446,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <p className="text-[11px] text-zinc-500 mt-0.5">{t.description}</p>
               </div>
 
-              {/* Edit button when already done, Do Task button when not done */}
               {isDone ? (
                 <button
                   type="button"
@@ -1025,7 +1505,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         createPortal(
           <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
             <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-12 space-y-4">
-              {/* TOP HEADER: Back button on the LEFT (NO INDEX NUMBER, NO TOP-RIGHT LABEL) */}
+              {/* TOP HEADER: Back button on the LEFT only */}
               <div className="flex items-center justify-start">
                 <button
                   type="button"
@@ -1039,12 +1519,28 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
               {/* TASK CARD */}
               <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3 pb-3 border-b border-zinc-100 dark:border-white/10">
-                  <div>
-                    <h2 className="text-base font-semibold text-zinc-950 dark:text-white">{currentTask.title}</h2>
-                    <p className="text-xs text-zinc-500 mt-0.5">{currentTask.description}</p>
+                <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-zinc-100 dark:border-white/10">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <CurrentTaskIcon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400 block">
+                        Day {day.dayNumber} • {currentTask.category}
+                      </span>
+                      <h2 className="text-base font-semibold text-zinc-950 dark:text-white truncate">
+                        {currentTask.title}
+                      </h2>
+                      <p className="text-xs text-zinc-500 mt-0.5">{currentTask.description}</p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 shrink-0">
+                  <span
+                    className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
+                      done[step]
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300"
+                    }`}
+                  >
                     {done[step] ? "Completed" : "Active"}
                   </span>
                 </div>
@@ -1080,9 +1576,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 </p>
               </div>
 
-              {/* Task Completion Checklist Status */}
               <div className="space-y-2 p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-xs font-mono">
-                {TASKS.map((t, i) => (
+                {tasks.map((t, i) => (
                   <div key={t.title} className="flex items-center justify-between">
                     <span className="text-zinc-600 dark:text-zinc-400">{t.title}</span>
                     {done[i] ? (

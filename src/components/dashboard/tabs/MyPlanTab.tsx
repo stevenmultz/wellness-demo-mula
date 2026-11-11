@@ -26,6 +26,10 @@ export interface PlanDay {
   eventTitle?: string | null;
   eventDetails?: string | null;
   restInstructions: string | null;
+  sleepRecommendation?: string | null;
+  dailyAssessment?: string | null;
+  eventHost?: string | null;
+  coachName?: string | null;
   userProgress?: {
     videoWatched: boolean;
     isCompleted: boolean;
@@ -268,7 +272,7 @@ export function MyPlanOverview({
   historyDays: PlanDay[];
   allProgramDays?: PlanDay[];
   onToggleCheck: (task: string, dayId: string) => Promise<void> | void;
-  onSelectWorkout: (workout: string, dayId: string) => Promise<void | boolean>;
+  onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => Promise<void | boolean>;
   onOpenVideo: (dayId: string) => Promise<void | boolean>;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string) => Promise<void | boolean>;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;

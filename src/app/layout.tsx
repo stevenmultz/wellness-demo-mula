@@ -57,8 +57,8 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               @keyframes bmsPulse {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50% { opacity: 0.65; transform: scale(0.96); }
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.45; }
               }
               #bms-pwa-splash {
                 position: fixed;
@@ -67,14 +67,20 @@ export default function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #0e0e0e;
+                background-color: #f6f6f4;
+                color: #09090b;
                 user-select: none;
-                transition: opacity 0.4s ease-out;
+                transition: opacity 0.35s ease-out;
+              }
+              .dark #bms-pwa-splash {
+                background-color: #0e0e0e;
+                color: #ffffff;
               }
               #bms-pwa-splash .bms-pulse-logo {
                 display: flex;
                 align-items: center;
-                justify-content: center;
+                gap: 4px;
+                font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                 animation: bmsPulse 1.4s ease-in-out infinite;
               }
             `,
@@ -91,9 +97,8 @@ export default function RootLayout({
       >
         <div id="bms-pwa-splash" aria-hidden="true">
           <div className="bms-pulse-logo">
-            <svg width="150" height="48" viewBox="0 0 150 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <text x="50%" y="34" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" font-weight="800" text-anchor="middle" letter-spacing="6">+ BMS</text>
-            </svg>
+            <span className="font-light text-lg leading-none">+</span>
+            <span className="font-geometric font-semibold text-sm tracking-[0.22em] uppercase">BMS</span>
           </div>
         </div>
         <ThemeProvider>

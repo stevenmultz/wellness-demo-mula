@@ -156,8 +156,13 @@ export interface ProgramItem {
   difficultyLevel?: string;
   dailyCommitment?: string | null;
   durationDays?: number;
+  actualPrice?: number;
+  discountPercentage?: number;
   price: number;
   maxQuota: number;
+  equipment?: string | null;
+  audience?: string | null;
+  termsType?: string | null;
   enrolledCount: number;
   locationType?: string;
   city?: string | null;
@@ -828,15 +833,19 @@ export function DashboardClient({
     return true;
   };
 
-  const handleSelectWorkout = async (workout: string, dayId?: string): Promise<boolean> => {
+  const handleSelectWorkout = async (workout: string, dayId?: string, resetChecklist?: boolean): Promise<boolean> => {
     const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
     setDayWorkouts((prev) => ({ ...prev, [currentDay.id]: workout }));
+    const nextChecklist = resetChecklist ? [] : getCheckedItems(currentDay);
+    if (resetChecklist) {
+      setDayChecklists((prev) => ({ ...prev, [currentDay.id]: [] }));
+    }
 
     const res = await wellnessUserSubmitDayProgress({
       programDayId: currentDay.id,
       isCompleted: !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(currentDay),
+      checklistCompleted: nextChecklist,
       videoWatched: getVideoWatched(currentDay),
       selectedWorkout: workout,
     });
