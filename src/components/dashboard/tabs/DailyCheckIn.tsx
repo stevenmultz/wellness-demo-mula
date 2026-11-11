@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Angry,
   ArrowLeft,
-  CalendarDays,
   Camera,
   Check,
   ChevronDown,
@@ -1162,228 +1161,6 @@ function formatFullDayDate(unlockDate: string | undefined, dayNumber: number): s
   return `${formatted} · Day ${dayNumber}`;
 }
 
-function getDayStatus(d: PlanDay, isToday: boolean) {
-  if (d.userProgress?.isCompleted) {
-    return {
-      label: "Done",
-      cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40",
-      icon: Check,
-    };
-  }
-  const hasSomeLogs = !!(
-    d.userProgress?.bedtime ||
-    d.userProgress?.selectedWorkout ||
-    d.userProgress?.checklistCompleted ||
-    d.userProgress?.mealCompliance ||
-    d.userProgress?.dailyReflection ||
-    d.userProgress?.photoBeforeUrl
-  );
-  if (isToday) {
-    return {
-      label: "Today",
-      cls: "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white",
-      icon: Clock,
-    };
-  }
-  if (hasSomeLogs) {
-    return {
-      label: "Logged",
-      cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
-      icon: Clock,
-    };
-  }
-  if (d.isPast2359) {
-    return {
-      label: "Skipped",
-      cls: "bg-zinc-100 text-zinc-400 border-zinc-200 dark:bg-white/5 dark:text-zinc-500 dark:border-white/10",
-      icon: null,
-    };
-  }
-  return {
-    label: "Locked",
-    cls: "bg-zinc-100 text-zinc-400 border-zinc-200 dark:bg-white/5 dark:text-zinc-500 dark:border-white/10",
-    icon: Lock,
-  };
-}
-
-function DayHistoryItem({
-  day,
-  isToday,
-  isExpanded,
-  onToggle,
-  onOpenTodayTask,
-}: {
-  day: PlanDay;
-  isToday: boolean;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onOpenTodayTask?: () => void;
-}) {
-  const p = day.userProgress;
-  const status = getDayStatus(day, isToday);
-  const StatusIcon = status.icon;
-  const dateLabel = formatDayDate(day.unlockDate, day.dayNumber);
-
-  const groups = useMemo(
-    () => parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist),
-    [day.workoutOptions, day.videoChecklist]
-  );
-  const selectedWorkoutName = p?.selectedWorkout || groups[0]?.optionName;
-  const activeGroup = groups.find((g) => g.optionName === selectedWorkoutName) || groups[0];
-  const movements = activeGroup?.movements || [];
-
-  const checkedMovements = useMemo(() => {
-    if (!p?.checklistCompleted) return [];
-    try {
-      const arr = JSON.parse(p.checklistCompleted);
-      return Array.isArray(arr) ? (arr.filter((x) => typeof x === "string") as string[]) : [];
-    } catch {
-      return [];
-    }
-  }, [p?.checklistCompleted]);
-
-  const durationMins = p?.bedtime && p?.wakeTime ? sleepMinutes(p.bedtime, p.wakeTime) : 0;
-  const faceInfo = p?.happinessRate ? FACES.find((f) => f.score === p.happinessRate) : null;
-  const FaceIcon = faceInfo?.Icon;
-
-  const hasLoggedData = !!(
-    p?.bedtime ||
-    p?.selectedWorkout ||
-    checkedMovements.length > 0 ||
-    p?.mealCompliance ||
-    p?.dailyReflection ||
-    p?.photoBeforeUrl ||
-    p?.photoAfterUrl ||
-    p?.workoutNotes
-  );
-
-  return (
-    <div
-      className={`rounded-xl border transition overflow-hidden ${
-        isToday
-          ? "border-zinc-950 dark:border-white bg-white dark:bg-[#141414] shadow-sm"
-          : "border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414]"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-3.5 py-3 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition select-none"
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-xs font-mono font-bold text-zinc-950 dark:text-white shrink-0">
-            D{String(day.dayNumber).padStart(2, "0")}
-          </span>
-          <span className="text-xs text-zinc-500 shrink-0 font-medium">{dateLabel}</span>
-          <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-500 dark:text-zinc-400 shrink-0">
-            {day.dayType === "REST_DAY"
-              ? "Rest"
-              : day.dayType === "CONNECT_DAY" || day.dayType === "MEETUP_DAY"
-                ? "Connect"
-                : "Train"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${status.cls}`}
-          >
-            {StatusIcon && <StatusIcon className="w-2.5 h-2.5" />}
-            <span>{status.label}</span>
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
-          ) : (
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-          )}
-        </div>
-      </button>
-
-      {/* COMPACT CLEAN EXPANDED VIEW */}
-      {isExpanded && (
-        <div className="px-3.5 pb-3.5 pt-2 border-t border-zinc-100 dark:border-white/5 space-y-2 bg-zinc-50/50 dark:bg-white/[0.02] text-xs">
-          {hasLoggedData ? (
-            <div className="space-y-1.5">
-              {p?.bedtime && p?.wakeTime && (
-                <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-                  <span className="text-zinc-400 font-mono text-[11px] uppercase">Sleep</span>
-                  <span className="font-medium">
-                    {p.bedtime} – {p.wakeTime} ({formatDuration(durationMins)})
-                  </span>
-                </div>
-              )}
-
-              {day.dayType === "TRAINING_DAY" && (p?.selectedWorkout || checkedMovements.length > 0) && (
-                <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-                  <span className="text-zinc-400 font-mono text-[11px] uppercase">Routine</span>
-                  <span className="font-medium text-right truncate max-w-[200px]">
-                    {selectedWorkoutName || "Training"}
-                    {movements.length > 0 && ` (${checkedMovements.length}/${movements.length})`}
-                  </span>
-                </div>
-              )}
-
-              {(p?.photoBeforeUrl || p?.photoAfterUrl) && (
-                <div className="flex gap-2 pt-1">
-                  {p.photoBeforeUrl && (
-                    <a href={p.photoBeforeUrl} target="_blank" rel="noopener noreferrer" className="block w-14 h-14 rounded-lg overflow-hidden border border-zinc-200 dark:border-white/10 shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.photoBeforeUrl} alt="" className="w-full h-full object-cover" />
-                    </a>
-                  )}
-                  {p.photoAfterUrl && (
-                    <a href={p.photoAfterUrl} target="_blank" rel="noopener noreferrer" className="block w-14 h-14 rounded-lg overflow-hidden border border-zinc-200 dark:border-white/10 shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.photoAfterUrl} alt="" className="w-full h-full object-cover" />
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {p?.workoutNotes && (
-                <div className="text-zinc-600 dark:text-zinc-400 italic bg-white dark:bg-white/5 p-2 rounded-lg border border-zinc-200/50 dark:border-white/5">
-                  &ldquo;{p.workoutNotes}&rdquo;
-                </div>
-              )}
-
-              {p?.mealCompliance && (
-                <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-                  <span className="text-zinc-400 font-mono text-[11px] uppercase">Meal</span>
-                  <span className="font-medium">
-                    {p.mealCompliance === "FULL" || p.mealCompliance === "YES" ? "Followed Guide" : "Custom Meal"}
-                  </span>
-                </div>
-              )}
-
-              {(faceInfo || p?.dailyReflection) && (
-                <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
-                  <span className="text-zinc-400 font-mono text-[11px] uppercase">Reflection</span>
-                  <span className="font-medium inline-flex items-center gap-1">
-                    {FaceIcon && <FaceIcon className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />}
-                    <span>{p?.dailyReflection || faceInfo?.label || "—"}</span>
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-zinc-400 text-[11px] italic">No activity recorded for this day.</p>
-          )}
-
-          {isToday && !day.userProgress?.isCompleted && onOpenTodayTask && (
-            <button
-              type="button"
-              onClick={onOpenTodayTask}
-              className="w-full mt-2 h-8 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center justify-center gap-1.5 active:scale-95 transition"
-            >
-              <span>Continue Today&apos;s Task</span>
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function getWibResetCountdown(): string {
   const now = new Date();
   const wibFormatter = new Intl.DateTimeFormat("en-GB", {
@@ -1466,8 +1243,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   }, []);
 
   const [detailOpen, setDetailOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [expandedDayId, setExpandedDayId] = useState<string | null>(day.id);
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
@@ -1549,24 +1324,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
       {/* Daily Task Card Header */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-zinc-100 dark:border-white/10">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-          <p className="mt-0.5 text-[11px] font-mono text-zinc-500">
-            Daily Reset: 00:00 WIB (UTC+7) · {resetCountdown}
-          </p>
+      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10">
+        <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
+        <div className="mt-0.5 text-[11px] font-mono text-zinc-500 space-y-0.5">
+          <p>Daily Reset: 00:00 WIB (UTC+7)</p>
+          <p className="text-zinc-400 dark:text-zinc-500">{resetCountdown}</p>
         </div>
-        <button
-          type="button"
-          aria-label="View Program Calendar and History"
-          onClick={() => {
-            setExpandedDayId(selectedDay.id);
-            setHistoryOpen(true);
-          }}
-          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 inline-flex items-center justify-center shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
-        >
-          <CalendarDays className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
-        </button>
       </div>
 
       {/* Horizontal Centered Day Number Selector (1 2 3 4 5 ...) */}
@@ -1615,20 +1378,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           })}
         </div>
 
-        {/* Selected Day Subtitle & Status Pill */}
+        {/* Selected Day Subtitle */}
         <div className="px-1 flex items-center justify-between gap-2 text-[11px]">
           <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
             {formatFullDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
           </span>
-          {isSelectedToday ? (
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold shrink-0">
-              Today
-            </span>
-          ) : isSelectedPast ? (
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
-              <Clock className="w-2.5 h-2.5" /> History (View Only)
-            </span>
-          ) : (
+          {isSelectedFuture && (
             <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
               <Lock className="w-2.5 h-2.5" /> Locked
             </span>
@@ -1884,55 +1639,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   {completing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Submit & Lock</span>
                 </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* PROGRAM HISTORY & CALENDAR FULL-SCREEN MODAL */}
-      {historyOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col">
-            <div className="max-w-lg mx-auto w-full flex-1 overflow-y-auto px-4 pt-4 pb-12 space-y-3">
-              {/* CLEAN COMPACT TOP HEADER */}
-              <div className="flex items-center justify-between py-1 border-b border-zinc-200/60 dark:border-white/10 pb-2">
-                <button
-                  type="button"
-                  onClick={() => setHistoryOpen(false)}
-                  className="h-8 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back</span>
-                </button>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-zinc-950 dark:text-white uppercase tracking-wider">
-                    Schedule & History
-                  </span>
-                  <span className="text-[11px] font-mono text-zinc-500 bg-zinc-200/60 dark:bg-white/10 px-2 py-0.5 rounded-full">
-                    {totalCompleted}/{programDays.length} Done
-                  </span>
-                </div>
-              </div>
-
-              {/* CALENDAR DAYS LIST */}
-              <div className="space-y-1.5 pt-1">
-                {programDays.map((d) => (
-                  <DayHistoryItem
-                    key={d.id}
-                    day={d}
-                    isToday={d.id === day.id}
-                    isExpanded={expandedDayId === d.id}
-                    onToggle={() =>
-                      setExpandedDayId((prev) => (prev === d.id ? null : d.id))
-                    }
-                    onOpenTodayTask={() => {
-                      setHistoryOpen(false);
-                      openDetail(0);
-                    }}
-                  />
-                ))}
               </div>
             </div>
           </div>,

@@ -1,7 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, CheckCircle2, ChevronDown, Compass, ExternalLink, Info } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Compass,
+  Dumbbell,
+  ExternalLink,
+  Info,
+  MapPin,
+  Users,
+  Utensils,
+  Video,
+} from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
@@ -153,6 +166,8 @@ export interface PlanProgramInfo {
   description?: string | null;
   locationType?: string | null;
   city?: string | null;
+  venueAddress?: string | null;
+  equipment?: string | null;
   durationDays?: number;
   coverImage: string | null;
   startDate: string | Date;
@@ -375,25 +390,49 @@ export function MyPlanOverview({
         (() => {
           const startsInInfo = formatStartsIn(program.startDate);
           return (
-            <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4">
-              <div className="space-y-1">
-                <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
-                  {startsInInfo.headline}
+            <>
+              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 space-y-4">
+                <div className="space-y-1">
+                  <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
+                    {startsInInfo.headline}
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Program begins on <span className="font-medium text-zinc-800 dark:text-zinc-200">{startsInInfo.dateLabel}</span>
+                  </p>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Program begins on <span className="font-medium text-zinc-800 dark:text-zinc-200">{startsInInfo.dateLabel}</span>
-                </p>
-              </div>
 
-              <button
-                type="button"
-                onClick={onOpenDetails}
-                className="w-full py-2.5 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition active:scale-98 shadow-sm"
-              >
-                <Info className="w-3.5 h-3.5" />
-                <span>Program Details</span>
-              </button>
-            </section>
+                <button
+                  type="button"
+                  onClick={onOpenDetails}
+                  className="w-full py-2.5 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition active:scale-98 shadow-sm"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                  <span>Program Details</span>
+                </button>
+              </section>
+
+              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">Community</p>
+                {community ? (
+                  <a
+                    href={community}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1"
+                  >
+                    Open <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <span className="text-[11px] text-zinc-400">Not set</span>
+                )}
+              </section>
+
+              <ProgramPreparationWidgets
+                program={program}
+                days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
+                currentDayId={day?.id}
+              />
+            </>
           );
         })()
       ) : (
@@ -462,8 +501,276 @@ export function MyPlanOverview({
               <span className="text-[11px] text-zinc-400">Not set</span>
             )}
           </section>
+
+          <ProgramPreparationWidgets
+            program={program}
+            days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
+            currentDayId={day?.id}
+          />
         </>
       )}
+    </div>
+  );
+}
+
+function formatShortDayDate(unlockDate: string | undefined, dayNumber: number): string {
+  if (!unlockDate) return `Day ${dayNumber}`;
+  const d = new Date(unlockDate);
+  if (isNaN(d.getTime())) return `Day ${dayNumber}`;
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(d);
+}
+
+function ProgramPreparationWidgets({
+  program,
+  days,
+  currentDayId,
+}: {
+  program: PlanProgramInfo;
+  days: PlanDay[];
+  currentDayId?: string;
+}) {
+  const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+
+  // 1. All Meal List across program days
+  const mealDays = sortedDays.filter(
+    (d) => d.mealRecommendation && d.mealRecommendation.trim().length > 0
+  );
+
+  // 2. All Meetup & Zoom / Connect sessions across program days
+  const meetupDays = sortedDays.filter(
+    (d) =>
+      d.dayType === "CONNECT_DAY" ||
+      d.dayType === "MEETUP_DAY" ||
+      d.dayType === "CONNECTION_DAY" ||
+      !!(d.meetupLink && d.meetupLink.trim()) ||
+      !!(d.onsiteVenue && d.onsiteVenue.trim()) ||
+      !!(d.onsiteSchedule && d.onsiteSchedule.trim()) ||
+      !!(d.eventTitle && d.eventTitle.trim())
+  );
+
+  // 3. Required Equipment List
+  const rawEquipment = program.equipment || "No Equipment / Movement Mat";
+  const equipmentItems = rawEquipment
+    .split(/\n|,|•|·|;/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  return (
+    <div className="space-y-2.5">
+      {/* 1. ALL MEAL GUIDE & PREPARATION LIST */}
+      <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+        <summary className="cursor-pointer list-none px-4 py-3.5 flex items-center justify-between gap-3 select-none hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shrink-0">
+              <Utensils className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-zinc-950 dark:text-white truncate">
+                Meal Preparation Guide
+              </p>
+              <p className="text-[11px] text-zinc-500 truncate">
+                Complete daily menu list to prepare your groceries ahead
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
+              {mealDays.length} {mealDays.length === 1 ? "Day" : "Days"}
+            </span>
+            <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
+          </div>
+        </summary>
+
+        <div className="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/10 max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-white/5">
+          {mealDays.length > 0 ? (
+            mealDays.map((d) => {
+              const isToday = d.id === currentDayId;
+              const lines = splitActivities(d.mealRecommendation);
+              return (
+                <div key={d.id} className="py-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2">
+                      <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
+                        Day {d.dayNumber}
+                      </span>
+                      <span>{formatShortDayDate(d.unlockDate, d.dayNumber)}</span>
+                    </span>
+                    {isToday && (
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                        Today
+                      </span>
+                    )}
+                  </div>
+                  {lines.length > 1 ? (
+                    <ul className="space-y-1 pl-1">
+                      {lines.map((line, idx) => (
+                        <li
+                          key={idx}
+                          className="text-xs text-zinc-600 dark:text-zinc-300 flex items-start gap-2 leading-relaxed"
+                        >
+                          <span className="w-1 h-1 rounded-full bg-zinc-400 mt-2 shrink-0" />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                      {d.mealRecommendation}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <p className="py-3 text-xs text-zinc-400">
+              No specific daily meal menu has been listed for this program.
+            </p>
+          )}
+        </div>
+      </details>
+
+      {/* 2. ALL MEETUPS & ZOOM SCHEDULE */}
+      <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+        <summary className="cursor-pointer list-none px-4 py-3.5 flex items-center justify-between gap-3 select-none hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-zinc-950 dark:text-white truncate">
+                Meetups & Live Sessions
+              </p>
+              <p className="text-[11px] text-zinc-500 truncate">
+                Upcoming Zoom calls and in-person connection schedule
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
+              {meetupDays.length} {meetupDays.length === 1 ? "Session" : "Sessions"}
+            </span>
+            <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
+          </div>
+        </summary>
+
+        <div className="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/10 max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-white/5">
+          {meetupDays.length > 0 ? (
+            meetupDays.map((d) => {
+              const meetUrl = safeHttpUrl(d.meetupLink);
+              const mapUrl = safeHttpUrl(d.mapLink);
+              return (
+                <div key={d.id} className="py-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Day {d.dayNumber} · {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                      </span>
+                      <p className="text-xs font-semibold text-zinc-900 dark:text-white mt-0.5">
+                        {d.eventTitle || d.title || "Community Connect Session"}
+                      </p>
+                    </div>
+                    {d.onsiteSchedule && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
+                        <Clock className="w-2.5 h-2.5" />
+                        <span>{d.onsiteSchedule}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {d.eventDetails && (
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                      {d.eventDetails}
+                    </p>
+                  )}
+
+                  {(d.onsiteVenue || program.venueAddress) && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-zinc-500">
+                      <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
+                      <span>{d.onsiteVenue || program.venueAddress}</span>
+                    </div>
+                  )}
+
+                  {(meetUrl || mapUrl) && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {meetUrl && (
+                        <a
+                          href={meetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-7 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1.5"
+                        >
+                          <Video className="w-3 h-3" />
+                          <span>Join Zoom / Meet</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                      {mapUrl && (
+                        <a
+                          href={mapUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-7 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          <span>Open Map</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <p className="py-3 text-xs text-zinc-400">
+              No scheduled live sessions or meetups for this cohort.
+            </p>
+          )}
+        </div>
+      </details>
+
+      {/* 3. REQUIRED EQUIPMENT LIST */}
+      <details className="group rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+        <summary className="cursor-pointer list-none px-4 py-3.5 flex items-center justify-between gap-3 select-none hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shrink-0">
+              <Dumbbell className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-zinc-950 dark:text-white truncate">
+                Required Equipment
+              </p>
+              <p className="text-[11px] text-zinc-500 truncate">
+                Gear and tools needed throughout this program
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
+              {equipmentItems.length} {equipmentItems.length === 1 ? "Item" : "Items"}
+            </span>
+            <ChevronDown className="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" />
+          </div>
+        </summary>
+
+        <div className="px-4 pb-4 pt-3 border-t border-zinc-100 dark:border-white/10">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {equipmentItems.map((item, idx) => (
+              <li
+                key={idx}
+                className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2.5 text-xs font-medium text-zinc-800 dark:text-zinc-200"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
     </div>
   );
 }

@@ -1661,6 +1661,8 @@ export function DashboardClient({
                     description: currentProgram.description,
                     locationType: currentProgram.locationType,
                     city: currentProgram.city,
+                    venueAddress: currentProgram.venueAddress,
+                    equipment: currentProgram.equipment,
                     durationDays: currentProgram.durationDays,
                     coverImage: currentProgram.coverImage || overviewEnrollment.coverImage || null,
                     startDate: overviewEnrollment.startDate,
