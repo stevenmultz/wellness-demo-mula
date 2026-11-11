@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCheck, Loader2 } from "lucide-react";
+import { Bell, Calendar, CheckCheck, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import {
   HistoryPayload,
   InboxNotification,
@@ -22,44 +22,9 @@ import {
   usePullToRefresh,
 } from "./shared";
 
-type Section = "notifications" | "activity" | "history";
-
-const NOTIFY_TYPES = new Set(["PROGRAM", "ANNOUNCEMENT", "REMINDER", "INFO", "PAYMENT"]);
-const ACTIVITY_TYPES = new Set(["TASK"]);
+type Section = "notifications" | "history";
 
 type Loadable<T> = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: T };
-
-function PushHeader({ visible }: { visible: boolean }) {
-  const push = usePushNotifications();
-  const canToggle = push.status === "off" || push.status === "on" || push.status === "checking";
-  return (
-    <FloatingHeader visible={visible}>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-zinc-950 dark:text-white">Alerts</p>
-        {push.error && (
-          <p role="alert" className="text-[11px] text-red-600 truncate">
-            {push.error}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        {push.status === "denied" && <span className="text-[11px] text-red-600 max-w-[140px] text-right">Blocked in browser settings</span>}
-        {push.status === "unsupported" && <span className="text-[11px] text-zinc-500 max-w-[160px] text-right">Unavailable on this device</span>}
-        {canToggle && (
-          <button
-            type="button"
-            onClick={push.status === "on" ? push.disable : push.enable}
-            disabled={push.busy || push.status === "checking"}
-            className="shrink-0 px-3.5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5"
-          >
-            {(push.busy || push.status === "checking") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {push.status === "on" ? "Turn Off Notification" : "Turn On Notification"}
-          </button>
-        )}
-      </div>
-    </FloatingHeader>
-  );
-}
 
 export interface CompletedProgramItem {
   programId: string;
@@ -90,6 +55,10 @@ export function NotificationsHistoryTab({
   const [history, setHistory] = useState<Loadable<HistoryPayload>>({ status: "loading" });
   const [markingAll, setMarkingAll] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Push notification hook for Web Push toggle
+  const push = usePushNotifications();
+  const canTogglePush = push.status === "off" || push.status === "on" || push.status === "checking";
 
   const loadNotifs = useCallback(async (isRefresh = false) => {
     if (!isRefresh) {
@@ -181,103 +150,197 @@ export function NotificationsHistoryTab({
     }
   };
 
-  const items = notifs.status === "ready" ? notifs.data.items : [];
-  const notes = items.filter((n) => NOTIFY_TYPES.has(n.type));
-  const taskNotes = items.filter((n) => ACTIVITY_TYPES.has(n.type));
+  const allNotifications = notifs.status === "ready" ? notifs.data.items : [];
+  const unreadCount = notifs.status === "ready" ? notifs.data.unreadCount : 0;
 
   return (
     <>
-      <PushHeader visible={headerVisible} />
-      <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
-      <div className="flex p-1 rounded-full bg-zinc-100 dark:bg-white/10">
-        {(
-          [
-            ["notifications", "Notifications"],
-            ["activity", "Activity"],
-            ["history", "History"],
-          ] as const
-        ).map(([key, label]) => (
+      {/* FLOATING HEADER: SUBTAB SWITCHER (NOTIFICATIONS | HISTORY) */}
+      <FloatingHeader visible={headerVisible}>
+        <div className="w-full flex p-1 rounded-xl bg-zinc-100 dark:bg-white/10">
           <button
-            key={key}
             type="button"
-            onClick={() => setSection(key)}
-            className={`flex-1 py-2 rounded-full text-[11px] font-semibold ${section === key ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white" : "text-zinc-500"}`}
+            onClick={() => setSection("notifications")}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
+              section === "notifications"
+                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+            }`}
           >
-            {label}
+            <span>Notifications</span>
+            {unreadCount > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+                {unreadCount}
+              </span>
+            )}
           </button>
-        ))}
+
+          <button
+            type="button"
+            onClick={() => setSection("history")}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
+              section === "history"
+                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+            }`}
+          >
+            History
+          </button>
+        </div>
+      </FloatingHeader>
+
+      <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
+
+      {/* IN-FLOW SUBTAB SWITCHER */}
+      <div className="flex p-1 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200/60 dark:border-white/5">
+        <button
+          type="button"
+          onClick={() => setSection("notifications")}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition ${
+            section === "notifications"
+              ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+          }`}
+        >
+          <span>Notifications</span>
+          {unreadCount > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSection("history")}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition ${
+            section === "history"
+              ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+          }`}
+        >
+          History
+        </button>
       </div>
 
+      {/* ================================================================= */}
+      {/* 1. SUB-TAB: NOTIFICATIONS                                         */}
+      {/* ================================================================= */}
       {section === "notifications" && (
-        <section className="space-y-2">
-          {notifs.status === "ready" && notifs.data.unreadCount > 0 && (
-            <button type="button" onClick={markAllRead} disabled={markingAll} className="text-[11px] font-semibold text-zinc-500 inline-flex items-center gap-1">
-              <CheckCheck className="w-3.5 h-3.5" /> Mark all read
-            </button>
-          )}
+        <section className="space-y-3">
+          {/* PUSH NOTIFICATION TOGGLE CARD (Placed directly in Notifications) */}
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 flex items-center justify-between gap-3 shadow-sm">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+                <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">Push Notifications</h3>
+              </div>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                {push.status === "on"
+                  ? "Alerts active for daily tasks & live sessions"
+                  : push.status === "denied"
+                    ? "Notifications blocked in browser settings"
+                    : push.status === "unsupported"
+                      ? "Push unavailable on this device"
+                      : "Enable alerts for task reminders & live calls"}
+              </p>
+              {push.error && (
+                <p role="alert" className="text-[11px] text-red-600 truncate mt-0.5">
+                  {push.error}
+                </p>
+              )}
+            </div>
+
+            <div>
+              {canTogglePush && (
+                <button
+                  type="button"
+                  onClick={push.status === "on" ? push.disable : push.enable}
+                  disabled={push.busy || push.status === "checking"}
+                  className="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
+                >
+                  {(push.busy || push.status === "checking") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {push.status === "on" ? "Turn Off" : "Turn On"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* NOTIFICATION HEADER BAR */}
+          <div className="flex items-center justify-between px-1 pt-1">
+            <span className="text-xs font-semibold text-zinc-500">
+              {notifs.status === "ready" ? `${allNotifications.length} Notifications` : "Recent Alerts"}
+            </span>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={markAllRead}
+                disabled={markingAll}
+                className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
+              >
+                <CheckCheck className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Mark all read</span>
+              </button>
+            )}
+          </div>
+
           {notifs.status === "loading" && <LoadingState label="Loading notifications..." />}
           {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={() => loadNotifs(false)} />}
-          {notifs.status === "ready" && notes.length === 0 && (
-            <EmptyState title="No notifications" description="Program updates and reminders will show up here." />
+          {notifs.status === "ready" && allNotifications.length === 0 && (
+            <EmptyState
+              title="No notifications yet"
+              description="Program updates, habit reminders, and payment receipts will appear here."
+            />
           )}
-          {notes.map((n) => (
-            <button key={n.id} type="button" onClick={() => markRead(n)} className={`w-full text-left rounded-2xl border p-3.5 ${n.isRead ? "border-zinc-200 dark:border-white/10" : "border-zinc-300 bg-white dark:bg-white/5"}`}>
-              <span className="flex items-center justify-between gap-2">
-                <span className={`text-sm ${n.isRead ? "text-zinc-600" : "font-semibold text-zinc-950 dark:text-white"}`}>{n.title}</span>
-                <span className="text-[10px] uppercase text-zinc-400">{n.isRead ? "Read" : "Unread"}</span>
-              </span>
-              <span className="block text-xs text-zinc-500 mt-1">{n.body}</span>
-              <span className="block text-[10px] text-zinc-400 mt-1">{formatDateTimeWib(n.createdAt)}</span>
+
+          {allNotifications.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => markRead(n)}
+              className={`w-full text-left rounded-2xl border p-4 transition-all shadow-sm ${
+                n.isRead
+                  ? "border-zinc-200 dark:border-white/10 bg-white/60 dark:bg-[#141414]/60"
+                  : "border-zinc-300 dark:border-white/25 bg-white dark:bg-[#181818] ring-1 ring-zinc-950/5 dark:ring-white/10"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className={`text-xs sm:text-sm ${n.isRead ? "text-zinc-700 dark:text-zinc-300 font-medium" : "font-semibold text-zinc-950 dark:text-white"}`}>
+                  {n.title}
+                </span>
+                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-full ${n.isRead ? "bg-zinc-100 dark:bg-white/5 text-zinc-400" : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"}`}>
+                  {n.isRead ? "Read" : "New"}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">{n.body}</p>
+              <span className="block text-[10px] font-mono text-zinc-400 mt-2">{formatDateTimeWib(n.createdAt)}</span>
             </button>
           ))}
         </section>
       )}
 
-      {section === "activity" && (
-        <section className="space-y-2">
-          {(notifs.status === "loading" || history.status === "loading") && <LoadingState label="Loading activity..." />}
-          {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={() => loadNotifs(false)} />}
-          {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
-          {notifs.status === "ready" && history.status === "ready" && taskNotes.length === 0 && history.data.activities.length === 0 && (
-            <EmptyState title="No recent activity" description="Completed tasks and program updates will appear here." />
-          )}
-          {taskNotes.map((n) => (
-            <article key={n.id} className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5">
-              <p className="text-sm font-medium">{n.title}</p>
-              <p className="text-xs text-zinc-500 mt-1">{n.body}</p>
-              <p className="text-[10px] text-zinc-400 mt-1">{formatDateTimeWib(n.createdAt)}</p>
-            </article>
-          ))}
-          {history.status === "ready" &&
-            history.data.activities.map((a) => (
-              <article key={a.id} className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5">
-                <p className="text-sm font-medium">{a.label}</p>
-                <p className="text-xs text-zinc-500 mt-1">{a.programTitle}</p>
-                <p className="text-[10px] text-zinc-400 mt-1">{formatDateTimeWib(a.date)}</p>
-              </article>
-            ))}
-        </section>
-      )}
-
+      {/* ================================================================= */}
+      {/* 2. SUB-TAB: HISTORY                                               */}
+      {/* ================================================================= */}
       {section === "history" && (
-        <section className="space-y-2">
+        <section className="space-y-4">
           {history.status === "loading" && <LoadingState label="Loading history..." />}
           {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
-          {notifs.status === "ready" && history.status === "ready" && completedPrograms.length === 0 && notes.length === 0 && history.data.payments.length === 0 && history.data.activities.length === 0 && (
-            <EmptyState title="No history yet" description="Earlier updates, completed programs, and payments will stay here." />
-          )}
 
+          {/* COMPLETED PROGRAMS (ALUMNI) */}
           {completedPrograms.length > 0 && (
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-zinc-500">
-                  Completed Programs ({completedPrograms.length})
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Completed Programs ({completedPrograms.length})</span>
                 </span>
               </div>
+
               {completedPrograms.map((cp) => (
                 <article
                   key={cp.programId}
-                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5 bg-white dark:bg-[#141414] space-y-2 transition-all hover:border-zinc-400 dark:hover:border-white/20"
+                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#141414] space-y-2.5 shadow-sm transition-all hover:border-zinc-400 dark:hover:border-white/20"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -297,14 +360,16 @@ export function NotificationsHistoryTab({
                       </span>
                     )}
                   </div>
+
                   {onOpenProgramDetail && (
-                    <div className="pt-1 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
                       <button
                         type="button"
                         onClick={() => onOpenProgramDetail(cp.programId)}
-                        className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white uppercase tracking-wider"
+                        className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white uppercase tracking-wider inline-flex items-center gap-1"
                       >
-                        View Details &rarr;
+                        <span>View Details</span>
+                        <ExternalLink className="w-3 h-3" />
                       </button>
                     </div>
                   )}
@@ -313,23 +378,65 @@ export function NotificationsHistoryTab({
             </div>
           )}
 
-          {notes.filter((n) => n.isRead).map((n) => (
-            <article key={n.id} className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5">
-              <p className="text-sm">{n.title}</p>
-              <p className="text-xs text-zinc-500 mt-1">{n.body}</p>
-              <p className="text-[10px] text-zinc-400 mt-1">{formatDateTimeWib(n.createdAt)}</p>
-            </article>
-          ))}
-          {history.status === "ready" &&
-            history.data.payments.map((p) => (
-              <article key={p.enrollmentId} className="rounded-2xl border border-zinc-200 dark:border-white/10 p-3.5">
-                <div className="flex justify-between gap-2">
-                  <p className="text-sm font-medium">{p.programTitle}</p>
-                  <span className="text-[10px] uppercase text-zinc-500">{p.statusLabel}</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">{formatDateTimeWib(p.transactionDate)} · {p.isFree ? "Free" : formatIdr(p.amount)}</p>
-              </article>
-            ))}
+          {/* PAYMENT & INVOICE LEDGER */}
+          {history.status === "ready" && history.data.payments.length > 0 && (
+            <div className="space-y-2.5">
+              <div className="px-1 flex items-center justify-between">
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Payment & Billing History</span>
+                </span>
+                <span className="text-[10px] font-mono text-zinc-400">
+                  {history.data.payments.length} transactions
+                </span>
+              </div>
+
+              {history.data.payments.map((p) => (
+                <article
+                  key={p.enrollmentId}
+                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#141414] space-y-2 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                        {p.programTitle}
+                      </h4>
+                      <p className="text-[10px] font-mono text-zinc-400 mt-0.5">
+                        {formatDateTimeWib(p.transactionDate)}
+                        {p.reference ? ` · Ref: ${p.reference}` : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                        p.status === "ACTIVE"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                          : p.status === "PENDING"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            : "bg-zinc-100 dark:bg-white/10 text-zinc-500"
+                      }`}
+                    >
+                      {p.statusLabel}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-xs">
+                    <span className="text-zinc-500">Total Billed</span>
+                    <span className="font-semibold text-zinc-950 dark:text-white">
+                      {p.isFree ? "Free Program" : formatIdr(p.amount)}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {/* EMPTY STATE */}
+          {history.status === "ready" && completedPrograms.length === 0 && history.data.payments.length === 0 && (
+            <EmptyState
+              title="No history yet"
+              description="Completed programs and payment receipts will be recorded here."
+            />
+          )}
         </section>
       )}
     </>
