@@ -21,7 +21,6 @@ import {
   Lock,
   MapPin,
   Meh,
-  MessageCircleQuestion,
   Moon,
   Play,
   Smile,
@@ -458,77 +457,46 @@ function TaskForm({
       {/* STEP 0: SLEEP PROTOCOL                                                */}
       {/* ===================================================================== */}
       {step === 0 && (
-        <div className="space-y-3.5">
-          {/* Coach Sleep Guideline */}
-          <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0 mt-0.5">
-              <Moon className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                Circadian Target
-              </span>
-              <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 leading-relaxed">
-                {day.sleepRecommendation || "Wind down before 22:30 WIB and aim for 7.5 to 8.5 hours of uninterrupted restorative sleep."}
-              </p>
-            </div>
-          </div>
+        <div className="space-y-4 py-1">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {day.sleepRecommendation || "Aim for 7 to 8 hours of restorative rest."}
+          </p>
 
-          {/* 2-Column Time Selector Cards */}
           <div className="grid grid-cols-2 gap-3">
-            <label className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex flex-col justify-between gap-2.5 cursor-pointer focus-within:border-zinc-900 dark:focus-within:border-white transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white">Bedtime</span>
-                <Moon className="w-3.5 h-3.5 text-zinc-400" />
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Bedtime
+              </label>
               <input
                 type="time"
                 value={bed}
                 disabled={locked}
                 onChange={(e) => setBed(e.target.value)}
-                className="w-full h-10 px-2.5 rounded-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white text-center outline-none"
+                className="w-full h-11 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-sm font-mono font-medium text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition"
               />
-              <span className="text-[10px] text-zinc-400 font-mono">Night wind-down</span>
-            </label>
+            </div>
 
-            <label className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex flex-col justify-between gap-2.5 cursor-pointer focus-within:border-zinc-900 dark:focus-within:border-white transition">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-900 dark:text-white">Wake Time</span>
-                <Sun className="w-3.5 h-3.5 text-zinc-400" />
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Wake Time
+              </label>
               <input
                 type="time"
                 value={wake}
                 disabled={locked}
                 onChange={(e) => setWake(e.target.value)}
-                className="w-full h-10 px-2.5 rounded-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white text-center outline-none"
+                className="w-full h-11 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-sm font-mono font-medium text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition"
               />
-              <span className="text-[10px] text-zinc-400 font-mono">Morning rise</span>
-            </label>
+            </div>
           </div>
 
-          {/* Duration & Quality Meter */}
-          {totalSleepMins > 0 && sleepQuality && (
-            <div className="p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                    Total Rest Duration
-                  </span>
-                  <span className="text-lg font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
-                    {formatDuration(totalSleepMins)}
-                  </span>
-                </div>
-                <span className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${sleepQuality.cls}`}>
-                  {sleepQuality.label}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
-                  style={{ width: `${Math.min(100, Math.round((totalSleepMins / 480) * 100))}%` }}
-                />
-              </div>
+          {totalSleepMins > 0 && (
+            <div className="pt-1 flex items-center justify-between text-xs text-zinc-500">
+              <span>Recorded Rest</span>
+              <span className="font-mono font-semibold text-zinc-900 dark:text-white">
+                {formatDuration(totalSleepMins)}
+                {sleepQuality ? ` · ${sleepQuality.label.split(" (")[0]}` : ""}
+              </span>
             </div>
           )}
         </div>
@@ -998,10 +966,9 @@ function TaskForm({
       {step === 2 && (
         <div className="space-y-4">
           <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-white">
-              <Utensils className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Daily Nutrition Guide</span>
-            </div>
+            <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+              Nutrition Guide
+            </span>
             {recommendedMeals.length > 0 ? (
               <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
                 {recommendedMeals.map((line, idx) => (
@@ -1013,14 +980,14 @@ function TaskForm({
               </ul>
             ) : (
               <p className="text-xs text-zinc-600 dark:text-zinc-300">
-                Prioritize whole, anti-inflammatory foods, adequate lean protein, and proper hydration throughout the day.
+                Prioritize whole, anti-inflammatory foods, lean protein, and hydration.
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-              Select Compliance Status
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block">
+              Compliance
             </span>
             <div className="grid grid-cols-2 gap-2.5">
               <button
@@ -1028,19 +995,14 @@ function TaskForm({
                 disabled={locked}
                 aria-pressed={meal.followed === true}
                 onClick={() => setMeal({ followed: true, actual: "" })}
-                className={`p-3.5 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                className={`h-11 px-3.5 rounded-xl border text-xs font-semibold transition flex items-center justify-between ${
                   meal.followed === true
                     ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">Followed Guide</span>
-                  {meal.followed === true && <Check className="w-3.5 h-3.5" />}
-                </div>
-                <span className={`text-[10px] ${meal.followed === true ? "opacity-75" : "text-zinc-400"}`}>
-                  Stuck to today&apos;s meal plan
-                </span>
+                <span>Followed Plan</span>
+                {meal.followed === true && <Check className="w-3.5 h-3.5" />}
               </button>
 
               <button
@@ -1048,19 +1010,14 @@ function TaskForm({
                 disabled={locked}
                 aria-pressed={meal.followed === false}
                 onClick={() => setMeal((d) => ({ ...d, followed: false }))}
-                className={`p-3.5 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                className={`h-11 px-3.5 rounded-xl border text-xs font-semibold transition flex items-center justify-between ${
                   meal.followed === false
                     ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">Custom Meal</span>
-                  {meal.followed === false && <Check className="w-3.5 h-3.5" />}
-                </div>
-                <span className={`text-[10px] ${meal.followed === false ? "opacity-75" : "text-zinc-400"}`}>
-                  Had a custom meal today
-                </span>
+                <span>Custom Meal</span>
+                {meal.followed === false && <Check className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
@@ -1639,7 +1596,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         typeof document !== "undefined" &&
         createPortal(
           <div onScroll={handleTaskDetailScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            {/* FLOATING HEADER: BACK BUTTON + ASK BUTTON (HIDES ON SCROLL-DOWN) */}
+            {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
               className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
@@ -1649,7 +1606,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               <button
                 type="button"
                 onClick={() => setDetailOpen(false)}
-                className="pointer-events-auto h-9 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+                className="pointer-events-auto h-8 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
@@ -1664,57 +1621,53 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pointer-events-auto h-9 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center"
               >
-                <MessageCircleQuestion className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Ask</span>
+                <span>{props.communityLink ? "Community" : "Concierge"}</span>
               </a>
             </header>
 
-            {/* TOP BANNER IMAGE (TITLE & METADATA OVERLAY) */}
-            <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
+            {/* TOP BANNER IMAGE (SPACIOUS, CLEAN OVERLAY) */}
+            <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-zinc-950 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentTask.image}
                 alt=""
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
-              {/* Title and metadata overlying the image banner */}
-              <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-5 sm:px-7 z-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
-                  <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 font-bold shadow-sm">
-                    Day {selectedDay.dayNumber}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
-                    {currentTask.category}
+              {/* Title and metadata overlying the image banner with generous breathing room */}
+              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold">
+                    Day {selectedDay.dayNumber} · {currentTask.category}
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded-full font-semibold ${
+                    className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${
                       selectedDone[step]
                         ? "bg-emerald-500/80 text-white"
                         : isSelectedPast
                           ? "bg-white/20 text-white/80"
-                          : "bg-white/30 backdrop-blur-md text-white"
+                          : "bg-white/25 backdrop-blur-md text-white"
                     }`}
                   >
                     {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
                   </span>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight drop-shadow-md">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
                   {currentTask.title}
                 </h1>
 
-                <p className="text-xs text-white/80 font-medium drop-shadow-sm">
+                <p className="text-xs text-white/70 font-normal line-clamp-2">
                   {currentTask.description}
                 </p>
               </div>
             </div>
 
             {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
-            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-5 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
               {/* Bordered Task Content Section */}
               <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-4 shadow-sm">
                 <TaskForm

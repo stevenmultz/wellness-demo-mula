@@ -15,7 +15,6 @@ import {
   ExternalLink,
   Info,
   MapPin,
-  MessageCircleQuestion,
   Moon,
   Users,
   Utensils,
@@ -946,7 +945,7 @@ function ProgramPreparationWidgets({
         typeof document !== "undefined" &&
         createPortal(
           <div onScroll={handlePrepScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
-            {/* FLOATING HEADER: BACK BUTTON + ASK BUTTON (HIDES ON SCROLL-DOWN) */}
+            {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
               className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
@@ -956,7 +955,7 @@ function ProgramPreparationWidgets({
               <button
                 type="button"
                 onClick={() => setActivePage(null)}
-                className="pointer-events-auto h-9 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+                className="pointer-events-auto h-8 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
@@ -971,15 +970,14 @@ function ProgramPreparationWidgets({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pointer-events-auto h-9 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center"
               >
-                <MessageCircleQuestion className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Ask</span>
+                <span>{program.communityLink ? "Community" : "Concierge"}</span>
               </a>
             </header>
 
-            {/* TOP BANNER IMAGE (TITLE & METADATA OVERLAY) */}
-            <div className="relative h-80 sm:h-96 w-full overflow-hidden bg-zinc-900 shrink-0">
+            {/* TOP BANNER IMAGE (SPACIOUS, CLEAN OVERLAY) */}
+            <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-zinc-950 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={
@@ -992,24 +990,15 @@ function ProgramPreparationWidgets({
                 alt=""
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
-              {/* Title and metadata overlying the image banner */}
-              <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-5 sm:px-7 z-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider font-semibold">
-                  <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 font-bold shadow-sm">
-                    {program.title}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20">
-                    {activePage === "meal"
-                      ? "Nutrition Protocol"
-                      : activePage === "meetup"
-                        ? "Live Interactive"
-                        : "Gear Checklist"}
-                  </span>
-                </div>
+              {/* Title and metadata overlying the image banner with generous breathing room */}
+              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1.5">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold block">
+                  {program.title} · {activePage === "meal" ? "Nutrition Guide" : activePage === "meetup" ? "Sessions" : "Equipment"}
+                </span>
 
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight drop-shadow-md">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
                   {activePage === "meal"
                     ? "Meal Preparation Guide"
                     : activePage === "meetup"
@@ -1017,18 +1006,18 @@ function ProgramPreparationWidgets({
                       : "Required Equipment"}
                 </h1>
 
-                <p className="text-xs text-white/80 font-medium drop-shadow-sm">
+                <p className="text-xs text-white/70 font-normal">
                   {activePage === "meal"
-                    ? `Day 1 to Day ${totalDaysCount} Daily Protocols`
+                    ? `Day 1 – Day ${totalDaysCount} daily protocol`
                     : activePage === "meetup"
-                      ? "Cohort Workshops & Livestreams"
-                      : "Required Items & Setup"}
+                      ? "Workshops & scheduled calls"
+                      : "Gear checklist for active days"}
                 </p>
               </div>
             </div>
 
             {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
-            <div className="relative -mt-10 sm:-mt-12 z-10 rounded-t-[36px] sm:rounded-t-[40px] border-t-2 border-x border-zinc-200 dark:border-white/15 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-5 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
               {/* Bordered List Container Section */}
               <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-sm">
                 {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
