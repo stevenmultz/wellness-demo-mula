@@ -1632,10 +1632,51 @@ export function DashboardClient({
         ))}
       </nav>
 
+      {/* Subtle Editorial Motion-Blur Ambient Backdrop (Adapts to Light & Dark Theme, 0 GPU Blur Overhead) */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+      >
+        {/* Static directional monochrome motion-blur streaks (Light & Dark adaptive) */}
+        <div
+          className="absolute inset-0 opacity-75 dark:opacity-100 transition-opacity duration-500"
+          style={{
+            backgroundImage:
+              activeTab === "my_plan"
+                ? "radial-gradient(120% 55% at 85% 0%, rgba(120,120,128,0.13) 0%, transparent 70%), linear-gradient(115deg, transparent 20%, rgba(140,140,148,0.07) 48%, transparent 75%)"
+                : activeTab === "all_plan"
+                  ? "radial-gradient(120% 55% at 15% 0%, rgba(120,120,128,0.13) 0%, transparent 70%), linear-gradient(65deg, transparent 22%, rgba(140,140,148,0.07) 50%, transparent 78%)"
+                  : activeTab === "notifications"
+                    ? "radial-gradient(110% 50% at 50% 0%, rgba(120,120,128,0.12) 0%, transparent 68%), linear-gradient(135deg, transparent 25%, rgba(140,140,148,0.06) 52%, transparent 80%)"
+                    : "radial-gradient(120% 55% at 80% 10%, rgba(120,120,128,0.12) 0%, transparent 70%), linear-gradient(102deg, transparent 18%, rgba(140,140,148,0.07) 46%, transparent 74%)",
+          }}
+        />
+        {/* Whisper-soft motion-blur photographic grain/wash at top of viewport */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={
+            activeTab === "my_plan"
+              ? "/image.webp"
+              : activeTab === "all_plan"
+                ? "/pic.webp"
+                : activeTab === "notifications"
+                  ? "/test.webp"
+                  : "/coach.webp"
+          }
+          alt=""
+          decoding="async"
+          className="w-full h-[52vh] object-cover opacity-[0.06] dark:opacity-[0.11]"
+          style={{
+            WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 45%, transparent 100%)",
+            maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 45%, transparent 100%)",
+          }}
+        />
+      </div>
+
       {/* Main Content Area with safe-area spacing */}
       <main
         style={{ paddingTop: "max(6rem, calc(4.75rem + env(safe-area-inset-top)))" }}
-        className="max-w-5xl mx-auto px-3.5 sm:px-8 pb-28 sm:pb-32 flex-1 w-full space-y-6 sm:space-y-8"
+        className="relative z-10 max-w-5xl mx-auto px-3.5 sm:px-8 pb-28 sm:pb-32 flex-1 w-full space-y-6 sm:space-y-8"
       >
         {actionNotice && (
           <div
@@ -1674,6 +1715,7 @@ export function DashboardClient({
                     startDate: overviewEnrollment.startDate,
                     endDate: overviewEnrollment.endDate,
                     communityLink: overviewEnrollment.communityLink,
+                    scientificReferences: currentProgram.scientificReferences || [],
                     totalDays: currentProgram.days.length || currentProgram.durationDays || 0,
                     isUpcoming: isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
                   }
