@@ -57,8 +57,8 @@ export interface DailyCheckInProps {
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
-  widgetIndex?: 0 | 1;
-  onSwitchWidget?: (index: 0 | 1) => void;
+  widgetIndex?: 0 | 1 | 2;
+  onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }
 
 function getTasksForDay(dayType: string) {
@@ -464,43 +464,55 @@ function TaskForm({
             {day.sleepRecommendation || "Aim for 7 to 8 hours of restorative rest."}
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Bedtime
-              </label>
+          <div className="space-y-3">
+            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <label htmlFor="input-bedtime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Bedtime
+                </label>
+                <span className="text-xs text-zinc-400 block mt-0.5">Time you went to sleep</span>
+              </div>
               <input
+                id="input-bedtime"
                 type="time"
                 value={bed}
                 disabled={locked}
                 onChange={(e) => setBed(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-sm font-mono font-medium text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition"
+                placeholder="Enter bedtime"
+                aria-label="Enter bedtime"
+                className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Wake Time
-              </label>
+            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <label htmlFor="input-waketime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Wake Time
+                </label>
+                <span className="text-xs text-zinc-400 block mt-0.5">Time you woke up</span>
+              </div>
               <input
+                id="input-waketime"
                 type="time"
                 value={wake}
                 disabled={locked}
                 onChange={(e) => setWake(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-sm font-mono font-medium text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition"
+                placeholder="Enter wake time"
+                aria-label="Enter wake time"
+                className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
               />
             </div>
-          </div>
 
-          {totalSleepMins > 0 && (
-            <div className="pt-1 flex items-center justify-between text-xs text-zinc-500">
-              <span>Recorded Rest</span>
-              <span className="font-mono font-semibold text-zinc-900 dark:text-white">
-                {formatDuration(totalSleepMins)}
-                {sleepQuality ? ` · ${sleepQuality.label.split(" (")[0]}` : ""}
-              </span>
-            </div>
-          )}
+            {totalSleepMins > 0 && (
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between text-xs">
+                <span className="text-zinc-500 font-medium">Recorded Rest</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-white">
+                  {formatDuration(totalSleepMins)}
+                  {sleepQuality ? ` · ${sleepQuality.label.split(" (")[0]}` : ""}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -759,7 +771,7 @@ function TaskForm({
                     disabled={locked}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
-                    placeholder="Enter your session notes, weights used, or physical feedback..."
+                    placeholder="Enter session notes..."
                     className={areaCls}
                   />
                 </label>
@@ -870,7 +882,7 @@ function TaskForm({
               disabled={locked}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Enter how your body feels today and any recovery observations..."
+              placeholder="Enter recovery notes..."
               className={areaCls}
             />
           </label>
@@ -955,7 +967,7 @@ function TaskForm({
               disabled={locked}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Enter your attendance notes and key takeaways from today's session..."
+              placeholder="Enter attendance notes..."
               className={areaCls}
             />
           </label>
@@ -1032,7 +1044,7 @@ function TaskForm({
                 disabled={locked}
                 onChange={(e) => setMeal((d) => ({ ...d, actual: e.target.value }))}
                 rows={3}
-                placeholder="Enter the meals and nutrition you consumed today..."
+                placeholder="Enter consumed meals..."
                 className={areaCls}
               />
             </label>
@@ -1094,7 +1106,7 @@ function TaskForm({
               onChange={(e) => setReview(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="Enter your daily reflection, physical sensation, and thoughts..."
+              placeholder="Enter daily reflection..."
               className={areaCls}
             />
           </label>
@@ -1371,9 +1383,16 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             <button
               type="button"
               onClick={() => props.onSwitchWidget?.(1)}
-              className="h-6 px-2.5 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
             >
-              02 Guides
+              02
+            </button>
+            <button
+              type="button"
+              onClick={() => props.onSwitchWidget?.(2)}
+              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+            >
+              03
             </button>
           </div>
         )}
@@ -1641,7 +1660,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 href={
                   (props.communityLink ? safeHttpUrl(props.communityLink) : null) ||
                   `https://wa.me/6281290002026?text=${encodeURIComponent(
-                    `Halo Coach, saya ingin bertanya tentang tugas Day ${selectedDay.dayNumber} - ${currentTask.title}${props.programTitle ? ` (${props.programTitle})` : ""}`
+                    `Hello Coach, I would like to ask about Day ${selectedDay.dayNumber} task - ${currentTask.title}${props.programTitle ? ` (${props.programTitle})` : ""}`
                   )}`
                 }
                 target="_blank"

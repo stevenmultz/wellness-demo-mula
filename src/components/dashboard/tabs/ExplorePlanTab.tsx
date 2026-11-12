@@ -364,8 +364,8 @@ export function ExplorePlanTab({
               inputMode="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search programs"
-              aria-label="Search programs"
+              placeholder="Enter program name or keyword..."
+              aria-label="Enter program name or keyword..."
               maxLength={100}
               className="w-full bg-transparent outline-none text-base text-zinc-950 dark:text-white placeholder:text-zinc-500"
             />

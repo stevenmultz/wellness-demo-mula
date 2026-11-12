@@ -174,9 +174,9 @@ export function ProgramDetailView({
       <button
         type="button"
         onClick={onOpenPlan}
-        className="px-6 py-2.5 rounded-full bg-white text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
       >
-        Open My Plan
+        Open Plan
       </button>
     );
   } else if (enrollmentStatus === "PENDING" || badge === "Open Registration") {
@@ -184,7 +184,7 @@ export function ProgramDetailView({
       <button
         type="button"
         onClick={onEnroll}
-        className="px-6 py-2.5 rounded-full bg-white text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
       >
         {enrollmentStatus === "PENDING" ? "Complete Payment" : program.price > 0 ? "Enroll Now" : "Join Program"}
       </button>
@@ -195,13 +195,13 @@ export function ProgramDetailView({
         href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Hello Concierge, I would like to join the waitlist for: ${program.title}`)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="px-6 py-2.5 rounded-full bg-white text-zinc-950 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition"
       >
         Join Waitlist
       </a>
     );
   } else {
-    action = <span className="text-xs font-mono uppercase tracking-wider text-white/70">Registration Closed</span>;
+    action = <span className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Closed</span>;
   }
 
   type SectionKey = "overview" | "timeline" | "sessions" | "meals" | "equipment" | "blueprint" | "terms";
@@ -237,7 +237,7 @@ export function ProgramDetailView({
   const conciergeUrl =
     community ||
     `https://wa.me/6281290002026?text=${encodeURIComponent(
-      `Halo Coach, saya ingin bertanya tentang program: ${program.title}`
+      `Hello Concierge, I would like to inquire about program: ${program.title}`
     )}`;
 
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -957,15 +957,15 @@ export function ProgramDetailView({
         </div>
       </div>
 
-      {/* FIXED BOTTOM ACTION BAR */}
-      <div className="fixed bottom-0 inset-x-0 z-[61] border-t border-zinc-200/60 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-white/60">
+      {/* FLOATING STICKY BOTTOM DOCK WIDGET */}
+      <div className="fixed bottom-3 sm:bottom-4 inset-x-0 z-[61] px-4 pointer-events-none">
+        <div className="max-w-xl mx-auto rounded-3xl border border-zinc-200/80 dark:border-white/15 bg-white/95 dark:bg-[#141414]/95 backdrop-blur-2xl shadow-2xl p-3.5 sm:px-5 flex items-center justify-between gap-3 pointer-events-auto">
+          <div className="min-w-0">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate">
               {enrolled ? "Active Member" : badge} · {seatsLeft} slots left
             </p>
             <div className="flex items-baseline gap-2">
-              <p className="text-base font-bold text-zinc-950 dark:text-white">
+              <p className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
                 {program.price > 0 ? formatIdr(program.price) : "Free"}
               </p>
               {discountPct > 0 && !enrolled && (
@@ -973,7 +973,7 @@ export function ProgramDetailView({
               )}
             </div>
           </div>
-          {action}
+          <div className="shrink-0">{action}</div>
         </div>
       </div>
     </div>

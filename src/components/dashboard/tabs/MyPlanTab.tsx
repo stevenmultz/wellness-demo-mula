@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
+  BarChart3,
   BookOpen,
   Calendar,
   CheckCircle2,
@@ -350,7 +351,7 @@ export function MyPlanOverview({
     (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
   ).length;
 
-  const [widgetIndex, setWidgetIndex] = useState<0 | 1>(0);
+  const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(0);
   const touchStartXRef = useRef<number | null>(null);
 
   const handleWidgetTouchStart = (e: React.TouchEvent) => {
@@ -361,10 +362,10 @@ export function MyPlanOverview({
     if (touchStartXRef.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
     touchStartXRef.current = null;
-    if (deltaX < -60) {
-      setWidgetIndex(1);
-    } else if (deltaX > 60) {
-      setWidgetIndex(0);
+    if (deltaX < -50) {
+      setWidgetIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
+    } else if (deltaX > 50) {
+      setWidgetIndex((prev) => (prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev));
     }
   };
 
@@ -506,18 +507,55 @@ export function MyPlanOverview({
             </dl>
           </section>
 
-          <CohortPerformanceCard
-            days={fullProgramDays}
-            currentDayNumber={currentDayNumber}
-          />
+          {/* 3-INDEX NAVIGATION WIDGET */}
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1.5 shadow-xs">
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                type="button"
+                onClick={() => setWidgetIndex(0)}
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+                  widgetIndex === 0
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Tasks</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWidgetIndex(1)}
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+                  widgetIndex === 1
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5 shrink-0" />
+                <span>Guides</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWidgetIndex(2)}
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+                  widgetIndex === 2
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                <span>Indicators</span>
+              </button>
+            </div>
+          </section>
 
-          {day ? (
-            <div
-              onTouchStart={handleWidgetTouchStart}
-              onTouchEnd={handleWidgetTouchEnd}
-              className="transition-all duration-200"
-            >
-              {widgetIndex === 0 ? (
+          <div
+            onTouchStart={handleWidgetTouchStart}
+            onTouchEnd={handleWidgetTouchEnd}
+            className="transition-all duration-200"
+          >
+            {widgetIndex === 0 ? (
+              day ? (
                 <DailyCheckIn
                   key={day.id}
                   day={day}
@@ -543,17 +581,23 @@ export function MyPlanOverview({
                   onSwitchWidget={setWidgetIndex}
                 />
               ) : (
-                <ProgramPreparationWidgets
-                  program={program}
-                  days={fullProgramDays}
-                  currentDayId={day?.id}
-                  onSwitchWidget={setWidgetIndex}
-                />
-              )}
-            </div>
-          ) : (
-            <EmptyState title="No tasks today" description="There is no open session for today." />
-          )}
+                <EmptyState title="No tasks today" description="There is no open session for today." />
+              )
+            ) : widgetIndex === 1 ? (
+              <ProgramPreparationWidgets
+                program={program}
+                days={fullProgramDays}
+                currentDayId={day?.id}
+                onSwitchWidget={setWidgetIndex}
+              />
+            ) : (
+              <CohortPerformanceCard
+                days={fullProgramDays}
+                currentDayNumber={currentDayNumber}
+                onSwitchWidget={setWidgetIndex}
+              />
+            )}
+          </div>
 
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-sm font-medium">Community</p>
@@ -616,9 +660,11 @@ function FiveBarMeter({ score }: { score: number }) {
 function CohortPerformanceCard({
   days,
   currentDayNumber: _currentDayNumber,
+  onSwitchWidget,
 }: {
   days: PlanDay[];
   currentDayNumber: number;
+  onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
   void _currentDayNumber;
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
@@ -670,56 +716,91 @@ function CohortPerformanceCard({
     mealTotal > 0 ? Math.round((mealFollowed / mealTotal) * 5) : 0;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3.5">
-      {/* 1. SLEEP AVERAGE (1–5 BAR) */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
-            <Moon className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Sleep Average</span>
-            {avgSleepMins > 0 && (
-              <span className="text-zinc-400 font-normal">
-                · {formatSleepHours(avgSleepMins)}
-              </span>
-            )}
-          </span>
-          <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-            {sleepScore} / 5
-          </span>
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      {onSwitchWidget && (
+        <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Indicators</h2>
+            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Sleep score, training & meal compliance</p>
+          </div>
+
+          <div className="flex items-center p-1 rounded-full bg-zinc-100 dark:bg-white/10 text-xs font-mono font-semibold shrink-0">
+            <button
+              type="button"
+              onClick={() => onSwitchWidget(0)}
+              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+            >
+              01
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchWidget(1)}
+              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+            >
+              02
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchWidget(2)}
+              className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+            >
+              03 Indicators
+            </button>
+          </div>
         </div>
-        <FiveBarMeter score={sleepScore} />
-      </div>
+      )}
 
-      <div className="border-t border-zinc-100 dark:border-white/10" />
-
-      {/* 2. TRAINING COUNT */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
-            <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Training</span>
-          </span>
-          <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-            {trainingDone} / {trainingTotal}
-          </span>
+      <div className="p-4 space-y-3.5">
+        {/* 1. SLEEP AVERAGE (1–5 BAR) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Moon className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Sleep Average</span>
+              {avgSleepMins > 0 && (
+                <span className="text-zinc-400 font-normal">
+                  · {formatSleepHours(avgSleepMins)}
+                </span>
+              )}
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {sleepScore} / 5
+            </span>
+          </div>
+          <FiveBarMeter score={sleepScore} />
         </div>
-        <FiveBarMeter score={trainingScore} />
-      </div>
 
-      <div className="border-t border-zinc-100 dark:border-white/10" />
+        <div className="border-t border-zinc-100 dark:border-white/10" />
 
-      {/* 3. MEAL COUNT */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
-            <Utensils className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Meal</span>
-          </span>
-          <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-            {mealFollowed} / {mealTotal}
-          </span>
+        {/* 2. TRAINING COUNT */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Training</span>
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {trainingDone} / {trainingTotal}
+            </span>
+          </div>
+          <FiveBarMeter score={trainingScore} />
         </div>
-        <FiveBarMeter score={mealScore} />
+
+        <div className="border-t border-zinc-100 dark:border-white/10" />
+
+        {/* 3. MEAL COUNT */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Utensils className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Meal</span>
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {mealFollowed} / {mealTotal}
+            </span>
+          </div>
+          <FiveBarMeter score={mealScore} />
+        </div>
       </div>
     </section>
   );
@@ -798,7 +879,7 @@ function ProgramPreparationWidgets({
   program: PlanProgramInfo;
   days: PlanDay[];
   currentDayId?: string;
-  onSwitchWidget?: (index: 0 | 1) => void;
+  onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
   const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | null>(null);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
@@ -985,9 +1066,9 @@ function ProgramPreparationWidgets({
               <button
                 type="button"
                 onClick={() => onSwitchWidget(0)}
-                className="h-6 px-2.5 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+                className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
               >
-                01 Tasks
+                01
               </button>
               <button
                 type="button"
@@ -995,6 +1076,13 @@ function ProgramPreparationWidgets({
                 className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
               >
                 02 Guides
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchWidget(2)}
+                className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+              >
+                03
               </button>
             </div>
           </div>
@@ -1034,12 +1122,12 @@ function ProgramPreparationWidgets({
                 href={
                   safeHttpUrl(program.communityLink) ||
                   `https://wa.me/6281290002026?text=${encodeURIComponent(
-                    `Halo Coach, saya ingin bertanya tentang ${activePage === "meal" ? "Meal Preparation" : activePage === "meetup" ? "Meetups & Sessions" : "Required Equipment"} di program: ${program.title}`
+                    `Hello Concierge, I would like to inquire about ${activePage === "meal" ? "Meals" : activePage === "meetup" ? "Sessions" : "Equipment"} in program: ${program.title}`
                   )}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center"
+                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
               >
                 <span>{program.communityLink ? "Community" : "Concierge"}</span>
               </a>
@@ -1062,29 +1150,29 @@ function ProgramPreparationWidgets({
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
               {/* Title and metadata overlying the image banner with generous breathing room */}
-              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1.5">
+              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold block">
                   {activePage === "meal"
-                    ? "Nutrition Protocol"
+                    ? "Nutrition"
                     : activePage === "meetup"
-                      ? "Interactive Schedule"
-                      : "Gear Checklist"}
+                      ? "Schedule"
+                      : "Gear"}
                 </span>
 
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
                   {activePage === "meal"
-                    ? "Meal Guide"
+                    ? "Meals"
                     : activePage === "meetup"
-                      ? "Live Sessions"
-                      : "Required Equipment"}
+                      ? "Sessions"
+                      : "Equipment"}
                 </h1>
 
                 <p className="text-xs text-white/70 font-normal">
                   {activePage === "meal"
-                    ? "Whole-food nutrition and recovery hydration."
+                    ? "Daily whole-food nutrition and recovery hydration."
                     : activePage === "meetup"
-                      ? "Workshops, live coaching check-ins, and meetups."
-                      : "Essential gear for active training days."}
+                      ? "Interactive live meetups and workshops."
+                      : "Required training gear checklist."}
                 </p>
               </div>
             </div>
