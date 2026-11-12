@@ -721,7 +721,7 @@ export async function wellnessAdminSetProgramStatus(
     if (activeEnrollments > 0) {
       return {
         success: false,
-        message: `Tidak dapat mengubah status: Ada ${activeEnrollments} peserta aktif yang terdaftar di cohort ini. Batalkan publikasi melalui tombol Unpublish resmi jika sudah tidak ada peserta aktif.`,
+        message: `Cannot update status: There are ${activeEnrollments} active participant(s) enrolled in this cohort. Use the official Unpublish action once no active participants remain.`,
       };
     }
   }

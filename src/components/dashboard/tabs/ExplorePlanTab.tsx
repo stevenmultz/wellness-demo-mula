@@ -783,7 +783,7 @@ export function ExplorePlanTab({
                               {p.price > 0 ? formatIdr(p.price) : "Free"}
                             </span>
                             {p.discountPercentage && p.discountPercentage > 0 && p.actualPrice && p.actualPrice > p.price ? (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                                 -{p.discountPercentage}%
                               </span>
                             ) : null}

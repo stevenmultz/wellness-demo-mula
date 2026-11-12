@@ -811,7 +811,7 @@ export function ProgramDetailView({
                       key={idx}
                       className="py-2.5 px-3 rounded-xl bg-zinc-50/50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2 text-zinc-800 dark:text-zinc-200"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0" />
                       <span className="font-medium">{item}</span>
                     </div>
                   ))}
@@ -882,7 +882,7 @@ export function ProgramDetailView({
                           key={idx}
                           className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
                         >
-                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                          <Check className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
                           <span>{benefit}</span>
                         </li>
                       ))}

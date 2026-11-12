@@ -1,14 +1,14 @@
 import { getWellnessSession } from "./session";
 
 export class WellnessAuthError extends Error {
-  constructor(message: string = "Silakan login terlebih dahulu.") {
+  constructor(message: string = "Please sign in first.") {
     super(message);
     this.name = "WellnessAuthError";
   }
 }
 
 export class WellnessForbiddenError extends Error {
-  constructor(message: string = "Akses ditolak: Anda tidak memiliki izin untuk tindakan ini.") {
+  constructor(message: string = "Access denied: You do not have permission for this action.") {
     super(message);
     this.name = "WellnessForbiddenError";
   }

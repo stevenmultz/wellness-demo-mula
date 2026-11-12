@@ -1156,7 +1156,7 @@ export function DashboardClient({
       if (publicBadge && publicBadge !== "Open Registration") {
         setActionNotice({
           type: "error",
-          text: `Pendaftaran tidak dibuka untuk program ini (Status: ${publicBadge}).`,
+          text: `Registration is not open for this program (Status: ${publicBadge}).`,
         });
         setTimeout(() => setActionNotice(null), 4000);
         return;
@@ -1233,7 +1233,7 @@ export function DashboardClient({
     if (isIos && !isStandalone) {
       setActionNotice({
         type: "error",
-        text: "Syarat iPhone: Ketuk ikon Share (kotak panah) di Safari > 'Add to Home Screen' lalu buka dari Home Screen untuk mengaktifkan notifikasi saat layar mati.",
+        text: "iPhone Requirement: Tap the Share icon in Safari > 'Add to Home Screen', then launch the app from your Home Screen to enable notifications.",
       });
       setTimeout(() => setActionNotice(null), 8000);
       return;

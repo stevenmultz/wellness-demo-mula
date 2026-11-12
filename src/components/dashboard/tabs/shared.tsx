@@ -137,7 +137,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
         <button
           type="button"
           onClick={onRetry}
-          className="px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
+          className="px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 active:scale-95 transition"
         >
           Try again
         </button>

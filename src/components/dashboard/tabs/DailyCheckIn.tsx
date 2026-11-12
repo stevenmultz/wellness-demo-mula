@@ -159,18 +159,18 @@ function sleepQualityLabel(mins: number): { label: string; cls: string } {
   if (mins >= 420 && mins <= 540) {
     return {
       label: "Optimal Recovery (7–9h)",
-      cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40",
+      cls: "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-200 dark:border-white/15",
     };
   }
   if (mins >= 360) {
     return {
       label: "Moderate Rest",
-      cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
+      cls: "bg-zinc-100/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/10",
     };
   }
   return {
     label: "Sleep Deficit (<6h)",
-    cls: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800/40",
+    cls: "bg-zinc-100/50 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10",
   };
 }
 
@@ -1049,15 +1049,15 @@ function TaskForm({
                         {checked && targetLabel && (
                           <div className="mt-1.5 ml-7 flex items-center gap-2">
                             {currentReps === targetReps ? (
-                              <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+                              <span className="text-[10px] font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-2 py-0.5 rounded-full">
                                 Target Met ({targetReps} reps)
                               </span>
                             ) : currentReps < targetReps ? (
-                              <span className="text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                              <span className="text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 px-2 py-0.5 rounded-full">
                                 {currentReps} of {targetReps} reps completed (Target: {targetLabel})
                               </span>
                             ) : (
-                              <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+                              <span className="text-[10px] font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-2 py-0.5 rounded-full">
                                 Exceeded target by +{currentReps - targetReps} reps!
                               </span>
                             )}
@@ -1163,7 +1163,7 @@ function TaskForm({
             <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
                     <AlertTriangle className="w-4 h-4" />
                   </div>
                   <div className="space-y-1">
@@ -1408,8 +1408,8 @@ function TaskForm({
                     <Star
                       className={`w-7 h-7 transition-colors ${
                         filled
-                          ? "fill-amber-400 text-amber-400"
-                          : "text-zinc-300 dark:text-zinc-600"
+                          ? "fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white"
+                          : "text-zinc-300 dark:text-zinc-700"
                       }`}
                     />
                   </button>
@@ -2191,7 +2191,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       : isTodayItem
                         ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white font-semibold"
                         : isDoneItem
-                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40"
+                          ? "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/20"
                           : isPastItem
                             ? "bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
                             : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
@@ -2199,7 +2199,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 >
                   <span>{dateStr}</span>
                   <span className="opacity-80 font-normal">{dayTypeWord}</span>
-                  {isDoneItem && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 ml-0.5" />}
+                  {isDoneItem && <Check className="w-3 h-3 text-zinc-950 dark:text-white ml-0.5" />}
                 </button>
               );
             })}
@@ -2346,9 +2346,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </button>
           </div>
         ) : day.userProgress?.isCompleted ? (
-          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
               <span>Today&apos;s Routine Completed</span>
             </span>
             <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
@@ -2356,12 +2356,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </span>
           </div>
         ) : allDone ? (
-          <div className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/30 flex items-center justify-between text-xs font-medium text-emerald-800 dark:text-emerald-300">
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
               <span>All daily tasks submitted for today</span>
             </span>
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold">Done</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">Done</span>
           </div>
         ) : null}
       </div>
@@ -2375,7 +2375,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
           >
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
@@ -2427,7 +2427,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   <span
                     className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${
                       selectedDone[step]
-                        ? "bg-emerald-500/80 text-white"
+                        ? "bg-white text-zinc-950 font-semibold"
                         : isSelectedPast
                           ? "bg-white/20 text-white/80"
                           : "bg-white/25 backdrop-blur-md text-white"

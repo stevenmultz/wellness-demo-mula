@@ -9717,7 +9717,7 @@ export function AdminClient({
                                         key={idx}
                                         className={`w-3 h-3 ${
                                           idx < sub.happinessRate!
-                                            ? "text-zinc-400 fill-amber-400"
+                                            ? "fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white"
                                             : "text-zinc-300 dark:text-zinc-600"
                                         }`}
                                       />
@@ -10492,7 +10492,7 @@ export function AdminClient({
 
                                       {sub.happinessRate !== null && sub.happinessRate !== undefined && (
                                         <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
-                                          <Star className="w-3 h-3 fill-amber-400 text-zinc-400" />
+                                          <Star className="w-3 h-3 fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white" />
                                           <span>{sub.happinessRate}/5</span>
                                         </span>
                                       )}
@@ -10753,7 +10753,7 @@ export function AdminClient({
                                                 key={idx}
                                                 className={`w-3 h-3 ${
                                                   idx < sub.happinessRate!
-                                                    ? "text-zinc-400 fill-amber-400"
+                                                    ? "fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white"
                                                     : "text-zinc-300 dark:text-zinc-600"
                                                 }`}
                                               />

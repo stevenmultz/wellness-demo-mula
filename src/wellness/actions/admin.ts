@@ -90,7 +90,7 @@ export async function wellnessAdminUpdateUserRole(
   if (newRole === "SUPERADMIN") {
     return {
       success: false,
-      message: "Hanya boleh ada 1 Superadmin pada sistem. Customer tidak dapat dipromosikan.",
+      message: "Only one Superadmin is permitted in the system. Users cannot be promoted to Superadmin.",
     };
   }
 

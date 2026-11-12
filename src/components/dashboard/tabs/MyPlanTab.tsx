@@ -1070,7 +1070,7 @@ function ProgramCommunityWidget({
           className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
           <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto shadow-2xs">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto shadow-2xs">
               <Shield className="w-6 h-6" />
             </div>
 
@@ -1334,9 +1334,9 @@ function ProgramReportDetailModal({
               </div>
 
               {activeTab === "quit" && (
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/30 text-xs text-amber-800 dark:text-amber-300 space-y-1">
-                  <p className="font-semibold">Need a temporary pause instead?</p>
-                  <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
+                  <p className="font-semibold text-zinc-900 dark:text-white">Need a temporary pause instead?</p>
+                  <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
                     You can pause your schedule and resume when your routine clears up. You don&apos;t have to lose your progress.
                   </p>
                 </div>
@@ -1367,7 +1367,7 @@ function ProgramReportDetailModal({
           {showInvestigationPopup && (
             <div className="fixed inset-0 z-[105] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-200">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-2xs">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto shadow-2xs">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
 
@@ -2160,7 +2160,7 @@ function ProgramPreparationWidgets({
                         key={idx}
                         className="p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] flex items-center gap-3.5"
                       >
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <CheckCircle2 className="w-5 h-5 text-zinc-950 dark:text-white shrink-0" />
                         <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
                           {item}
                         </span>
@@ -2260,7 +2260,7 @@ function ProgramPreparationWidgets({
                             ]
                         ).map((benefit, i) => (
                           <li key={i} className="flex items-start gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                            <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <Check className="w-4 h-4 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
                             <span>{benefit}</span>
                           </li>
                         ))}
@@ -2444,7 +2444,7 @@ function ProgramPreparationWidgets({
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Dr. Marcus Vance, ND
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-200 dark:border-white/10 font-semibold">
                             Nutrition
                           </span>
                         </div>
