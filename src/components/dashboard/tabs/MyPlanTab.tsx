@@ -7,6 +7,7 @@ import {
   BarChart3,
   BookOpen,
   Calendar,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -14,13 +15,18 @@ import {
   Compass,
   Dumbbell,
   ExternalLink,
+  Heart,
   Info,
   MapPin,
   Moon,
+  Smile,
+  Sparkles,
+  Target,
   Users,
   Utensils,
   Video,
 } from "lucide-react";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
@@ -87,18 +93,22 @@ export function MyPlanHeader({
   onSelect: (programId: string) => void;
   onExplore: () => void;
 }) {
+  const { theme, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
 
   return (
     <FloatingHeader visible={visible}>
-      <span
-        aria-label="+BMS"
-        className="select-none cursor-default flex items-center gap-1 text-zinc-950 dark:text-white"
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label="Toggle visual theme"
+        title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
+        className="select-none flex items-center gap-1 text-zinc-950 dark:text-white active:scale-95 transition hover:opacity-75 focus:outline-none"
       >
         <span className="font-light text-lg leading-none">+</span>
         <span className="font-geometric font-semibold text-sm tracking-[0.22em] uppercase">BMS</span>
-      </span>
+      </button>
 
       <div className="relative min-w-0">
         {!current ? (
@@ -183,6 +193,13 @@ export interface PlanProgramInfo {
   scientificReferences?: Array<{ title: string; url?: string }> | null;
   totalDays: number;
   isUpcoming?: boolean;
+  targetState?: string | null;
+  methodology?: string | null;
+  expectedBenefits?: string[];
+  programGuidelines?: string[];
+  recommendedFor?: string | null;
+  audience?: string | null;
+  dailyCommitment?: string | null;
 }
 
 function formatIntensityBadge(level?: string | null): string {
@@ -339,6 +356,7 @@ export function MyPlanOverview({
     !!progress?.mealCompliance,
     !!progress?.dailyReflection,
   ];
+  const pendingTasksCount = day ? initialDone.filter((done) => !done).length : 0;
 
   const totalProgramDays = program?.totalDays || 0;
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
@@ -513,13 +531,24 @@ export function MyPlanOverview({
               <button
                 type="button"
                 onClick={() => setWidgetIndex(0)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
                   widgetIndex === 0
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
                 }`}
               >
-                Tasks
+                <span>Tasks</span>
+                {pendingTasksCount > 0 && (
+                  <span
+                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
+                      widgetIndex === 0
+                        ? "bg-white/20 text-white dark:bg-zinc-950/20 dark:text-zinc-950 font-bold"
+                        : "bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
+                    }`}
+                  >
+                    {pendingTasksCount}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -611,8 +640,6 @@ export function MyPlanOverview({
               <span className="text-[11px] text-zinc-400">Not set</span>
             )}
           </section>
-
-          <ProgramReferencesWidget references={program.scientificReferences} />
         </>
       )}
     </div>
@@ -712,6 +739,24 @@ function CohortPerformanceCard({
   const mealScore =
     mealTotal > 0 ? Math.round((mealFollowed / mealTotal) * 5) : 0;
 
+  // 4. Energy & Mood Average (1–5 Score from daily reflection)
+  const loggedMoods = sorted
+    .map((d) => d.userProgress?.happinessRate)
+    .filter((rate): rate is number => typeof rate === "number" && rate > 0);
+  const avgMood =
+    loggedMoods.length > 0
+      ? Math.round(loggedMoods.reduce((acc, r) => acc + r, 0) / loggedMoods.length)
+      : 0;
+  const moodScore = Math.max(0, Math.min(5, avgMood));
+
+  // 5. Daily Reflection Journaling vs Total Program Days
+  const reflectionTotal = sorted.length;
+  const reflectionDone = sorted.filter(
+    (d) => typeof d.userProgress?.dailyReflection === "string" && d.userProgress.dailyReflection.trim().length > 0
+  ).length;
+  const reflectionScore =
+    reflectionTotal > 0 ? Math.round((reflectionDone / reflectionTotal) * 5) : 0;
+
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
@@ -771,6 +816,38 @@ function CohortPerformanceCard({
             </span>
           </div>
           <FiveBarMeter score={mealScore} />
+        </div>
+
+        <div className="border-t border-zinc-100 dark:border-white/10" />
+
+        {/* 4. ENERGY & MOOD */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Smile className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Energy & Mood</span>
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {moodScore > 0 ? `${moodScore} / 5` : "—"}
+            </span>
+          </div>
+          <FiveBarMeter score={moodScore} />
+        </div>
+
+        <div className="border-t border-zinc-100 dark:border-white/10" />
+
+        {/* 5. REFLECTIONS LOGGED */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Reflections</span>
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+              {reflectionDone} / {reflectionTotal}
+            </span>
+          </div>
+          <FiveBarMeter score={reflectionScore} />
         </div>
       </div>
     </section>
@@ -845,14 +922,15 @@ function ProgramPreparationWidgets({
   program,
   days,
   currentDayId,
-  onSwitchWidget,
+  onSwitchWidget: _onSwitchWidget,
 }: {
   program: PlanProgramInfo;
   days: PlanDay[];
   currentDayId?: string;
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
-  const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | null>(null);
+  void _onSwitchWidget;
+  const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | "objective" | "reference" | null>(null);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
   const prepScrollYRef = useRef(0);
 
@@ -909,6 +987,11 @@ function ProgramPreparationWidgets({
       .map((item) => item.trim())
       .filter((item) => item.length > 0);
   }, [program.equipment]);
+
+  const validReferences = useMemo(
+    () => (program.scientificReferences || []).filter((r) => r && r.title && r.title.trim().length > 0),
+    [program.scientificReferences]
+  );
 
   const cardsContent = (
     <>
@@ -1019,6 +1102,78 @@ function ProgramPreparationWidgets({
           <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
         </div>
       </button>
+
+      {/* CARD 4: OBJECTIVES & BLUEPRINT */}
+      <button
+        type="button"
+        onClick={() => setActivePage("objective")}
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/coach3.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <Target className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+            {program.durationDays || totalDaysCount} days focus
+          </span>
+        </div>
+
+        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+          <div>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Objectives</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Blueprint & benefits</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+        </div>
+      </button>
+
+      {/* CARD 5: CLINICAL REFERENCES */}
+      <button
+        type="button"
+        onClick={() => setActivePage("reference")}
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/coach2.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <BookOpen className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+            {validReferences.length} {validReferences.length === 1 ? "source" : "sources"}
+          </span>
+        </div>
+
+        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+          <div>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">References</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Clinical journals</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+        </div>
+      </button>
     </>
   );
 
@@ -1028,11 +1183,11 @@ function ProgramPreparationWidgets({
         <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
-            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, live meetups & gear</p>
+            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, meetups, gear & blueprint</p>
           </div>
         </div>
 
-        <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cardsContent}
         </div>
       </section>
@@ -1062,7 +1217,17 @@ function ProgramPreparationWidgets({
                 href={
                   safeHttpUrl(program.communityLink) ||
                   `https://wa.me/6281290002026?text=${encodeURIComponent(
-                    `Hello Concierge, I would like to inquire about ${activePage === "meal" ? "Meals" : activePage === "meetup" ? "Sessions" : "Equipment"} in program: ${program.title}`
+                    `Hello Concierge, I would like to inquire about ${
+                      activePage === "meal"
+                        ? "Meals"
+                        : activePage === "meetup"
+                          ? "Sessions"
+                          : activePage === "equipment"
+                            ? "Equipment"
+                            : activePage === "objective"
+                              ? "Objectives"
+                              : "References"
+                    } in program: ${program.title}`
                   )}`
                 }
                 target="_blank"
@@ -1082,7 +1247,11 @@ function ProgramPreparationWidgets({
                     ? "/pic.webp"
                     : activePage === "meetup"
                       ? "/coach.webp"
-                      : "/image.webp"
+                      : activePage === "equipment"
+                        ? "/image.webp"
+                        : activePage === "objective"
+                          ? "/coach3.webp"
+                          : "/coach2.webp"
                 }
                 alt=""
                 className="w-full h-full object-cover"
@@ -1096,7 +1265,11 @@ function ProgramPreparationWidgets({
                     ? "Nutrition"
                     : activePage === "meetup"
                       ? "Schedule"
-                      : "Gear"}
+                      : activePage === "equipment"
+                        ? "Gear"
+                        : activePage === "objective"
+                          ? "Blueprint"
+                          : "Literature"}
                 </span>
 
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
@@ -1104,7 +1277,11 @@ function ProgramPreparationWidgets({
                     ? "Meals"
                     : activePage === "meetup"
                       ? "Sessions"
-                      : "Equipment"}
+                      : activePage === "equipment"
+                        ? "Equipment"
+                        : activePage === "objective"
+                          ? "Objectives"
+                          : "References"}
                 </h1>
 
                 <p className="text-xs text-white/70 font-normal">
@@ -1112,7 +1289,11 @@ function ProgramPreparationWidgets({
                     ? "Daily whole-food nutrition and recovery hydration."
                     : activePage === "meetup"
                       ? "Interactive live meetups and workshops."
-                      : "Required training gear checklist."}
+                      : activePage === "equipment"
+                        ? "Required training gear checklist."
+                        : activePage === "objective"
+                          ? "Target audience, methodology & expected outcomes."
+                          : "Clinical studies & scientific literature citations."}
                 </p>
               </div>
             </div>
@@ -1289,6 +1470,142 @@ function ProgramPreparationWidgets({
                       ))}
                     </ul>
                   </>
+                )}
+
+                {/* 4. OBJECTIVES & BLUEPRINT */}
+                {activePage === "objective" && (
+                  <div className="space-y-3.5">
+                    {/* Audience & Commitment */}
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Audience & Logistics
+                      </span>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-[10px] font-mono uppercase text-zinc-500 block">Recommended For</span>
+                          <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
+                            {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-mono uppercase text-zinc-500 block">Daily Commitment</span>
+                          <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
+                            {program.dailyCommitment || "20–30 mins/day"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-mono uppercase text-zinc-500 block">Intensity Level</span>
+                          <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
+                            {formatIntensityBadge(program.difficultyLevel)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-mono uppercase text-zinc-500 block">Location / Delivery</span>
+                          <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
+                            {program.locationType || "Online Studio"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Methodology & Objectives */}
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Methodology & Core Focus
+                      </span>
+                      <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                        {program.methodology || program.description || "Evidence-based somatic training combined with structured recovery routines and circadian alignment."}
+                      </p>
+                    </div>
+
+                    {/* Target Physical & Mental State */}
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Target Physical & Mental State
+                      </span>
+                      <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                        {program.targetState || "Optimal physical vitality, enhanced postural stability, regulated nervous system tone, and restored metabolic recovery."}
+                      </p>
+                    </div>
+
+                    {/* Expected Benefits & Outcomes (Harapan Manfaat) */}
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-2.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Expected Benefits & Outcomes
+                      </span>
+                      <ul className="space-y-2">
+                        {(program.expectedBenefits && program.expectedBenefits.length > 0
+                          ? program.expectedBenefits
+                          : [
+                              "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
+                              "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
+                              "Enhanced joint mobility, core stability, and functional movement mechanics.",
+                              "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
+                            ]
+                        ).map((benefit, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{benefit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Practical Guidelines */}
+                    {program.programGuidelines && program.programGuidelines.length > 0 && (
+                      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                          Practical Guidelines
+                        </span>
+                        <ul className="space-y-1.5 list-disc pl-4 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                          {program.programGuidelines.map((g, i) => (
+                            <li key={i}>{g}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 5. CLINICAL REFERENCES */}
+                {activePage === "reference" && (
+                  <div className="space-y-2.5">
+                    {validReferences.length > 0 ? (
+                      validReferences.map((ref, idx) => {
+                        const url = safeHttpUrl(ref.url);
+                        return (
+                          <article
+                            key={idx}
+                            className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 flex items-center justify-between gap-3 shadow-xs"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <span className="text-[10px] font-mono text-zinc-400 font-semibold block">
+                                Reference {String(idx + 1).padStart(2, "0")}
+                              </span>
+                              <p className="text-xs font-medium text-zinc-900 dark:text-white leading-relaxed">
+                                {ref.title}
+                              </p>
+                            </div>
+                            {url && (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 h-8 px-3 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
+                              >
+                                <span>Read</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-5 text-center text-xs text-zinc-500">
+                        No clinical references listed for this program.
+                      </div>
+                    )}
+                  </div>
                 )}
               </section>
             </div>
