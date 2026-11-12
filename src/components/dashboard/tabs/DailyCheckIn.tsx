@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Frown,
   Heart,
+  Info,
   Laugh,
   Loader2,
   Lock,
@@ -1807,6 +1808,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   }, [day.id]);
 
   const [resetCountdown, setResetCountdown] = useState<string>(() => getWibResetCountdown());
+  const [showDailyTasksInfo, setShowDailyTasksInfo] = useState(false);
   useEffect(() => {
     setResetCountdown(getWibResetCountdown());
     const interval = setInterval(() => {
@@ -1906,15 +1908,37 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-      {/* Daily Task Card Header */}
+      {/* Daily Task Card Header (Stacked Title & Reset Timer + Info Button) */}
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-          <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-            • {resetCountdown}
-          </span>
+        <div>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
+            <button
+              type="button"
+              onClick={() => setShowDailyTasksInfo((prev) => !prev)}
+              aria-label="Daily tasks info"
+              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+            >
+              <Info className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
+            {resetCountdown}
+          </p>
         </div>
       </div>
+
+      {showDailyTasksInfo && (
+        <div className="p-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 space-y-2 animate-in fade-in duration-200">
+          <p className="font-semibold text-zinc-950 dark:text-white">About Daily Tasks &amp; Reset Schedule:</p>
+          <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
+            <li><strong className="text-zinc-900 dark:text-white">Task Cadence:</strong> Complete each day&apos;s routine: sleep tracking, training workout, nutrition logging, and daily reflection.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Daily Reset:</strong> Active tasks reset every night at 00:00 WIB (UTC+7). Complete all submissions before the 23:59 WIB daily cutoff.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Skipping Tasks:</strong> If you cannot finish a task today, select &quot;Skip&quot; to clear your queue and update your pending task count.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Day Navigation:</strong> Tap any unlocked day in the date selector below to view previous submissions or future curriculum days.</li>
+          </ul>
+        </div>
+      )}
 
       {/* Horizontal Side-by-Side Day Selector (10 Nov Training · 11 Nov Rest ...) */}
       <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02]">

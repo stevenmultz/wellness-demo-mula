@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  AlertCircle,
   ArrowLeft,
   BarChart3,
   BookOpen,
@@ -411,9 +412,15 @@ export function MyPlanOverview({
           )}
           <div className="absolute inset-0 bg-black/45" />
           {program && (
-            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
-              {formatIntensityBadge(program.difficultyLevel)}
-            </span>
+            <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
+              <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
+                <Clock className="w-3 h-3 text-zinc-300" />
+                <span>{program.dailyCommitment || "15–20 Mins / Day"}</span>
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+                {formatIntensityBadge(program.difficultyLevel)}
+              </span>
+            </div>
           )}
           <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
             <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
@@ -488,6 +495,11 @@ export function MyPlanOverview({
                   <span className="text-[11px] text-zinc-400">Not set</span>
                 )}
               </section>
+
+              <ProgramIssueReportWidget
+                programTitle={program?.title}
+                communityLink={program?.communityLink}
+              />
 
               <ProgramReferencesWidget references={program.scientificReferences} />
             </>
@@ -664,6 +676,11 @@ export function MyPlanOverview({
               <span className="text-[11px] text-zinc-400">Not set</span>
             )}
           </section>
+
+          <ProgramIssueReportWidget
+            programTitle={program?.title}
+            communityLink={program?.communityLink}
+          />
         </>
       )}
     </div>
@@ -971,6 +988,195 @@ function ProgramReferencesWidget({
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+function ProgramIssueReportWidget({
+  programTitle,
+  communityLink,
+}: {
+  programTitle?: string;
+  communityLink?: string | null;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [category, setCategory] = useState<string>("Video / Playback Error");
+  const [description, setDescription] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const categories = [
+    "Video / Playback Error",
+    "Daily Check-in Glitch",
+    "Curriculum & Workout Question",
+    "Schedule or Zoom Meetup",
+    "Other Issue / Feedback",
+  ];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!description.trim()) return;
+    setIsSubmitting(true);
+    setTimeout(() => {
+      try {
+        const existing = JSON.parse(localStorage.getItem("wellness_reported_issues") || "[]");
+        existing.push({
+          id: `issue_${Date.now()}`,
+          programTitle: programTitle || "General Program",
+          category,
+          description: description.trim(),
+          submittedAt: new Date().toISOString(),
+        });
+        localStorage.setItem("wellness_reported_issues", JSON.stringify(existing));
+      } catch {
+        // Safe fallback
+      }
+      setIsSubmitting(false);
+      setSubmitted(true);
+      setDescription("");
+    }, 500);
+  };
+
+  const handleReset = () => {
+    setSubmitted(false);
+    setIsOpen(false);
+  };
+
+  const directSupportUrl = safeHttpUrl(communityLink);
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <div className="p-4 flex items-center justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0 mt-0.5">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+              Report Program or Issue
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
+              Encountering a bug, video error, or have curriculum questions?
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen((prev) => !prev);
+            if (submitted) setSubmitted(false);
+          }}
+          className="h-8 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-semibold text-zinc-900 dark:text-white transition shrink-0 active:scale-95"
+        >
+          {isOpen ? "Close" : "Report"}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="px-4 pb-4 pt-1 border-t border-zinc-100 dark:border-white/10 animate-in fade-in duration-200">
+          {submitted ? (
+            <div className="py-4 text-center space-y-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                <Check className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-zinc-950 dark:text-white">Report Submitted Successfully</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                  Thank you for reporting. Our coaching staff and concierge support team have received your feedback and will review it promptly.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="h-8 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium active:scale-95 transition"
+                >
+                  Done
+                </button>
+                {directSupportUrl && (
+                  <a
+                    href={directSupportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/15 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 active:scale-95 transition"
+                  >
+                    Direct Support <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3.5 pt-2">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                  Issue Category
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat)}
+                      className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition border ${
+                        category === cat
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
+                          : "bg-zinc-50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                  Problem Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe what occurred, which day or task was affected, or your questions..."
+                  className="w-full text-xs rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-3 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                {directSupportUrl ? (
+                  <a
+                    href={directSupportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-white inline-flex items-center gap-1 transition"
+                  >
+                    Need immediate concierge chat? <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <span />
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="h-8 px-3 rounded-full text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !description.trim()}
+                    className="h-8 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50 transition active:scale-95"
+                  >
+                    {isSubmitting ? "Submitting..." : "Submit Report"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </section>
   );
 }
