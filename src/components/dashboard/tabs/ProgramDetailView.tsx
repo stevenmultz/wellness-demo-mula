@@ -204,9 +204,10 @@ export function ProgramDetailView({
     action = <span className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Closed</span>;
   }
 
-  type SectionKey = "overview" | "timeline" | "sessions" | "meals" | "equipment" | "blueprint" | "terms";
+  type SectionKey = "overview" | "coach" | "timeline" | "sessions" | "meals" | "equipment" | "blueprint" | "terms";
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     overview: true,
+    coach: true,
     timeline: true,
     sessions: false,
     meals: false,
@@ -225,6 +226,7 @@ export function ProgramDetailView({
     const nextVal = !allExpanded;
     setOpenSections({
       overview: nextVal,
+      coach: nextVal,
       timeline: nextVal,
       sessions: nextVal,
       meals: nextVal,
@@ -299,26 +301,25 @@ export function ProgramDetailView({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
-          {/* Title & metadata with generous breathing space */}
-          <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-2">
-            <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-white/80 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] font-bold">
+          {/* Clean title & metadata banner: Status, Title, Coach, Commitment */}
+          <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-6 sm:px-8 z-0 space-y-2">
+            <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-white/80">
+              <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[10px] font-bold shadow-sm">
                 {enrolled ? "Enrolled" : badge}
               </span>
-              <span className="text-white/40">·</span>
-              <span>{program.category || "Longevity"}</span>
-              <span className="text-white/40">·</span>
-              <span>{difficultyLabel(program.difficultyLevel)}</span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
               {program.title}
             </h1>
 
-            <p className="text-xs text-white/70 font-normal flex items-center gap-2 flex-wrap">
-              <span>Coach <strong className="text-white font-medium">{program.coachName}</strong>{program.coachTitle ? ` · ${program.coachTitle}` : ""}</span>
-              <span className="text-white/40">·</span>
-              <span>{totalDays} Days Program</span>
+            <p className="text-xs text-white/85 font-medium flex items-center gap-2 flex-wrap">
+              <span>Coach <strong className="text-white font-semibold">{program.coachName}</strong></span>
+              <span className="text-white/40">•</span>
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3 h-3 text-white/70" />
+                <span>{program.dailyCommitment || "20–30 mins/day"} Commitment</span>
+              </span>
             </p>
           </div>
         </div>
@@ -414,7 +415,89 @@ export function ProgramDetailView({
           </section>
 
           {/* ================================================================= */}
-          {/* 2. TIMELINE, DATES & CURRICULUM                                   */}
+          {/* 2. COACH & FACULTY PROFILE                                        */}
+          {/* ================================================================= */}
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
+            <button
+              type="button"
+              onClick={() => toggleSection("coach")}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Module 2
+                  </span>
+                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    Lead Coach &amp; Mentorship
+                  </h2>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                  openSections.coach ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {openSections.coach && (
+              <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
+                <div className="flex items-start gap-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      program.coachName.toLowerCase().includes("marcus") || program.coachName.toLowerCase().includes("vance")
+                        ? "/coach2.webp"
+                        : program.coachName.toLowerCase().includes("elena")
+                          ? "/coach3.webp"
+                          : "/coach.webp"
+                    }
+                    alt={program.coachName}
+                    className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-xs"
+                  />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h3 className="text-sm font-bold text-zinc-950 dark:text-white">
+                        Coach {program.coachName}
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
+                        Verified Lead Guide
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-500 font-medium">
+                      {program.coachTitle || "Master Movement & Longevity Specialist"}
+                    </p>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
+                      Designs and guides daily somatic training protocols, posture alignment, and neuromuscular conditioning. Reviews participant form and monitors cohort progression.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-zinc-100 dark:border-white/5 flex items-center justify-between gap-3 flex-wrap">
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    Cohort Support &amp; Form Feedback
+                  </span>
+                  <a
+                    href={`https://wa.me/6281290002026?text=${encodeURIComponent(
+                      `Hello Concierge, I have a question for Coach ${program.coachName} regarding program: ${program.title}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-semibold text-zinc-900 dark:text-white hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Ask Coach via Concierge</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ================================================================= */}
+          {/* 3. TIMELINE, DATES & CURRICULUM                                   */}
           {/* ================================================================= */}
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-sm transition-all duration-200">
             <button
@@ -428,7 +511,7 @@ export function ProgramDetailView({
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 2
+                    Module 3
                   </span>
                   <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Timeline & Schedule
@@ -507,7 +590,7 @@ export function ProgramDetailView({
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 3
+                    Module 4
                   </span>
                   <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Meetups & Live Sessions
@@ -630,7 +713,7 @@ export function ProgramDetailView({
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 4
+                    Module 5
                   </span>
                   <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Nutrition Protocol
@@ -706,7 +789,7 @@ export function ProgramDetailView({
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 5
+                    Module 6
                   </span>
                   <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Required Gear & Equipment
@@ -752,7 +835,7 @@ export function ProgramDetailView({
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 6
+                    Module 7
                   </span>
                   <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Methodology & Blueprint
@@ -872,7 +955,7 @@ export function ProgramDetailView({
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 7
+                    Module 8
                   </span>
                   <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Terms & Guidelines

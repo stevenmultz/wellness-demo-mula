@@ -3,7 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Search, SlidersHorizontal, Users, X } from "lucide-react";
+import {
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  Users,
+  X,
+} from "lucide-react";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
 import {
   EmptyState,
@@ -210,6 +221,13 @@ function ChipGroup({
   );
 }
 
+function coachAvatarFor(name: string): string {
+  const n = (name || "").toLowerCase();
+  if (n.includes("marcus") || n.includes("vance") || n.includes("nutri") || n.includes("dr.")) return "/coach2.webp";
+  if (n.includes("elena") || n.includes("rostova") || n.includes("sleep") || n.includes("somatics")) return "/coach3.webp";
+  return "/coach.webp";
+}
+
 export function ExplorePlanTab({
   headerVisible,
   isActive = true,
@@ -228,6 +246,8 @@ export function ExplorePlanTab({
   void _onOpenPlan;
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
@@ -236,6 +256,10 @@ export function ExplorePlanTab({
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
 
+  const toggleCardExpand = (id: string) => {
+    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
@@ -243,7 +267,7 @@ export function ExplorePlanTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, applied]);
+  }, [debouncedSearch, applied, selectedCoach]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -320,7 +344,28 @@ export function ExplorePlanTab({
     };
   }, [catalog]);
 
-  const filtered = catalog.filter((p) => matches(p, applied));
+  const availableCoaches = useMemo(() => {
+    const map = new Map<string, string>();
+    catalog.forEach((p) => {
+      if (p.coachName) {
+        const name = p.coachName.trim();
+        if (!map.has(name)) {
+          map.set(name, coachAvatarFor(name));
+        }
+      }
+    });
+    if (!map.has("Julian Thorne")) map.set("Julian Thorne", "/coach.webp");
+    if (!map.has("Dr. Marcus Vance")) map.set("Dr. Marcus Vance", "/coach2.webp");
+    if (!map.has("Elena Rostova")) map.set("Elena Rostova", "/coach3.webp");
+    return Array.from(map.entries()).map(([name, avatar]) => ({ name, avatar }));
+  }, [catalog]);
+
+  const filtered = catalog.filter((p) => {
+    if (selectedCoach && p.coachName.trim().toLowerCase() !== selectedCoach.trim().toLowerCase()) {
+      return false;
+    }
+    return matches(p, applied);
+  });
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages);
   const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -334,23 +379,29 @@ export function ExplorePlanTab({
     });
   };
 
-  const removeChip = (key: keyof Filters, value?: string) => {
+  const removeChip = (key: string, value?: string) => {
+    if (key === "coach") {
+      setSelectedCoach(null);
+      setPage(1);
+      return;
+    }
     setApplied((f) => {
-      const list = f[key];
+      const list = f[key as keyof Filters];
       if (!Array.isArray(list) || !value) return f;
       return { ...f, [key]: list.filter((v) => v !== value) };
     });
     setPage(1);
   };
 
-  const chips: { key: keyof Filters; value: string; label: string }[] = [
-    ...applied.format.map((value) => ({ key: "format" as const, value, label: FORMAT_OPTIONS.find((o) => o.id === value)?.label || value })),
-    ...applied.intensity.map((value) => ({ key: "intensity" as const, value, label: value })),
-    ...applied.category.map((value) => ({ key: "category" as const, value, label: value })),
-    ...applied.duration.map((value) => ({ key: "duration" as const, value, label: value })),
-    ...applied.price.map((value) => ({ key: "price" as const, value, label: PRICE_BANDS.find((b) => b.id === value)?.label || value })),
-    ...applied.experience.map((value) => ({ key: "experience" as const, value, label: value })),
-    ...applied.schedule.map((value) => ({ key: "schedule" as const, value, label: value })),
+  const chips: { key: string; value: string; label: string }[] = [
+    ...(selectedCoach ? [{ key: "coach", value: selectedCoach, label: `Coach: ${selectedCoach}` }] : []),
+    ...applied.format.map((value) => ({ key: "format", value, label: FORMAT_OPTIONS.find((o) => o.id === value)?.label || value })),
+    ...applied.intensity.map((value) => ({ key: "intensity", value, label: value })),
+    ...applied.category.map((value) => ({ key: "category", value, label: value })),
+    ...applied.duration.map((value) => ({ key: "duration", value, label: value })),
+    ...applied.price.map((value) => ({ key: "price", value, label: PRICE_BANDS.find((b) => b.id === value)?.label || value })),
+    ...applied.experience.map((value) => ({ key: "experience", value, label: value })),
+    ...applied.schedule.map((value) => ({ key: "schedule", value, label: value })),
   ];
 
   return (
@@ -476,16 +527,85 @@ export function ExplorePlanTab({
           document.body
         )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <PullToRefreshBanner
           pullDistance={pullDistance}
           refreshing={refreshing && state.status === "ready"}
         />
+
+        {/* COACH FILTER BAR (UNDER SEARCH & FILTER) */}
+        <div className="pt-0.5 pb-1">
+          <div className="flex items-center justify-between px-1 pb-2">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+              Filter by Coach
+            </span>
+            {selectedCoach && (
+              <button
+                type="button"
+                onClick={() => setSelectedCoach(null)}
+                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
+              >
+                Clear coach filter
+              </button>
+            )}
+          </div>
+
+          <div
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {/* All Coaches Pill */}
+            <button
+              type="button"
+              onClick={() => setSelectedCoach(null)}
+              className={`shrink-0 h-10 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
+                !selectedCoach
+                  ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
+                  : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-zinc-200 dark:bg-white/15 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200">
+                All
+              </span>
+              <span>All Coaches</span>
+            </button>
+
+            {availableCoaches.map(({ name, avatar }) => {
+              const isSelected = selectedCoach?.toLowerCase() === name.toLowerCase();
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setSelectedCoach(isSelected ? null : name)}
+                  className={`shrink-0 h-10 pl-1.5 pr-4 rounded-full text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
+                    isSelected
+                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
+                      : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={avatar}
+                    alt={name}
+                    className="w-7 h-7 rounded-full object-cover border border-white/20 shadow-2xs"
+                  />
+                  <span className="truncate">{name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {chips.map((chip) => (
-              <button key={`${chip.key}-${chip.value}`} type="button" onClick={() => removeChip(chip.key, chip.value)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-[11px]">
-                {chip.label} <X className="w-3 h-3" />
+              <button
+                key={`${chip.key}-${chip.value}`}
+                type="button"
+                onClick={() => removeChip(chip.key, chip.value)}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 transition hover:bg-zinc-200 dark:hover:bg-white/20"
+              >
+                {chip.label} <X className="w-3 h-3 text-zinc-400" />
               </button>
             ))}
           </div>
@@ -495,14 +615,19 @@ export function ExplorePlanTab({
         {state.status === "error" && <ErrorState message={state.message} onRetry={() => setReloadKey((k) => k + 1)} />}
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
-            title={debouncedSearch || activeCount ? "No programs match" : "No programs available yet"}
-            description={debouncedSearch || activeCount ? "Try another search or clear filters." : "New programs will show up here when they are published."}
+            title={debouncedSearch || activeCount || selectedCoach ? "No programs match" : "No programs available yet"}
+            description={
+              debouncedSearch || activeCount || selectedCoach
+                ? "Try another coach, search term, or clear filters."
+                : "New programs will show up here when they are published."
+            }
             action={
-              activeCount || debouncedSearch ? (
+              activeCount || debouncedSearch || selectedCoach ? (
                 <button
                   type="button"
                   onClick={() => {
                     setSearch("");
+                    setSelectedCoach(null);
                     setApplied(EMPTY);
                     setDraft(EMPTY);
                   }}
@@ -522,9 +647,11 @@ export function ExplorePlanTab({
                 const meta = getPublicBadgeMeta(p.badge as PublicProgramBadge);
                 const locLabel = p.locationType === "ONLINE" ? "Online" : p.locationType === "HYBRID" ? "Hybrid" : "Onsite";
                 const cityLabel = p.city || (p.locationType === "ONLINE" ? "Global" : null);
+                const isExpanded = !!expandedCards[p.id];
 
                 return (
-                  <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col">
+                  <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col transition-all">
+                    {/* Program Banner Image with Commitment Label */}
                     <div className="relative h-44 bg-zinc-200 dark:bg-zinc-800">
                       <Image
                         src={p.coverImage || "/image.webp"}
@@ -534,67 +661,94 @@ export function ExplorePlanTab({
                         unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
                         className="object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
 
-                      {/* Top Badges: Status and Intensity */}
+                      {/* Top Badges: Status and Daily Commitment */}
                       <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
                           {meta.label}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20 inline-flex items-center gap-1 shadow-2xs">
+                          <Clock className="w-2.5 h-2.5 text-white/80" />
+                          <span>{p.dailyCommitment || "20–30m/day"}</span>
+                        </span>
+                      </div>
+
+                      {/* Bottom Banner Labels: Location Type, City, and Intensity */}
+                      <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-1.5 flex-wrap text-[10px] font-mono uppercase text-white/95">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
+                            {locLabel}
+                          </span>
+                          {cityLabel && (
+                            <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-white/70" />
+                              <span>{cityLabel}</span>
+                            </span>
+                          )}
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
                           {intensityOf(p.difficultyLevel)}
                         </span>
                       </div>
-
-                      {/* Bottom Banner Labels: Location Type and City */}
-                      <div className="absolute bottom-2.5 left-3 right-3 flex items-center gap-1.5 flex-wrap text-[10px] font-mono uppercase text-white/95">
-                        <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
-                          {locLabel}
-                        </span>
-                        {cityLabel && (
-                          <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
-                            <MapPin className="w-2.5 h-2.5 text-white/70" />
-                            <span>{cityLabel}</span>
-                          </span>
-                        )}
-                      </div>
                     </div>
 
-                    <div className="p-4 flex-1 flex flex-col gap-3">
+                    {/* Card Content with Dropdown for Full Details */}
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
                       <div>
-                        <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
-                          {p.title}
-                        </h3>
-                        <p className="text-[11px] text-zinc-500 mt-1">
-                          Coach {p.coachName}
-                        </p>
+                        {/* Header: Click to Toggle Schedule Details */}
+                        <button
+                          type="button"
+                          onClick={() => toggleCardExpand(p.id)}
+                          className="w-full text-left group flex items-start justify-between gap-2 select-none"
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors">
+                              {p.title}
+                            </h3>
+                            <p className="text-[11px] text-zinc-500 mt-1 font-medium">
+                              Coach {p.coachName}
+                            </p>
+                          </div>
+
+                          <span className="shrink-0 mt-0.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 text-[10px] font-mono inline-flex items-center gap-1 group-hover:bg-zinc-200 dark:group-hover:bg-white/15 transition">
+                            <span>{isExpanded ? "Hide" : "Details"}</span>
+                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                          </span>
+                        </button>
+
+                        {/* Collapsible Details: Dates, Slots, Target, Curriculum breakdown */}
+                        {isExpanded && (
+                          <div className="mt-3.5 pt-3 border-t border-zinc-100 dark:border-white/10 space-y-2.5 animate-in fade-in duration-200">
+                            <div className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                              <p className="flex items-center gap-2">
+                                <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                <span>{formatDateWib(p.startDate)} – {formatDateWib(p.endDate)} · {p.durationDays} Days</span>
+                              </p>
+                              <p className="flex items-center gap-2">
+                                <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                <span>{p.seatsLeft} of {p.maxQuota || p.seatsLeft} slots left</span>
+                              </p>
+                              <p className="text-[11px] text-zinc-500">
+                                <span className="font-semibold text-zinc-700 dark:text-zinc-300">Target: </span>
+                                {p.recommendedFor || "All Levels"}
+                              </p>
+                            </div>
+
+                            {/* Curriculum Breakdown: Training - Connect - Rest */}
+                            <div className="px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/5 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
+                              <span>{p.trainingDaysTotal ?? 0} Training</span>
+                              <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                              <span>{p.connectDaysTotal ?? 0} Connect</span>
+                              <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                              <span>{p.restDaysTotal ?? 0} Rest</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                        <p className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span>{formatDateWib(p.startDate)} – {formatDateWib(p.endDate)} · {p.durationDays} Days</span>
-                        </p>
-                        <p className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span>{p.seatsLeft} of {p.maxQuota || p.seatsLeft} slots left</span>
-                        </p>
-                        <p className="text-[11px] text-zinc-500 line-clamp-1">
-                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">Target: </span>
-                          {p.recommendedFor || "All Levels"}
-                        </p>
-                      </div>
-
-                      {/* Curriculum Breakdown: Training - Connect - Rest */}
-                      <div className="px-2.5 py-1.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
-                        <span>{p.trainingDaysTotal ?? 0} Training</span>
-                        <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                        <span>{p.connectDaysTotal ?? 0} Connect</span>
-                        <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                        <span>{p.restDaysTotal ?? 0} Rest</span>
-                      </div>
-
-                      {/* Pricing & Actions */}
+                      {/* Pricing & Action Buttons */}
                       <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-baseline gap-1.5">
@@ -618,7 +772,7 @@ export function ExplorePlanTab({
                           <button
                             type="button"
                             onClick={() => onViewDetails(p.id)}
-                            className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition"
+                            className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                           >
                             View
                           </button>
@@ -627,7 +781,7 @@ export function ExplorePlanTab({
                               type="button"
                               disabled={registeringId === p.id}
                               onClick={() => onRegister(p.id)}
-                              className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition"
+                              className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
                             >
                               {p.enrollmentStatus === "PENDING" ? "Pay now" : registeringId === p.id ? "..." : "Register"}
                             </button>
