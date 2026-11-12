@@ -1,0 +1,193 @@
+{
+  "project": "wellness-pwa",
+  "auditTimestamp": "2026-11-12T11:38:00+07:00",
+  "totalFindings": 18,
+  "severityBreakdown": {
+    "CRITICAL": 2,
+    "HIGH": 6,
+    "MEDIUM": 6,
+    "LOW": 4
+  },
+  "findings": [
+    {
+      "id": "SEC-01",
+      "title": "Hardcoded Fallback JWT Secret in Middleware & Session",
+      "severity": "CRITICAL",
+      "category": "Application Security",
+      "files": ["src/middleware.ts", "src/wellness/security/session.ts"],
+      "status": "CONFIRMED",
+      "impact": "Privilege escalation to SUPERADMIN if JWT_SECRET environment variable is missing",
+      "recommendation": "Throw unrecoverable error in production if JWT_SECRET is unset; disallow fallback"
+    },
+    {
+      "id": "SEC-02",
+      "title": "Hardcoded VAPID Private Key in Source Code",
+      "severity": "CRITICAL",
+      "category": "Application Security",
+      "files": ["src/wellness/integrations/web-push.ts"],
+      "status": "CONFIRMED",
+      "impact": "Unauthorized actors can sign and broadcast fraudulent push notifications to all users",
+      "recommendation": "Remove fallback private key literal from source code; require process.env.VAPID_PRIVATE_KEY"
+    },
+    {
+      "id": "SEC-03",
+      "title": "Missing Content-Security-Policy & Strict-Transport-Security Headers",
+      "severity": "HIGH",
+      "category": "Application Security",
+      "files": ["next.config.mjs"],
+      "status": "CONFIRMED",
+      "impact": "Vulnerability to MITM attacks, script injection, and clickjacking in permissive contexts",
+      "recommendation": "Configure production HSTS, CSP, COOP, and CORP headers in next.config.mjs"
+    },
+    {
+      "id": "SEC-04",
+      "title": "In-Memory Rate Limiting Incompatible with Multi-Instance Serverless",
+      "severity": "HIGH",
+      "category": "Application Security",
+      "files": ["src/wellness/security/rate-limit.ts"],
+      "status": "CONFIRMED",
+      "impact": "Attackers can bypass brute-force limits across distributed serverless lambda instances",
+      "recommendation": "Migrate to Upstash Redis or PostgreSQL atomic rate limiting"
+    },
+    {
+      "id": "SEC-05",
+      "title": "Sensitive API Secret Accepted via URL Query Parameter",
+      "severity": "MEDIUM",
+      "category": "Application Security",
+      "files": ["src/app/api/cron/dispatch-notifications/route.ts"],
+      "status": "CONFIRMED",
+      "impact": "CRON_SECRET token is logged in access logs, proxy caches, and Referer headers",
+      "recommendation": "Require Authorization: Bearer <token> and reject query parameter tokens in production"
+    },
+    {
+      "id": "STOR-01",
+      "title": "Ephemeral Local Storage & Unbounded 5MB Base64 DB Fallback",
+      "severity": "HIGH",
+      "category": "Storage & Data Integrity",
+      "files": ["src/app/api/upload/route.ts"],
+      "status": "CONFIRMED",
+      "impact": "Database bloat (~28 GB per 100 active cohort members) and high connection latency",
+      "recommendation": "Connect Cloud Object Storage (S3 / Cloudflare R2 / Supabase Storage) with direct URLs"
+    },
+    {
+      "id": "STOR-02",
+      "title": "Orphan Image File Accumulation on Account Deletion",
+      "severity": "LOW",
+      "category": "Storage Hygiene",
+      "files": ["src/wellness/actions/account.ts", "src/app/api/upload/route.ts"],
+      "status": "CONFIRMED",
+      "impact": "Disk space leakage over time",
+      "recommendation": "Add deletion hook or storage lifecycle rule for old user media"
+    },
+    {
+      "id": "PWA-01",
+      "title": "Service Worker 60ms Timeout Infinite Navigation Reload Loop Risk",
+      "severity": "HIGH",
+      "category": "PWA & Reliability",
+      "files": ["public/sw.js"],
+      "status": "CONFIRMED",
+      "impact": "Infinite page reload loops and screen flickering on high-latency mobile networks",
+      "recommendation": "Remove synthetic 60ms timeout race; implement standard network-first with offline fallback"
+    },
+    {
+      "id": "PWA-02",
+      "title": "Missing Dedicated Offline Fallback Page and Incomplete Manifest Scope",
+      "severity": "MEDIUM",
+      "category": "PWA Specification",
+      "files": ["public/sw.js", "public/manifest.json"],
+      "status": "CONFIRMED",
+      "impact": "Broken white screen when navigating offline; omitted explicit PWA scope",
+      "recommendation": "Add public/offline.html precached on install; add scope: '/' to manifest.json"
+    },
+    {
+      "id": "PERF-01",
+      "title": "Client-Triggered Global Platform Notification Dispatch Loop with N+1 Queries",
+      "severity": "HIGH",
+      "category": "Performance & Architecture",
+      "files": ["src/app/api/notifications/tick/route.ts", "src/wellness/integrations/dispatch-due-notifications.ts"],
+      "status": "CONFIRMED",
+      "impact": "Database connection pool starvation on PgBouncer and duplicate push notifications",
+      "recommendation": "Isolate notification dispatch strictly to server-side cron with advisory locks"
+    },
+    {
+      "id": "PERF-02",
+      "title": "Monolithic Server Component Serialization on Member Dashboard",
+      "severity": "MEDIUM",
+      "category": "Performance & Latency",
+      "files": ["src/app/dashboard/page.tsx"],
+      "status": "CONFIRMED",
+      "impact": "Bloated initial SSR HTML document payload degrading TTFB and mobile hydration",
+      "recommendation": "Paginate or defer non-active program curriculum queries to client-side on-demand fetch"
+    },
+    {
+      "id": "PERF-03",
+      "title": "Monolithic Client Component Complexity (AdminClient.tsx 11,719 Lines)",
+      "severity": "MEDIUM",
+      "category": "Code Quality & Bundle Size",
+      "files": ["src/components/admin/AdminClient.tsx"],
+      "status": "CONFIRMED",
+      "impact": "High cognitive complexity, slow HMR compile times, large monolithic client bundle (58.6 kB)",
+      "recommendation": "Refactor AdminClient into modular sub-tabs loaded with next/dynamic"
+    },
+    {
+      "id": "OPS-01",
+      "title": "PgBouncer Connection Pool Starvation Risk with connection_limit=1",
+      "severity": "HIGH",
+      "category": "Database & Reliability",
+      "files": [".env"],
+      "status": "CONFIRMED",
+      "impact": "Connection acquisition timeouts under concurrent checkouts or interactive transactions",
+      "recommendation": "Increase connection_limit to 5-10 and keep interactive transactions minimal"
+    },
+    {
+      "id": "OPS-02",
+      "title": "sharp Misplaced in devDependencies Instead of Runtime Dependencies",
+      "severity": "MEDIUM",
+      "category": "Supply Chain & Ops",
+      "files": ["package.json"],
+      "status": "CONFIRMED",
+      "impact": "Missing sharp in pruned production containers causes slower image optimization and high CPU load",
+      "recommendation": "Move sharp to dependencies in package.json"
+    },
+    {
+      "id": "OPS-03",
+      "title": "Absence of Centralized Observability & Error Tracking",
+      "severity": "MEDIUM",
+      "category": "Observability & SRE",
+      "files": ["src/"],
+      "status": "CONFIRMED",
+      "impact": "No structured logging, APM metrics, or Sentry error capture for live incident diagnosis",
+      "recommendation": "Integrate Sentry and structured JSON logger with correlation IDs"
+    },
+    {
+      "id": "QA-01",
+      "title": "Test Suite Coupling to Remote Production DB & Missing Automated CI Pipeline",
+      "severity": "HIGH",
+      "category": "Automated Testing & CI/CD",
+      "files": ["package.json", "scripts/test-wellness-auth-flow.ts"],
+      "status": "CONFIRMED",
+      "impact": "npm test fails in isolated sandbox or CI without live internet/database; no GitHub Actions",
+      "recommendation": "Install Vitest with mocked Prisma client; configure .github/workflows/ci.yml"
+    },
+    {
+      "id": "CODE-01",
+      "title": "Obsolete SQLite Database File Left in Repository",
+      "severity": "LOW",
+      "category": "Repository Hygiene",
+      "files": ["prisma/wellness.db", ".gitignore"],
+      "status": "CONFIRMED",
+      "impact": "540 KB obsolete binary in repository",
+      "recommendation": "Add /prisma/*.db to .gitignore and archive file"
+    },
+    {
+      "id": "CODE-02",
+      "title": "Unused Legacy Push Notification Integration Stub",
+      "severity": "LOW",
+      "category": "Dead Code",
+      "files": ["src/wellness/integrations/push-notification.ts"],
+      "status": "CONFIRMED",
+      "impact": "Developer confusion and dead code",
+      "recommendation": "Deprecate or remove push-notification.ts"
+    }
+  ]
+}

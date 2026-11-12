@@ -1,8 +1,9 @@
 // BMS Sanctuary Wellness PWA Service Worker (Instant Launch Loading Shell)
-const CACHE_NAME = "bms-wellness-pwa-v6";
+const CACHE_NAME = "bms-wellness-pwa-v7";
 
 const STATIC_ASSETS = [
   "/",
+  "/offline.html",
   "/manifest.json",
   "/favicon.svg",
   "/icon-192.png",
@@ -219,7 +220,7 @@ self.addEventListener("fetch", (event) => {
         } catch {
           clearTimeout(timerId);
           const cached = await caches.match(request);
-          return cached || (await caches.match("/"));
+          return cached || (await caches.match("/offline.html")) || (await caches.match("/"));
         }
       })()
     );

@@ -1,21 +1,18 @@
 import webpush from "web-push";
 
-export const VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  "BNWi5lDIv-G3f7GRj22k8hNtW2wAJXJNReSHFHlUddSELpcCyuDwKZQmC7p1Bpm_NpbBw41VZhJr-_b4BpNwvSs";
-
-export const VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY ||
-  "Nk6A3rtWEE2LtQYyB3Hw3lTwXE7s-CaNh6nEb_Pfb7Q";
-
-export const VAPID_SUBJECT =
-  process.env.VAPID_SUBJECT || "mailto:support@bms.id";
+export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@bms.id";
 
 // Initialize VAPID details once
-try {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} catch (err) {
-  console.warn("[WebPush] Failed to initialize VAPID details:", err);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  } catch (err) {
+    console.warn("[WebPush] Failed to initialize VAPID details:", err);
+  }
+} else {
+  console.warn("[WebPush] VAPID keys not configured in environment; push delivery disabled.");
 }
 
 export interface PushNotificationPayload {

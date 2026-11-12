@@ -6,7 +6,7 @@ import { prisma } from "../db";
 const COOKIE_NAME = "wellness_session";
 const rawSecret = process.env.JWT_SECRET;
 if (!rawSecret && process.env.NODE_ENV === "production") {
-  console.error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable must be set in production.");
+  throw new Error("FATAL SECURITY CONFIGURATION: JWT_SECRET environment variable must be configured in production.");
 }
 const SECRET_KEY = new TextEncoder().encode(
   rawSecret || "wellness_platform_dev_only_jwt_secret_do_not_use_in_prod"

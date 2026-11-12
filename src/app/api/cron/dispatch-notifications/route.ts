@@ -35,7 +35,9 @@ async function handleCronDispatch(req: NextRequest) {
     }
 
     const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
-    const providedSecret = bearerSecret || secretQuery || bodyJson.secret;
+    // In production, reject secrets passed in URL query parameters to prevent log leakage
+    const providedSecret =
+      bearerSecret || bodyJson.secret || (isProd ? null : secretQuery);
 
     let isAuthorized = false;
     if (cronSecret && providedSecret) {

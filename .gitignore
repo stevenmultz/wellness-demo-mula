@@ -33,6 +33,7 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma sqlite runtime files
+/prisma/*.db
 /prisma/*.db-shm
 /prisma/*.db-wal
 /prisma/*.db-journal
