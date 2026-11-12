@@ -67,46 +67,40 @@ function getTasksForDay(dayType: string) {
 
   return [
     {
-      category: "SLEEP PROTOCOL",
       title: "Sleep Protocol",
-      description: "Log bedtime, wake time, and sleep duration.",
+      description: "Bedtime, wake time & recovery score",
       Icon: Moon,
       image: "/test.webp",
     },
     isRest
       ? {
-          category: "REST & RECOVERY",
           title: "Rest & Recovery",
-          description: "Active recovery guidelines and body check-in.",
+          description: "Active recovery guidelines & body check-in",
           Icon: Heart,
           image: "/coach2.webp",
         }
       : isConnect
         ? {
-            category: "COMMUNITY CONNECT",
             title: "Community Connect",
-            description: "Session details and attendance takeaways.",
+            description: "Session takeaways & attendance feedback",
             Icon: Users,
             image: "/coach.webp",
           }
         : {
-            category: "TRAINING SESSION",
-            title: "Movement & Routine",
-            description: "Select training variation and exercise checklist.",
+            title: "Movement Routine",
+            description: "Session checklist & guided video",
             Icon: Dumbbell,
             image: "/image.webp",
           },
     {
-      category: "NUTRITION PROTOCOL",
       title: "Nutrition & Meal",
-      description: "Today's nutrition guide and meal compliance.",
+      description: "Meal adherence & hydration guidelines",
       Icon: Utensils,
       image: "/pic.webp",
     },
     {
-      category: "DAILY REFLECTION",
       title: "Daily Reflection",
-      description: "Energy index, mood score, and daily journal.",
+      description: "Energy rating & mindset journal",
       Icon: Sparkles,
       image: "/coach3.webp",
     },
@@ -120,6 +114,22 @@ const FACES = [
   { score: 4, Icon: Smile, label: "Good" },
   { score: 5, Icon: Laugh, label: "Great" },
 ] as const;
+
+const BEDTIME_PRESETS = ["21:30", "22:00", "22:30", "23:00", "23:30", "00:00"];
+const WAKETIME_PRESETS = ["05:30", "06:00", "06:30", "07:00", "07:30", "08:00"];
+const WORKOUT_QUICK_TAGS = [
+  "Felt Strong 💪",
+  "High Energy ⚡",
+  "Completed Routine ✨",
+  "Needed Extra Rest ⏸️",
+  "Joint Stiffness ⚠️",
+];
+const REFLECTION_QUICK_TAGS = [
+  "Felt productive today ✨",
+  "High energy & clear focus ⚡",
+  "Grateful for today's progress 🌱",
+  "Ready for deep rest tonight 🌙",
+];
 
 const areaCls =
   "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
@@ -168,27 +178,35 @@ function parseLines(text: string | null | undefined): string[] {
 }
 
 interface MealDraft {
-  followed: boolean | null;
-  actual: string;
+  checkedMeals: string[];
+  specialOption: "similar" | "off_track" | null;
 }
 
-function readMealDraft(compliance: string | null | undefined, notes: string | null | undefined): MealDraft {
+function readMealDraft(
+  compliance: string | null | undefined,
+  notes: string | null | undefined,
+  recommended: string[]
+): MealDraft {
   if (notes) {
     try {
-      const parsed = JSON.parse(notes) as { v?: number; followed?: boolean; actual?: string };
-      if (parsed && parsed.v === 1) {
-        return {
-          followed: typeof parsed.followed === "boolean" ? parsed.followed : compliance === "FULL" ? true : compliance ? false : null,
-          actual: typeof parsed.actual === "string" ? parsed.actual : "",
-        };
+      const parsed = JSON.parse(notes) as { mode?: string; checkedMeals?: string[] };
+      if (parsed && parsed.mode === "similar") {
+        return { checkedMeals: [], specialOption: "similar" };
+      }
+      if (parsed && parsed.mode === "off_track") {
+        return { checkedMeals: [], specialOption: "off_track" };
+      }
+      if (parsed && Array.isArray(parsed.checkedMeals)) {
+        return { checkedMeals: parsed.checkedMeals, specialOption: null };
       }
     } catch {
-      /* plain text */
+      /* plain text fallback */
     }
   }
-  if (compliance === "FULL") return { followed: true, actual: "" };
-  if (compliance) return { followed: false, actual: notes || "" };
-  return { followed: null, actual: "" };
+  if (compliance === "SIMILAR") return { checkedMeals: [], specialOption: "similar" };
+  if (compliance === "OFF_TRACK") return { checkedMeals: [], specialOption: "off_track" };
+  if (compliance === "FULL") return { checkedMeals: [...recommended], specialOption: null };
+  return { checkedMeals: [], specialOption: null };
 }
 
 function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<string> {
@@ -251,22 +269,44 @@ function TaskForm({
   const [notes, setNotes] = useState(progress?.workoutNotes || progress?.eventFeedback || "");
   const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
   const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
-  const [meal, setMeal] = useState<MealDraft>(() => readMealDraft(progress?.mealCompliance, progress?.mealNotes));
-  const [review, setReview] = useState(progress?.dailyReflection || "");
+
+  const recommendedMeals = useMemo(() => {
+    const parsed = parseLines(day.mealRecommendation);
+    if (parsed.length > 0) return parsed;
+    return [
+      "Meal 1: Nutrient-dense breakfast with clean protein",
+      "Meal 2: Balanced lunch with greens & complex carbohydrates",
+      "Meal 3: Light evening dinner for restorative recovery",
+    ];
+  }, [day.mealRecommendation]);
+
+  const [mealDraft, setMealDraft] = useState<MealDraft>(() =>
+    readMealDraft(progress?.mealCompliance, progress?.mealNotes, recommendedMeals)
+  );
+  const [skipJournal, setSkipJournal] = useState(
+    () => progress?.dailyReflection === "Skipped reflection journal today."
+  );
+  const [review, setReview] = useState(
+    progress?.dailyReflection === "Skipped reflection journal today." ? "" : progress?.dailyReflection || ""
+  );
   const [score, setScore] = useState(progress?.happinessRate ? Math.min(5, progress.happinessRate) : 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
   const [localChecks, setLocalChecks] = useState(checks);
 
   useEffect(() => {
     setLocalChecks(checks);
   }, [checks]);
 
+  const tasks = useMemo(() => getTasksForDay(day.dayType), [day.dayType]);
+  const currentTaskInfo = tasks[step] || tasks[0];
+
   const isTraining = day.dayType === "TRAINING_DAY";
   const isRest = day.dayType === "REST_DAY";
   const isConnect = !isTraining && !isRest;
 
-  const recommendedMeals = useMemo(() => parseLines(day.mealRecommendation), [day.mealRecommendation]);
   const restLines = useMemo(() => parseLines(day.restInstructions), [day.restInstructions]);
   const videos = useMemo(() => parseDayVideoLinks(day.videoUrl), [day.videoUrl]);
   const groups = useMemo(() => {
@@ -335,7 +375,6 @@ function TaskForm({
       setTrainingEntered(true);
       return;
     }
-    // If user already has checked items in current workout, ask for confirmation before resetting
     if (workout && checkedCount > 0) {
       setPendingSwitchWorkout(optionName);
       return;
@@ -356,20 +395,49 @@ function TaskForm({
     await props.onSelectWorkout(nextOpt, day.id, true);
   };
 
-  const valid = [
-    !!bed && !!wake,
-    isConnect
-      ? notes.trim().length > 0
-      : isRest
-        ? movements.length > 0
-          ? movements.every(isChecked)
-          : true
-        : hasMultipleOptions
-          ? !!activeWorkout && (movements.length === 0 || movements.every(isChecked))
-          : movements.length === 0 || movements.every(isChecked),
-    meal.followed === true || (meal.followed === false && meal.actual.trim().length > 1),
-    review.trim().length >= 3 && score > 0,
-  ];
+  const isSleepValid = Boolean(bed && wake);
+  const isTrainingValid = isConnect
+    ? notes.trim().length > 0
+    : isRest
+      ? movements.length === 0 || movements.every(isChecked)
+      : hasMultipleOptions
+        ? Boolean(activeWorkout) && (movements.length === 0 || movements.every(isChecked))
+        : movements.length === 0 || movements.every(isChecked);
+  const isMealValid = mealDraft.checkedMeals.length > 0 || mealDraft.specialOption !== null;
+  const isReflectionValid = (skipJournal || review.trim().length >= 3) && score > 0;
+
+  const valid = [isSleepValid, isTrainingValid, isMealValid, isReflectionValid];
+
+  const getValidationError = (currentStep: number): string | null => {
+    if (currentStep === 0) {
+      if (!bed && !wake) return "Please enter both bedtime and wake time.";
+      if (!bed) return "Please enter your bedtime.";
+      if (!wake) return "Please enter your wake time.";
+      return null;
+    }
+    if (currentStep === 1) {
+      if (isConnect && !notes.trim()) return "Please enter session notes or key takeaways.";
+      if (hasMultipleOptions && !activeWorkout) return "Please select a training routine first.";
+      if (movements.length > 0 && !movements.every(isChecked)) {
+        return `Please complete all exercises (${movements.length - checkedCount} remaining).`;
+      }
+      return null;
+    }
+    if (currentStep === 2) {
+      if (mealDraft.checkedMeals.length === 0 && !mealDraft.specialOption) {
+        return "Please check at least one meal or select a meal option.";
+      }
+      return null;
+    }
+    if (currentStep === 3) {
+      if (!score) return "Please select your daily mood & energy rating.";
+      if (!skipJournal && review.trim().length < 3) {
+        return "Please write a brief reflection or check 'Prefer not to write today'.";
+      }
+      return null;
+    }
+    return null;
+  };
 
   const persist = async () => {
     if (step === 0) return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id)) !== false;
@@ -385,33 +453,73 @@ function TaskForm({
       return true;
     }
     if (step === 2) {
+      if (mealDraft.specialOption === "similar") {
+        return (
+          (await props.onSaveMeal(
+            "SIMILAR",
+            JSON.stringify({ v: 2, mode: "similar", checkedMeals: [] }),
+            day.id
+          )) !== false
+        );
+      }
+      if (mealDraft.specialOption === "off_track") {
+        return (
+          (await props.onSaveMeal(
+            "OFF_TRACK",
+            JSON.stringify({ v: 2, mode: "off_track", checkedMeals: [] }),
+            day.id
+          )) !== false
+        );
+      }
+      const allDone = mealDraft.checkedMeals.length === recommendedMeals.length;
       return (
         (await props.onSaveMeal(
-          meal.followed ? "FULL" : "OFF_TRACK",
-          JSON.stringify({ v: 1, followed: meal.followed, actual: meal.followed ? "" : meal.actual.trim() }),
+          allDone ? "FULL" : "PARTIAL",
+          JSON.stringify({ v: 2, mode: "checklist", checkedMeals: mealDraft.checkedMeals }),
           day.id
         )) !== false
       );
     }
-    return (await props.onSaveReflection(review.trim(), score, day.id)) !== false;
+    const savedReview = skipJournal ? "Skipped reflection journal today." : review.trim();
+    return (await props.onSaveReflection(savedReview, score || 3, day.id)) !== false;
   };
 
   const handleSave = async () => {
-    if (locked || busy || !valid[step]) return;
+    if (locked || busy) return;
+    const err = getValidationError(step);
+    if (err) {
+      setError(err);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const ok = await persist();
       if (!ok) {
-        setError("Could not save. Please try again.");
+        setError("Could not submit entry. Please try again.");
         return;
       }
       onFinish();
     } catch {
-      setError("Could not save. Please try again.");
+      setError("Could not submit entry. Please try again.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const onSkipClick = () => {
+    setError(null);
+    setSkipConfirmOpen(true);
+  };
+
+  const onSubmitClick = () => {
+    const err = getValidationError(step);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+    setSubmitConfirmOpen(true);
   };
 
   const pickPhoto = async (type: "before" | "after", file: File) => {
@@ -461,46 +569,92 @@ function TaskForm({
       {step === 0 && (
         <div className="space-y-4 py-1">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {day.sleepRecommendation || "Aim for 7 to 8 hours of restorative rest."}
+            {day.sleepRecommendation || "Target 7 to 8 hours of restorative circadian sleep."}
           </p>
 
           <div className="space-y-3">
-            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <label htmlFor="input-bedtime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Bedtime
-                </label>
-                <span className="text-xs text-zinc-400 block mt-0.5">Time you went to sleep</span>
+            {/* Bedtime Input & Quick Preset Chips */}
+            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <label htmlFor="input-bedtime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                    Bedtime
+                  </label>
+                  <span className="text-xs text-zinc-400 block mt-0.5">Time you went to sleep</span>
+                </div>
+                <input
+                  id="input-bedtime"
+                  type="time"
+                  value={bed}
+                  disabled={locked}
+                  onChange={(e) => setBed(e.target.value)}
+                  placeholder="Enter bedtime"
+                  aria-label="Enter bedtime"
+                  className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
+                />
               </div>
-              <input
-                id="input-bedtime"
-                type="time"
-                value={bed}
-                disabled={locked}
-                onChange={(e) => setBed(e.target.value)}
-                placeholder="Enter bedtime"
-                aria-label="Enter bedtime"
-                className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
-              />
+
+              {/* Quick Tap Presets */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider shrink-0 mr-1">Presets:</span>
+                {BEDTIME_PRESETS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setBed(t)}
+                    className={`h-7 px-2.5 rounded-lg text-xs font-mono font-medium transition active:scale-95 shrink-0 ${
+                      bed === t
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                        : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <label htmlFor="input-waketime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Wake Time
-                </label>
-                <span className="text-xs text-zinc-400 block mt-0.5">Time you woke up</span>
+            {/* Wake Time Input & Quick Preset Chips */}
+            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <label htmlFor="input-waketime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                    Wake Time
+                  </label>
+                  <span className="text-xs text-zinc-400 block mt-0.5">Time you woke up</span>
+                </div>
+                <input
+                  id="input-waketime"
+                  type="time"
+                  value={wake}
+                  disabled={locked}
+                  onChange={(e) => setWake(e.target.value)}
+                  placeholder="Enter wake time"
+                  aria-label="Enter wake time"
+                  className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
+                />
               </div>
-              <input
-                id="input-waketime"
-                type="time"
-                value={wake}
-                disabled={locked}
-                onChange={(e) => setWake(e.target.value)}
-                placeholder="Enter wake time"
-                aria-label="Enter wake time"
-                className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
-              />
+
+              {/* Quick Tap Presets */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider shrink-0 mr-1">Presets:</span>
+                {WAKETIME_PRESETS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setWake(t)}
+                    className={`h-7 px-2.5 rounded-lg text-xs font-mono font-medium transition active:scale-95 shrink-0 ${
+                      wake === t
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                        : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {totalSleepMins > 0 && (
@@ -517,31 +671,24 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 1A: TRAINING DAY (2-STEP: 1. SELECT TRAINING -> 2. DO TRAINING)  */}
+      {/* STEP 1A: TRAINING DAY (SCREEN 1: CHOOSE -> SCREEN 2: ROUTINE)         */}
       {/* ===================================================================== */}
       {step === 1 && isTraining && (
         <div className="space-y-4">
-          {/* SCREEN 1: CHOOSE WHICH TRAINING TO DO */}
           {groups.length > 0 && !trainingEntered ? (
             <div className="space-y-3">
-              <div className="flex items-center justify-between px-0.5 pb-2 border-b border-zinc-200/70 dark:border-white/10">
-                <div>
-                  <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
-                    Select Training Session
-                  </h3>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
-                    Tap a session below to enter its workout detail and checklist
-                  </p>
-                </div>
-                <span className="text-[10px] font-mono text-zinc-400 shrink-0">
-                  {groups.length} {groups.length === 1 ? "option" : "options"}
+              <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-200/60 dark:border-white/10">
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                  Training Options
+                </span>
+                <span className="text-[10px] font-mono text-zinc-400">
+                  {groups.length} {groups.length === 1 ? "Option" : "Options"}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 gap-2.5">
                 {groups.map((g, idx) => {
                   const isSelected = activeWorkout === g.optionName;
-                  const bgImg = ["/image.webp", "/coach.webp", "/coach2.webp", "/coach3.webp"][idx % 4];
                   const previewNames = g.movements.slice(0, 3).map((m) => m.name);
 
                   return (
@@ -549,32 +696,19 @@ function TaskForm({
                       key={g.optionName}
                       type="button"
                       onClick={() => handleClickWorkoutOption(g.optionName)}
-                      className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition active:scale-[0.99] flex items-center justify-between gap-3 ${
+                      className={`group rounded-2xl border p-4 text-left transition active:scale-[0.99] flex items-center justify-between gap-3 ${
                         isSelected
-                          ? "border-zinc-950 dark:border-white bg-white dark:bg-[#181818] ring-1 ring-zinc-950/10 dark:ring-white/15 shadow-sm"
+                          ? "border-zinc-950 dark:border-white bg-white dark:bg-[#181818] ring-1 ring-zinc-950/10 dark:ring-white/15 shadow-xs"
                           : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] hover:border-zinc-400 dark:hover:border-white/25"
                       }`}
                     >
-                      {/* Right-side Motion-Blur Image with Gradient Fade */}
-                      <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={bgImg}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent dark:from-[#181818] dark:via-[#181818]/85" />
-                      </div>
-
-                      <div className="relative z-10 min-w-0 flex-1 space-y-1.5">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
                             Option {String.fromCharCode(65 + idx)}
                           </span>
                           <span className="text-[10px] font-mono text-zinc-400">
-                            {g.movements.length} exercises
+                            • {g.movements.length} movements
                           </span>
                           {isSelected && (
                             <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
@@ -588,15 +722,15 @@ function TaskForm({
                         </p>
 
                         {previewNames.length > 0 && (
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
                             {previewNames.join(" · ")}
                             {g.movements.length > 3 ? ` +${g.movements.length - 3} more` : ""}
                           </p>
                         )}
                       </div>
 
-                      <div className="relative z-10 shrink-0 h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1 shadow-sm">
-                        <span>{isSelected ? "Continue" : "Start"}</span>
+                      <div className="shrink-0 h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1 shadow-sm">
+                        <span>{isSelected ? "Continue" : "Select"}</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </div>
                     </button>
@@ -605,7 +739,7 @@ function TaskForm({
               </div>
             </div>
           ) : (
-            /* SCREEN 2: INSIDE SELECTED TRAINING DETAIL & WORKOUT CHECKLIST */
+            /* SCREEN 2: WORKOUT DETAIL & CHECKLIST */
             <div className="space-y-4">
               {groups.length > 0 && (
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200/70 dark:border-white/10">
@@ -615,7 +749,7 @@ function TaskForm({
                     className="h-8 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1.5 active:scale-95 transition"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>All Training Options</span>
+                    <span>Change Option</span>
                   </button>
                   <span className="text-xs font-mono font-semibold text-zinc-900 dark:text-white truncate">
                     {activeWorkout || "Training Session"}
@@ -623,20 +757,30 @@ function TaskForm({
                 </div>
               )}
 
-              {/* 1. GUIDED WORKOUT VIDEO */}
+              {/* Guided Video */}
               {activeVideo && (
-                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-3.5 space-y-2">
-                  <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-semibold block">
-                    Guided Video Session
-                  </span>
+                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-zinc-900 dark:text-white">Guided Video</span>
+                    <a
+                      href={activeVideo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => props.onOpenVideo(day.id)}
+                      className="text-[11px] font-mono text-zinc-500 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1"
+                    >
+                      <span>Watch Session</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                   <a
                     href={activeVideo.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => props.onOpenVideo(day.id)}
-                    className="group flex items-center gap-3.5 p-2.5 rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
+                    className="group flex items-center gap-3 p-2 rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
                   >
-                    <div className="relative w-28 h-16 rounded-lg overflow-hidden bg-zinc-900 shrink-0">
+                    <div className="relative w-24 h-14 rounded-lg overflow-hidden bg-zinc-900 shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
@@ -644,8 +788,8 @@ function TaskForm({
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <span className="w-7 h-7 rounded-full bg-white/90 text-zinc-950 flex items-center justify-center shadow">
-                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                        <span className="w-6 h-6 rounded-full bg-white/90 text-zinc-950 flex items-center justify-center shadow">
+                          <Play className="w-3 h-3 fill-current ml-0.5" />
                         </span>
                       </div>
                     </div>
@@ -653,15 +797,15 @@ function TaskForm({
                       <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
                         {activeVideo.title}
                       </span>
-                      <span className="text-[11px] font-mono text-zinc-500 inline-flex items-center gap-1 mt-1">
-                        Watch Video <ExternalLink className="w-3 h-3" />
+                      <span className="text-[11px] text-zinc-500 block mt-0.5">
+                        Follow coach movements &amp; posture cues
                       </span>
                     </div>
                   </a>
                 </div>
               )}
 
-              {/* 2. MOVEMENT CHECKLIST */}
+              {/* Movement Checklist */}
               {movements.length > 0 && (
                 <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -669,11 +813,10 @@ function TaskForm({
                       Movement Checklist
                     </span>
                     <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                      {checkedCount} / {movements.length} Done
+                      {checkedCount} / {movements.length} Completed
                     </span>
                   </div>
 
-                  {/* Progress Bar */}
                   <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
@@ -726,11 +869,12 @@ function TaskForm({
                 </div>
               )}
 
-              {/* 3. PHOTO CHECK-IN & NOTES */}
+              {/* Photos & Notes */}
               <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
                 <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                  Session Photos & Notes
+                  Photos &amp; Sensation Feedback
                 </span>
+
                 <div className="grid grid-cols-2 gap-2.5">
                   {(["before", "after"] as const).map((type) => (
                     <label key={type} className="block text-[11px] text-zinc-500 cursor-pointer">
@@ -764,17 +908,40 @@ function TaskForm({
                   ))}
                 </div>
 
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Workout Notes</span>
-                  <textarea
-                    value={notes}
-                    disabled={locked}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                    placeholder="Enter session notes..."
-                    className={areaCls}
-                  />
-                </label>
+                {/* Quick Feedback Chips */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block">
+                    Quick Tags:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {WORKOUT_QUICK_TAGS.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          setNotes((prev) => (prev ? `${prev} · ${tag}` : tag));
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition active:scale-95 border border-zinc-200/60 dark:border-white/10"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {notes && (
+                  <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+                    <span className="truncate">{notes}</span>
+                    <button
+                      type="button"
+                      onClick={() => setNotes("")}
+                      className="text-[10px] text-zinc-400 hover:text-red-500 font-mono ml-2 shrink-0"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -793,7 +960,7 @@ function TaskForm({
                     </h3>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                       Switching from <strong className="text-zinc-800 dark:text-zinc-200">{workout}</strong> to{" "}
-                      <strong className="text-zinc-800 dark:text-zinc-200">{pendingSwitchWorkout}</strong> will reset and delete the{" "}
+                      <strong className="text-zinc-800 dark:text-zinc-200">{pendingSwitchWorkout}</strong> will reset and clear the{" "}
                       <strong>{checkedCount}</strong> checked movement(s) in your current checklist.
                     </p>
                   </div>
@@ -811,7 +978,7 @@ function TaskForm({
                     onClick={confirmSwitchWorkout}
                     className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
                   >
-                    Switch & Enter
+                    Switch &amp; Enter
                   </button>
                 </div>
               </div>
@@ -825,47 +992,47 @@ function TaskForm({
       {/* ===================================================================== */}
       {step === 1 && isRest && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-white">
-              <Heart className="w-4 h-4 text-zinc-500" />
-              <span>Active Recovery Protocol</span>
-            </div>
-            {restLines.length > 0 ? (
-              <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                {restLines.map((line, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="font-mono text-[10px] text-zinc-400 mt-0.5">{i + 1}.</span>
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                Prioritize light mobility, deep nasal breathing, hydration, and tissue recovery today.
-              </p>
-            )}
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-1.5">
+            <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+              Active Recovery Protocol
+            </span>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Focus on parasympathetic down-regulation, tissue hydration, and light mobility.
+            </p>
           </div>
 
-          {movements.length > 0 && (
+          {restLines.length > 0 && (
             <div className="space-y-2">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wider font-semibold block">
-                Recovery Checklist ({checkedCount}/{movements.length})
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                Rest &amp; Mobility Checklist
               </span>
-              <ul className="divide-y divide-zinc-100 dark:divide-white/10 border border-zinc-200 dark:border-white/10 rounded-xl bg-white dark:bg-[#141414] overflow-hidden">
-                {movements.map((name) => {
-                  const checked = isChecked(name);
+              <ul className="space-y-2">
+                {restLines.map((line, idx) => {
+                  const checked = isChecked(line);
                   return (
-                    <li key={name}>
-                      <label className="flex items-center gap-3 px-3.5 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 transition select-none">
+                    <li key={idx}>
+                      <label
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
+                          checked
+                            ? "border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5"
+                            : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           disabled={locked}
                           checked={checked}
-                          onChange={() => toggle(name)}
-                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0"
+                          onChange={() => toggle(line)}
+                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
                         />
-                        <span className={`text-xs sm:text-sm ${checked ? "line-through text-zinc-400" : "font-medium text-zinc-900 dark:text-white"}`}>
-                          {name}
+                        <span
+                          className={`text-xs leading-relaxed ${
+                            checked
+                              ? "line-through text-zinc-400 dark:text-zinc-500"
+                              : "text-zinc-800 dark:text-zinc-200"
+                          }`}
+                        >
+                          {line}
                         </span>
                       </label>
                     </li>
@@ -874,100 +1041,33 @@ function TaskForm({
               </ul>
             </div>
           )}
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Recovery & Body Check-in Notes</span>
-            <textarea
-              value={notes}
-              disabled={locked}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Enter recovery notes..."
-              className={areaCls}
-            />
-          </label>
         </div>
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 1C: COMMUNITY CONNECT / MEETUP DAY                               */}
+      {/* STEP 1C: COMMUNITY / MEETUP DAY                                       */}
       {/* ===================================================================== */}
       {step === 1 && isConnect && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-3">
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                Live Session Details
-              </span>
-              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                {day.eventTitle || day.title}
-              </h3>
-              {(day.eventHost || day.coachName) && (
-                <p className="text-xs text-zinc-500">Host: {day.eventHost || day.coachName}</p>
-              )}
-            </div>
-
-            {day.eventDetails && (
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-                {day.eventDetails}
-              </p>
-            )}
-
-            {(day.onsiteSchedule || day.onsiteVenue) && (
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-                {day.onsiteSchedule && (
-                  <p className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    <span>{day.onsiteSchedule}</span>
-                  </p>
-                )}
-                {day.onsiteVenue && (
-                  <p className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    <span>{day.onsiteVenue}</span>
-                  </p>
-                )}
-              </div>
-            )}
-
-            {(day.meetupLink || day.mapLink) && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {day.meetupLink && (
-                  <a
-                    href={day.meetupLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5"
-                  >
-                    <Video className="w-3.5 h-3.5" />
-                    <span>Join Online Session</span>
-                  </a>
-                )}
-                {day.mapLink && (
-                  <a
-                    href={day.mapLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>Open Venue Map</span>
-                  </a>
-                )}
-              </div>
-            )}
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2">
+            <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+              Community Session
+            </span>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              {day.eventTitle || "Connect with peers and review longevity habits together."}
+            </p>
           </div>
 
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Session Takeaways & Attendance Log
+              Session Notes &amp; Takeaways
             </span>
             <textarea
               value={notes}
               disabled={locked}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Enter attendance notes..."
+              placeholder="Enter session takeaways..."
               className={areaCls}
             />
           </label>
@@ -975,92 +1075,123 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 2: NUTRITION & MEAL                                              */}
+      {/* STEP 2: NUTRITION & MEAL (CHECKLIST + ALTERNATIVE OPTIONS, NO TYPING)  */}
       {/* ===================================================================== */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2">
-            <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-              Nutrition Guide
-            </span>
-            {recommendedMeals.length > 0 ? (
-              <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                {recommendedMeals.map((line, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1.5 shrink-0" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-zinc-600 dark:text-zinc-300">
-                Prioritize whole, anti-inflammatory foods, lean protein, and hydration.
-              </p>
-            )}
-          </div>
-
           <div className="space-y-2">
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block">
-              Compliance
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+              Today&apos;s Recommended Meals
             </span>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                disabled={locked}
-                aria-pressed={meal.followed === true}
-                onClick={() => setMeal({ followed: true, actual: "" })}
-                className={`h-11 px-3.5 rounded-xl border text-xs font-semibold transition flex items-center justify-between ${
-                  meal.followed === true
-                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
-                }`}
-              >
-                <span>Followed Plan</span>
-                {meal.followed === true && <Check className="w-3.5 h-3.5" />}
-              </button>
-
-              <button
-                type="button"
-                disabled={locked}
-                aria-pressed={meal.followed === false}
-                onClick={() => setMeal((d) => ({ ...d, followed: false }))}
-                className={`h-11 px-3.5 rounded-xl border text-xs font-semibold transition flex items-center justify-between ${
-                  meal.followed === false
-                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
-                }`}
-              >
-                <span>Custom Meal</span>
-                {meal.followed === false && <Check className="w-3.5 h-3.5" />}
-              </button>
-            </div>
+            <ul className="space-y-2">
+              {recommendedMeals.map((mealLine, idx) => {
+                const checked = mealDraft.checkedMeals.includes(mealLine);
+                return (
+                  <li key={idx}>
+                    <label
+                      className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
+                        checked
+                          ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10"
+                          : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={locked}
+                        checked={checked}
+                        onChange={() => {
+                          setMealDraft((prev) => {
+                            const nextChecked = prev.checkedMeals.includes(mealLine)
+                              ? prev.checkedMeals.filter((m) => m !== mealLine)
+                              : [...prev.checkedMeals, mealLine];
+                            return {
+                              checkedMeals: nextChecked,
+                              specialOption: null,
+                            };
+                          });
+                        }}
+                        className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
+                          Meal {idx + 1}
+                        </span>
+                        <p
+                          className={`text-xs mt-0.5 leading-relaxed ${
+                            checked
+                              ? "font-semibold text-zinc-950 dark:text-white"
+                              : "text-zinc-700 dark:text-zinc-300"
+                          }`}
+                        >
+                          {mealLine}
+                        </p>
+                      </div>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
-          {meal.followed === false && (
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Custom Meal Log</span>
-              <textarea
-                value={meal.actual}
-                disabled={locked}
-                onChange={(e) => setMeal((d) => ({ ...d, actual: e.target.value }))}
-                rows={3}
-                placeholder="Enter consumed meals..."
-                className={areaCls}
-              />
-            </label>
-          )}
+          <div className="space-y-2 pt-1 border-t border-zinc-100 dark:border-white/10">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+              Alternative Options
+            </span>
+
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => {
+                setMealDraft((prev) => ({
+                  checkedMeals: [],
+                  specialOption: prev.specialOption === "similar" ? null : "similar",
+                }));
+              }}
+              className={`w-full p-3.5 rounded-xl border text-left text-xs transition flex items-center justify-between gap-3 ${
+                mealDraft.specialOption === "similar"
+                  ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white shadow-xs"
+                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+              }`}
+            >
+              <span>Ate similar food portion &amp; nutrition as recommended</span>
+              {mealDraft.specialOption === "similar" && (
+                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => {
+                setMealDraft((prev) => ({
+                  checkedMeals: [],
+                  specialOption: prev.specialOption === "off_track" ? null : "off_track",
+                }));
+              }}
+              className={`w-full p-3.5 rounded-xl border text-left text-xs transition flex items-center justify-between gap-3 ${
+                mealDraft.specialOption === "off_track"
+                  ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white shadow-xs"
+                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+              }`}
+            >
+              <span>Did not follow meal recommendations</span>
+              {mealDraft.specialOption === "off_track" && (
+                <Check className="w-4 h-4 text-amber-500 shrink-0" />
+              )}
+            </button>
+          </div>
         </div>
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 3: DAILY REFLECTION                                              */}
+      {/* STEP 3: DAILY REFLECTION (WITH PREFER NOT TO WRITE OPTION & CHIPS)     */}
       {/* ===================================================================== */}
       {step === 3 && (
         <div className="space-y-4">
           {day.dailyAssessment && (
             <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                Today&apos;s Reflection Prompt
+                Today&apos;s Focus Prompt
               </span>
               <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {day.dailyAssessment}
@@ -1070,7 +1201,7 @@ function TaskForm({
 
           <div className="space-y-2">
             <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-              Daily Fulfillment & Energy Index
+              Daily Energy &amp; Mood Rating
             </span>
             <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Satisfaction Rating">
               {FACES.map(({ score: n, Icon, label }) => {
@@ -1098,28 +1229,71 @@ function TaskForm({
             </div>
           </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Daily Journal</span>
-            <textarea
-              value={review}
+          {/* Option: Prefer not to write journal today */}
+          <label className="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/60 dark:bg-white/5 cursor-pointer select-none">
+            <input
+              type="checkbox"
               disabled={locked}
-              onChange={(e) => setReview(e.target.value)}
-              rows={4}
-              maxLength={2000}
-              placeholder="Enter daily reflection..."
-              className={areaCls}
+              checked={skipJournal}
+              onChange={(e) => {
+                setSkipJournal(e.target.checked);
+                if (e.target.checked && !score) setScore(3);
+              }}
+              className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950"
             />
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              I prefer not to write a journal today
+            </span>
           </label>
+
+          {!skipJournal ? (
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                Daily Journal
+              </span>
+
+              {/* Quick Tag Presets for Journal */}
+              <div className="flex flex-wrap gap-1.5">
+                {REFLECTION_QUICK_TAGS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => {
+                      setReview((prev) => (prev ? `${prev} ${tag}` : tag));
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-xs bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition active:scale-95 border border-zinc-200/60 dark:border-white/10"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={review}
+                disabled={locked}
+                onChange={(e) => setReview(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder="Enter daily reflection..."
+                className={areaCls}
+              />
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-xs text-zinc-500 font-mono">
+              Reflection journal entry skipped for today.
+            </div>
+          )}
         </div>
       )}
 
       {error && (
-        <p role="alert" className="text-xs text-red-600 font-mono">
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-mono">
           {error}
-        </p>
+        </div>
       )}
 
-      {/* SAVE & SKIP ACTION BUTTONS (HIDDEN ON TRAINING SELECTION SCREEN) */}
+      {/* SUBMIT & SKIP BUTTONS (HIDDEN ON TRAINING SELECTION SCREEN) */}
       {!(step === 1 && isTraining && groups.length > 0 && !trainingEntered) && (
         <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-white/10 gap-2">
           {locked ? (
@@ -1141,7 +1315,7 @@ function TaskForm({
               <button
                 type="button"
                 disabled={busy}
-                onClick={onFinish}
+                onClick={onSkipClick}
                 className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
               >
                 Skip
@@ -1149,19 +1323,102 @@ function TaskForm({
 
               <button
                 type="button"
-                disabled={busy || !valid[step] || photoBusy !== null}
-                onClick={handleSave}
+                disabled={busy || photoBusy !== null}
+                onClick={onSubmitClick}
                 className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
               >
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                <span>Save</span>
+                <span>Submit</span>
               </button>
             </>
           )}
         </div>
       )}
+
+      {/* SKIP VALIDATION / CONFIRMATION MODAL */}
+      {skipConfirmOpen && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                Skip This Task?
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Are you sure you want to skip today&apos;s {currentTaskInfo.title}? You can reopen and complete it anytime before daily reset.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setSkipConfirmOpen(false)}
+                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSkipConfirmOpen(false);
+                  onFinish();
+                }}
+                className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition active:scale-95"
+              >
+                Yes, Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBMIT CONFIRMATION MODAL */}
+      {submitConfirmOpen && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                Submit Task Entry?
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Confirm and submit your entry for {currentTaskInfo.title}.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setSubmitConfirmOpen(false)}
+                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setSubmitConfirmOpen(false);
+                  await handleSave();
+                }}
+                className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95 inline-flex items-center gap-1.5"
+              >
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>Confirm &amp; Submit</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatDayPillDate(unlockDate: string | Date | undefined | null, dayNumber: number): string {
+  if (!unlockDate) return `Day ${dayNumber}`;
+  const d = typeof unlockDate === "string" ? new Date(unlockDate) : unlockDate;
+  if (isNaN(d.getTime())) return `Day ${dayNumber}`;
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(d);
 }
 
 function formatDayDate(unlockDate: string | undefined, dayNumber: number): string {
@@ -1282,8 +1539,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     taskDetailScrollYRef.current = currentScrollY;
   };
   const [step, setStep] = useState(0);
-  const [completing, setCompleting] = useState(false);
-  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -1363,17 +1618,16 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
       {/* Daily Task Card Header */}
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-          <div className="mt-0.5 text-[11px] font-mono text-zinc-500 space-y-0.5">
-            <p>Daily Reset: 00:00 WIB (UTC+7)</p>
-            <p className="text-zinc-400 dark:text-zinc-500">{resetCountdown}</p>
-          </div>
+          <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+            • {resetCountdown}
+          </span>
         </div>
       </div>
 
-      {/* Horizontal Side-by-Side Day Selector (9 Training · 10 Rest ...) */}
-      <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2.5">
+      {/* Horizontal Side-by-Side Day Selector (10 Nov Training · 11 Nov Rest ...) */}
+      <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02]">
         <div
           ref={stripRef}
           onTouchStart={(e) => e.stopPropagation()}
@@ -1386,12 +1640,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             const isTodayItem = d.id === day.id;
             const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
             const isDoneItem = !!d.userProgress?.isCompleted;
+            const isFutureItem = !isTodayItem && !isPastItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
             const dayTypeWord =
               d.dayType === "TRAINING_DAY"
                 ? "Training"
                 : d.dayType === "REST_DAY"
                   ? "Rest"
                   : "Connect";
+            const dateStr = formatDayPillDate(d.unlockDate, d.dayNumber);
 
             return (
               <button
@@ -1413,8 +1669,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                           : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
                 }`}
               >
-                <span>{d.dayNumber}</span>
+                <span>{dateStr}</span>
                 <span className="text-[10px] uppercase tracking-wider opacity-85">{dayTypeWord}</span>
+                {isFutureItem && <Lock className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
                 {isTodayItem && (
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
@@ -1425,18 +1682,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               </button>
             );
           })}
-        </div>
-
-        {/* Selected Day Subtitle */}
-        <div className="px-1 flex items-center justify-between gap-2 text-[11px]">
-          <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
-            {formatFullDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
-          </span>
-          {isSelectedFuture && (
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
-              <Lock className="w-2.5 h-2.5" /> Locked
-            </span>
-          )}
         </div>
       </div>
 
@@ -1491,15 +1736,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-                      0{index + 1} · {t.category}
-                    </span>
-                  </div>
-                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate mt-0.5">
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    <span className="font-mono text-zinc-400 font-normal mr-1.5">0{index + 1}.</span>
                     {t.title}
                   </p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                     {t.description}
                   </p>
                 </div>
@@ -1586,27 +1827,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">
             <span className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Today&apos;s Routine Completed & Locked</span>
+              <span>Today&apos;s Routine Completed</span>
             </span>
             <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
               <Lock className="w-3 h-3" /> Locked
             </span>
           </div>
-        ) : (
-          <button
-            type="button"
-            disabled={locked || completing}
-            onClick={() => setConfirmSubmitOpen(true)}
-            className="w-full h-11 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition active:scale-98 shadow-md disabled:opacity-40"
-          >
-            {completing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
-            <span>Submit Today</span>
-          </button>
-        )}
+        ) : allDone ? (
+          <div className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/30 flex items-center justify-between text-xs font-medium text-emerald-800 dark:text-emerald-300">
+            <span className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>All daily tasks submitted for today</span>
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold">Done</span>
+          </div>
+        ) : null}
       </div>
 
       {/* TASK DETAIL FULL-SCREEN MODAL WITH IMAGE BANNER & CURVED BORDER SECTION */}
@@ -1699,77 +1934,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   props={props}
                 />
               </section>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* CONFIRMATION SUBMIT & LOCK DIALOG */}
-      {confirmSubmitOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-            <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold text-zinc-950 dark:text-white">
-                  Submit & Lock Today&apos;s Routine?
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Please ensure all daily activities are complete. Once submitted, today&apos;s journal will be permanently locked and archived.
-                </p>
-              </div>
-
-              <div className="space-y-2 p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 text-xs font-mono">
-                {tasks.map((t, i) => (
-                  <div key={t.title} className="flex items-center justify-between">
-                    <span className="text-zinc-600 dark:text-zinc-400">{t.title}</span>
-                    {done[i] ? (
-                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                        <Check className="w-3.5 h-3.5" /> Completed
-                      </span>
-                    ) : (
-                      <span className="text-zinc-400 text-[11px]">Not Logged</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {!allDone && (
-                <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-white/10 text-[11px] text-zinc-600 dark:text-zinc-300">
-                  <p>Note: Some tasks have not been completed yet. You can still submit if you wish to conclude today.</p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setConfirmSubmitOpen(false)}
-                  disabled={completing}
-                  className="px-4 py-2 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={completing}
-                  onClick={async () => {
-                    setCompleting(true);
-                    try {
-                      const ok = (await props.onCompleteDay(day.id)) !== false;
-                      if (ok) {
-                        setConfirmSubmitOpen(false);
-                        setDetailOpen(false);
-                      }
-                    } finally {
-                      setCompleting(false);
-                    }
-                  }}
-                  className="px-5 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition active:scale-98 shadow-md"
-                >
-                  {completing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Submit & Lock</span>
-                </button>
-              </div>
             </div>
           </div>,
           document.body

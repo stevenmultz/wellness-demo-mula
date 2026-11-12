@@ -8970,15 +8970,57 @@ export function AdminClient({
                   </button>
 
                   {expandedDaySections[3] && (
-                    <div className="p-5 sm:p-6 pt-0 space-y-2 border-t border-zinc-100 dark:border-white/10">
-                      <div className="pt-4 space-y-1.5">
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                          <Utensils className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span>Meal Recommendation &amp; Hydration Guide</span>
-                        </label>
+                    <div className="p-5 sm:p-6 pt-0 space-y-3 border-t border-zinc-100 dark:border-white/10">
+                      <div className="pt-4 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                            <Utensils className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            <span>Meal Recommendation &amp; Hydration Guide</span>
+                          </label>
+
+                          <div className="flex items-center gap-2">
+                            {selectedDayNum > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const prev = selectedProgram?.days?.find(
+                                    (d) => d.dayNumber === selectedDayNum - 1
+                                  );
+                                  if (prev?.mealRecommendation) {
+                                    setDayForm((p) => ({
+                                      ...p,
+                                      mealRecommendation: prev.mealRecommendation || "",
+                                    }));
+                                  }
+                                }}
+                                className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/10 transition active:scale-95 inline-flex items-center gap-1"
+                              >
+                                <span>Copy from Day {selectedDayNum - 1}</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDayForm((p) => ({
+                                  ...p,
+                                  mealRecommendation:
+                                    "Breakfast: High-protein Greek yogurt with chia seeds and mixed berries\nLunch: Grilled chicken breast with quinoa and steamed greens\nDinner: Wild-caught salmon with asparagus and avocado salad\nHydration: 2.5L filtered water with electrolytes",
+                                }));
+                              }}
+                              className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/10 transition active:scale-95 inline-flex items-center gap-1"
+                            >
+                              <span>3 Meals Preset</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                          Each line entered below becomes a checklist item for members (Meal 1, Meal 2, Meal 3).
+                        </p>
+
                         <textarea
                           rows={4}
-                          placeholder="Enter recommended meals and hydration guide"
+                          placeholder="Enter recommended meals (each line becomes a checklist meal for members)"
                           value={dayForm.mealRecommendation}
                           onChange={(e) =>
                             setDayForm((p) => ({
