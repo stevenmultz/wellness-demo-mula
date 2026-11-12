@@ -860,6 +860,7 @@ export function DashboardClient({
       setTimeout(() => setActionNotice(null), 4000);
       return false;
     }
+    router.refresh();
     return true;
   };
 

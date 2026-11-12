@@ -444,13 +444,11 @@ function TaskForm({
     if (step === 1) {
       if (isConnect) return (await props.onSaveAttendance(notes.trim(), day.id)) !== false;
       if (activeWorkout) {
-        const picked = await props.onSelectWorkout(activeWorkout, day.id, false);
-        if (picked === false) return false;
+        await props.onSelectWorkout(activeWorkout, day.id, false);
       }
-      if (notes.trim() !== (progress?.workoutNotes || "").trim()) {
-        return (await props.onSaveWorkoutNotes(notes.trim(), day.id)) !== false;
-      }
-      return true;
+      // Always save workout notes so training progress is recorded and persisted to database
+      const finalNotes = notes.trim() || (activeWorkout ? `Completed: ${activeWorkout}` : "Completed training session");
+      return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
     }
     if (step === 2) {
       if (mealDraft.specialOption === "similar") {
@@ -1075,13 +1073,13 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 2: NUTRITION & MEAL (CHECKLIST + ALTERNATIVE OPTIONS, NO TYPING)  */}
+      {/* STEP 2: NUTRITION & MEAL (UNIFIED TAP CHECKLIST, NO KEYBOARD)         */}
       {/* ===================================================================== */}
       {step === 2 && (
         <div className="space-y-4">
           <div className="space-y-2">
             <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-              Today&apos;s Recommended Meals
+              Today&apos;s Recommended Meals &amp; Options
             </span>
             <ul className="space-y-2">
               {recommendedMeals.map((mealLine, idx) => {
@@ -1130,55 +1128,83 @@ function TaskForm({
                   </li>
                 );
               })}
+
+              {/* UNIFIED CHECKLIST OPTION 1: SIMILAR MEALS */}
+              <li>
+                <label
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
+                    mealDraft.specialOption === "similar"
+                      ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10"
+                      : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={locked}
+                    checked={mealDraft.specialOption === "similar"}
+                    onChange={() => {
+                      setMealDraft((prev) => ({
+                        checkedMeals: [],
+                        specialOption: prev.specialOption === "similar" ? null : "similar",
+                      }));
+                    }}
+                    className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
+                      Option
+                    </span>
+                    <p
+                      className={`text-xs mt-0.5 leading-relaxed ${
+                        mealDraft.specialOption === "similar"
+                          ? "font-semibold text-zinc-950 dark:text-white"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      Ate similar food portion &amp; nutrition as recommended
+                    </p>
+                  </div>
+                </label>
+              </li>
+
+              {/* UNIFIED CHECKLIST OPTION 2: OFF TRACK */}
+              <li>
+                <label
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
+                    mealDraft.specialOption === "off_track"
+                      ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10"
+                      : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={locked}
+                    checked={mealDraft.specialOption === "off_track"}
+                    onChange={() => {
+                      setMealDraft((prev) => ({
+                        checkedMeals: [],
+                        specialOption: prev.specialOption === "off_track" ? null : "off_track",
+                      }));
+                    }}
+                    className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
+                      Option
+                    </span>
+                    <p
+                      className={`text-xs mt-0.5 leading-relaxed ${
+                        mealDraft.specialOption === "off_track"
+                          ? "font-semibold text-zinc-950 dark:text-white"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      Did not follow meal recommendations
+                    </p>
+                  </div>
+                </label>
+              </li>
             </ul>
-          </div>
-
-          <div className="space-y-2 pt-1 border-t border-zinc-100 dark:border-white/10">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-              Alternative Options
-            </span>
-
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => {
-                setMealDraft((prev) => ({
-                  checkedMeals: [],
-                  specialOption: prev.specialOption === "similar" ? null : "similar",
-                }));
-              }}
-              className={`w-full p-3.5 rounded-xl border text-left text-xs transition flex items-center justify-between gap-3 ${
-                mealDraft.specialOption === "similar"
-                  ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white shadow-xs"
-                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-              }`}
-            >
-              <span>Ate similar food portion &amp; nutrition as recommended</span>
-              {mealDraft.specialOption === "similar" && (
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => {
-                setMealDraft((prev) => ({
-                  checkedMeals: [],
-                  specialOption: prev.specialOption === "off_track" ? null : "off_track",
-                }));
-              }}
-              className={`w-full p-3.5 rounded-xl border text-left text-xs transition flex items-center justify-between gap-3 ${
-                mealDraft.specialOption === "off_track"
-                  ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white shadow-xs"
-                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-              }`}
-            >
-              <span>Did not follow meal recommendations</span>
-              {mealDraft.specialOption === "off_track" && (
-                <Check className="w-4 h-4 text-amber-500 shrink-0" />
-              )}
-            </button>
           </div>
         </div>
       )}
@@ -1337,7 +1363,12 @@ function TaskForm({
 
       {/* SKIP VALIDATION / CONFIRMATION MODAL */}
       {skipConfirmOpen && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        >
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
@@ -1372,7 +1403,12 @@ function TaskForm({
 
       {/* SUBMIT CONFIRMATION MODAL */}
       {submitConfirmOpen && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        >
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
@@ -1493,6 +1529,8 @@ function deriveDayDone(d: PlanDay, acts: string[], chks: string[]): [boolean, bo
     d.dayType === "TRAINING_DAY"
       ? !!p?.videoWatched ||
         !!p?.isCompleted ||
+        !!p?.workoutNotes ||
+        !!p?.selectedWorkout ||
         (acts.length > 0 && acts.every((name) => chks.some((c) => c.toLowerCase().includes(name.toLowerCase()))))
       : d.dayType === "REST_DAY"
         ? acts.length > 0
@@ -1507,7 +1545,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [done, setDone] = useState<boolean[]>([...initialDone]);
   const initialKey = initialDone.join(",");
   useEffect(() => {
-    setDone(initialDone);
+    setDone((prev) => [
+      prev[0] || initialDone[0],
+      prev[1] || initialDone[1],
+      prev[2] || initialDone[2],
+      prev[3] || initialDone[3],
+    ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
@@ -1631,6 +1674,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         <div
           ref={stripRef}
           onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
           className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
@@ -1672,13 +1716,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <span>{dateStr}</span>
                 <span className="text-[10px] uppercase tracking-wider opacity-85">{dayTypeWord}</span>
                 {isFutureItem && <Lock className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
-                {isTodayItem && (
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isActiveSelected ? "bg-white dark:bg-zinc-950" : "bg-zinc-950 dark:bg-white"
-                    }`}
-                  />
-                )}
               </button>
             );
           })}
@@ -1848,7 +1885,13 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div onScroll={handleTaskDetailScroll} className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto">
+          <div
+            onScroll={handleTaskDetailScroll}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto"
+          >
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}

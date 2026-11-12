@@ -344,7 +344,11 @@ export function MyPlanOverview({
   const sleepDone = !!progress?.bedtime && !!progress?.wakeTime;
   const activityDone =
     day?.dayType === "TRAINING_DAY"
-      ? !!progress?.videoWatched || !!progress?.isCompleted || (activities.length > 0 && activities.every((name) => checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))))
+      ? !!progress?.videoWatched ||
+        !!progress?.isCompleted ||
+        !!progress?.workoutNotes ||
+        !!progress?.selectedWorkout ||
+        (activities.length > 0 && activities.every((name) => checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))))
       : day?.dayType === "REST_DAY"
         ? activities.length > 0
           ? activities.every((name) => checks.includes(name))
@@ -371,19 +375,26 @@ export function MyPlanOverview({
 
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(0);
   const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
   const handleWidgetTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
   };
 
   const handleWidgetTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartXRef.current === null) return;
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
     touchStartXRef.current = null;
-    if (deltaX < -50) {
-      setWidgetIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
-    } else if (deltaX > 50) {
-      setWidgetIndex((prev) => (prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev));
+    touchStartYRef.current = null;
+    // Only switch tabs on clear, deliberate horizontal swipes (not vertical scrolling)
+    if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+      if (deltaX < -80) {
+        setWidgetIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
+      } else if (deltaX > 80) {
+        setWidgetIndex((prev) => (prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev));
+      }
     }
   };
 
@@ -580,8 +591,8 @@ export function MyPlanOverview({
             onTouchEnd={handleWidgetTouchEnd}
             className="transition-all duration-200"
           >
-            {widgetIndex === 0 ? (
-              day ? (
+            <div className={widgetIndex === 0 ? "block" : "hidden"}>
+              {day ? (
                 <DailyCheckIn
                   key={day.id}
                   day={day}
@@ -608,21 +619,25 @@ export function MyPlanOverview({
                 />
               ) : (
                 <EmptyState title="No tasks today" description="There is no open session for today." />
-              )
-            ) : widgetIndex === 1 ? (
+              )}
+            </div>
+
+            <div className={widgetIndex === 1 ? "block" : "hidden"}>
               <ProgramPreparationWidgets
                 program={program}
                 days={fullProgramDays}
                 currentDayId={day?.id}
                 onSwitchWidget={setWidgetIndex}
               />
-            ) : (
+            </div>
+
+            <div className={widgetIndex === 2 ? "block" : "hidden"}>
               <CohortPerformanceCard
                 days={fullProgramDays}
                 currentDayNumber={currentDayNumber}
                 onSwitchWidget={setWidgetIndex}
               />
-            )}
+            </div>
           </div>
 
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3 flex items-center justify-between gap-3">
@@ -944,6 +959,7 @@ function ProgramPreparationWidgets({
     prepScrollYRef.current = currentScrollY;
   };
   const sortedDays = useMemo(() => [...days].sort((a, b) => a.dayNumber - b.dayNumber), [days]);
+  const currentDay = useMemo(() => sortedDays.find((d) => d.id === currentDayId), [sortedDays, currentDayId]);
   const totalDaysCount = sortedDays.length || program.totalDays || 0;
 
   useEffect(() => {
@@ -1196,7 +1212,13 @@ function ProgramPreparationWidgets({
       {activePage &&
         typeof document !== "undefined" &&
         createPortal(
-          <div onScroll={handlePrepScroll} className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto">
+          <div
+            onScroll={handlePrepScroll}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto"
+          >
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
@@ -1307,138 +1329,197 @@ function ProgramPreparationWidgets({
                   <div className="space-y-2.5">
                     {mealDays.map((d) => {
                       const isToday = d.id === currentDayId;
+                      const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
                       const lines = splitActivities(d.mealRecommendation);
 
-                        return (
-                          <article
-                            key={d.id}
-                            className={`rounded-xl border p-4 bg-white dark:bg-[#181818] space-y-2 ${
-                              isToday
-                                ? "border-zinc-950 dark:border-white ring-1 ring-zinc-950/10 dark:ring-white/15"
-                                : "border-zinc-200 dark:border-white/10"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white">
-                                  Day {d.dayNumber}
-                                </span>
-                                <span className="text-xs text-zinc-500">
-                                  {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                </span>
-                              </div>
-                              {isToday && (
-                                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
-                                  Today
-                                </span>
-                              )}
+                      return (
+                        <article
+                          key={d.id}
+                          className={`rounded-xl border p-4 space-y-2 transition-all ${
+                            isToday
+                              ? "border-zinc-950 dark:border-white ring-1 ring-zinc-950/10 dark:ring-white/15 bg-white dark:bg-[#181818]"
+                              : isPast
+                                ? "border-zinc-200/50 dark:border-white/5 bg-zinc-50/60 dark:bg-white/[0.02] opacity-55 hover:opacity-85"
+                                : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md ${
+                                  isPast
+                                    ? "bg-zinc-200/60 dark:bg-white/5 text-zinc-400 dark:text-zinc-500"
+                                    : "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white"
+                                }`}
+                              >
+                                Day {d.dayNumber}
+                              </span>
+                              <span className={`text-xs ${isPast ? "text-zinc-400 dark:text-zinc-600" : "text-zinc-500"}`}>
+                                {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                              </span>
                             </div>
+                            {isToday ? (
+                              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                                Today
+                              </span>
+                            ) : isPast ? (
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-600 font-medium">
+                                Past
+                              </span>
+                            ) : null}
+                          </div>
 
-                            {lines.length > 1 ? (
-                              <ul className="space-y-1.5 pt-1">
-                                {lines.map((line, idx) => (
-                                  <li
-                                    key={idx}
-                                    className="text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-2 leading-relaxed"
-                                  >
-                                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1.5 shrink-0" />
-                                    <span>{line}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : d.mealRecommendation && d.mealRecommendation.trim() ? (
-                              <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line pt-0.5">
-                                {d.mealRecommendation}
-                              </p>
-                            ) : (
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                Balanced whole-food nutrition and recovery hydration.
-                              </p>
-                            )}
-                          </article>
-                        );
-                      })}
-                    </div>
+                          {lines.length > 1 ? (
+                            <ul className="space-y-1.5 pt-1">
+                              {lines.map((line, idx) => (
+                                <li
+                                  key={idx}
+                                  className={`text-xs flex items-start gap-2 leading-relaxed ${
+                                    isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                                      isPast ? "bg-zinc-300 dark:bg-zinc-700" : "bg-zinc-400"
+                                    }`}
+                                  />
+                                  <span>{line}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : d.mealRecommendation && d.mealRecommendation.trim() ? (
+                            <p
+                              className={`text-xs leading-relaxed whitespace-pre-line pt-0.5 ${
+                                isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
+                              }`}
+                            >
+                              {d.mealRecommendation}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-zinc-400 dark:text-zinc-600">
+                              Balanced whole-food nutrition and recovery hydration.
+                            </p>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
                 )}
 
                 {/* 2. MEETUPS & LIVE: ONLY MEETUPS / ZOOM SESSIONS */}
                 {activePage === "meetup" && (
                   <div className="space-y-2.5">
-                      {meetupDays.length > 0 ? (
-                        meetupDays.map((d) => {
-                          const meetUrl = safeHttpUrl(d.meetupLink);
-                          const mapUrl = safeHttpUrl(d.mapLink);
-                          const isToday = d.id === currentDayId;
+                    {meetupDays.length > 0 ? (
+                      meetupDays.map((d) => {
+                        const meetUrl = safeHttpUrl(d.meetupLink);
+                        const mapUrl = safeHttpUrl(d.mapLink);
+                        const isToday = d.id === currentDayId;
+                        const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
 
-                          return (
-                            <article
-                              key={d.id}
-                              className={`rounded-xl border p-4 bg-white dark:bg-[#181818] space-y-3 ${
-                                isToday
-                                  ? "border-zinc-950 dark:border-white ring-1 ring-zinc-950/10 dark:ring-white/15"
-                                  : "border-zinc-200 dark:border-white/10"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        return (
+                          <article
+                            key={d.id}
+                            className={`rounded-xl border p-4 space-y-3 transition-all ${
+                              isToday
+                                ? "border-zinc-950 dark:border-white ring-1 ring-zinc-950/10 dark:ring-white/15 bg-white dark:bg-[#181818]"
+                                : isPast
+                                  ? "border-zinc-200/50 dark:border-white/5 bg-zinc-50/60 dark:bg-white/[0.02] opacity-55 hover:opacity-85"
+                                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`text-[10px] font-mono uppercase tracking-wider font-semibold block ${
+                                      isPast ? "text-zinc-400 dark:text-zinc-600" : "text-zinc-400"
+                                    }`}
+                                  >
                                     Day {d.dayNumber} · {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                   </span>
-                                  <p className="text-sm font-semibold text-zinc-950 dark:text-white mt-0.5">
-                                    {d.eventTitle || d.title || "Live Session"}
-                                  </p>
+                                  {isPast && (
+                                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
+                                      · Past
+                                    </span>
+                                  )}
                                 </div>
-                                {d.onsiteSchedule && (
-                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
-                                    <Clock className="w-3 h-3" />
-                                    <span>{d.onsiteSchedule}</span>
-                                  </span>
+                                <p
+                                  className={`text-sm font-semibold mt-0.5 ${
+                                    isPast ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-950 dark:text-white"
+                                  }`}
+                                >
+                                  {d.eventTitle || d.title || "Live Session"}
+                                </p>
+                              </div>
+                              {d.onsiteSchedule && (
+                                <span
+                                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full inline-flex items-center gap-1 shrink-0 ${
+                                    isPast
+                                      ? "bg-zinc-200/50 dark:bg-white/5 text-zinc-400 dark:text-zinc-500"
+                                      : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300"
+                                  }`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  <span>{d.onsiteSchedule}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {d.eventDetails && (
+                              <p
+                                className={`text-xs leading-relaxed ${
+                                  isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-600 dark:text-zinc-300"
+                                }`}
+                              >
+                                {d.eventDetails}
+                              </p>
+                            )}
+
+                            {(d.onsiteVenue || program.venueAddress) && (
+                              <div
+                                className={`flex items-start gap-1.5 text-xs ${
+                                  isPast ? "text-zinc-400 dark:text-zinc-600" : "text-zinc-500"
+                                }`}
+                              >
+                                <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
+                                <span>{d.onsiteVenue || program.venueAddress}</span>
+                              </div>
+                            )}
+
+                            {(meetUrl || mapUrl) && (
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                {meetUrl && (
+                                  <a
+                                    href={meetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+                                      isPast
+                                        ? "bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-300/60 dark:border-white/10"
+                                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                                    }`}
+                                  >
+                                    <Video className="w-3.5 h-3.5" />
+                                    <span>{isPast ? "Session Link" : "Join Session"}</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                                {mapUrl && (
+                                  <a
+                                    href={mapUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition"
+                                  >
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    <span>Directions</span>
+                                  </a>
                                 )}
                               </div>
-
-                              {d.eventDetails && (
-                                <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                                  {d.eventDetails}
-                                </p>
-                              )}
-
-                              {(d.onsiteVenue || program.venueAddress) && (
-                                <div className="flex items-start gap-1.5 text-xs text-zinc-500">
-                                  <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                                  <span>{d.onsiteVenue || program.venueAddress}</span>
-                                </div>
-                              )}
-
-                              {(meetUrl || mapUrl) && (
-                                <div className="flex flex-wrap items-center gap-2 pt-1">
-                                  {meetUrl && (
-                                    <a
-                                      href={meetUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
-                                    >
-                                      <Video className="w-3.5 h-3.5" />
-                                      <span>Join Session</span>
-                                      <ExternalLink className="w-3 h-3" />
-                                    </a>
-                                  )}
-                                  {mapUrl && (
-                                    <a
-                                      href={mapUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="h-8 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition"
-                                    >
-                                      <MapPin className="w-3.5 h-3.5" />
-                                      <span>Directions</span>
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-                            </article>
-                          );
-                        })
+                            )}
+                          </article>
+                        );
+                      })
                       ) : (
                         <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-5 text-center text-xs text-zinc-500">
                           No live sessions scheduled for this program.
