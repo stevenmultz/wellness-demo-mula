@@ -1361,7 +1361,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-      {/* Daily Task Card Header with Index Switcher */}
+      {/* Daily Task Card Header */}
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
@@ -1370,32 +1370,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             <p className="text-zinc-400 dark:text-zinc-500">{resetCountdown}</p>
           </div>
         </div>
-
-        {props.onSwitchWidget && (
-          <div className="flex items-center p-1 rounded-full bg-zinc-100 dark:bg-white/10 text-xs font-mono font-semibold shrink-0">
-            <button
-              type="button"
-              onClick={() => props.onSwitchWidget?.(0)}
-              className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-            >
-              01 Tasks
-            </button>
-            <button
-              type="button"
-              onClick={() => props.onSwitchWidget?.(1)}
-              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-            >
-              02
-            </button>
-            <button
-              type="button"
-              onClick={() => props.onSwitchWidget?.(2)}
-              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-            >
-              03
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Horizontal Side-by-Side Day Selector (9 Training · 10 Rest ...) */}
@@ -1639,7 +1613,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div onScroll={handleTaskDetailScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
+          <div onScroll={handleTaskDetailScroll} className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto">
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}

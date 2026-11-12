@@ -507,44 +507,41 @@ export function MyPlanOverview({
             </dl>
           </section>
 
-          {/* 3-INDEX NAVIGATION WIDGET */}
+          {/* 3-INDEX NAVIGATION WIDGET (TEXT ONLY, SINGLE WORD) */}
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1.5 shadow-xs">
             <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setWidgetIndex(0)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] ${
                   widgetIndex === 0
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
                 }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Tasks</span>
+                Tasks
               </button>
               <button
                 type="button"
                 onClick={() => setWidgetIndex(1)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] ${
                   widgetIndex === 1
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
                 }`}
               >
-                <Compass className="w-3.5 h-3.5 shrink-0" />
-                <span>Guides</span>
+                Guides
               </button>
               <button
                 type="button"
                 onClick={() => setWidgetIndex(2)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] ${
                   widgetIndex === 2
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
                 }`}
               >
-                <BarChart3 className="w-3.5 h-3.5 shrink-0" />
-                <span>Indicators</span>
+                Metrics
               </button>
             </div>
           </section>
@@ -717,38 +714,12 @@ function CohortPerformanceCard({
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      {onSwitchWidget && (
-        <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Indicators</h2>
-            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Sleep score, training & meal compliance</p>
-          </div>
-
-          <div className="flex items-center p-1 rounded-full bg-zinc-100 dark:bg-white/10 text-xs font-mono font-semibold shrink-0">
-            <button
-              type="button"
-              onClick={() => onSwitchWidget(0)}
-              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-            >
-              01
-            </button>
-            <button
-              type="button"
-              onClick={() => onSwitchWidget(1)}
-              className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-            >
-              02
-            </button>
-            <button
-              type="button"
-              onClick={() => onSwitchWidget(2)}
-              className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-            >
-              03 Indicators
-            </button>
-          </div>
+      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
+          <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Sleep score, training & meal compliance</p>
         </div>
-      )}
+      </div>
 
       <div className="p-4 space-y-3.5">
         {/* 1. SLEEP AVERAGE (1–5 BAR) */}
@@ -1053,55 +1024,24 @@ function ProgramPreparationWidgets({
 
   return (
     <>
-      {/* When onSwitchWidget is passed, wrap inside widget card with index switcher */}
-      {onSwitchWidget ? (
-        <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
-              <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, live meetups & gear</p>
-            </div>
-
-            <div className="flex items-center p-1 rounded-full bg-zinc-100 dark:bg-white/10 text-xs font-mono font-semibold shrink-0">
-              <button
-                type="button"
-                onClick={() => onSwitchWidget(0)}
-                className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-              >
-                01
-              </button>
-              <button
-                type="button"
-                onClick={() => onSwitchWidget(1)}
-                className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-              >
-                02 Guides
-              </button>
-              <button
-                type="button"
-                onClick={() => onSwitchWidget(2)}
-                className="h-6 px-2 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
-              >
-                03
-              </button>
-            </div>
+      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
+            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, live meetups & gear</p>
           </div>
+        </div>
 
-          <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {cardsContent}
-          </div>
-        </section>
-      ) : (
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {cardsContent}
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* DEDICATED FULL-SCREEN VIEWS WITH IMAGE BACKGROUND & BORDERED SECTIONS */}
       {activePage &&
         typeof document !== "undefined" &&
         createPortal(
-          <div onScroll={handlePrepScroll} className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] flex flex-col overflow-y-auto">
+          <div onScroll={handlePrepScroll} className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto">
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}

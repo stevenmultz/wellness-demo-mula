@@ -1575,7 +1575,13 @@ export function DashboardClient({
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div
+      className={`min-h-screen flex flex-col relative overflow-x-hidden font-sans transition-colors duration-200 ${
+        activeTab === "my_plan"
+          ? "bg-[#09090b] text-zinc-100 dark"
+          : "bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100"
+      }`}
+    >
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
