@@ -980,76 +980,134 @@ function ProgramCommunityWidget({
   communityLink?: string | null;
 }) {
   const [showRules, setShowRules] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const communityUrl = safeHttpUrl(communityLink);
   const fallbackConcierge = `https://wa.me/6281290002026?text=${encodeURIComponent(
     `Hello Concierge, I would like to join the community group for: ${programTitle || "Program"}`
   )}`;
+  const destinationUrl = communityUrl || fallbackConcierge;
+
+  const handleConfirmProceed = () => {
+    setShowDisclaimer(false);
+    if (typeof window !== "undefined") {
+      window.open(destinationUrl, "_blank", "noopener,noreferrer");
+    }
+  };
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-800 dark:text-zinc-200 shrink-0 mt-0.5">
-            <Users className="w-4 h-4" />
+    <>
+      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-800 dark:text-zinc-200 shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                  {programTitle ? `${programTitle} Community` : "Program Community"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowRules((prev) => !prev)}
+                  aria-label="Community rules & info"
+                  title="View Community Rules"
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition shrink-0"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                Private cohort peer connection &amp; daily discussion
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                Cohort Community
-              </h3>
+
+          <button
+            type="button"
+            onClick={() => setShowDisclaimer(true)}
+            className="self-start sm:self-auto shrink-0 h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs active:scale-95 transition hover:opacity-90"
+          >
+            <span>{communityUrl ? "Open Community" : "Join Cohort Group"}</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {showRules && (
+          <div className="px-5 py-4 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-100 dark:border-white/10 space-y-3 animate-in fade-in duration-200 text-xs">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-zinc-950 dark:text-white">
+                {programTitle ? `${programTitle} Community Guidelines` : "Community Guidelines"}
+              </p>
               <button
                 type="button"
-                onClick={() => setShowRules((prev) => !prev)}
-                aria-label="Community rules & info"
-                title="View Community Rules"
-                className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+                onClick={() => setShowRules(false)}
+                className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs font-medium"
               >
-                <Info className="w-3.5 h-3.5" />
+                Close
               </button>
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-              Dedicated private community exclusively for {programTitle || "this program"}&apos;s cohort. Every program has its own isolated group for peer support and progress sharing.
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              This space is an exclusive, safe environment reserved solely for members enrolled in this curriculum cohort to ensure privacy, focused accountability, and peer growth.
             </p>
+            <ul className="space-y-2 text-[11px] text-zinc-600 dark:text-zinc-400 list-disc list-inside leading-relaxed">
+              <li><strong>Dedicated Cohort Group:</strong> Every program operates an independent, isolated group for focused curriculum sharing.</li>
+              <li><strong>Encourage &amp; Empower:</strong> Celebrate daily milestones, habit streaks, and support peers through challenging days.</li>
+              <li><strong>Strict Confidentiality:</strong> Daily logs, personal reflections, and questions shared within the group remain strictly confidential.</li>
+              <li><strong>Curriculum-Centered:</strong> Focus conversations on movement technique, nutrition protocols, circadian sleep rhythm, and recovery.</li>
+              <li><strong>Zero Solicitation:</strong> Commercial self-promotion, advertising, unsolicited direct messaging, or harassment will result in immediate removal.</li>
+            </ul>
           </div>
-        </div>
+        )}
+      </section>
 
-        <a
-          href={communityUrl || fallbackConcierge}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="self-start sm:self-auto shrink-0 h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs active:scale-95 transition hover:opacity-90"
+      {/* External Community Disclaimer Modal */}
+      {showDisclaimer && typeof document !== "undefined" && createPortal(
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
-          <span>{communityUrl ? "Open Community" : "Join Cohort Group"}</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
-      </div>
+          <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto shadow-2xs">
+              <Shield className="w-6 h-6" />
+            </div>
 
-      {showRules && (
-        <div className="px-5 py-4 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-100 dark:border-white/10 space-y-2.5 animate-in fade-in duration-200 text-xs">
-          <div className="flex items-center justify-between">
-            <p className="font-semibold text-zinc-950 dark:text-white">
-              Community Rules for {programTitle || "This Program"}
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowRules(false)}
-              className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs font-medium"
-            >
-              Close
-            </button>
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-bold text-zinc-950 dark:text-white">
+                Third-Party Community Notice
+              </h3>
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                You are about to navigate to an external messaging service (such as WhatsApp or Telegram).
+              </p>
+              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/70 dark:border-white/10 text-left text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Please note that interactions, discussions, and activities occurring outside the BMS Wellness platform take place independently and are not the responsibility or liability of BMS Wellness.
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={handleConfirmProceed}
+                className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <span>Continue to Community</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDisclaimer(false)}
+                className="w-full h-9 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <p className="text-[11px] text-zinc-500 leading-relaxed">
-            This space is exclusively reserved for members enrolled in this cohort to ensure focused accountability and meaningful mutual growth.
-          </p>
-          <ul className="space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-400 list-disc list-inside leading-relaxed">
-            <li><strong>Encourage &amp; Empower:</strong> Celebrate daily check-ins and support peers facing difficulties.</li>
-            <li><strong>Strict Confidentiality:</strong> Photos, journal entries, and personal experiences shared here remain confidential.</li>
-            <li><strong>Curriculum-Centered:</strong> Keep discussions focused on training form, sleep tips, and meal protocols.</li>
-            <li><strong>Zero Commercial Promotion:</strong> Unsolicited links, selling, or harassment results in immediate removal.</li>
-          </ul>
-        </div>
+        </div>,
+        document.body
       )}
-    </section>
+    </>
   );
 }
 
@@ -1103,7 +1161,7 @@ function ProgramReportEntryWidget({
 
 function ProgramReportDetailModal({
   programTitle,
-  communityLink,
+  communityLink: _communityLink,
   onClose,
 }: {
   programTitle?: string;
@@ -1114,7 +1172,7 @@ function ProgramReportDetailModal({
   const [issueType, setIssueType] = useState<string>("Coach / Guidance Concern");
   const [quitReason, setQuitReason] = useState<string>("Schedule / Time Conflict");
   const [note, setNote] = useState("");
-  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
+  const [showInvestigationPopup, setShowInvestigationPopup] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -1167,20 +1225,10 @@ function ProgramReportDetailModal({
         // Safe fallback
       }
       setIsSubmitting(false);
-      if (activeTab === "quit") {
-        setSubmittedMessage(
-          "Your withdrawal request has been received. Our concierge support will reach out within 24 hours to assist you."
-        );
-      } else {
-        setSubmittedMessage(
-          "Thank you for reporting. Our coaching and engineering team has received your ticket and will resolve it promptly."
-        );
-      }
+      setShowInvestigationPopup(true);
       setNote("");
-    }, 500);
+    }, 450);
   };
-
-  const directSupportUrl = safeHttpUrl(communityLink) || "https://wa.me/6281290002026?text=Hello%20Concierge,%20I%20need%20assistance%20with%20my%20program";
 
   return typeof document !== "undefined"
     ? createPortal(
@@ -1211,166 +1259,142 @@ function ProgramReportDetailModal({
               </button>
             </div>
 
-            {submittedMessage ? (
-              <div className="py-8 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-xs">
-                  <Check className="w-6 h-6" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                    {activeTab === "quit" ? "Withdrawal Request Received" : "Report Submitted Successfully"}
-                  </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                    {submittedMessage}
-                  </p>
-                </div>
-                <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="h-9 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-95 transition"
-                  >
-                    Done
-                  </button>
-                  {directSupportUrl && (
-                    <a
-                      href={directSupportUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/15 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition"
-                    >
-                      <span>Direct Concierge</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Segmented Tab Bar */}
-                <div className="p-1 rounded-2xl bg-zinc-100 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("issue")}
-                    className={`py-2 px-3 rounded-xl transition ${
-                      activeTab === "issue"
-                        ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs"
-                        : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                    }`}
-                  >
-                    Report an Issue
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("quit")}
-                    className={`py-2 px-3 rounded-xl transition ${
-                      activeTab === "quit"
-                        ? "bg-red-600 text-white shadow-xs"
-                        : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
-                    }`}
-                  >
-                    Quit Program
-                  </button>
-                </div>
+            {/* Segmented Tab Bar */}
+            <div className="p-1 rounded-2xl bg-zinc-100 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveTab("issue")}
+                className={`py-2 px-3 rounded-xl transition ${
+                  activeTab === "issue"
+                    ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                Report an Issue
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("quit")}
+                className={`py-2 px-3 rounded-xl transition ${
+                  activeTab === "quit"
+                    ? "bg-red-600 text-white shadow-xs"
+                    : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
+                }`}
+              >
+                Quit Program
+              </button>
+            </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 pt-1">
-                  {/* Category Selection */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                      {activeTab === "quit" ? "Reason for Withdrawing" : "Issue Category"}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {(activeTab === "quit" ? quitOptions : issueOptions).map((opt) => {
-                        const isSelected = activeTab === "quit" ? quitReason === opt : issueType === opt;
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => (activeTab === "quit" ? setQuitReason(opt) : setIssueType(opt))}
-                            className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition border ${
-                              isSelected
-                                ? activeTab === "quit"
-                                  ? "bg-red-600 text-white border-transparent shadow-xs"
-                                  : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
-                                : "bg-zinc-50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Note textarea */}
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                      {activeTab === "quit" ? "Additional Context (Optional)" : "Details / Description"}
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder={
-                        activeTab === "quit"
-                          ? "Let us know how we can assist or why you need to leave..."
-                          : "Describe the issue clearly (e.g., coach issue, broken video player, or exercise guidance)..."
-                      }
-                      className="w-full text-xs rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-3 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
-                      required={activeTab === "issue"}
-                    />
-                  </div>
-
-                  {activeTab === "quit" && (
-                    <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/30 text-xs text-amber-800 dark:text-amber-300 space-y-1">
-                      <p className="font-semibold">Need a temporary pause instead?</p>
-                      <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
-                        You can pause your schedule and resume when your routine clears up. You don&apos;t have to lose your progress.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  <div className="flex items-center justify-between gap-3 pt-2">
-                    <a
-                      href={directSupportUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-white inline-flex items-center gap-1 transition"
-                    >
-                      <span>Need concierge?</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-
-                    <div className="flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+              {/* Category Selection */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                  {activeTab === "quit" ? "Reason for Withdrawing" : "Issue Category"}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(activeTab === "quit" ? quitOptions : issueOptions).map((opt) => {
+                    const isSelected = activeTab === "quit" ? quitReason === opt : issueType === opt;
+                    return (
                       <button
+                        key={opt}
                         type="button"
-                        onClick={onClose}
-                        className="h-9 px-4 rounded-full text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || (activeTab === "issue" && !note.trim())}
-                        className={`h-9 px-5 rounded-full text-xs font-semibold disabled:opacity-50 transition active:scale-95 ${
-                          activeTab === "quit"
-                            ? "bg-red-600 text-white hover:bg-red-700"
-                            : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90"
+                        onClick={() => (activeTab === "quit" ? setQuitReason(opt) : setIssueType(opt))}
+                        className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition border ${
+                          isSelected
+                            ? activeTab === "quit"
+                              ? "bg-red-600 text-white border-transparent shadow-xs"
+                              : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
+                            : "bg-zinc-50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
                         }`}
                       >
-                        {isSubmitting
-                          ? "Submitting..."
-                          : activeTab === "quit"
-                            ? "Confirm Quit Request"
-                            : "Submit Report"}
+                        {opt}
                       </button>
-                    </div>
-                  </div>
-                </form>
-              </>
-            )}
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Note textarea */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                  {activeTab === "quit" ? "Additional Context (Optional)" : "Details / Description"}
+                </label>
+                <textarea
+                  rows={3}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={
+                    activeTab === "quit"
+                      ? "Let us know how we can assist or why you need to leave..."
+                      : "Describe the issue clearly (e.g., coach concern, broken video player, or exercise guidance)..."
+                  }
+                  className="w-full text-xs rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-3 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                  required={activeTab === "issue"}
+                />
+              </div>
+
+              {activeTab === "quit" && (
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/30 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                  <p className="font-semibold">Need a temporary pause instead?</p>
+                  <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                    You can pause your schedule and resume when your routine clears up. You don&apos;t have to lose your progress.
+                  </p>
+                </div>
+              )}
+
+              {/* Form Action: Clean, Single Dedicated Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || (activeTab === "issue" && !note.trim())}
+                  className={`w-full h-11 rounded-2xl text-xs font-semibold disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
+                    activeTab === "quit"
+                      ? "bg-red-600 text-white hover:bg-red-700"
+                      : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90"
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <span>Submitting...</span>
+                  ) : (
+                    <span>{activeTab === "quit" ? "Submit Withdrawal Request" : "Submit Report"}</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
+
+          {/* Dedicated Investigation Pop-up Confirmation Modal */}
+          {showInvestigationPopup && (
+            <div className="fixed inset-0 z-[105] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-200">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-2xs">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-base font-bold text-zinc-950 dark:text-white">
+                    {activeTab === "quit" ? "Withdrawal Under Review" : "Report Under Investigation"}
+                  </h3>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                    {activeTab === "quit"
+                      ? "Your withdrawal request has been received. Our concierge support will review your curriculum status and reach out to you within 24 hours to assist you."
+                      : "Thank you for bringing this to our attention. Our team has logged your report and is thoroughly investigating the issue. A member of our support team will contact you back directly with an update."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInvestigationPopup(false);
+                    onClose();
+                  }}
+                  className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition shadow-xs"
+                >
+                  Understood, Close
+                </button>
+              </div>
+            </div>
+          )}
         </div>,
         document.body
       )
@@ -1881,188 +1905,232 @@ function ProgramPreparationWidgets({
             </div>
 
             {/* CURVED SHEET CONTAINER (AIRY, SPACIOUS, ZERO NESTED BOXES) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] shadow-2xl pt-7 px-5 sm:px-8 pb-28 max-w-xl mx-auto w-full flex-1">
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] shadow-2xl pt-8 px-5 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
               {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
               {activePage === "meal" && (
-                <div className="divide-y divide-zinc-100 dark:divide-white/5 space-y-0">
-                  {mealDays.map((d) => {
-                    const isToday = d.id === currentDayId;
-                    const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
-                    const lines = splitActivities(d.mealRecommendation);
+                <div className="space-y-6">
+                  {/* Clean Page Overview Banner */}
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Daily Nutrition Protocols
+                      </span>
+                      <span className="text-[11px] font-mono text-zinc-400">
+                        {mealDays.length} Days Planned
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Tailored whole-food nutrition and circadian hydration guidelines to fuel functional workouts and cellular recovery.
+                    </p>
+                  </div>
 
-                    return (
-                      <div
-                        key={d.id}
-                        className={`py-4.5 first:pt-1 last:pb-2 transition-all ${
-                          isToday
-                            ? "px-4 -mx-4 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 my-2"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`font-mono text-xs font-semibold ${
-                                isToday
-                                  ? "text-zinc-950 dark:text-white"
-                                  : isPast
-                                    ? "text-zinc-400 dark:text-zinc-500"
-                                    : "text-zinc-900 dark:text-zinc-100"
-                              }`}
-                            >
-                              Day {d.dayNumber}
-                            </span>
-                            <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                            <span className={`text-xs ${isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-500"}`}>
-                              {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                            </span>
-                          </div>
-                          {isToday ? (
-                            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
-                              Today
-                            </span>
-                          ) : isPast ? (
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
-                              Completed
-                            </span>
-                          ) : null}
-                        </div>
+                  {/* Clean Day-by-Day Meal Cards with abundant negative space */}
+                  <div className="space-y-4 pt-1">
+                    {mealDays.map((d) => {
+                      const isToday = d.id === currentDayId;
+                      const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
+                      const lines = splitActivities(d.mealRecommendation);
 
-                        {lines.length > 1 ? (
-                          <ul className="space-y-1.5 pt-0.5">
-                            {lines.map((line, idx) => (
-                              <li
-                                key={idx}
-                                className={`text-xs flex items-start gap-2.5 leading-relaxed ${
-                                  isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
+                      return (
+                        <div
+                          key={d.id}
+                          className={`rounded-2xl border p-5 sm:p-6 transition-all space-y-3.5 ${
+                            isToday
+                              ? "border-zinc-950 dark:border-white/30 bg-zinc-50/90 dark:bg-white/[0.04] shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10"
+                              : "border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616]"
+                          }`}
+                        >
+                          {/* Card Header: Day + Date + Status Badge */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                className={`text-xs font-mono font-bold tracking-wide ${
+                                  isToday
+                                    ? "text-zinc-950 dark:text-white"
+                                    : isPast
+                                      ? "text-zinc-400 dark:text-zinc-500"
+                                      : "text-zinc-900 dark:text-zinc-100"
                                 }`}
                               >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                                    isPast ? "bg-zinc-300 dark:bg-zinc-700" : "bg-zinc-400 dark:bg-zinc-500"
+                                Day {d.dayNumber}
+                              </span>
+                              <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                              <span className={`text-xs ${isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-500"}`}>
+                                {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                              </span>
+                            </div>
+
+                            {isToday ? (
+                              <span className="h-6 px-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center">
+                                Today
+                              </span>
+                            ) : isPast ? (
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
+                                Completed
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {/* Meal Items */}
+                          {lines.length > 1 ? (
+                            <ul className="space-y-2 pt-1">
+                              {lines.map((line, idx) => (
+                                <li
+                                  key={idx}
+                                  className={`text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed ${
+                                    isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
                                   }`}
-                                />
-                                <span>{line}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : d.mealRecommendation && d.mealRecommendation.trim() ? (
-                          <p
-                            className={`text-xs leading-relaxed whitespace-pre-line ${
-                              isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
-                            }`}
-                          >
-                            {d.mealRecommendation}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-zinc-400 dark:text-zinc-600">
-                            Balanced whole-food nutrition and recovery hydration.
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${
+                                      isPast ? "bg-zinc-300 dark:bg-zinc-700" : "bg-zinc-400 dark:bg-zinc-500"
+                                    }`}
+                                  />
+                                  <span>{line}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : d.mealRecommendation && d.mealRecommendation.trim() ? (
+                            <p
+                              className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line ${
+                                isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
+                              }`}
+                            >
+                              {d.mealRecommendation}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-zinc-400 dark:text-zinc-600 italic">
+                              Balanced whole-food nutrition and recovery hydration.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
               {/* 2. MEETUPS & LIVE: ONLY MEETUPS / ZOOM SESSIONS */}
               {activePage === "meetup" && (
-                <div className="divide-y divide-zinc-100 dark:divide-white/5 space-y-0">
+                <div className="space-y-6">
+                  {/* Clean Page Overview Banner */}
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Live Cohort Sessions
+                      </span>
+                      <span className="text-[11px] font-mono text-zinc-400">
+                        {meetupDays.length} Sessions
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Interactive live webinars, movement clinics, and onsite cohort gatherings.
+                    </p>
+                  </div>
+
                   {meetupDays.length > 0 ? (
-                    meetupDays.map((d) => {
-                      const meetUrl = safeHttpUrl(d.meetupLink);
-                      const mapUrl = safeHttpUrl(d.mapLink);
-                      const isToday = d.id === currentDayId;
-                      const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
+                    <div className="space-y-4 pt-1">
+                      {meetupDays.map((d) => {
+                        const meetUrl = safeHttpUrl(d.meetupLink);
+                        const mapUrl = safeHttpUrl(d.mapLink);
+                        const isToday = d.id === currentDayId;
+                        const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
 
-                      return (
-                        <div
-                          key={d.id}
-                          className={`py-5 first:pt-1 last:pb-2 space-y-3 ${
-                            isToday ? "px-4 -mx-4 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 my-2" : ""
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-mono text-zinc-400">
-                                  Day {d.dayNumber} • {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                </span>
-                                {isPast && (
-                                  <span className="text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-600">
-                                    • Concluded
+                        return (
+                          <div
+                            key={d.id}
+                            className={`rounded-2xl border p-5 sm:p-6 transition-all space-y-3.5 ${
+                              isToday
+                                ? "border-zinc-950 dark:border-white/30 bg-zinc-50/90 dark:bg-white/[0.04] shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10"
+                                : "border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-mono font-bold text-zinc-950 dark:text-white">
+                                    Day {d.dayNumber}
                                   </span>
-                                )}
-                              </div>
-                              <h3
-                                className={`text-sm font-semibold mt-1 ${
-                                  isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-950 dark:text-white"
-                                }`}
-                              >
-                                {d.eventTitle || d.title || "Live Coaching Session"}
-                              </h3>
-                            </div>
-                            {d.onsiteSchedule && (
-                              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1.5 shrink-0">
-                                <Clock className="w-3 h-3" />
-                                <span>{d.onsiteSchedule}</span>
-                              </span>
-                            )}
-                          </div>
-
-                          {d.eventDetails && (
-                            <p
-                              className={`text-xs leading-relaxed ${
-                                isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-600 dark:text-zinc-300"
-                              }`}
-                            >
-                              {d.eventDetails}
-                            </p>
-                          )}
-
-                          {(d.onsiteVenue || program.venueAddress) && (
-                            <div className="flex items-start gap-1.5 text-xs text-zinc-500">
-                              <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                              <span>{d.onsiteVenue || program.venueAddress}</span>
-                            </div>
-                          )}
-
-                          {(meetUrl || mapUrl) && (
-                            <div className="flex flex-wrap items-center gap-2 pt-1">
-                              {meetUrl && (
-                                <a
-                                  href={meetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`h-8 px-4 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
-                                    isPast
-                                      ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                                      : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                                  <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                                  <span className="text-xs text-zinc-500">
+                                    {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                                  </span>
+                                  {isPast && (
+                                    <span className="text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-600 ml-1">
+                                      • Concluded
+                                    </span>
+                                  )}
+                                </div>
+                                <h3
+                                  className={`text-sm sm:text-base font-semibold mt-1.5 ${
+                                    isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-950 dark:text-white"
                                   }`}
                                 >
-                                  <Video className="w-3.5 h-3.5" />
-                                  <span>{isPast ? "Session Archive" : "Join Live Meeting"}</span>
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                              {mapUrl && (
-                                <a
-                                  href={mapUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition"
-                                >
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  <span>Directions</span>
-                                </a>
+                                  {d.eventTitle || d.title || "Live Coaching Session"}
+                                </h3>
+                              </div>
+                              {d.onsiteSchedule && (
+                                <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1.5 shrink-0">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{d.onsiteSchedule}</span>
+                                </span>
                               )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })
+
+                            {d.eventDetails && (
+                              <p
+                                className={`text-xs sm:text-sm leading-relaxed ${
+                                  isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-600 dark:text-zinc-300"
+                                }`}
+                              >
+                                {d.eventDetails}
+                              </p>
+                            )}
+
+                            {(d.onsiteVenue || program.venueAddress) && (
+                              <div className="flex items-start gap-2 text-xs sm:text-sm text-zinc-500 pt-1">
+                                <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
+                                <span>{d.onsiteVenue || program.venueAddress}</span>
+                              </div>
+                            )}
+
+                            {(meetUrl || mapUrl) && (
+                              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+                                {meetUrl && (
+                                  <a
+                                    href={meetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`h-9 px-4 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+                                      isPast
+                                        ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
+                                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                                    }`}
+                                  >
+                                    <Video className="w-3.5 h-3.5" />
+                                    <span>{isPast ? "Session Archive" : "Join Live Meeting"}</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                                {mapUrl && (
+                                  <a
+                                    href={mapUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                                  >
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    <span>Directions</span>
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <div className="py-12 text-center text-xs text-zinc-400">
+                    <div className="py-16 text-center text-xs text-zinc-400">
                       No live sessions scheduled for this program.
                     </div>
                   )}
@@ -2071,159 +2139,204 @@ function ProgramPreparationWidgets({
 
               {/* 3. EQUIPMENT: CLEAN GEAR CHECKLIST */}
               {activePage === "equipment" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-white/10">
-                    <span className="text-xs font-semibold text-zinc-950 dark:text-white">Required Gear &amp; Props</span>
-                    <span className="text-[11px] font-mono text-zinc-400">{equipmentItems.length} items</span>
+                <div className="space-y-6">
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Gear Checklist
+                      </span>
+                      <span className="text-[11px] font-mono text-zinc-400">
+                        {equipmentItems.length} items
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Essential training props and mobility gear recommended for daily sessions.
+                    </p>
                   </div>
-                  <ul className="divide-y divide-zinc-100 dark:divide-white/5">
+
+                  <div className="space-y-3 pt-1">
                     {equipmentItems.map((item, idx) => (
-                      <li key={idx} className="py-3.5 first:pt-1 last:pb-1 flex items-center gap-3 text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span className="leading-relaxed">{item}</span>
-                      </li>
+                      <div
+                        key={idx}
+                        className="p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] flex items-center gap-3.5"
+                      >
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
+                          {item}
+                        </span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
               {/* 4. OBJECTIVES & BLUEPRINT: STACKED AUDIENCE & LOGISTICS */}
               {activePage === "objective" && (
-                <div className="space-y-7">
-                  {/* Stacked Audience & Logistics */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Audience &amp; Logistics
+                <div className="space-y-6">
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                      Curriculum Blueprint
                     </span>
-                    <dl className="divide-y divide-zinc-100 dark:divide-white/5 text-xs">
-                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                        <dt className="text-zinc-500 font-medium text-[11px] font-mono uppercase">Target Audience</dt>
-                        <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                          {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
-                        </dd>
-                      </div>
-                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                        <dt className="text-zinc-500 font-medium text-[11px] font-mono uppercase">Daily Commitment</dt>
-                        <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                          {program.dailyCommitment || "20–30 mins/day"}
-                        </dd>
-                      </div>
-                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                        <dt className="text-zinc-500 font-medium text-[11px] font-mono uppercase">Intensity Level</dt>
-                        <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                          {formatIntensityBadge(program.difficultyLevel)}
-                        </dd>
-                      </div>
-                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                        <dt className="text-zinc-500 font-medium text-[11px] font-mono uppercase">Delivery &amp; Location</dt>
-                        <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                          {program.locationType || "Online Studio"}
-                        </dd>
-                      </div>
-                      {program.equipment && (
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Audience specifications, core methodology, and physiological adaptation targets.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 pt-1">
+                    {/* Audience & Logistics Card */}
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-3">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Audience &amp; Logistics
+                      </span>
+                      <dl className="divide-y divide-zinc-100 dark:divide-white/5 text-xs sm:text-sm">
                         <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                          <dt className="text-zinc-500 font-medium text-[11px] font-mono uppercase">Gear Needed</dt>
+                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Target Audience</dt>
                           <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                            {program.equipment}
+                            {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
                           </dd>
                         </div>
-                      )}
-                    </dl>
-                  </div>
+                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Daily Commitment</dt>
+                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
+                            {program.dailyCommitment || "20–30 mins/day"}
+                          </dd>
+                        </div>
+                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Intensity Level</dt>
+                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
+                            {formatIntensityBadge(program.difficultyLevel)}
+                          </dd>
+                        </div>
+                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Delivery &amp; Location</dt>
+                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
+                            {program.locationType || "Online Studio"}
+                          </dd>
+                        </div>
+                        {program.equipment && (
+                          <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                            <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Gear Needed</dt>
+                            <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
+                              {program.equipment}
+                            </dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
 
-                  {/* Methodology & Core Focus */}
-                  <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Methodology &amp; Core Focus
-                    </span>
-                    <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-                      {program.methodology || program.description || "Evidence-based somatic training combined with structured recovery routines and circadian alignment."}
-                    </p>
-                  </div>
-
-                  {/* Target Physical & Mental State */}
-                  <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Target Physical &amp; Mental State
-                    </span>
-                    <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                      {program.targetState || "Optimal physical vitality, enhanced postural stability, regulated nervous system tone, and restored metabolic recovery."}
-                    </p>
-                  </div>
-
-                  {/* Expected Benefits & Outcomes */}
-                  <div className="space-y-3 pt-2 border-t border-zinc-100 dark:border-white/5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Expected Benefits &amp; Outcomes
-                    </span>
-                    <ul className="space-y-2.5">
-                      {(program.expectedBenefits && program.expectedBenefits.length > 0
-                        ? program.expectedBenefits
-                        : [
-                            "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
-                            "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
-                            "Enhanced joint mobility, core stability, and functional movement mechanics.",
-                            "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
-                          ]
-                      ).map((benefit, i) => (
-                        <li key={i} className="flex items-start gap-3 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                          <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Practical Guidelines */}
-                  {program.programGuidelines && program.programGuidelines.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/5">
+                    {/* Methodology Card */}
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                        Practical Guidelines
+                        Methodology &amp; Core Focus
                       </span>
-                      <ul className="space-y-1.5 list-disc pl-4 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                        {program.programGuidelines.map((g, i) => (
-                          <li key={i}>{g}</li>
+                      <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                        {program.methodology || program.description || "Evidence-based somatic training combined with structured recovery routines and circadian alignment."}
+                      </p>
+                    </div>
+
+                    {/* Target State Card */}
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Target Physical &amp; Mental State
+                      </span>
+                      <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                        {program.targetState || "Optimal physical vitality, enhanced postural stability, regulated nervous system tone, and restored metabolic recovery."}
+                      </p>
+                    </div>
+
+                    {/* Expected Outcomes Card */}
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-3">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Expected Benefits &amp; Outcomes
+                      </span>
+                      <ul className="space-y-3">
+                        {(program.expectedBenefits && program.expectedBenefits.length > 0
+                          ? program.expectedBenefits
+                          : [
+                              "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
+                              "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
+                              "Enhanced joint mobility, core stability, and functional movement mechanics.",
+                              "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
+                            ]
+                        ).map((benefit, i) => (
+                          <li key={i} className="flex items-start gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{benefit}</span>
+                          </li>
                         ))}
                       </ul>
                     </div>
-                  )}
+
+                    {/* Practical Guidelines Card */}
+                    {program.programGuidelines && program.programGuidelines.length > 0 && (
+                      <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                          Practical Guidelines
+                        </span>
+                        <ul className="space-y-2 list-disc pl-4 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                          {program.programGuidelines.map((g, i) => (
+                            <li key={i}>{g}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* 5. CLINICAL REFERENCES */}
               {activePage === "reference" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-white/10">
-                    <span className="text-xs font-semibold text-zinc-950 dark:text-white">Clinical &amp; Scientific Evidence</span>
-                    <span className="text-[11px] font-mono text-zinc-400">{validReferences.length} sources</span>
+                <div className="space-y-6">
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Scientific Citations
+                      </span>
+                      <span className="text-[11px] font-mono text-zinc-400">
+                        {validReferences.length} sources
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Peer-reviewed clinical studies and research trials supporting this curriculum.
+                    </p>
                   </div>
+
                   {validReferences.length > 0 ? (
-                    <ul className="divide-y divide-zinc-100 dark:divide-white/5">
+                    <div className="space-y-3.5 pt-1">
                       {validReferences.map((ref, idx) => {
                         const url = safeHttpUrl(ref.url);
                         return (
-                          <li key={idx} className="py-4 first:pt-1 last:pb-1 flex items-start justify-between gap-4">
-                            <div className="min-w-0 space-y-1">
-                              <span className="text-[10px] font-mono text-zinc-400 font-medium">Source {String(idx + 1).padStart(2, "0")}</span>
-                              <p className="text-xs font-medium text-zinc-900 dark:text-white leading-relaxed">{ref.title}</p>
+                          <div
+                            key={idx}
+                            className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex items-start justify-between gap-4"
+                          >
+                            <div className="min-w-0 space-y-1.5">
+                              <span className="text-[10px] font-mono text-zinc-400 font-semibold uppercase tracking-wider">
+                                Source {String(idx + 1).padStart(2, "0")}
+                              </span>
+                              <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white leading-relaxed">
+                                {ref.title}
+                              </p>
                             </div>
                             {url && (
                               <a
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="shrink-0 h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition"
+                                className="shrink-0 h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition hover:opacity-90 shadow-2xs"
                               >
-                                <span>Read</span>
+                                <span>Read Study</span>
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             )}
-                          </li>
+                          </div>
                         );
                       })}
-                    </ul>
+                    </div>
                   ) : (
-                    <p className="py-8 text-center text-xs text-zinc-400">No clinical references cited for this program.</p>
+                    <p className="py-16 text-center text-xs text-zinc-400">
+                      No clinical references cited for this program.
+                    </p>
                   )}
                 </div>
               )}
@@ -2231,46 +2344,50 @@ function ProgramPreparationWidgets({
               {/* 6. PROGRAM TERMS & RULES */}
               {activePage === "terms" && (
                 <div className="space-y-6">
-                  <div className="pb-3 border-b border-zinc-100 dark:border-white/10 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                       Program Code of Conduct
                     </span>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      To maintain safety, focus, and maximum longevity benefits, all members agree to the following standards.
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Standards and commitments agreed upon by all enrolled members to maintain safety, focus, and maximum longevity benefits.
                     </p>
                   </div>
 
-                  <div className="space-y-5 text-xs">
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-zinc-950 dark:text-white">1. Daily Cadence &amp; 23:59 WIB Cutoff</h3>
-                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        Curriculum tasks unlock at 00:00 WIB and must be logged before 23:59 WIB. Daily consistency anchors neural adaptation. Missed tasks can be marked as skipped without penalizing your habit profile.
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-zinc-950 dark:text-white">2. Medical Safety &amp; Intuitive Pacing</h3>
-                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        Listen to biofeedback. Movement drills should never cause sharp pain. Stop immediately and contact your physician if feeling faint or discomfort.
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-zinc-950 dark:text-white">3. Cohort Privacy &amp; Respectful Space</h3>
-                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        Everything shared within the cohort (photos, journals, questions) is strictly confidential. Mutual respect and encouragement are mandatory.
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-zinc-950 dark:text-white">4. Data Integrity &amp; Truthful Logging</h3>
-                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        Log sleep hours, training reps, and meals accurately. Authentic tracking empowers personalized AI adjustments and honest self-discovery.
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-zinc-950 dark:text-white">5. Rest Days &amp; Nervous System Restoration</h3>
-                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        Rest days are as vital as training days. Respect recovery protocols to allow neuromuscular integration and avoid chronic sympathetic overload.
-                      </p>
-                    </div>
+                  <div className="space-y-4 pt-1">
+                    {[
+                      {
+                        title: "1. Daily Cadence & 23:59 WIB Cutoff",
+                        desc: "Curriculum tasks unlock at 00:00 WIB and must be logged before 23:59 WIB. Daily consistency anchors neural adaptation. Missed tasks can be marked as skipped without penalizing your habit profile.",
+                      },
+                      {
+                        title: "2. Medical Safety & Intuitive Pacing",
+                        desc: "Listen to biofeedback. Movement drills should never cause sharp pain. Stop immediately and contact your physician if feeling faint or discomfort.",
+                      },
+                      {
+                        title: "3. Cohort Privacy & Respectful Space",
+                        desc: "Everything shared within the cohort (photos, journals, questions) is strictly confidential. Mutual respect and encouragement are mandatory.",
+                      },
+                      {
+                        title: "4. Data Integrity & Truthful Logging",
+                        desc: "Log sleep hours, training reps, and meals accurately. Authentic tracking empowers personalized AI adjustments and honest self-discovery.",
+                      },
+                      {
+                        title: "5. Rest Days & Nervous System Restoration",
+                        desc: "Rest days are as vital as training days. Respect recovery protocols to allow neuromuscular integration and avoid chronic sympathetic overload.",
+                      },
+                    ].map((rule, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2"
+                      >
+                        <h3 className="font-semibold text-zinc-950 dark:text-white text-sm">
+                          {rule.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                          {rule.desc}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2278,89 +2395,89 @@ function ProgramPreparationWidgets({
               {/* 7. COACHES & MENTORS */}
               {activePage === "coach" && (
                 <div className="space-y-6">
-                  <div className="pb-3 border-b border-zinc-100 dark:border-white/10 space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Dedicated Mentors
+                  <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                      Dedicated Faculty
                     </span>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
                       Learn with certified longevity practitioners, somatic movement specialists, and clinical nutritionists.
                     </p>
                   </div>
 
-                  <div className="divide-y divide-zinc-100 dark:divide-white/5 space-y-0">
+                  <div className="space-y-4 pt-1">
                     {/* Coach 1: Lead Program Coach */}
-                    <div className="py-5 first:pt-1 flex items-start gap-4">
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach.webp"
                         alt={program.coachName || "Lead Coach"}
-                        className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
+                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
                       />
-                      <div className="min-w-0 space-y-1 flex-1">
+                      <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                          <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             {program.coachName || "Coach Julian Thorne"}
                           </h3>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
                             Lead Guide
                           </span>
                         </div>
                         <p className="text-xs text-zinc-500 font-medium">
                           {program.coachTitle || "Master Longevity & Movement Specialist"}
                         </p>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
+                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
                           Specializes in biomechanics, mobility progression, and neuromuscular longevity conditioning. Designed the daily training curriculum for this cohort.
                         </p>
                       </div>
                     </div>
 
                     {/* Coach 2: Clinical Nutritionist */}
-                    <div className="py-5 flex items-start gap-4">
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach2.webp"
                         alt="Nutrition Specialist"
-                        className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
+                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
                       />
-                      <div className="min-w-0 space-y-1 flex-1">
+                      <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                          <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Dr. Marcus Vance, ND
                           </h3>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold">
                             Nutrition
                           </span>
                         </div>
                         <p className="text-xs text-zinc-500 font-medium">
                           Integrative Nutritionist &amp; Metabolic Health Researcher
                         </p>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
+                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
                           Oversees dietary recommendations, circadian fasting windows, and cellular anti-inflammatory nutrition protocols for optimal recovery.
                         </p>
                       </div>
                     </div>
 
                     {/* Coach 3: Nervous System & Sleep Specialist */}
-                    <div className="py-5 last:pb-1 flex items-start gap-4">
+                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach3.webp"
                         alt="Sleep & Recovery Guide"
-                        className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
+                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
                       />
-                      <div className="min-w-0 space-y-1 flex-1">
+                      <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                          <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Elena Rostova, MSc
                           </h3>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold">
                             Recovery
                           </span>
                         </div>
                         <p className="text-xs text-zinc-500 font-medium">
                           Circadian Somatics &amp; Autonomic Nervous System Coach
                         </p>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
+                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
                           Guides breathwork sessions, parasympathetic wind-down routines, and daily sleep hygiene protocols.
                         </p>
                       </div>

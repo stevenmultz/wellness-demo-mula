@@ -2021,8 +2021,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     const container = stripRef.current;
     const btn = buttonRefs.current[selectedDay.id];
     if (!container || !btn) return;
-    const targetLeft = btn.offsetLeft - container.clientWidth / 2 + btn.clientWidth / 2;
-    container.scrollTo({ left: Math.max(0, targetLeft), behavior: "smooth" });
+    const containerRect = container.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    const currentScroll = container.scrollLeft;
+    const targetScroll =
+      currentScroll +
+      (btnRect.left - containerRect.left) -
+      container.clientWidth / 2 +
+      btnRect.width / 2;
+    container.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
   }, [selectedDay.id, programDays.length]);
 
   const selectedActivities = useMemo(
@@ -2121,7 +2128,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <div className="text-center min-w-0">
+          <div className="text-center min-w-0 flex-1">
             <h3 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-950 dark:text-white truncate">
               {formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)} · {selectedDay.dayType === "TRAINING_DAY" ? "Training" : selectedDay.dayType === "REST_DAY" ? "Rest" : "Connect"}
             </h3>
@@ -2146,55 +2153,57 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           </button>
         </div>
 
-        {/* Clean, Simple Pill Strip: just Date + Type (e.g. "10 Nov Training", "11 Nov Rest") with abundant negative space */}
+        {/* Clean, Simple Pill Strip: perfectly centered with generous scroll padding */}
         <div
           ref={stripRef}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth"
+          className="relative overflow-x-auto no-scrollbar py-1.5 px-4 sm:px-6 scroll-smooth scroll-px-6"
           style={{ scrollbarWidth: "none" }}
         >
-          {programDays.map((d) => {
-            const isActiveSelected = d.id === selectedDay.id;
-            const isTodayItem = d.id === day.id;
-            const isDoneItem = !!d.userProgress?.isCompleted;
-            const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
-            const isFutureItem = !isTodayItem && !isPastItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
-            const dayTypeWord =
-              d.dayType === "TRAINING_DAY"
-                ? "Training"
-                : d.dayType === "REST_DAY"
-                  ? "Rest"
-                  : "Connect";
-            const dateStr = formatDayPillDate(d.unlockDate, d.dayNumber);
+          <div className="inline-flex items-center justify-start sm:justify-center gap-2 min-w-full">
+            {programDays.map((d) => {
+              const isActiveSelected = d.id === selectedDay.id;
+              const isTodayItem = d.id === day.id;
+              const isDoneItem = !!d.userProgress?.isCompleted;
+              const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
+              const isFutureItem = !isTodayItem && !isPastItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
+              const dayTypeWord =
+                d.dayType === "TRAINING_DAY"
+                  ? "Training"
+                  : d.dayType === "REST_DAY"
+                    ? "Rest"
+                    : "Connect";
+              const dateStr = formatDayPillDate(d.unlockDate, d.dayNumber);
 
-            return (
-              <button
-                key={d.id}
-                ref={(el) => {
-                  buttonRefs.current[d.id] = el;
-                }}
-                type="button"
-                onClick={() => setSelectedDayId(d.id)}
-                className={`shrink-0 h-9 px-4 rounded-full text-xs font-medium tracking-wide transition active:scale-95 inline-flex items-center gap-1.5 select-none ${
-                  isActiveSelected
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs font-semibold"
-                    : isTodayItem
-                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white font-semibold"
-                      : isDoneItem
-                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40"
-                        : isPastItem
-                          ? "bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
-                          : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
-                }`}
-              >
-                <span>{dateStr}</span>
-                <span className="opacity-80 font-normal">{dayTypeWord}</span>
-                {isDoneItem && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 ml-0.5" />}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={d.id}
+                  ref={(el) => {
+                    buttonRefs.current[d.id] = el;
+                  }}
+                  type="button"
+                  onClick={() => setSelectedDayId(d.id)}
+                  className={`shrink-0 h-9 px-4 rounded-full text-xs font-medium tracking-wide transition active:scale-95 inline-flex items-center gap-1.5 select-none ${
+                    isActiveSelected
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs font-semibold"
+                      : isTodayItem
+                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white font-semibold"
+                        : isDoneItem
+                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40"
+                          : isPastItem
+                            ? "bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
+                            : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
+                  }`}
+                >
+                  <span>{dateStr}</span>
+                  <span className="opacity-80 font-normal">{dayTypeWord}</span>
+                  {isDoneItem && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 ml-0.5" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
