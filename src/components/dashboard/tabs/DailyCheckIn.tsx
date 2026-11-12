@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Angry,
   ArrowLeft,
+  Calendar,
   Camera,
   Check,
   ChevronDown,
@@ -22,8 +23,10 @@ import {
   Lock,
   MapPin,
   Meh,
+  Minus,
   Moon,
   Play,
+  Plus,
   Smile,
   Sparkles,
   Star,
@@ -618,14 +621,98 @@ function TaskForm({
     }
   };
 
-  const toggle = async (name: string) => {
+  const parseTargetReps = (target?: string | null): number => {
+    if (!target) return 10;
+    const match = target.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 10;
+  };
+
+  const getMovementReps = (name: string, defaultTarget: number): number => {
+    const cleanTarget = name.trim().toLowerCase();
+    const entry = localChecks.find((c) => {
+      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+      if (activeWorkout) {
+        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+        const lowerRaw = raw.toLowerCase();
+        if (lowerRaw.startsWith("[")) {
+          if (!lowerRaw.startsWith(expectedPrefix)) return false;
+          const stripped = lowerRaw.slice(expectedPrefix.length).trim();
+          return stripped === cleanTarget;
+        }
+      }
+      return raw.toLowerCase() === cleanTarget;
+    });
+    if (!entry || !entry.includes("=")) return defaultTarget;
+    const parts = entry.split("=");
+    const parsed = parseInt(parts[1], 10);
+    return isNaN(parsed) ? defaultTarget : parsed;
+  };
+
+  const updateMovementReps = async (name: string, reps: number) => {
+    if (locked) return;
+    const cleanTarget = name.trim().toLowerCase();
     const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
-    setLocalChecks((prev) =>
-      isChecked(name)
-        ? prev.filter((c) => !c.toLowerCase().includes(name.toLowerCase()))
-        : [...prev, scoped]
-    );
-    await props.onToggleCheck(scoped, day.id);
+    const newEntry = `${scoped}=${reps}`;
+
+    let found = false;
+    const updated = localChecks.map((c) => {
+      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+      let match = false;
+      if (activeWorkout) {
+        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+        const lowerRaw = raw.toLowerCase();
+        if (lowerRaw.startsWith("[")) {
+          if (lowerRaw.startsWith(expectedPrefix)) {
+            const stripped = lowerRaw.slice(expectedPrefix.length).trim();
+            match = stripped === cleanTarget;
+          }
+        } else {
+          match = raw.toLowerCase() === cleanTarget;
+        }
+      } else {
+        match = raw.toLowerCase() === cleanTarget;
+      }
+      if (match) {
+        found = true;
+        return newEntry;
+      }
+      return c;
+    });
+
+    if (!found) {
+      updated.push(newEntry);
+    }
+
+    setLocalChecks(updated);
+    await props.onToggleCheck(newEntry, day.id);
+  };
+
+  const toggle = async (name: string, defaultReps?: number) => {
+    const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
+    const cleanTarget = name.trim().toLowerCase();
+    const scopedWithReps = defaultReps ? `${scoped}=${defaultReps}` : scoped;
+
+    let nextChecks: string[];
+    const alreadyChecked = isChecked(name);
+    if (alreadyChecked) {
+      nextChecks = localChecks.filter((c) => {
+        const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+        if (activeWorkout) {
+          const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+          const lowerRaw = raw.toLowerCase();
+          if (lowerRaw.startsWith("[")) {
+            if (lowerRaw.startsWith(expectedPrefix)) {
+              return lowerRaw.slice(expectedPrefix.length).trim() !== cleanTarget;
+            }
+          }
+        }
+        return raw.toLowerCase() !== cleanTarget;
+      });
+    } else {
+      nextChecks = [...localChecks, scopedWithReps];
+    }
+    setLocalChecks(nextChecks);
+    await props.onToggleCheck(alreadyChecked ? scoped : scopedWithReps, day.id);
   };
 
   const totalSleepMins = bed && wake ? sleepMinutes(bed, wake) : 0;
@@ -664,24 +751,26 @@ function TaskForm({
                 />
               </div>
 
-              {/* Quick Tap Presets */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
-                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider shrink-0 mr-1">Presets:</span>
-                {BEDTIME_PRESETS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => setBed(t)}
-                    className={`h-7 px-2.5 rounded-lg text-xs font-mono font-medium transition active:scale-95 shrink-0 ${
-                      bed === t
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                        : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+              {/* Quick Tap Presets (Grid - No Horizontal Cutoff) */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">Presets:</span>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {BEDTIME_PRESETS.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setBed(t)}
+                      className={`h-7 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
+                        bed === t
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                          : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -706,24 +795,26 @@ function TaskForm({
                 />
               </div>
 
-              {/* Quick Tap Presets */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
-                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider shrink-0 mr-1">Presets:</span>
-                {WAKETIME_PRESETS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => setWake(t)}
-                    className={`h-7 px-2.5 rounded-lg text-xs font-mono font-medium transition active:scale-95 shrink-0 ${
-                      wake === t
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                        : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+              {/* Quick Tap Presets (Grid - No Horizontal Cutoff) */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">Presets:</span>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {WAKETIME_PRESETS.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setWake(t)}
+                      className={`h-7 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
+                        wake === t
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                          : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -813,18 +904,15 @@ function TaskForm({
             /* SCREEN 2: WORKOUT DETAIL & CHECKLIST */
             <div className="space-y-4">
               {groups.length > 0 && (
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200/70 dark:border-white/10">
+                <div className="flex items-center justify-start pb-2">
                   <button
                     type="button"
                     onClick={() => setTrainingEntered(false)}
-                    className="h-8 px-3 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1.5 active:scale-95 transition"
+                    aria-label="Back to options"
+                    className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#181818] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center active:scale-95 transition shadow-2xs"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Change Option</span>
+                    <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-xs font-mono font-semibold text-zinc-900 dark:text-white truncate">
-                    {activeWorkout || "Training Session"}
-                  </span>
                 </div>
               )}
 
@@ -890,42 +978,92 @@ function TaskForm({
                 </div>
               )}
 
-              {/* 3. CHECKLIST (SPACIOUS, NO CRAMPED TEXT) */}
+              {/* 3. CHECKLIST (SPACIOUS, REP STEPPER & TARGET COMPARISON) */}
               {movements.length > 0 && (
                 <div className="divide-y divide-zinc-100 dark:divide-white/5 border-t border-b border-zinc-100 dark:border-white/10">
                   {movements.map((name) => {
                     const checked = isChecked(name);
                     const moveObj = selectedGroup?.movements.find((m) => m.name === name);
                     const targetLabel = moveObj?.target;
+                    const targetReps = parseTargetReps(targetLabel);
+                    const currentReps = getMovementReps(name, targetReps);
+
                     return (
-                      <label
+                      <div
                         key={name}
-                        className="flex items-center justify-between gap-3 py-3 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
+                        className="py-3 px-1 transition hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <input
-                            type="checkbox"
-                            disabled={locked}
-                            checked={checked}
-                            onChange={() => toggle(name)}
-                            className="w-4 h-4 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
-                          />
-                          <span
-                            className={`text-xs sm:text-sm leading-relaxed transition ${
-                              checked
-                                ? "line-through text-zinc-400 dark:text-zinc-500"
-                                : "font-medium text-zinc-900 dark:text-white"
-                            }`}
-                          >
-                            {name}
-                          </span>
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="flex items-center gap-3 min-w-0 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              disabled={locked}
+                              checked={checked}
+                              onChange={() => toggle(name, targetReps)}
+                              className="w-4 h-4 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
+                            />
+                            <span
+                              className={`text-xs sm:text-sm leading-relaxed transition ${
+                                checked
+                                  ? "line-through text-zinc-400 dark:text-zinc-500"
+                                  : "font-medium text-zinc-900 dark:text-white"
+                              }`}
+                            >
+                              {name}
+                            </span>
+                          </label>
+
+                          {targetLabel && !checked && (
+                            <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
+                              Target: {targetLabel}
+                            </span>
+                          )}
+
+                          {checked && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                disabled={locked || currentReps <= 1}
+                                onClick={() => updateMovementReps(name, Math.max(1, currentReps - 1))}
+                                aria-label="Decrease reps"
+                                className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="min-w-12 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white">
+                                {currentReps} reps
+                              </span>
+                              <button
+                                type="button"
+                                disabled={locked}
+                                onClick={() => updateMovementReps(name, currentReps + 1)}
+                                aria-label="Increase reps"
+                                className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        {targetLabel && (
-                          <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                            {targetLabel}
-                          </span>
+
+                        {checked && targetLabel && (
+                          <div className="mt-1.5 ml-7 flex items-center gap-2">
+                            {currentReps === targetReps ? (
+                              <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+                                Target Met ({targetReps} reps)
+                              </span>
+                            ) : currentReps < targetReps ? (
+                              <span className="text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                                {currentReps} of {targetReps} reps completed (Target: {targetLabel})
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+                                Exceeded target by +{currentReps - targetReps} reps!
+                              </span>
+                            )}
+                          </div>
                         )}
-                      </label>
+                      </div>
                     );
                   })}
                 </div>
@@ -1853,7 +1991,32 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const isSelectedPast = !isSelectedToday && (selectedDay.isPast2359 || selectedDay.dayNumber < day.dayNumber);
   const isSelectedFuture = !isSelectedToday && !isSelectedPast;
 
-  // Center the active/selected day in the horizontal number strip
+  const [showAllDaysGrid, setShowAllDaysGrid] = useState(false);
+  const todayDateStr = useMemo(() => {
+    return new Intl.DateTimeFormat("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(new Date());
+  }, []);
+
+  const currentDayIndex = programDays.findIndex((d) => d.id === selectedDay.id);
+  const safeDayIndex = currentDayIndex >= 0 ? currentDayIndex : 0;
+  const [viewWeek, setViewWeek] = useState<number>(() => Math.floor(safeDayIndex / 7));
+
+  useEffect(() => {
+    if (currentDayIndex >= 0) {
+      setViewWeek(Math.floor(currentDayIndex / 7));
+    }
+  }, [currentDayIndex]);
+
+  const totalWeeks = Math.max(1, Math.ceil(programDays.length / 7));
+  const weekDays = useMemo(() => {
+    const startIdx = viewWeek * 7;
+    return programDays.slice(startIdx, startIdx + 7);
+  }, [programDays, viewWeek]);
+
+  // Center the active/selected day in the number strip if present
   useEffect(() => {
     const container = stripRef.current;
     const btn = buttonRefs.current[selectedDay.id];
@@ -1923,7 +2086,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </button>
           </div>
           <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
-            {resetCountdown}
+            {todayDateStr} • {resetCountdown}
           </p>
         </div>
       </div>
@@ -1940,57 +2103,172 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       )}
 
-      {/* Horizontal Side-by-Side Day Selector (10 Nov Training · 11 Nov Rest ...) */}
-      <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02]">
-        <div
-          ref={stripRef}
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth"
-          style={{ scrollbarWidth: "none" }}
-        >
-          {programDays.map((d) => {
-            const isActiveSelected = d.id === selectedDay.id;
-            const isTodayItem = d.id === day.id;
-            const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
-            const isDoneItem = !!d.userProgress?.isCompleted;
-            const isFutureItem = !isTodayItem && !isPastItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
-            const dayTypeWord =
-              d.dayType === "TRAINING_DAY"
-                ? "Training"
-                : d.dayType === "REST_DAY"
-                  ? "Rest"
-                  : "Connect";
-            const dateStr = formatDayPillDate(d.unlockDate, d.dayNumber);
+      {/* Day Selector (Week-based Compact Grid + All Days Toggle - No Horizontal Scroll Cutoff) */}
+      <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2.5">
+        {/* Top Control Bar: Active Day & Navigation */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              type="button"
+              disabled={safeDayIndex <= 0}
+              onClick={() => {
+                if (safeDayIndex > 0) {
+                  setSelectedDayId(programDays[safeDayIndex - 1].id);
+                }
+              }}
+              aria-label="Previous day"
+              className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 disabled:opacity-30 active:scale-95 transition shrink-0"
+            >
+              <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+            </button>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
+                Day {selectedDay.dayNumber} · {selectedDay.dayType === "TRAINING_DAY" ? "Training" : selectedDay.dayType === "REST_DAY" ? "Rest" : "Connect"}
+              </p>
+              <p className="text-[10px] font-mono text-zinc-400">
+                {formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={safeDayIndex >= programDays.length - 1}
+              onClick={() => {
+                if (safeDayIndex < programDays.length - 1) {
+                  setSelectedDayId(programDays[safeDayIndex + 1].id);
+                }
+              }}
+              aria-label="Next day"
+              className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 disabled:opacity-30 active:scale-95 transition shrink-0"
+            >
+              <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+            </button>
+          </div>
 
-            return (
-              <button
-                key={d.id}
-                ref={(el) => {
-                  buttonRefs.current[d.id] = el;
-                }}
-                type="button"
-                onClick={() => setSelectedDayId(d.id)}
-                className={`shrink-0 h-9 px-3.5 rounded-full inline-flex items-center gap-1.5 text-xs font-mono font-semibold transition active:scale-95 focus:outline-none ${
-                  isActiveSelected
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm ring-2 ring-zinc-950/15 dark:ring-white/20"
-                    : isTodayItem
-                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
-                      : isDoneItem
-                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
-                        : isPastItem
-                          ? "bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                          : "bg-zinc-100/80 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-zinc-200/60 dark:border-white/5"
-                }`}
-              >
-                <span>{dateStr}</span>
-                <span className="text-[10px] uppercase tracking-wider opacity-85">{dayTypeWord}</span>
-                {isFutureItem && <Lock className="w-2.5 h-2.5 opacity-60 ml-0.5" />}
-              </button>
-            );
-          })}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {totalWeeks > 1 && !showAllDaysGrid && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={viewWeek <= 0}
+                  onClick={() => setViewWeek((w) => Math.max(0, w - 1))}
+                  aria-label="Previous week"
+                  className="w-6 h-6 rounded border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 flex items-center justify-center disabled:opacity-20 active:scale-95 transition"
+                >
+                  <ChevronDown className="w-3 h-3 rotate-90" />
+                </button>
+                <span className="text-[10px] font-mono text-zinc-500 min-w-10 text-center">
+                  W{viewWeek + 1}/{totalWeeks}
+                </span>
+                <button
+                  type="button"
+                  disabled={viewWeek >= totalWeeks - 1}
+                  onClick={() => setViewWeek((w) => Math.min(totalWeeks - 1, w + 1))}
+                  aria-label="Next week"
+                  className="w-6 h-6 rounded border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 flex items-center justify-center disabled:opacity-20 active:scale-95 transition"
+                >
+                  <ChevronDown className="w-3 h-3 -rotate-90" />
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAllDaysGrid((prev) => !prev)}
+              className="h-7 px-2.5 rounded-lg border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1 transition"
+            >
+              <Calendar className="w-3 h-3 text-zinc-400" />
+              <span>{showAllDaysGrid ? "Week View" : "All 21 Days"}</span>
+            </button>
+          </div>
         </div>
+
+        {/* View 1: Compact 7-Day Grid (100% Responsive, Zero Horizontal Cut-Off) */}
+        {!showAllDaysGrid ? (
+          <div className="grid grid-cols-7 gap-1">
+            {weekDays.map((d) => {
+              const isActiveSelected = d.id === selectedDay.id;
+              const isTodayItem = d.id === day.id;
+              const isDoneItem = !!d.userProgress?.isCompleted;
+              const isFutureItem = !isTodayItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
+              const dayTypeShort = d.dayType === "TRAINING_DAY" ? "Train" : d.dayType === "REST_DAY" ? "Rest" : "Live";
+
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setSelectedDayId(d.id)}
+                  className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center text-center transition active:scale-95 ${
+                    isActiveSelected
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-2 ring-zinc-950/20 dark:ring-white/20"
+                      : isTodayItem
+                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
+                        : isDoneItem
+                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+                          : isFutureItem
+                            ? "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
+                            : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10"
+                  }`}
+                >
+                  <span className="text-[10px] font-mono leading-none">D{d.dayNumber}</span>
+                  <span className="text-xs font-semibold leading-tight mt-0.5">
+                    {formatDayPillDate(d.unlockDate, d.dayNumber).split(" ")[0]}
+                  </span>
+                  <div className="mt-1 flex items-center justify-center">
+                    {isDoneItem ? (
+                      <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                    ) : isFutureItem ? (
+                      <Lock className="w-2.5 h-2.5 opacity-60" />
+                    ) : (
+                      <span className="text-[9px] font-mono uppercase tracking-tighter opacity-80">
+                        {dayTypeShort}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /* View 2: All 21 Days Full Grid (No Horizontal Scrollbar Ever) */
+          <div className="space-y-1.5 pt-1 animate-in fade-in duration-150">
+            <div className="grid grid-cols-7 gap-1">
+              {programDays.map((d) => {
+                const isActiveSelected = d.id === selectedDay.id;
+                const isTodayItem = d.id === day.id;
+                const isDoneItem = !!d.userProgress?.isCompleted;
+                const isFutureItem = !isTodayItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
+
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDayId(d.id);
+                      setShowAllDaysGrid(false);
+                    }}
+                    className={`py-1.5 px-0.5 rounded-lg text-center transition active:scale-95 ${
+                      isActiveSelected
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white"
+                        : isTodayItem
+                          ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
+                          : isDoneItem
+                            ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+                            : isFutureItem
+                              ? "bg-zinc-100/50 dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-600 opacity-60"
+                              : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10"
+                    }`}
+                  >
+                    <span className="text-[11px] font-mono font-semibold block leading-none">
+                      {d.dayNumber}
+                    </span>
+                    <span className="text-[9px] opacity-70 block mt-0.5">
+                      {d.dayType === "TRAINING_DAY" ? "T" : d.dayType === "REST_DAY" ? "R" : "C"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}

@@ -999,90 +999,130 @@ function ProgramIssueReportWidget({
   programTitle?: string;
   communityLink?: string | null;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [category, setCategory] = useState<string>("Video / Playback Error");
-  const [description, setDescription] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [activeMode, setActiveMode] = useState<"issue" | "quit" | null>(null);
+  const [issueType, setIssueType] = useState<string>("Coach / Guidance Concern");
+  const [quitReason, setQuitReason] = useState<string>("Schedule / Time Conflict");
+  const [note, setNote] = useState("");
+  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = [
-    "Video / Playback Error",
-    "Daily Check-in Glitch",
-    "Curriculum & Workout Question",
-    "Schedule or Zoom Meetup",
-    "Other Issue / Feedback",
+  const issueOptions = [
+    "Coach / Guidance Concern",
+    "App Bug / Broken Code",
+    "Video or Content Glitch",
+    "Other Program Issue",
+  ];
+
+  const quitOptions = [
+    "Schedule / Time Conflict",
+    "Injury or Medical Reason",
+    "Curriculum Not a Good Fit",
+    "Personal / Other Reason",
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim()) return;
     setIsSubmitting(true);
     setTimeout(() => {
       try {
-        const existing = JSON.parse(localStorage.getItem("wellness_reported_issues") || "[]");
+        const key = activeMode === "quit" ? "wellness_quit_requests" : "wellness_reported_issues";
+        const existing = JSON.parse(localStorage.getItem(key) || "[]");
         existing.push({
-          id: `issue_${Date.now()}`,
-          programTitle: programTitle || "General Program",
-          category,
-          description: description.trim(),
+          id: `${activeMode}_${Date.now()}`,
+          programTitle: programTitle || "Cohort Program",
+          type: activeMode === "quit" ? quitReason : issueType,
+          note: note.trim(),
           submittedAt: new Date().toISOString(),
         });
-        localStorage.setItem("wellness_reported_issues", JSON.stringify(existing));
+        localStorage.setItem(key, JSON.stringify(existing));
       } catch {
         // Safe fallback
       }
       setIsSubmitting(false);
-      setSubmitted(true);
-      setDescription("");
+      if (activeMode === "quit") {
+        setSubmittedMessage(
+          "Your withdrawal request has been received. Our concierge support will reach out within 24 hours to assist you."
+        );
+      } else {
+        setSubmittedMessage(
+          "Thank you for reporting. Our coaching and technical team has received your ticket and will review it promptly."
+        );
+      }
+      setNote("");
     }, 500);
   };
 
   const handleReset = () => {
-    setSubmitted(false);
-    setIsOpen(false);
+    setSubmittedMessage(null);
+    setActiveMode(null);
+    setNote("");
   };
 
   const directSupportUrl = safeHttpUrl(communityLink);
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      <div className="p-4 flex items-center justify-between gap-3">
+      <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0 mt-0.5">
             <AlertCircle className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-              Report Program or Issue
+            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+              Program Support &amp; Options
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
-              Encountering a bug, video error, or have curriculum questions?
+              Report coach or system issues, or request to withdraw from this program.
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setIsOpen((prev) => !prev);
-            if (submitted) setSubmitted(false);
-          }}
-          className="h-8 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-semibold text-zinc-900 dark:text-white transition shrink-0 active:scale-95"
-        >
-          {isOpen ? "Close" : "Report"}
-        </button>
+
+        {/* 2 Simple Direct Actions */}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMode((prev) => (prev === "issue" ? null : "issue"));
+              setSubmittedMessage(null);
+            }}
+            className={`h-8 px-3 rounded-full text-xs font-semibold transition active:scale-95 ${
+              activeMode === "issue"
+                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                : "border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+            }`}
+          >
+            Report Issue
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMode((prev) => (prev === "quit" ? null : "quit"));
+              setSubmittedMessage(null);
+            }}
+            className={`h-8 px-3 rounded-full text-xs font-semibold transition active:scale-95 ${
+              activeMode === "quit"
+                ? "bg-red-600 text-white shadow-xs"
+                : "border border-red-200 dark:border-red-950/40 bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100/50"
+            }`}
+          >
+            Quit Program
+          </button>
+        </div>
       </div>
 
-      {isOpen && (
-        <div className="px-4 pb-4 pt-1 border-t border-zinc-100 dark:border-white/10 animate-in fade-in duration-200">
-          {submitted ? (
+      {activeMode && (
+        <div className="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/10 animate-in fade-in duration-200">
+          {submittedMessage ? (
             <div className="py-4 text-center space-y-3">
               <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
                 <Check className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-zinc-950 dark:text-white">Report Submitted Successfully</p>
+                <p className="text-sm font-semibold text-zinc-950 dark:text-white">
+                  {activeMode === "quit" ? "Withdrawal Request Received" : "Report Submitted Successfully"}
+                </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                  Thank you for reporting. Our coaching staff and concierge support team have received your feedback and will review it promptly.
+                  {submittedMessage}
                 </p>
               </div>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
@@ -1106,40 +1146,49 @@ function ProgramIssueReportWidget({
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-3.5 pt-2">
+            <form onSubmit={handleSubmit} className="space-y-3 pt-1">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                  Issue Category
+                  {activeMode === "quit" ? "Reason for Withdrawing" : "Issue Type"}
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCategory(cat)}
-                      className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition border ${
-                        category === cat
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
-                          : "bg-zinc-50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                  {(activeMode === "quit" ? quitOptions : issueOptions).map((opt) => {
+                    const isSelected = activeMode === "quit" ? quitReason === opt : issueType === opt;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => (activeMode === "quit" ? setQuitReason(opt) : setIssueType(opt))}
+                        className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition border ${
+                          isSelected
+                            ? activeMode === "quit"
+                              ? "bg-red-600 text-white border-transparent shadow-xs"
+                              : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
+                            : "bg-zinc-50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                  Problem Description
+                  {activeMode === "quit" ? "Additional Notes (Optional)" : "Details / Description"}
                 </label>
                 <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what occurred, which day or task was affected, or your questions..."
-                  className="w-full text-xs rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-3 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
-                  required
+                  rows={2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={
+                    activeMode === "quit"
+                      ? "Tell us how we can assist or why you'd like to leave..."
+                      : "Describe the issue (e.g. coach problem, broken video, or system error)..."
+                  }
+                  className="w-full text-xs rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-2.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                  required={activeMode === "issue"}
                 />
               </div>
 
@@ -1151,7 +1200,7 @@ function ProgramIssueReportWidget({
                     rel="noopener noreferrer"
                     className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-white inline-flex items-center gap-1 transition"
                   >
-                    Need immediate concierge chat? <ExternalLink className="w-3 h-3" />
+                    Need concierge chat? <ExternalLink className="w-3 h-3" />
                   </a>
                 ) : (
                   <span />
@@ -1159,17 +1208,25 @@ function ProgramIssueReportWidget({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setActiveMode(null)}
                     className="h-8 px-3 rounded-full text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || !description.trim()}
-                    className="h-8 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50 transition active:scale-95"
+                    disabled={isSubmitting || (activeMode === "issue" && !note.trim())}
+                    className={`h-8 px-4 rounded-full text-xs font-semibold disabled:opacity-50 transition active:scale-95 ${
+                      activeMode === "quit"
+                        ? "bg-red-600 text-white hover:bg-red-700"
+                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800"
+                    }`}
                   >
-                    {isSubmitting ? "Submitting..." : "Submit Report"}
+                    {isSubmitting
+                      ? "Submitting..."
+                      : activeMode === "quit"
+                        ? "Confirm Quit Request"
+                        : "Submit Report"}
                   </button>
                 </div>
               </div>

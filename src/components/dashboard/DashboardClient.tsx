@@ -860,7 +860,7 @@ export function DashboardClient({
       setTimeout(() => setActionNotice(null), 4000);
       return false;
     }
-    router.refresh();
+    // Optimistic client state is already updated; do NOT call router.refresh() here to prevent full-screen loading splash
     return true;
   };
 
