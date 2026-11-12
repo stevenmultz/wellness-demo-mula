@@ -341,7 +341,7 @@ export function MyPlanOverview({
       : day?.dayType === "TRAINING_DAY"
         ? movementNames(day)
         : [];
-  const sleepDone = !!progress?.bedtime && !!progress?.wakeTime;
+  const sleepDone = (!!progress?.bedtime && !!progress?.wakeTime) || progress?.bedtime === "SKIPPED";
   const activityDone =
     day?.dayType === "TRAINING_DAY"
       ? !!progress?.videoWatched ||
@@ -352,8 +352,8 @@ export function MyPlanOverview({
       : day?.dayType === "REST_DAY"
         ? activities.length > 0
           ? activities.every((name) => checks.includes(name))
-          : !!progress?.isCompleted
-        : !!progress?.eventFeedback || !!progress?.isCompleted;
+          : !!progress?.isCompleted || progress?.workoutNotes === "SKIPPED" || progress?.checklistCompleted === "SKIPPED"
+        : !!progress?.eventFeedback || !!progress?.isCompleted || progress?.eventFeedback === "SKIPPED" || progress?.workoutNotes === "SKIPPED";
   const initialDone: [boolean, boolean, boolean, boolean] = [
     sleepDone,
     activityDone,
@@ -374,6 +374,7 @@ export function MyPlanOverview({
   ).length;
 
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(0);
+  const [showDayStats, setShowDayStats] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
 
@@ -505,35 +506,54 @@ export function MyPlanOverview({
         })()
       ) : (
         <>
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] px-4 py-3">
-            <div className="flex items-center justify-between gap-3 pb-2.5 mb-2.5 border-b border-zinc-100 dark:border-white/10 text-sm">
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden transition-all shadow-xs">
+            <button
+              type="button"
+              onClick={() => setShowDayStats((prev) => !prev)}
+              className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition select-none"
+              aria-expanded={showDayStats}
+            >
               <div>
-                <p className="font-medium tabular-nums">
-                  {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                  <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
+                    {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+                    <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
+                  </p>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                      showDayStats ? "rotate-180" : ""
+                    }`}
+                  />
+                </div>
                 {fullProgramDays.length > 0 && (
                   <p className="text-[11px] text-zinc-500 mt-0.5">
                     {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
                   </p>
                 )}
               </div>
-              <p className="font-medium text-right">{day ? schedule.label.toUpperCase() : "NO OPEN DAY"}</p>
-            </div>
-            <dl className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <dt className="text-[11px] text-zinc-500">Completed Day</dt>
-                <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.completed}</dd>
+              <p className="text-xs font-semibold tracking-wider text-right text-zinc-700 dark:text-zinc-300">
+                {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
+              </p>
+            </button>
+
+            {showDayStats && (
+              <div className="px-4 pb-3 pt-2 border-t border-zinc-100 dark:border-white/10 animate-in fade-in duration-200">
+                <dl className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] text-zinc-500">Completed Day</dt>
+                    <dd className="mt-0.5 text-lg font-medium tabular-nums text-zinc-950 dark:text-white">{stats.completed}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-zinc-500">Skipped Day</dt>
+                    <dd className="mt-0.5 text-lg font-medium tabular-nums text-zinc-950 dark:text-white">{stats.skipped}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-zinc-500">Remaining Day</dt>
+                    <dd className="mt-0.5 text-lg font-medium tabular-nums text-zinc-950 dark:text-white">{stats.remaining}</dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500">Skipped Day</dt>
-                <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.skipped}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500">Remaining Day</dt>
-                <dd className="mt-0.5 text-lg font-medium tabular-nums">{stats.remaining}</dd>
-              </div>
-            </dl>
+            )}
           </section>
 
           {/* 3-INDEX NAVIGATION WIDGET (TEXT ONLY, SINGLE WORD) */}

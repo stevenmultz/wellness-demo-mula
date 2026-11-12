@@ -39,6 +39,8 @@ export interface DailyTaskDayInput {
     wakeTime?: string | null;
     eventFeedback?: string | null;
     checklistCompleted?: string | null;
+    workoutNotes?: string | null;
+    selectedWorkout?: string | null;
   } | null;
 }
 
@@ -68,12 +70,13 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
   const p = day.progress;
   const tasks: DailyTask[] = [];
 
+  const sleepDone = (!!p?.bedtime && !!p?.wakeTime) || p?.bedtime === "SKIPPED";
   tasks.push({
     id: `${day.id}:SLEEP`,
     kind: "SLEEP",
     name: "Sleep Tracking",
     description: "Record yesterday's sleep time and today's wake-up time.",
-    isDone: !!p?.bedtime && !!p?.wakeTime,
+    isDone: sleepDone,
   });
 
   if (day.dayType === "TRAINING_DAY") {
@@ -82,7 +85,13 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
       kind: "WORKOUT",
       name: "Daily Activity",
       description: day.title,
-      isDone: !!p && (p.isCompleted || p.videoWatched),
+      isDone:
+        !!p &&
+        (p.isCompleted ||
+          p.videoWatched ||
+          p.workoutNotes === "SKIPPED" ||
+          p.selectedWorkout === "SKIPPED" ||
+          !!p.workoutNotes),
     });
   } else if (day.dayType === "REST_DAY") {
     tasks.push({
@@ -90,7 +99,12 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
       kind: "REST",
       name: "Daily Activity",
       description: day.restInstructions || day.title,
-      isDone: !!p?.isCompleted || checklistHasItems(p?.checklistCompleted),
+      isDone:
+        !!p?.isCompleted ||
+        checklistHasItems(p?.checklistCompleted) ||
+        p?.workoutNotes === "SKIPPED" ||
+        p?.checklistCompleted === "SKIPPED" ||
+        !!p?.workoutNotes,
     });
   } else {
     tasks.push({
@@ -98,7 +112,11 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
       kind: "EVENT",
       name: "Daily Activity",
       description: day.eventTitle || day.eventDetails || day.title,
-      isDone: !!p?.isCompleted || !!p?.eventFeedback,
+      isDone:
+        !!p?.isCompleted ||
+        !!p?.eventFeedback ||
+        p?.eventFeedback === "SKIPPED" ||
+        p?.workoutNotes === "SKIPPED",
     });
   }
 

@@ -510,6 +510,40 @@ function TaskForm({
     setSkipConfirmOpen(true);
   };
 
+  const handleSkipTask = async () => {
+    if (locked || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (step === 0) {
+        await props.onSaveSleep("SKIPPED", "SKIPPED", 0, day.id);
+      } else if (step === 1) {
+        if (isConnect) {
+          await props.onSaveAttendance("SKIPPED", day.id);
+        } else {
+          if (hasMultipleOptions) {
+            await props.onSelectWorkout("SKIPPED", day.id, true);
+          }
+          await props.onSaveWorkoutNotes("SKIPPED", day.id);
+        }
+      } else if (step === 2) {
+        await props.onSaveMeal(
+          "SKIPPED",
+          JSON.stringify({ v: 2, mode: "skipped", checkedMeals: [] }),
+          day.id
+        );
+      } else if (step === 3) {
+        await props.onSaveReflection("SKIPPED", 3, day.id);
+      }
+      setSkipConfirmOpen(false);
+      onFinish();
+    } catch {
+      setError("Gagal melewati tugas. Silakan coba lagi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onSubmitClick = () => {
     const err = getValidationError(step);
     if (err) {
@@ -684,52 +718,41 @@ function TaskForm({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {groups.map((g, idx) => {
                   const isSelected = activeWorkout === g.optionName;
-                  const previewNames = g.movements.slice(0, 3).map((m) => m.name);
+                  const matchVideo =
+                    videos.find(
+                      (v) => v.title.trim().toLowerCase() === g.optionName.trim().toLowerCase()
+                    ) || videos[idx] || videos[0];
+                  const thumbUrl = extractVideoThumbnail(matchVideo?.url || day.videoUrl, "/coach.webp");
 
                   return (
                     <button
                       key={g.optionName}
                       type="button"
                       onClick={() => handleClickWorkoutOption(g.optionName)}
-                      className={`group rounded-2xl border p-4 text-left transition active:scale-[0.99] flex items-center justify-between gap-3 ${
+                      className={`relative w-full h-36 rounded-2xl overflow-hidden text-left transition active:scale-[0.98] group ${
                         isSelected
-                          ? "border-zinc-950 dark:border-white bg-white dark:bg-[#181818] ring-1 ring-zinc-950/10 dark:ring-white/15 shadow-xs"
-                          : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] hover:border-zinc-400 dark:hover:border-white/25"
+                          ? "ring-2 ring-zinc-950 dark:ring-white shadow-md"
+                          : "ring-1 ring-zinc-900/10 dark:ring-white/15 hover:ring-zinc-400"
                       }`}
                     >
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-                            Option {String.fromCharCode(65 + idx)}
-                          </span>
-                          <span className="text-[10px] font-mono text-zinc-400">
-                            • {g.movements.length} movements
-                          </span>
-                          {isSelected && (
-                            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
-                              Active
-                            </span>
-                          )}
-                        </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumbUrl}
+                        alt={g.optionName}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
 
-                        <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                      <div className="relative z-10 h-full p-4 flex flex-col justify-end">
+                        <p className="text-base font-semibold text-white tracking-tight leading-snug drop-shadow-sm">
                           {g.optionName}
                         </p>
-
-                        {previewNames.length > 0 && (
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                            {previewNames.join(" · ")}
-                            {g.movements.length > 3 ? ` +${g.movements.length - 3} more` : ""}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="shrink-0 h-8 px-3.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1 shadow-sm">
-                        <span>{isSelected ? "Continue" : "Select"}</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <p className="text-xs font-medium text-white/80 mt-1 drop-shadow-xs">
+                          {g.movements.length} {g.movements.length === 1 ? "Assessment" : "Assessments"}
+                        </p>
                       </div>
                     </button>
                   );
@@ -755,120 +778,104 @@ function TaskForm({
                 </div>
               )}
 
-              {/* Guided Video */}
+              {/* Guided Video Banner */}
               {activeVideo && (
-                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-zinc-900 dark:text-white">Guided Video</span>
-                    <a
-                      href={activeVideo.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => props.onOpenVideo(day.id)}
-                      className="text-[11px] font-mono text-zinc-500 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1"
-                    >
-                      <span>Watch Session</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                <a
+                  href={activeVideo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => props.onOpenVideo(day.id)}
+                  className="group relative flex items-center gap-3.5 p-3 rounded-2xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 transition overflow-hidden"
+                >
+                  <div className="relative w-24 h-14 rounded-xl overflow-hidden bg-zinc-900 shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
+                      alt=""
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <span className="w-6 h-6 rounded-full bg-white/95 text-zinc-950 flex items-center justify-center shadow">
+                        <Play className="w-3 h-3 fill-current ml-0.5" />
+                      </span>
+                    </div>
                   </div>
-                  <a
-                    href={activeVideo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => props.onOpenVideo(day.id)}
-                    className="group flex items-center gap-3 p-2 rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:border-zinc-400 transition"
-                  >
-                    <div className="relative w-24 h-14 rounded-lg overflow-hidden bg-zinc-900 shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <span className="w-6 h-6 rounded-full bg-white/90 text-zinc-950 flex items-center justify-center shadow">
-                          <Play className="w-3 h-3 fill-current ml-0.5" />
-                        </span>
-                      </div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
-                        {activeVideo.title}
-                      </span>
-                      <span className="text-[11px] text-zinc-500 block mt-0.5">
-                        Follow coach movements &amp; posture cues
-                      </span>
-                    </div>
-                  </a>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block">
+                      Guided Session
+                    </span>
+                    <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
+                      {activeVideo.title}
+                    </span>
+                    <span className="text-[11px] text-zinc-500 block mt-0.5">
+                      Follow coach movements &amp; posture cues
+                    </span>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 shrink-0 mr-1" />
+                </a>
               )}
 
               {/* Movement Checklist */}
               {movements.length > 0 && (
-                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
+                <div className="pt-2 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-zinc-950 dark:text-white">
                       Movement Checklist
                     </span>
-                    <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                    <span className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-400">
                       {checkedCount} / {movements.length} Completed
                     </span>
                   </div>
 
                   <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
+                      className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
                       style={{ width: `${movements.length > 0 ? Math.round((checkedCount / movements.length) * 100) : 0}%` }}
                     />
                   </div>
 
-                  <ul className="space-y-2">
+                  <div className="divide-y divide-zinc-100 dark:divide-white/5">
                     {movements.map((name) => {
                       const checked = isChecked(name);
                       const moveObj = selectedGroup?.movements.find((m) => m.name === name);
                       const targetLabel = moveObj?.target;
                       return (
-                        <li key={name}>
-                          <label
-                            className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${
-                              checked
-                                ? "border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5"
-                                : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <input
-                                type="checkbox"
-                                disabled={locked}
-                                checked={checked}
-                                onChange={() => toggle(name)}
-                                className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0"
-                              />
-                              <span
-                                className={`text-xs sm:text-sm ${
-                                  checked
-                                    ? "line-through text-zinc-400 dark:text-zinc-500"
-                                    : "font-medium text-zinc-900 dark:text-white"
-                                }`}
-                              >
-                                {name}
-                              </span>
-                            </div>
-                            {targetLabel && (
-                              <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                                {targetLabel}
-                              </span>
-                            )}
-                          </label>
-                        </li>
+                        <label
+                          key={name}
+                          className="flex items-center justify-between gap-3 py-2.5 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <input
+                              type="checkbox"
+                              disabled={locked}
+                              checked={checked}
+                              onChange={() => toggle(name)}
+                              className="w-4 h-4 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
+                            />
+                            <span
+                              className={`text-xs sm:text-sm transition ${
+                                checked
+                                  ? "line-through text-zinc-400 dark:text-zinc-500"
+                                  : "font-medium text-zinc-900 dark:text-white"
+                              }`}
+                            >
+                              {name}
+                            </span>
+                          </div>
+                          {targetLabel && (
+                            <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
+                              {targetLabel}
+                            </span>
+                          )}
+                        </label>
                       );
                     })}
-                  </ul>
+                  </div>
                 </div>
               )}
 
               {/* Photos & Notes */}
-              <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-3">
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-3">
                 <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
                   Photos &amp; Sensation Feedback
                 </span>
@@ -920,7 +927,7 @@ function TaskForm({
                         onClick={() => {
                           setNotes((prev) => (prev ? `${prev} · ${tag}` : tag));
                         }}
-                        className="px-2.5 py-1 rounded-lg text-xs bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition active:scale-95 border border-zinc-200/60 dark:border-white/10"
+                        className="px-2.5 py-1 rounded-lg text-xs bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition active:scale-95"
                       >
                         {tag}
                       </button>
@@ -929,7 +936,7 @@ function TaskForm({
                 </div>
 
                 {notes && (
-                  <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+                  <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-white/5 text-xs text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
                     <span className="truncate">{notes}</span>
                     <button
                       type="button"
@@ -1372,29 +1379,29 @@ function TaskForm({
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                Skip This Task?
+                Lewati Tugas?
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Are you sure you want to skip today&apos;s {currentTaskInfo.title}? You can reopen and complete it anytime before daily reset.
+                Lewati {currentTaskInfo.title} untuk hari ini?
               </p>
             </div>
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
+                disabled={busy}
                 onClick={() => setSkipConfirmOpen(false)}
                 className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSkipConfirmOpen(false);
-                  onFinish();
-                }}
-                className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition active:scale-95"
+                disabled={busy}
+                onClick={handleSkipTask}
+                className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition active:scale-95 inline-flex items-center justify-center gap-1.5"
               >
-                Yes, Skip
+                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Ya, Lewati</span>
               </button>
             </div>
           </div>
@@ -1524,7 +1531,7 @@ function deriveDayChecks(d: PlanDay): string[] {
 
 function deriveDayDone(d: PlanDay, acts: string[], chks: string[]): [boolean, boolean, boolean, boolean] {
   const p = d.userProgress;
-  const sleepDone = !!p?.bedtime && !!p?.wakeTime;
+  const sleepDone = (!!p?.bedtime && !!p?.wakeTime) || p?.bedtime === "SKIPPED";
   const activityDone =
     d.dayType === "TRAINING_DAY"
       ? !!p?.videoWatched ||
@@ -1535,8 +1542,8 @@ function deriveDayDone(d: PlanDay, acts: string[], chks: string[]): [boolean, bo
       : d.dayType === "REST_DAY"
         ? acts.length > 0
           ? acts.every((name) => chks.includes(name))
-          : !!p?.isCompleted
-        : !!p?.eventFeedback || !!p?.isCompleted;
+          : !!p?.isCompleted || p?.workoutNotes === "SKIPPED" || p?.checklistCompleted === "SKIPPED"
+        : !!p?.eventFeedback || !!p?.isCompleted || p?.eventFeedback === "SKIPPED" || p?.workoutNotes === "SKIPPED";
   return [sleepDone, activityDone, !!p?.mealCompliance, !!p?.dailyReflection];
 }
 
