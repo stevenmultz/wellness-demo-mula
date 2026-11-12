@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
 };
@@ -48,17 +48,17 @@ export default function RootLayout({
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="+ BMS" />
         <style
           dangerouslySetInnerHTML={{
             __html: `
               html, body {
-                background-color: #ffffff;
+                background-color: #000000;
               }
               @keyframes bmsPulse {
                 0%, 100% { opacity: 1; }
-                50% { opacity: 0.45; }
+                50% { opacity: 0.55; }
               }
               #bms-pwa-splash {
                 position: fixed;
@@ -67,17 +67,43 @@ export default function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #ffffff !important;
-                color: #09090b !important;
+                background-color: #000000 !important;
+                color: #ffffff !important;
                 user-select: none;
+                overflow: hidden;
                 transition: opacity 0.35s ease-out;
               }
-              #bms-pwa-splash .bms-pulse-logo {
+              #bms-pwa-splash .bms-splash-bg {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                opacity: 0.35;
+                transform: scale(1.05);
+                pointer-events: none;
+              }
+              #bms-pwa-splash .bms-splash-overlay {
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.4), rgba(0,0,0,0.75));
+                pointer-events: none;
+              }
+              #bms-pwa-splash .bms-splash-pill {
+                position: relative;
+                z-index: 10;
+                padding: 0.625rem 1.25rem;
+                border-radius: 9999px;
+                background-color: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 6px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                animation: bmsPulse 1.6s ease-in-out infinite;
                 font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                animation: bmsPulse 1.4s ease-in-out infinite;
               }
             `,
           }}
@@ -92,9 +118,18 @@ export default function RootLayout({
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
       >
         <div id="bms-pwa-splash" aria-hidden="true">
-          <div className="bms-pulse-logo">
-            <span className="font-light text-lg leading-none">+</span>
-            <span className="font-geometric font-semibold text-sm tracking-[0.22em] uppercase">BMS</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/image.webp"
+            alt=""
+            className="bms-splash-bg"
+          />
+          <div className="bms-splash-overlay" />
+          <div className="bms-splash-pill">
+            <span style={{ fontWeight: 300, fontSize: "1.125rem", lineHeight: 1, color: "#ffffff" }}>+</span>
+            <span style={{ fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.25em", textTransform: "uppercase", color: "#ffffff" }}>
+              BMS
+            </span>
           </div>
         </div>
         <ThemeProvider>

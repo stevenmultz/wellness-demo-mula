@@ -1868,6 +1868,7 @@ export function DashboardClient({
       {detailedProgram && (
         <ProgramDetailView
           program={detailedProgram}
+          hideHeaderAction={activeTab === "all_plan"}
           enrollmentStatus={(() => {
             const enrolled = myPrograms.find((e) => e.programId === detailedProgram.id);
             return enrolled?.status === "ACTIVE" || enrolled?.status === "PENDING" ? enrolled.status : null;

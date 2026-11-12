@@ -57,6 +57,8 @@ export interface DailyCheckInProps {
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
+  widgetIndex?: 0 | 1;
+  onSwitchWidget?: (index: 0 | 1) => void;
 }
 
 function getTasksForDay(dayType: string) {
@@ -1347,19 +1349,42 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-      {/* Daily Task Card Header */}
-      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10">
-        <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-        <div className="mt-0.5 text-[11px] font-mono text-zinc-500 space-y-0.5">
-          <p>Daily Reset: 00:00 WIB (UTC+7)</p>
-          <p className="text-zinc-400 dark:text-zinc-500">{resetCountdown}</p>
+      {/* Daily Task Card Header with Index Switcher */}
+      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
+          <div className="mt-0.5 text-[11px] font-mono text-zinc-500 space-y-0.5">
+            <p>Daily Reset: 00:00 WIB (UTC+7)</p>
+            <p className="text-zinc-400 dark:text-zinc-500">{resetCountdown}</p>
+          </div>
         </div>
+
+        {props.onSwitchWidget && (
+          <div className="flex items-center p-1 rounded-full bg-zinc-100 dark:bg-white/10 text-xs font-mono font-semibold shrink-0">
+            <button
+              type="button"
+              onClick={() => props.onSwitchWidget?.(0)}
+              className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+            >
+              01 Tasks
+            </button>
+            <button
+              type="button"
+              onClick={() => props.onSwitchWidget?.(1)}
+              className="h-6 px-2.5 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+            >
+              02 Guides
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Horizontal Side-by-Side Day Selector (9 Training · 10 Rest ...) */}
       <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2.5">
         <div
           ref={stripRef}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
           className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
@@ -1641,7 +1666,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold">
-                    Day {selectedDay.dayNumber} · {currentTask.category}
+                    Day {selectedDay.dayNumber}
                   </span>
                   <span
                     className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${
@@ -1652,7 +1677,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                           : "bg-white/25 backdrop-blur-md text-white"
                     }`}
                   >
-                    {selectedDone[step] ? "Completed" : isSelectedPast ? "History" : "Active"}
+                    {selectedDone[step] ? "Completed" : isSelectedPast ? "Archived" : "Active"}
                   </span>
                 </div>
 

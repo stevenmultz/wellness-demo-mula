@@ -350,6 +350,24 @@ export function MyPlanOverview({
     (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
   ).length;
 
+  const [widgetIndex, setWidgetIndex] = useState<0 | 1>(0);
+  const touchStartXRef = useRef<number | null>(null);
+
+  const handleWidgetTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleWidgetTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (deltaX < -60) {
+      setWidgetIndex(1);
+    } else if (deltaX > 60) {
+      setWidgetIndex(0);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <section className="overflow-hidden rounded-2xl bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10">
@@ -493,35 +511,46 @@ export function MyPlanOverview({
             currentDayNumber={currentDayNumber}
           />
 
-          <ProgramPreparationWidgets
-            program={program}
-            days={fullProgramDays}
-            currentDayId={day?.id}
-          />
-
           {day ? (
-            <DailyCheckIn
-              key={day.id}
-              day={day}
-              pastDays={historyDays}
-              allProgramDays={allProgramDays}
-              communityLink={program.communityLink}
-              programTitle={program.title}
-              locked={locked}
-              activities={activities}
-              checks={checks}
-              initialDone={initialDone}
-              onToggleCheck={onToggleCheck}
-              onSelectWorkout={onSelectWorkout}
-              onOpenVideo={onOpenVideo}
-              onSaveSleep={onSaveSleep}
-              onSaveAttendance={onSaveAttendance}
-              onSaveWorkoutNotes={onSaveWorkoutNotes}
-              onUploadPhoto={onUploadPhoto}
-              onSaveMeal={onSaveMeal}
-              onSaveReflection={onSaveReflection}
-              onCompleteDay={onCompleteDay}
-            />
+            <div
+              onTouchStart={handleWidgetTouchStart}
+              onTouchEnd={handleWidgetTouchEnd}
+              className="transition-all duration-200"
+            >
+              {widgetIndex === 0 ? (
+                <DailyCheckIn
+                  key={day.id}
+                  day={day}
+                  pastDays={historyDays}
+                  allProgramDays={allProgramDays}
+                  communityLink={program.communityLink}
+                  programTitle={program.title}
+                  locked={locked}
+                  activities={activities}
+                  checks={checks}
+                  initialDone={initialDone}
+                  onToggleCheck={onToggleCheck}
+                  onSelectWorkout={onSelectWorkout}
+                  onOpenVideo={onOpenVideo}
+                  onSaveSleep={onSaveSleep}
+                  onSaveAttendance={onSaveAttendance}
+                  onSaveWorkoutNotes={onSaveWorkoutNotes}
+                  onUploadPhoto={onUploadPhoto}
+                  onSaveMeal={onSaveMeal}
+                  onSaveReflection={onSaveReflection}
+                  onCompleteDay={onCompleteDay}
+                  widgetIndex={widgetIndex}
+                  onSwitchWidget={setWidgetIndex}
+                />
+              ) : (
+                <ProgramPreparationWidgets
+                  program={program}
+                  days={fullProgramDays}
+                  currentDayId={day?.id}
+                  onSwitchWidget={setWidgetIndex}
+                />
+              )}
+            </div>
           ) : (
             <EmptyState title="No tasks today" description="There is no open session for today." />
           )}
@@ -764,10 +793,12 @@ function ProgramPreparationWidgets({
   program,
   days,
   currentDayId,
+  onSwitchWidget,
 }: {
   program: PlanProgramInfo;
   days: PlanDay[];
   currentDayId?: string;
+  onSwitchWidget?: (index: 0 | 1) => void;
 }) {
   const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | null>(null);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
@@ -827,118 +858,156 @@ function ProgramPreparationWidgets({
       .filter((item) => item.length > 0);
   }, [program.equipment]);
 
+  const cardsContent = (
+    <>
+      {/* CARD 1: MEAL GUIDE */}
+      <button
+        type="button"
+        onClick={() => setActivePage("meal")}
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/pic.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <Utensils className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+            {totalDaysCount} days
+          </span>
+        </div>
+
+        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+          <div>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Meal Guide</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Daily nutrition</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+        </div>
+      </button>
+
+      {/* CARD 2: MEETUPS & LIVE */}
+      <button
+        type="button"
+        onClick={() => setActivePage("meetup")}
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/coach.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <Users className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+            {meetupDays.length} {meetupDays.length === 1 ? "session" : "sessions"}
+          </span>
+        </div>
+
+        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+          <div>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Meetups & Live</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Zoom & calls</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+        </div>
+      </button>
+
+      {/* CARD 3: EQUIPMENT */}
+      <button
+        type="button"
+        onClick={() => setActivePage("equipment")}
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/image.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <Dumbbell className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+            {equipmentItems.length} {equipmentItems.length === 1 ? "item" : "items"}
+          </span>
+        </div>
+
+        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+          <div>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Equipment</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Required gear</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+        </div>
+      </button>
+    </>
+  );
+
   return (
     <>
-      {/* 3 Preparation Cards (Zero mask-image, Zero GPU overhead, Generous spacing) */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* CARD 1: MEAL GUIDE */}
-        <button
-          type="button"
-          onClick={() => setActivePage("meal")}
-          className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
-        >
-          <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/pic.webp"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
-          </div>
-
-          <div className="relative z-10 flex items-center justify-between w-full">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-              <Utensils className="w-3.5 h-3.5" />
-            </div>
-            <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-              {totalDaysCount} days
-            </span>
-          </div>
-
-          <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+      {/* When onSwitchWidget is passed, wrap inside widget card with index switcher */}
+      {onSwitchWidget ? (
+        <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-zinc-950 dark:text-white">Meal Guide</p>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Daily nutrition</p>
+              <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
+              <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, live meetups & gear</p>
             </div>
-            <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
-          </div>
-        </button>
 
-        {/* CARD 2: MEETUPS & LIVE */}
-        <button
-          type="button"
-          onClick={() => setActivePage("meetup")}
-          className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
-        >
-          <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/coach.webp"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
-          </div>
-
-          <div className="relative z-10 flex items-center justify-between w-full">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-              <Users className="w-3.5 h-3.5" />
+            <div className="flex items-center p-1 rounded-full bg-zinc-100 dark:bg-white/10 text-xs font-mono font-semibold shrink-0">
+              <button
+                type="button"
+                onClick={() => onSwitchWidget(0)}
+                className="h-6 px-2.5 rounded-full text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition"
+              >
+                01 Tasks
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchWidget(1)}
+                className="h-6 px-2.5 rounded-full text-[11px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+              >
+                02 Guides
+              </button>
             </div>
-            <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-              {meetupDays.length} {meetupDays.length === 1 ? "session" : "sessions"}
-            </span>
           </div>
 
-          <div className="relative z-10 pt-3 flex items-end justify-between w-full">
-            <div>
-              <p className="text-xs font-semibold text-zinc-950 dark:text-white">Meetups & Live</p>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Zoom & calls</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+          <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {cardsContent}
           </div>
-        </button>
-
-        {/* CARD 3: EQUIPMENT */}
-        <button
-          type="button"
-          onClick={() => setActivePage("equipment")}
-          className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
-        >
-          <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/image.webp"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
-          </div>
-
-          <div className="relative z-10 flex items-center justify-between w-full">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-              <Dumbbell className="w-3.5 h-3.5" />
-            </div>
-            <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-              {equipmentItems.length} {equipmentItems.length === 1 ? "item" : "items"}
-            </span>
-          </div>
-
-          <div className="relative z-10 pt-3 flex items-end justify-between w-full">
-            <div>
-              <p className="text-xs font-semibold text-zinc-950 dark:text-white">Equipment</p>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Required gear</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
-          </div>
-        </button>
-      </section>
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {cardsContent}
+        </section>
+      )}
 
       {/* DEDICATED FULL-SCREEN VIEWS WITH IMAGE BACKGROUND & BORDERED SECTIONS */}
       {activePage &&
@@ -995,23 +1064,27 @@ function ProgramPreparationWidgets({
               {/* Title and metadata overlying the image banner with generous breathing room */}
               <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold block">
-                  {program.title} · {activePage === "meal" ? "Nutrition Guide" : activePage === "meetup" ? "Sessions" : "Equipment"}
+                  {activePage === "meal"
+                    ? "Nutrition Protocol"
+                    : activePage === "meetup"
+                      ? "Interactive Schedule"
+                      : "Gear Checklist"}
                 </span>
 
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
                   {activePage === "meal"
-                    ? "Meal Preparation Guide"
+                    ? "Meal Guide"
                     : activePage === "meetup"
-                      ? "Meetups & Live Sessions"
+                      ? "Live Sessions"
                       : "Required Equipment"}
                 </h1>
 
                 <p className="text-xs text-white/70 font-normal">
                   {activePage === "meal"
-                    ? `Day 1 – Day ${totalDaysCount} daily protocol`
+                    ? "Whole-food nutrition and recovery hydration."
                     : activePage === "meetup"
-                      ? "Workshops & scheduled calls"
-                      : "Gear checklist for active days"}
+                      ? "Workshops, live coaching check-ins, and meetups."
+                      : "Essential gear for active training days."}
                 </p>
               </div>
             </div>
@@ -1022,19 +1095,10 @@ function ProgramPreparationWidgets({
               <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-sm">
                 {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
                 {activePage === "meal" && (
-                  <>
-                    <div className="flex items-center justify-between px-0.5 pb-1 border-b border-zinc-200/70 dark:border-white/10">
-                      <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                        Daily Nutrition Plan
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-500">
-                        Day 1 – Day {totalDaysCount}
-                      </span>
-                    </div>
-                    <div className="space-y-2.5">
-                      {mealDays.map((d) => {
-                        const isToday = d.id === currentDayId;
-                        const lines = splitActivities(d.mealRecommendation);
+                  <div className="space-y-2.5">
+                    {mealDays.map((d) => {
+                      const isToday = d.id === currentDayId;
+                      const lines = splitActivities(d.mealRecommendation);
 
                         return (
                           <article
@@ -1086,21 +1150,11 @@ function ProgramPreparationWidgets({
                         );
                       })}
                     </div>
-                  </>
                 )}
 
                 {/* 2. MEETUPS & LIVE: ONLY MEETUPS / ZOOM SESSIONS */}
                 {activePage === "meetup" && (
-                  <>
-                    <div className="flex items-center justify-between px-0.5 pb-1 border-b border-zinc-200/70 dark:border-white/10">
-                      <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                        Live Calls & Meetups
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-500">
-                        {meetupDays.length} {meetupDays.length === 1 ? "session" : "sessions"}
-                      </span>
-                    </div>
-                    <div className="space-y-2.5">
+                  <div className="space-y-2.5">
                       {meetupDays.length > 0 ? (
                         meetupDays.map((d) => {
                           const meetUrl = safeHttpUrl(d.meetupLink);
@@ -1182,7 +1236,6 @@ function ProgramPreparationWidgets({
                         </div>
                       )}
                     </div>
-                  </>
                 )}
 
                 {/* 3. EQUIPMENT: ONLY EQUIPMENT CHECKLIST */}

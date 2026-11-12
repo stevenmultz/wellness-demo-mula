@@ -116,12 +116,14 @@ function splitLines(text: string | null | undefined): string[] {
 export function ProgramDetailView({
   program,
   enrollmentStatus,
+  hideHeaderAction,
   onClose,
   onOpenPlan,
   onEnroll,
 }: {
   program: DetailProgram;
   enrollmentStatus: "ACTIVE" | "PENDING" | null;
+  hideHeaderAction?: boolean;
   onClose: () => void;
   onOpenPlan: () => void;
   onEnroll: () => void;
@@ -271,14 +273,16 @@ export function ProgramDetailView({
           <span>Back</span>
         </button>
 
-        <a
-          href={conciergeUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
-        >
-          <span>{community ? "Community" : "Concierge"}</span>
-        </a>
+        {!hideHeaderAction && (
+          <a
+            href={conciergeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
+          >
+            <span>{community ? "Community" : "Concierge"}</span>
+          </a>
+        )}
       </header>
 
       <div className="max-w-2xl mx-auto pb-32">
