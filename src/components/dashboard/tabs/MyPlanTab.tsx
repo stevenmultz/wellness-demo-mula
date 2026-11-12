@@ -411,20 +411,9 @@ export function MyPlanOverview({
           )}
           <div className="absolute inset-0 bg-black/45" />
           {program && (
-            <>
-              <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
-                {formatIntensityBadge(program.difficultyLevel)}
-              </span>
-              <button
-                type="button"
-                onClick={onOpenDetails}
-                aria-label="Program details"
-                className="absolute top-3 right-3 h-7 px-3 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[11px] font-medium text-white inline-flex items-center gap-1.5 active:scale-95 transition"
-              >
-                <Info className="w-3.5 h-3.5" />
-                <span>Details</span>
-              </button>
-            </>
+            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+              {formatIntensityBadge(program.difficultyLevel)}
+            </span>
           )}
           <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
             <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
@@ -784,22 +773,55 @@ function CohortPerformanceCard({
       : 0;
   const moodScore = Math.max(0, Math.min(5, avgMood));
 
-  // 5. Daily Reflection Journaling vs Total Program Days
-  const reflectionTotal = sorted.length;
-  const reflectionDone = sorted.filter(
-    (d) => typeof d.userProgress?.dailyReflection === "string" && d.userProgress.dailyReflection.trim().length > 0
-  ).length;
-  const reflectionScore =
-    reflectionTotal > 0 ? Math.round((reflectionDone / reflectionTotal) * 5) : 0;
+  // 5. Program Consistency (Active days with logged habits vs Total Program Days)
+  const consistencyTotal = sorted.length;
+  const consistencyDone = sorted.filter((d) => {
+    const p = d.userProgress;
+    if (!p) return false;
+    return Boolean(
+      p.isCompleted ||
+        p.videoWatched ||
+        (p.bedtime && p.wakeTime) ||
+        p.mealCompliance ||
+        p.workoutNotes
+    );
+  }).length;
+  const consistencyScore =
+    consistencyTotal > 0 ? Math.round((consistencyDone / consistencyTotal) * 5) : 0;
+
+  const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
+            <button
+              type="button"
+              onClick={() => setShowMetricsInfo((prev) => !prev)}
+              aria-label="Metrics calculation info"
+              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+            >
+              <Info className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Sleep score, training & meal compliance</p>
         </div>
       </div>
+
+      {showMetricsInfo && (
+        <div className="p-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 space-y-2 animate-in fade-in duration-200">
+          <p className="font-semibold text-zinc-950 dark:text-white">How Metrics Are Calculated:</p>
+          <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
+            <li><strong className="text-zinc-900 dark:text-white">Sleep Average:</strong> Graded 1–5 stars. Optimal score 5 requires an average of ≥ 7h 30m nightly sleep across all logged dates.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Training:</strong> Number of completed movement sessions vs total scheduled training days.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Meal:</strong> Days you adhered to the daily nutrition protocol vs total program duration.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Energy & Mood:</strong> Average vitality self-rating from 1 (lowest) to 5 (peak energy).</li>
+            <li><strong className="text-zinc-900 dark:text-white">Program Consistency:</strong> Percentage of days with active check-in activity recorded.</li>
+          </ul>
+        </div>
+      )}
 
       <div className="p-4 space-y-3.5">
         {/* 1. SLEEP AVERAGE (1–5 BAR) */}
@@ -871,18 +893,18 @@ function CohortPerformanceCard({
 
         <div className="border-t border-zinc-100 dark:border-white/10" />
 
-        {/* 5. REFLECTIONS LOGGED */}
+        {/* 5. PROGRAM CONSISTENCY */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Reflections</span>
+              <Target className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Program Consistency</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {reflectionDone} / {reflectionTotal}
+              {consistencyDone} / {consistencyTotal} Days
             </span>
           </div>
-          <FiveBarMeter score={reflectionScore} />
+          <FiveBarMeter score={consistencyScore} />
         </div>
       </div>
     </section>
@@ -965,7 +987,8 @@ function ProgramPreparationWidgets({
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
   void _onSwitchWidget;
-  const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | "objective" | "reference" | null>(null);
+  const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | "objective" | "reference" | "terms" | null>(null);
+  const [showGuidesInfo, setShowGuidesInfo] = useState(false);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
   const prepScrollYRef = useRef(0);
 
@@ -1210,18 +1233,78 @@ function ProgramPreparationWidgets({
           <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
         </div>
       </button>
+
+      {/* CARD 6: TERMS & RULES */}
+      <button
+        type="button"
+        onClick={() => setActivePage("terms")}
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+      >
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/coach2.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <BookOpen className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+            Code & Policy
+          </span>
+        </div>
+
+        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
+          <div>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Terms &amp; Rules</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Code of conduct & guidelines</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
+        </div>
+      </button>
     </>
   );
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
-            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, meetups, gear & blueprint</p>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
+              <button
+                type="button"
+                onClick={() => setShowGuidesInfo((prev) => !prev)}
+                aria-label="Program guides overview"
+                className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, meetups, gear, blueprint & rules</p>
           </div>
         </div>
+
+        {showGuidesInfo && (
+          <div className="p-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 space-y-2 animate-in fade-in duration-200">
+            <p className="font-semibold text-zinc-950 dark:text-white">What Program Guides Cover:</p>
+            <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
+              <li><strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily nutrition principles, hydration targets, and dietary suggestions for each program day.</li>
+              <li><strong className="text-zinc-900 dark:text-white">Meetups & Live:</strong> Scheduled Zoom sessions, live coach clinics, and community Q&As.</li>
+              <li><strong className="text-zinc-900 dark:text-white">Equipment:</strong> Required mats, weights, bands, or recovery tools needed for optimal execution.</li>
+              <li><strong className="text-zinc-900 dark:text-white">Objectives & Blueprint:</strong> Target physiological adaptations, phase breakdown, and longevity goals.</li>
+              <li><strong className="text-zinc-900 dark:text-white">References:</strong> Peer-reviewed scientific literature and clinical studies grounding the curriculum.</li>
+              <li><strong className="text-zinc-900 dark:text-white">Terms & Rules:</strong> Membership code of conduct, daily logging deadlines, and safety guidelines.</li>
+            </ul>
+          </div>
+        )}
 
         <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cardsContent}
@@ -1268,7 +1351,9 @@ function ProgramPreparationWidgets({
                             ? "Equipment"
                             : activePage === "objective"
                               ? "Objectives"
-                              : "References"
+                              : activePage === "terms"
+                                ? "Terms & Rules"
+                                : "References"
                     } in program: ${program.title}`
                   )}`
                 }
@@ -1311,7 +1396,9 @@ function ProgramPreparationWidgets({
                         ? "Gear"
                         : activePage === "objective"
                           ? "Blueprint"
-                          : "Literature"}
+                          : activePage === "terms"
+                            ? "Policy"
+                            : "Literature"}
                 </span>
 
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
@@ -1323,7 +1410,9 @@ function ProgramPreparationWidgets({
                         ? "Equipment"
                         : activePage === "objective"
                           ? "Objectives"
-                          : "References"}
+                          : activePage === "terms"
+                            ? "Terms & Rules"
+                            : "References"}
                 </h1>
 
                 <p className="text-xs text-white/70 font-normal">
@@ -1335,7 +1424,9 @@ function ProgramPreparationWidgets({
                         ? "Required training gear checklist."
                         : activePage === "objective"
                           ? "Target audience, methodology & expected outcomes."
-                          : "Clinical studies & scientific literature citations."}
+                          : activePage === "terms"
+                            ? "Cohort community guidelines, safety policies & daily cadence."
+                            : "Clinical studies & scientific literature citations."}
                 </p>
               </div>
             </div>
@@ -1706,6 +1797,56 @@ function ProgramPreparationWidgets({
                         No clinical references listed for this program.
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* 6. PROGRAM TERMS & RULES */}
+                {activePage === "terms" && (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                        Core Principles & Code of Conduct
+                      </span>
+                      <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                        To maintain a supportive, safe, and high-impact wellness sanctuary, all cohort participants adhere to the following community guidelines.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                        1. Daily Cadence &amp; 23:59 WIB Cutoff
+                      </span>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        Each curriculum day unlocks at 00:00 WIB and closes for same-day tracking at 23:59 WIB. Consistent daily check-ins preserve habit momentum. Past days remain available in read-only mode for review.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                        2. Medical Safety &amp; Personal Pacing
+                      </span>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        All movement routines are designed for holistic longevity, not excessive fatigue. If you experience sharp pain or dizziness, stop immediately and consult your physician. Always perform exercises within your pain-free active range.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                        3. Privacy &amp; Respectful Community Space
+                      </span>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        Discussions, photos, and personal reflections shared in the cohort are confidential. Harassment, unsolicited promotion, or disrespectful communication results in immediate membership revocation.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#181818] p-4 space-y-1.5">
+                      <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                        4. Data Integrity &amp; Habit Accountability
+                      </span>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        Log sleep times, completed movements, and meal compliance truthfully. When unable to complete a day&apos;s routine, utilize the Skip option to record accurate progress without falsely inflating stats.
+                      </p>
+                    </div>
                   </div>
                 )}
               </section>

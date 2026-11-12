@@ -25,6 +25,7 @@ import {
   Play,
   Smile,
   Sparkles,
+  Star,
   Sun,
   Users,
   Utensils,
@@ -269,6 +270,24 @@ function TaskForm({
   const [notes, setNotes] = useState(progress?.workoutNotes || progress?.eventFeedback || "");
   const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
   const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
+  const [trainingFeeling, setTrainingFeeling] = useState<string>(() => {
+    const raw = progress?.workoutNotes || "";
+    if (raw.includes("Feeling:")) {
+      return raw.split("Feeling:")[1]?.split("·")[0]?.trim() || "";
+    }
+    return "";
+  });
+  const [connectAttendance, setConnectAttendance] = useState<"attend" | "cannot_attend" | null>(() => {
+    const fb = progress?.eventFeedback || "";
+    if (fb.toLowerCase().includes("cannot attend") || fb.toLowerCase().includes("not attend")) return "cannot_attend";
+    if (fb.toLowerCase().includes("attend")) return "attend";
+    return null;
+  });
+  const [connectRating, setConnectRating] = useState<number>(() => {
+    const fb = progress?.eventFeedback || "";
+    const match = fb.match(/(\d)\s*(?:stars?|\/5)/i);
+    return match ? parseInt(match[1], 10) : 0;
+  });
 
   const recommendedMeals = useMemo(() => {
     const parsed = parseLines(day.mealRecommendation);
@@ -416,10 +435,22 @@ function TaskForm({
       return null;
     }
     if (currentStep === 1) {
-      if (isConnect && !notes.trim()) return "Please enter session notes or key takeaways.";
+      if (isConnect) {
+        if (!connectAttendance) return "Please indicate whether you will attend this session.";
+        if (connectAttendance === "attend" && connectRating === 0) {
+          return "Please rate your experience from 1 to 5 stars.";
+        }
+        return null;
+      }
       if (hasMultipleOptions && !activeWorkout) return "Please select a training routine first.";
       if (movements.length > 0 && !movements.every(isChecked)) {
         return `Please complete all exercises (${movements.length - checkedCount} remaining).`;
+      }
+      if (!photos.before && !photos.after) {
+        return "Please upload at least one progress photo (Before or After session).";
+      }
+      if (!trainingFeeling) {
+        return "Please select how you feel after completing the training.";
       }
       return null;
     }
@@ -432,7 +463,7 @@ function TaskForm({
     if (currentStep === 3) {
       if (!score) return "Please select your daily mood & energy rating.";
       if (!skipJournal && review.trim().length < 3) {
-        return "Please write a brief reflection or check 'Prefer not to write today'.";
+        return "Please select a journal reflection or write a brief note.";
       }
       return null;
     }
@@ -442,12 +473,18 @@ function TaskForm({
   const persist = async () => {
     if (step === 0) return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id)) !== false;
     if (step === 1) {
-      if (isConnect) return (await props.onSaveAttendance(notes.trim(), day.id)) !== false;
+      if (isConnect) {
+        const attendanceFeedback =
+          connectAttendance === "attend"
+            ? `Attended · Experience: ${connectRating}/5 Stars`
+            : "Cannot Attend session";
+        return (await props.onSaveAttendance(attendanceFeedback, day.id)) !== false;
+      }
       if (activeWorkout) {
         await props.onSelectWorkout(activeWorkout, day.id, false);
       }
       // Always save workout notes so training progress is recorded and persisted to database
-      const finalNotes = notes.trim() || (activeWorkout ? `Completed: ${activeWorkout}` : "Completed training session");
+      const finalNotes = trainingFeeling ? `Feeling: ${trainingFeeling} · ${notes}`.trim() : notes.trim() || (activeWorkout ? `Completed: ${activeWorkout}` : "Completed training session");
       return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
     }
     if (step === 2) {
@@ -538,7 +575,7 @@ function TaskForm({
       setSkipConfirmOpen(false);
       onFinish();
     } catch {
-      setError("Gagal melewati tugas. Silakan coba lagi.");
+      setError("Failed to skip task. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -555,8 +592,8 @@ function TaskForm({
   };
 
   const pickPhoto = async (type: "before" | "after", file: File) => {
-    if (file.size > 15 * 1024 * 1024) {
-      setError("Photo must be under 15 MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Photo exceeds maximum allowed size of 5 MB.");
       return;
     }
     setPhotoBusy(type);
@@ -746,13 +783,25 @@ function TaskForm({
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
 
-                      <div className="relative z-10 h-full p-4 flex flex-col justify-end">
-                        <p className="text-base font-semibold text-white tracking-tight leading-snug drop-shadow-sm">
-                          {g.optionName}
-                        </p>
-                        <p className="text-xs font-medium text-white/80 mt-1 drop-shadow-xs">
-                          {g.movements.length} {g.movements.length === 1 ? "Assessment" : "Assessments"}
-                        </p>
+                      <div className="relative z-10 h-full p-4 flex items-end justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-base font-semibold text-white tracking-tight leading-snug drop-shadow-sm truncate">
+                            {g.optionName}
+                          </p>
+                          <p className="text-xs font-medium text-white/80 mt-1 drop-shadow-xs">
+                            {g.movements.length} {g.movements.length === 1 ? "Assessment" : "Assessments"}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 shadow-sm transition ${
+                            isSelected
+                              ? "bg-white text-zinc-950 dark:bg-white dark:text-zinc-950 font-bold"
+                              : "bg-white/20 hover:bg-white text-white hover:text-zinc-950 backdrop-blur-md"
+                          }`}
+                        >
+                          <span>{isSelected ? "Selected" : "Select"}</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
                       </div>
                     </button>
                   );
@@ -778,123 +827,135 @@ function TaskForm({
                 </div>
               )}
 
-              {/* Guided Video Banner */}
+              {/* 1. LARGE VIDEO THUMBNAIL ON TOP WITH LINK BUTTON */}
               {activeVideo && (
-                <a
-                  href={activeVideo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => props.onOpenVideo(day.id)}
-                  className="group relative flex items-center gap-3.5 p-3 rounded-2xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200/70 dark:hover:bg-white/10 transition overflow-hidden"
-                >
-                  <div className="relative w-24 h-14 rounded-xl overflow-hidden bg-zinc-900 shrink-0">
+                <div className="space-y-2.5">
+                  <div className="relative w-full aspect-video sm:h-56 rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200/50 dark:border-white/10 group">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
                       alt=""
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <span className="w-6 h-6 rounded-full bg-white/95 text-zinc-950 flex items-center justify-center shadow">
-                        <Play className="w-3 h-3 fill-current ml-0.5" />
-                      </span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
+                      <a
+                        href={activeVideo.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => props.onOpenVideo(day.id)}
+                        className="w-12 h-12 rounded-full bg-white/95 text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 hover:scale-110 transition-transform"
+                      >
+                        <Play className="w-5 h-5 fill-current ml-0.5" />
+                      </a>
+                    </div>
+                    <div className="absolute bottom-3 left-3 right-3 text-white">
+                      <p className="text-xs font-semibold truncate drop-shadow-sm">{activeVideo.title}</p>
+                      <p className="text-[11px] text-white/80">Guided training movement cues</p>
                     </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block">
-                      Guided Session
-                    </span>
-                    <span className="block text-xs font-semibold truncate text-zinc-900 dark:text-white">
-                      {activeVideo.title}
-                    </span>
-                    <span className="text-[11px] text-zinc-500 block mt-0.5">
-                      Follow coach movements &amp; posture cues
-                    </span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 shrink-0 mr-1" />
-                </a>
+
+                  <a
+                    href={activeVideo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => props.onOpenVideo(day.id)}
+                    className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition active:scale-[0.99]"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Watch Video Session</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                  </a>
+                </div>
               )}
 
-              {/* Movement Checklist */}
+              {/* 2. PROGRESS BAR DIRECTLY UNDERNEATH */}
               {movements.length > 0 && (
-                <div className="pt-2 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-zinc-950 dark:text-white">
                       Movement Checklist
                     </span>
-                    <span className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-400">
-                      {checkedCount} / {movements.length} Completed
+                    <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                      {checkedCount} / {movements.length} Completed ({movements.length > 0 ? Math.round((checkedCount / movements.length) * 100) : 0}%)
                     </span>
                   </div>
 
-                  <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                  <div className="h-2 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
                       style={{ width: `${movements.length > 0 ? Math.round((checkedCount / movements.length) * 100) : 0}%` }}
                     />
                   </div>
-
-                  <div className="divide-y divide-zinc-100 dark:divide-white/5">
-                    {movements.map((name) => {
-                      const checked = isChecked(name);
-                      const moveObj = selectedGroup?.movements.find((m) => m.name === name);
-                      const targetLabel = moveObj?.target;
-                      return (
-                        <label
-                          key={name}
-                          className="flex items-center justify-between gap-3 py-2.5 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <input
-                              type="checkbox"
-                              disabled={locked}
-                              checked={checked}
-                              onChange={() => toggle(name)}
-                              className="w-4 h-4 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
-                            />
-                            <span
-                              className={`text-xs sm:text-sm transition ${
-                                checked
-                                  ? "line-through text-zinc-400 dark:text-zinc-500"
-                                  : "font-medium text-zinc-900 dark:text-white"
-                              }`}
-                            >
-                              {name}
-                            </span>
-                          </div>
-                          {targetLabel && (
-                            <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                              {targetLabel}
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
 
-              {/* Photos & Notes */}
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-3">
-                <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                  Photos &amp; Sensation Feedback
-                </span>
+              {/* 3. CHECKLIST (SPACIOUS, NO CRAMPED TEXT) */}
+              {movements.length > 0 && (
+                <div className="divide-y divide-zinc-100 dark:divide-white/5 border-t border-b border-zinc-100 dark:border-white/10">
+                  {movements.map((name) => {
+                    const checked = isChecked(name);
+                    const moveObj = selectedGroup?.movements.find((m) => m.name === name);
+                    const targetLabel = moveObj?.target;
+                    return (
+                      <label
+                        key={name}
+                        className="flex items-center justify-between gap-3 py-3 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            disabled={locked}
+                            checked={checked}
+                            onChange={() => toggle(name)}
+                            className="w-4 h-4 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
+                          />
+                          <span
+                            className={`text-xs sm:text-sm leading-relaxed transition ${
+                              checked
+                                ? "line-through text-zinc-400 dark:text-zinc-500"
+                                : "font-medium text-zinc-900 dark:text-white"
+                            }`}
+                          >
+                            {name}
+                          </span>
+                        </div>
+                        {targetLabel && (
+                          <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
+                            {targetLabel}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
 
-                <div className="grid grid-cols-2 gap-2.5">
+              {/* 4. UPLOAD PHOTO (MAX 5 MB) */}
+              <div className="space-y-2.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                    Progress Photos
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-400">
+                    Max 5 MB each (Required)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   {(["before", "after"] as const).map((type) => (
                     <label key={type} className="block text-[11px] text-zinc-500 cursor-pointer">
-                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300 block mb-1">
                         {type === "before" ? "Before Session" : "After Session"}
                       </span>
-                      <span className="mt-1 flex h-20 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 transition">
+                      <span className="flex h-24 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 transition">
                         {photos[type] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={photos[type]} alt="" className="w-full h-full object-cover" />
                         ) : photoBusy === type ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-mono text-zinc-400">
-                            <Camera className="w-3.5 h-3.5" /> Upload
+                          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-zinc-400">
+                            <Camera className="w-4 h-4" /> Upload Photo
                           </span>
                         )}
                       </span>
@@ -912,41 +973,48 @@ function TaskForm({
                     </label>
                   ))}
                 </div>
+              </div>
 
-                {/* Quick Feedback Chips */}
-                <div className="space-y-1.5 pt-1">
-                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block">
-                    Quick Tags:
+              {/* 5. FEELING AFTER TRAINING (5 MOOD CHOICES) */}
+              <div className="space-y-2.5 pt-2 border-t border-zinc-100 dark:border-white/10">
+                <div>
+                  <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                    Feeling After Training
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {WORKOUT_QUICK_TAGS.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        disabled={locked}
-                        onClick={() => {
-                          setNotes((prev) => (prev ? `${prev} · ${tag}` : tag));
-                        }}
-                        className="px-2.5 py-1 rounded-lg text-xs bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition active:scale-95"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">Select how your body feels after completing this session (Required)</p>
                 </div>
 
-                {notes && (
-                  <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-white/5 text-xs text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
-                    <span className="truncate">{notes}</span>
-                    <button
-                      type="button"
-                      onClick={() => setNotes("")}
-                      className="text-[10px] text-zinc-400 hover:text-red-500 font-mono ml-2 shrink-0"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { label: "Energized", desc: "High vitality, powerful and moved with ease" },
+                    { label: "Accomplished", desc: "Challenging workout, pushed through with solid technique" },
+                    { label: "Balanced", desc: "Steady pace, good body control and regulated breath" },
+                    { label: "Fatigued", desc: "Challenging effort, muscles feeling worked and tired" },
+                    { label: "Strained", desc: "Felt physical tension or stiffness, prioritized safety" },
+                  ].map((item) => {
+                    const active = trainingFeeling === item.label;
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => setTrainingFeeling(item.label)}
+                        className={`w-full p-3 rounded-xl border text-left transition select-none ${
+                          active
+                            ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                            : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                        }`}
+                      >
+                        <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                          {item.label}
+                        </p>
+                        <p className={`text-[11px] mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                          {item.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -1054,28 +1122,167 @@ function TaskForm({
       {/* ===================================================================== */}
       {step === 1 && isConnect && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2">
-            <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-              Community Session
-            </span>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              {day.eventTitle || "Connect with peers and review longevity habits together."}
-            </p>
+          {/* SESSION INFO CARD */}
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+                {day.meetupLink ? "Online Zoom Session" : day.onsiteVenue ? "Onsite Gathering" : "Community Session"}
+              </span>
+              <span className="text-[11px] font-mono text-zinc-500">
+                {day.onsiteSchedule || "Live Session"}
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                {day.eventTitle || "Community Connect & Discussion"}
+              </h3>
+              {day.eventDetails && (
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                  {day.eventDetails}
+                </p>
+              )}
+            </div>
+
+            {/* If Online: Zoom Meeting Link */}
+            {day.meetupLink && (
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold block">
+                  Online Meeting Link:
+                </span>
+                <a
+                  href={day.meetupLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-10 px-4 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 active:scale-98 transition shadow-sm"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Join Zoom Meeting</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+
+            {/* If Onsite: Address, Schedule, Host & Map */}
+            {day.onsiteVenue && (
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-2.5 text-xs">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    Venue &amp; Location
+                  </span>
+                  <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
+                    {day.onsiteVenue}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                      Date &amp; Time
+                    </span>
+                    <p className="font-medium text-zinc-800 dark:text-zinc-200 mt-0.5">
+                      {day.onsiteSchedule || "Check cohort calendar"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                      Meet With (Host)
+                    </span>
+                    <p className="font-medium text-zinc-800 dark:text-zinc-200 mt-0.5">
+                      {day.eventHost || day.coachName || "Coach & Community Lead"}
+                    </p>
+                  </div>
+                </div>
+
+                {day.mapLink && (
+                  <a
+                    href={day.mapLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-white hover:underline pt-1"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Open Google Maps</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Session Notes &amp; Takeaways
+          {/* ATTENDANCE SELECTION (ATTEND OR NOT) */}
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+              Will you attend this session?
             </span>
-            <textarea
-              value={notes}
-              disabled={locked}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Enter session takeaways..."
-              className={areaCls}
-            />
-          </label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => setConnectAttendance("attend")}
+                className={`h-11 px-4 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-2 select-none ${
+                  connectAttendance === "attend"
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                }`}
+              >
+                <Check className="w-4 h-4" />
+                <span>I Will Attend</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => setConnectAttendance("cannot_attend")}
+                className={`h-11 px-4 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-2 select-none ${
+                  connectAttendance === "cannot_attend"
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                }`}
+              >
+                <span>Cannot Attend</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 1-5 STAR RATING (EXPERIENCE) */}
+          <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/10">
+            <div>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                Session Experience Rating
+              </span>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Rate your overall takeaway and experience (1 to 5 Stars)</p>
+            </div>
+
+            <div className="flex items-center gap-2 py-1">
+              {[1, 2, 3, 4, 5].map((star) => {
+                const filled = star <= connectRating;
+                return (
+                  <button
+                    key={star}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setConnectRating(star)}
+                    className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
+                    aria-label={`${star} Stars`}
+                  >
+                    <Star
+                      className={`w-7 h-7 transition-colors ${
+                        filled
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-zinc-300 dark:text-zinc-600"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+              {connectRating > 0 && (
+                <span className="text-xs font-mono font-semibold ml-2 text-zinc-800 dark:text-zinc-200">
+                  {connectRating} of 5 Stars
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1158,11 +1365,8 @@ function TaskForm({
                     className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
                   />
                   <div className="min-w-0">
-                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
-                      Option
-                    </span>
                     <p
-                      className={`text-xs mt-0.5 leading-relaxed ${
+                      className={`text-xs leading-relaxed ${
                         mealDraft.specialOption === "similar"
                           ? "font-semibold text-zinc-950 dark:text-white"
                           : "text-zinc-700 dark:text-zinc-300"
@@ -1196,11 +1400,8 @@ function TaskForm({
                     className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
                   />
                   <div className="min-w-0">
-                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
-                      Option
-                    </span>
                     <p
-                      className={`text-xs mt-0.5 leading-relaxed ${
+                      className={`text-xs leading-relaxed ${
                         mealDraft.specialOption === "off_track"
                           ? "font-semibold text-zinc-950 dark:text-white"
                           : "text-zinc-700 dark:text-zinc-300"
@@ -1280,37 +1481,76 @@ function TaskForm({
           </label>
 
           {!skipJournal ? (
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-                Daily Journal
-              </span>
-
-              {/* Quick Tag Presets for Journal */}
-              <div className="flex flex-wrap gap-1.5">
-                {REFLECTION_QUICK_TAGS.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => {
-                      setReview((prev) => (prev ? `${prev} ${tag}` : tag));
-                    }}
-                    className="px-2.5 py-1 rounded-lg text-xs bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-300 transition active:scale-95 border border-zinc-200/60 dark:border-white/10"
-                  >
-                    {tag}
-                  </button>
-                ))}
+            <div className="space-y-2.5">
+              <div>
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                  Daily Journal
+                </span>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Select a reflection mood option or customize your personal entry
+                </p>
               </div>
 
-              <textarea
-                value={review}
-                disabled={locked}
-                onChange={(e) => setReview(e.target.value)}
-                rows={3}
-                maxLength={2000}
-                placeholder="Enter daily reflection..."
-                className={areaCls}
-              />
+              {/* 5 JOURNAL OPTIONS (NO ICONS, 5 DIFFERENT MOODS) */}
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  {
+                    title: "Energized & Motivated",
+                    text: "High focus and vitality. Accomplished my daily goals and feel strong momentum.",
+                  },
+                  {
+                    title: "Calm & Centered",
+                    text: "Maintained good emotional balance, mental peace, and grounded focus throughout.",
+                  },
+                  {
+                    title: "Steady & Disciplined",
+                    text: "Consistent moderate energy. Stayed committed to the routine through steady discipline.",
+                  },
+                  {
+                    title: "Tired but Grateful",
+                    text: "Low physical battery by evening. Grateful for progress made, taking time to rest and recharge.",
+                  },
+                  {
+                    title: "Challenged & Stressed",
+                    text: "Faced physical fatigue or mental stress today. Prioritizing slow recovery, breathwork, and early sleep.",
+                  },
+                ].map((item) => {
+                  const val = `${item.title}: ${item.text}`;
+                  const active = review === val;
+                  return (
+                    <button
+                      key={item.title}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setReview(val)}
+                      className={`w-full p-3 rounded-xl border text-left transition select-none ${
+                        active
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                        {item.title}
+                      </p>
+                      <p className={`text-[11px] mt-0.5 leading-relaxed ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        {item.text}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="pt-1">
+                <textarea
+                  value={review}
+                  disabled={locked}
+                  onChange={(e) => setReview(e.target.value)}
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Or customize / type your personal thoughts here..."
+                  className={areaCls}
+                />
+              </div>
             </div>
           ) : (
             <div className="p-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-xs text-zinc-500 font-mono">
@@ -1379,10 +1619,10 @@ function TaskForm({
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                Lewati Tugas?
+                Skip This Task?
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Lewati {currentTaskInfo.title} untuk hari ini?
+                Skip {currentTaskInfo.title} for today?
               </p>
             </div>
             <div className="flex items-center justify-end gap-2 pt-1">
@@ -1392,7 +1632,7 @@ function TaskForm({
                 onClick={() => setSkipConfirmOpen(false)}
                 className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
               >
-                Batal
+                Cancel
               </button>
               <button
                 type="button"
@@ -1401,7 +1641,7 @@ function TaskForm({
                 className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition active:scale-95 inline-flex items-center justify-center gap-1.5"
               >
                 {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Ya, Lewati</span>
+                <span>Yes, Skip</span>
               </button>
             </div>
           </div>
