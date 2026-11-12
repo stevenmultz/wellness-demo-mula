@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   MapPin,
   Search,
@@ -247,6 +248,7 @@ export function ExplorePlanTab({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
+  const [showAllCoaches, setShowAllCoaches] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
@@ -360,6 +362,11 @@ export function ExplorePlanTab({
     return Array.from(map.entries()).map(([name, avatar]) => ({ name, avatar }));
   }, [catalog]);
 
+  const displayedCoaches = useMemo(() => {
+    if (showAllCoaches) return availableCoaches;
+    return availableCoaches.slice(0, 5);
+  }, [availableCoaches, showAllCoaches]);
+
   const filtered = catalog.filter((p) => {
     if (selectedCoach && p.coachName.trim().toLowerCase() !== selectedCoach.trim().toLowerCase()) {
       return false;
@@ -408,17 +415,17 @@ export function ExplorePlanTab({
     <>
       <FloatingHeader visible={headerVisible}>
         <div className="relative w-full flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3.5 h-11">
-            <Search className="w-4 h-4 text-zinc-500 shrink-0" />
+          <div className="flex-1 flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
+            <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
             <input
               type="search"
               inputMode="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Enter program name or keyword..."
-              aria-label="Enter program name or keyword..."
+              placeholder="Search program or keyword..."
+              aria-label="Search program or keyword..."
               maxLength={100}
-              className="w-full bg-transparent outline-none text-base text-zinc-950 dark:text-white placeholder:text-zinc-500"
+              className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
             />
           </div>
           <button
@@ -429,21 +436,20 @@ export function ExplorePlanTab({
             }}
             aria-haspopup="dialog"
             aria-expanded={filtersOpen}
-            className={`shrink-0 h-11 px-3.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+            className={`shrink-0 h-9 px-3 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
               activeCount > 0
                 ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-white/20"
                 : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/10"
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            Filter
+            <span>Filter</span>
             {activeCount > 0 && (
-              <span className="min-w-5 h-5 px-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-bold inline-flex items-center justify-center">
+              <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-bold inline-flex items-center justify-center">
                 {activeCount}
               </span>
             )}
           </button>
-
         </div>
       </FloatingHeader>
 
@@ -533,13 +539,10 @@ export function ExplorePlanTab({
           refreshing={refreshing && state.status === "ready"}
         />
 
-        {/* COACH FILTER BAR (UNDER SEARCH & FILTER) */}
+        {/* COACH FILTER GALLERY */}
         <div className="pt-0.5 pb-1">
-          <div className="flex items-center justify-between px-1 pb-2">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-              Filter by Coach
-            </span>
-            {selectedCoach && (
+          {selectedCoach && (
+            <div className="flex items-center justify-end px-1 pb-1.5">
               <button
                 type="button"
                 onClick={() => setSelectedCoach(null)}
@@ -547,8 +550,8 @@ export function ExplorePlanTab({
               >
                 Clear coach filter
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div
             className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth"
@@ -570,7 +573,7 @@ export function ExplorePlanTab({
               <span>All Coaches</span>
             </button>
 
-            {availableCoaches.map(({ name, avatar }) => {
+            {displayedCoaches.map(({ name, avatar }) => {
               const isSelected = selectedCoach?.toLowerCase() === name.toLowerCase();
               return (
                 <button
@@ -593,6 +596,28 @@ export function ExplorePlanTab({
                 </button>
               );
             })}
+
+            {availableCoaches.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllCoaches((prev) => !prev)}
+                className="shrink-0 h-10 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
+              >
+                {showAllCoaches ? (
+                  <>
+                    <span>Show Less</span>
+                    <ChevronUp className="w-3.5 h-3.5 text-zinc-500" />
+                  </>
+                ) : (
+                  <>
+                    <span>Show All Coaches</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
+                      {availableCoaches.length}
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -712,9 +737,11 @@ export function ExplorePlanTab({
                             </p>
                           </div>
 
-                          <span className="shrink-0 mt-0.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 text-[10px] font-mono inline-flex items-center gap-1 group-hover:bg-zinc-200 dark:group-hover:bg-white/15 transition">
-                            <span>{isExpanded ? "Hide" : "Details"}</span>
-                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                          <span
+                            aria-label={isExpanded ? "Collapse program details" : "Expand program details"}
+                            className="shrink-0 mt-0.5 w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 inline-flex items-center justify-center group-hover:bg-zinc-200 dark:group-hover:bg-white/15 transition"
+                          >
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                           </span>
                         </button>
 

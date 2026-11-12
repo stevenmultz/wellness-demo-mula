@@ -1636,11 +1636,11 @@ export function DashboardClient({
       {/* Main Content Area with safe-area spacing */}
       <main
         style={{ paddingTop: "max(6rem, calc(4.75rem + env(safe-area-inset-top)))" }}
-        className="max-w-5xl mx-auto px-4 sm:px-8 pb-32 sm:pb-36 flex-1 w-full space-y-7 sm:space-y-9"
+        className="max-w-5xl mx-auto px-4 sm:px-8 pb-32 sm:pb-36 flex-1 w-full"
       >
         {actionNotice && (
           <div
-            className={`glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border shadow-sm font-mono ${
+            className={`mb-4 glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border shadow-sm font-mono ${
               actionNotice.type === "error"
                 ? "border-red-500/30 text-red-700 dark:text-red-300"
                 : "border-zinc-300 dark:border-white/25 text-zinc-900 dark:text-white"
@@ -1655,7 +1655,7 @@ export function DashboardClient({
           </div>
         )}
 
-        <div className={activeTab === "my_plan" ? "block" : "hidden"}>
+        <div className={activeTab === "my_plan" ? "block" : "hidden"} hidden={activeTab !== "my_plan"}>
           <MyPlanOverview
             program={
               overviewEnrollment && currentProgram
@@ -1734,7 +1734,7 @@ export function DashboardClient({
 
         {/* TAB 2: EXPLORE PLAN (kept alive once visited) */}
         {(visitedTabs.all_plan || activeTab === "all_plan") && (
-          <div className={activeTab === "all_plan" ? "block space-y-5" : "hidden"}>
+          <div className={activeTab === "all_plan" ? "block" : "hidden"} hidden={activeTab !== "all_plan"}>
             <ExplorePlanTab
               headerVisible={isHeaderVisible}
               isActive={activeTab === "all_plan"}
@@ -1756,7 +1756,7 @@ export function DashboardClient({
 
         {/* TAB 3: NOTIFICATION & HISTORY (kept alive once visited) */}
         {(visitedTabs.notifications || activeTab === "notifications") && (
-          <div className={activeTab === "notifications" ? "block space-y-5" : "hidden"}>
+          <div className={activeTab === "notifications" ? "block" : "hidden"} hidden={activeTab !== "notifications"}>
             <NotificationsHistoryTab
               headerVisible={isHeaderVisible}
               isActive={activeTab === "notifications"}
@@ -1779,7 +1779,7 @@ export function DashboardClient({
 
         {/* TAB 4: PROFILE & SETTINGS (kept alive once visited) */}
         {(visitedTabs.profile || activeTab === "profile") && (
-          <div className={activeTab === "profile" ? "block space-y-5" : "hidden"}>
+          <div className={activeTab === "profile" ? "block" : "hidden"} hidden={activeTab !== "profile"}>
             <ProfileTab
               user={user}
               health={healthProfile}
