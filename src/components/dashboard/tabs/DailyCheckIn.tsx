@@ -2103,172 +2103,99 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       )}
 
-      {/* Day Selector (Week-based Compact Grid + All Days Toggle - No Horizontal Scroll Cutoff) */}
-      <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/60 dark:bg-white/[0.02] space-y-2.5">
-        {/* Top Control Bar: Active Day & Navigation */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <button
-              type="button"
-              disabled={safeDayIndex <= 0}
-              onClick={() => {
-                if (safeDayIndex > 0) {
-                  setSelectedDayId(programDays[safeDayIndex - 1].id);
-                }
-              }}
-              aria-label="Previous day"
-              className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 disabled:opacity-30 active:scale-95 transition shrink-0"
-            >
-              <ChevronDown className="w-3.5 h-3.5 rotate-90" />
-            </button>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                Day {selectedDay.dayNumber} · {selectedDay.dayType === "TRAINING_DAY" ? "Training" : selectedDay.dayType === "REST_DAY" ? "Rest" : "Connect"}
-              </p>
-              <p className="text-[10px] font-mono text-zinc-400">
-                {formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={safeDayIndex >= programDays.length - 1}
-              onClick={() => {
-                if (safeDayIndex < programDays.length - 1) {
-                  setSelectedDayId(programDays[safeDayIndex + 1].id);
-                }
-              }}
-              aria-label="Next day"
-              className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 disabled:opacity-30 active:scale-95 transition shrink-0"
-            >
-              <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
-            </button>
+      {/* Day Selector (Spacious, Minimal Negative-Space Day Bar) */}
+      <div className="p-4 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] space-y-3.5">
+        {/* Active Day Header with generous negative space and comfortable arrows */}
+        <div className="flex items-center justify-between gap-4 px-1">
+          <button
+            type="button"
+            disabled={safeDayIndex <= 0}
+            onClick={() => {
+              if (safeDayIndex > 0) {
+                setSelectedDayId(programDays[safeDayIndex - 1].id);
+              }
+            }}
+            aria-label="Previous day"
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+
+          <div className="text-center min-w-0">
+            <h3 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-950 dark:text-white truncate">
+              {formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)} · {selectedDay.dayType === "TRAINING_DAY" ? "Training" : selectedDay.dayType === "REST_DAY" ? "Rest" : "Connect"}
+            </h3>
+            <p className="text-[11px] font-mono text-zinc-400 mt-0.5">
+              Day {selectedDay.dayNumber} of {programDays.length}
+              {selectedDay.userProgress?.isCompleted ? " • Completed" : isSelectedToday ? " • Today" : ""}
+            </p>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {totalWeeks > 1 && !showAllDaysGrid && (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={viewWeek <= 0}
-                  onClick={() => setViewWeek((w) => Math.max(0, w - 1))}
-                  aria-label="Previous week"
-                  className="w-6 h-6 rounded border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 flex items-center justify-center disabled:opacity-20 active:scale-95 transition"
-                >
-                  <ChevronDown className="w-3 h-3 rotate-90" />
-                </button>
-                <span className="text-[10px] font-mono text-zinc-500 min-w-10 text-center">
-                  W{viewWeek + 1}/{totalWeeks}
-                </span>
-                <button
-                  type="button"
-                  disabled={viewWeek >= totalWeeks - 1}
-                  onClick={() => setViewWeek((w) => Math.min(totalWeeks - 1, w + 1))}
-                  aria-label="Next week"
-                  className="w-6 h-6 rounded border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 flex items-center justify-center disabled:opacity-20 active:scale-95 transition"
-                >
-                  <ChevronDown className="w-3 h-3 -rotate-90" />
-                </button>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowAllDaysGrid((prev) => !prev)}
-              className="h-7 px-2.5 rounded-lg border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1 transition"
-            >
-              <Calendar className="w-3 h-3 text-zinc-400" />
-              <span>{showAllDaysGrid ? "Week View" : "All 21 Days"}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={safeDayIndex >= programDays.length - 1}
+            onClick={() => {
+              if (safeDayIndex < programDays.length - 1) {
+                setSelectedDayId(programDays[safeDayIndex + 1].id);
+              }
+            }}
+            aria-label="Next day"
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4 rotate-180" />
+          </button>
         </div>
 
-        {/* View 1: Compact 7-Day Grid (100% Responsive, Zero Horizontal Cut-Off) */}
-        {!showAllDaysGrid ? (
-          <div className="grid grid-cols-7 gap-1">
-            {weekDays.map((d) => {
-              const isActiveSelected = d.id === selectedDay.id;
-              const isTodayItem = d.id === day.id;
-              const isDoneItem = !!d.userProgress?.isCompleted;
-              const isFutureItem = !isTodayItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
-              const dayTypeShort = d.dayType === "TRAINING_DAY" ? "Train" : d.dayType === "REST_DAY" ? "Rest" : "Live";
+        {/* Clean, Simple Pill Strip: just Date + Type (e.g. "10 Nov Training", "11 Nov Rest") with abundant negative space */}
+        <div
+          ref={stripRef}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {programDays.map((d) => {
+            const isActiveSelected = d.id === selectedDay.id;
+            const isTodayItem = d.id === day.id;
+            const isDoneItem = !!d.userProgress?.isCompleted;
+            const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
+            const isFutureItem = !isTodayItem && !isPastItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
+            const dayTypeWord =
+              d.dayType === "TRAINING_DAY"
+                ? "Training"
+                : d.dayType === "REST_DAY"
+                  ? "Rest"
+                  : "Connect";
+            const dateStr = formatDayPillDate(d.unlockDate, d.dayNumber);
 
-              return (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => setSelectedDayId(d.id)}
-                  className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center text-center transition active:scale-95 ${
-                    isActiveSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-2 ring-zinc-950/20 dark:ring-white/20"
-                      : isTodayItem
-                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
-                        : isDoneItem
-                          ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
-                          : isFutureItem
-                            ? "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
-                            : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10"
-                  }`}
-                >
-                  <span className="text-[10px] font-mono leading-none">D{d.dayNumber}</span>
-                  <span className="text-xs font-semibold leading-tight mt-0.5">
-                    {formatDayPillDate(d.unlockDate, d.dayNumber).split(" ")[0]}
-                  </span>
-                  <div className="mt-1 flex items-center justify-center">
-                    {isDoneItem ? (
-                      <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
-                    ) : isFutureItem ? (
-                      <Lock className="w-2.5 h-2.5 opacity-60" />
-                    ) : (
-                      <span className="text-[9px] font-mono uppercase tracking-tighter opacity-80">
-                        {dayTypeShort}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          /* View 2: All 21 Days Full Grid (No Horizontal Scrollbar Ever) */
-          <div className="space-y-1.5 pt-1 animate-in fade-in duration-150">
-            <div className="grid grid-cols-7 gap-1">
-              {programDays.map((d) => {
-                const isActiveSelected = d.id === selectedDay.id;
-                const isTodayItem = d.id === day.id;
-                const isDoneItem = !!d.userProgress?.isCompleted;
-                const isFutureItem = !isTodayItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
-
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDayId(d.id);
-                      setShowAllDaysGrid(false);
-                    }}
-                    className={`py-1.5 px-0.5 rounded-lg text-center transition active:scale-95 ${
-                      isActiveSelected
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white"
-                        : isTodayItem
-                          ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white"
-                          : isDoneItem
-                            ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
-                            : isFutureItem
-                              ? "bg-zinc-100/50 dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-600 opacity-60"
-                              : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10"
-                    }`}
-                  >
-                    <span className="text-[11px] font-mono font-semibold block leading-none">
-                      {d.dayNumber}
-                    </span>
-                    <span className="text-[9px] opacity-70 block mt-0.5">
-                      {d.dayType === "TRAINING_DAY" ? "T" : d.dayType === "REST_DAY" ? "R" : "C"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+            return (
+              <button
+                key={d.id}
+                ref={(el) => {
+                  buttonRefs.current[d.id] = el;
+                }}
+                type="button"
+                onClick={() => setSelectedDayId(d.id)}
+                className={`shrink-0 h-9 px-4 rounded-full text-xs font-medium tracking-wide transition active:scale-95 inline-flex items-center gap-1.5 select-none ${
+                  isActiveSelected
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs font-semibold"
+                    : isTodayItem
+                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white font-semibold"
+                      : isDoneItem
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40"
+                        : isPastItem
+                          ? "bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
+                          : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
+                }`}
+              >
+                <span>{dateStr}</span>
+                <span className="opacity-80 font-normal">{dayTypeWord}</span>
+                {isDoneItem && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 ml-0.5" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}
