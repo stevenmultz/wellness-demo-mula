@@ -52,10 +52,10 @@ export interface DailyCheckInProps {
   activities: string[];
   checks: string[];
   initialDone: [boolean, boolean, boolean, boolean];
-  onToggleCheck: (task: string, dayId: string) => Promise<void> | void;
+  onToggleCheck: (task: string, dayId: string, isRepUpdate?: boolean) => Promise<void> | void;
   onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => SaveResult;
   onOpenVideo: (dayId: string) => SaveResult;
-  onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string) => SaveResult;
+  onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => SaveResult;
   onSaveAttendance: (notes: string, dayId: string) => SaveResult;
   onSaveWorkoutNotes: (notes: string, dayId: string) => SaveResult;
   onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => SaveResult;
@@ -136,6 +136,22 @@ const REFLECTION_QUICK_TAGS = [
   "Ready for deep rest tonight 🌙",
 ];
 
+const SLEEP_FEELINGS = [
+  { label: "Refreshed & Alert", desc: "Woke up clear-headed with high morning readiness." },
+  { label: "Rested & Steady", desc: "Solid restorative rest and balanced morning energy." },
+  { label: "Still Groggy", desc: "Mild sleep inertia or sluggish getting started." },
+  { label: "Light & Restless", desc: "Interrupted or lighter sleep cycles overnight." },
+  { label: "Exhausted", desc: "Unrefreshing sleep; prioritizing gentle recovery today." },
+];
+
+const MEAL_FEELINGS = [
+  { label: "Energized & Light", desc: "Clean steady fuel with comfortable digestion." },
+  { label: "Satisfied & Balanced", desc: "Nourished, content, and evenly satiated." },
+  { label: "Slightly Bloated", desc: "Mild digestive fullness or heaviness after eating." },
+  { label: "Still Hungry", desc: "Lower satiety or lingering appetite between meals." },
+  { label: "Sluggish / Heavy", desc: "Post-meal energy dip or lethargic heaviness." },
+];
+
 const areaCls =
   "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
 const primaryBtn =
@@ -198,6 +214,8 @@ function parseLines(text: string | null | undefined): string[] {
 interface MealDraft {
   checkedMeals: string[];
   specialOption: "similar" | "off_track" | null;
+  mealsCount: 0 | 1 | 2 | 3;
+  mealFeeling: string;
 }
 
 function readMealDraft(
@@ -207,24 +225,34 @@ function readMealDraft(
 ): MealDraft {
   if (notes) {
     try {
-      const parsed = JSON.parse(notes) as { mode?: string; checkedMeals?: string[] };
+      const parsed = JSON.parse(notes) as {
+        mode?: string;
+        checkedMeals?: string[];
+        mealsCount?: number;
+        mealFeeling?: string;
+      };
+      const mealsCount =
+        parsed?.mealsCount === 1 || parsed?.mealsCount === 2 || parsed?.mealsCount === 3
+          ? parsed.mealsCount
+          : 0;
+      const mealFeeling = typeof parsed?.mealFeeling === "string" ? parsed.mealFeeling : "";
       if (parsed && parsed.mode === "similar") {
-        return { checkedMeals: [], specialOption: "similar" };
+        return { checkedMeals: [], specialOption: "similar", mealsCount, mealFeeling };
       }
       if (parsed && parsed.mode === "off_track") {
-        return { checkedMeals: [], specialOption: "off_track" };
+        return { checkedMeals: [], specialOption: "off_track", mealsCount, mealFeeling };
       }
       if (parsed && Array.isArray(parsed.checkedMeals)) {
-        return { checkedMeals: parsed.checkedMeals, specialOption: null };
+        return { checkedMeals: parsed.checkedMeals, specialOption: null, mealsCount, mealFeeling };
       }
     } catch {
       /* plain text fallback */
     }
   }
-  if (compliance === "SIMILAR") return { checkedMeals: [], specialOption: "similar" };
-  if (compliance === "OFF_TRACK") return { checkedMeals: [], specialOption: "off_track" };
-  if (compliance === "FULL") return { checkedMeals: [...recommended], specialOption: null };
-  return { checkedMeals: [], specialOption: null };
+  if (compliance === "SIMILAR") return { checkedMeals: [], specialOption: "similar", mealsCount: 0, mealFeeling: "" };
+  if (compliance === "OFF_TRACK") return { checkedMeals: [], specialOption: "off_track", mealsCount: 0, mealFeeling: "" };
+  if (compliance === "FULL") return { checkedMeals: [...recommended], specialOption: null, mealsCount: 0, mealFeeling: "" };
+  return { checkedMeals: [], specialOption: null, mealsCount: 0, mealFeeling: "" };
 }
 
 function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<string> {
@@ -284,7 +312,13 @@ function TaskForm({
   const wasReflectionSkipped = progress?.dailyReflection === "SKIPPED";
   const [bed, setBed] = useState(progress?.bedtime === "SKIPPED" ? "" : progress?.bedtime || "");
   const [wake, setWake] = useState(progress?.wakeTime === "SKIPPED" ? "" : progress?.wakeTime || "");
+  const [sleepFeeling, setSleepFeeling] = useState<string>(() => {
+    const raw = progress?.assessmentResponse || "";
+    const match = raw.match(/Sleep Feeling:\s*(.+)/i);
+    return match ? match[1].trim() : "";
+  });
   const [workout, setWorkout] = useState(progress?.selectedWorkout === "SKIPPED" ? "" : progress?.selectedWorkout || "");
+  const [editingRep, setEditingRep] = useState<{ name: string; value: string } | null>(null);
   const [trainingEntered, setTrainingEntered] = useState(
     Boolean(progress?.selectedWorkout && progress.selectedWorkout !== "SKIPPED")
   );
@@ -443,7 +477,7 @@ function TaskForm({
     await props.onSelectWorkout(nextOpt, day.id, true);
   };
 
-  const isSleepValid = Boolean(bed && wake);
+  const isSleepValid = Boolean(bed && wake && sleepFeeling);
   const isTrainingValid = isConnect
     ? notes.trim().length > 0
     : isRest
@@ -451,7 +485,10 @@ function TaskForm({
       : hasMultipleOptions
         ? Boolean(activeWorkout) && (movements.length === 0 || movements.every(isChecked))
         : movements.length === 0 || movements.every(isChecked);
-  const isMealValid = mealDraft.checkedMeals.length > 0 || mealDraft.specialOption !== null;
+  const isMealValid =
+    (mealDraft.checkedMeals.length > 0 || mealDraft.specialOption !== null) &&
+    mealDraft.mealsCount > 0 &&
+    Boolean(mealDraft.mealFeeling);
   const isReflectionValid = (skipJournal || review.trim().length >= 3) && score > 0;
 
   const valid = [isSleepValid, isTrainingValid, isMealValid, isReflectionValid];
@@ -461,6 +498,7 @@ function TaskForm({
       if (!bed && !wake) return "Please enter both bedtime and wake time.";
       if (!bed) return "Please enter your bedtime.";
       if (!wake) return "Please enter your wake time.";
+      if (!sleepFeeling) return "Please select how you feel after waking up.";
       return null;
     }
     if (currentStep === 1) {
@@ -491,22 +529,30 @@ function TaskForm({
     }
     if (currentStep === 2) {
       if (mealDraft.checkedMeals.length === 0 && !mealDraft.specialOption) {
-        return "Please check at least one meal or select a meal option.";
+        return "Please check at least one meal or select an alternative option.";
+      }
+      if (!mealDraft.mealsCount) {
+        return "Please select how many meals you ate today (1, 2, or 3).";
+      }
+      if (!mealDraft.mealFeeling) {
+        return "Please select how you feel after your meals.";
       }
       return null;
     }
     if (currentStep === 3) {
-      if (!score) return "Please select your daily mood & energy rating.";
       if (!skipJournal && review.trim().length < 3) {
         return "Please select a journal reflection or write a brief note.";
       }
+      if (!score) return "Please select your daily energy & mood rating.";
       return null;
     }
     return null;
   };
 
   const persist = async () => {
-    if (step === 0) return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id)) !== false;
+    if (step === 0) {
+      return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id, sleepFeeling)) !== false;
+    }
     if (step === 1) {
       if (isConnect) {
         const attendanceFeedback =
@@ -523,29 +569,29 @@ function TaskForm({
       return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
     }
     if (step === 2) {
+      const mealPayload = {
+        v: 3,
+        mode:
+          mealDraft.specialOption === "similar"
+            ? "similar"
+            : mealDraft.specialOption === "off_track"
+              ? "off_track"
+              : "checklist",
+        checkedMeals: mealDraft.checkedMeals,
+        mealsCount: mealDraft.mealsCount,
+        mealFeeling: mealDraft.mealFeeling,
+      };
       if (mealDraft.specialOption === "similar") {
-        return (
-          (await props.onSaveMeal(
-            "SIMILAR",
-            JSON.stringify({ v: 2, mode: "similar", checkedMeals: [] }),
-            day.id
-          )) !== false
-        );
+        return (await props.onSaveMeal("SIMILAR", JSON.stringify(mealPayload), day.id)) !== false;
       }
       if (mealDraft.specialOption === "off_track") {
-        return (
-          (await props.onSaveMeal(
-            "OFF_TRACK",
-            JSON.stringify({ v: 2, mode: "off_track", checkedMeals: [] }),
-            day.id
-          )) !== false
-        );
+        return (await props.onSaveMeal("OFF_TRACK", JSON.stringify(mealPayload), day.id)) !== false;
       }
       const allDone = mealDraft.checkedMeals.length === recommendedMeals.length;
       return (
         (await props.onSaveMeal(
           allDone ? "FULL" : "PARTIAL",
-          JSON.stringify({ v: 2, mode: "checklist", checkedMeals: mealDraft.checkedMeals }),
+          JSON.stringify(mealPayload),
           day.id
         )) !== false
       );
@@ -681,9 +727,10 @@ function TaskForm({
 
   const updateMovementReps = async (name: string, reps: number) => {
     if (locked) return;
+    const safeReps = Math.max(1, Math.min(999, Math.round(reps) || 1));
     const cleanTarget = name.trim().toLowerCase();
     const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
-    const newEntry = `${scoped}=${reps}`;
+    const newEntry = `${scoped}=${safeReps}`;
 
     let found = false;
     const updated = localChecks.map((c) => {
@@ -715,7 +762,7 @@ function TaskForm({
     }
 
     setLocalChecks(updated);
-    await props.onToggleCheck(newEntry, day.id);
+    await props.onToggleCheck(newEntry, day.id, true);
   };
 
   const toggle = async (name: string, defaultReps?: number) => {
@@ -755,8 +802,8 @@ function TaskForm({
       {/* STEP 0: SLEEP PROTOCOL (FLAT SHEET SECTIONS, NO NESTED BOXES)         */}
       {/* ===================================================================== */}
       {step === 0 && (
-        <div className="space-y-5">
-          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed border-l-2 border-zinc-300 dark:border-white/25 pl-3">
+        <div className="space-y-6">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed border-l-2 border-zinc-300 dark:border-white/25 pl-3.5">
             {day.sleepRecommendation || "Target 7.5 to 9 hours of restorative circadian sleep."}
           </p>
 
@@ -766,9 +813,9 @@ function TaskForm({
             </p>
           )}
 
-          <div className="divide-y divide-zinc-100 dark:divide-white/10">
+          <div className="divide-y divide-zinc-200/90 dark:divide-white/10">
             {/* Bedtime Row & Presets */}
-            <div className="py-4 first:pt-1 space-y-3">
+            <div className="py-5 first:pt-1 space-y-3.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <label htmlFor="input-bedtime" className="text-xs font-semibold text-zinc-950 dark:text-white block">
@@ -807,7 +854,7 @@ function TaskForm({
             </div>
 
             {/* Wake Time Row & Presets */}
-            <div className="py-4 space-y-3">
+            <div className="py-5 space-y-3.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <label htmlFor="input-waketime" className="text-xs font-semibold text-zinc-950 dark:text-white block">
@@ -847,7 +894,7 @@ function TaskForm({
 
             {/* Recorded Summary Row */}
             {totalSleepMins > 0 && (
-              <div className="py-4 flex items-center justify-between gap-3 text-xs">
+              <div className="py-5 flex items-center justify-between gap-3 text-xs">
                 <span className="text-zinc-500 dark:text-zinc-400 font-medium">Recorded Rest</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
@@ -861,6 +908,44 @@ function TaskForm({
                 </div>
               </div>
             )}
+
+            {/* Post-Sleep Mood Check (Always Bottom) */}
+            <div className="py-5 space-y-3">
+              <div>
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                  How do you feel after waking up?
+                </span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
+                  Select the morning condition that best describes your rest
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                {SLEEP_FEELINGS.map((item) => {
+                  const active = sleepFeeling === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setSleepFeeling(item.label)}
+                      className={`w-full p-3.5 rounded-xl border text-left transition select-none ${
+                        active
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                        {item.label}
+                      </p>
+                      <p className={`text-[11px] mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        {item.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1025,76 +1110,106 @@ function TaskForm({
                 </div>
               )}
 
-              {/* 3. CHECKLIST (SPACIOUS, REP STEPPER & TARGET COMPARISON) */}
+              {/* 3. CHECKLIST (SPACIOUS, ALWAYS-INTERACTIVE REP STEPPER & TARGET COMPARISON) */}
               {movements.length > 0 && (
-                <div className="divide-y divide-zinc-100 dark:divide-white/5 border-t border-b border-zinc-100 dark:border-white/10">
+                <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
                   {movements.map((name) => {
                     const checked = isChecked(name);
                     const moveObj = selectedGroup?.movements.find((m) => m.name === name);
                     const targetLabel = moveObj?.target;
                     const targetReps = parseTargetReps(targetLabel);
                     const currentReps = getMovementReps(name, targetReps);
+                    const isEditing = editingRep?.name === name;
 
                     return (
                       <div
                         key={name}
-                        className="py-3 px-1 transition hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
+                        className="py-3.5 px-1 transition hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <label className="flex items-center gap-3 min-w-0 cursor-pointer select-none">
+                          <label className="flex items-start gap-3 min-w-0 cursor-pointer select-none flex-1">
                             <input
                               type="checkbox"
                               disabled={locked}
                               checked={checked}
-                              onChange={() => toggle(name, targetReps)}
-                              className="w-4 h-4 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
+                              onChange={() => toggle(name, currentReps)}
+                              className="w-4 h-4 mt-0.5 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
                             />
-                            <span
-                              className={`text-xs sm:text-sm leading-relaxed transition ${
-                                checked
-                                  ? "line-through text-zinc-400 dark:text-zinc-500"
-                                  : "font-medium text-zinc-900 dark:text-white"
-                              }`}
-                            >
-                              {name}
-                            </span>
+                            <div className="min-w-0">
+                              <span
+                                className={`text-xs sm:text-sm leading-relaxed block transition ${
+                                  checked
+                                    ? "line-through text-zinc-400 dark:text-zinc-500"
+                                    : "font-medium text-zinc-900 dark:text-white"
+                                }`}
+                              >
+                                {name}
+                              </span>
+                              {targetLabel && (
+                                <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 block mt-0.5">
+                                  Target: {targetLabel}
+                                </span>
+                              )}
+                            </div>
                           </label>
 
-                          {targetLabel && !checked && (
-                            <span className="text-[11px] font-mono text-zinc-500 shrink-0 bg-zinc-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                              Target: {targetLabel}
-                            </span>
-                          )}
-
-                          {checked && (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                disabled={locked || currentReps <= 1}
-                                onClick={() => updateMovementReps(name, Math.max(1, currentReps - 1))}
-                                aria-label="Decrease reps"
-                                className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="min-w-12 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white">
-                                {currentReps} reps
-                              </span>
-                              <button
-                                type="button"
-                                disabled={locked}
-                                onClick={() => updateMovementReps(name, currentReps + 1)}
-                                aria-label="Increase reps"
-                                className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
+                          <div
+                            className="flex items-center gap-1 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              disabled={locked || currentReps <= 1}
+                              onClick={() => {
+                                setEditingRep(null);
+                                void updateMovementReps(name, Math.max(1, currentReps - 1));
+                              }}
+                              aria-label={`Decrease reps for ${name}`}
+                              className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/80 dark:border-white/10"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={999}
+                              inputMode="numeric"
+                              disabled={locked}
+                              aria-label={`Reps for ${name}`}
+                              value={isEditing ? editingRep.value : String(currentReps)}
+                              onFocus={() => setEditingRep({ name, value: String(currentReps) })}
+                              onChange={(e) => setEditingRep({ name, value: e.target.value })}
+                              onBlur={() => {
+                                const parsed = parseInt(editingRep?.value || "", 10);
+                                setEditingRep(null);
+                                if (!isNaN(parsed) && parsed >= 1) {
+                                  void updateMovementReps(name, parsed);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  (e.currentTarget as HTMLInputElement).blur();
+                                }
+                              }}
+                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white bg-zinc-50 dark:bg-white/5 border border-zinc-200/90 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <button
+                              type="button"
+                              disabled={locked || currentReps >= 999}
+                              onClick={() => {
+                                setEditingRep(null);
+                                void updateMovementReps(name, Math.min(999, currentReps + 1));
+                              }}
+                              aria-label={`Increase reps for ${name}`}
+                              className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/80 dark:border-white/10"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {checked && targetLabel && (
-                          <div className="mt-1.5 ml-7 flex items-center gap-2">
+                          <div className="mt-2 ml-7 flex items-center gap-2">
                             {currentReps === targetReps ? (
                               <span className="text-[10px] font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-2 py-0.5 rounded-full">
                                 Target Met ({targetReps} reps)
@@ -1105,7 +1220,7 @@ function TaskForm({
                               </span>
                             ) : (
                               <span className="text-[10px] font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-2 py-0.5 rounded-full">
-                                Exceeded target by +{currentReps - targetReps} reps!
+                                Exceeded target by +{currentReps - targetReps} reps
                               </span>
                             )}
                           </div>
@@ -1272,7 +1387,7 @@ function TaskForm({
               <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
                 Rest &amp; Mobility Checklist
               </span>
-              <ul className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
+              <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
                 {restLines.map((line, idx) => {
                   const checked = isChecked(line);
                   return (
@@ -1471,33 +1586,38 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 2: NUTRITION & MEAL (CLEAN CHECKLIST + MUTUAL FALLBACK OPTIONS)   */}
+      {/* STEP 2: NUTRITION & MEAL (UNIFIED CHECKLIST + MEAL COUNT + POST MOOD) */}
       {/* ===================================================================== */}
       {step === 2 && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {wasMealSkipped && mealDraft.checkedMeals.length === 0 && !mealDraft.specialOption && (
             <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              Previously skipped — check off your meals or select a status below to update today&apos;s log.
+              Previously skipped — check off your meals or select an option below to update today&apos;s log.
             </p>
           )}
 
-          <div className="space-y-2.5">
+          {/* Unified Recommended Meals + Overall Alternatives Checklist */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                Today&apos;s Recommended Meals
+                Today&apos;s Recommended Meals &amp; Status
               </span>
-              <span className="text-[11px] font-mono text-zinc-400">
-                {mealDraft.checkedMeals.length} / {recommendedMeals.length} checked
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                {mealDraft.specialOption === "similar"
+                  ? "Similar food"
+                  : mealDraft.specialOption === "off_track"
+                    ? "Off plan"
+                    : `${mealDraft.checkedMeals.length} / ${recommendedMeals.length} checked`}
               </span>
             </div>
 
-            <ul className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
+            <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
               {recommendedMeals.map((mealLine, idx) => {
                 const checked = mealDraft.checkedMeals.includes(mealLine);
                 const cleanDescription = stripMealLabelPrefix(mealLine);
                 return (
                   <li key={idx}>
-                    <label className="flex items-start gap-3 py-3.5 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
+                    <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
                       <input
                         type="checkbox"
                         disabled={locked}
@@ -1508,6 +1628,7 @@ function TaskForm({
                               ? prev.checkedMeals.filter((m) => m !== mealLine)
                               : [...prev.checkedMeals, mealLine];
                             return {
+                              ...prev,
                               checkedMeals: nextChecked,
                               specialOption: null,
                             };
@@ -1516,7 +1637,7 @@ function TaskForm({
                         className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
                       />
                       <div className="min-w-0">
-                        <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
+                        <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
                           Meal {idx + 1}
                         </span>
                         <p
@@ -1533,80 +1654,179 @@ function TaskForm({
                   </li>
                 );
               })}
+
+              <li>
+                <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
+                  <input
+                    type="checkbox"
+                    disabled={locked}
+                    checked={mealDraft.specialOption === "similar"}
+                    onChange={() => {
+                      setMealDraft((prev) => ({
+                        ...prev,
+                        checkedMeals: [],
+                        specialOption: prev.specialOption === "similar" ? null : "similar",
+                      }));
+                    }}
+                    className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
+                      Alternative
+                    </span>
+                    <p
+                      className={`text-xs sm:text-sm mt-0.5 leading-relaxed ${
+                        mealDraft.specialOption === "similar"
+                          ? "font-semibold text-zinc-950 dark:text-white"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      Ate similar food portion &amp; nutrition as recommended
+                    </p>
+                  </div>
+                </label>
+              </li>
+
+              <li>
+                <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
+                  <input
+                    type="checkbox"
+                    disabled={locked}
+                    checked={mealDraft.specialOption === "off_track"}
+                    onChange={() => {
+                      setMealDraft((prev) => ({
+                        ...prev,
+                        checkedMeals: [],
+                        specialOption: prev.specialOption === "off_track" ? null : "off_track",
+                      }));
+                    }}
+                    className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
+                      Off Plan
+                    </span>
+                    <p
+                      className={`text-xs sm:text-sm mt-0.5 leading-relaxed ${
+                        mealDraft.specialOption === "off_track"
+                          ? "font-semibold text-zinc-950 dark:text-white"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      Did not follow meal recommendations today
+                    </p>
+                  </div>
+                </label>
+              </li>
             </ul>
           </div>
 
-          <div className="space-y-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-              Or Select Overall Status
-            </span>
-            <div className="grid grid-cols-1 gap-2">
-              <label
-                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${
-                  mealDraft.specialOption === "similar"
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                    : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  disabled={locked}
-                  checked={mealDraft.specialOption === "similar"}
-                  onChange={() => {
-                    setMealDraft((prev) => ({
-                      checkedMeals: [],
-                      specialOption: prev.specialOption === "similar" ? null : "similar",
-                    }));
-                  }}
-                  className="w-4 h-4 rounded border-zinc-300 shrink-0 accent-zinc-950 dark:accent-white"
-                />
-                <span className="text-xs font-medium">
-                  Ate similar food portion &amp; nutrition as recommended
-                </span>
-              </label>
+          {/* Number of Meals Eaten Today (1, 2, 3 Times) */}
+          <div className="pt-2 space-y-3">
+            <div>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                Meals Eaten Today
+              </span>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
+                How many full meals did you have today?
+              </span>
+            </div>
 
-              <label
-                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${
-                  mealDraft.specialOption === "off_track"
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                    : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  disabled={locked}
-                  checked={mealDraft.specialOption === "off_track"}
-                  onChange={() => {
-                    setMealDraft((prev) => ({
-                      checkedMeals: [],
-                      specialOption: prev.specialOption === "off_track" ? null : "off_track",
-                    }));
-                  }}
-                  className="w-4 h-4 rounded border-zinc-300 shrink-0 accent-zinc-950 dark:accent-white"
-                />
-                <span className="text-xs font-medium">
-                  Did not follow meal recommendations today
-                </span>
-              </label>
+            <div className="grid grid-cols-3 gap-2.5">
+              {([1, 2, 3] as const).map((count) => {
+                const active = mealDraft.mealsCount === count;
+                return (
+                  <button
+                    key={count}
+                    type="button"
+                    disabled={locked}
+                    onClick={() =>
+                      setMealDraft((prev) => ({
+                        ...prev,
+                        mealsCount: count,
+                      }))
+                    }
+                    className={`py-3 px-2 rounded-xl border text-center transition active:scale-95 ${
+                      active
+                        ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <span className="block text-base font-mono font-bold tabular-nums leading-none">
+                      {count}
+                    </span>
+                    <span
+                      className={`block text-[10px] font-mono uppercase tracking-wider mt-1 ${
+                        active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      {count === 1 ? "Time" : "Times"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Post-Meal Mood Check (Always Bottom) */}
+          <div className="pt-4 border-t border-zinc-200/90 dark:border-white/10 space-y-3">
+            <div>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                How do you feel after your meals?
+              </span>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
+                Select the post-meal state that matches your digestion &amp; energy
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {MEAL_FEELINGS.map((item) => {
+                const active = mealDraft.mealFeeling === item.label;
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    disabled={locked}
+                    onClick={() =>
+                      setMealDraft((prev) => ({
+                        ...prev,
+                        mealFeeling: item.label,
+                      }))
+                    }
+                    className={`w-full p-3.5 rounded-xl border text-left transition select-none ${
+                      active
+                        ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                      {item.label}
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      {item.desc}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 3: DAILY REFLECTION (FLAT SHEET LAYOUT)                          */}
+      {/* STEP 3: DAILY REFLECTION (JOURNAL FIRST, MOOD RATING ALWAYS BOTTOM)   */}
       {/* ===================================================================== */}
       {step === 3 && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {wasReflectionSkipped && !skipJournal && !review && score === 0 && (
             <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              Previously skipped — rate your energy and log a reflection below to update today&apos;s entry.
+              Previously skipped — log a brief reflection and select your mood rating below to update today&apos;s entry.
             </p>
           )}
 
           {day.dailyAssessment && (
             <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                 Today&apos;s Focus Prompt
               </span>
               <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
@@ -1615,47 +1835,16 @@ function TaskForm({
             </div>
           )}
 
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-              Daily Energy &amp; Mood Rating
-            </span>
-            <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Satisfaction Rating">
-              {FACES.map(({ score: n, Icon, label }) => {
-                const active = score === n;
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    aria-label={label}
-                    disabled={locked}
-                    onClick={() => setScore(n)}
-                    className={`py-2.5 px-1 rounded-xl border flex flex-col items-center justify-center gap-1 transition active:scale-95 ${
-                      active
-                        ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/60 dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" strokeWidth={1.75} />
-                    <span className="text-[10px] font-mono font-medium">{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Option: Prefer not to write journal today */}
-          <label className="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/60 dark:bg-white/5 cursor-pointer select-none">
+          <label className="flex items-center gap-3 p-3.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50/60 dark:bg-white/5 cursor-pointer select-none">
             <input
               type="checkbox"
               disabled={locked}
               checked={skipJournal}
               onChange={(e) => {
                 setSkipJournal(e.target.checked);
-                if (e.target.checked && !score) setScore(3);
               }}
-              className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950"
+              className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 accent-zinc-950 dark:accent-white"
             />
             <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
               I prefer not to write a journal today
@@ -1663,17 +1852,17 @@ function TaskForm({
           </label>
 
           {!skipJournal ? (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div>
                 <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
                   Daily Journal
                 </span>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
-                  Select a reflection mood option or customize your personal entry
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Select a reflection prompt or write your personal thoughts below
                 </p>
               </div>
 
-              {/* 5 JOURNAL OPTIONS (NO ICONS, 5 DIFFERENT MOODS) */}
+              {/* 5 JOURNAL OPTIONS (CLEAN NEGATIVE SPACE) */}
               <div className="grid grid-cols-1 gap-2">
                 {[
                   {
@@ -1705,10 +1894,10 @@ function TaskForm({
                       type="button"
                       disabled={locked}
                       onClick={() => setReview(val)}
-                      className={`w-full p-3 rounded-xl border text-left transition select-none ${
+                      className={`w-full p-3.5 rounded-xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
                       }`}
                     >
                       <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
@@ -1727,7 +1916,7 @@ function TaskForm({
                   value={review}
                   disabled={locked}
                   onChange={(e) => setReview(e.target.value)}
-                  rows={2}
+                  rows={3}
                   maxLength={2000}
                   placeholder="Or customize / type your personal thoughts here..."
                   className={areaCls}
@@ -1735,10 +1924,46 @@ function TaskForm({
               </div>
             </div>
           ) : (
-            <div className="p-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-xs text-zinc-500 font-mono">
+            <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/5 text-xs text-zinc-500 font-mono">
               Reflection journal entry skipped for today.
             </div>
           )}
+
+          {/* Daily Mood & Energy Rating (Always Bottom) */}
+          <div className="pt-4 border-t border-zinc-200/90 dark:border-white/10 space-y-3">
+            <div>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+                How is your overall mood &amp; energy today?
+              </span>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
+                Rate how you feel overall at the end of today
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Satisfaction Rating">
+              {FACES.map(({ score: n, Icon, label }) => {
+                const active = score === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={label}
+                    disabled={locked}
+                    onClick={() => setScore(n)}
+                    className={`py-3 px-1 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
+                      active
+                        ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
+                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/60 dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" strokeWidth={1.75} />
+                    <span className="text-[10px] font-mono font-medium">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -2450,37 +2675,39 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
-              {/* Title and metadata overlying the image banner with generous breathing room */}
-              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 px-6 sm:px-8 z-0 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold">
-                    Day {selectedDay.dayNumber}
-                  </span>
-                  <span
-                    className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${
-                      selectedDone[step]
-                        ? "bg-white text-zinc-950 font-semibold"
-                        : isSelectedPast
-                          ? "bg-white/20 text-white/80"
-                          : "bg-white/25 backdrop-blur-md text-white"
-                    }`}
-                  >
-                    {selectedDone[step] ? "Completed" : isSelectedPast ? "Archived" : "Active"}
-                  </span>
+              {/* Title and metadata overlying the image banner, aligned with the sheet content below */}
+              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
+                <div className="max-w-xl mx-auto w-full px-6 sm:px-8 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold">
+                      Day {selectedDay.dayNumber}
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${
+                        selectedDone[step]
+                          ? "bg-white text-zinc-950 font-semibold"
+                          : isSelectedPast
+                            ? "bg-white/20 text-white/80"
+                            : "bg-white/25 backdrop-blur-md text-white"
+                      }`}
+                    >
+                      {selectedDone[step] ? "Completed" : isSelectedPast ? "Archived" : "Active"}
+                    </span>
+                  </div>
+
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
+                    {currentTask.title}
+                  </h1>
+
+                  <p className="text-xs text-white/75 font-normal line-clamp-2">
+                    {currentTask.description}
+                  </p>
                 </div>
-
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
-                  {currentTask.title}
-                </h1>
-
-                <p className="text-xs text-white/70 font-normal line-clamp-2">
-                  {currentTask.description}
-                </p>
               </div>
             </div>
 
-            {/* SINGLE CLEAN CURVED SHEET (NO BOX-IN-BOX-IN-BOX NESTING) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] shadow-xl pt-7 px-5 sm:px-8 pb-24 max-w-xl mx-auto w-full flex-1">
+            {/* SINGLE CLEAN CURVED SHEET (ALIGNED PADDING & CRISP BORDERS) */}
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-xl pt-9 px-6 sm:px-8 pb-28 max-w-xl mx-auto w-full flex-1">
               <TaskForm
                 key={`${selectedDay.id}-${step}`}
                 day={selectedDay}

@@ -29,7 +29,10 @@ export async function POST() {
   }
 
   try {
-    const summary = await dispatchDueNotifications({ lookbackMinutes: 2 });
+    const summary = await dispatchDueNotifications({
+      lookbackMinutes: 2,
+      userId: session.userId,
+    });
     return NextResponse.json({ success: true, ...summary });
   } catch (error: unknown) {
     console.error("[Notification Tick Error]:", error);

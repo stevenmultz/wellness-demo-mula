@@ -2486,7 +2486,13 @@ export function AdminClient({
   // Sync authoritative server state & URL route on every route load / refresh
   useEffect(() => {
     setUsers(initialUsers);
-  }, [initialUsers]);
+    setInspectingUserHealth((prev) => {
+      if (initialRoute?.menu === "members" && initialRoute.customerId) {
+        return initialUsers.find((u) => u.id === initialRoute.customerId) || prev;
+      }
+      return prev ? initialUsers.find((u) => u.id === prev.id) || prev : null;
+    });
+  }, [initialUsers, initialRoute?.menu, initialRoute?.customerId]);
 
   useEffect(() => {
     setPrograms(initialPrograms);

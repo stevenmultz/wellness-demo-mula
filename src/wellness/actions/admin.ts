@@ -6,6 +6,7 @@ import { prisma } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { hashPassword } from "../security/password";
 import { createUserNotifications } from "../integrations/user-notifications";
+import { AdminUpdateCustomerProfileSchema } from "../validators/auth";
 import { WellnessActionResult } from "./auth";
 
 function revalidateAdminRoutes() {
@@ -341,67 +342,94 @@ export async function wellnessAdminUpdateCustomerProfile(
 ): Promise<WellnessActionResult> {
   await requireSuperadmin();
 
-  // 1. Update User level details (personal info, address, occupation, location & emergency contacts)
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      city: input.city !== undefined ? (input.city?.trim() || null) : undefined,
-      province: input.province !== undefined ? (input.province?.trim() || null) : undefined,
-      address: input.address !== undefined ? (input.address?.trim() || null) : undefined,
-      occupation: input.occupation !== undefined ? (input.occupation?.trim() || null) : undefined,
-      gender: input.gender !== undefined ? (input.gender?.trim() || null) : undefined,
-      age: input.age !== undefined ? input.age : undefined,
-      emergencyContactName:
-        input.emergencyContactName !== undefined
-          ? (input.emergencyContactName?.trim() || null)
-          : undefined,
-      emergencyContactPhone:
-        input.emergencyContactPhone !== undefined
-          ? (input.emergencyContactPhone?.trim() || null)
-          : undefined,
-    },
-  });
+  const parsed = AdminUpdateCustomerProfileSchema.safeParse({ userId, ...(input || {}) });
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: "Invalid customer profile payload.",
+      errors: parsed.error.flatten().fieldErrors,
+    };
+  }
 
-  // 2. Upsert CustomerHealthProfile details (diet, metrics, injuries, allergies, notes)
-  await prisma.customerHealthProfile.upsert({
-    where: { userId },
-    create: {
-      userId,
-      dietType: input.dietType?.trim() || null,
-      heightCm: input.heightCm !== undefined ? input.heightCm : null,
-      weightKg: input.weightKg !== undefined ? input.weightKg : null,
-      injuriesOrConditions: input.injuriesOrConditions?.trim() || null,
-      foodAllergies: input.foodAllergies?.trim() || null,
-      primaryGoal: input.primaryGoal?.trim() || null,
-      coachNotes: input.coachNotes?.trim() || null,
-    },
-    update: {
-      dietType:
-        input.dietType !== undefined ? (input.dietType?.trim() || null) : undefined,
-      heightCm: input.heightCm !== undefined ? input.heightCm : undefined,
-      weightKg: input.weightKg !== undefined ? input.weightKg : undefined,
-      injuriesOrConditions:
-        input.injuriesOrConditions !== undefined
-          ? (input.injuriesOrConditions?.trim() || null)
-          : undefined,
-      foodAllergies:
-        input.foodAllergies !== undefined
-          ? (input.foodAllergies?.trim() || null)
-          : undefined,
-      primaryGoal:
-        input.primaryGoal !== undefined
-          ? (input.primaryGoal?.trim() || null)
-          : undefined,
-      coachNotes:
-        input.coachNotes !== undefined
-          ? (input.coachNotes?.trim() || null)
-          : undefined,
-    },
-  });
+  const data = parsed.data;
 
-  revalidateAdminRoutes();
-  return {
-    success: true,
-    message: "Customer profile and coaching notes saved successfully.",
-  };
+  try {
+    const target = await prisma.user.findUnique({
+      where: { id: data.userId },
+      select: { id: true },
+    });
+    if (!target) {
+      return { success: false, message: "Customer user record not found." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: data.userId },
+        data: {
+          city: data.city !== undefined ? (data.city?.trim() || null) : undefined,
+          province: data.province !== undefined ? (data.province?.trim() || null) : undefined,
+          address: data.address !== undefined ? (data.address?.trim() || null) : undefined,
+          occupation: data.occupation !== undefined ? (data.occupation?.trim() || null) : undefined,
+          gender: data.gender !== undefined ? (data.gender?.trim() || null) : undefined,
+          age: data.age !== undefined ? data.age : undefined,
+          emergencyContactName:
+            data.emergencyContactName !== undefined
+              ? (data.emergencyContactName?.trim() || null)
+              : undefined,
+          emergencyContactPhone:
+            data.emergencyContactPhone !== undefined
+              ? (data.emergencyContactPhone?.trim() || null)
+              : undefined,
+        },
+      });
+
+      await tx.customerHealthProfile.upsert({
+        where: { userId: data.userId },
+        create: {
+          userId: data.userId,
+          dietType: data.dietType?.trim() || null,
+          heightCm: data.heightCm !== undefined ? data.heightCm : null,
+          weightKg: data.weightKg !== undefined ? data.weightKg : null,
+          injuriesOrConditions: data.injuriesOrConditions?.trim() || null,
+          foodAllergies: data.foodAllergies?.trim() || null,
+          primaryGoal: data.primaryGoal?.trim() || null,
+          coachNotes: data.coachNotes?.trim() || null,
+        },
+        update: {
+          dietType:
+            data.dietType !== undefined ? (data.dietType?.trim() || null) : undefined,
+          heightCm: data.heightCm !== undefined ? data.heightCm : undefined,
+          weightKg: data.weightKg !== undefined ? data.weightKg : undefined,
+          injuriesOrConditions:
+            data.injuriesOrConditions !== undefined
+              ? (data.injuriesOrConditions?.trim() || null)
+              : undefined,
+          foodAllergies:
+            data.foodAllergies !== undefined
+              ? (data.foodAllergies?.trim() || null)
+              : undefined,
+          primaryGoal:
+            data.primaryGoal !== undefined
+              ? (data.primaryGoal?.trim() || null)
+              : undefined,
+          coachNotes:
+            data.coachNotes !== undefined
+              ? (data.coachNotes?.trim() || null)
+              : undefined,
+        },
+      });
+    });
+
+    revalidateAdminRoutes();
+    return {
+      success: true,
+      message: "Customer profile and coaching notes saved successfully.",
+    };
+  } catch (error: unknown) {
+    console.error("[Admin Update Customer Profile Error]:", error);
+    return {
+      success: false,
+      message: "Failed to save customer profile and coaching notes.",
+    };
+  }
 }

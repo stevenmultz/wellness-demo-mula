@@ -30,8 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, publicKey: VAPID_PUBLIC_KEY, subscribed });
   } catch (error: unknown) {
     console.error("[WebPush Status Error]:", error);
-    const msg = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -52,9 +51,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (typeof endpoint !== "string" || !/^https:\/\//i.test(endpoint) || endpoint.length > 2048) {
+    if (
+      typeof endpoint !== "string" ||
+      !/^https:\/\//i.test(endpoint) ||
+      endpoint.length > 2048 ||
+      typeof keys.p256dh !== "string" ||
+      keys.p256dh.length > 512 ||
+      typeof keys.auth !== "string" ||
+      keys.auth.length > 512
+    ) {
       return NextResponse.json(
-        { success: false, message: "Invalid push endpoint." },
+        { success: false, message: "Invalid push endpoint or key format." },
         { status: 400 }
       );
     }
@@ -80,6 +87,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, message: "Push endpoint domain is not a recognized push service provider." },
         { status: 400 }
+      );
+    }
+
+    // Ownership check: prevent cross-account push subscription hijacking
+    const existing = await prisma.pushSubscription.findUnique({
+      where: { endpoint },
+      select: { userId: true },
+    });
+    if (existing && existing.userId !== session.userId) {
+      return NextResponse.json(
+        { success: false, message: "Push endpoint is already registered to another account." },
+        { status: 403 }
       );
     }
 
@@ -138,8 +157,8 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json();
     const { endpoint } = body || {};
 
-    if (!endpoint) {
-      return NextResponse.json({ success: false, message: "Endpoint required." }, { status: 400 });
+    if (!endpoint || typeof endpoint !== "string" || endpoint.length > 2048) {
+      return NextResponse.json({ success: false, message: "Valid endpoint required." }, { status: 400 });
     }
 
     await prisma.pushSubscription.deleteMany({

@@ -1,0 +1,40 @@
+name: CI Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: ESLint check
+        run: npm run lint
+
+      - name: Security & audit pure unit tests
+        run: |
+          npx tsx scripts/test-security-remediation.ts
+          npx tsx scripts/test-audit-unit.ts
+
+      - name: Production build check
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wellness_ci_placeholder
+          JWT_SECRET: ci-placeholder-jwt-secret-minimum-32-characters-long
+        run: npm run build

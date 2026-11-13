@@ -4,22 +4,23 @@ export function BmsLogoLoading() {
       role="status"
       aria-label="Loading"
       data-bms-loading="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white select-none transition-opacity overflow-hidden"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f6f6f4] dark:bg-[#09090b] text-zinc-950 dark:text-white select-none"
     >
-      {/* Background Image with elegant dark cinematic overlay */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/image.webp"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover opacity-35 scale-105 pointer-events-none"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/75 pointer-events-none" />
+      <div className="flex flex-col items-center gap-5">
+        <div className="flex items-center gap-1.5">
+          <span className="font-light text-xl leading-none text-zinc-950 dark:text-white">+</span>
+          <span className="font-geometric font-semibold text-sm tracking-[0.28em] uppercase text-zinc-950 dark:text-white">
+            BMS
+          </span>
+        </div>
 
-      {/* Floating Centered Brand Pill */}
-      <div className="relative z-10 px-5 py-2.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shadow-2xl animate-pulse">
-        <span className="font-light text-lg leading-none text-white">+</span>
-        <span className="font-geometric font-semibold text-xs tracking-[0.25em] uppercase text-white">
-          BMS
+        <span
+          aria-hidden="true"
+          className="w-5 h-5 rounded-full border border-zinc-300 dark:border-white/15 border-t-zinc-950 dark:border-t-white animate-spin"
+        />
+
+        <span className="text-[10px] font-mono uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500">
+          Loading
         </span>
       </div>
     </div>

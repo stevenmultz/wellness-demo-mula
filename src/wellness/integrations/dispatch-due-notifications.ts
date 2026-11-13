@@ -47,11 +47,13 @@ export async function dispatchDueNotifications(options: {
   nowUtc?: Date;
   lookbackMinutes?: number;
   simulateTime?: string | null;
+  userId?: string;
 }): Promise<DispatchSummary> {
   const nowUtc = options.nowUtc ?? new Date();
   const nowSlot = toWibSlot(nowUtc);
   const lookback = Math.min(Math.max(1, options.lookbackMinutes ?? 2), 120);
   const simulateTime = options.simulateTime ? normalizeWibTime(options.simulateTime) : null;
+  const scopedUserId = options.userId;
 
   const slots: DueSlot[] = simulateTime
     ? [{ dateKey: nowSlot.dateKey, time: simulateTime, instant: nowUtc }]
@@ -60,11 +62,21 @@ export async function dispatchDueNotifications(options: {
   const programs = await prisma.program.findMany({
     where: {
       OR: [{ status: "PUBLISHED" }, { isPublished: true }],
+      ...(scopedUserId
+        ? {
+            enrollments: {
+              some: { status: "ACTIVE", userId: scopedUserId },
+            },
+          }
+        : {}),
     },
     include: {
       days: { orderBy: { dayNumber: "asc" } },
       enrollments: {
-        where: { status: "ACTIVE" },
+        where: {
+          status: "ACTIVE",
+          ...(scopedUserId ? { userId: scopedUserId } : {}),
+        },
         include: { user: { include: { pushSubscriptions: true } } },
       },
     },

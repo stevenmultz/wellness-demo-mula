@@ -608,6 +608,7 @@ export function DashboardClient({
       photoAfterUrl: dayPhotosAfter[day.id] ?? day.userProgress?.photoAfterUrl,
       workoutNotes: dayWorkoutNotes[day.id] ?? day.userProgress?.workoutNotes,
       selectedWorkout: dayWorkouts[day.id] ?? day.userProgress?.selectedWorkout,
+      assessmentResponse: dayAssessments[day.id] ?? day.userProgress?.assessmentResponse,
     },
   });
   const liveDay = currentDay ? overlayDay(currentDay) : null;
@@ -741,13 +742,26 @@ export function DashboardClient({
     router.refresh();
   };
 
-  const handleToggleChecklist = async (task: string, dayId?: string) => {
+  const handleToggleChecklist = async (
+    task: string,
+    dayId?: string,
+    isRepUpdate = false
+  ) => {
     const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return;
     const existing = getCheckedItems(currentDay);
-    const updated = existing.includes(task)
-      ? existing.filter((t) => t !== task)
-      : [...existing, task];
+    const getBaseKey = (item: string) =>
+      (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase();
+    const targetBase = getBaseKey(task);
+    const alreadyExists = existing.some((t) => getBaseKey(t) === targetBase);
+
+    const updated = isRepUpdate
+      ? alreadyExists
+        ? existing.map((t) => (getBaseKey(t) === targetBase ? task : t))
+        : [...existing, task]
+      : alreadyExists
+        ? existing.filter((t) => getBaseKey(t) !== targetBase)
+        : [...existing, task];
 
     setDayChecklists((prev) => ({ ...prev, [currentDay.id]: updated }));
 
@@ -810,12 +824,22 @@ export function DashboardClient({
     bedtime: string,
     wakeTime: string,
     sleepDurationMinutes: number,
-    dayId?: string
+    dayId?: string,
+    sleepFeeling?: string
   ): Promise<boolean> => {
     const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
     if (!currentDay) return false;
+    const formattedAssessment =
+      bedtime === "SKIPPED"
+        ? ""
+        : sleepFeeling
+          ? `Sleep Feeling: ${sleepFeeling}`
+          : undefined;
     setDayBedtimes((prev) => ({ ...prev, [currentDay.id]: bedtime }));
     setDayWakeTimes((prev) => ({ ...prev, [currentDay.id]: wakeTime }));
+    if (formattedAssessment !== undefined) {
+      setDayAssessments((prev) => ({ ...prev, [currentDay.id]: formattedAssessment }));
+    }
 
     const res = await wellnessUserSubmitDayProgress({
       programDayId: currentDay.id,
@@ -825,6 +849,7 @@ export function DashboardClient({
       bedtime,
       wakeTime,
       sleepDurationMinutes,
+      ...(formattedAssessment !== undefined ? { assessmentResponse: formattedAssessment } : {}),
     });
 
     if (!res.success) {

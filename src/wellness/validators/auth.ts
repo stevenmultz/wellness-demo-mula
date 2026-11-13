@@ -167,3 +167,22 @@ export const HealthProfileSchema = z.object({
   eatingPatterns: z.string().max(500).nullable().optional(),
 });
 
+export const AdminUpdateCustomerProfileSchema = z.object({
+  userId: z.string().trim().min(1, "User ID is required").max(128),
+  city: z.string().max(100).nullable().optional(),
+  province: z.string().max(100).nullable().optional(),
+  address: z.string().max(255).nullable().optional(),
+  occupation: z.string().max(100).nullable().optional(),
+  gender: z.string().max(50).nullable().optional(),
+  age: z.number().int().min(10).max(120).nullable().optional(),
+  emergencyContactName: z.string().max(100).nullable().optional(),
+  emergencyContactPhone: z.string().max(30).nullable().optional(),
+  dietType: z.string().max(50).nullable().optional(),
+  heightCm: z.number().min(50).max(260).nullable().optional(),
+  weightKg: z.number().min(20).max(350).nullable().optional(),
+  injuriesOrConditions: z.string().max(1000).nullable().optional(),
+  foodAllergies: z.string().max(500).nullable().optional(),
+  primaryGoal: z.string().max(500).nullable().optional(),
+  coachNotes: z.string().max(2000).nullable().optional(),
+});
+

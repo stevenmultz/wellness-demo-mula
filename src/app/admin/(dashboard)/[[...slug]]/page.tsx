@@ -77,7 +77,7 @@ export default async function AdminPage({
 
   // 3. Authoritative Parallel Database Queries (Fresh Single Source of Truth on every route navigation & refresh)
   const [
-    users,
+    usersRaw,
     programsData,
     enrollmentStats,
     masterDataResult,
@@ -122,45 +122,6 @@ export default async function AdminPage({
               },
             },
           },
-        },
-        dayProgress: {
-          select: {
-            id: true,
-            videoWatched: true,
-            isCompleted: true,
-            checklistCompleted: true,
-            selectedWorkout: true,
-            photoBeforeUrl: true,
-            photoAfterUrl: true,
-            workoutNotes: true,
-            eventFeedback: true,
-            mealCompliance: true,
-            mealNotes: true,
-            dailyReflection: true,
-            happinessRate: true,
-            bedtime: true,
-            wakeTime: true,
-            sleepDurationMinutes: true,
-            assessmentResponse: true,
-            completedAt: true,
-            updatedAt: true,
-            programDay: {
-              select: {
-                id: true,
-                dayNumber: true,
-                title: true,
-                dayType: true,
-                programId: true,
-                program: {
-                  select: {
-                    id: true,
-                    title: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { completedAt: "desc" },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -280,9 +241,40 @@ export default async function AdminPage({
   }
 
   // 5. Resolve specific customer if URL is /admin/customers/[customerId]
+  // Load full dayProgress + photos on demand for the inspected customer only (avoids eager multi-MB query for all 200 users)
   let resolvedCustomerId: string | null = null;
+  let inspectedDayProgress: Array<{
+    id: string;
+    videoWatched: boolean;
+    isCompleted: boolean;
+    checklistCompleted: string | null;
+    selectedWorkout: string | null;
+    photoBeforeUrl: string | null;
+    photoAfterUrl: string | null;
+    workoutNotes: string | null;
+    eventFeedback: string | null;
+    mealCompliance: string | null;
+    mealNotes: string | null;
+    dailyReflection: string | null;
+    happinessRate: number | null;
+    bedtime: string | null;
+    wakeTime: string | null;
+    sleepDurationMinutes: number | null;
+    assessmentResponse: string | null;
+    completedAt: Date | null;
+    updatedAt: Date;
+    programDay: {
+      id: string;
+      dayNumber: number;
+      title: string;
+      dayType: string;
+      programId: string;
+      program: { id: string; title: string };
+    };
+  }> = [];
+
   if (activeMenu === "members" && requestedCustomerIdentifier) {
-    const matchedCustomer = users.find(
+    const matchedCustomer = usersRaw.find(
       (u) =>
         u.id === requestedCustomerIdentifier ||
         u.email.toLowerCase() === requestedCustomerIdentifier.toLowerCase()
@@ -291,7 +283,51 @@ export default async function AdminPage({
       redirect("/admin/customers");
     }
     resolvedCustomerId = matchedCustomer.id;
+    inspectedDayProgress = await prisma.programDayProgress.findMany({
+      where: { userId: matchedCustomer.id },
+      select: {
+        id: true,
+        videoWatched: true,
+        isCompleted: true,
+        checklistCompleted: true,
+        selectedWorkout: true,
+        photoBeforeUrl: true,
+        photoAfterUrl: true,
+        workoutNotes: true,
+        eventFeedback: true,
+        mealCompliance: true,
+        mealNotes: true,
+        dailyReflection: true,
+        happinessRate: true,
+        bedtime: true,
+        wakeTime: true,
+        sleepDurationMinutes: true,
+        assessmentResponse: true,
+        completedAt: true,
+        updatedAt: true,
+        programDay: {
+          select: {
+            id: true,
+            dayNumber: true,
+            title: true,
+            dayType: true,
+            programId: true,
+            program: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { completedAt: "desc" },
+    });
   }
+
+  const users = usersRaw.map((u) =>
+    u.id === resolvedCustomerId ? { ...u, dayProgress: inspectedDayProgress } : u
+  );
 
   const rawTab = searchParams?.tab?.toLowerCase();
   const programDetailTab: "info" | "schedule" | "responses" =

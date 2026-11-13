@@ -1,7 +1,7 @@
 import assert from "assert";
 import { safeHttpUrl, safeMediaUrl, isSafePhotoUrl } from "../src/wellness/utils/url-safety";
 import { extractYouTubeId, normalizeVideoEmbed } from "../src/wellness/integrations/video-provider";
-import { HealthProfileSchema } from "../src/wellness/validators/auth";
+import { HealthProfileSchema, AdminUpdateCustomerProfileSchema } from "../src/wellness/validators/auth";
 import { SubmitDayProgressSchema } from "../src/wellness/validators/program";
 import { getProgramDayWibWindow, calculateSleepDuration } from "../src/wellness/utils/timezone";
 
@@ -84,6 +84,25 @@ async function runAuditUnitTests() {
   assert.ok(sleep);
   assert.strictEqual(sleep?.totalMinutes, 450);
   console.log("  [PASS] 4. WIB timezone window and cross-midnight sleep calculation verified");
+
+  // 5. Admin Customer Profile Update Schema
+  const invalidAdminProfile = AdminUpdateCustomerProfileSchema.safeParse({
+    userId: "",
+    age: 500,
+    weightKg: -5,
+  });
+  assert.strictEqual(invalidAdminProfile.success, false);
+
+  const validAdminProfile = AdminUpdateCustomerProfileSchema.safeParse({
+    userId: "user_123",
+    city: "Jakarta",
+    age: 32,
+    heightCm: 172,
+    weightKg: 68,
+    coachNotes: "Focus on core stability",
+  });
+  assert.strictEqual(validAdminProfile.success, true);
+  console.log("  [PASS] 5. AdminUpdateCustomerProfileSchema rejects invalid ranges and accepts valid payloads");
 
   console.log("\n=== ALL AUDIT UNIT TESTS PASSED ===");
 }

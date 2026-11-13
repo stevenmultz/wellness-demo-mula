@@ -5,11 +5,11 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import {
   Calendar,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Clock,
+  Info,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -21,6 +21,7 @@ import {
   EmptyState,
   ErrorState,
   FloatingHeader,
+  InfoPopupModal,
   LoadingState,
   PullToRefreshBanner,
   formatDateWib,
@@ -249,7 +250,7 @@ export function ExplorePlanTab({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [showAllCoaches, setShowAllCoaches] = useState(false);
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [infoProgram, setInfoProgram] = useState<ExploreProgram | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
@@ -257,10 +258,6 @@ export function ExplorePlanTab({
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
-
-  const toggleCardExpand = (id: string) => {
-    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -672,7 +669,6 @@ export function ExplorePlanTab({
                 const meta = getPublicBadgeMeta(p.badge as PublicProgramBadge);
                 const locLabel = p.locationType === "ONLINE" ? "Online" : p.locationType === "HYBRID" ? "Hybrid" : "Onsite";
                 const cityLabel = p.city || (p.locationType === "ONLINE" ? "Global" : null);
-                const isExpanded = !!expandedCards[p.id];
 
                 return (
                   <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col transition-all">
@@ -718,65 +714,30 @@ export function ExplorePlanTab({
                       </div>
                     </div>
 
-                    {/* Card Content with Dropdown for Full Details */}
-                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
-                      <div>
-                        {/* Header: Click to Toggle Schedule Details */}
+                    {/* Card Content with Info Popup Icon */}
+                    <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between gap-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
+                            {p.title}
+                          </h3>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium">
+                            Coach {p.coachName}
+                          </p>
+                        </div>
+
                         <button
                           type="button"
-                          onClick={() => toggleCardExpand(p.id)}
-                          className="w-full text-left group flex items-start justify-between gap-2 select-none"
-                          aria-expanded={isExpanded}
+                          onClick={() => setInfoProgram(p)}
+                          aria-label={`View schedule and details for ${p.title}`}
+                          className="shrink-0 mt-0.5 w-8 h-8 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-500 dark:text-zinc-300 inline-flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/15 hover:text-zinc-950 dark:hover:text-white transition active:scale-95"
                         >
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors">
-                              {p.title}
-                            </h3>
-                            <p className="text-[11px] text-zinc-500 mt-1 font-medium">
-                              Coach {p.coachName}
-                            </p>
-                          </div>
-
-                          <span
-                            aria-label={isExpanded ? "Collapse program details" : "Expand program details"}
-                            className="shrink-0 mt-0.5 w-7 h-7 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 inline-flex items-center justify-center group-hover:bg-zinc-200 dark:group-hover:bg-white/15 transition"
-                          >
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                          </span>
+                          <Info className="w-4 h-4" />
                         </button>
-
-                        {/* Collapsible Details: Dates, Slots, Target, Curriculum breakdown */}
-                        {isExpanded && (
-                          <div className="mt-3.5 pt-3 border-t border-zinc-100 dark:border-white/10 space-y-2.5 animate-in fade-in duration-200">
-                            <div className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                              <p className="flex items-center gap-2">
-                                <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                                <span>{formatDateWib(p.startDate)} – {formatDateWib(p.endDate)} · {p.durationDays} Days</span>
-                              </p>
-                              <p className="flex items-center gap-2">
-                                <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                                <span>{p.seatsLeft} of {p.maxQuota || p.seatsLeft} slots left</span>
-                              </p>
-                              <p className="text-[11px] text-zinc-500">
-                                <span className="font-semibold text-zinc-700 dark:text-zinc-300">Target: </span>
-                                {p.recommendedFor || "All Levels"}
-                              </p>
-                            </div>
-
-                            {/* Curriculum Breakdown: Training - Connect - Rest */}
-                            <div className="px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/5 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
-                              <span>{p.trainingDaysTotal ?? 0} Training</span>
-                              <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                              <span>{p.connectDaysTotal ?? 0} Connect</span>
-                              <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                              <span>{p.restDaysTotal ?? 0} Rest</span>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       {/* Pricing & Action Buttons */}
-                      <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-2">
+                      <div className="mt-auto pt-3.5 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-baseline gap-1.5">
                             <span className="text-base font-bold text-zinc-950 dark:text-white">
@@ -838,6 +799,45 @@ export function ExplorePlanTab({
           </>
         )}
       </div>
+
+      <InfoPopupModal
+        open={Boolean(infoProgram)}
+        title={infoProgram?.title || "Program Information"}
+        subtitle={infoProgram ? `Coach ${infoProgram.coachName}` : undefined}
+        onClose={() => setInfoProgram(null)}
+      >
+        {infoProgram && (
+          <div className="space-y-4">
+            <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
+              <p className="flex items-center gap-2">
+                <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span>
+                  {formatDateWib(infoProgram.startDate)} – {formatDateWib(infoProgram.endDate)} ·{" "}
+                  {infoProgram.durationDays} Days
+                </span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span>
+                  {infoProgram.seatsLeft} of {infoProgram.maxQuota || infoProgram.seatsLeft} spots remaining
+                </span>
+              </p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200">Target Audience: </span>
+                {infoProgram.recommendedFor || "All Levels"}
+              </p>
+            </div>
+
+            <div className="px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+              <span>{infoProgram.trainingDaysTotal ?? 0} Training</span>
+              <span className="text-zinc-300 dark:text-zinc-600">•</span>
+              <span>{infoProgram.connectDaysTotal ?? 0} Connect</span>
+              <span className="text-zinc-300 dark:text-zinc-600">•</span>
+              <span>{infoProgram.restDaysTotal ?? 0} Rest</span>
+            </div>
+          </div>
+        )}
+      </InfoPopupModal>
     </>
   );
 }
