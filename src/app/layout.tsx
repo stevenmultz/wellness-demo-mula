@@ -25,15 +25,19 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "+ BMS",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
+  ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -47,31 +51,37 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="+ BMS" />
+        <link rel="preload" as="image" href="/image.webp" />
         <style
           dangerouslySetInnerHTML={{
             __html: `
               html, body {
-                background-color: #000000;
+                margin: 0;
+                padding: 0;
+                background-color: #f6f6f4;
               }
-              @keyframes bmsPulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.55; }
+              html.dark, html.dark body {
+                background-color: #0e0e0e;
+              }
+              @keyframes bmsLoadingSlide {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(280%); }
               }
               #bms-pwa-splash {
                 position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
+                inset: 0;
+                width: 100%;
+                height: 100%;
                 z-index: 99999;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                background-color: #000000 !important;
-                color: #ffffff !important;
+                background-color: #0e0e0e;
+                color: #ffffff;
                 user-select: none;
                 overflow: hidden;
-                transition: opacity 0.35s ease-out;
+                transition: opacity 0.25s ease-out;
               }
               #bms-pwa-splash .bms-splash-bg {
                 position: absolute;
@@ -79,57 +89,77 @@ export default function RootLayout({
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
-                opacity: 0.35;
-                transform: scale(1.05);
+                object-position: center;
+                opacity: 1;
                 pointer-events: none;
               }
-              #bms-pwa-splash .bms-splash-overlay {
+              #bms-pwa-splash .bms-splash-scrim {
                 position: absolute;
                 inset: 0;
-                background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.4), rgba(0,0,0,0.75));
+                background: rgba(0, 0, 0, 0.28);
                 pointer-events: none;
               }
-              #bms-pwa-splash .bms-splash-pill {
+              #bms-pwa-splash .bms-splash-brand {
                 position: relative;
                 z-index: 10;
-                padding: 0.625rem 1.25rem;
-                border-radius: 9999px;
-                background-color: rgba(0, 0, 0, 0.6);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 14px;
+                font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              }
+              #bms-pwa-splash .bms-splash-title {
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                animation: bmsPulse 1.6s ease-in-out infinite;
-                font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+              }
+              #bms-pwa-splash .bms-splash-bar {
+                width: 120px;
+                height: 2px;
+                border-radius: 9999px;
+                background-color: rgba(255, 255, 255, 0.28);
+                overflow: hidden;
+              }
+              #bms-pwa-splash .bms-splash-bar-fill {
+                width: 40%;
+                height: 100%;
+                border-radius: 9999px;
+                background-color: #ffffff;
+                animation: bmsLoadingSlide 1.3s ease-in-out infinite;
               }
             `,
           }}
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const t=localStorage.getItem("wellness-theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}}catch(e){}`,
+            __html: `try{const t=localStorage.getItem("wellness-theme");const d=t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}const m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",d?"#0e0e0e":"#f6f6f4")}}catch(e){}`,
           }}
         />
       </head>
       <body
-        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
+        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-[100dvh] bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-hidden antialiased`}
       >
         <div id="bms-pwa-splash" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/image.webp"
             alt=""
+            decoding="sync"
+            fetchPriority="high"
             className="bms-splash-bg"
           />
-          <div className="bms-splash-overlay" />
-          <div className="bms-splash-pill">
-            <span style={{ fontWeight: 300, fontSize: "1.125rem", lineHeight: 1, color: "#ffffff" }}>+</span>
-            <span style={{ fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.25em", textTransform: "uppercase", color: "#ffffff" }}>
-              BMS
-            </span>
+          <div className="bms-splash-scrim" />
+          <div className="bms-splash-brand">
+            <div className="bms-splash-title">
+              <span style={{ fontWeight: 300, fontSize: "1.25rem", lineHeight: 1, color: "#ffffff" }}>+</span>
+              <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "#ffffff" }}>
+                BMS
+              </span>
+            </div>
+            <div className="bms-splash-bar">
+              <div className="bms-splash-bar-fill" />
+            </div>
           </div>
         </div>
         <ThemeProvider>

@@ -8,21 +8,17 @@ export function PwaSplashDismiss() {
     if (!splash) return;
 
     let dismissed = false;
-    const startedAt = Date.now();
-    const minVisibleMs = 450;
 
     const fadeOut = () => {
       if (dismissed) return;
       dismissed = true;
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, minVisibleMs - elapsed);
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         splash.style.opacity = "0";
         splash.style.pointerEvents = "none";
         setTimeout(() => {
           splash.remove();
-        }, 350);
-      }, remaining);
+        }, 260);
+      });
     };
 
     const checkReady = () => {

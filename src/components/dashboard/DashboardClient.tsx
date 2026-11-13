@@ -1669,7 +1669,7 @@ export function DashboardClient({
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden font-sans bg-[#f6f6f4] dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
@@ -1726,9 +1726,9 @@ export function DashboardClient({
         ))}
       </nav>
 
-      {/* Main Content Area with safe-area spacing */}
+      {/* Main Content Area with safe-area spacing below seamless top header */}
       <main
-        style={{ paddingTop: "max(6rem, calc(4.75rem + env(safe-area-inset-top)))" }}
+        style={{ paddingTop: "calc(4.5rem + env(safe-area-inset-top))" }}
         className="max-w-5xl mx-auto px-4 sm:px-8 pb-32 sm:pb-36 flex-1 w-full"
       >
         {actionNotice && (

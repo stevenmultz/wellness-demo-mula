@@ -4,24 +4,32 @@ export function BmsLogoLoading() {
       role="status"
       aria-label="Loading"
       data-bms-loading="true"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f6f6f4] dark:bg-[#09090b] text-zinc-950 dark:text-white select-none"
+      className="fixed inset-0 w-full h-full z-50 flex flex-col items-center justify-center bg-[#0e0e0e] text-white select-none overflow-hidden"
     >
-      <div className="flex flex-col items-center gap-5">
-        <div className="flex items-center gap-1.5">
-          <span className="font-light text-xl leading-none text-zinc-950 dark:text-white">+</span>
-          <span className="font-geometric font-semibold text-sm tracking-[0.28em] uppercase text-zinc-950 dark:text-white">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/image.webp"
+        alt=""
+        decoding="sync"
+        fetchPriority="high"
+        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+      />
+      <div className="absolute inset-0 bg-black/[0.28] pointer-events-none" />
+
+      <div className="relative z-10 flex flex-col items-center gap-3.5">
+        <div
+          className="flex items-center gap-1.5"
+          style={{ textShadow: "0 2px 16px rgba(0, 0, 0, 0.45)" }}
+        >
+          <span className="font-light text-xl leading-none text-white">+</span>
+          <span className="font-geometric font-semibold text-sm tracking-[0.28em] uppercase text-white">
             BMS
           </span>
         </div>
 
-        <span
-          aria-hidden="true"
-          className="w-5 h-5 rounded-full border border-zinc-300 dark:border-white/15 border-t-zinc-950 dark:border-t-white animate-spin"
-        />
-
-        <span className="text-[10px] font-mono uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500">
-          Loading
-        </span>
+        <div className="w-[120px] h-[2px] rounded-full bg-white/28 overflow-hidden">
+          <div className="w-[40%] h-full rounded-full bg-white animate-[bmsLoadingSlide_1.3s_ease-in-out_infinite]" />
+        </div>
       </div>
     </div>
   );

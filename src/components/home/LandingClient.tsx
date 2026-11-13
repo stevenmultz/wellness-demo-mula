@@ -165,7 +165,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-950 font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] transition-colors duration-300">
+    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-950 font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] transition-colors duration-300">
       {/* Account Deletion Notice */}
       {deletedNotice && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm glass-panel py-2.5 px-4 rounded-xl text-xs flex items-center justify-between shadow-lg">
@@ -185,12 +185,13 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       )}
 
       {/* ===================================================================== */}
-      {/* 1. COMPACT LUXURY SPORT DOCK NAVIGATION                              */}
+      {/* 1. SEAMLESS FULL-WIDTH TOP NAVIGATION                                 */}
       {/* ===================================================================== */}
       <header
-        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl h-12 px-4 sm:px-6 rounded-full blur-dock flex items-center justify-between transition-all duration-300"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className="fixed top-0 left-0 right-0 z-50 w-full bg-[#f6f6f4]/90 dark:bg-[#0e0e0e]/90 border-b border-zinc-200/70 dark:border-white/10 transition-colors duration-300"
       >
+        <div className="max-w-5xl mx-auto h-14 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-1.5 group shrink-0" title="Home">
           <span className="font-mono font-light text-xl text-zinc-900 dark:text-white leading-none">
             +
@@ -266,12 +267,16 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
             </div>
           )}
         </nav>
+        </div>
       </header>
 
       {/* ===================================================================== */}
       {/* 2. HERO: SLEEK LUXURY SPORT ATHLETIC MINIMALISM                       */}
       {/* ===================================================================== */}
-      <section className="relative w-full min-h-[78vh] pt-28 pb-16 sm:pt-36 sm:pb-24 px-4 sm:px-8 flex items-center justify-center overflow-hidden bg-neutral-950 text-white">
+      <section
+        style={{ paddingTop: "calc(4.5rem + env(safe-area-inset-top))" }}
+        className="relative w-full min-h-[100dvh] pb-16 sm:pb-24 px-4 sm:px-8 flex items-center justify-center overflow-hidden bg-neutral-950 text-white"
+      >
         {/* Full-width Ambient Motion Video & Fallback Poster */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <video

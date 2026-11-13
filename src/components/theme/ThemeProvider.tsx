@@ -20,15 +20,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
+  const syncThemeMeta = (next: Theme) => {
+    const color = next === "dark" ? "#0e0e0e" : "#f6f6f4";
+    document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
+      el.setAttribute("content", color);
+    });
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem("wellness-theme") as Theme | null;
     if (saved === "dark") {
       setThemeState("dark");
       document.documentElement.classList.add("dark");
+      syncThemeMeta("dark");
     } else {
       // Default to Monochrome Light + Orange Silver luxury theme
       setThemeState("light");
       document.documentElement.classList.remove("dark");
+      syncThemeMeta("light");
     }
     setMounted(true);
   }, []);
@@ -37,6 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(newTheme);
     localStorage.setItem("wellness-theme", newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
+    syncThemeMeta(newTheme);
   };
 
   const toggleTheme = () => {

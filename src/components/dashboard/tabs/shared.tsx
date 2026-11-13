@@ -37,7 +37,7 @@ export function formatIdr(amount: number): string {
 
 export { safeHttpUrl } from "@/wellness/utils/url-safety";
 
-/** Floating pill header shared by all tabs (hides on scroll-down like the original header). */
+/** Full-width seamless top header bar (extends into top safe-area/notch, slides away on scroll-down). */
 export function FloatingHeader({
   visible,
   children,
@@ -47,12 +47,14 @@ export function FloatingHeader({
 }) {
   return (
     <header
-      style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-      className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl min-h-12 px-3.5 sm:px-5 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] shadow-sm transition-all duration-300 ${
-        visible ? "translate-y-0 opacity-100" : "-translate-y-28 opacity-0 pointer-events-none"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className={`fixed top-0 left-0 right-0 z-50 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 border-b border-zinc-200/80 dark:border-white/10 transition-all duration-300 ${
+        visible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
       }`}
     >
-      {children}
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+        {children}
+      </div>
     </header>
   );
 }
