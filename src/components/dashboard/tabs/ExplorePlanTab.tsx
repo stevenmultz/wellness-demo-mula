@@ -5,11 +5,11 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import {
   Calendar,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Clock,
-  Info,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -21,7 +21,6 @@ import {
   EmptyState,
   ErrorState,
   FloatingHeader,
-  InfoPopupModal,
   LoadingState,
   PullToRefreshBanner,
   formatDateWib,
@@ -250,7 +249,7 @@ export function ExplorePlanTab({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [showAllCoaches, setShowAllCoaches] = useState(false);
-  const [infoProgram, setInfoProgram] = useState<ExploreProgram | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
@@ -669,11 +668,15 @@ export function ExplorePlanTab({
                 const meta = getPublicBadgeMeta(p.badge as PublicProgramBadge);
                 const locLabel = p.locationType === "ONLINE" ? "Online" : p.locationType === "HYBRID" ? "Hybrid" : "Onsite";
                 const cityLabel = p.city || (p.locationType === "ONLINE" ? "Global" : null);
+                const isExpanded = !!expandedIds[p.id];
 
                 return (
-                  <li key={p.id} className="rounded-[2px] overflow-hidden bg-white dark:bg-[#121215] border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col transition-all">
+                  <li
+                    key={p.id}
+                    className="rounded-2xl overflow-hidden bg-white dark:bg-[#141414] border border-zinc-300/90 dark:border-white/15 shadow-xs flex flex-col transition-all"
+                  >
                     {/* Program Banner Image with Commitment Label */}
-                    <div className="relative h-44 bg-zinc-200 dark:bg-zinc-800">
+                    <div className="relative h-44 bg-zinc-200 dark:bg-zinc-800 border-b border-zinc-200/80 dark:border-white/10">
                       <Image
                         src={p.coverImage || "/image.webp"}
                         alt=""
@@ -686,10 +689,10 @@ export function ExplorePlanTab({
 
                       {/* Top Badges: Status and Daily Commitment */}
                       <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
-                        <span className="px-2.5 py-0.5 rounded-[2px] text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
                           {meta.label}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-[2px] text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20 inline-flex items-center gap-1 shadow-2xs">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20 inline-flex items-center gap-1 shadow-2xs">
                           <Clock className="w-2.5 h-2.5 text-white/80" />
                           <span>{p.dailyCommitment || "20–30m/day"}</span>
                         </span>
@@ -698,43 +701,106 @@ export function ExplorePlanTab({
                       {/* Bottom Banner Labels: Location Type, City, and Intensity */}
                       <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-1.5 flex-wrap text-[10px] font-mono uppercase text-white/95">
                         <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-[2px] bg-black/55 backdrop-blur-md border border-white/20">
+                          <span className="px-2.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
                             {locLabel}
                           </span>
                           {cityLabel && (
-                            <span className="px-2 py-0.5 rounded-[2px] bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
+                            <span className="px-2.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
                               <MapPin className="w-2.5 h-2.5 text-white/70" />
                               <span>{cityLabel}</span>
                             </span>
                           )}
                         </div>
-                        <span className="px-2 py-0.5 rounded-[2px] bg-black/55 backdrop-blur-md border border-white/20">
+                        <span className="px-2.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
                           {intensityOf(p.difficultyLevel)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Card Content with Info Popup Icon */}
-                    <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between gap-4">
+                    {/* Card Content with Expandable Dropdown Arrow */}
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
                             {p.title}
                           </h3>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium">
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">
                             Coach {p.coachName}
                           </p>
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => setInfoProgram(p)}
-                          aria-label={`View schedule and details for ${p.title}`}
-                          className="shrink-0 mt-0.5 w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-500 dark:text-zinc-300 inline-flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/15 hover:text-zinc-950 dark:hover:text-white transition active:scale-95"
+                          onClick={() =>
+                            setExpandedIds((prev) => ({ ...prev, [p.id]: !prev[p.id] }))
+                          }
+                          aria-expanded={isExpanded}
+                          aria-label={
+                            isExpanded
+                              ? `Hide details for ${p.title}`
+                              : `Show schedule and details for ${p.title}`
+                          }
+                          className="shrink-0 w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 inline-flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-950 dark:hover:text-white transition active:scale-95"
                         >
-                          <Info className="w-4 h-4" />
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform duration-200 ${
+                              isExpanded ? "rotate-180 text-zinc-950 dark:text-white" : ""
+                            }`}
+                          />
                         </button>
                       </div>
+
+                      {isExpanded && (
+                        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/80 dark:bg-white/[0.03] p-3.5 space-y-3 text-xs">
+                          <dl className="space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <dt className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                                <span>Schedule</span>
+                              </dt>
+                              <dd className="text-right font-mono tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
+                                {formatDateWib(p.startDate)} – {formatDateWib(p.endDate)} · {p.durationDays}d
+                              </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <dt className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
+                                <Users className="w-3.5 h-3.5 shrink-0" />
+                                <span>Availability</span>
+                              </dt>
+                              <dd className="text-right font-mono tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
+                                {p.seatsLeft} / {p.maxQuota || p.seatsLeft} spots left
+                              </dd>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <dt className="text-zinc-500 dark:text-zinc-400 shrink-0">Recommended</dt>
+                              <dd className="text-right font-medium text-zinc-900 dark:text-zinc-100">
+                                {p.recommendedFor || "All Levels"}
+                              </dd>
+                            </div>
+                          </dl>
+
+                          <div className="grid grid-cols-3 gap-2 pt-2.5 border-t border-zinc-200/80 dark:border-white/10 text-center">
+                            <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
+                              <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
+                                {p.trainingDaysTotal ?? 0}
+                              </span>
+                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Training</span>
+                            </div>
+                            <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
+                              <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
+                                {p.connectDaysTotal ?? 0}
+                              </span>
+                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Connect</span>
+                            </div>
+                            <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
+                              <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
+                                {p.restDaysTotal ?? 0}
+                              </span>
+                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Rest</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Pricing & Action Buttons */}
                       <div className="mt-auto pt-3.5 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2">
@@ -744,7 +810,7 @@ export function ExplorePlanTab({
                               {p.price > 0 ? formatIdr(p.price) : "Free"}
                             </span>
                             {p.discountPercentage && p.discountPercentage > 0 && p.actualPrice && p.actualPrice > p.price ? (
-                              <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                                 -{p.discountPercentage}%
                               </span>
                             ) : null}
@@ -760,7 +826,7 @@ export function ExplorePlanTab({
                           <button
                             type="button"
                             onClick={() => onViewDetails(p.id)}
-                            className="px-3.5 py-1.5 rounded-[2px] border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                            className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                           >
                             View
                           </button>
@@ -769,7 +835,7 @@ export function ExplorePlanTab({
                               type="button"
                               disabled={registeringId === p.id}
                               onClick={() => onRegister(p.id)}
-                              className="px-3.5 py-1.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
+                              className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
                             >
                               {p.enrollmentStatus === "PENDING" ? "Pay now" : registeringId === p.id ? "..." : "Register"}
                             </button>
@@ -783,7 +849,7 @@ export function ExplorePlanTab({
             </ul>
             {pages > 1 && (
               <nav aria-label="Program pages" className="flex items-center justify-center gap-1.5 pt-2">
-                <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
+                <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
                   <ChevronLeft className="w-3.5 h-3.5" /> Previous
                 </button>
                 {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
@@ -791,7 +857,7 @@ export function ExplorePlanTab({
                     {n}
                   </button>
                 ))}
-                <button type="button" disabled={safePage === pages} onClick={() => setPage(safePage + 1)} className="h-9 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
+                <button type="button" disabled={safePage === pages} onClick={() => setPage(safePage + 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
                   Next <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </nav>
@@ -799,45 +865,6 @@ export function ExplorePlanTab({
           </>
         )}
       </div>
-
-      <InfoPopupModal
-        open={Boolean(infoProgram)}
-        title={infoProgram?.title || "Program Information"}
-        subtitle={infoProgram ? `Coach ${infoProgram.coachName}` : undefined}
-        onClose={() => setInfoProgram(null)}
-      >
-        {infoProgram && (
-          <div className="space-y-4">
-            <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
-              <p className="flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                <span>
-                  {formatDateWib(infoProgram.startDate)} – {formatDateWib(infoProgram.endDate)} ·{" "}
-                  {infoProgram.durationDays} Days
-                </span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                <span>
-                  {infoProgram.seatsLeft} of {infoProgram.maxQuota || infoProgram.seatsLeft} spots remaining
-                </span>
-              </p>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">Target Audience: </span>
-                {infoProgram.recommendedFor || "All Levels"}
-              </p>
-            </div>
-
-            <div className="px-3.5 py-2.5 rounded-[2px] bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
-              <span>{infoProgram.trainingDaysTotal ?? 0} Training</span>
-              <span className="text-zinc-300 dark:text-zinc-600">•</span>
-              <span>{infoProgram.connectDaysTotal ?? 0} Connect</span>
-              <span className="text-zinc-300 dark:text-zinc-600">•</span>
-              <span>{infoProgram.restDaysTotal ?? 0} Rest</span>
-            </div>
-          </div>
-        )}
-      </InfoPopupModal>
     </>
   );
 }

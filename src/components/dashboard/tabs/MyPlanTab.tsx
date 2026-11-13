@@ -504,67 +504,76 @@ export function MyPlanOverview({
       ) : (
         <>
           <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-            <div className="w-full px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5">
-                <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
-                  {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                  <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowDayStats(true)}
-                  aria-label="Program schedule & completion info"
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
-                >
-                  <Info className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <p className="text-xs font-semibold tracking-wider text-right text-zinc-700 dark:text-zinc-300">
-                {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
+            <button
+              type="button"
+              onClick={() => setShowDayStats((v) => !v)}
+              aria-expanded={showDayStats}
+              className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-zinc-50/80 dark:hover:bg-white/[0.02] transition active:scale-[0.995]"
+            >
+              <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
+                {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+                <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
               </p>
-            </div>
-          </section>
-
-          <InfoPopupModal
-            open={showDayStats}
-            title="Cohort Progress & Schedule"
-            subtitle={program.title}
-            onClose={() => setShowDayStats(false)}
-          >
-            <div className="space-y-4">
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-zinc-500 dark:text-zinc-400">Program Dates</span>
-                  <span className="font-mono tabular-nums font-medium text-zinc-900 dark:text-white">
-                    {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
-                  </span>
-                </div>
-                {fullProgramDays.length > 0 && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-zinc-500 dark:text-zinc-400">Day Structure</span>
-                    <span className="font-medium text-zinc-900 dark:text-white">
-                      {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
-                    </span>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold tracking-wider text-zinc-700 dark:text-zinc-300">
+                  {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-400 dark:text-zinc-500 transition-transform duration-200 ${
+                    showDayStats ? "rotate-180 text-zinc-700 dark:text-zinc-300" : ""
+                  }`}
+                />
               </div>
+            </button>
 
-              <dl className="grid grid-cols-3 gap-3 pt-3 border-t border-zinc-200/90 dark:border-white/10 text-sm">
-                <div>
-                  <dt className="text-[11px] text-zinc-500">Completed</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-white">{stats.completed}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] text-zinc-500">Skipped</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-white">{stats.skipped}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] text-zinc-500">Remaining</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-white">{stats.remaining}</dd>
-                </div>
-              </dl>
-            </div>
-          </InfoPopupModal>
+            {showDayStats && (
+              <div className="px-4 pb-4 pt-3 border-t border-zinc-200/80 dark:border-white/10 space-y-3.5 bg-zinc-50/70 dark:bg-white/[0.02]">
+                <dl className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-zinc-500 dark:text-zinc-400">Program Dates</dt>
+                    <dd className="font-mono tabular-nums font-medium text-zinc-900 dark:text-white text-right">
+                      {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
+                    </dd>
+                  </div>
+                  {fullProgramDays.length > 0 && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-zinc-500 dark:text-zinc-400">Day Structure</dt>
+                      <dd className="font-medium text-zinc-900 dark:text-white text-right">
+                        {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+
+                <dl className="grid grid-cols-3 gap-2 pt-3 border-t border-zinc-200/80 dark:border-white/10">
+                  <div className="rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-3 py-2">
+                    <dt className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      Completed
+                    </dt>
+                    <dd className="mt-0.5 text-base font-semibold font-mono tabular-nums text-zinc-950 dark:text-white">
+                      {stats.completed}
+                    </dd>
+                  </div>
+                  <div className="rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-3 py-2">
+                    <dt className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      Skipped
+                    </dt>
+                    <dd className="mt-0.5 text-base font-semibold font-mono tabular-nums text-zinc-950 dark:text-white">
+                      {stats.skipped}
+                    </dd>
+                  </div>
+                  <div className="rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-3 py-2">
+                    <dt className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      Remaining
+                    </dt>
+                    <dd className="mt-0.5 text-base font-semibold font-mono tabular-nums text-zinc-950 dark:text-white">
+                      {stats.remaining}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+          </section>
 
           {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR): Guides | Tasks (Default) | Metrics */}
           <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1 shadow-xs">
