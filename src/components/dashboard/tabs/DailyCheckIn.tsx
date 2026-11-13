@@ -215,11 +215,38 @@ function parseLines(text: string | null | undefined): string[] {
     .filter((line) => line.length > 1);
 }
 
+interface MealSlotEntry {
+  status: "followed" | "similar" | "off_track";
+  mealItem?: string;
+}
+
 interface MealDraft {
   checkedMeals: string[];
   specialOption: "similar" | "off_track" | null;
   mealsCount: 0 | 1 | 2 | 3;
+  mealEntries: MealSlotEntry[];
   mealFeeling: string;
+}
+
+function buildEntriesFromLegacy(
+  count: 0 | 1 | 2 | 3,
+  checked: string[],
+  specialOption: "similar" | "off_track" | null,
+  recommended: string[]
+): MealSlotEntry[] {
+  const n = count > 0 ? count : checked.length > 0 ? (Math.min(3, checked.length) as 1 | 2 | 3) : 0;
+  if (n === 0) return [];
+  if (specialOption) {
+    return Array.from({ length: n }, () => ({ status: specialOption }));
+  }
+  return Array.from({ length: n }, (_, idx) => {
+    const matched = checked[idx];
+    if (matched) return { status: "followed", mealItem: matched };
+    if (recommended[idx] && checked.includes(recommended[idx])) {
+      return { status: "followed", mealItem: recommended[idx] };
+    }
+    return { status: "off_track" };
+  });
 }
 
 function readMealDraft(
@@ -233,6 +260,7 @@ function readMealDraft(
         mode?: string;
         checkedMeals?: string[];
         mealsCount?: number;
+        mealEntries?: MealSlotEntry[];
         mealFeeling?: string;
       };
       const mealsCount =
@@ -240,23 +268,73 @@ function readMealDraft(
           ? parsed.mealsCount
           : 0;
       const mealFeeling = typeof parsed?.mealFeeling === "string" ? parsed.mealFeeling : "";
+      if (parsed && Array.isArray(parsed.mealEntries) && parsed.mealEntries.length > 0) {
+        const sanitized = parsed.mealEntries
+          .filter(
+            (e): e is MealSlotEntry =>
+              !!e && (e.status === "followed" || e.status === "similar" || e.status === "off_track")
+          )
+          .slice(0, 3);
+        const checkedMeals = Array.from(
+          new Set(sanitized.filter((e) => e.status === "followed" && e.mealItem).map((e) => e.mealItem!))
+        );
+        const allSimilar = sanitized.length > 0 && sanitized.every((e) => e.status === "similar");
+        const allOff = sanitized.length > 0 && sanitized.every((e) => e.status === "off_track");
+        return {
+          checkedMeals,
+          specialOption: allSimilar ? "similar" : allOff ? "off_track" : null,
+          mealsCount: mealsCount || (Math.min(3, Math.max(1, sanitized.length)) as 1 | 2 | 3),
+          mealEntries: sanitized,
+          mealFeeling,
+        };
+      }
       if (parsed && parsed.mode === "similar") {
-        return { checkedMeals: [], specialOption: "similar", mealsCount, mealFeeling };
+        return {
+          checkedMeals: [],
+          specialOption: "similar",
+          mealsCount,
+          mealEntries: buildEntriesFromLegacy(mealsCount, [], "similar", recommended),
+          mealFeeling,
+        };
       }
       if (parsed && parsed.mode === "off_track") {
-        return { checkedMeals: [], specialOption: "off_track", mealsCount, mealFeeling };
+        return {
+          checkedMeals: [],
+          specialOption: "off_track",
+          mealsCount,
+          mealEntries: buildEntriesFromLegacy(mealsCount, [], "off_track", recommended),
+          mealFeeling,
+        };
       }
       if (parsed && Array.isArray(parsed.checkedMeals)) {
-        return { checkedMeals: parsed.checkedMeals, specialOption: null, mealsCount, mealFeeling };
+        return {
+          checkedMeals: parsed.checkedMeals,
+          specialOption: null,
+          mealsCount,
+          mealEntries: buildEntriesFromLegacy(mealsCount, parsed.checkedMeals, null, recommended),
+          mealFeeling,
+        };
       }
     } catch {
       /* plain text fallback */
     }
   }
-  if (compliance === "SIMILAR") return { checkedMeals: [], specialOption: "similar", mealsCount: 0, mealFeeling: "" };
-  if (compliance === "OFF_TRACK") return { checkedMeals: [], specialOption: "off_track", mealsCount: 0, mealFeeling: "" };
-  if (compliance === "FULL") return { checkedMeals: [...recommended], specialOption: null, mealsCount: 0, mealFeeling: "" };
-  return { checkedMeals: [], specialOption: null, mealsCount: 0, mealFeeling: "" };
+  if (compliance === "SIMILAR") {
+    return { checkedMeals: [], specialOption: "similar", mealsCount: 0, mealEntries: [], mealFeeling: "" };
+  }
+  if (compliance === "OFF_TRACK") {
+    return { checkedMeals: [], specialOption: "off_track", mealsCount: 0, mealEntries: [], mealFeeling: "" };
+  }
+  if (compliance === "FULL") {
+    return {
+      checkedMeals: [...recommended],
+      specialOption: null,
+      mealsCount: 0,
+      mealEntries: [],
+      mealFeeling: "",
+    };
+  }
+  return { checkedMeals: [], specialOption: null, mealsCount: 0, mealEntries: [], mealFeeling: "" };
 }
 
 function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<string> {
@@ -306,31 +384,13 @@ type SubStepId =
   | "rest_mood"
   | "connect_attendance"
   | "connect_rating"
-  | "meal_checklist"
   | "meal_count"
+  | "meal_entry_1"
+  | "meal_entry_2"
+  | "meal_entry_3"
   | "meal_mood"
   | "reflection_journal"
   | "reflection_mood";
-
-const STEP_BACKGROUND_MAP: Record<SubStepId, string> = {
-  wake: "/steps/sleep-wake.webp",
-  bed: "/steps/sleep-night.webp",
-  sleep_mood: "/pic.webp",
-  training_option: "/coach.webp",
-  training_video: "/image.webp",
-  training_movements: "/test.webp",
-  training_photos: "/coach3.webp",
-  training_mood: "/steps/meal-hydration.webp",
-  rest_checklist: "/coach2.webp",
-  rest_mood: "/steps/sleep-wake.webp",
-  connect_attendance: "/pic.webp",
-  connect_rating: "/coach.webp",
-  meal_checklist: "/steps/meal-nutrition.webp",
-  meal_count: "/steps/meal-hydration.webp",
-  meal_mood: "/coach2.webp",
-  reflection_journal: "/steps/reflection-journal.webp",
-  reflection_mood: "/steps/sleep-night.webp",
-};
 
 const JOURNAL_PRESETS = [
   {
@@ -521,9 +581,16 @@ function TaskForm({
       list.push("training_photos", "training_mood");
       return list;
     }
-    if (step === 2) return ["meal_checklist", "meal_count", "meal_mood"];
+    if (step === 2) {
+      const count = mealDraft.mealsCount > 0 ? mealDraft.mealsCount : 1;
+      const list: SubStepId[] = ["meal_count", "meal_entry_1"];
+      if (count >= 2) list.push("meal_entry_2");
+      if (count >= 3) list.push("meal_entry_3");
+      list.push("meal_mood");
+      return list;
+    }
     return ["reflection_journal", "reflection_mood"];
-  }, [step, isConnect, isRest, connectAttendance, restLines.length, groups.length, videos.length, movements.length]);
+  }, [step, isConnect, isRest, connectAttendance, restLines.length, groups.length, videos.length, movements.length, mealDraft.mealsCount]);
 
   const safeSubIndex = Math.min(subStepIndex, Math.max(0, subSteps.length - 1));
   const currentSubStep = subSteps[safeSubIndex];
@@ -770,14 +837,22 @@ function TaskForm({
         return connectAttendance ? null : "Please indicate whether you will attend this session.";
       case "connect_rating":
         return connectRating > 0 ? null : "Please rate your session experience from 1 to 5 stars.";
-      case "meal_checklist":
-        return mealDraft.checkedMeals.length > 0 || mealDraft.specialOption
-          ? null
-          : "Please check at least one meal or choose an alternative option.";
       case "meal_count":
         return mealDraft.mealsCount > 0
           ? null
           : "Please select how many meals you ate today (1, 2, or 3).";
+      case "meal_entry_1":
+        return mealDraft.mealEntries[0]?.status
+          ? null
+          : "Please indicate whether Meal 1 followed today's meal plan.";
+      case "meal_entry_2":
+        return mealDraft.mealEntries[1]?.status
+          ? null
+          : "Please indicate whether Meal 2 followed today's meal plan.";
+      case "meal_entry_3":
+        return mealDraft.mealEntries[2]?.status
+          ? null
+          : "Please indicate whether Meal 3 followed today's meal plan.";
       case "meal_mood":
         return mealDraft.mealFeeling ? null : "Please select how you feel after your meals.";
       case "reflection_journal":
@@ -817,32 +892,25 @@ function TaskForm({
       return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
     }
     if (step === 2) {
+      const mealCount = mealDraft.mealsCount || 1;
+      const activeEntries = mealDraft.mealEntries.slice(0, mealCount);
+      const checkedMeals = Array.from(
+        new Set(activeEntries.filter((e) => e.status === "followed" && e.mealItem).map((e) => e.mealItem!))
+      );
+      const allFollowed = activeEntries.length === mealCount && activeEntries.every((e) => e.status === "followed");
+      const allSimilar = activeEntries.length === mealCount && activeEntries.every((e) => e.status === "similar");
+      const allOffTrack = activeEntries.length === mealCount && activeEntries.every((e) => e.status === "off_track");
+      const compliance = allFollowed ? "FULL" : allSimilar ? "SIMILAR" : allOffTrack ? "OFF_TRACK" : "PARTIAL";
+
       const mealPayload = {
-        v: 3,
-        mode:
-          mealDraft.specialOption === "similar"
-            ? "similar"
-            : mealDraft.specialOption === "off_track"
-              ? "off_track"
-              : "checklist",
-        checkedMeals: mealDraft.checkedMeals,
-        mealsCount: mealDraft.mealsCount,
+        v: 4,
+        mode: compliance.toLowerCase(),
+        checkedMeals,
+        mealsCount: mealCount,
+        mealEntries: activeEntries,
         mealFeeling: mealDraft.mealFeeling,
       };
-      if (mealDraft.specialOption === "similar") {
-        return (await props.onSaveMeal("SIMILAR", JSON.stringify(mealPayload), day.id)) !== false;
-      }
-      if (mealDraft.specialOption === "off_track") {
-        return (await props.onSaveMeal("OFF_TRACK", JSON.stringify(mealPayload), day.id)) !== false;
-      }
-      const allDone = mealDraft.checkedMeals.length === recommendedMeals.length;
-      return (
-        (await props.onSaveMeal(
-          allDone ? "FULL" : "PARTIAL",
-          JSON.stringify(mealPayload),
-          day.id
-        )) !== false
-      );
+      return (await props.onSaveMeal(compliance, JSON.stringify(mealPayload), day.id)) !== false;
     }
     return (await props.onSaveReflection(review.trim(), score || 3, day.id)) !== false;
   };
@@ -896,114 +964,78 @@ function TaskForm({
   const totalSleepMins = bed && wake ? sleepMinutes(bed, wake) : 0;
   const sleepQuality = totalSleepMins > 0 ? sleepQualityLabel(totalSleepMins) : null;
   const progressPct = Math.round(((safeSubIndex + 1) / Math.max(1, subSteps.length)) * 100);
-  const activeBg = STEP_BACKGROUND_MAP[currentSubStep] || "/image.webp";
-  const nextSubStep = subSteps[safeSubIndex + 1];
-  const historyBg =
-    step === 0
-      ? "/steps/sleep-night.webp"
-      : step === 1
-        ? isRest
-          ? "/coach2.webp"
-          : isConnect
-            ? "/pic.webp"
-            : "/test.webp"
-        : step === 2
-          ? "/steps/meal-nutrition.webp"
-          : "/steps/reflection-journal.webp";
-
-  // Preload only the immediate next step background (~35-90KB) for zero-flash seamless transitions
-  useEffect(() => {
-    if (locked || !nextSubStep || typeof window === "undefined") return;
-    const nextUrl = STEP_BACKGROUND_MAP[nextSubStep];
-    if (!nextUrl) return;
-    const img = new window.Image();
-    img.src = nextUrl;
-  }, [locked, nextSubStep]);
 
   // READ-ONLY SINGLE-SCREEN SUMMARY WHEN VIEWING LOCKED OR PAST DAYS
   if (locked) {
     return (
-      <div className="relative h-full w-full overflow-hidden">
-        {/* Full-bleed atmospheric editorial background */}
-        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={historyBg}
-            alt=""
-            decoding="async"
-            className="w-full h-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-white/75 via-white/90 to-[#fafaf9]/98 dark:from-black/55 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96" />
-        </div>
+      <div className="h-full w-full overflow-y-auto overscroll-contain bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100">
+        <div
+          className="w-full max-w-md mx-auto min-h-full flex flex-col px-5 sm:px-6"
+          style={{
+            paddingTop: "max(1rem, env(safe-area-inset-top))",
+            paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <header className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+            <span
+              className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${
+                isTaskDone
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                  : isPast
+                    ? "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15"
+                    : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15"
+              }`}
+            >
+              {isTaskDone ? "Completed" : isPast ? "Skipped" : "Locked"}
+            </span>
+          </header>
 
-        <div className="relative z-10 h-full w-full overflow-y-auto overscroll-contain">
-          <div
-            className="w-full max-w-lg mx-auto min-h-full flex flex-col px-5 sm:px-8"
-            style={{
-              paddingTop: "max(1rem, env(safe-area-inset-top))",
-              paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
-            }}
-          >
-            <header className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-900/10 dark:border-white/12">
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/90 dark:bg-zinc-950/80 text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-zinc-900"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-              <span
-                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${
-                  isTaskDone
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                    : isPast
-                      ? "bg-white/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-900/10 dark:border-white/15"
-                      : "bg-white/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-900/10 dark:border-white/15"
-                }`}
-              >
-                {isTaskDone ? "Completed" : isPast ? "Skipped" : "Locked"}
+          <div className="flex-1 py-6 space-y-6">
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                Day {day.dayNumber} · History Record
               </span>
-            </header>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
+                {taskTitle}
+              </h1>
+            </div>
 
-            <div className="flex-1 py-7 space-y-6">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
-                  Day {day.dayNumber} · History Record
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white">
-                  {taskTitle}
-                </h1>
+            {!isTaskDone && isPast ? (
+              <div className="py-10 px-5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-center space-y-2">
+                <Clock className="w-5 h-5 mx-auto text-zinc-400" />
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  No entry was recorded before the 23:59 WIB daily cutoff.
+                </p>
               </div>
-
-              {!isTaskDone && isPast ? (
-                <div className="py-10 px-5 rounded-2xl border border-zinc-900/10 dark:border-white/15 bg-white/80 dark:bg-white/[0.06] backdrop-blur-md text-center space-y-2">
-                  <Clock className="w-5 h-5 mx-auto text-zinc-400" />
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    No entry was recorded before the 23:59 WIB daily cutoff.
-                  </p>
-                </div>
-              ) : (
-                <dl className="divide-y divide-zinc-900/10 dark:divide-white/12 border-t border-b border-zinc-900/10 dark:border-white/12 text-sm">
+            ) : (
+              <dl className="divide-y divide-zinc-200 dark:divide-white/10 border-t border-b border-zinc-200 dark:border-white/10 text-sm">
               {step === 0 && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Wake Time</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Wake Time</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{wake || "—"}</dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Bedtime</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Bedtime</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{bed || "—"}</dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Total Sleep</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Total Sleep</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {totalSleepMins > 0 ? formatDuration(totalSleepMins) : "—"}
                     </dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Morning Feeling</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Morning Feeling</dt>
                     <dd className="font-medium text-zinc-950 dark:text-white text-right">{sleepFeeling || "—"}</dd>
                   </div>
                 </>
@@ -1013,19 +1045,19 @@ function TaskForm({
                 <>
                   {activeWorkout && (
                     <div className="py-4 flex items-center justify-between gap-4">
-                      <dt className="text-xs font-mono uppercase text-zinc-500">Focus</dt>
-                      <dd className="font-semibold text-zinc-950 dark:text-white">{activeWorkout}</dd>
+                      <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Focus</dt>
+                      <dd className="font-semibold text-zinc-950 dark:text-white text-right">{activeWorkout}</dd>
                     </div>
                   )}
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Movements</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Movements</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {checkedCount} / {movements.length || checkedCount} Done
                     </dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Post-Session Mood</dt>
-                    <dd className="font-medium text-zinc-950 dark:text-white">{trainingFeeling || "—"}</dd>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Post-Session Mood</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white text-right">{trainingFeeling || "—"}</dd>
                   </div>
                 </>
               )}
@@ -1033,14 +1065,14 @@ function TaskForm({
               {step === 1 && isRest && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Recovery Items</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Recovery Items</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {checkedCount} / {movements.length} Checked
                     </dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Body Condition</dt>
-                    <dd className="font-medium text-zinc-950 dark:text-white">{trainingFeeling || "—"}</dd>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Body Condition</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white text-right">{trainingFeeling || "—"}</dd>
                   </div>
                 </>
               )}
@@ -1048,14 +1080,14 @@ function TaskForm({
               {step === 1 && isConnect && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Attendance</dt>
-                    <dd className="font-semibold text-zinc-950 dark:text-white">
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Attendance</dt>
+                    <dd className="font-semibold text-zinc-950 dark:text-white text-right">
                       {connectAttendance === "attend" ? "Attended" : connectAttendance === "cannot_attend" ? "Could Not Attend" : "—"}
                     </dd>
                   </div>
                   {connectRating > 0 && (
                     <div className="py-4 flex items-center justify-between gap-4">
-                      <dt className="text-xs font-mono uppercase text-zinc-500">Experience</dt>
+                      <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Experience</dt>
                       <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{connectRating} / 5 Stars</dd>
                     </div>
                   )}
@@ -1065,24 +1097,39 @@ function TaskForm({
               {step === 2 && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Meal Plan Status</dt>
-                    <dd className="font-semibold text-zinc-950 dark:text-white">
-                      {mealDraft.specialOption === "similar"
-                        ? "Similar Portion & Nutrition"
-                        : mealDraft.specialOption === "off_track"
-                          ? "Off Plan"
-                          : `${mealDraft.checkedMeals.length} / ${recommendedMeals.length} Recommended`}
-                    </dd>
-                  </div>
-                  <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Meals Eaten</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Meals Eaten</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {mealDraft.mealsCount > 0 ? `${mealDraft.mealsCount} ${mealDraft.mealsCount === 1 ? "Time" : "Times"}` : "—"}
                     </dd>
                   </div>
+                  {mealDraft.mealEntries.length > 0 ? (
+                    mealDraft.mealEntries.map((entry, idx) => (
+                      <div key={idx} className="py-4 flex items-center justify-between gap-4">
+                        <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Meal {idx + 1}</dt>
+                        <dd className="font-medium text-zinc-950 dark:text-white text-right">
+                          {entry.status === "followed"
+                            ? "Followed Plan"
+                            : entry.status === "similar"
+                              ? "Similar Nutrition"
+                              : "Off Plan"}
+                        </dd>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-4 flex items-center justify-between gap-4">
+                      <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Meal Plan Status</dt>
+                      <dd className="font-semibold text-zinc-950 dark:text-white text-right">
+                        {mealDraft.specialOption === "similar"
+                          ? "Similar Portion & Nutrition"
+                          : mealDraft.specialOption === "off_track"
+                            ? "Off Plan"
+                            : `${mealDraft.checkedMeals.length} / ${recommendedMeals.length} Recommended`}
+                      </dd>
+                    </div>
+                  )}
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Post-Meal Mood</dt>
-                    <dd className="font-medium text-zinc-950 dark:text-white">{mealDraft.mealFeeling || "—"}</dd>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Post-Meal Mood</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white text-right">{mealDraft.mealFeeling || "—"}</dd>
                   </div>
                 </>
               )}
@@ -1090,30 +1137,29 @@ function TaskForm({
               {step === 3 && (
                 <>
                   <div className="py-4 space-y-1.5">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Journal Reflection</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Journal Reflection</dt>
                     <dd className="text-sm text-zinc-900 dark:text-zinc-100 leading-relaxed">{review || "—"}</dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500">Mood &amp; Energy</dt>
+                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Mood &amp; Energy</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {score > 0 ? `${FACES.find((f) => f.score === score)?.label || score} (${score}/5)` : "—"}
                     </dd>
                   </div>
                 </>
               )}
-            </dl>
-          )}
-            </div>
+              </dl>
+            )}
+          </div>
 
-            <div className="pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition shadow-sm"
-              >
-                Back to Program Dashboard
-              </button>
-            </div>
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition shadow-sm"
+            >
+              Back to Program Dashboard
+            </button>
           </div>
         </div>
       </div>
@@ -1121,54 +1167,39 @@ function TaskForm({
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      {/* FULL-BLEED STEP-BY-STEP BACKGROUND PHOTO + ADAPTIVE LUXURY SCRIM */}
-      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={activeBg}
-          src={activeBg}
-          alt=""
-          decoding="async"
-          className="w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/88 to-[#fafaf9]/98 dark:from-black/50 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96" />
-      </div>
+    <div className="h-full w-full overflow-y-auto overscroll-contain bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100">
+      <div
+        className="w-full max-w-md mx-auto min-h-full flex flex-col px-5 sm:px-6"
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top))",
+          paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        {/* CLEAN SINGLE-ACTION HEADER + STEP INDICATOR */}
+        <header className="space-y-3 pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
+              className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
 
-      {/* SEAMLESS FULL-HEIGHT SCROLL LAYER (SINGLE CONTAINER, NO DOUBLE PADDING) */}
-      <div className="relative z-10 h-full w-full overflow-y-auto overscroll-contain">
-        <div
-          className="w-full max-w-lg mx-auto min-h-full flex flex-col px-5 sm:px-8"
-          style={{
-            paddingTop: "max(1rem, env(safe-area-inset-top))",
-            paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
-          }}
-        >
-          {/* CLEAN SINGLE-ACTION HEADER + STEP INDICATOR */}
-          <header className="space-y-3 pb-4">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={handleBack}
-                aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
-                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/90 dark:bg-zinc-950/80 text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-zinc-900"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
+            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold truncate max-w-[60%]">
+              {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
+            </span>
+          </div>
 
-              <span className="h-7 px-3 rounded-full border border-zinc-900/10 dark:border-white/12 bg-white/85 dark:bg-zinc-950/75 text-[11px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-semibold inline-flex items-center truncate max-w-[60%]">
-                {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
-              </span>
-            </div>
-
-            <div className="h-1 w-full rounded-full bg-zinc-900/10 dark:bg-white/15 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </header>
+          <div className="h-1 w-full rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </header>
 
       {/* ONE SCREEN, ONE INPUT FORM */}
       <form
@@ -1176,39 +1207,41 @@ function TaskForm({
           e.preventDefault();
           void handlePrimaryAction();
         }}
-        className="flex-1 flex flex-col justify-between gap-8 pt-4"
+        className="flex-1 flex flex-col justify-between gap-8 pt-4 min-w-0"
       >
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           {/* SLEEP 1: WAKE TIME */}
           {currentSubStep === "wake" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Sleep Routine
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   What time did you wake up today?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   {day.sleepRecommendation || "Select or enter the exact time you woke up this morning."}
                 </p>
               </div>
 
-              <input
-                id="input-waketime"
-                type="time"
-                value={wake}
-                enterKeyHint="next"
-                onChange={(e) => {
-                  setWake(e.target.value);
-                  setError(null);
-                }}
-                aria-label="Enter wake time"
-                className="w-full h-16 px-4 rounded-2xl bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
-              />
+              <div className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition">
+                <input
+                  id="input-waketime"
+                  type="time"
+                  value={wake}
+                  enterKeyHint="next"
+                  onChange={(e) => {
+                    setWake(e.target.value);
+                    setError(null);
+                  }}
+                  aria-label="Enter wake time"
+                  className="w-full min-w-0 max-w-full box-border block appearance-none h-14 bg-transparent border-0 text-lg sm:text-xl font-mono font-semibold text-zinc-950 dark:text-white outline-none text-center [&::-webkit-date-and-time-value]:text-center"
+                />
+              </div>
 
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Quick Presets
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -1220,10 +1253,10 @@ function TaskForm({
                         setWake(t);
                         setError(null);
                       }}
-                      className={`h-11 rounded-xl text-sm font-mono font-medium transition active:scale-95 ${
+                      className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
                         wake === t
                           ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                          : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
+                          : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
                       }`}
                     >
                       {t}
@@ -1236,34 +1269,36 @@ function TaskForm({
 
           {/* SLEEP 2: BEDTIME */}
           {currentSubStep === "bed" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Woke up at {wake}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   What time did you go to sleep last night?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Used to calculate total circadian recovery duration.
                 </p>
               </div>
 
-              <input
-                id="input-bedtime"
-                type="time"
-                value={bed}
-                enterKeyHint="next"
-                onChange={(e) => {
-                  setBed(e.target.value);
-                  setError(null);
-                }}
-                aria-label="Enter bedtime"
-                className="w-full h-16 px-4 rounded-2xl bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
-              />
+              <div className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition">
+                <input
+                  id="input-bedtime"
+                  type="time"
+                  value={bed}
+                  enterKeyHint="next"
+                  onChange={(e) => {
+                    setBed(e.target.value);
+                    setError(null);
+                  }}
+                  aria-label="Enter bedtime"
+                  className="w-full min-w-0 max-w-full box-border block appearance-none h-14 bg-transparent border-0 text-lg sm:text-xl font-mono font-semibold text-zinc-950 dark:text-white outline-none text-center [&::-webkit-date-and-time-value]:text-center"
+                />
+              </div>
 
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Quick Presets
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -1275,10 +1310,10 @@ function TaskForm({
                         setBed(t);
                         setError(null);
                       }}
-                      className={`h-11 rounded-xl text-sm font-mono font-medium transition active:scale-95 ${
+                      className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
                         bed === t
                           ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                          : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
+                          : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
                       }`}
                     >
                       {t}
@@ -1312,7 +1347,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {bed} → {wake} · {formatDuration(totalSleepMins)}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How do you feel after waking up?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1357,7 +1392,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Training Focus
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Choose today&apos;s training option
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1427,7 +1462,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {activeWorkout || `Day ${day.dayNumber} Training`}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Watch the guided session
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1496,7 +1531,7 @@ function TaskForm({
                     {checkedCount} / {movements.length} Done
                   </span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Log your completed movements
                 </h1>
               </div>
@@ -1609,7 +1644,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Session Verification
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Upload a progress photo
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1665,7 +1700,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {activeWorkout || "Post-Session Check"}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How do you feel after training?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1710,7 +1745,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Active Recovery
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Complete your recovery protocol
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1754,7 +1789,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Recovery Check
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How does your body feel today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1799,7 +1834,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {day.onsiteSchedule || "Live Community Session"}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Will you attend {day.eventTitle || "this session"}?
                 </h1>
                 {day.eventDetails && (
@@ -1888,7 +1923,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Session Feedback
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How would you rate today&apos;s session?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1925,148 +1960,22 @@ function TaskForm({
             </div>
           )}
 
-          {/* MEAL 1: UNIFIED MEAL CHECKLIST */}
-          {currentSubStep === "meal_checklist" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Nutrition Checklist
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
-                  Which meals did you follow today?
-                </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                  Check each recommended meal completed or select an overall status.
-                </p>
-              </div>
-
-              <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-                {recommendedMeals.map((mealLine, idx) => {
-                  const checked = mealDraft.checkedMeals.includes(mealLine);
-                  const cleanDescription = stripMealLabelPrefix(mealLine);
-                  return (
-                    <li key={idx}>
-                      <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            setError(null);
-                            setMealDraft((prev) => {
-                              const nextChecked = prev.checkedMeals.includes(mealLine)
-                                ? prev.checkedMeals.filter((m) => m !== mealLine)
-                                : [...prev.checkedMeals, mealLine];
-                              return {
-                                ...prev,
-                                checkedMeals: nextChecked,
-                                specialOption: null,
-                              };
-                            });
-                          }}
-                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
-                        />
-                        <div className="min-w-0">
-                          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                            Meal {idx + 1}
-                          </span>
-                          <p
-                            className={`text-sm mt-0.5 leading-relaxed ${
-                              checked
-                                ? "font-semibold text-zinc-950 dark:text-white"
-                                : "text-zinc-700 dark:text-zinc-300"
-                            }`}
-                          >
-                            {cleanDescription || mealLine}
-                          </p>
-                        </div>
-                      </label>
-                    </li>
-                  );
-                })}
-
-                <li>
-                  <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
-                    <input
-                      type="checkbox"
-                      checked={mealDraft.specialOption === "similar"}
-                      onChange={() => {
-                        setError(null);
-                        setMealDraft((prev) => ({
-                          ...prev,
-                          checkedMeals: [],
-                          specialOption: prev.specialOption === "similar" ? null : "similar",
-                        }));
-                      }}
-                      className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
-                    />
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                        Alternative
-                      </span>
-                      <p
-                        className={`text-sm mt-0.5 leading-relaxed ${
-                          mealDraft.specialOption === "similar"
-                            ? "font-semibold text-zinc-950 dark:text-white"
-                            : "text-zinc-700 dark:text-zinc-300"
-                        }`}
-                      >
-                        Ate similar food portion &amp; nutrition as recommended
-                      </p>
-                    </div>
-                  </label>
-                </li>
-
-                <li>
-                  <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
-                    <input
-                      type="checkbox"
-                      checked={mealDraft.specialOption === "off_track"}
-                      onChange={() => {
-                        setError(null);
-                        setMealDraft((prev) => ({
-                          ...prev,
-                          checkedMeals: [],
-                          specialOption: prev.specialOption === "off_track" ? null : "off_track",
-                        }));
-                      }}
-                      className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
-                    />
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                        Off Plan
-                      </span>
-                      <p
-                        className={`text-sm mt-0.5 leading-relaxed ${
-                          mealDraft.specialOption === "off_track"
-                            ? "font-semibold text-zinc-950 dark:text-white"
-                            : "text-zinc-700 dark:text-zinc-300"
-                        }`}
-                      >
-                        Did not follow meal recommendations today
-                      </p>
-                    </div>
-                  </label>
-                </li>
-              </ul>
-            </div>
-          )}
-
-          {/* MEAL 2: NUMBER OF MEALS EATEN TODAY (1 / 2 / 3) */}
+          {/* MEAL 1: NUMBER OF MEALS EATEN TODAY (1 / 2 / 3) */}
           {currentSubStep === "meal_count" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Daily Intake Frequency
+                  Day {day.dayNumber} · Daily Intake Frequency
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How many meals did you eat today?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                  Select your total full meals for today.
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  Select your meal count first — you will review each meal next.
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 pt-2">
+              <div className="grid grid-cols-3 gap-3 pt-1">
                 {([1, 2, 3] as const).map((count) => {
                   const active = mealDraft.mealsCount === count;
                   return (
@@ -2075,15 +1984,19 @@ function TaskForm({
                       type="button"
                       onClick={() => {
                         setError(null);
-                        setMealDraft((prev) => ({ ...prev, mealsCount: count }));
+                        setMealDraft((prev) => ({
+                          ...prev,
+                          mealsCount: count,
+                          mealEntries: prev.mealEntries.slice(0, count),
+                        }));
                       }}
-                      className={`py-6 px-2 rounded-2xl border text-center transition active:scale-95 ${
+                      className={`py-5 px-2 rounded-2xl border text-center transition active:scale-95 ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
-                      <span className="block text-3xl font-mono font-bold tabular-nums leading-none">
+                      <span className="block text-2xl font-mono font-bold tabular-nums leading-none">
                         {count}
                       </span>
                       <span
@@ -2100,17 +2013,199 @@ function TaskForm({
             </div>
           )}
 
-          {/* MEAL 3: POST-MEAL MOOD */}
+          {/* MEAL 2..N: PER-MEAL ADHERENCE CHECK (1 INPUT PER MEAL EATEN) */}
+          {(currentSubStep === "meal_entry_1" ||
+            currentSubStep === "meal_entry_2" ||
+            currentSubStep === "meal_entry_3") &&
+            (() => {
+              const slotIndex =
+                currentSubStep === "meal_entry_1" ? 0 : currentSubStep === "meal_entry_2" ? 1 : 2;
+              const entry = mealDraft.mealEntries[slotIndex];
+              const totalMeals = mealDraft.mealsCount || 1;
+              const defaultRec =
+                recommendedMeals[Math.min(slotIndex, recommendedMeals.length - 1)] || recommendedMeals[0];
+              const cleanDefaultRec = stripMealLabelPrefix(defaultRec) || defaultRec;
+
+              const setSlotEntry = (next: MealSlotEntry) => {
+                setError(null);
+                setMealDraft((prev) => {
+                  const nextEntries = [...prev.mealEntries];
+                  nextEntries[slotIndex] = next;
+                  const activeSlice = nextEntries.slice(0, prev.mealsCount || 1);
+                  const checkedMeals = Array.from(
+                    new Set(
+                      activeSlice
+                        .filter((e) => e?.status === "followed" && e.mealItem)
+                        .map((e) => e.mealItem!)
+                    )
+                  );
+                  const allSimilar =
+                    activeSlice.length > 0 && activeSlice.every((e) => e?.status === "similar");
+                  const allOff =
+                    activeSlice.length > 0 && activeSlice.every((e) => e?.status === "off_track");
+                  return {
+                    ...prev,
+                    mealEntries: nextEntries,
+                    checkedMeals,
+                    specialOption: allSimilar ? "similar" : allOff ? "off_track" : null,
+                  };
+                });
+              };
+
+              return (
+                <div className="space-y-5 min-w-0">
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                      Meal {slotIndex + 1} of {totalMeals} · Daily Plan Check
+                    </span>
+                    <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
+                      Did Meal {slotIndex + 1} follow today&apos;s meal plan?
+                    </h1>
+                    {cleanDefaultRec && (
+                      <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        Suggested: {cleanDefaultRec}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSlotEntry({
+                          status: "followed",
+                          mealItem: entry?.mealItem || defaultRec,
+                        })
+                      }
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
+                        entry?.status === "followed"
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-semibold ${
+                          entry?.status === "followed"
+                            ? "text-white dark:text-zinc-950"
+                            : "text-zinc-950 dark:text-white"
+                        }`}
+                      >
+                        Followed Recommended Meal
+                      </p>
+                      <p
+                        className={`text-xs mt-0.5 ${
+                          entry?.status === "followed"
+                            ? "text-white/80 dark:text-zinc-950/80"
+                            : "text-zinc-600 dark:text-zinc-400"
+                        }`}
+                      >
+                        Ate in line with today&apos;s meal plan guideline.
+                      </p>
+                    </button>
+
+                    {entry?.status === "followed" && recommendedMeals.length > 1 && (
+                      <div className="p-3 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/[0.03] space-y-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                          Matched Menu Option
+                        </span>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {recommendedMeals.map((mealLine, idx) => {
+                            const selected = (entry.mealItem || defaultRec) === mealLine;
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSlotEntry({ status: "followed", mealItem: mealLine })}
+                                className={`w-full px-3 py-2 rounded-xl border text-left text-xs transition ${
+                                  selected
+                                    ? "border-zinc-950 dark:border-white bg-white dark:bg-white/10 font-semibold text-zinc-950 dark:text-white"
+                                    : "border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                                }`}
+                              >
+                                <span className="font-mono uppercase text-[10px] mr-1.5 opacity-70">
+                                  #{idx + 1}
+                                </span>
+                                {stripMealLabelPrefix(mealLine) || mealLine}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setSlotEntry({ status: "similar" })}
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
+                        entry?.status === "similar"
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-semibold ${
+                          entry?.status === "similar"
+                            ? "text-white dark:text-zinc-950"
+                            : "text-zinc-950 dark:text-white"
+                        }`}
+                      >
+                        Similar Portion &amp; Clean Nutrition
+                      </p>
+                      <p
+                        className={`text-xs mt-0.5 ${
+                          entry?.status === "similar"
+                            ? "text-white/80 dark:text-zinc-950/80"
+                            : "text-zinc-600 dark:text-zinc-400"
+                        }`}
+                      >
+                        Different dish with balanced macros and portion size.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSlotEntry({ status: "off_track" })}
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
+                        entry?.status === "off_track"
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-semibold ${
+                          entry?.status === "off_track"
+                            ? "text-white dark:text-zinc-950"
+                            : "text-zinc-950 dark:text-white"
+                        }`}
+                      >
+                        Off Plan
+                      </p>
+                      <p
+                        className={`text-xs mt-0.5 ${
+                          entry?.status === "off_track"
+                            ? "text-white/80 dark:text-zinc-950/80"
+                            : "text-zinc-600 dark:text-zinc-400"
+                        }`}
+                      >
+                        Did not follow recommended meal guidelines for Meal {slotIndex + 1}.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+          {/* MEAL FINAL: POST-MEAL MOOD (ALWAYS LAST) */}
           {currentSubStep === "meal_mood" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {mealDraft.mealsCount} {mealDraft.mealsCount === 1 ? "Meal" : "Meals"} Logged
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How do you feel after your meals?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Note your post-meal digestion and sustained energy state.
                 </p>
               </div>
@@ -2129,13 +2224,13 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.label}
                       </p>
-                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
                         {item.desc}
                       </p>
                     </button>
@@ -2152,7 +2247,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Daily Reflection
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Reflect on your day
                 </h1>
                 {day.dailyAssessment ? (
@@ -2222,7 +2317,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   End of Day Check-In
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How is your overall mood &amp; energy today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -2247,7 +2342,7 @@ function TaskForm({
                       className={`py-4 px-1 rounded-2xl border flex flex-col items-center justify-center gap-2 transition active:scale-95 ${
                         active
                           ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
                       }`}
                     >
                       <Icon className="w-6 h-6" strokeWidth={1.75} />
@@ -2318,7 +2413,6 @@ function TaskForm({
       )}
       </div>
     </div>
-  </div>
   );
 }
 
