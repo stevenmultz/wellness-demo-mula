@@ -170,7 +170,7 @@ export function QrisCheckoutModal({
             <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block font-mono">
               + BMS &bull; Tuition Settlement
             </span>
-            <h3 className="font-editorial text-xl tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
+            <h3 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
               <QrCode className="w-4 h-4 text-zinc-400" />
               <span>QRIS Secure Checkout</span>
             </h3>
@@ -192,7 +192,7 @@ export function QrisCheckoutModal({
               <span>Program Cohort</span>
               <span className="font-mono text-zinc-500">{currentInvoice.paymentReference}</span>
             </div>
-            <h4 className="font-editorial text-lg tracking-tight text-zinc-900 dark:text-white">
+            <h4 className="text-base font-light tracking-tight text-zinc-900 dark:text-white">
               {currentInvoice.programTitle}
             </h4>
 
@@ -206,7 +206,7 @@ export function QrisCheckoutModal({
                   <button
                     type="button"
                     onClick={() => handleModeChange("IN_PERSON")}
-                    className={`py-2 px-3 rounded-[2px] text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
+                    className={`py-2 px-3 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
                       attendanceMode === "IN_PERSON"
                         ? "chrome-button shadow-sm"
                         : "glass-panel-subtle text-zinc-700 dark:text-zinc-300"
@@ -218,7 +218,7 @@ export function QrisCheckoutModal({
                   <button
                     type="button"
                     onClick={() => handleModeChange("VIRTUAL")}
-                    className={`py-2 px-3 rounded-[2px] text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
+                    className={`py-2 px-3 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
                       attendanceMode === "VIRTUAL"
                         ? "chrome-button shadow-sm"
                         : "glass-panel-subtle text-zinc-700 dark:text-zinc-300"

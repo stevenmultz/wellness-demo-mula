@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Urbanist, JetBrains_Mono, Instrument_Serif } from "next/font/google";
+import { Urbanist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -10,14 +10,6 @@ import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
 const urbanist = Urbanist({
   subsets: ["latin"],
   variable: "--font-geometric",
-  display: "swap",
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-editorial",
   display: "swap",
 });
 
@@ -100,16 +92,16 @@ export default function RootLayout({
               #bms-pwa-splash .bms-splash-pill {
                 position: relative;
                 z-index: 10;
-                padding: 0.75rem 1.75rem;
-                border-radius: 2px;
-                background-color: rgba(9, 9, 11, 0.75);
+                padding: 0.625rem 1.25rem;
+                border-radius: 9999px;
+                background-color: rgba(0, 0, 0, 0.6);
                 backdrop-filter: blur(12px);
                 -webkit-backdrop-filter: blur(12px);
-                border: 1px solid rgba(255, 255, 255, 0.22);
+                border: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
                 align-items: center;
-                gap: 8px;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+                gap: 6px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
                 animation: bmsPulse 1.6s ease-in-out infinite;
                 font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
               }
@@ -123,7 +115,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${urbanist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
+        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen relative overflow-x-hidden antialiased`}
       >
         <div id="bms-pwa-splash" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}

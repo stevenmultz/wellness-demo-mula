@@ -157,9 +157,9 @@ const REST_FEELINGS = [
 ];
 
 const areaCls =
-  "w-full px-4 py-3.5 rounded-[2px] bg-[#faf9f6]/90 dark:bg-white/[0.04] border border-zinc-900/18 dark:border-white/18 text-base sm:text-sm text-zinc-950 dark:text-[#f4f3ef] outline-none focus:border-zinc-950 dark:focus:border-[#f4f3ef] transition disabled:opacity-50 resize-none";
+  "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
 const primaryBtn =
-  "h-9 px-4 rounded-[2px] bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950 text-[10px] font-mono uppercase tracking-[0.18em] font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5 active:scale-95 transition";
+  "h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm";
 
 function stripLeadingFeeling(raw?: string | null): string {
   if (!raw || raw === "SKIPPED") return "";
@@ -948,13 +948,13 @@ function TaskForm({
               <button
                 type="button"
                 onClick={onClose}
-                className="h-9 px-3.5 rounded-[2px] border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
+                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
               <span
-                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-[2px] backdrop-blur-md ${
+                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-md ${
                   isTaskDone
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                     : isPast
@@ -971,13 +971,13 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
                   Day {day.dayNumber} · History Record
                 </span>
-                <h1 className="font-editorial text-3xl sm:text-4xl font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.08]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white">
                   {taskTitle}
                 </h1>
               </div>
 
               {!isTaskDone && isPast ? (
-                <div className="py-10 px-5 rounded-[2px] border border-zinc-900/10 dark:border-white/15 bg-white/80 dark:bg-white/[0.06] backdrop-blur-md text-center space-y-2">
+                <div className="py-10 px-5 rounded-2xl border border-zinc-900/10 dark:border-white/15 bg-white/80 dark:bg-white/[0.06] backdrop-blur-md text-center space-y-2">
                   <Clock className="w-5 h-5 mx-auto text-zinc-400" />
                   <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -1109,7 +1109,7 @@ function TaskForm({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full h-12 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition shadow-sm"
+                className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition shadow-sm"
               >
                 Back to Program Dashboard
               </button>
@@ -1144,27 +1144,27 @@ function TaskForm({
             paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
           }}
         >
-          {/* CLEAN SINGLE-ACTION EDITORIAL HEADER + STEP INDICATOR */}
+          {/* CLEAN SINGLE-ACTION HEADER + STEP INDICATOR */}
           <header className="space-y-3 pb-4">
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={handleBack}
                 aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
-                className="h-9 px-3.5 rounded-[2px] border border-zinc-900/18 dark:border-white/20 bg-[#faf9f6]/85 dark:bg-black/55 text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-zinc-950 dark:text-[#f4f3ef] inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/75"
+                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
 
-              <span className="h-7 px-3 rounded-[2px] border border-zinc-900/15 dark:border-white/18 bg-[#faf9f6]/80 dark:bg-black/50 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-700 dark:text-zinc-300 font-semibold inline-flex items-center truncate max-w-[60%]">
-                {taskTitle} · {String(safeSubIndex + 1).padStart(2, "0")} / {String(subSteps.length).padStart(2, "0")}
+              <span className="h-7 px-3 rounded-full border border-zinc-900/10 dark:border-white/12 bg-white/70 dark:bg-black/40 backdrop-blur-md text-[11px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-semibold inline-flex items-center truncate max-w-[60%]">
+                {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
               </span>
             </div>
 
-            <div className="h-[2px] w-full bg-zinc-900/12 dark:bg-white/15 overflow-hidden">
+            <div className="h-1 w-full rounded-full bg-zinc-900/10 dark:bg-white/15 overflow-hidden">
               <div
-                className="h-full bg-zinc-950 dark:bg-[#f4f3ef] transition-all duration-300"
+                className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -1186,7 +1186,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Sleep Routine
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   What time did you wake up today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -1204,7 +1204,7 @@ function TaskForm({
                   setError(null);
                 }}
                 aria-label="Enter wake time"
-                className="w-full h-16 px-4 rounded-[2px] bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
+                className="w-full h-16 px-4 rounded-2xl bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
               />
 
               <div className="space-y-2">
@@ -1220,7 +1220,7 @@ function TaskForm({
                         setWake(t);
                         setError(null);
                       }}
-                      className={`h-11 rounded-[2px] text-sm font-mono font-medium transition active:scale-95 ${
+                      className={`h-11 rounded-xl text-sm font-mono font-medium transition active:scale-95 ${
                         wake === t
                           ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                           : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
@@ -1241,7 +1241,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Woke up at {wake}
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   What time did you go to sleep last night?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -1259,7 +1259,7 @@ function TaskForm({
                   setError(null);
                 }}
                 aria-label="Enter bedtime"
-                className="w-full h-16 px-4 rounded-[2px] bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
+                className="w-full h-16 px-4 rounded-2xl bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
               />
 
               <div className="space-y-2">
@@ -1275,7 +1275,7 @@ function TaskForm({
                         setBed(t);
                         setError(null);
                       }}
-                      className={`h-11 rounded-[2px] text-sm font-mono font-medium transition active:scale-95 ${
+                      className={`h-11 rounded-xl text-sm font-mono font-medium transition active:scale-95 ${
                         bed === t
                           ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                           : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
@@ -1295,7 +1295,7 @@ function TaskForm({
                       {formatDuration(totalSleepMins)}
                     </span>
                     {sleepQuality && (
-                      <span className={`px-2.5 py-0.5 rounded-[2px] text-[11px] font-medium border ${sleepQuality.cls}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${sleepQuality.cls}`}>
                         {sleepQuality.label}
                       </span>
                     )}
@@ -1312,7 +1312,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {bed} → {wake} · {formatDuration(totalSleepMins)}
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How do you feel after waking up?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1331,7 +1331,7 @@ function TaskForm({
                         setSleepFeeling(item.label);
                         setError(null);
                       }}
-                      className={`w-full p-4 rounded-[2px] border text-left transition select-none ${
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -1357,7 +1357,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Training Focus
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Choose today&apos;s training option
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1379,7 +1379,7 @@ function TaskForm({
                       key={g.optionName}
                       type="button"
                       onClick={() => void handleClickWorkoutOption(g.optionName)}
-                      className={`relative w-full h-32 rounded-[2px] overflow-hidden text-left transition active:scale-[0.99] group ${
+                      className={`relative w-full h-32 rounded-2xl overflow-hidden text-left transition active:scale-[0.99] group ${
                         isSelected
                           ? "ring-2 ring-zinc-950 dark:ring-white shadow-md"
                           : "ring-1 ring-zinc-900/10 dark:ring-white/15 hover:ring-zinc-400"
@@ -1403,7 +1403,7 @@ function TaskForm({
                           </p>
                         </div>
                         <span
-                          className={`shrink-0 h-8 px-3.5 rounded-[2px] text-xs font-semibold inline-flex items-center gap-1 transition ${
+                          className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 transition ${
                             isSelected
                               ? "bg-white text-zinc-950 font-bold"
                               : "bg-white/20 text-white backdrop-blur-md"
@@ -1427,7 +1427,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {activeWorkout || `Day ${day.dayNumber} Training`}
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Watch the guided session
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1439,7 +1439,7 @@ function TaskForm({
                 const safeVideoUrl = safeHttpUrl(activeVideo.url);
                 return (
                   <div className="space-y-3">
-                    <div className="relative w-full aspect-video rounded-[2px] overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
@@ -1453,7 +1453,7 @@ function TaskForm({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => void props.onOpenVideo(day.id)}
-                            className="w-14 h-14 rounded-[2px] bg-white text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                            className="w-14 h-14 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
                           >
                             <Play className="w-6 h-6 fill-current ml-0.5" />
                           </a>
@@ -1471,7 +1471,7 @@ function TaskForm({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => void props.onOpenVideo(day.id)}
-                        className="w-full h-11 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition hover:bg-zinc-50 dark:hover:bg-white/10"
+                        className="w-full h-11 px-4 rounded-xl border border-zinc-300 dark:border-white/20 bg-white dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition hover:bg-zinc-50 dark:hover:bg-white/10"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
                         <span>Open Video Guide</span>
@@ -1496,7 +1496,7 @@ function TaskForm({
                     {checkedCount} / {movements.length} Done
                   </span>
                 </div>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Log your completed movements
                 </h1>
               </div>
@@ -1548,7 +1548,7 @@ function TaskForm({
                                 updateMovementReps(name, Math.max(1, currentReps - 1));
                               }}
                               aria-label={`Decrease reps for ${name}`}
-                              className="w-8 h-8 rounded-[2px] bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
+                              className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
@@ -1574,7 +1574,7 @@ function TaskForm({
                                   (e.currentTarget as HTMLInputElement).blur();
                                 }
                               }}
-                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white bg-white dark:bg-white/5 border border-zinc-200/90 dark:border-white/15 rounded-[2px] outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white bg-white dark:bg-white/5 border border-zinc-200/90 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <button
                               type="button"
@@ -1584,7 +1584,7 @@ function TaskForm({
                                 updateMovementReps(name, Math.min(999, currentReps + 1));
                               }}
                               aria-label={`Increase reps for ${name}`}
-                              className="w-8 h-8 rounded-[2px] bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
+                              className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -1609,7 +1609,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Session Verification
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Upload a progress photo
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1623,12 +1623,12 @@ function TaskForm({
                     <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block mb-2">
                       {type === "before" ? "Before Session" : "After Session"}
                     </span>
-                    <span className="relative flex h-40 items-center justify-center rounded-[2px] border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition">
+                    <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition">
                       {photos[type] ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={photos[type]} alt="" className="w-full h-full object-cover" />
-                          <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-[2px] bg-black/75 text-white text-[11px] font-medium">
+                          <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/75 text-white text-[11px] font-medium">
                             Change
                           </span>
                         </>
@@ -1665,7 +1665,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {activeWorkout || "Post-Session Check"}
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How do you feel after training?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1684,7 +1684,7 @@ function TaskForm({
                         setTrainingFeeling(item.label);
                         setError(null);
                       }}
-                      className={`w-full p-4 rounded-[2px] border text-left transition select-none ${
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -1710,7 +1710,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Active Recovery
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Complete your recovery protocol
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1754,7 +1754,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Recovery Check
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How does your body feel today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1773,7 +1773,7 @@ function TaskForm({
                         setTrainingFeeling(item.label);
                         setError(null);
                       }}
-                      className={`w-full p-4 rounded-[2px] border text-left transition select-none ${
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -1799,7 +1799,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {day.onsiteSchedule || "Live Community Session"}
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Will you attend {day.eventTitle || "this session"}?
                 </h1>
                 {day.eventDetails && (
@@ -1823,7 +1823,7 @@ function TaskForm({
                         href={safeHttpUrl(day.meetupLink)!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="h-9 px-4 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5"
+                        className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5"
                       >
                         <Users className="w-3.5 h-3.5" />
                         <span>Join Zoom Meeting</span>
@@ -1835,7 +1835,7 @@ function TaskForm({
                         href={safeHttpUrl(day.mapLink)!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5"
+                        className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5"
                       >
                         <MapPin className="w-3.5 h-3.5" />
                         <span>Open Maps</span>
@@ -1852,7 +1852,7 @@ function TaskForm({
                     setConnectAttendance("attend");
                     setError(null);
                   }}
-                  className={`h-14 px-5 rounded-[2px] border text-sm font-semibold transition flex items-center justify-between ${
+                  className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
                     connectAttendance === "attend"
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                       : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -1869,7 +1869,7 @@ function TaskForm({
                     setConnectRating(0);
                     setError(null);
                   }}
-                  className={`h-14 px-5 rounded-[2px] border text-sm font-semibold transition flex items-center justify-between ${
+                  className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
                     connectAttendance === "cannot_attend"
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                       : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -1888,7 +1888,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Session Feedback
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How would you rate today&apos;s session?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -1907,7 +1907,7 @@ function TaskForm({
                         setConnectRating(star);
                         setError(null);
                       }}
-                      className="flex-1 py-3 rounded-[2px] border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 flex flex-col items-center gap-1.5 hover:border-zinc-400 active:scale-95 transition"
+                      className="flex-1 py-3 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 flex flex-col items-center gap-1.5 hover:border-zinc-400 active:scale-95 transition"
                       aria-label={`${star} Stars`}
                     >
                       <Star
@@ -1932,7 +1932,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Nutrition Checklist
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Which meals did you follow today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -2058,7 +2058,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Daily Intake Frequency
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How many meals did you eat today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -2077,7 +2077,7 @@ function TaskForm({
                         setError(null);
                         setMealDraft((prev) => ({ ...prev, mealsCount: count }));
                       }}
-                      className={`py-6 px-2 rounded-[2px] border text-center transition active:scale-95 ${
+                      className={`py-6 px-2 rounded-2xl border text-center transition active:scale-95 ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -2107,7 +2107,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {mealDraft.mealsCount} {mealDraft.mealsCount === 1 ? "Meal" : "Meals"} Logged
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How do you feel after your meals?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -2126,7 +2126,7 @@ function TaskForm({
                         setError(null);
                         setMealDraft((prev) => ({ ...prev, mealFeeling: item.label }));
                       }}
-                      className={`w-full p-4 rounded-[2px] border text-left transition select-none ${
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -2152,7 +2152,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Daily Reflection
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   Reflect on your day
                 </h1>
                 {day.dailyAssessment ? (
@@ -2178,7 +2178,7 @@ function TaskForm({
                         setReview(val);
                         setError(null);
                       }}
-                      className={`w-full p-3.5 rounded-[2px] border text-left transition select-none ${
+                      className={`w-full p-3.5 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
@@ -2222,7 +2222,7 @@ function TaskForm({
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   End of Day Check-In
                 </span>
-                <h1 className="font-editorial text-[34px] sm:text-[42px] font-normal tracking-[-0.02em] text-zinc-950 dark:text-[#f4f3ef] leading-[1.06]">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How is your overall mood &amp; energy today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -2244,7 +2244,7 @@ function TaskForm({
                         setScore(n);
                         setError(null);
                       }}
-                      className={`py-4 px-1 rounded-[2px] border flex flex-col items-center justify-center gap-2 transition active:scale-95 ${
+                      className={`py-4 px-1 rounded-2xl border flex flex-col items-center justify-center gap-2 transition active:scale-95 ${
                         active
                           ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
@@ -2262,7 +2262,7 @@ function TaskForm({
 
         <div className="space-y-3 pt-2">
           {error && (
-            <div className="p-3.5 rounded-[2px] bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-mono">
+            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-mono">
               {error}
             </div>
           )}
@@ -2270,7 +2270,7 @@ function TaskForm({
           <button
             type="submit"
             disabled={busy || photoBusy !== null}
-            className="w-full h-12 rounded-[2px] bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950 text-[11px] font-mono uppercase tracking-[0.22em] font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40"
+            className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40 shadow-sm"
           >
             {busy ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -2286,7 +2286,7 @@ function TaskForm({
       {/* CONFIRMATION MODAL FOR SWITCHING WORKOUT VARIATION */}
       {pendingSwitchWorkout && (
         <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[2px] bg-white dark:bg-[#121215] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
                 Change Training Variation?
@@ -2301,14 +2301,14 @@ function TaskForm({
               <button
                 type="button"
                 onClick={() => setPendingSwitchWorkout(null)}
-                className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void confirmSwitchWorkout()}
-                className="h-9 px-4 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
+                className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
               >
                 Switch Variation
               </button>
@@ -2573,23 +2573,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   return (
-    <section className="rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-[#faf9f6] dark:bg-[#121215] overflow-hidden">
-      {/* Daily Task Header (Editorial Title + Monospace Timer) */}
-      <div className="px-4 sm:px-5 py-3.5 border-b border-zinc-900/10 dark:border-white/10 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="font-editorial text-2xl font-normal tracking-tight text-zinc-950 dark:text-[#f4f3ef] leading-none">
-            Daily Rituals
-          </h2>
+    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+      {/* Daily Task Header (No Caption Below Title; Info Opens Pop-up) */}
+      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
           <button
             type="button"
             onClick={() => setShowDailyTasksInfo(true)}
             aria-label="Daily tasks info"
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-900/5 dark:hover:bg-white/10 transition"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
           >
             <Info className="w-3.5 h-3.5" />
           </button>
         </div>
-        <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+        <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
           {resetCountdown}
         </span>
       </div>
@@ -2620,7 +2618,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             }
           }}
           aria-label="Previous day"
-          className="w-8 h-8 rounded-[2px] border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
         </button>
@@ -2655,7 +2653,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   }}
                   type="button"
                   onClick={() => setSelectedDayId(d.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-[2px] text-left transition active:scale-95 select-none flex flex-col items-center justify-center min-w-[76px] ${
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-left transition active:scale-95 select-none flex flex-col items-center justify-center min-w-[76px] ${
                     isActiveSelected
                       ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                       : isTodayItem
@@ -2689,7 +2687,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             }
           }}
           aria-label="Next day"
-          className="w-8 h-8 rounded-[2px] border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
         </button>
@@ -2710,10 +2708,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   openDetail(index);
                 }
               }}
-              className={`group relative overflow-hidden rounded-[2px] border p-4 flex items-center justify-between gap-3 transition ${
+              className={`group relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between gap-3 transition ${
                 isDone
                   ? "border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-[#181818]"
-                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] hover:border-zinc-300 dark:hover:border-white/20"
+                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/20"
               } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
             >
               {/* Right-side Motion-Blur Image with Hardware-Accelerated Fade (0 mask-image) */}
@@ -2737,7 +2735,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
               <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
                 <div
-                  className={`w-10 h-10 rounded-[2px] flex items-center justify-center shrink-0 transition ${
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
                     isDone
                       ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                       : "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white"
@@ -2757,14 +2755,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
               <div className="relative z-10 shrink-0">
                 {isSelectedFuture ? (
-                  <span className="h-8 px-3 rounded-[2px] bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
+                  <span className="h-8 px-3 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
                     <Lock className="w-3 h-3" />
                     <span>Locked</span>
                   </span>
                 ) : isSelectedPast ? (
                   <div className="inline-flex items-center gap-2">
                     {!isDone && (
-                      <span className="h-6 px-2.5 rounded-[2px] bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300 inline-flex items-center">
+                      <span className="h-6 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300 inline-flex items-center">
                         Skipped
                       </span>
                     )}
@@ -2774,7 +2772,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="h-8 px-3.5 rounded-[2px] bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
+                      className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
                     >
                       <span>View</span>
                     </button>
@@ -2786,7 +2784,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       e.stopPropagation();
                       openDetail(index);
                     }}
-                    className="h-8 px-3.5 rounded-[2px] bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
+                    className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
                   >
                     <span>{locked ? "View" : "Edit"}</span>
                   </button>
@@ -2812,7 +2810,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {/* BOTTOM ACTION: CONTEXT-AWARE FOR TODAY / PAST / FUTURE */}
       <div className="p-3.5 border-t border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
         {isSelectedFuture ? (
-          <div className="w-full py-2.5 px-4 rounded-[2px] bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-500">
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-500">
             <span className="inline-flex items-center gap-2">
               <Lock className="w-3.5 h-3.5 shrink-0" />
               <span>Unlocks on {formatDayDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB</span>
@@ -2826,7 +2824,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </button>
           </div>
         ) : isSelectedPast ? (
-          <div className="w-full py-2.5 px-4 rounded-[2px] bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
             <span className="inline-flex items-center gap-2">
               <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
               <span>Viewing Day {selectedDay.dayNumber} History (Read-Only)</span>
@@ -2840,7 +2838,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </button>
           </div>
         ) : day.userProgress?.isCompleted ? (
-          <div className="w-full py-2.5 px-4 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
             <span className="flex items-center gap-2">
               <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
               <span>Today&apos;s Routine Completed</span>
@@ -2850,7 +2848,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </span>
           </div>
         ) : allDone ? (
-          <div className="w-full py-2.5 px-4 rounded-[2px] bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
+          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
             <span className="flex items-center gap-2">
               <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
               <span>All daily tasks submitted for today</span>

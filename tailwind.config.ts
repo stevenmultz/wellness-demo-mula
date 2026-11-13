@@ -13,7 +13,6 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-geometric)", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
         geometric: ["var(--font-geometric)", "system-ui", "sans-serif"],
-        editorial: ["var(--font-editorial)", "Georgia", "Times New Roman", "serif"],
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
       },
       colors: {
@@ -31,15 +30,15 @@ const config: Config = {
           950: "#09090b",
         },
         steel: {
-          light: "#f3f2ed",
-          surface: "#e6e4dd",
-          border: "#d4d1c8",
+          light: "#f6f6f4",
+          surface: "#e6e6e4",
+          border: "#d4d4d2",
           deep: "#52525b",
         },
         obsidian: {
-          base: "#09090b",
-          card: "#141416",
-          surface: "#1c1c1f",
+          base: "#0e0e0e",
+          card: "#171717",
+          surface: "#1f1f1f",
         },
       },
     },

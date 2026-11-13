@@ -386,7 +386,7 @@ export function ProfileTab({
                 <img
                   src="/image.webp"
                   alt=""
-                  className="w-full h-full object-cover opacity-60 grayscale contrast-[1.06] scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover opacity-60 scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/35" />
               </div>
@@ -430,7 +430,7 @@ export function ProfileTab({
 
                   {/* Name, email, occupation */}
                   <div className="min-w-0 text-white drop-shadow-sm space-y-0.5">
-                    <h1 className="font-editorial text-2xl sm:text-3xl tracking-tight truncate leading-none">
+                    <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate leading-snug">
                       {form.fullName || "Member Profile"}
                     </h1>
                     <p className="text-xs text-white/80 font-mono truncate">{user.email}</p>

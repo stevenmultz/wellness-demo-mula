@@ -37,7 +37,7 @@ export function formatIdr(amount: number): string {
 
 export { safeHttpUrl } from "@/wellness/utils/url-safety";
 
-/** Floating architectural masthead header shared across member tabs. */
+/** Floating pill header shared by all tabs (hides on scroll-down like the original header). */
 export function FloatingHeader({
   visible,
   children,
@@ -48,7 +48,7 @@ export function FloatingHeader({
   return (
     <header
       style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-      className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl min-h-12 px-4 sm:px-6 py-2 rounded-[2px] flex items-center justify-between gap-3 border border-zinc-900/15 dark:border-white/15 bg-[#faf9f6]/95 dark:bg-[#0e0e11]/95 transition-all duration-300 ${
+      className={`fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl min-h-12 px-3.5 sm:px-5 py-2 rounded-2xl flex items-center justify-between gap-3 border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] shadow-sm transition-all duration-300 ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-28 opacity-0 pointer-events-none"
       }`}
     >
@@ -69,15 +69,15 @@ export function SectionCard({
   right?: ReactNode;
 }) {
   return (
-    <section className="rounded-[2px] p-5 sm:p-7 bg-[#faf9f6] dark:bg-[#121215] border border-zinc-900/15 dark:border-white/15 space-y-5">
-      <div className="flex items-start justify-between gap-3 pb-3 border-b border-zinc-900/10 dark:border-white/10">
-        <div className="space-y-1">
+    <section className="rounded-3xl p-5 sm:p-6 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-0.5">
           {eyebrow && (
-            <span className="text-[10px] font-mono uppercase tracking-[0.24em] font-semibold text-zinc-500 dark:text-zinc-400 block">
+            <span className="text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-500 dark:text-zinc-400 block">
               {eyebrow}
             </span>
           )}
-          <h2 className="font-editorial text-2xl sm:text-[26px] font-normal tracking-tight text-zinc-950 dark:text-[#f4f3ef] leading-tight">
+          <h2 className="text-base sm:text-lg font-medium tracking-tight text-zinc-950 dark:text-white">
             {title}
           </h2>
         </div>
@@ -95,22 +95,22 @@ export function LoadingState({ label = "Loading..." }: { label?: string }) {
       aria-label={label}
       className="py-4 space-y-3"
     >
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 font-mono">
-        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
         <span>{label}</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        <div className="p-5 rounded-[2px] border border-zinc-900/15 dark:border-white/15 space-y-2.5">
-          <div className="h-3 w-24 skeleton-block" />
+        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 space-y-2.5">
+          <div className="h-3.5 w-24 skeleton-block" />
           <div className="h-5 w-3/4 skeleton-block" />
           <div className="h-3 w-full skeleton-block" />
-          <div className="h-8 w-28 skeleton-block mt-2" />
+          <div className="h-8 w-28 rounded-full skeleton-block mt-2" />
         </div>
-        <div className="p-5 rounded-[2px] border border-zinc-900/15 dark:border-white/15 space-y-2.5 hidden sm:block">
-          <div className="h-3 w-20 skeleton-block" />
+        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 space-y-2.5 hidden sm:block">
+          <div className="h-3.5 w-20 skeleton-block" />
           <div className="h-5 w-2/3 skeleton-block" />
           <div className="h-3 w-5/6 skeleton-block" />
-          <div className="h-8 w-28 skeleton-block mt-2" />
+          <div className="h-8 w-28 rounded-full skeleton-block mt-2" />
         </div>
       </div>
     </div>
@@ -121,17 +121,17 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   return (
     <div
       role="alert"
-      className="py-8 px-5 flex flex-col items-center justify-center gap-3 text-center rounded-[2px] border border-red-500/30 bg-red-50/70 dark:bg-red-950/20"
+      className="py-8 px-4 flex flex-col items-center justify-center gap-3 text-center rounded-2xl border border-red-500/30 bg-red-50 dark:bg-red-950/20"
     >
       <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-      <p className="text-xs text-red-700 dark:text-red-300 font-mono">{message}</p>
+      <p className="text-xs text-red-700 dark:text-red-300">{message}</p>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="px-4 py-2 rounded-[2px] text-[10px] font-mono font-semibold uppercase tracking-[0.2em] bg-zinc-950 text-white dark:bg-[#f4f3ef] dark:text-zinc-950 active:scale-95 transition"
+          className="px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 active:scale-95 transition"
         >
-          Try Again
+          Try again
         </button>
       )}
     </div>
@@ -148,8 +148,8 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="py-12 px-5 flex flex-col items-center justify-center gap-2.5 text-center rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-[#faf9f6] dark:bg-[#121215]">
-      <p className="font-editorial text-2xl font-normal text-zinc-950 dark:text-[#f4f3ef]">{title}</p>
+    <div className="py-10 px-4 flex flex-col items-center justify-center gap-2 text-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/15">
+      <p className="text-sm font-medium text-zinc-900 dark:text-white">{title}</p>
       {description && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
           {description}
@@ -280,7 +280,7 @@ export function PullToRefreshBanner({
       }}
       className="flex items-center justify-center overflow-hidden transition-all duration-150"
     >
-      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[2px] bg-[#faf9f6] dark:bg-zinc-900 border border-zinc-900/15 dark:border-white/15 text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-600 dark:text-zinc-300">
+      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/15 shadow-sm text-[11px] font-mono text-zinc-600 dark:text-zinc-300">
         {refreshing ? (
           <>
             <Loader2 className="w-3 h-3 animate-spin" />
@@ -342,19 +342,19 @@ export function InfoPopupModal({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[2px] bg-[#faf9f6] dark:bg-[#121215] border border-zinc-900/20 dark:border-white/15 p-6 shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
       >
-        <div className="flex items-start justify-between gap-3 pb-4 border-b border-zinc-900/10 dark:border-white/10">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-zinc-900/[0.03] dark:bg-white/[0.04] text-zinc-900 dark:text-[#f4f3ef] flex items-center justify-center shrink-0 mt-0.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
               <Info className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-editorial text-xl sm:text-2xl font-normal text-zinc-950 dark:text-[#f4f3ef] leading-tight">
+              <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white truncate">
                 {title}
               </h3>
               {subtitle && (
-                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 mt-1">
+                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
                   {subtitle}
                 </p>
               )}
@@ -364,7 +364,7 @@ export function InfoPopupModal({
             type="button"
             onClick={onClose}
             aria-label="Close info popup"
-            className="w-8 h-8 rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-transparent text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shrink-0 active:scale-95 transition"
+            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shrink-0 active:scale-95 transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -377,9 +377,9 @@ export function InfoPopupModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-11 rounded-[2px] bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950 text-[11px] font-mono uppercase tracking-[0.22em] font-semibold active:scale-[0.99] transition"
+          className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
         >
-          Acknowledge
+          Got it
         </button>
       </div>
     </div>,

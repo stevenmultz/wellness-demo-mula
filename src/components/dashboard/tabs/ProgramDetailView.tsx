@@ -309,7 +309,7 @@ export function ProgramDetailView({
               </span>
             </div>
 
-            <h1 className="font-editorial text-3xl sm:text-4xl tracking-tight text-white leading-[1.05] drop-shadow-md">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
               {program.title}
             </h1>
 
@@ -325,12 +325,12 @@ export function ProgramDetailView({
         </div>
 
         {/* ================================================================= */}
-        {/* ARCHITECTURAL SHEET CONTAINER                                     */}
+        {/* CURVED SHEET CONTAINER (LEKUKAN DI BANNER IMAGE)                  */}
         {/* ================================================================= */}
-        <div className="relative -mt-6 sm:-mt-8 z-10 rounded-t-[2px] border-t-2 border-zinc-900 dark:border-white/25 bg-[#f3f2ed] dark:bg-[#09090b] shadow-xl pt-6 px-4 sm:px-6 pb-28 space-y-4">
+        <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-[#f3f2ed] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-28 space-y-4">
           {/* Header Action: Curriculum Overview & Expand / Collapse */}
           <div className="flex items-center justify-between px-1 pb-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-600 dark:text-zinc-400">
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white">
               Program Curriculum
             </span>
             <button
