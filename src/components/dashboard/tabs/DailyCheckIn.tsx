@@ -29,7 +29,6 @@ import {
   Star,
   Users,
   Utensils,
-  X,
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
@@ -312,6 +311,26 @@ type SubStepId =
   | "meal_mood"
   | "reflection_journal"
   | "reflection_mood";
+
+const STEP_BACKGROUND_MAP: Record<SubStepId, string> = {
+  wake: "/steps/sleep-wake.webp",
+  bed: "/steps/sleep-night.webp",
+  sleep_mood: "/pic.webp",
+  training_option: "/coach.webp",
+  training_video: "/image.webp",
+  training_movements: "/test.webp",
+  training_photos: "/coach3.webp",
+  training_mood: "/steps/meal-hydration.webp",
+  rest_checklist: "/coach2.webp",
+  rest_mood: "/steps/sleep-wake.webp",
+  connect_attendance: "/pic.webp",
+  connect_rating: "/coach.webp",
+  meal_checklist: "/steps/meal-nutrition.webp",
+  meal_count: "/steps/meal-hydration.webp",
+  meal_mood: "/coach2.webp",
+  reflection_journal: "/steps/reflection-journal.webp",
+  reflection_mood: "/steps/sleep-night.webp",
+};
 
 const JOURNAL_PRESETS = [
   {
@@ -874,61 +893,99 @@ function TaskForm({
     onClose();
   };
 
-  const handleClose = () => {
-    void flushChecklist(localChecks);
-    onClose();
-  };
-
   const totalSleepMins = bed && wake ? sleepMinutes(bed, wake) : 0;
   const sleepQuality = totalSleepMins > 0 ? sleepQualityLabel(totalSleepMins) : null;
   const progressPct = Math.round(((safeSubIndex + 1) / Math.max(1, subSteps.length)) * 100);
+  const activeBg = STEP_BACKGROUND_MAP[currentSubStep] || "/image.webp";
+  const nextSubStep = subSteps[safeSubIndex + 1];
+  const historyBg =
+    step === 0
+      ? "/steps/sleep-night.webp"
+      : step === 1
+        ? isRest
+          ? "/coach2.webp"
+          : isConnect
+            ? "/pic.webp"
+            : "/test.webp"
+        : step === 2
+          ? "/steps/meal-nutrition.webp"
+          : "/steps/reflection-journal.webp";
+
+  // Preload only the immediate next step background (~35-90KB) for zero-flash seamless transitions
+  useEffect(() => {
+    if (locked || !nextSubStep || typeof window === "undefined") return;
+    const nextUrl = STEP_BACKGROUND_MAP[nextSubStep];
+    if (!nextUrl) return;
+    const img = new window.Image();
+    img.src = nextUrl;
+  }, [locked, nextSubStep]);
 
   // READ-ONLY SINGLE-SCREEN SUMMARY WHEN VIEWING LOCKED OR PAST DAYS
   if (locked) {
     return (
-      <div className="min-h-full flex flex-col max-w-lg mx-auto w-full px-6 py-5 sm:py-8">
-        <header className="flex items-center justify-between gap-3 pb-5 border-b border-zinc-200/90 dark:border-white/10">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back</span>
-          </button>
-          <span
-            className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-              isTaskDone
-                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                : isPast
-                  ? "bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
-                  : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300"
-            }`}
-          >
-            {isTaskDone ? "Completed" : isPast ? "Skipped" : "Locked"}
-          </span>
-        </header>
+      <div className="relative h-full w-full overflow-hidden">
+        {/* Full-bleed atmospheric editorial background */}
+        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={historyBg}
+            alt=""
+            decoding="async"
+            className="w-full h-full object-cover object-center scale-[1.03]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/75 via-white/90 to-[#fafaf9]/98 dark:from-black/55 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96 backdrop-blur-[2px]" />
+        </div>
 
-        <div className="flex-1 py-7 space-y-6">
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
-              Day {day.dayNumber} · History Record
-            </span>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
-              {taskTitle}
-            </h1>
-          </div>
+        <div className="relative z-10 h-full w-full overflow-y-auto overscroll-contain">
+          <div
+            className="w-full max-w-lg mx-auto min-h-full flex flex-col px-5 sm:px-8"
+            style={{
+              paddingTop: "max(1rem, env(safe-area-inset-top))",
+              paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+            }}
+          >
+            <header className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-900/10 dark:border-white/12">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
+              <span
+                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-md ${
+                  isTaskDone
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    : isPast
+                      ? "bg-white/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-900/10 dark:border-white/15"
+                      : "bg-white/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-900/10 dark:border-white/15"
+                }`}
+              >
+                {isTaskDone ? "Completed" : isPast ? "Skipped" : "Locked"}
+              </span>
+            </header>
 
-          {!isTaskDone && isPast ? (
-            <div className="py-10 px-5 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white dark:bg-[#141414] text-center space-y-2">
-              <Clock className="w-5 h-5 mx-auto text-zinc-400" />
-              <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                No entry was recorded before the 23:59 WIB daily cutoff.
-              </p>
-            </div>
-          ) : (
-            <dl className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10 text-sm">
+            <div className="flex-1 py-7 space-y-6">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-semibold">
+                  Day {day.dayNumber} · History Record
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white">
+                  {taskTitle}
+                </h1>
+              </div>
+
+              {!isTaskDone && isPast ? (
+                <div className="py-10 px-5 rounded-2xl border border-zinc-900/10 dark:border-white/15 bg-white/80 dark:bg-white/[0.06] backdrop-blur-md text-center space-y-2">
+                  <Clock className="w-5 h-5 mx-auto text-zinc-400" />
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    No entry was recorded before the 23:59 WIB daily cutoff.
+                  </p>
+                </div>
+              ) : (
+                <dl className="divide-y divide-zinc-900/10 dark:divide-white/12 border-t border-b border-zinc-900/10 dark:border-white/12 text-sm">
               {step === 0 && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
@@ -1046,59 +1103,72 @@ function TaskForm({
               )}
             </dl>
           )}
-        </div>
+            </div>
 
-        <div className="pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition"
-          >
-            Back to Program Dashboard
-          </button>
+            <div className="pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition shadow-sm"
+              >
+                Back to Program Dashboard
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-full flex flex-col max-w-lg mx-auto w-full px-6 pt-4 pb-8">
-      {/* MINIMAL TOP CHROME + STEP PROGRESS */}
-      <header className="space-y-3 pb-4">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleBack}
-            aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
-            className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/10"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back</span>
-          </button>
+    <div className="relative h-full w-full overflow-hidden">
+      {/* FULL-BLEED STEP-BY-STEP BACKGROUND PHOTO + ADAPTIVE LUXURY SCRIM */}
+      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          key={activeBg}
+          src={activeBg}
+          alt=""
+          decoding="async"
+          className="w-full h-full object-cover object-center scale-[1.03] transition-opacity duration-500"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/88 to-[#fafaf9]/98 dark:from-black/50 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96 backdrop-blur-[2px]" />
+      </div>
 
-          <div className="text-center min-w-0">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block truncate">
-              {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
-            </span>
-          </div>
+      {/* SEAMLESS FULL-HEIGHT SCROLL LAYER (SINGLE CONTAINER, NO DOUBLE PADDING) */}
+      <div className="relative z-10 h-full w-full overflow-y-auto overscroll-contain">
+        <div
+          className="w-full max-w-lg mx-auto min-h-full flex flex-col px-5 sm:px-8"
+          style={{
+            paddingTop: "max(1rem, env(safe-area-inset-top))",
+            paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          {/* CLEAN SINGLE-ACTION HEADER + STEP INDICATOR */}
+          <header className="space-y-3 pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleBack}
+                aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
+                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label="Close task"
-            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-300 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/10"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+              <span className="h-7 px-3 rounded-full border border-zinc-900/10 dark:border-white/12 bg-white/70 dark:bg-black/40 backdrop-blur-md text-[11px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-semibold inline-flex items-center truncate max-w-[60%]">
+                {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
+              </span>
+            </div>
 
-        <div className="h-1 w-full rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      </header>
+            <div className="h-1 w-full rounded-full bg-zinc-900/10 dark:bg-white/15 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </header>
 
       {/* ONE SCREEN, ONE INPUT FORM */}
       <form
@@ -2246,7 +2316,9 @@ function TaskForm({
           </div>
         </div>
       )}
+      </div>
     </div>
+  </div>
   );
 }
 
@@ -2786,7 +2858,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         ) : null}
       </div>
 
-      {/* FOCUSED SINGLE-INPUT FULL-SCREEN TASK DETAIL MODAL (LIGHTWEIGHT & MATTE) */}
+      {/* SEAMLESS FULL-SCREEN STEP-BY-STEP TASK DETAIL PORTAL */}
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
@@ -2794,28 +2866,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="fixed inset-0 z-[80] bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto overscroll-contain"
-            style={{
-              paddingTop: "max(0.75rem, env(safe-area-inset-top))",
-              paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
-            }}
+            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 overflow-hidden"
           >
-            <div className="max-w-xl mx-auto w-full px-5 sm:px-8 flex-1 flex flex-col">
-              <TaskForm
-                key={`${selectedDay.id}-${step}`}
-                day={selectedDay}
-                locked={selectedLocked}
-                isPast={isSelectedPast}
-                taskTitle={currentTask.title}
-                isTaskDone={selectedDone[step]}
-                activities={selectedActivities}
-                checks={selectedChecks}
-                step={step}
-                onFinish={handleFinishTask}
-                onClose={() => setDetailOpen(false)}
-                props={props}
-              />
-            </div>
+            <TaskForm
+              key={`${selectedDay.id}-${step}`}
+              day={selectedDay}
+              locked={selectedLocked}
+              isPast={isSelectedPast}
+              taskTitle={currentTask.title}
+              isTaskDone={selectedDone[step]}
+              activities={selectedActivities}
+              checks={selectedChecks}
+              step={step}
+              onFinish={handleFinishTask}
+              onClose={() => setDetailOpen(false)}
+              props={props}
+            />
           </div>,
           document.body
         )}
