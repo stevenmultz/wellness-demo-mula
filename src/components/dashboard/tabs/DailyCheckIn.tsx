@@ -8,6 +8,7 @@ import {
   Calendar,
   Camera,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock,
   Dumbbell,
@@ -167,9 +168,12 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => pad2(i));
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) => pad2(i));
+
 /**
- * Custom 24-hour HH:MM input with steppers, direct numeric entry, and quick presets.
- * Replaces native `<input type="time">` to eliminate iOS/mobile WebKit overwidth bugs.
+ * Simple, responsive 24-hour HH:MM selector using native dropdowns + quick presets.
+ * Zero internal WebKit input[type="time"] chrome, eliminating mobile overwidth bugs.
  */
 function TimeInputField({
   idPrefix,
@@ -187,148 +191,76 @@ function TimeInputField({
   onChange: (next: string) => void;
 }) {
   const validMatch = TIME_24H_RE.exec(value);
-  const hourNum = validMatch ? parseInt(validMatch[1], 10) : null;
-  const minNum = validMatch ? parseInt(validMatch[2], 10) : null;
-
-  const [draftHour, setDraftHour] = useState<string | null>(null);
-  const [draftMin, setDraftMin] = useState<string | null>(null);
-
-  const commitTime = (h: number, m: number) => {
-    const safeH = ((h % 24) + 24) % 24;
-    const safeM = ((m % 60) + 60) % 60;
-    onChange(`${pad2(safeH)}:${pad2(safeM)}`);
-  };
-
-  const stepHour = (delta: number) => {
-    setDraftHour(null);
-    const baseH = hourNum ?? defaultHour;
-    const baseM = minNum ?? 0;
-    commitTime(hourNum === null ? baseH : baseH + delta, baseM);
-  };
-
-  const stepMinute = (delta: number) => {
-    setDraftMin(null);
-    const baseH = hourNum ?? defaultHour;
-    const baseM = minNum ?? 0;
-    if (minNum === null) {
-      commitTime(baseH, 0);
-      return;
-    }
-    const nextM = ((Math.round(baseM / 5) * 5 + delta) % 60 + 60) % 60;
-    commitTime(baseH, nextM);
-  };
+  const hourStr = validMatch ? validMatch[1] : "";
+  const minStr = validMatch ? validMatch[2] : "";
 
   return (
     <div className="space-y-4 min-w-0">
       <div
-        className="w-full grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 min-w-0"
+        className="w-full h-14 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0"
         role="group"
         aria-label={label}
       >
-        {/* Hour box */}
-        <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-2 sm:px-3 py-2.5 flex flex-col items-center gap-1.5 min-w-0 focus-within:border-zinc-950 dark:focus-within:border-white transition">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
-            Hour
-          </span>
-          <div className="w-full flex items-center justify-between gap-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => stepHour(-1)}
-              aria-label={`Decrease hour for ${label}`}
-              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <input
-              id={`${idPrefix}-hour`}
-              type="text"
-              inputMode="numeric"
-              maxLength={2}
-              placeholder="--"
-              aria-label={`${label} hour (00-23)`}
-              value={draftHour !== null ? draftHour : hourNum !== null ? pad2(hourNum) : ""}
-              onFocus={() => setDraftHour(hourNum !== null ? pad2(hourNum) : "")}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
-                setDraftHour(digits);
-                if (digits.length > 0) {
-                  const n = Math.min(23, parseInt(digits, 10));
-                  commitTime(n, minNum ?? 0);
-                }
-              }}
-              onBlur={() => {
-                if (draftHour !== null && draftHour.length > 0) {
-                  const n = Math.min(23, Math.max(0, parseInt(draftHour, 10) || 0));
-                  commitTime(n, minNum ?? 0);
-                }
-                setDraftHour(null);
-              }}
-              className="w-full min-w-0 h-9 bg-transparent border-0 text-center text-lg sm:text-xl font-mono font-bold tabular-nums text-zinc-950 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-600 outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => stepHour(1)}
-              aria-label={`Increase hour for ${label}`}
-              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="relative h-full flex items-center justify-center min-w-0">
+          <select
+            id={`${idPrefix}-hour`}
+            aria-label={`${label} hour`}
+            value={hourStr}
+            onChange={(e) => {
+              const nextHour = e.target.value;
+              if (!nextHour) {
+                onChange("");
+                return;
+              }
+              onChange(`${nextHour}:${minStr || "00"}`);
+            }}
+            className={`w-full h-full min-w-0 appearance-none bg-transparent border-0 text-center text-xl font-mono font-bold tabular-nums outline-none cursor-pointer pr-4 ${
+              hourStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
+            }`}
+          >
+            <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
+              HH
+            </option>
+            {HOURS_24.map((h) => (
+              <option key={h} value={h} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
+                {h}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none absolute right-2" />
         </div>
 
-        <span className="text-xl font-mono font-bold text-zinc-400 dark:text-zinc-500 select-none pt-3">
+        <span className="text-xl font-mono font-bold text-zinc-400 dark:text-zinc-500 select-none px-1">
           :
         </span>
 
-        {/* Minute box */}
-        <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-2 sm:px-3 py-2.5 flex flex-col items-center gap-1.5 min-w-0 focus-within:border-zinc-950 dark:focus-within:border-white transition">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
-            Min
-          </span>
-          <div className="w-full flex items-center justify-between gap-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => stepMinute(-5)}
-              aria-label={`Decrease minute for ${label}`}
-              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <input
-              id={`${idPrefix}-minute`}
-              type="text"
-              inputMode="numeric"
-              maxLength={2}
-              placeholder="--"
-              aria-label={`${label} minute (00-59)`}
-              value={draftMin !== null ? draftMin : minNum !== null ? pad2(minNum) : ""}
-              onFocus={() => setDraftMin(minNum !== null ? pad2(minNum) : "")}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
-                setDraftMin(digits);
-                if (digits.length > 0) {
-                  const n = Math.min(59, parseInt(digits, 10));
-                  commitTime(hourNum ?? defaultHour, n);
-                }
-              }}
-              onBlur={() => {
-                if (draftMin !== null && draftMin.length > 0) {
-                  const n = Math.min(59, Math.max(0, parseInt(draftMin, 10) || 0));
-                  commitTime(hourNum ?? defaultHour, n);
-                }
-                setDraftMin(null);
-              }}
-              className="w-full min-w-0 h-9 bg-transparent border-0 text-center text-lg sm:text-xl font-mono font-bold tabular-nums text-zinc-950 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-600 outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => stepMinute(5)}
-              aria-label={`Increase minute for ${label}`}
-              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="relative h-full flex items-center justify-center min-w-0">
+          <select
+            id={`${idPrefix}-minute`}
+            aria-label={`${label} minute`}
+            value={minStr}
+            onChange={(e) => {
+              const nextMin = e.target.value;
+              if (!nextMin) {
+                onChange("");
+                return;
+              }
+              onChange(`${hourStr || pad2(defaultHour)}:${nextMin}`);
+            }}
+            className={`w-full h-full min-w-0 appearance-none bg-transparent border-0 text-center text-xl font-mono font-bold tabular-nums outline-none cursor-pointer pr-4 ${
+              minStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
+            }`}
+          >
+            <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
+              MM
+            </option>
+            {MINUTES_60.map((m) => (
+              <option key={m} value={m} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
+                {m}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none absolute right-2" />
         </div>
       </div>
 
@@ -341,11 +273,7 @@ function TimeInputField({
             <button
               key={t}
               type="button"
-              onClick={() => {
-                setDraftHour(null);
-                setDraftMin(null);
-                onChange(t);
-              }}
+              onClick={() => onChange(t)}
               className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
                 value === t
                   ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
@@ -592,28 +520,7 @@ type SubStepId =
   | "reflection_journal"
   | "reflection_mood";
 
-const JOURNAL_PRESETS = [
-  {
-    title: "Energized & Motivated",
-    text: "High focus and vitality. Accomplished my daily goals and feel strong momentum.",
-  },
-  {
-    title: "Calm & Centered",
-    text: "Maintained good emotional balance, mental peace, and grounded focus throughout.",
-  },
-  {
-    title: "Steady & Disciplined",
-    text: "Consistent moderate energy. Stayed committed to the routine through steady discipline.",
-  },
-  {
-    title: "Tired but Grateful",
-    text: "Low physical battery by evening. Grateful for progress made, taking time to rest and recharge.",
-  },
-  {
-    title: "Challenged & Stressed",
-    text: "Faced physical fatigue or mental stress today. Prioritizing slow recovery, breathwork, and early sleep.",
-  },
-];
+const REFLECTION_DECLINED = "Prefer not to answer.";
 
 const TRAINING_FEELINGS = [
   { label: "Energized", desc: "High vitality, powerful and moved with ease." },
@@ -1056,9 +963,9 @@ function TaskForm({
       case "meal_mood":
         return mealDraft.mealFeeling ? null : "Please select how you feel after your meals.";
       case "reflection_journal":
-        return review.trim().length >= 3
+        return review === REFLECTION_DECLINED || review.trim().length >= 3
           ? null
-          : "Please select a reflection card or write a brief note (min. 3 characters).";
+          : "Please write a brief reflection or select \"Prefer not to answer\".";
       case "reflection_mood":
         return score > 0 ? null : "Please select your overall mood & energy rating.";
       default:
@@ -1581,16 +1488,14 @@ function TaskForm({
                             {g.movements.length} {g.movements.length === 1 ? "Movement" : "Movements"}
                           </p>
                         </div>
-                        <span
-                          className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 transition ${
-                            isSelected
-                              ? "bg-white text-zinc-950 font-bold"
-                              : "bg-white/20 text-white backdrop-blur-md"
-                          }`}
-                        >
-                          <span>{isSelected ? "Selected" : "Select"}</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </span>
+                        {isSelected && (
+                          <span
+                            aria-hidden="true"
+                            className="shrink-0 w-7 h-7 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-sm"
+                          >
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
@@ -2395,74 +2300,70 @@ function TaskForm({
           )}
 
           {/* REFLECTION 1: DAILY JOURNAL */}
-          {currentSubStep === "reflection_journal" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Daily Reflection
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Reflect on your day
-                </h1>
-                {day.dailyAssessment ? (
-                  <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-300 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
-                    {day.dailyAssessment}
-                  </p>
-                ) : (
+          {currentSubStep === "reflection_journal" && (() => {
+            const preferNotAnswer = review === REFLECTION_DECLINED;
+            return (
+              <div className="space-y-5 min-w-0">
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                    Day {day.dayNumber} · Daily Reflection
+                  </span>
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
+                    Reflect on your day
+                  </h1>
+                  {day.dailyAssessment && (
+                    <p className="text-xs sm:text-[13px] text-zinc-700 dark:text-zinc-200 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
+                      {day.dailyAssessment}
+                    </p>
+                  )}
                   <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    Choose a preset mindset or write a brief personal thought.
+                    Write freely in your own words — log today&apos;s journal, vent about anything on your mind, or capture whatever stood out today.
                   </p>
-                )}
-              </div>
+                </div>
 
-              <div className="grid grid-cols-1 gap-2.5">
-                {JOURNAL_PRESETS.map((item) => {
-                  const val = `${item.title}: ${item.text}`;
-                  const active = review === val;
-                  return (
-                    <button
-                      key={item.title}
-                      type="button"
-                      onClick={() => {
-                        setReview(val);
-                        setError(null);
-                      }}
-                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
-                        active
-                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-                      }`}
-                    >
-                      <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
-                        {item.title}
-                      </p>
-                      <p className={`text-xs mt-0.5 leading-relaxed ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
-                        {item.text}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+                <textarea
+                  value={preferNotAnswer ? "" : review}
+                  onChange={(e) => {
+                    setReview(e.target.value);
+                    setError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      void handlePrimaryAction();
+                    }
+                  }}
+                  rows={5}
+                  maxLength={2000}
+                  placeholder="Write your journal, vent, or share any thoughts from today..."
+                  className={areaCls}
+                />
 
-              <textarea
-                value={review}
-                onChange={(e) => {
-                  setReview(e.target.value);
-                  setError(null);
-                }}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    void handlePrimaryAction();
-                  }
-                }}
-                rows={3}
-                maxLength={2000}
-                placeholder="Or write your own reflection here..."
-                className={areaCls}
-              />
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setReview((prev) => (prev === REFLECTION_DECLINED ? "" : REFLECTION_DECLINED));
+                  }}
+                  className={`w-full p-4 rounded-2xl border text-left transition select-none flex items-center justify-between gap-3 ${
+                    preferNotAnswer
+                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                      : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${preferNotAnswer ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                      Prefer not to answer
+                    </p>
+                    <p className={`text-xs mt-0.5 leading-relaxed ${preferNotAnswer ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
+                      Keep today&apos;s journal private and continue to your mood rating.
+                    </p>
+                  </div>
+                  {preferNotAnswer && <Check className="w-4 h-4 shrink-0" />}
+                </button>
+              </div>
+            );
+          })()}
 
           {/* REFLECTION 2: DAILY ENERGY & MOOD RATING (ALWAYS LAST) */}
           {currentSubStep === "reflection_mood" && (
