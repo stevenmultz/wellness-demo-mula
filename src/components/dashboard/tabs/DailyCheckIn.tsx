@@ -931,9 +931,9 @@ function TaskForm({
             src={historyBg}
             alt=""
             decoding="async"
-            className="w-full h-full object-cover object-center scale-[1.03]"
+            className="w-full h-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-white/75 via-white/90 to-[#fafaf9]/98 dark:from-black/55 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/75 via-white/90 to-[#fafaf9]/98 dark:from-black/55 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96" />
         </div>
 
         <div className="relative z-10 h-full w-full overflow-y-auto overscroll-contain">
@@ -948,13 +948,13 @@ function TaskForm({
               <button
                 type="button"
                 onClick={onClose}
-                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
+                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/90 dark:bg-zinc-950/80 text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-zinc-900"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
               <span
-                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-md ${
+                className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${
                   isTaskDone
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                     : isPast
@@ -1130,9 +1130,9 @@ function TaskForm({
           src={activeBg}
           alt=""
           decoding="async"
-          className="w-full h-full object-cover object-center scale-[1.03] transition-opacity duration-500"
+          className="w-full h-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/88 to-[#fafaf9]/98 dark:from-black/50 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/88 to-[#fafaf9]/98 dark:from-black/50 dark:via-[#0b0b0d]/82 dark:to-[#09090b]/96" />
       </div>
 
       {/* SEAMLESS FULL-HEIGHT SCROLL LAYER (SINGLE CONTAINER, NO DOUBLE PADDING) */}
@@ -1151,13 +1151,13 @@ function TaskForm({
                 type="button"
                 onClick={handleBack}
                 aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
-                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/80 dark:bg-black/45 backdrop-blur-md text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-black/65"
+                className="h-9 px-3.5 rounded-full border border-zinc-900/12 dark:border-white/15 bg-white/90 dark:bg-zinc-950/80 text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-white dark:hover:bg-zinc-900"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
 
-              <span className="h-7 px-3 rounded-full border border-zinc-900/10 dark:border-white/12 bg-white/70 dark:bg-black/40 backdrop-blur-md text-[11px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-semibold inline-flex items-center truncate max-w-[60%]">
+              <span className="h-7 px-3 rounded-full border border-zinc-900/10 dark:border-white/12 bg-white/85 dark:bg-zinc-950/75 text-[11px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-semibold inline-flex items-center truncate max-w-[60%]">
                 {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
               </span>
             </div>
