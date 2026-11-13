@@ -3,37 +3,37 @@
 @tailwind utilities;
 
 :root {
-  /* 60% Primary Neutral Canvas */
-  --background: #f6f6f4;
-  --surface-60: #f6f6f4;
-  /* 30% Structural Surfaces & Dividers */
-  --card-bg: #ffffff;
-  --surface-30: #eeeeec;
-  --card-border: #e6e6e4;
-  --card-outer-border: #e6e6e4;
-  /* 10% High-Contrast Emphasis & Accents */
-  --foreground: #171717;
-  --accent-10: #171717;
-  --muted-foreground: #71717a;
-  --card-shadow: 0 1px 2px rgba(23, 23, 23, 0.04);
-  --radius-card: 16px;
-  --radius-control: 12px;
+  /* 60% Avant-Garde Archival Stone Canvas */
+  --background: #f3f2ed;
+  --surface-60: #f3f2ed;
+  /* 30% Architectural Surfaces & Hairline Dividers */
+  --card-bg: #faf9f6;
+  --surface-30: #eae8e0;
+  --card-border: #dad7cd;
+  --card-outer-border: #dad7cd;
+  /* 10% High-Contrast Obsidian Ink */
+  --foreground: #111113;
+  --accent-10: #111113;
+  --muted-foreground: #62605b;
+  --card-shadow: none;
+  --radius-card: 2px;
+  --radius-control: 2px;
 }
 
 .dark {
-  /* 60% Primary Neutral Canvas */
-  --background: #0e0e0e;
-  --surface-60: #0e0e0e;
-  /* 30% Structural Surfaces & Dividers */
-  --card-bg: #171717;
-  --surface-30: #1f1f1f;
-  --card-border: #2a2a2a;
-  --card-outer-border: #2a2a2a;
-  /* 10% High-Contrast Emphasis & Accents */
-  --foreground: #f5f5f4;
-  --accent-10: #f5f5f4;
-  --muted-foreground: #a1a1aa;
-  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  /* 60% Avant-Garde Obsidian Gallery Canvas */
+  --background: #09090b;
+  --surface-60: #09090b;
+  /* 30% Architectural Surfaces & Hairline Dividers */
+  --card-bg: #121215;
+  --surface-30: #1a1a1f;
+  --card-border: #26262b;
+  --card-outer-border: #26262b;
+  /* 10% High-Contrast Archival Bone */
+  --foreground: #f4f3ef;
+  --accent-10: #f4f3ef;
+  --muted-foreground: #96948e;
+  --card-shadow: none;
 }
 
 html {
@@ -50,11 +50,11 @@ body {
 }
 
 .silver-mint-canvas {
-  background: #f6f6f4;
+  background: #f3f2ed;
 }
 
 .dark .silver-mint-canvas {
-  background: #0e0e0e;
+  background: #09090b;
 }
 
 /* Mobile Touch Optimization: Disable fixed background on mobile to eliminate GPU jank and repaint lag */
@@ -137,38 +137,48 @@ body {
   box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
 }
 
-/* Floating Navigation Blur Dock */
+/* Editorial Hairline Skeleton Bar Animation */
+@keyframes editorialScan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+
+.editorial-scan-line {
+  animation: editorialScan 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Floating Architectural Navigation Dock */
 .blur-dock {
-  background: #ffffff;
-  border: 1px solid #e6e6e4;
-  box-shadow: 0 1px 2px rgba(23, 23, 23, 0.06);
+  background: rgba(250, 249, 246, 0.94);
+  border: 1px solid #d4d1c8;
+  box-shadow: none;
 }
 
 .dark .blur-dock {
-  background: #171717;
-  border: 1px solid #2a2a2a;
+  background: rgba(14, 14, 16, 0.94);
+  border: 1px solid #27272c;
   box-shadow: none;
 }
 
-/* Frosted Form Inputs */
+/* Sharp Editorial Form Inputs */
 .glass-input {
-  background: #fafafa;
-  border: 1px solid #e6e6e4;
+  background: #faf9f6;
+  border: 1px solid #d4d1c8;
   border-radius: var(--radius-control);
   box-shadow: none;
-  color: #171717;
-  transition: border-color 0.15s ease;
+  color: #111113;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .glass-input::placeholder {
-  color: #71717a;
+  color: #7c7972;
 }
 
 .dark .glass-input {
-  background: #141414;
-  border: 1px solid #2a2a2a;
+  background: #121215;
+  border: 1px solid #26262b;
   box-shadow: none;
-  color: #f5f5f4;
+  color: #f4f3ef;
 }
 
 .dark .glass-input::placeholder {
@@ -178,13 +188,13 @@ body {
 .glass-input:focus {
   outline: none;
   background: #ffffff;
-  border-color: #171717;
+  border-color: #111113;
   box-shadow: none;
 }
 
 .dark .glass-input:focus {
-  background: #141414;
-  border-color: #f5f5f4;
+  background: #16161a;
+  border-color: #f4f3ef;
   box-shadow: none;
 }
 

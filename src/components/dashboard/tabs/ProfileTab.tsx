@@ -82,7 +82,7 @@ type View =
   | "account";
 
 const inputCls =
-  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
 
 const labelSpanCls = "block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-1.5";
 
@@ -102,7 +102,7 @@ function Banner({ msg }: { msg: Msg }) {
   return (
     <p
       role={msg.type === "error" ? "alert" : "status"}
-      className={`text-xs px-3.5 py-2.5 rounded-xl border font-mono ${
+      className={`text-xs px-3.5 py-2.5 rounded-[2px] border font-mono ${
         msg.type === "error"
           ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/40"
           : "bg-zinc-900/5 text-zinc-900 border-zinc-300 dark:bg-white/10 dark:text-zinc-100 dark:border-white/20"
@@ -378,7 +378,7 @@ export function ProfileTab({
       {!view && (
         <div className="space-y-6 max-w-2xl mx-auto">
           {/* Top Profile Image Banner */}
-          <section className="overflow-hidden rounded-2xl sm:rounded-3xl bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
+          <section className="overflow-hidden rounded-[2px] sm:rounded-[2px] bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
             <div className="relative aspect-[16/7] sm:aspect-[21/9] min-h-[170px] sm:min-h-[200px] w-full flex items-end">
               {/* Background Cover Image with atmospheric luxury dark overlay */}
               <div className="absolute inset-0 z-0">
@@ -386,18 +386,18 @@ export function ProfileTab({
                 <img
                   src="/image.webp"
                   alt=""
-                  className="w-full h-full object-cover opacity-60 scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover opacity-60 grayscale contrast-[1.06] scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/35" />
               </div>
 
               {/* Top Badges */}
               <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
-                <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5">
+                <span className="px-2.5 py-1 rounded-[2px] bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>Active Member</span>
                 </span>
-                <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
+                <span className="px-2.5 py-1 rounded-[2px] bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
                   Joined {new Date(user.createdAt).getFullYear()}
                 </span>
               </div>
@@ -407,7 +407,7 @@ export function ProfileTab({
                 <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
                   {/* Avatar with Camera Quick Upload */}
                   <div className="relative group shrink-0">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-zinc-800 border-2 border-white/90 dark:border-white/20 shadow-2xl flex items-center justify-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2px] overflow-hidden bg-zinc-800 border-2 border-white/90 dark:border-white/20 shadow-2xl flex items-center justify-center">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt={form.fullName} className="w-full h-full object-cover" />
@@ -422,7 +422,7 @@ export function ProfileTab({
                         setTimeout(() => fileRef.current?.click(), 150);
                       }}
                       title="Update profile picture"
-                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
+                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-[2px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
                     >
                       <Camera className="w-3 h-3" />
                     </button>
@@ -430,7 +430,7 @@ export function ProfileTab({
 
                   {/* Name, email, occupation */}
                   <div className="min-w-0 text-white drop-shadow-sm space-y-0.5">
-                    <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate leading-snug">
+                    <h1 className="font-editorial text-2xl sm:text-3xl tracking-tight truncate leading-none">
                       {form.fullName || "Member Profile"}
                     </h1>
                     <p className="text-xs text-white/80 font-mono truncate">{user.email}</p>
@@ -447,7 +447,7 @@ export function ProfileTab({
                     setMsg(null);
                     setView("basic");
                   }}
-                  className="shrink-0 hidden sm:inline-flex px-3.5 py-1.5 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 text-white text-xs font-semibold tracking-wide uppercase transition active:scale-95"
+                  className="shrink-0 hidden sm:inline-flex px-3.5 py-1.5 rounded-[2px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 text-white text-xs font-semibold tracking-wide uppercase transition active:scale-95"
                 >
                   Edit Profile
                 </button>
@@ -468,7 +468,7 @@ export function ProfileTab({
                   </span>
                 )}
               </div>
-              <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 overflow-hidden">
+              <div className="rounded-[2px] bg-white dark:bg-[#121215] border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 overflow-hidden">
                 {group.items.map(([id, label, desc]) => (
                   <button
                     key={id}
@@ -498,7 +498,7 @@ export function ProfileTab({
         <div className="max-w-xl mx-auto space-y-4">
           <Banner msg={msg} />
 
-          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-6 space-y-5">
+          <div className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 sm:p-6 space-y-5">
             {/* Clean Section Header */}
             <div className="pb-3 border-b border-zinc-100 dark:border-white/10 space-y-0.5">
               <h2 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
@@ -510,9 +510,9 @@ export function ProfileTab({
             {/* 1. BASIC INFORMATION */}
             {view === "basic" && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-14 h-14 rounded-full overflow-hidden bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                    <div className="w-14 h-14 rounded-[2px] overflow-hidden bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center shrink-0">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -529,7 +529,7 @@ export function ProfileTab({
                     type="button"
                     disabled={avatarBusy}
                     onClick={() => fileRef.current?.click()}
-                    className="h-9 px-3.5 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
+                    className="h-9 px-3.5 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
                   >
                     {avatarBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                     <span>Upload</span>
@@ -600,7 +600,7 @@ export function ProfileTab({
             {/* 2. CONTACT DETAILS */}
             {view === "contact" && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Mail className="w-4 h-4 text-zinc-500 shrink-0" />
                     <div className="min-w-0">
@@ -608,7 +608,7 @@ export function ProfileTab({
                       <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">{user.email}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-mono font-medium">
+                  <span className="shrink-0 px-2 py-0.5 rounded-[2px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-mono font-medium">
                     Verified
                   </span>
                 </div>
@@ -761,7 +761,7 @@ export function ProfileTab({
                     <button
                       type="submit"
                       disabled={saving}
-                      className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
+                      className="h-10 px-5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
                     >
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
                       <span>Update Password</span>
@@ -769,7 +769,7 @@ export function ProfileTab({
                   </div>
                 </form>
 
-                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-2">
+                <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Session & Credential Security</span>
@@ -787,7 +787,7 @@ export function ProfileTab({
             {/* 6. PRIVACY & DATA EXPORT */}
             {view === "privacy" && (
               <div className="space-y-4">
-                <dl className="rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] divide-y divide-zinc-200/60 dark:divide-white/10 text-xs">
+                <dl className="rounded-[2px] border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] divide-y divide-zinc-200/60 dark:divide-white/10 text-xs">
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <dt className="text-zinc-500">Registered Email</dt>
                     <dd className="font-semibold text-zinc-900 dark:text-white truncate">{user.email}</dd>
@@ -807,7 +807,7 @@ export function ProfileTab({
                   </div>
                 </dl>
 
-                <div className="p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
+                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
                   <div>
                     <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
                       Export Wellness Account Data
@@ -819,14 +819,14 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={handleExportData}
-                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download Data (.json)</span>
                   </button>
                 </div>
 
-                <div className="p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
+                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
                   <div>
                     <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
                       Local Storage & Cache Manager
@@ -838,7 +838,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={handleClearCache}
-                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Clear Local Cache</span>
@@ -851,7 +851,7 @@ export function ProfileTab({
             {view === "account" && (
               <div className="space-y-4">
                 {/* Concierge Support Card */}
-                <div className="p-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-2.5">
+                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-2.5">
                   <div className="flex items-center gap-2">
                     <LifeBuoy className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
                     <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
@@ -874,7 +874,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="w-full px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white flex items-center justify-between transition"
+                    className="w-full px-4 py-3.5 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <LogOut className="w-4 h-4 text-zinc-500" />
@@ -886,7 +886,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onDeleteAccount}
-                    className="w-full px-4 py-3.5 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-semibold text-red-600 dark:text-red-400 flex items-center justify-between transition"
+                    className="w-full px-4 py-3.5 rounded-[2px] border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-semibold text-red-600 dark:text-red-400 flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <Trash2 className="w-4 h-4" />
@@ -910,7 +910,7 @@ function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
+      className="h-10 px-5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
     >
       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
       <span>Save Changes</span>
@@ -937,9 +937,9 @@ function NotificationPrefs() {
   return (
     <div className="space-y-4">
       {/* Push Notifications Toggle */}
-      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-[2px] bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
             <Bell className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -966,9 +966,9 @@ function NotificationPrefs() {
       </div>
 
       {/* Routine Reminders */}
-      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Smartphone className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -994,9 +994,9 @@ function NotificationPrefs() {
       </div>
 
       {/* Cohort Community Announcements */}
-      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Users className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -1022,9 +1022,9 @@ function NotificationPrefs() {
       </div>
 
       {/* Weekly Progress Digest */}
-      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Mail className="w-4 h-4" />
           </div>
           <div className="min-w-0">

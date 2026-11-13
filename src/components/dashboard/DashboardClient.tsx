@@ -1669,7 +1669,7 @@ export function DashboardClient({
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden font-sans bg-[#f6f6f4] dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden font-sans bg-[#f3f2ed] dark:bg-[#09090b] text-zinc-900 dark:text-[#f4f3ef] transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
@@ -1690,40 +1690,49 @@ export function DashboardClient({
         />
       )}
 
-      {/* Unified Bottom Floating Dock (4 Menus: My Plan, Explore, Alerts, Profile) */}
+      {/* ARCHITECTURAL EDITORIAL BOTTOM NAVIGATION BAR (4 MENUS) */}
       <nav
         aria-label="Primary"
         style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-14 rounded-[2px] px-1 flex items-stretch justify-between border border-zinc-900/20 dark:border-white/20 bg-[#faf9f6]/96 dark:bg-[#0d0d10]/96 font-mono divide-x divide-zinc-900/10 dark:divide-white/10"
       >
         {(
           [
-            { key: "my_plan", label: "My Plan", Icon: Calendar },
+            { key: "my_plan", label: "Plan", Icon: Calendar },
             { key: "all_plan", label: "Explore", Icon: Compass },
             { key: "notifications", label: "Alerts", Icon: Bell },
             { key: "profile", label: "Profile", Icon: User },
           ] as const
-        ).map(({ key, label, Icon }) => (
-          <button
-            key={key}
-            type="button"
-            aria-label={label}
-            title={label}
-            aria-current={activeTab === key ? "page" : undefined}
-            onClick={() => {
-              setActiveTab(key);
-              setIsViewingPlanDetail(false);
-              window.scrollTo({ top: 0 });
-            }}
-            className={`flex-1 h-9 rounded-full transition flex items-center justify-center ${
-              activeTab === key
-                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-          </button>
-        ))}
+        ).map(({ key, label, Icon }) => {
+          const isActiveTab = activeTab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-label={label}
+              title={label}
+              aria-current={isActiveTab ? "page" : undefined}
+              onClick={() => {
+                setActiveTab(key);
+                setIsViewingPlanDetail(false);
+                window.scrollTo({ top: 0 });
+              }}
+              className={`relative flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                isActiveTab
+                  ? "text-zinc-950 dark:text-[#f4f3ef] bg-zinc-900/[0.04] dark:bg-white/[0.05]"
+                  : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-500 dark:hover:text-zinc-200"
+              }`}
+            >
+              {isActiveTab && (
+                <span className="absolute top-0 inset-x-3 h-[2px] bg-zinc-950 dark:bg-[#f4f3ef]" />
+              )}
+              <Icon className="w-3.5 h-3.5" strokeWidth={1.6} />
+              <span className="text-[9px] uppercase tracking-[0.2em] font-semibold leading-none">
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </nav>
 
       {/* Main Content Area with safe-area spacing */}
@@ -1733,16 +1742,16 @@ export function DashboardClient({
       >
         {actionNotice && (
           <div
-            className={`mb-4 glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border shadow-sm font-mono ${
+            className={`mb-4 rounded-[2px] p-4 bg-[#faf9f6] dark:bg-[#121215] text-xs font-medium flex items-center gap-2.5 animate-in fade-in border font-mono ${
               actionNotice.type === "error"
-                ? "border-red-500/30 text-red-700 dark:text-red-300"
-                : "border-zinc-300 dark:border-white/25 text-zinc-900 dark:text-white"
+                ? "border-red-500/40 text-red-700 dark:text-red-300"
+                : "border-zinc-900/20 dark:border-white/20 text-zinc-950 dark:text-[#f4f3ef]"
             }`}
           >
             {actionNotice.type === "error" ? (
               <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
             ) : (
-              <CheckCircle className="w-4 h-4 text-zinc-800 dark:text-zinc-200 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-zinc-900 dark:text-[#f4f3ef] shrink-0" />
             )}
             <span>{actionNotice.text}</span>
           </div>
@@ -1887,7 +1896,7 @@ export function DashboardClient({
       {/* Delete Account Modal */}
       {deleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/75 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md glass-panel rounded-3xl p-6 sm:p-8 space-y-4">
+          <div className="w-full max-w-md glass-panel rounded-[2px] p-6 sm:p-8 space-y-4">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
               Delete Your Account
             </h3>
@@ -1896,7 +1905,7 @@ export function DashboardClient({
             </p>
 
             {deleteError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs">
+              <div className="p-3 rounded-[2px] bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs">
                 {deleteError}
               </div>
             )}
@@ -1909,7 +1918,7 @@ export function DashboardClient({
                   placeholder="Enter your password"
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}
-                  className="w-full pl-4 pr-10 py-2.5 rounded-xl glass-input text-sm"
+                  className="w-full pl-4 pr-10 py-2.5 rounded-[2px] glass-input text-sm"
                 />
                 <button
                   type="button"
@@ -1929,14 +1938,14 @@ export function DashboardClient({
                     setDeletePassword("");
                     setDeleteError(null);
                   }}
-                  className="px-4 py-2 rounded-xl glass-panel-subtle text-zinc-800 dark:text-zinc-200 text-xs font-medium"
+                  className="px-4 py-2 rounded-[2px] glass-panel-subtle text-zinc-800 dark:text-zinc-200 text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isDeletingAccount}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition"
+                  className="px-4 py-2 rounded-[2px] bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition"
                 >
                   {isDeletingAccount ? "Deleting..." : "Confirm Delete"}
                 </button>

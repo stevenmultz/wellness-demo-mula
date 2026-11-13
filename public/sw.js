@@ -69,8 +69,8 @@ function buildInstantLoadingHtml(navId, originalUrl) {
       align-items: center;
       gap: 6px;
       padding: 10px 20px;
-      border-radius: 9999px;
-      background: rgba(0, 0, 0, 0.65);
+      border-radius: 2px;
+      background: rgba(9, 9, 11, 0.78);
       border: 1px solid rgba(255, 255, 255, 0.2);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);

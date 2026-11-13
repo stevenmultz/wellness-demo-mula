@@ -155,7 +155,7 @@ export function AuthModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
         data-lenis-prevent
-        className="relative w-full max-w-lg rounded-3xl glass-panel shadow-2xl p-6 sm:p-8 text-zinc-900 dark:text-zinc-100 max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-lg rounded-[2px] glass-panel shadow-2xl p-6 sm:p-8 text-zinc-900 dark:text-zinc-100 max-h-[92vh] overflow-y-auto"
       >
         {/* Top Header Row with Switcher & Close Button */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-200/70 dark:border-white/10">
@@ -165,11 +165,11 @@ export function AuthModal({
 
           <div className="flex items-center gap-2.5">
             {tab !== "forgot" && (
-              <div className="flex items-center p-1 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm">
+              <div className="flex items-center p-1 rounded-[2px] bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm">
                 <button
                   type="button"
                   onClick={() => switchTab("signup")}
-                  className={`px-3 py-1 rounded-xl text-xs font-semibold transition ${
+                  className={`px-3 py-1 rounded-[2px] text-xs font-semibold transition ${
                     tab === "signup"
                       ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm"
                       : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
@@ -180,7 +180,7 @@ export function AuthModal({
                 <button
                   type="button"
                   onClick={() => switchTab("signin")}
-                  className={`px-3 py-1 rounded-xl text-xs font-semibold transition ${
+                  className={`px-3 py-1 rounded-[2px] text-xs font-semibold transition ${
                     tab === "signin"
                       ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm"
                       : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
@@ -194,7 +194,7 @@ export function AuthModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition"
+              className="p-2 rounded-[2px] text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition"
               aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
@@ -204,13 +204,13 @@ export function AuthModal({
 
         {/* Feedback Banners */}
         {errorMsg && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs leading-relaxed">
+          <div className="mb-5 p-3.5 rounded-[2px] bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs leading-relaxed">
             {errorMsg}
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-zinc-900/10 dark:bg-white/10 border border-zinc-900/20 dark:border-white/20 text-zinc-900 dark:text-zinc-100 text-xs leading-relaxed font-mono">
+          <div className="mb-5 p-3.5 rounded-[2px] bg-zinc-900/10 dark:bg-white/10 border border-zinc-900/20 dark:border-white/20 text-zinc-900 dark:text-zinc-100 text-xs leading-relaxed font-mono">
             <p>{successMsg}</p>
             {devResetUrl && (
               <a
@@ -240,7 +240,7 @@ export function AuthModal({
                     setSignUpData({ ...signUpData, fullName: e.target.value })
                   }
                   placeholder="Enter your full name"
-                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                  className="w-full px-4 py-2.5 rounded-[2px] glass-input text-sm"
                 />
               </div>
 
@@ -256,7 +256,7 @@ export function AuthModal({
                     setSignUpData({ ...signUpData, email: e.target.value })
                   }
                   placeholder="Enter your email"
-                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                  className="w-full px-4 py-2.5 rounded-[2px] glass-input text-sm"
                 />
               </div>
 
@@ -271,7 +271,7 @@ export function AuthModal({
                     setSignUpData({ ...signUpData, phone: e.target.value })
                   }
                   placeholder="Enter your phone number"
-                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                  className="w-full px-4 py-2.5 rounded-[2px] glass-input text-sm"
                 />
               </div>
 
@@ -288,7 +288,7 @@ export function AuthModal({
                       setSignUpData({ ...signUpData, password: e.target.value })
                     }
                     placeholder="Enter your password (min. 8 characters)"
-                    className="w-full pl-4 pr-11 py-2.5 rounded-xl glass-input text-sm"
+                    className="w-full pl-4 pr-11 py-2.5 rounded-[2px] glass-input text-sm"
                   />
                   <button
                     type="button"
@@ -317,7 +317,7 @@ export function AuthModal({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full sm:w-auto chrome-button px-7 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
+                className="w-full sm:w-auto chrome-button px-7 py-2.5 rounded-[2px] text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
               >
                 {isLoading ? (
                   <>
@@ -348,7 +348,7 @@ export function AuthModal({
                   setSignInData({ ...signInData, email: e.target.value })
                 }
                 placeholder="Enter your email"
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                className="w-full px-4 py-2.5 rounded-[2px] glass-input text-sm"
               />
             </div>
 
@@ -374,7 +374,7 @@ export function AuthModal({
                     setSignInData({ ...signInData, password: e.target.value })
                   }
                   placeholder="Enter your password"
-                  className="w-full pl-4 pr-11 py-2.5 rounded-xl glass-input text-sm"
+                  className="w-full pl-4 pr-11 py-2.5 rounded-[2px] glass-input text-sm"
                 />
                 <button
                   type="button"
@@ -402,7 +402,7 @@ export function AuthModal({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full sm:w-auto chrome-button px-7 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
+                className="w-full sm:w-auto chrome-button px-7 py-2.5 rounded-[2px] text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
               >
                 {isLoading ? (
                   <>
@@ -435,7 +435,7 @@ export function AuthModal({
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
                 placeholder="Enter your email"
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                className="w-full px-4 py-2.5 rounded-[2px] glass-input text-sm"
               />
             </div>
 
@@ -451,7 +451,7 @@ export function AuthModal({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="chrome-button px-6 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
+                className="chrome-button px-6 py-2.5 rounded-[2px] text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
               >
                 {isLoading ? (
                   <>

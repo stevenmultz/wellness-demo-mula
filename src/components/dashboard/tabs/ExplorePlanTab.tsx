@@ -197,7 +197,7 @@ function ChipGroup({
 }) {
   if (options.length === 0) return null;
   return (
-    <fieldset className="space-y-2 rounded-xl border border-zinc-200 dark:border-white/10 p-3">
+    <fieldset className="space-y-2 rounded-[2px] border border-zinc-200 dark:border-white/10 p-3">
       <legend className="px-1 text-[11px] font-semibold text-zinc-950 dark:text-white">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
@@ -208,7 +208,7 @@ function ChipGroup({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(opt)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border transition active:scale-95 ${
+              className={`px-3 py-1.5 rounded-[2px] text-[11px] font-semibold border transition active:scale-95 ${
                 on
                   ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
                   : "border-zinc-300 dark:border-white/15 text-zinc-700 dark:text-zinc-200"
@@ -412,7 +412,7 @@ export function ExplorePlanTab({
     <>
       <FloatingHeader visible={headerVisible}>
         <div className="relative w-full flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
+          <div className="flex-1 flex items-center gap-2 rounded-[2px] bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
             <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
             <input
               type="search"
@@ -433,7 +433,7 @@ export function ExplorePlanTab({
             }}
             aria-haspopup="dialog"
             aria-expanded={filtersOpen}
-            className={`shrink-0 h-9 px-3 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+            className={`shrink-0 h-9 px-3 rounded-[2px] border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
               activeCount > 0
                 ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-white/20"
                 : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/10"
@@ -442,7 +442,7 @@ export function ExplorePlanTab({
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Filter</span>
             {activeCount > 0 && (
-              <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-bold inline-flex items-center justify-center">
+              <span className="min-w-4 h-4 px-1 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-bold inline-flex items-center justify-center">
                 {activeCount}
               </span>
             )}
@@ -462,13 +462,13 @@ export function ExplorePlanTab({
               @media (prefers-reduced-motion: reduce) { .fx-fade, .fx-sheet { animation: none } }
             `}</style>
             <button type="button" aria-label="Close filters" className="fx-fade absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} />
-            <div className="fx-sheet relative w-full md:max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 shadow-2xl font-sans">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <div className="fx-sheet relative w-full md:max-w-lg max-h-[88vh] flex flex-col rounded-t-[2px] md:rounded-[2px] bg-[#faf9f6] dark:bg-[#121215] border border-zinc-900/15 dark:border-white/15 shadow-2xl font-sans">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3.5 border-b border-zinc-900/10 dark:border-white/10">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-950 dark:text-white">Filters</p>
-                  <p className="text-[11px] text-zinc-500">{countActive(draft) > 0 ? `${countActive(draft)} selected` : "Choose what you want to see"}</p>
+                  <h3 className="font-editorial text-2xl tracking-tight text-zinc-950 dark:text-white leading-none">Filters</h3>
+                  <p className="text-[11px] font-mono text-zinc-500 mt-1">{countActive(draft) > 0 ? `${countActive(draft)} selected` : "Choose what you want to see"}</p>
                 </div>
-                <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center">
+                <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close" className="w-9 h-9 rounded-[2px] hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -509,7 +509,7 @@ export function ExplorePlanTab({
                     setApplied(EMPTY);
                     setPage(1);
                   }}
-                  className="px-4 py-2.5 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold disabled:opacity-40 active:scale-95 transition"
+                  className="px-4 py-2.5 rounded-[2px] border border-zinc-300 dark:border-white/20 text-xs font-semibold disabled:opacity-40 active:scale-95 transition"
                 >
                   Reset
                 </button>
@@ -520,7 +520,7 @@ export function ExplorePlanTab({
                     setPage(1);
                     setFiltersOpen(false);
                   }}
-                  className="flex-1 px-4 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
+                  className="flex-1 px-4 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
                 >
                   Apply · {catalog.filter((p) => matches(p, draft)).length} result{catalog.filter((p) => matches(p, draft)).length === 1 ? "" : "s"}
                 </button>
@@ -558,13 +558,13 @@ export function ExplorePlanTab({
             <button
               type="button"
               onClick={() => setSelectedCoach(null)}
-              className={`shrink-0 h-10 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
+              className={`shrink-0 h-10 px-3.5 rounded-[2px] text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
                 !selectedCoach
                   ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
-                  : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                  : "bg-white dark:bg-[#121215] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
               }`}
             >
-              <span className="w-5 h-5 rounded-full bg-zinc-200 dark:bg-white/15 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200">
+              <span className="w-5 h-5 rounded-[2px] bg-zinc-200 dark:bg-white/15 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200">
                 All
               </span>
               <span>All Coaches</span>
@@ -577,17 +577,17 @@ export function ExplorePlanTab({
                   key={name}
                   type="button"
                   onClick={() => setSelectedCoach(isSelected ? null : name)}
-                  className={`shrink-0 h-10 pl-1.5 pr-4 rounded-full text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
+                  className={`shrink-0 h-10 pl-1.5 pr-4 rounded-[2px] text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
                     isSelected
                       ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
-                      : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                      : "bg-white dark:bg-[#121215] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={avatar}
                     alt={name}
-                    className="w-7 h-7 rounded-full object-cover border border-white/20 shadow-2xs"
+                    className="w-7 h-7 rounded-[2px] object-cover border border-white/20 shadow-2xs"
                   />
                   <span className="truncate">{name}</span>
                 </button>
@@ -598,7 +598,7 @@ export function ExplorePlanTab({
               <button
                 type="button"
                 onClick={() => setShowAllCoaches((prev) => !prev)}
-                className="shrink-0 h-10 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
+                className="shrink-0 h-10 px-3.5 rounded-[2px] text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
               >
                 {showAllCoaches ? (
                   <>
@@ -608,7 +608,7 @@ export function ExplorePlanTab({
                 ) : (
                   <>
                     <span>Show All Coaches</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-[2px] bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
                       {availableCoaches.length}
                     </span>
                   </>
@@ -625,7 +625,7 @@ export function ExplorePlanTab({
                 key={`${chip.key}-${chip.value}`}
                 type="button"
                 onClick={() => removeChip(chip.key, chip.value)}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 transition hover:bg-zinc-200 dark:hover:bg-white/20"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 transition hover:bg-zinc-200 dark:hover:bg-white/20"
               >
                 {chip.label} <X className="w-3 h-3 text-zinc-400" />
               </button>
@@ -653,7 +653,7 @@ export function ExplorePlanTab({
                     setApplied(EMPTY);
                     setDraft(EMPTY);
                   }}
-                  className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase"
+                  className="px-4 py-1.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase"
                 >
                   Clear all
                 </button>
@@ -671,7 +671,7 @@ export function ExplorePlanTab({
                 const cityLabel = p.city || (p.locationType === "ONLINE" ? "Global" : null);
 
                 return (
-                  <li key={p.id} className="rounded-3xl overflow-hidden bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 shadow-sm flex flex-col transition-all">
+                  <li key={p.id} className="group rounded-[2px] overflow-hidden bg-[#faf9f6] dark:bg-[#121215] border border-zinc-900/15 dark:border-white/15 shadow-sm flex flex-col transition-all">
                     {/* Program Banner Image with Commitment Label */}
                     <div className="relative h-44 bg-zinc-200 dark:bg-zinc-800">
                       <Image
@@ -680,16 +680,16 @@ export function ExplorePlanTab({
                         fill
                         sizes="(max-width: 640px) 100vw, 50vw"
                         unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
-                        className="object-cover"
+                        className="object-cover grayscale contrast-[1.06] group-hover:grayscale-0 transition duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
 
                       {/* Top Badges: Status and Daily Commitment */}
                       <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
+                        <span className="px-2.5 py-0.5 rounded-[2px] text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
                           {meta.label}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20 inline-flex items-center gap-1 shadow-2xs">
+                        <span className="px-2.5 py-0.5 rounded-[2px] text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20 inline-flex items-center gap-1 shadow-2xs">
                           <Clock className="w-2.5 h-2.5 text-white/80" />
                           <span>{p.dailyCommitment || "20–30m/day"}</span>
                         </span>
@@ -698,17 +698,17 @@ export function ExplorePlanTab({
                       {/* Bottom Banner Labels: Location Type, City, and Intensity */}
                       <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-1.5 flex-wrap text-[10px] font-mono uppercase text-white/95">
                         <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
+                          <span className="px-2 py-0.5 rounded-[2px] bg-black/55 backdrop-blur-md border border-white/20">
                             {locLabel}
                           </span>
                           {cityLabel && (
-                            <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-[2px] bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
                               <MapPin className="w-2.5 h-2.5 text-white/70" />
                               <span>{cityLabel}</span>
                             </span>
                           )}
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
+                        <span className="px-2 py-0.5 rounded-[2px] bg-black/55 backdrop-blur-md border border-white/20">
                           {intensityOf(p.difficultyLevel)}
                         </span>
                       </div>
@@ -718,7 +718,7 @@ export function ExplorePlanTab({
                     <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between gap-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
+                          <h3 className="font-editorial text-xl sm:text-[22px] tracking-tight text-zinc-950 dark:text-white line-clamp-2 leading-tight">
                             {p.title}
                           </h3>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium">
@@ -730,7 +730,7 @@ export function ExplorePlanTab({
                           type="button"
                           onClick={() => setInfoProgram(p)}
                           aria-label={`View schedule and details for ${p.title}`}
-                          className="shrink-0 mt-0.5 w-8 h-8 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-500 dark:text-zinc-300 inline-flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/15 hover:text-zinc-950 dark:hover:text-white transition active:scale-95"
+                          className="shrink-0 mt-0.5 w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-500 dark:text-zinc-300 inline-flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/15 hover:text-zinc-950 dark:hover:text-white transition active:scale-95"
                         >
                           <Info className="w-4 h-4" />
                         </button>
@@ -744,7 +744,7 @@ export function ExplorePlanTab({
                               {p.price > 0 ? formatIdr(p.price) : "Free"}
                             </span>
                             {p.discountPercentage && p.discountPercentage > 0 && p.actualPrice && p.actualPrice > p.price ? (
-                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+                              <span className="px-1.5 py-0.5 rounded-[2px] text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                                 -{p.discountPercentage}%
                               </span>
                             ) : null}
@@ -760,7 +760,7 @@ export function ExplorePlanTab({
                           <button
                             type="button"
                             onClick={() => onViewDetails(p.id)}
-                            className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                            className="px-3.5 py-1.5 rounded-[2px] border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                           >
                             View
                           </button>
@@ -769,7 +769,7 @@ export function ExplorePlanTab({
                               type="button"
                               disabled={registeringId === p.id}
                               onClick={() => onRegister(p.id)}
-                              className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
+                              className="px-3.5 py-1.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
                             >
                               {p.enrollmentStatus === "PENDING" ? "Pay now" : registeringId === p.id ? "..." : "Register"}
                             </button>
@@ -783,15 +783,15 @@ export function ExplorePlanTab({
             </ul>
             {pages > 1 && (
               <nav aria-label="Program pages" className="flex items-center justify-center gap-1.5 pt-2">
-                <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
+                <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
                   <ChevronLeft className="w-3.5 h-3.5" /> Previous
                 </button>
                 {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-                  <button key={n} type="button" aria-current={n === safePage ? "page" : undefined} onClick={() => setPage(n)} className={`w-9 h-9 rounded-full text-xs font-semibold ${n === safePage ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950" : "border border-zinc-200 dark:border-white/15"}`}>
+                  <button key={n} type="button" aria-current={n === safePage ? "page" : undefined} onClick={() => setPage(n)} className={`w-9 h-9 rounded-[2px] text-xs font-semibold ${n === safePage ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950" : "border border-zinc-200 dark:border-white/15"}`}>
                     {n}
                   </button>
                 ))}
-                <button type="button" disabled={safePage === pages} onClick={() => setPage(safePage + 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
+                <button type="button" disabled={safePage === pages} onClick={() => setPage(safePage + 1)} className="h-9 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
                   Next <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </nav>
@@ -828,7 +828,7 @@ export function ExplorePlanTab({
               </p>
             </div>
 
-            <div className="px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+            <div className="px-3.5 py-2.5 rounded-[2px] bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
               <span>{infoProgram.trainingDaysTotal ?? 0} Training</span>
               <span className="text-zinc-300 dark:text-zinc-600">•</span>
               <span>{infoProgram.connectDaysTotal ?? 0} Connect</span>

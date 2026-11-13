@@ -157,19 +157,19 @@ export function NotificationsHistoryTab({
     <>
       {/* FLOATING HEADER: SUBTAB SWITCHER (NOTIFICATIONS | HISTORY) */}
       <FloatingHeader visible={headerVisible}>
-        <div className="w-full flex p-1 rounded-xl bg-zinc-100 dark:bg-white/10">
+        <div className="w-full grid grid-cols-2 divide-x divide-zinc-900/10 dark:divide-white/10 rounded-[2px] border border-zinc-900/15 dark:border-white/15 overflow-hidden">
           <button
             type="button"
             onClick={() => setSection("notifications")}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
+            className={`py-2 text-[10px] font-mono uppercase tracking-[0.2em] font-semibold transition flex items-center justify-center ${
               section === "notifications"
-                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                ? "bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950"
+                : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white"
             }`}
           >
             <span>Notifications</span>
             {unreadCount > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-[2px] text-[9px] font-mono bg-zinc-900/15 dark:bg-white/20">
                 {unreadCount}
               </span>
             )}
@@ -178,10 +178,10 @@ export function NotificationsHistoryTab({
           <button
             type="button"
             onClick={() => setSection("history")}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
+            className={`py-2 text-[10px] font-mono uppercase tracking-[0.2em] font-semibold transition ${
               section === "history"
-                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                ? "bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950"
+                : "text-zinc-500 hover:text-zinc-950 dark:hover:text-white"
             }`}
           >
             History
@@ -197,7 +197,7 @@ export function NotificationsHistoryTab({
       {section === "notifications" && (
         <section className="space-y-3">
           {/* PUSH NOTIFICATION TOGGLE CARD (Placed directly in Notifications) */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 flex items-center justify-between gap-3 shadow-sm">
+          <div className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 flex items-center justify-between gap-3 shadow-sm">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
@@ -225,7 +225,7 @@ export function NotificationsHistoryTab({
                   type="button"
                   onClick={push.status === "on" ? push.disable : push.enable}
                   disabled={push.busy || push.status === "checking"}
-                  className="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
+                  className="shrink-0 px-3.5 py-1.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
                   {(push.busy || push.status === "checking") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {push.status === "on" ? "Turn Off" : "Turn On"}
@@ -266,9 +266,9 @@ export function NotificationsHistoryTab({
               key={n.id}
               type="button"
               onClick={() => markRead(n)}
-              className={`w-full text-left rounded-2xl border p-4 transition-all shadow-sm ${
+              className={`w-full text-left rounded-[2px] border p-4 transition-all shadow-sm ${
                 n.isRead
-                  ? "border-zinc-200 dark:border-white/10 bg-white/60 dark:bg-[#141414]/60"
+                  ? "border-zinc-200 dark:border-white/10 bg-white/60 dark:bg-[#121215]/60"
                   : "border-zinc-300 dark:border-white/25 bg-white dark:bg-[#181818] ring-1 ring-zinc-950/5 dark:ring-white/10"
               }`}
             >
@@ -276,7 +276,7 @@ export function NotificationsHistoryTab({
                 <span className={`text-xs sm:text-sm ${n.isRead ? "text-zinc-700 dark:text-zinc-300 font-medium" : "font-semibold text-zinc-950 dark:text-white"}`}>
                   {n.title}
                 </span>
-                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-full ${n.isRead ? "bg-zinc-100 dark:bg-white/5 text-zinc-400" : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"}`}>
+                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-[2px] ${n.isRead ? "bg-zinc-100 dark:bg-white/5 text-zinc-400" : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"}`}>
                   {n.isRead ? "Read" : "New"}
                 </span>
               </div>
@@ -308,11 +308,11 @@ export function NotificationsHistoryTab({
               {completedPrograms.map((cp) => (
                 <article
                   key={cp.programId}
-                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#141414] space-y-2.5 shadow-sm transition-all hover:border-zinc-400 dark:hover:border-white/20"
+                  className="rounded-[2px] border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#121215] space-y-2.5 shadow-sm transition-all hover:border-zinc-400 dark:hover:border-white/20"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">
                         Completed
                       </span>
                       <h4 className="text-sm font-semibold truncate text-zinc-900 dark:text-white">
@@ -362,7 +362,7 @@ export function NotificationsHistoryTab({
               {history.data.payments.map((p) => (
                 <article
                   key={p.enrollmentId}
-                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#141414] space-y-2 shadow-sm"
+                  className="rounded-[2px] border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#121215] space-y-2 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -375,7 +375,7 @@ export function NotificationsHistoryTab({
                       </p>
                     </div>
                     <span
-                      className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-[2px] shrink-0 ${
                         p.status === "ACTIVE"
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                           : p.status === "PENDING"

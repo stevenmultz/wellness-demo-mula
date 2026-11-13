@@ -119,7 +119,7 @@ export function MyPlanHeader({
           <button
             type="button"
             onClick={onExplore}
-            className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition"
+            className="px-4 py-1.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition"
           >
             <Compass className="w-3.5 h-3.5" />
             <span>Explore Plan</span>
@@ -131,9 +131,9 @@ export function MyPlanHeader({
               aria-haspopup="listbox"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white text-xs transition active:scale-95"
+              className="max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-[2px] bg-zinc-900/[0.04] hover:bg-zinc-900/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/10 border border-zinc-900/15 dark:border-white/15 text-zinc-950 dark:text-[#f4f3ef] text-[10px] font-mono transition active:scale-95"
             >
-              <span className="truncate font-semibold uppercase tracking-wide">{current.title}</span>
+              <span className="truncate font-semibold uppercase tracking-[0.16em]">{current.title}</span>
               <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
             {open && (
@@ -141,10 +141,10 @@ export function MyPlanHeader({
                 <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                 <ul
                   role="listbox"
-                  className="absolute right-0 top-full mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 p-2 shadow-2xl z-50"
+                  className="absolute right-0 top-full mt-2 w-72 max-h-72 overflow-y-auto rounded-[2px] bg-[#faf9f6] dark:bg-[#0c0c10] border border-zinc-900/20 dark:border-white/15 p-1.5 shadow-2xl z-50"
                 >
-                  <li className="px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-semibold">
-                    My Plans ({plans.length})
+                  <li className="px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 font-semibold border-b border-zinc-900/10 dark:border-white/10 mb-1">
+                    Active Editions ({plans.length})
                   </li>
                   {plans.map((p) => {
                     const selected = p.programId === current.programId;
@@ -156,10 +156,10 @@ export function MyPlanHeader({
                             onSelect(p.programId);
                             setOpen(false);
                           }}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition ${
+                          className={`w-full text-left px-3 py-2.5 rounded-[2px] text-xs flex items-center justify-between gap-2 transition ${
                             selected
-                              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold"
-                              : "hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-800 dark:text-zinc-200"
+                              ? "bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950 font-semibold"
+                              : "hover:bg-zinc-900/5 dark:hover:bg-white/5 text-zinc-800 dark:text-zinc-200"
                           }`}
                         >
                           <span className="truncate uppercase tracking-tight">{p.title}</span>
@@ -239,7 +239,7 @@ function formatStartsIn(startDate: string | Date): { headline: string; dateLabel
 }
 
 const fieldCls =
-  "w-full px-3.5 py-3 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-500";
+  "w-full px-3.5 py-3 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-500";
 
 function scheduleMeta(dayType: string | undefined) {
   if (dayType === "REST_DAY") return { label: "Rest Day" };
@@ -269,8 +269,8 @@ function movementNames(day: PlanDay): string[] {
 
 function Bar({ value }: { value: number }) {
   return (
-    <div className="h-2 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-      <div className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+    <div className="h-2 rounded-[2px] bg-zinc-100 dark:bg-white/10 overflow-hidden">
+      <div className="h-full rounded-[2px] bg-zinc-950 dark:bg-white transition-all" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
     </div>
   );
 }
@@ -409,32 +409,34 @@ export function MyPlanOverview({
 
   return (
     <div className="space-y-3">
-      <section className="overflow-hidden rounded-2xl bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10">
+      <section className="overflow-hidden rounded-[2px] bg-zinc-900 dark:bg-zinc-900 border border-zinc-900/20 dark:border-white/15">
         <div className="relative aspect-[2/1] w-full">
           {program?.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover grayscale contrast-[1.06]" />
           ) : (
-            <div className="absolute inset-0 bg-zinc-800" />
+            <div className="absolute inset-0 bg-zinc-900" />
           )}
-          <div className="absolute inset-0 bg-black/45" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20" />
           {program && (
-            <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
-              <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
+            <div className="absolute top-3.5 left-3.5 flex flex-wrap items-center gap-1.5 z-10">
+              <span className="px-2.5 py-1 rounded-[2px] bg-black/65 border border-white/25 text-[9px] font-mono font-semibold uppercase tracking-[0.2em] text-white inline-flex items-center gap-1">
                 <Clock className="w-3 h-3 text-zinc-300" />
                 <span>{program.dailyCommitment || "15–20 Mins / Day"}</span>
               </span>
-              <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+              <span className="px-2.5 py-1 rounded-[2px] bg-black/65 border border-white/25 text-[9px] font-mono font-semibold uppercase tracking-[0.2em] text-white">
                 {formatIntensityBadge(program.difficultyLevel)}
               </span>
             </div>
           )}
-          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-            <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
-              {program?.title || "No active program"}
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-white">
+            <h2 className="font-editorial text-2xl sm:text-3xl font-normal tracking-tight leading-none truncate">
+              {program?.title || "No Active Program"}
             </h2>
             {program && (
-              <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
+              <p className="mt-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-white/75 truncate">
+                Faculty · {program.coachName || "—"}
+              </p>
             )}
           </div>
         </div>
@@ -449,7 +451,7 @@ export function MyPlanOverview({
               <button
                 type="button"
                 onClick={onExplore}
-                className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
+                className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
               >
                 <Compass className="w-3.5 h-3.5" /> Explore Plan
               </button>
@@ -457,7 +459,7 @@ export function MyPlanOverview({
                 <button
                   type="button"
                   onClick={onViewHistory}
-                  className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
+                  className="px-5 py-2.5 rounded-[2px] border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
                 >
                   View History
                 </button>
@@ -470,7 +472,7 @@ export function MyPlanOverview({
           const startsInInfo = formatStartsIn(program.startDate);
           return (
             <>
-              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5">
+              <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-5">
                 <div className="space-y-1">
                   <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
                     {startsInInfo.headline}
@@ -503,24 +505,24 @@ export function MyPlanOverview({
         })()
       ) : (
         <>
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-            <div className="w-full px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5">
-                <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
-                  {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                  <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
+          <section className="rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-[#faf9f6] dark:bg-[#121215] overflow-hidden">
+            <div className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <p className="font-editorial text-xl sm:text-2xl font-normal tabular-nums text-zinc-950 dark:text-[#f4f3ef] leading-none">
+                  {currentDayNumber > 0 ? `Day ${String(currentDayNumber).padStart(2, "0")}` : "—"}
+                  <span className="font-mono text-xs text-zinc-500 font-normal ml-1.5">/ {String(totalProgramDays).padStart(2, "0")}</span>
                 </p>
                 <button
                   type="button"
                   onClick={() => setShowDayStats(true)}
                   aria-label="Program schedule & completion info"
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+                  className="w-5 h-5 rounded-[2px] flex items-center justify-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-900/5 dark:hover:bg-white/10 transition"
                 >
                   <Info className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <p className="text-xs font-semibold tracking-wider text-right text-zinc-700 dark:text-zinc-300">
-                {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
+              <p className="text-[10px] font-mono font-semibold tracking-[0.22em] text-right text-zinc-700 dark:text-zinc-300 uppercase">
+                {day ? schedule.label : "NO OPEN DAY"}
               </p>
             </div>
           </section>
@@ -549,42 +551,42 @@ export function MyPlanOverview({
                 )}
               </div>
 
-              <dl className="grid grid-cols-3 gap-3 pt-3 border-t border-zinc-200/90 dark:border-white/10 text-sm">
+              <dl className="grid grid-cols-3 gap-3 pt-3 border-t border-zinc-900/10 dark:border-white/10 text-sm">
                 <div>
-                  <dt className="text-[11px] text-zinc-500">Completed</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-white">{stats.completed}</dd>
+                  <dt className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">Completed</dt>
+                  <dd className="mt-0.5 font-editorial text-2xl font-normal tabular-nums text-zinc-950 dark:text-white">{stats.completed}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-zinc-500">Skipped</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-white">{stats.skipped}</dd>
+                  <dt className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">Skipped</dt>
+                  <dd className="mt-0.5 font-editorial text-2xl font-normal tabular-nums text-zinc-950 dark:text-white">{stats.skipped}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-zinc-500">Remaining</dt>
-                  <dd className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-white">{stats.remaining}</dd>
+                  <dt className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">Remaining</dt>
+                  <dd className="mt-0.5 font-editorial text-2xl font-normal tabular-nums text-zinc-950 dark:text-white">{stats.remaining}</dd>
                 </div>
               </dl>
             </div>
           </InfoPopupModal>
 
-          {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR) */}
-          <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1 shadow-xs">
-            <div className="grid grid-cols-3 gap-1">
+          {/* 3-INDEX ARCHITECTURAL SEGMENT BAR (TASKS | GUIDES | METRICS) */}
+          <section className="rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-[#faf9f6] dark:bg-[#121215] overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-zinc-900/10 dark:divide-white/10">
               <button
                 type="button"
                 onClick={() => setWidgetIndex(0)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                className={`relative h-10 px-2.5 text-[10px] font-mono uppercase tracking-[0.2em] font-semibold flex items-center justify-center gap-1.5 transition ${
                   widgetIndex === 0
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                    ? "bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-900/[0.03] dark:hover:bg-white/[0.04]"
                 }`}
               >
                 <span>Tasks</span>
                 {pendingTasksCount > 0 && (
                   <span
-                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.5 rounded-[2px] leading-none ${
                       widgetIndex === 0
-                        ? "bg-white/20 text-white dark:bg-zinc-950/20 dark:text-zinc-950 font-bold"
-                        : "bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
+                        ? "bg-white/20 text-[#f4f3ef] dark:bg-zinc-950/20 dark:text-zinc-950 font-bold"
+                        : "bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold"
                     }`}
                   >
                     {pendingTasksCount}
@@ -594,10 +596,10 @@ export function MyPlanOverview({
               <button
                 type="button"
                 onClick={() => setWidgetIndex(1)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
+                className={`relative h-10 px-2.5 text-[10px] font-mono uppercase tracking-[0.2em] font-semibold flex items-center justify-center transition ${
                   widgetIndex === 1
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                    ? "bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-900/[0.03] dark:hover:bg-white/[0.04]"
                 }`}
               >
                 Guides
@@ -605,10 +607,10 @@ export function MyPlanOverview({
               <button
                 type="button"
                 onClick={() => setWidgetIndex(2)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
+                className={`relative h-10 px-2.5 text-[10px] font-mono uppercase tracking-[0.2em] font-semibold flex items-center justify-center transition ${
                   widgetIndex === 2
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                    ? "bg-zinc-950 text-[#f4f3ef] dark:bg-[#f4f3ef] dark:text-zinc-950"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-900/[0.03] dark:hover:bg-white/[0.04]"
                 }`}
               >
                 Metrics
@@ -808,15 +810,17 @@ function CohortPerformanceCard({
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
+    <section className="rounded-[2px] border border-zinc-900/15 dark:border-white/15 bg-[#faf9f6] dark:bg-[#121215] overflow-hidden">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-zinc-900/10 dark:border-white/10 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-editorial text-2xl font-normal tracking-tight text-zinc-950 dark:text-[#f4f3ef] leading-none">
+            Performance Metrics
+          </h2>
           <button
             type="button"
             onClick={() => setShowMetricsInfo(true)}
             aria-label="Metrics calculation info"
-            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-900/5 dark:hover:bg-white/10 transition"
           >
             <Info className="w-3.5 h-3.5" />
           </button>
@@ -948,7 +952,7 @@ function ProgramReferencesWidget({
   if (validRefs.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3">
+    <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 sm:p-5 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
           <BookOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -977,7 +981,7 @@ function ProgramReferencesWidget({
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 h-7 px-3 rounded-full border border-zinc-300 dark:border-white/15 hover:bg-zinc-100 dark:hover:bg-white/10 text-[11px] font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1 transition"
+                  className="shrink-0 h-7 px-3 rounded-[2px] border border-zinc-300 dark:border-white/15 hover:bg-zinc-100 dark:hover:bg-white/10 text-[11px] font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1 transition"
                 >
                   <span>Open</span>
                   <ExternalLink className="w-2.5 h-2.5" />
@@ -1014,10 +1018,10 @@ function ProgramCommunityWidget({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
+            <div className="w-10 h-10 rounded-[2px] bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
               <Users className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -1035,7 +1039,7 @@ function ProgramCommunityWidget({
           <button
             type="button"
             onClick={() => setShowDisclaimer(true)}
-            className="shrink-0 h-9 px-4 rounded-full border border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+            className="shrink-0 h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
           >
             {communityUrl ? "Open" : "Join Group"}
           </button>
@@ -1050,8 +1054,8 @@ function ProgramCommunityWidget({
           onTouchEnd={(e) => e.stopPropagation()}
           className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto shadow-2xs">
+          <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-[2px] p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-[2px] bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto shadow-2xs">
               <Shield className="w-6 h-6" />
             </div>
 
@@ -1062,7 +1066,7 @@ function ProgramCommunityWidget({
               <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
                 You are about to navigate to an external messaging service (such as WhatsApp or Telegram).
               </p>
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/70 dark:border-white/10 text-left text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/70 dark:border-white/10 text-left text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Please note that interactions, discussions, and activities occurring outside the BMS Wellness platform take place independently and are not the responsibility or liability of BMS Wellness.
               </div>
             </div>
@@ -1071,7 +1075,7 @@ function ProgramCommunityWidget({
               <button
                 type="button"
                 onClick={handleConfirmProceed}
-                className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition shadow-xs flex items-center justify-center gap-1.5"
+                className="w-full h-10 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition shadow-xs flex items-center justify-center gap-1.5"
               >
                 <span>Continue to Community</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -1079,7 +1083,7 @@ function ProgramCommunityWidget({
               <button
                 type="button"
                 onClick={() => setShowDisclaimer(false)}
-                className="w-full h-9 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
+                className="w-full h-9 rounded-[2px] text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
               >
                 Cancel
               </button>
@@ -1103,10 +1107,10 @@ function ProgramReportEntryWidget({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
+            <div className="w-10 h-10 rounded-[2px] bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
               <AlertCircle className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -1122,7 +1126,7 @@ function ProgramReportEntryWidget({
           <button
             type="button"
             onClick={() => setShowReportPage(true)}
-            className="shrink-0 h-9 px-4 rounded-full border border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+            className="shrink-0 h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
           >
             Report
           </button>
@@ -1218,17 +1222,17 @@ function ProgramReportPageView({
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-          className="fixed inset-0 z-[85] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto animate-in fade-in duration-150"
+          className="fixed inset-0 z-[85] bg-[#f3f2ed] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto animate-in fade-in duration-150"
         >
           <header
             style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-            className="sticky top-0 z-10 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
+            className="sticky top-0 z-10 bg-white/90 dark:bg-[#121215]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
           >
             <div className="max-w-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1.5 active:scale-95 transition"
+                className="h-9 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1.5 active:scale-95 transition"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
@@ -1246,8 +1250,8 @@ function ProgramReportPageView({
 
           <main className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24">
             {submittedDone ? (
-              <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-6 sm:p-8 text-center space-y-5 shadow-xs mt-4">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto">
+              <div className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-6 sm:p-8 text-center space-y-5 shadow-xs mt-4">
+                <div className="w-14 h-14 rounded-[2px] bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <div className="space-y-2">
@@ -1264,14 +1268,14 @@ function ProgramReportPageView({
                   <button
                     type="button"
                     onClick={() => setSubmittedDone(false)}
-                    className="h-10 px-5 rounded-full border border-zinc-300 dark:border-white/15 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+                    className="h-10 px-5 rounded-[2px] border border-zinc-300 dark:border-white/15 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
                   >
                     Submit Another
                   </button>
                   <button
                     type="button"
                     onClick={onClose}
-                    className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
+                    className="h-10 px-6 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
                   >
                     Back to My Plan
                   </button>
@@ -1288,11 +1292,11 @@ function ProgramReportPageView({
                   </p>
                 </div>
 
-                <div className="p-1 rounded-xl bg-zinc-200/70 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
+                <div className="p-1 rounded-[2px] bg-zinc-200/70 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
                   <button
                     type="button"
                     onClick={() => setActiveTab("issue")}
-                    className={`py-2 px-3 rounded-lg transition ${
+                    className={`py-2 px-3 rounded-[2px] transition ${
                       activeTab === "issue"
                         ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs"
                         : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
@@ -1303,7 +1307,7 @@ function ProgramReportPageView({
                   <button
                     type="button"
                     onClick={() => setActiveTab("quit")}
-                    className={`py-2 px-3 rounded-lg transition ${
+                    className={`py-2 px-3 rounded-[2px] transition ${
                       activeTab === "quit"
                         ? "bg-red-600 text-white shadow-xs"
                         : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
@@ -1326,12 +1330,12 @@ function ProgramReportPageView({
                             key={opt}
                             type="button"
                             onClick={() => (activeTab === "quit" ? setQuitReason(opt) : setIssueType(opt))}
-                            className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition border ${
+                            className={`text-left px-3.5 py-2.5 rounded-[2px] text-xs font-medium transition border ${
                               isSelected
                                 ? activeTab === "quit"
                                   ? "bg-red-600 text-white border-transparent shadow-xs"
                                   : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
-                                : "bg-white dark:bg-[#141414] border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
+                                : "bg-white dark:bg-[#121215] border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
                             }`}
                           >
                             {opt}
@@ -1354,7 +1358,7 @@ function ProgramReportPageView({
                           ? "Let us know how we can assist or why you need to leave..."
                           : "Describe the issue clearly (e.g., coach concern, broken video player, or exercise guidance)..."
                       }
-                      className="w-full text-base sm:text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-3.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                      className="w-full text-base sm:text-sm rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-3.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
                       required={activeTab === "issue"}
                     />
                   </div>
@@ -1371,7 +1375,7 @@ function ProgramReportPageView({
                   <button
                     type="submit"
                     disabled={isSubmitting || (activeTab === "issue" && !note.trim())}
-                    className={`w-full h-11 rounded-2xl text-xs font-semibold disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
+                    className={`w-full h-11 rounded-[2px] text-xs font-semibold disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
                       activeTab === "quit"
                         ? "bg-red-600 text-white hover:bg-red-700"
                         : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90"
@@ -1476,7 +1480,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("meal")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1491,7 +1495,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <Utensils className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1512,7 +1516,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("meetup")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1527,7 +1531,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1548,7 +1552,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("equipment")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1563,7 +1567,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <Dumbbell className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1584,7 +1588,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("objective")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1599,7 +1603,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <Target className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1620,7 +1624,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("reference")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1635,7 +1639,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <BookOpen className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1656,7 +1660,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("terms")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1671,7 +1675,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <BookOpen className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1692,7 +1696,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("coach")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1707,7 +1711,7 @@ function ProgramPreparationWidgets({
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
@@ -1728,7 +1732,7 @@ function ProgramPreparationWidgets({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-xs">
         <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
@@ -1736,7 +1740,7 @@ function ProgramPreparationWidgets({
               type="button"
               onClick={() => setShowGuidesInfo(true)}
               aria-label="Program guides overview"
-              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
             >
               <Info className="w-3.5 h-3.5" />
             </button>
@@ -1775,7 +1779,7 @@ function ProgramPreparationWidgets({
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[80] bg-[#f3f2ed] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
           >
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
@@ -1787,7 +1791,7 @@ function ProgramPreparationWidgets({
               <button
                 type="button"
                 onClick={() => setActivePage(null)}
-                className="pointer-events-auto h-8 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
+                className="pointer-events-auto h-8 px-3.5 rounded-[2px] bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
@@ -1816,7 +1820,7 @@ function ProgramPreparationWidgets({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
+                className="pointer-events-auto h-8 px-4 rounded-[2px] bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
               >
                 <span>{program.communityLink ? "Community" : "Concierge"}</span>
               </a>
@@ -1899,7 +1903,7 @@ function ProgramPreparationWidgets({
             </div>
 
             {/* CURVED SHEET CONTAINER (AIRY, SPACIOUS, ZERO NESTED BOXES) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-9 px-6 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#121215] shadow-2xl pt-9 px-6 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
               {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
               {activePage === "meal" && (
                 <div className="space-y-7">
@@ -1945,7 +1949,7 @@ function ProgramPreparationWidgets({
                           key={d.id}
                           className={`py-5 first:pt-2 last:pb-2 space-y-3 transition ${
                             isToday
-                              ? "px-4 sm:px-5 -mx-2 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 my-2"
+                              ? "px-4 sm:px-5 -mx-2 rounded-[2px] bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 my-2"
                               : ""
                           }`}
                         >
@@ -1971,12 +1975,12 @@ function ProgramPreparationWidgets({
 
                             <div className="flex items-center gap-1.5">
                               {complianceLabel && (
-                                <span className="h-5 px-2 rounded-full bg-zinc-100 dark:bg-white/10 text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center">
+                                <span className="h-5 px-2 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center">
                                   {complianceLabel}
                                 </span>
                               )}
                               {isToday && (
-                                <span className="h-5 px-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center">
+                                <span className="h-5 px-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center">
                                   Today
                                 </span>
                               )}
@@ -2058,7 +2062,7 @@ function ProgramPreparationWidgets({
                                     {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                   </span>
                                   {isToday && (
-                                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
                                       Today
                                     </span>
                                   )}
@@ -2077,7 +2081,7 @@ function ProgramPreparationWidgets({
                                 </h3>
                               </div>
                               {d.onsiteSchedule && (
-                                <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1.5 shrink-0">
+                                <span className="text-[11px] font-mono px-2.5 py-1 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1.5 shrink-0">
                                   <Clock className="w-3 h-3" />
                                   <span>{d.onsiteSchedule}</span>
                                 </span>
@@ -2108,7 +2112,7 @@ function ProgramPreparationWidgets({
                                     href={meetUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`h-9 px-4 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+                                    className={`h-9 px-4 rounded-[2px] text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
                                       isPast
                                         ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
                                         : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
@@ -2124,7 +2128,7 @@ function ProgramPreparationWidgets({
                                     href={mapUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                                    className="h-9 px-4 rounded-[2px] border border-zinc-200 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                                   >
                                     <MapPin className="w-3.5 h-3.5" />
                                     <span>Directions</span>
@@ -2330,7 +2334,7 @@ function ProgramPreparationWidgets({
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="shrink-0 h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition hover:opacity-90 shadow-2xs"
+                                className="shrink-0 h-9 px-4 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition hover:opacity-90 shadow-2xs"
                               >
                                 <span>Read Study</span>
                                 <ExternalLink className="w-3 h-3" />
@@ -2418,14 +2422,14 @@ function ProgramPreparationWidgets({
                       <img
                         src="/coach.webp"
                         alt={program.coachName || "Lead Coach"}
-                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
+                        className="w-16 h-16 rounded-[2px] object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
                       />
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             {program.coachName || "Coach Julian Thorne"}
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
                             Lead Guide
                           </span>
                         </div>
@@ -2444,14 +2448,14 @@ function ProgramPreparationWidgets({
                       <img
                         src="/coach2.webp"
                         alt="Nutrition Specialist"
-                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
+                        className="w-16 h-16 rounded-[2px] object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
                       />
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Dr. Marcus Vance, ND
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
                             Nutrition
                           </span>
                         </div>
@@ -2470,14 +2474,14 @@ function ProgramPreparationWidgets({
                       <img
                         src="/coach3.webp"
                         alt="Sleep & Recovery Guide"
-                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
+                        className="w-16 h-16 rounded-[2px] object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
                       />
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Elena Rostova, MSc
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
                             Recovery
                           </span>
                         </div>
