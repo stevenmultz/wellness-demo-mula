@@ -392,34 +392,93 @@ export function MyPlanOverview({
     }
   };
 
+  const showSubtabs = !!program && !program.isUpcoming;
+
   return (
-    <div className="space-y-3">
-      <section className="overflow-hidden rounded-2xl bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10">
-        <div className="relative aspect-[2/1] w-full">
+    <div className="space-y-4">
+      <section className="relative left-1/2 -translate-x-1/2 w-screen -mt-4 overflow-hidden bg-zinc-900 border-b border-zinc-200/80 dark:border-white/10">
+        <div
+          className={`relative w-full flex flex-col justify-between ${
+            showSubtabs
+              ? "min-h-[260px] sm:min-h-[300px]"
+              : "min-h-[210px] sm:min-h-[250px]"
+          }`}
+        >
           {program?.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
           ) : (
             <div className="absolute inset-0 bg-zinc-800" />
           )}
-          <div className="absolute inset-0 bg-black/45" />
-          {program && (
-            <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
-              <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
-                <Clock className="w-3 h-3 text-zinc-300" />
-                <span>{program.dailyCommitment || "15–20 Mins / Day"}</span>
-              </span>
-              <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
-                {formatIntensityBadge(program.difficultyLevel)}
-              </span>
-            </div>
-          )}
-          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-            <h2 className="text-lg font-medium tracking-tight leading-tight truncate">
-              {program?.title || "No active program"}
-            </h2>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/45 to-black/80" />
+
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pt-4">
             {program && (
-              <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-zinc-300" />
+                  <span>{program.dailyCommitment || "15–20 Mins / Day"}</span>
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+                  {formatIntensityBadge(program.difficultyLevel)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-4 pt-10 space-y-3.5 text-white">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
+                {program?.title || "No active program"}
+              </h2>
+              {program && (
+                <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
+              )}
+            </div>
+
+            {showSubtabs && (
+              <div
+                role="tablist"
+                aria-label="Plan sections"
+                className="rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid grid-cols-3 gap-1"
+              >
+                {(
+                  [
+                    { index: 0, label: "Guides", count: 0 },
+                    { index: 1, label: "Tasks", count: pendingTasksCount },
+                    { index: 2, label: "Metrics", count: 0 },
+                  ] as const
+                ).map(({ index, label, count }) => {
+                  const active = widgetIndex === index;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setWidgetIndex(index)}
+                      className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                        active
+                          ? "bg-white text-zinc-950 shadow-sm"
+                          : "text-white/75 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span>{label}</span>
+                      {count > 0 && (
+                        <span
+                          className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                            active
+                              ? "bg-zinc-950/15 text-zinc-950 font-bold"
+                              : "bg-white/20 text-white font-semibold"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -488,56 +547,6 @@ export function MyPlanOverview({
         })()
       ) : (
         <>
-          {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR): Guides | Tasks (Default) | Metrics */}
-          <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1 shadow-xs">
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                type="button"
-                onClick={() => setWidgetIndex(0)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
-                  widgetIndex === 0
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
-                }`}
-              >
-                Guides
-              </button>
-              <button
-                type="button"
-                onClick={() => setWidgetIndex(1)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                  widgetIndex === 1
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
-                }`}
-              >
-                <span>Tasks</span>
-                {pendingTasksCount > 0 && (
-                  <span
-                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
-                      widgetIndex === 1
-                        ? "bg-white/20 text-white dark:bg-zinc-950/20 dark:text-zinc-950 font-bold"
-                        : "bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
-                    }`}
-                  >
-                    {pendingTasksCount}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setWidgetIndex(2)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
-                  widgetIndex === 2
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
-                }`}
-              >
-                Metrics
-              </button>
-            </div>
-          </section>
-
           <div
             onTouchStart={handleWidgetTouchStart}
             onTouchEnd={handleWidgetTouchEnd}
