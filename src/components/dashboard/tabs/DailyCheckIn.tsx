@@ -2722,7 +2722,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       {/* Daily Task Header (No Caption Below Title; Info Opens Pop-up) */}
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">

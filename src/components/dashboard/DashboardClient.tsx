@@ -288,11 +288,13 @@ export function DashboardClient({
 
   // Scroll Hide / Show for Top Header (Scroll down hides, scroll up reveals)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [isOverHero, setIsOverHero] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      setIsOverHero(currentScrollY < 160);
       if (currentScrollY > lastScrollY && currentScrollY > 40) {
         setIsHeaderVisible(false);
       } else {
@@ -1674,6 +1676,7 @@ export function DashboardClient({
       {activeTab === "my_plan" && (
         <MyPlanHeader
           visible={isHeaderVisible}
+          overlay={isOverHero}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
           onSelect={(id) => {
@@ -1713,6 +1716,7 @@ export function DashboardClient({
             onClick={() => {
               setActiveTab(key);
               setIsViewingPlanDetail(false);
+              setIsOverHero(true);
               window.scrollTo({ top: 0 });
             }}
             className={`flex-1 h-9 rounded-full transition flex items-center justify-center ${
@@ -1729,14 +1733,21 @@ export function DashboardClient({
       {/* Main Content Area with safe-area spacing below seamless top header and above bottom dock */}
       <main
         style={{
-          paddingTop: "calc(4.5rem + env(safe-area-inset-top))",
+          paddingTop: activeTab === "my_plan" ? "0px" : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom))",
         }}
         className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full"
       >
         {actionNotice && (
           <div
-            className={`mb-4 glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border shadow-sm font-mono ${
+            style={{
+              top: activeTab === "my_plan" ? "calc(4.25rem + env(safe-area-inset-top))" : undefined,
+            }}
+            className={`${
+              activeTab === "my_plan"
+                ? "fixed left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md shadow-xl"
+                : "mb-4 shadow-sm"
+            } glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border font-mono ${
               actionNotice.type === "error"
                 ? "border-red-500/30 text-red-700 dark:text-red-300"
                 : "border-zinc-300 dark:border-white/25 text-zinc-900 dark:text-white"

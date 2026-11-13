@@ -86,12 +86,14 @@ export type PlanTaskId = "sleep" | "activity" | "meal" | "reflection";
 
 export function MyPlanHeader({
   visible,
+  overlay = false,
   plans,
   selectedProgramId,
   onSelect,
   onExplore,
 }: {
   visible: boolean;
+  overlay?: boolean;
   plans: PlanOption[];
   selectedProgramId: string;
   onSelect: (programId: string) => void;
@@ -102,13 +104,15 @@ export function MyPlanHeader({
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
 
   return (
-    <FloatingHeader visible={visible}>
+    <FloatingHeader visible={visible} transparent={overlay}>
       <button
         type="button"
         onClick={toggleTheme}
         aria-label="Toggle visual theme"
         title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
-        className="select-none flex items-center gap-1 text-zinc-950 dark:text-white active:scale-95 transition hover:opacity-75 focus:outline-none"
+        className={`select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none ${
+          overlay ? "text-white drop-shadow-xs" : "text-zinc-950 dark:text-white"
+        }`}
       >
         <span className="font-light text-lg leading-none">+</span>
         <span className="font-geometric font-semibold text-sm tracking-[0.22em] uppercase">BMS</span>
@@ -119,7 +123,11 @@ export function MyPlanHeader({
           <button
             type="button"
             onClick={onExplore}
-            className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition"
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition ${
+              overlay
+                ? "bg-white text-zinc-950 shadow-sm"
+                : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+            }`}
           >
             <Compass className="w-3.5 h-3.5" />
             <span>Explore Plan</span>
@@ -131,10 +139,18 @@ export function MyPlanHeader({
               aria-haspopup="listbox"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white text-xs transition active:scale-95"
+              className={`max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition active:scale-95 ${
+                overlay
+                  ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
+                  : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
+              }`}
             >
               <span className="truncate font-semibold uppercase tracking-wide">{current.title}</span>
-              <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                  overlay ? "text-white/80" : "text-zinc-500"
+                } ${open ? "rotate-180" : ""}`}
+              />
             </button>
             {open && (
               <>
@@ -395,13 +411,13 @@ export function MyPlanOverview({
   const showSubtabs = !!program && !program.isUpcoming;
 
   return (
-    <div className="space-y-4">
-      <section className="relative left-1/2 -translate-x-1/2 w-screen -mt-4 overflow-hidden bg-zinc-900 border-b border-zinc-200/80 dark:border-white/10">
+    <div>
+      <section className="relative left-1/2 -translate-x-1/2 w-screen overflow-hidden bg-zinc-900">
         <div
           className={`relative w-full flex flex-col justify-between ${
             showSubtabs
-              ? "min-h-[260px] sm:min-h-[300px]"
-              : "min-h-[210px] sm:min-h-[250px]"
+              ? "min-h-[340px] sm:min-h-[390px]"
+              : "min-h-[280px] sm:min-h-[320px]"
           }`}
         >
           {program?.coverImage ? (
@@ -410,9 +426,12 @@ export function MyPlanOverview({
           ) : (
             <div className="absolute inset-0 bg-zinc-800" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/45 to-black/80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/40 to-black/80" />
 
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pt-4">
+          <div
+            style={{ paddingTop: "calc(4.5rem + env(safe-area-inset-top))" }}
+            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8"
+          >
             {program && (
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
@@ -426,7 +445,7 @@ export function MyPlanOverview({
             )}
           </div>
 
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-4 pt-10 space-y-3.5 text-white">
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-10 pt-8 space-y-3.5 text-white">
             <div>
               <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
                 {program?.title || "No active program"}
@@ -484,52 +503,125 @@ export function MyPlanOverview({
         </div>
       </section>
 
-      {!program ? (
-        <EmptyState
-          title="No active program"
-          description="You do not have an active cohort right now. Explore available plans or view your completed programs in History."
-          action={
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={onExplore}
-                className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
-              >
-                <Compass className="w-3.5 h-3.5" /> Explore Plan
-              </button>
-              {onViewHistory && (
-                <button
-                  type="button"
-                  onClick={onViewHistory}
-                  className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
-                >
-                  View History
-                </button>
-              )}
-            </div>
-          }
-        />
-      ) : program.isUpcoming ? (
-        (() => {
-          const startsInInfo = formatStartsIn(program.startDate);
-          return (
-            <>
-              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5">
-                <div className="space-y-1">
-                  <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
-                    {startsInInfo.headline}
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Program begins on <span className="font-medium text-zinc-800 dark:text-zinc-200">{startsInInfo.dateLabel}</span>
-                  </p>
+      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-5 z-20 rounded-t-[28px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-5 border-t border-black/5 dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-3">
+          {!program ? (
+            <EmptyState
+              title="No active program"
+              description="You do not have an active cohort right now. Explore available plans or view your completed programs in History."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onExplore}
+                    className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
+                  >
+                    <Compass className="w-3.5 h-3.5" /> Explore Plan
+                  </button>
+                  {onViewHistory && (
+                    <button
+                      type="button"
+                      onClick={onViewHistory}
+                      className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
+                    >
+                      View History
+                    </button>
+                  )}
                 </div>
-              </section>
+              }
+            />
+          ) : program.isUpcoming ? (
+            (() => {
+              const startsInInfo = formatStartsIn(program.startDate);
+              return (
+                <>
+                  <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 shadow-xs">
+                    <div className="space-y-1">
+                      <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
+                        {startsInInfo.headline}
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Program begins on <span className="font-medium text-zinc-800 dark:text-zinc-200">{startsInInfo.dateLabel}</span>
+                      </p>
+                    </div>
+                  </section>
 
-              <ProgramPreparationWidgets
-                program={program}
-                days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
-                currentDayId={day?.id}
-              />
+                  <ProgramPreparationWidgets
+                    program={program}
+                    days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
+                    currentDayId={day?.id}
+                  />
+
+                  <ProgramCommunityWidget
+                    programTitle={program?.title}
+                    communityLink={program?.communityLink}
+                  />
+
+                  <ProgramReportEntryWidget
+                    programTitle={program?.title}
+                    communityLink={program?.communityLink}
+                  />
+
+                  <ProgramReferencesWidget references={program.scientificReferences} />
+                </>
+              );
+            })()
+          ) : (
+            <>
+              <div
+                onTouchStart={handleWidgetTouchStart}
+                onTouchEnd={handleWidgetTouchEnd}
+                className="transition-all duration-200"
+              >
+                <div className={widgetIndex === 0 ? "block" : "hidden"}>
+                  <ProgramPreparationWidgets
+                    program={program}
+                    days={fullProgramDays}
+                    currentDayId={day?.id}
+                    onSwitchWidget={setWidgetIndex}
+                  />
+                </div>
+
+                <div className={widgetIndex === 1 ? "block" : "hidden"}>
+                  {day ? (
+                    <DailyCheckIn
+                      key={day.id}
+                      day={day}
+                      pastDays={historyDays}
+                      allProgramDays={allProgramDays}
+                      communityLink={program.communityLink}
+                      programTitle={program.title}
+                      locked={locked}
+                      activities={activities}
+                      checks={checks}
+                      initialDone={initialDone}
+                      onToggleCheck={onToggleCheck}
+                      onSyncChecklist={onSyncChecklist}
+                      onSelectWorkout={onSelectWorkout}
+                      onOpenVideo={onOpenVideo}
+                      onSaveSleep={onSaveSleep}
+                      onSaveAttendance={onSaveAttendance}
+                      onSaveWorkoutNotes={onSaveWorkoutNotes}
+                      onUploadPhoto={onUploadPhoto}
+                      onSaveMeal={onSaveMeal}
+                      onSaveReflection={onSaveReflection}
+                      onCompleteDay={onCompleteDay}
+                      widgetIndex={widgetIndex}
+                      onSwitchWidget={setWidgetIndex}
+                    />
+                  ) : (
+                    <EmptyState title="No tasks today" description="There is no open session for today." />
+                  )}
+                </div>
+
+                <div className={widgetIndex === 2 ? "block" : "hidden"}>
+                  <CohortPerformanceCard
+                    days={fullProgramDays}
+                    currentDayNumber={currentDayNumber}
+                    onSwitchWidget={setWidgetIndex}
+                  />
+                </div>
+              </div>
 
               <ProgramCommunityWidget
                 programTitle={program?.title}
@@ -540,79 +632,10 @@ export function MyPlanOverview({
                 programTitle={program?.title}
                 communityLink={program?.communityLink}
               />
-
-              <ProgramReferencesWidget references={program.scientificReferences} />
             </>
-          );
-        })()
-      ) : (
-        <>
-          <div
-            onTouchStart={handleWidgetTouchStart}
-            onTouchEnd={handleWidgetTouchEnd}
-            className="transition-all duration-200"
-          >
-            <div className={widgetIndex === 0 ? "block" : "hidden"}>
-              <ProgramPreparationWidgets
-                program={program}
-                days={fullProgramDays}
-                currentDayId={day?.id}
-                onSwitchWidget={setWidgetIndex}
-              />
-            </div>
-
-            <div className={widgetIndex === 1 ? "block" : "hidden"}>
-              {day ? (
-                <DailyCheckIn
-                  key={day.id}
-                  day={day}
-                  pastDays={historyDays}
-                  allProgramDays={allProgramDays}
-                  communityLink={program.communityLink}
-                  programTitle={program.title}
-                  locked={locked}
-                  activities={activities}
-                  checks={checks}
-                  initialDone={initialDone}
-                  onToggleCheck={onToggleCheck}
-                  onSyncChecklist={onSyncChecklist}
-                  onSelectWorkout={onSelectWorkout}
-                  onOpenVideo={onOpenVideo}
-                  onSaveSleep={onSaveSleep}
-                  onSaveAttendance={onSaveAttendance}
-                  onSaveWorkoutNotes={onSaveWorkoutNotes}
-                  onUploadPhoto={onUploadPhoto}
-                  onSaveMeal={onSaveMeal}
-                  onSaveReflection={onSaveReflection}
-                  onCompleteDay={onCompleteDay}
-                  widgetIndex={widgetIndex}
-                  onSwitchWidget={setWidgetIndex}
-                />
-              ) : (
-                <EmptyState title="No tasks today" description="There is no open session for today." />
-              )}
-            </div>
-
-            <div className={widgetIndex === 2 ? "block" : "hidden"}>
-              <CohortPerformanceCard
-                days={fullProgramDays}
-                currentDayNumber={currentDayNumber}
-                onSwitchWidget={setWidgetIndex}
-              />
-            </div>
-          </div>
-
-          <ProgramCommunityWidget
-            programTitle={program?.title}
-            communityLink={program?.communityLink}
-          />
-
-          <ProgramReportEntryWidget
-            programTitle={program?.title}
-            communityLink={program?.communityLink}
-          />
-        </>
-      )}
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -739,7 +762,7 @@ function CohortPerformanceCard({
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
@@ -879,7 +902,7 @@ function ProgramReferencesWidget({
   if (validRefs.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-xs">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
           <BookOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -945,7 +968,7 @@ function ProgramCommunityWidget({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
@@ -1034,7 +1057,7 @@ function ProgramReportEntryWidget({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
@@ -1659,7 +1682,7 @@ function ProgramPreparationWidgets({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
