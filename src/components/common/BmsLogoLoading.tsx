@@ -16,7 +16,7 @@ export function BmsLogoLoading() {
       />
       <div className="absolute inset-0 bg-black/[0.28] pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col items-center gap-3.5">
+      <div className="relative z-10 flex items-center justify-center">
         <div
           className="flex items-center gap-1.5"
           style={{ textShadow: "0 2px 16px rgba(0, 0, 0, 0.45)" }}
@@ -26,8 +26,13 @@ export function BmsLogoLoading() {
             BMS
           </span>
         </div>
+      </div>
 
-        <div className="w-[120px] h-[2px] rounded-full bg-white/28 overflow-hidden">
+      <div
+        style={{ bottom: "calc(2.5rem + env(safe-area-inset-bottom))" }}
+        className="absolute left-1/2 -translate-x-1/2 z-10 w-[min(180px,46vw)]"
+      >
+        <div className="w-full h-[2px] rounded-full bg-white/30 overflow-hidden">
           <div className="w-[40%] h-full rounded-full bg-white animate-[bmsLoadingSlide_1.3s_ease-in-out_infinite]" />
         </div>
       </div>

@@ -65,7 +65,7 @@ export default function RootLayout({
               }
               @keyframes bmsLoadingSlide {
                 0% { transform: translateX(-100%); }
-                100% { transform: translateX(280%); }
+                100% { transform: translateX(260%); }
               }
               #bms-pwa-splash {
                 position: fixed;
@@ -74,7 +74,6 @@ export default function RootLayout({
                 height: 100%;
                 z-index: 99999;
                 display: flex;
-                flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 background-color: #0e0e0e;
@@ -103,9 +102,8 @@ export default function RootLayout({
                 position: relative;
                 z-index: 10;
                 display: flex;
-                flex-direction: column;
                 align-items: center;
-                gap: 14px;
+                justify-content: center;
                 font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
               }
               #bms-pwa-splash .bms-splash-title {
@@ -114,11 +112,19 @@ export default function RootLayout({
                 gap: 6px;
                 text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
               }
+              #bms-pwa-splash .bms-splash-bar-wrap {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                bottom: calc(2.5rem + env(safe-area-inset-bottom));
+                z-index: 10;
+                width: min(180px, 46vw);
+              }
               #bms-pwa-splash .bms-splash-bar {
-                width: 120px;
+                width: 100%;
                 height: 2px;
                 border-radius: 9999px;
-                background-color: rgba(255, 255, 255, 0.28);
+                background-color: rgba(255, 255, 255, 0.3);
                 overflow: hidden;
               }
               #bms-pwa-splash .bms-splash-bar-fill {
@@ -157,6 +163,8 @@ export default function RootLayout({
                 BMS
               </span>
             </div>
+          </div>
+          <div className="bms-splash-bar-wrap">
             <div className="bms-splash-bar">
               <div className="bms-splash-bar-fill" />
             </div>
