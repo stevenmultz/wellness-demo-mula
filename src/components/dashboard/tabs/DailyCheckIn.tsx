@@ -157,9 +157,209 @@ const REST_FEELINGS = [
 ];
 
 const areaCls =
-  "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
+  "w-full px-4 py-3.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 text-base sm:text-sm leading-relaxed text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition disabled:opacity-50 resize-none";
 const primaryBtn =
   "h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm";
+
+const TIME_24H_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
+ * Custom 24-hour HH:MM input with steppers, direct numeric entry, and quick presets.
+ * Replaces native `<input type="time">` to eliminate iOS/mobile WebKit overwidth bugs.
+ */
+function TimeInputField({
+  idPrefix,
+  label,
+  value,
+  presets,
+  defaultHour = 6,
+  onChange,
+}: {
+  idPrefix: string;
+  label: string;
+  value: string;
+  presets: readonly string[];
+  defaultHour?: number;
+  onChange: (next: string) => void;
+}) {
+  const validMatch = TIME_24H_RE.exec(value);
+  const hourNum = validMatch ? parseInt(validMatch[1], 10) : null;
+  const minNum = validMatch ? parseInt(validMatch[2], 10) : null;
+
+  const [draftHour, setDraftHour] = useState<string | null>(null);
+  const [draftMin, setDraftMin] = useState<string | null>(null);
+
+  const commitTime = (h: number, m: number) => {
+    const safeH = ((h % 24) + 24) % 24;
+    const safeM = ((m % 60) + 60) % 60;
+    onChange(`${pad2(safeH)}:${pad2(safeM)}`);
+  };
+
+  const stepHour = (delta: number) => {
+    setDraftHour(null);
+    const baseH = hourNum ?? defaultHour;
+    const baseM = minNum ?? 0;
+    commitTime(hourNum === null ? baseH : baseH + delta, baseM);
+  };
+
+  const stepMinute = (delta: number) => {
+    setDraftMin(null);
+    const baseH = hourNum ?? defaultHour;
+    const baseM = minNum ?? 0;
+    if (minNum === null) {
+      commitTime(baseH, 0);
+      return;
+    }
+    const nextM = ((Math.round(baseM / 5) * 5 + delta) % 60 + 60) % 60;
+    commitTime(baseH, nextM);
+  };
+
+  return (
+    <div className="space-y-4 min-w-0">
+      <div
+        className="w-full grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 min-w-0"
+        role="group"
+        aria-label={label}
+      >
+        {/* Hour box */}
+        <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-2 sm:px-3 py-2.5 flex flex-col items-center gap-1.5 min-w-0 focus-within:border-zinc-950 dark:focus-within:border-white transition">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
+            Hour
+          </span>
+          <div className="w-full flex items-center justify-between gap-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => stepHour(-1)}
+              aria-label={`Decrease hour for ${label}`}
+              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <input
+              id={`${idPrefix}-hour`}
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="--"
+              aria-label={`${label} hour (00-23)`}
+              value={draftHour !== null ? draftHour : hourNum !== null ? pad2(hourNum) : ""}
+              onFocus={() => setDraftHour(hourNum !== null ? pad2(hourNum) : "")}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+                setDraftHour(digits);
+                if (digits.length > 0) {
+                  const n = Math.min(23, parseInt(digits, 10));
+                  commitTime(n, minNum ?? 0);
+                }
+              }}
+              onBlur={() => {
+                if (draftHour !== null && draftHour.length > 0) {
+                  const n = Math.min(23, Math.max(0, parseInt(draftHour, 10) || 0));
+                  commitTime(n, minNum ?? 0);
+                }
+                setDraftHour(null);
+              }}
+              className="w-full min-w-0 h-9 bg-transparent border-0 text-center text-lg sm:text-xl font-mono font-bold tabular-nums text-zinc-950 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-600 outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => stepHour(1)}
+              aria-label={`Increase hour for ${label}`}
+              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <span className="text-xl font-mono font-bold text-zinc-400 dark:text-zinc-500 select-none pt-3">
+          :
+        </span>
+
+        {/* Minute box */}
+        <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-2 sm:px-3 py-2.5 flex flex-col items-center gap-1.5 min-w-0 focus-within:border-zinc-950 dark:focus-within:border-white transition">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
+            Min
+          </span>
+          <div className="w-full flex items-center justify-between gap-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => stepMinute(-5)}
+              aria-label={`Decrease minute for ${label}`}
+              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <input
+              id={`${idPrefix}-minute`}
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="--"
+              aria-label={`${label} minute (00-59)`}
+              value={draftMin !== null ? draftMin : minNum !== null ? pad2(minNum) : ""}
+              onFocus={() => setDraftMin(minNum !== null ? pad2(minNum) : "")}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+                setDraftMin(digits);
+                if (digits.length > 0) {
+                  const n = Math.min(59, parseInt(digits, 10));
+                  commitTime(hourNum ?? defaultHour, n);
+                }
+              }}
+              onBlur={() => {
+                if (draftMin !== null && draftMin.length > 0) {
+                  const n = Math.min(59, Math.max(0, parseInt(draftMin, 10) || 0));
+                  commitTime(hourNum ?? defaultHour, n);
+                }
+                setDraftMin(null);
+              }}
+              className="w-full min-w-0 h-9 bg-transparent border-0 text-center text-lg sm:text-xl font-mono font-bold tabular-nums text-zinc-950 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-600 outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => stepMinute(5)}
+              aria-label={`Increase minute for ${label}`}
+              className="w-7 h-9 sm:w-8 shrink-0 rounded-xl bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+          Quick Presets
+        </span>
+        <div className="grid grid-cols-3 gap-2">
+          {presets.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setDraftHour(null);
+                setDraftMin(null);
+                onChange(t);
+              }}
+              className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
+                value === t
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                  : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-300 dark:hover:border-white/25"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function stripLeadingFeeling(raw?: string | null): string {
   if (!raw || raw === "SKIPPED") return "";
@@ -806,9 +1006,9 @@ function TaskForm({
   const validateSubStep = (id: SubStepId): string | null => {
     switch (id) {
       case "wake":
-        return wake ? null : "Please select the time you woke up today.";
+        return TIME_24H_RE.test(wake) ? null : "Please select the time you woke up today (HH:MM).";
       case "bed":
-        return bed ? null : "Please select the time you went to sleep last night.";
+        return TIME_24H_RE.test(bed) ? null : "Please select the time you went to sleep last night (HH:MM).";
       case "sleep_mood":
         return sleepFeeling ? null : "Please select how you feel after waking up.";
       case "training_option":
@@ -1225,45 +1425,17 @@ function TaskForm({
                 </p>
               </div>
 
-              <div className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition">
-                <input
-                  id="input-waketime"
-                  type="time"
-                  value={wake}
-                  enterKeyHint="next"
-                  onChange={(e) => {
-                    setWake(e.target.value);
-                    setError(null);
-                  }}
-                  aria-label="Enter wake time"
-                  className="w-full min-w-0 max-w-full box-border block appearance-none h-14 bg-transparent border-0 text-lg sm:text-xl font-mono font-semibold text-zinc-950 dark:text-white outline-none text-center [&::-webkit-date-and-time-value]:text-center"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Quick Presets
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  {WAKETIME_PRESETS.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setWake(t);
-                        setError(null);
-                      }}
-                      className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
-                        wake === t
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                          : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <TimeInputField
+                idPrefix="wake-time"
+                label="Wake time"
+                value={wake}
+                presets={WAKETIME_PRESETS}
+                defaultHour={6}
+                onChange={(next) => {
+                  setWake(next);
+                  setError(null);
+                }}
+              />
             </div>
           )}
 
@@ -1282,49 +1454,21 @@ function TaskForm({
                 </p>
               </div>
 
-              <div className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition">
-                <input
-                  id="input-bedtime"
-                  type="time"
-                  value={bed}
-                  enterKeyHint="next"
-                  onChange={(e) => {
-                    setBed(e.target.value);
-                    setError(null);
-                  }}
-                  aria-label="Enter bedtime"
-                  className="w-full min-w-0 max-w-full box-border block appearance-none h-14 bg-transparent border-0 text-lg sm:text-xl font-mono font-semibold text-zinc-950 dark:text-white outline-none text-center [&::-webkit-date-and-time-value]:text-center"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Quick Presets
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  {BEDTIME_PRESETS.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setBed(t);
-                        setError(null);
-                      }}
-                      className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
-                        bed === t
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                          : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <TimeInputField
+                idPrefix="bed-time"
+                label="Bedtime"
+                value={bed}
+                presets={BEDTIME_PRESETS}
+                defaultHour={22}
+                onChange={(next) => {
+                  setBed(next);
+                  setError(null);
+                }}
+              />
 
               {totalSleepMins > 0 && (
                 <div className="pt-3 border-t border-zinc-200/90 dark:border-white/10 flex items-center justify-between gap-3 text-xs">
-                  <span className="text-zinc-500 dark:text-zinc-400 font-medium">Calculated Rest</span>
+                  <span className="text-zinc-600 dark:text-zinc-400 font-medium">Calculated Rest</span>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
                       {formatDuration(totalSleepMins)}
@@ -1342,15 +1486,15 @@ function TaskForm({
 
           {/* SLEEP 3: POST-SLEEP MOOD */}
           {currentSubStep === "sleep_mood" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {bed} → {wake} · {formatDuration(totalSleepMins)}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How do you feel after waking up?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Select the condition that best describes your morning energy.
                 </p>
               </div>
@@ -1369,13 +1513,13 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.label}
                       </p>
-                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
                         {item.desc}
                       </p>
                     </button>
@@ -1387,15 +1531,15 @@ function TaskForm({
 
           {/* TRAINING 1: WORKOUT OPTION */}
           {currentSubStep === "training_option" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Training Focus
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Choose today&apos;s training option
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Select the variation that fits your readiness level today.
                 </p>
               </div>
@@ -1457,15 +1601,15 @@ function TaskForm({
 
           {/* TRAINING 2: GUIDED VIDEO */}
           {currentSubStep === "training_video" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {activeWorkout || `Day ${day.dayNumber} Training`}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Watch the guided session
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Review form cues and pacing before logging your movements.
                 </p>
               </div>
@@ -1506,11 +1650,11 @@ function TaskForm({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => void props.onOpenVideo(day.id)}
-                        className="w-full h-11 px-4 rounded-xl border border-zinc-300 dark:border-white/20 bg-white dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition hover:bg-zinc-50 dark:hover:bg-white/10"
+                        className="w-full h-12 px-4 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-semibold text-zinc-950 dark:text-white flex items-center justify-center gap-2 transition hover:border-zinc-300 dark:hover:border-white/25"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
                         <span>Open Video Guide</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                        <ExternalLink className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                       </a>
                     )}
                   </div>
@@ -1521,8 +1665,8 @@ function TaskForm({
 
           {/* TRAINING 3: MOVEMENT CHECKLIST & REPS */}
           {currentSubStep === "training_movements" && (
-            <div className="space-y-5">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
                     {activeWorkout || "Movement Checklist"}
@@ -1583,7 +1727,7 @@ function TaskForm({
                                 updateMovementReps(name, Math.max(1, currentReps - 1));
                               }}
                               aria-label={`Decrease reps for ${name}`}
-                              className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
+                              className="w-8 h-8 rounded-lg bg-zinc-50 dark:bg-white/[0.04] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
@@ -1609,7 +1753,7 @@ function TaskForm({
                                   (e.currentTarget as HTMLInputElement).blur();
                                 }
                               }}
-                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white bg-white dark:bg-white/5 border border-zinc-200/90 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <button
                               type="button"
@@ -1619,7 +1763,7 @@ function TaskForm({
                                 updateMovementReps(name, Math.min(999, currentReps + 1));
                               }}
                               aria-label={`Increase reps for ${name}`}
-                              className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
+                              className="w-8 h-8 rounded-lg bg-zinc-50 dark:bg-white/[0.04] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -1630,7 +1774,7 @@ function TaskForm({
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   No individual movements configured for this session. Proceed to the next step.
                 </p>
               )}
@@ -1639,26 +1783,26 @@ function TaskForm({
 
           {/* TRAINING 4: PROGRESS PHOTO */}
           {currentSubStep === "training_photos" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Session Verification
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Upload a progress photo
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Add a before or after session photo (max 5 MB each).
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-2 gap-3 min-w-0">
                 {(["before", "after"] as const).map((type) => (
-                  <label key={type} className="block cursor-pointer">
+                  <label key={type} className="block cursor-pointer min-w-0">
                     <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block mb-2">
                       {type === "before" ? "Before Session" : "After Session"}
                     </span>
-                    <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition">
+                    <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/[0.04] hover:border-zinc-400 dark:hover:border-white/30 transition">
                       {photos[type] ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1668,9 +1812,9 @@ function TaskForm({
                           </span>
                         </>
                       ) : photoBusy === type ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+                        <Loader2 className="w-5 h-5 animate-spin text-zinc-500 dark:text-zinc-400" />
                       ) : (
-                        <span className="inline-flex flex-col items-center gap-2 text-xs font-mono text-zinc-500">
+                        <span className="inline-flex flex-col items-center gap-2 text-xs font-mono text-zinc-600 dark:text-zinc-400">
                           <Camera className="w-5 h-5" />
                           <span>Upload</span>
                         </span>
@@ -1695,15 +1839,15 @@ function TaskForm({
 
           {/* TRAINING 5: POST-TRAINING MOOD */}
           {currentSubStep === "training_mood" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {activeWorkout || "Post-Session Check"}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How do you feel after training?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Capture how your body responded to today&apos;s session.
                 </p>
               </div>
@@ -1722,13 +1866,13 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.label}
                       </p>
-                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
                         {item.desc}
                       </p>
                     </button>
@@ -1740,15 +1884,15 @@ function TaskForm({
 
           {/* REST 1: RECOVERY CHECKLIST */}
           {currentSubStep === "rest_checklist" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Active Recovery
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   Complete your recovery protocol
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Focus on parasympathetic down-regulation, hydration, and light mobility.
                 </p>
               </div>
@@ -1784,15 +1928,15 @@ function TaskForm({
 
           {/* REST 2: POST-REST MOOD */}
           {currentSubStep === "rest_mood" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Recovery Check
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How does your body feel today?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Select how recovered and energized your body feels on this rest day.
                 </p>
               </div>
@@ -1811,13 +1955,13 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.label}
                       </p>
-                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
                         {item.desc}
                       </p>
                     </button>
@@ -1829,8 +1973,8 @@ function TaskForm({
 
           {/* CONNECT 1: ATTENDANCE & LOGISTICS */}
           {currentSubStep === "connect_attendance" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   {day.onsiteSchedule || "Live Community Session"}
                 </span>
@@ -1838,7 +1982,7 @@ function TaskForm({
                   Will you attend {day.eventTitle || "this session"}?
                 </h1>
                 {day.eventDetails && (
-                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                     {day.eventDetails}
                   </p>
                 )}
@@ -1848,7 +1992,7 @@ function TaskForm({
                 <div className="py-4 border-t border-b border-zinc-200/90 dark:border-white/10 space-y-2.5 text-xs">
                   {day.onsiteVenue && (
                     <div className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300">
-                      <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
+                      <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-500 dark:text-zinc-400" />
                       <span>{day.onsiteVenue}</span>
                     </div>
                   )}
@@ -1870,7 +2014,7 @@ function TaskForm({
                         href={safeHttpUrl(day.mapLink)!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5"
+                        className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 hover:border-zinc-300 dark:hover:border-white/25 transition"
                       >
                         <MapPin className="w-3.5 h-3.5" />
                         <span>Open Maps</span>
@@ -1890,7 +2034,7 @@ function TaskForm({
                   className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
                     connectAttendance === "attend"
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                   }`}
                 >
                   <span>I Will Attend</span>
@@ -1907,7 +2051,7 @@ function TaskForm({
                   className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
                     connectAttendance === "cannot_attend"
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                   }`}
                 >
                   <span>Cannot Attend</span>
@@ -1918,20 +2062,20 @@ function TaskForm({
 
           {/* CONNECT 2: SESSION RATING */}
           {currentSubStep === "connect_rating" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Session Feedback
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How would you rate today&apos;s session?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Rate your overall takeaway and experience from 1 to 5 stars.
                 </p>
               </div>
 
-              <div className="flex items-center justify-between gap-2 py-4">
+              <div className="grid grid-cols-5 gap-2 sm:gap-2.5 pt-1 min-w-0">
                 {[1, 2, 3, 4, 5].map((star) => {
                   const filled = star <= connectRating;
                   return (
@@ -1942,17 +2086,27 @@ function TaskForm({
                         setConnectRating(star);
                         setError(null);
                       }}
-                      className="flex-1 py-3 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 flex flex-col items-center gap-1.5 hover:border-zinc-400 active:scale-95 transition"
+                      className={`min-w-0 py-3.5 px-1 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
+                        filled
+                          ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/[0.08]"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] hover:border-zinc-300 dark:hover:border-white/25"
+                      }`}
                       aria-label={`${star} Stars`}
                     >
                       <Star
-                        className={`w-7 h-7 transition-colors ${
+                        className={`w-6 h-6 transition-colors ${
                           filled
                             ? "fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white"
-                            : "text-zinc-300 dark:text-zinc-700"
+                            : "text-zinc-400 dark:text-zinc-600"
                         }`}
                       />
-                      <span className="text-[11px] font-mono text-zinc-500">{star}</span>
+                      <span
+                        className={`text-[11px] font-mono font-medium ${
+                          filled ? "text-zinc-950 dark:text-white font-semibold" : "text-zinc-600 dark:text-zinc-400"
+                        }`}
+                      >
+                        {star}
+                      </span>
                     </button>
                   );
                 })}
@@ -2242,8 +2396,8 @@ function TaskForm({
 
           {/* REFLECTION 1: DAILY JOURNAL */}
           {currentSubStep === "reflection_journal" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   Day {day.dayNumber} · Daily Reflection
                 </span>
@@ -2251,17 +2405,17 @@ function TaskForm({
                   Reflect on your day
                 </h1>
                 {day.dailyAssessment ? (
-                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
+                  <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-300 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
                     {day.dailyAssessment}
                   </p>
                 ) : (
-                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                     Choose a preset mindset or write a brief personal thought.
                   </p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 gap-2.5">
                 {JOURNAL_PRESETS.map((item) => {
                   const val = `${item.title}: ${item.text}`;
                   const active = review === val;
@@ -2273,16 +2427,16 @@ function TaskForm({
                         setReview(val);
                         setError(null);
                       }}
-                      className={`w-full p-3.5 rounded-2xl border text-left transition select-none ${
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
-                      <p className={`text-xs sm:text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                      <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.title}
                       </p>
-                      <p className={`text-[11px] sm:text-xs mt-0.5 leading-relaxed ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-xs mt-0.5 leading-relaxed ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-600 dark:text-zinc-400"}`}>
                         {item.text}
                       </p>
                     </button>
@@ -2312,20 +2466,20 @@ function TaskForm({
 
           {/* REFLECTION 2: DAILY ENERGY & MOOD RATING (ALWAYS LAST) */}
           {currentSubStep === "reflection_mood" && (
-            <div className="space-y-6">
-              <div className="space-y-2">
+            <div className="space-y-5 min-w-0">
+              <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                   End of Day Check-In
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                   How is your overall mood &amp; energy today?
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Select your overall rating to wrap up today&apos;s reflection.
                 </p>
               </div>
 
-              <div className="grid grid-cols-5 gap-2.5 pt-2" role="radiogroup" aria-label="Satisfaction Rating">
+              <div className="grid grid-cols-5 gap-2 sm:gap-2.5 pt-1 min-w-0" role="radiogroup" aria-label="Satisfaction Rating">
                 {FACES.map(({ score: n, Icon, label }) => {
                   const active = score === n;
                   return (
@@ -2339,14 +2493,14 @@ function TaskForm({
                         setScore(n);
                         setError(null);
                       }}
-                      className={`py-4 px-1 rounded-2xl border flex flex-col items-center justify-center gap-2 transition active:scale-95 ${
+                      className={`min-w-0 py-3.5 px-1 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
                         active
-                          ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
+                          ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <Icon className="w-6 h-6" strokeWidth={1.75} />
-                      <span className="text-[11px] font-mono font-medium">{label}</span>
+                      <span className="text-[11px] font-mono font-medium truncate max-w-full">{label}</span>
                     </button>
                   );
                 })}

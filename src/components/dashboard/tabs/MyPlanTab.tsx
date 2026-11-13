@@ -381,7 +381,7 @@ export function MyPlanOverview({
     (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
   ).length;
 
-  const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(0);
+  const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
   const [showDayStats, setShowDayStats] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
@@ -566,14 +566,25 @@ export function MyPlanOverview({
             </div>
           </InfoPopupModal>
 
-          {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR) */}
+          {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR): Guides | Tasks (Default) | Metrics */}
           <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1 shadow-xs">
             <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setWidgetIndex(0)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
                   widgetIndex === 0
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
+                }`}
+              >
+                Guides
+              </button>
+              <button
+                type="button"
+                onClick={() => setWidgetIndex(1)}
+                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                  widgetIndex === 1
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
                 }`}
@@ -582,7 +593,7 @@ export function MyPlanOverview({
                 {pendingTasksCount > 0 && (
                   <span
                     className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
-                      widgetIndex === 0
+                      widgetIndex === 1
                         ? "bg-white/20 text-white dark:bg-zinc-950/20 dark:text-zinc-950 font-bold"
                         : "bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
                     }`}
@@ -590,17 +601,6 @@ export function MyPlanOverview({
                     {pendingTasksCount}
                   </span>
                 )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setWidgetIndex(1)}
-                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
-                  widgetIndex === 1
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
-                }`}
-              >
-                Guides
               </button>
               <button
                 type="button"
@@ -622,6 +622,15 @@ export function MyPlanOverview({
             className="transition-all duration-200"
           >
             <div className={widgetIndex === 0 ? "block" : "hidden"}>
+              <ProgramPreparationWidgets
+                program={program}
+                days={fullProgramDays}
+                currentDayId={day?.id}
+                onSwitchWidget={setWidgetIndex}
+              />
+            </div>
+
+            <div className={widgetIndex === 1 ? "block" : "hidden"}>
               {day ? (
                 <DailyCheckIn
                   key={day.id}
@@ -651,15 +660,6 @@ export function MyPlanOverview({
               ) : (
                 <EmptyState title="No tasks today" description="There is no open session for today." />
               )}
-            </div>
-
-            <div className={widgetIndex === 1 ? "block" : "hidden"}>
-              <ProgramPreparationWidgets
-                program={program}
-                days={fullProgramDays}
-                currentDayId={day?.id}
-                onSwitchWidget={setWidgetIndex}
-              />
             </div>
 
             <div className={widgetIndex === 2 ? "block" : "hidden"}>
