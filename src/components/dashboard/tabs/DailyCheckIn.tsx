@@ -38,7 +38,7 @@ import {
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import type { PlanDay } from "./MyPlanTab";
-import { safeHttpUrl } from "./shared";
+import { InfoPopupModal, safeHttpUrl } from "./shared";
 
 type SaveResult = Promise<void | boolean>;
 
@@ -137,9 +137,22 @@ const REFLECTION_QUICK_TAGS = [
 ];
 
 const areaCls =
-  "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
+  "w-full px-3.5 py-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-900 dark:focus:border-white transition disabled:opacity-50 resize-none";
 const primaryBtn =
   "h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm";
+
+function stripLeadingFeeling(raw?: string | null): string {
+  if (!raw || raw === "SKIPPED") return "";
+  if (raw.startsWith("Feeling:")) {
+    const parts = raw.split("·");
+    return parts.slice(1).join("·").trim();
+  }
+  return raw;
+}
+
+function stripMealLabelPrefix(line: string): string {
+  return line.replace(/^meal\s*\d+\s*:\s*/i, "").trim();
+}
 
 function sleepMinutes(bed: string, wake: string): number {
   const [bh, bm] = bed.split(":").map(Number);
@@ -156,9 +169,9 @@ function formatDuration(mins: number): string {
 }
 
 function sleepQualityLabel(mins: number): { label: string; cls: string } {
-  if (mins >= 420 && mins <= 540) {
+  if (mins >= 450 && mins <= 540) {
     return {
-      label: "Optimal Recovery (7–9h)",
+      label: "Optimal Recovery (7.5–9h)",
       cls: "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border-zinc-200 dark:border-white/15",
     };
   }
@@ -266,12 +279,19 @@ function TaskForm({
   props: DailyCheckInProps;
 }) {
   const progress = day.userProgress;
-  const [bed, setBed] = useState(progress?.bedtime || "");
-  const [wake, setWake] = useState(progress?.wakeTime || "");
-  const [workout, setWorkout] = useState(progress?.selectedWorkout || "");
-  const [trainingEntered, setTrainingEntered] = useState(false);
+  const wasSleepSkipped = progress?.bedtime === "SKIPPED" || progress?.wakeTime === "SKIPPED";
+  const wasMealSkipped = progress?.mealCompliance === "SKIPPED";
+  const wasReflectionSkipped = progress?.dailyReflection === "SKIPPED";
+  const [bed, setBed] = useState(progress?.bedtime === "SKIPPED" ? "" : progress?.bedtime || "");
+  const [wake, setWake] = useState(progress?.wakeTime === "SKIPPED" ? "" : progress?.wakeTime || "");
+  const [workout, setWorkout] = useState(progress?.selectedWorkout === "SKIPPED" ? "" : progress?.selectedWorkout || "");
+  const [trainingEntered, setTrainingEntered] = useState(
+    Boolean(progress?.selectedWorkout && progress.selectedWorkout !== "SKIPPED")
+  );
   const [pendingSwitchWorkout, setPendingSwitchWorkout] = useState<string | null>(null);
-  const [notes, setNotes] = useState(progress?.workoutNotes || progress?.eventFeedback || "");
+  const [notes, setNotes] = useState(() =>
+    stripLeadingFeeling(progress?.workoutNotes || (progress?.eventFeedback === "SKIPPED" ? "" : progress?.eventFeedback))
+  );
   const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
   const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
   const [trainingFeeling, setTrainingFeeling] = useState<string>(() => {
@@ -283,6 +303,7 @@ function TaskForm({
   });
   const [connectAttendance, setConnectAttendance] = useState<"attend" | "cannot_attend" | null>(() => {
     const fb = progress?.eventFeedback || "";
+    if (fb === "SKIPPED") return null;
     if (fb.toLowerCase().includes("cannot attend") || fb.toLowerCase().includes("not attend")) return "cannot_attend";
     if (fb.toLowerCase().includes("attend")) return "attend";
     return null;
@@ -297,9 +318,9 @@ function TaskForm({
     const parsed = parseLines(day.mealRecommendation);
     if (parsed.length > 0) return parsed;
     return [
-      "Meal 1: Nutrient-dense breakfast with clean protein",
-      "Meal 2: Balanced lunch with greens & complex carbohydrates",
-      "Meal 3: Light evening dinner for restorative recovery",
+      "Nutrient-dense breakfast with clean protein",
+      "Balanced lunch with greens & complex carbohydrates",
+      "Light evening dinner for restorative recovery",
     ];
   }, [day.mealRecommendation]);
 
@@ -310,9 +331,13 @@ function TaskForm({
     () => progress?.dailyReflection === "Skipped reflection journal today."
   );
   const [review, setReview] = useState(
-    progress?.dailyReflection === "Skipped reflection journal today." ? "" : progress?.dailyReflection || ""
+    progress?.dailyReflection === "Skipped reflection journal today." || progress?.dailyReflection === "SKIPPED"
+      ? ""
+      : progress?.dailyReflection || ""
   );
-  const [score, setScore] = useState(progress?.happinessRate ? Math.min(5, progress.happinessRate) : 0);
+  const [score, setScore] = useState(
+    progress?.dailyReflection === "SKIPPED" ? 0 : progress?.happinessRate ? Math.min(5, progress.happinessRate) : 0
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
@@ -446,15 +471,21 @@ function TaskForm({
         }
         return null;
       }
-      if (hasMultipleOptions && !activeWorkout) return "Please select a training routine first.";
+      if (isTraining) {
+        if (hasMultipleOptions && !activeWorkout) return "Please select a training routine first.";
+        if (movements.length > 0 && !movements.every(isChecked)) {
+          return `Please complete all exercises (${movements.length - checkedCount} remaining).`;
+        }
+        if (!photos.before && !photos.after) {
+          return "Please upload at least one progress photo (Before or After session).";
+        }
+        if (!trainingFeeling) {
+          return "Please select how you feel after completing the training.";
+        }
+        return null;
+      }
       if (movements.length > 0 && !movements.every(isChecked)) {
-        return `Please complete all exercises (${movements.length - checkedCount} remaining).`;
-      }
-      if (!photos.before && !photos.after) {
-        return "Please upload at least one progress photo (Before or After session).";
-      }
-      if (!trainingFeeling) {
-        return "Please select how you feel after completing the training.";
+        return `Please complete all recovery items (${movements.length - checkedCount} remaining).`;
       }
       return null;
     }
@@ -721,23 +752,29 @@ function TaskForm({
   return (
     <div key={step} className="space-y-4">
       {/* ===================================================================== */}
-      {/* STEP 0: SLEEP PROTOCOL                                                */}
+      {/* STEP 0: SLEEP PROTOCOL (FLAT SHEET SECTIONS, NO NESTED BOXES)         */}
       {/* ===================================================================== */}
       {step === 0 && (
-        <div className="space-y-4 py-1">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {day.sleepRecommendation || "Target 7 to 8 hours of restorative circadian sleep."}
+        <div className="space-y-5">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed border-l-2 border-zinc-300 dark:border-white/25 pl-3">
+            {day.sleepRecommendation || "Target 7.5 to 9 hours of restorative circadian sleep."}
           </p>
 
-          <div className="space-y-3">
-            {/* Bedtime Input & Quick Preset Chips */}
-            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+          {wasSleepSkipped && !bed && !wake && (
+            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+              Previously skipped — select real sleep times below if you want to record today&apos;s rest.
+            </p>
+          )}
+
+          <div className="divide-y divide-zinc-100 dark:divide-white/10">
+            {/* Bedtime Row & Presets */}
+            <div className="py-4 first:pt-1 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <label htmlFor="input-bedtime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  <label htmlFor="input-bedtime" className="text-xs font-semibold text-zinc-950 dark:text-white block">
                     Bedtime
                   </label>
-                  <span className="text-xs text-zinc-400 block mt-0.5">Time you went to sleep</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block mt-0.5">Time you went to sleep</span>
                 </div>
                 <input
                   id="input-bedtime"
@@ -745,43 +782,38 @@ function TaskForm({
                   value={bed}
                   disabled={locked}
                   onChange={(e) => setBed(e.target.value)}
-                  placeholder="Enter bedtime"
                   aria-label="Enter bedtime"
-                  className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
+                  className="w-36 h-10 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0"
                 />
               </div>
 
-              {/* Quick Tap Presets (Grid - No Horizontal Cutoff) */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">Presets:</span>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                  {BEDTIME_PRESETS.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => setBed(t)}
-                      className={`h-7 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
-                        bed === t
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                          : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {BEDTIME_PRESETS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setBed(t)}
+                    className={`h-8 sm:h-9 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
+                      bed === t
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                        : "bg-zinc-100/80 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Wake Time Input & Quick Preset Chips */}
-            <div className="p-3.5 rounded-2xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+            {/* Wake Time Row & Presets */}
+            <div className="py-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <label htmlFor="input-waketime" className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  <label htmlFor="input-waketime" className="text-xs font-semibold text-zinc-950 dark:text-white block">
                     Wake Time
                   </label>
-                  <span className="text-xs text-zinc-400 block mt-0.5">Time you woke up</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block mt-0.5">Time you woke up</span>
                 </div>
                 <input
                   id="input-waketime"
@@ -789,42 +821,44 @@ function TaskForm({
                   value={wake}
                   disabled={locked}
                   onChange={(e) => setWake(e.target.value)}
-                  placeholder="Enter wake time"
                   aria-label="Enter wake time"
-                  className="w-32 h-10 px-3 rounded-xl bg-white dark:bg-[#181818] border border-zinc-200 dark:border-white/15 text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0 shadow-2xs"
+                  className="w-36 h-10 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0"
                 />
               </div>
 
-              {/* Quick Tap Presets (Grid - No Horizontal Cutoff) */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">Presets:</span>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                  {WAKETIME_PRESETS.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => setWake(t)}
-                      className={`h-7 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
-                        wake === t
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                          : "bg-white dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {WAKETIME_PRESETS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setWake(t)}
+                    className={`h-8 sm:h-9 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
+                      wake === t
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                        : "bg-zinc-100/80 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
 
+            {/* Recorded Summary Row */}
             {totalSleepMins > 0 && (
-              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between text-xs">
-                <span className="text-zinc-500 font-medium">Recorded Rest</span>
-                <span className="font-mono font-bold text-zinc-900 dark:text-white">
-                  {formatDuration(totalSleepMins)}
-                  {sleepQuality ? ` · ${sleepQuality.label.split(" (")[0]}` : ""}
-                </span>
+              <div className="py-4 flex items-center justify-between gap-3 text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400 font-medium">Recorded Rest</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
+                    {formatDuration(totalSleepMins)}
+                  </span>
+                  {sleepQuality && (
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${sleepQuality.cls}`}>
+                      {sleepQuality.label}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -904,20 +938,28 @@ function TaskForm({
             /* SCREEN 2: WORKOUT DETAIL & CHECKLIST */
             <div className="space-y-4">
               {groups.length > 0 && (
-                <div className="flex items-center justify-start pb-2">
+                <div className="flex items-center justify-between gap-2 pb-1">
                   <button
                     type="button"
                     onClick={() => setTrainingEntered(false)}
                     aria-label="Back to options"
-                    className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#181818] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center active:scale-95 transition shadow-2xs"
+                    className="h-8 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1.5 text-xs font-medium active:scale-95 transition"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>All Options</span>
                   </button>
+                  {activeWorkout && (
+                    <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
+                      {activeWorkout}
+                    </span>
+                  )}
                 </div>
               )}
 
               {/* 1. LARGE VIDEO THUMBNAIL ON TOP WITH LINK BUTTON */}
-              {activeVideo && (
+              {activeVideo && (() => {
+                const safeVideoUrl = safeHttpUrl(activeVideo.url);
+                return (
                 <div className="space-y-2.5">
                   <div className="relative w-full aspect-video sm:h-56 rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200/50 dark:border-white/10 group">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -926,36 +968,41 @@ function TaskForm({
                       alt=""
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
-                      <a
-                        href={activeVideo.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => props.onOpenVideo(day.id)}
-                        className="w-12 h-12 rounded-full bg-white/95 text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 hover:scale-110 transition-transform"
-                      >
-                        <Play className="w-5 h-5 fill-current ml-0.5" />
-                      </a>
-                    </div>
+                    {safeVideoUrl && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
+                        <a
+                          href={safeVideoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => props.onOpenVideo(day.id)}
+                          className="w-12 h-12 rounded-full bg-white/95 text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 hover:scale-110 transition-transform"
+                        >
+                          <Play className="w-5 h-5 fill-current ml-0.5" />
+                        </a>
+                      </div>
+                    )}
                     <div className="absolute bottom-3 left-3 right-3 text-white">
                       <p className="text-xs font-semibold truncate drop-shadow-sm">{activeVideo.title}</p>
                       <p className="text-[11px] text-white/80">Guided training movement cues</p>
                     </div>
                   </div>
 
-                  <a
-                    href={activeVideo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => props.onOpenVideo(day.id)}
-                    className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition active:scale-[0.99]"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Watch Video Session</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
-                  </a>
+                  {safeVideoUrl && (
+                    <a
+                      href={safeVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => props.onOpenVideo(day.id)}
+                      className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition active:scale-[0.99]"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Watch Video Session</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                    </a>
+                  )}
                 </div>
-              )}
+                );
+              })()}
 
               {/* 2. PROGRESS BAR DIRECTLY UNDERNEATH */}
               {movements.length > 0 && (
@@ -1086,10 +1133,17 @@ function TaskForm({
                       <span className="font-medium text-zinc-700 dark:text-zinc-300 block mb-1">
                         {type === "before" ? "Before Session" : "After Session"}
                       </span>
-                      <span className="flex h-24 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 transition">
+                      <span className="relative flex h-24 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 transition">
                         {photos[type] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={photos[type]} alt="" className="w-full h-full object-cover" />
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={photos[type]} alt="" className="w-full h-full object-cover" />
+                            {!locked && (
+                              <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-medium">
+                                Change
+                              </span>
+                            )}
+                          </>
                         ) : photoBusy === type ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
@@ -1200,45 +1254,39 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 1B: REST & RECOVERY DAY                                          */}
+      {/* STEP 1B: REST & RECOVERY DAY (FLAT SHEET ROWS)                        */}
       {/* ===================================================================== */}
       {step === 1 && isRest && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-1.5">
-            <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+        <div className="space-y-5">
+          <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 space-y-1">
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
               Active Recovery Protocol
             </span>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
               Focus on parasympathetic down-regulation, tissue hydration, and light mobility.
             </p>
           </div>
 
           {restLines.length > 0 && (
             <div className="space-y-2">
-              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
                 Rest &amp; Mobility Checklist
               </span>
-              <ul className="space-y-2">
+              <ul className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
                 {restLines.map((line, idx) => {
                   const checked = isChecked(line);
                   return (
                     <li key={idx}>
-                      <label
-                        className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
-                          checked
-                            ? "border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5"
-                            : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
-                        }`}
-                      >
+                      <label className="flex items-start gap-3 py-3.5 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
                         <input
                           type="checkbox"
                           disabled={locked}
                           checked={checked}
                           onChange={() => toggle(line)}
-                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
+                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
                         />
                         <span
-                          className={`text-xs leading-relaxed ${
+                          className={`text-xs sm:text-sm leading-relaxed ${
                             checked
                               ? "line-through text-zinc-400 dark:text-zinc-500"
                               : "text-zinc-800 dark:text-zinc-200"
@@ -1257,43 +1305,40 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 1C: COMMUNITY / MEETUP DAY                                       */}
+      {/* STEP 1C: COMMUNITY / MEETUP DAY (FLAT SHEET SECTIONS)                 */}
       {/* ===================================================================== */}
       {step === 1 && isConnect && (
-        <div className="space-y-4">
-          {/* SESSION INFO CARD */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-4 space-y-3">
+        <div className="space-y-5">
+          {/* SESSION OVERVIEW SECTION */}
+          <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-mono uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                 {day.meetupLink ? "Online Zoom Session" : day.onsiteVenue ? "Onsite Gathering" : "Community Session"}
               </span>
-              <span className="text-[11px] font-mono text-zinc-500">
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
                 {day.onsiteSchedule || "Live Session"}
               </span>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+              <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                 {day.eventTitle || "Community Connect & Discussion"}
               </h3>
               {day.eventDetails && (
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
                   {day.eventDetails}
                 </p>
               )}
             </div>
 
             {/* If Online: Zoom Meeting Link */}
-            {day.meetupLink && (
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold block">
-                  Online Meeting Link:
-                </span>
+            {safeHttpUrl(day.meetupLink) && (
+              <div className="pt-1 space-y-1.5">
                 <a
-                  href={day.meetupLink}
+                  href={safeHttpUrl(day.meetupLink)!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full h-10 px-4 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 active:scale-98 transition shadow-sm"
+                  className="w-full h-10 px-4 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition shadow-sm"
                 >
                   <Users className="w-4 h-4" />
                   <span>Join Zoom Meeting</span>
@@ -1304,7 +1349,7 @@ function TaskForm({
 
             {/* If Onsite: Address, Schedule, Host & Map */}
             {day.onsiteVenue && (
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-white/10 space-y-2.5 text-xs">
+              <div className="pt-2 space-y-2.5 text-xs">
                 <div>
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                     Venue &amp; Location
@@ -1333,9 +1378,9 @@ function TaskForm({
                   </div>
                 </div>
 
-                {day.mapLink && (
+                {safeHttpUrl(day.mapLink) && (
                   <a
-                    href={day.mapLink}
+                    href={safeHttpUrl(day.mapLink)!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-white hover:underline pt-1"
@@ -1426,26 +1471,33 @@ function TaskForm({
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 2: NUTRITION & MEAL (UNIFIED TAP CHECKLIST, NO KEYBOARD)         */}
+      {/* STEP 2: NUTRITION & MEAL (CLEAN CHECKLIST + MUTUAL FALLBACK OPTIONS)   */}
       {/* ===================================================================== */}
       {step === 2 && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-              Today&apos;s Recommended Meals &amp; Options
-            </span>
-            <ul className="space-y-2">
+        <div className="space-y-5">
+          {wasMealSkipped && mealDraft.checkedMeals.length === 0 && !mealDraft.specialOption && (
+            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+              Previously skipped — check off your meals or select a status below to update today&apos;s log.
+            </p>
+          )}
+
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                Today&apos;s Recommended Meals
+              </span>
+              <span className="text-[11px] font-mono text-zinc-400">
+                {mealDraft.checkedMeals.length} / {recommendedMeals.length} checked
+              </span>
+            </div>
+
+            <ul className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
               {recommendedMeals.map((mealLine, idx) => {
                 const checked = mealDraft.checkedMeals.includes(mealLine);
+                const cleanDescription = stripMealLabelPrefix(mealLine);
                 return (
                   <li key={idx}>
-                    <label
-                      className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
-                        checked
-                          ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10"
-                          : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
-                      }`}
-                    >
+                    <label className="flex items-start gap-3 py-3.5 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
                       <input
                         type="checkbox"
                         disabled={locked}
@@ -1461,112 +1513,103 @@ function TaskForm({
                             };
                           });
                         }}
-                        className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
+                        className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
                       />
                       <div className="min-w-0">
                         <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block font-semibold">
                           Meal {idx + 1}
                         </span>
                         <p
-                          className={`text-xs mt-0.5 leading-relaxed ${
+                          className={`text-xs sm:text-sm mt-0.5 leading-relaxed ${
                             checked
                               ? "font-semibold text-zinc-950 dark:text-white"
                               : "text-zinc-700 dark:text-zinc-300"
                           }`}
                         >
-                          {mealLine}
+                          {cleanDescription || mealLine}
                         </p>
                       </div>
                     </label>
                   </li>
                 );
               })}
-
-              {/* UNIFIED CHECKLIST OPTION 1: SIMILAR MEALS */}
-              <li>
-                <label
-                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
-                    mealDraft.specialOption === "similar"
-                      ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10"
-                      : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    disabled={locked}
-                    checked={mealDraft.specialOption === "similar"}
-                    onChange={() => {
-                      setMealDraft((prev) => ({
-                        checkedMeals: [],
-                        specialOption: prev.specialOption === "similar" ? null : "similar",
-                      }));
-                    }}
-                    className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
-                  />
-                  <div className="min-w-0">
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        mealDraft.specialOption === "similar"
-                          ? "font-semibold text-zinc-950 dark:text-white"
-                          : "text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      Ate similar food portion &amp; nutrition as recommended
-                    </p>
-                  </div>
-                </label>
-              </li>
-
-              {/* UNIFIED CHECKLIST OPTION 2: OFF TRACK */}
-              <li>
-                <label
-                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition select-none ${
-                    mealDraft.specialOption === "off_track"
-                      ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/10"
-                      : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    disabled={locked}
-                    checked={mealDraft.specialOption === "off_track"}
-                    onChange={() => {
-                      setMealDraft((prev) => ({
-                        checkedMeals: [],
-                        specialOption: prev.specialOption === "off_track" ? null : "off_track",
-                      }));
-                    }}
-                    className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5"
-                  />
-                  <div className="min-w-0">
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        mealDraft.specialOption === "off_track"
-                          ? "font-semibold text-zinc-950 dark:text-white"
-                          : "text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      Did not follow meal recommendations
-                    </p>
-                  </div>
-                </label>
-              </li>
             </ul>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+              Or Select Overall Status
+            </span>
+            <div className="grid grid-cols-1 gap-2">
+              <label
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${
+                  mealDraft.specialOption === "similar"
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                    : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  disabled={locked}
+                  checked={mealDraft.specialOption === "similar"}
+                  onChange={() => {
+                    setMealDraft((prev) => ({
+                      checkedMeals: [],
+                      specialOption: prev.specialOption === "similar" ? null : "similar",
+                    }));
+                  }}
+                  className="w-4 h-4 rounded border-zinc-300 shrink-0 accent-zinc-950 dark:accent-white"
+                />
+                <span className="text-xs font-medium">
+                  Ate similar food portion &amp; nutrition as recommended
+                </span>
+              </label>
+
+              <label
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${
+                  mealDraft.specialOption === "off_track"
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                    : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  disabled={locked}
+                  checked={mealDraft.specialOption === "off_track"}
+                  onChange={() => {
+                    setMealDraft((prev) => ({
+                      checkedMeals: [],
+                      specialOption: prev.specialOption === "off_track" ? null : "off_track",
+                    }));
+                  }}
+                  className="w-4 h-4 rounded border-zinc-300 shrink-0 accent-zinc-950 dark:accent-white"
+                />
+                <span className="text-xs font-medium">
+                  Did not follow meal recommendations today
+                </span>
+              </label>
+            </div>
           </div>
         </div>
       )}
 
       {/* ===================================================================== */}
-      {/* STEP 3: DAILY REFLECTION (WITH PREFER NOT TO WRITE OPTION & CHIPS)     */}
+      {/* STEP 3: DAILY REFLECTION (FLAT SHEET LAYOUT)                          */}
       {/* ===================================================================== */}
       {step === 3 && (
-        <div className="space-y-4">
+        <div className="space-y-5">
+          {wasReflectionSkipped && !skipJournal && !review && score === 0 && (
+            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+              Previously skipped — rate your energy and log a reflection below to update today&apos;s entry.
+            </p>
+          )}
+
           {day.dailyAssessment && (
-            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 space-y-1">
+            <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                 Today&apos;s Focus Prompt
               </span>
-              <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {day.dailyAssessment}
               </p>
             </div>
@@ -2078,97 +2121,69 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
-      {/* Daily Task Card Header (Stacked Title & Reset Timer + Info Button) */}
+      {/* Daily Task Header (No Caption Below Title; Info Opens Pop-up) */}
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
-            <button
-              type="button"
-              onClick={() => setShowDailyTasksInfo((prev) => !prev)}
-              aria-label="Daily tasks info"
-              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
-            >
-              <Info className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
-            {todayDateStr} • {resetCountdown}
-          </p>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
+          <button
+            type="button"
+            onClick={() => setShowDailyTasksInfo(true)}
+            aria-label="Daily tasks info"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
         </div>
+        <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+          {resetCountdown}
+        </span>
       </div>
 
-      {showDailyTasksInfo && (
-        <div className="p-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 space-y-2 animate-in fade-in duration-200">
-          <p className="font-semibold text-zinc-950 dark:text-white">About Daily Tasks &amp; Reset Schedule:</p>
-          <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
-            <li><strong className="text-zinc-900 dark:text-white">Task Cadence:</strong> Complete each day&apos;s routine: sleep tracking, training workout, nutrition logging, and daily reflection.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Daily Reset:</strong> Active tasks reset every night at 00:00 WIB (UTC+7). Complete all submissions before the 23:59 WIB daily cutoff.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Skipping Tasks:</strong> If you cannot finish a task today, select &quot;Skip&quot; to clear your queue and update your pending task count.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Day Navigation:</strong> Tap any unlocked day in the date selector below to view previous submissions or future curriculum days.</li>
-          </ul>
-        </div>
-      )}
+      <InfoPopupModal
+        open={showDailyTasksInfo}
+        title="Daily Tasks & Schedule"
+        subtitle={`${todayDateStr} • ${resetCountdown}`}
+        onClose={() => setShowDailyTasksInfo(false)}
+      >
+        <p className="font-semibold text-zinc-950 dark:text-white">About Daily Tasks &amp; Reset Schedule:</p>
+        <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
+          <li><strong className="text-zinc-900 dark:text-white">Task Cadence:</strong> Complete each day&apos;s routine: sleep tracking, training workout, nutrition logging, and daily reflection.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Daily Reset:</strong> Active tasks reset every night at 00:00 WIB (UTC+7). Complete submissions before the 23:59 WIB cutoff.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Skipping Tasks:</strong> If you cannot finish a task today, tap &quot;Skip&quot; to clear your pending queue cleanly.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Day Navigation:</strong> Select any day chip below to review past submissions or preview upcoming unlocked dates.</li>
+        </ul>
+      </InfoPopupModal>
 
-      {/* Day Selector (Spacious, Minimal Negative-Space Day Bar) */}
-      <div className="p-4 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] space-y-3.5">
-        {/* Active Day Header with generous negative space and comfortable arrows */}
-        <div className="flex items-center justify-between gap-4 px-1">
-          <button
-            type="button"
-            disabled={safeDayIndex <= 0}
-            onClick={() => {
-              if (safeDayIndex > 0) {
-                setSelectedDayId(programDays[safeDayIndex - 1].id);
-              }
-            }}
-            aria-label="Previous day"
-            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+      {/* Unified Single Day Selector (Side-by-Side Arrows + Clean Stacked Pill Strip) */}
+      <div className="px-3 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center gap-2">
+        <button
+          type="button"
+          disabled={safeDayIndex <= 0}
+          onClick={() => {
+            if (safeDayIndex > 0) {
+              setSelectedDayId(programDays[safeDayIndex - 1].id);
+            }
+          }}
+          aria-label="Previous day"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+        </button>
 
-          <div className="text-center min-w-0 flex-1">
-            <h3 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-950 dark:text-white truncate">
-              {formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)} · {selectedDay.dayType === "TRAINING_DAY" ? "Training" : selectedDay.dayType === "REST_DAY" ? "Rest" : "Connect"}
-            </h3>
-            <p className="text-[11px] font-mono text-zinc-400 mt-0.5">
-              Day {selectedDay.dayNumber} of {programDays.length}
-              {selectedDay.userProgress?.isCompleted ? " • Completed" : isSelectedToday ? " • Today" : ""}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            disabled={safeDayIndex >= programDays.length - 1}
-            onClick={() => {
-              if (safeDayIndex < programDays.length - 1) {
-                setSelectedDayId(programDays[safeDayIndex + 1].id);
-              }
-            }}
-            aria-label="Next day"
-            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4 rotate-180" />
-          </button>
-        </div>
-
-        {/* Clean, Simple Pill Strip: perfectly centered with generous scroll padding */}
         <div
           ref={stripRef}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-          className="relative overflow-x-auto no-scrollbar py-1.5 px-4 sm:px-6 scroll-smooth scroll-px-6"
+          className="flex-1 overflow-x-auto no-scrollbar py-0.5 px-1 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
-          <div className="inline-flex items-center justify-start sm:justify-center gap-2 min-w-full">
+          <div className="inline-flex items-center gap-1.5 min-w-full">
             {programDays.map((d) => {
               const isActiveSelected = d.id === selectedDay.id;
               const isTodayItem = d.id === day.id;
               const isDoneItem = !!d.userProgress?.isCompleted;
               const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
-              const isFutureItem = !isTodayItem && !isPastItem && !isDoneItem && (!d.isCalendarUnlocked || d.dayNumber > day.dayNumber);
               const dayTypeWord =
                 d.dayType === "TRAINING_DAY"
                   ? "Training"
@@ -2185,11 +2200,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   }}
                   type="button"
                   onClick={() => setSelectedDayId(d.id)}
-                  className={`shrink-0 h-9 px-4 rounded-full text-xs font-medium tracking-wide transition active:scale-95 inline-flex items-center gap-1.5 select-none ${
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-left transition active:scale-95 select-none flex flex-col items-center justify-center min-w-[76px] ${
                     isActiveSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs font-semibold"
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                       : isTodayItem
-                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white font-semibold"
+                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border border-zinc-950 dark:border-white"
                         : isDoneItem
                           ? "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/20"
                           : isPastItem
@@ -2197,14 +2212,32 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                             : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
                   }`}
                 >
-                  <span>{dateStr}</span>
-                  <span className="opacity-80 font-normal">{dayTypeWord}</span>
-                  {isDoneItem && <Check className="w-3 h-3 text-zinc-950 dark:text-white ml-0.5" />}
+                  <span className="text-[11px] font-semibold leading-tight inline-flex items-center gap-1">
+                    <span>{dateStr}</span>
+                    {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0" />}
+                  </span>
+                  <span className="text-[10px] opacity-75 leading-tight mt-0.5 font-medium">
+                    {dayTypeWord}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
+
+        <button
+          type="button"
+          disabled={safeDayIndex >= programDays.length - 1}
+          onClick={() => {
+            if (safeDayIndex < programDays.length - 1) {
+              setSelectedDayId(programDays[safeDayIndex + 1].id);
+            }
+          }}
+          aria-label="Next day"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
+        </button>
       </div>
 
       {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}
@@ -2259,7 +2292,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    <span className="font-mono text-zinc-400 font-normal mr-1.5">0{index + 1}.</span>
                     {t.title}
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
@@ -2447,21 +2479,18 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               </div>
             </div>
 
-            {/* SECTION UNDERNEATH WITH CURVED BORDER (LEKUKAN DI IMAGE) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-[#f6f6f4] dark:bg-[#0e0e0e] shadow-xl pt-6 px-5 sm:px-6 pb-24 space-y-4 max-w-xl mx-auto w-full flex-1">
-              {/* Bordered Task Content Section */}
-              <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-4 shadow-sm">
-                <TaskForm
-                  key={`${selectedDay.id}-${step}`}
-                  day={selectedDay}
-                  locked={selectedLocked}
-                  activities={selectedActivities}
-                  checks={selectedChecks}
-                  step={step}
-                  onFinish={handleFinishTask}
-                  props={props}
-                />
-              </section>
+            {/* SINGLE CLEAN CURVED SHEET (NO BOX-IN-BOX-IN-BOX NESTING) */}
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] shadow-xl pt-7 px-5 sm:px-8 pb-24 max-w-xl mx-auto w-full flex-1">
+              <TaskForm
+                key={`${selectedDay.id}-${step}`}
+                day={selectedDay}
+                locked={selectedLocked}
+                activities={selectedActivities}
+                checks={selectedChecks}
+                step={step}
+                onFinish={handleFinishTask}
+                props={props}
+              />
             </div>
           </div>,
           document.body

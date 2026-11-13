@@ -1,5 +1,5 @@
 // BMS Sanctuary Wellness PWA Service Worker (Instant Launch Loading Shell)
-const CACHE_NAME = "bms-wellness-pwa-v7";
+const CACHE_NAME = "bms-wellness-pwa-v8";
 
 const STATIC_ASSETS = [
   "/",
@@ -16,6 +16,16 @@ const STATIC_ASSETS = [
 const inflightNavMap = new Map();
 const resolvedNavMap = new Map();
 let navCounter = 0;
+
+function pruneNavMaps() {
+  const cutoff = Date.now() - 30000;
+  for (const [key, val] of resolvedNavMap.entries()) {
+    if (val.ts < cutoff) resolvedNavMap.delete(key);
+  }
+  if (inflightNavMap.size > 32) {
+    inflightNavMap.clear();
+  }
+}
 
 function buildInstantLoadingHtml(navId, originalUrl) {
   return `<!DOCTYPE html>
@@ -94,14 +104,16 @@ function buildInstantLoadingHtml(navId, originalUrl) {
       fetch("/__bms_sw_wait?id=" + encodeURIComponent(navId), { credentials: "same-origin", cache: "no-store" })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (data && data.targetUrl) {
+          if (data && data.ok && data.targetUrl) {
             window.location.replace(data.targetUrl);
+          } else if (data && data.offline) {
+            window.location.replace("/offline.html");
           } else {
             window.location.replace(fallbackUrl);
           }
         })
         .catch(function() {
-          setTimeout(function() { window.location.reload(); }, 1200);
+          window.location.replace("/offline.html");
         });
     })();
   </script>
@@ -154,6 +166,7 @@ self.addEventListener("fetch", (event) => {
       pending
         .then((response) => {
           inflightNavMap.delete(id);
+          pruneNavMaps();
           const targetUrl = response.url || pending.originalUrl;
           resolvedNavMap.set(targetUrl, {
             response: response.clone(),
@@ -165,7 +178,7 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => {
           inflightNavMap.delete(id);
-          return new Response(JSON.stringify({ ok: false }), {
+          return new Response(JSON.stringify({ ok: false, offline: true }), {
             headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
           });
         })
@@ -227,10 +240,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Stale-while-revalidate for static assets (images, icons, styles, fonts)
+  // Stale-while-revalidate for public static assets (exclude user /uploads/ media)
   if (
-    url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2|woff|css|js)$/) ||
-    url.pathname.startsWith("/_next/static/")
+    !url.pathname.startsWith("/uploads/") &&
+    (url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2|woff|css|js)$/) ||
+      url.pathname.startsWith("/_next/static/"))
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {

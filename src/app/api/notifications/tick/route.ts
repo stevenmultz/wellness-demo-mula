@@ -33,7 +33,6 @@ export async function POST() {
     return NextResponse.json({ success: true, ...summary });
   } catch (error: unknown) {
     console.error("[Notification Tick Error]:", error);
-    const msg = error instanceof Error ? error.message : "Failed to dispatch notifications.";
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Failed to dispatch notifications." }, { status: 500 });
   }
 }

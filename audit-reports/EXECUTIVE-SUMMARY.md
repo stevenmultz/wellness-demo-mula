@@ -1,116 +1,64 @@
-# EXECUTIVE SUMMARY: COMPREHENSIVE PRODUCTION AUDIT
-**Project:** `wellness-pwa` (+ BMS — Longevity & Movement Sanctuary)  
-**Audit Standard:** ISO/IEC 25010, OWASP Top 10 (2021), W3C PWA Specifications, WCAG 2.2 AA, SRE & Reliability Engineering  
-**Audit Date:** November 2026  
-**Auditor Roles:** Principal Software Architect, Application Security Engineer, SRE, Database Architect  
-**Current Baseline Status:** **PASS WITH WARNINGS (Not Production Ready Until Blockers Resolved)**
+# EXECUTIVE SUMMARY — BMS Sanctuary Wellness PWA Audit
+
+**Audit Date**: 2026-11-13  
+**Workspace**: `c:\Users\Steven\.gemini\antigravity\scratch\wellness-pwa`  
+**Audit Scope**: Full-stack read-only inspection across 42 directories, 138 workspace files (`64` files in `src/`), Prisma PostgreSQL schema (18 models), 6 API route handlers, 6 Server Action modules, PWA Service Worker/Manifest, dependencies (`526` locked npm packages), build/typecheck/lint verification, and Stage 5 safe non-breaking remediations.
 
 ---
 
-## 1. High-Level Assessment Overview
+## 1. Overall Production Readiness Verdict
 
-An exhaustive, zero-omission engineering, security, reliability, performance, and architecture audit was executed on the `wellness-pwa` codebase across all **112 files**, **43 directories**, and **28 dependencies**.
+**Status: NOT READY FOR UNRESTRICTED PRODUCTION (CONDITIONAL / BLOCKED)**
 
-The application demonstrates strong foundational design patterns in कई areas:
-1. **Separation of Concerns:** Clean boundary between domain logic (`src/wellness/`), UI components (`src/components/`), and API routes (`src/app/api/`).
-2. **Type Safety & Validation:** End-to-end schema validation using Zod for all user inputs and server actions.
-3. **Database Integrity:** Strict foreign key constraints and relational junction tables (3NF) in Prisma schema, with explicit cascading and indexing on critical query pathways.
-4. **Timezone Determinism:** Rigorous adherence to Western Indonesia Time (WIB / UTC+7) for all cohort drip unlock dates (`00:00 WIB`) and nightly accountability cutoffs (`23:59 WIB`).
-5. **Session Architecture:** Stateless yet revocable JWT session cookies with `tokenVersion` counter validated against real-time database state.
+The application exhibits solid foundational structure in several areas (Prisma parameterized queries, bcryptjs cost-12 password hashing, HS256 JWT `httpOnly`/`sameSite` cookies, React-cached session validation enforcing active status & `tokenVersion`, magic-byte file upload checking, and WIB timezone normalization). However, **two CRITICAL blockers** and **six unresolved HIGH findings** prevent immediate production launch for real paying customers:
 
-However, several **CRITICAL** and **HIGH** severity blockers were identified that must be remediated before production deployment to prevent system compromise, data bloat, and service downtime.
-
----
-
-## 2. Key Audit Statistics & Metrics
-
-| Category | Metric / Quantity |
-| :--- | :--- |
-| **Total Files Audited** | **112 files** (Excluding `.git`, `.next`, `node_modules`) |
-| **Total Directories Audited** | **43 directories** |
-| **Total Dependencies Inspected** | **28 direct dependencies** (15 runtime, 13 dev) + 300+ transitive |
-| **TypeScript / TypeCheck Status** | **0 Errors (`tsc --noEmit` Passed)** |
-| **Linter Status** | **0 Warnings / Errors (`next lint` Passed)** |
-| **Production Build Status** | **Successful (`next build` compiled in 190ms Prisma + Next.js build)** |
-| **Critical Findings (CRITICAL)** | **2** |
-| **High Severity Findings (HIGH)** | **6** |
-| **Medium Severity Findings (MEDIUM)** | **6** |
-| **Low Severity Findings (LOW)** | **4** |
-| **Informational Findings (INFO)** | **3** |
-| **Automated Tests Passed** | **4 Unit Tests (Offline Security Remediation & Logic Tests)** |
-| **Automated Tests Blocked / Failed** | **2 Test Suites (Failed due to live DB connection requirement in sandbox)** |
-| **Areas Not Tested Live** | **Real payment gateway webhooks (Simulation mode), CDN edge caching, Push server network reachability** |
+1. **CRITICAL (`AUD-001`) — Non-Production Payment Flow**: QRIS checkout uses Midtrans/Xendit `TODO` stubs with a static SVG QR image and no payment webhook; production payments either block or rely on an unsafe simulation flag, and Terms acceptance is enforced client-side only.
+2. **CRITICAL (`AUD-002`) — Unsafe Media Storage Architecture**: Workout/body photos are stored in unauthenticated `public/uploads/workouts/` on writable filesystems or fall back to up to 5 MB binary (~6.67 MB base64) strings directly inside PostgreSQL `TEXT` columns on read-only serverless platforms (Vercel), with zero orphan cleanup.
+3. **HIGH (`AUD-004`, `AUD-006`, `AUD-007`, `AUD-009`, `AUD-010`, `AUD-011`)**:
+   - Active `.env` points to a remote Supabase PostgreSQL instance alongside a placeholder `JWT_SECRET`, and `.env.production` is tracked in git.
+   - Rate limiting uses a process-local `Map` keyed solely by email (bypassable across serverless instances/IPs).
+   - Client polling (`/api/notifications/tick`) triggers global N+1 notification dispatch queries from every member browser tab, while `/admin` SSR loads up to 200 full user records + health profiles + all day progress photos at once.
+   - "Report Issue" and "Quit Program" workflows only store data in browser `localStorage` without hitting the server.
+   - Zero versioned `prisma/migrations` directory and no verified DB backup/restore runbook exist.
+   - `/dashboard` RSC leaks locked/un-enrolled day payloads (`dayNotifications`, `mealRecommendation`, etc.), and `wellnessAdminUpdateCustomerProfile` lacks Zod validation.
 
 ---
 
-## 3. Severity Distribution of Findings
+## 2. Findings Summary & Stage 5 Safe Remediations
 
-```
-CRITICAL    : [██] 2
-HIGH        : [██████] 6
-MEDIUM      : [██████] 6
-LOW         : [████] 4
-INFORMATIONAL: [███] 3
-Total       : 21 Items
-```
+| Severity | Baseline Total | Fixed in Stage 5 | Open Actionable | Not Tested / No Data |
+|---|---:|---:|---:|---:|
+| **CRITICAL** | 2 | 0 | 2 | 0 |
+| **HIGH** | 9 | 3 | 6 | 0 |
+| **MEDIUM** | 11 | 3 | 8 | 0 |
+| **LOW** | 4 | 1 | 3 | 0 |
+| **INFORMATIONAL / BOUNDARY** | 2 | 0 | 0 | 2 |
+| **TOTAL** | **28** | **7** | **19** | **2** |
 
----
-
-## 4. Top Critical & High Severity Blockers
-
-### Blocker 1: Hardcoded Fallback JWT Secret (CRITICAL — SEC-01)
-- **Location:** `src/middleware.ts#L7-L8`, `src/wellness/security/session.ts#L11-L13`
-- **Impact:** If `JWT_SECRET` is unset or fails to inject in an environment, the system silently uses `"wellness_platform_dev_only_jwt_secret_do_not_use_in_prod"`. Any attacker can forge a valid JWT claiming `role: "SUPERADMIN"` and take over the entire sanctuary platform.
-
-### Blocker 2: Hardcoded VAPID Private Key in Source Code (CRITICAL — SEC-02)
-- **Location:** `src/wellness/integrations/web-push.ts#L8-L9`
-- **Impact:** The VAPID private key is committed directly into the codebase. Anyone reading the source code can send unauthorized spoofed push notifications to enrolled members.
-
-### Blocker 3: Client-Triggered Global Notification Loop with N+1 Query Cascade (HIGH — PERF-01)
-- **Location:** `src/app/api/notifications/tick/route.ts#L32`, `src/wellness/integrations/dispatch-due-notifications.ts#L60-L163`
-- **Impact:** Every active member's browser polls `POST /api/notifications/tick` once a minute. This invokes `dispatchDueNotifications` across the **entire platform database** (all programs, all days, all users). With concurrent users, this causes database connection starvation on Supabase PgBouncer (`connection_limit=1`), race conditions, and duplicate push notifications.
-
-### Blocker 4: In-Memory Rate Limiting Incompatible with Multi-Instance Serverless (HIGH — SEC-04)
-- **Location:** `src/wellness/security/rate-limit.ts#L10`
-- **Impact:** Rate limiting is held in Node.js process memory (`Map`). Serverless lambdas or multi-container deployments do not share memory, allowing attackers to bypass sign-in and password reset brute-force protections across lambda invocations.
-
-### Blocker 5: Ephemeral Local Disk Storage with Unbounded 5MB Base64 DB Fallback (HIGH — STOR-01)
-- **Location:** `src/app/api/upload/route.ts#L63-L87`
-- **Impact:** Check-in photos write to local disk (`public/uploads/workouts`). In serverless environments (Vercel), local disk writes fail and fall back to storing 5MB base64 data URLs in PostgreSQL columns. Storing raw image strings directly in database rows causes rapid database storage saturation, high query latency, and high bandwidth costs.
-
-### Blocker 6: Service Worker 60ms Timeout Infinite Navigation Reload Risk (HIGH — PWA-01)
-- **Location:** `public/sw.js#L182-L226`
-- **Impact:** Service worker races navigations against an aggressive 60ms timeout. If server response exceeds 60ms (common on mobile networks and cold starts), it returns a synthetic loading shell and makes an internal fetch. If the service worker process restarts in the background, in-memory maps are lost, triggering a continuous reload loop.
+### Safe Fixes Implemented & Verified in Stage 5 (Zero Breaking Schema/Auth Changes)
+1. **`AUD-003` (HIGH — Stored XSS & URL Sanitization)**: Added shared [url-safety.ts](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/wellness/utils/url-safety.ts), enforced `isSafePhotoUrl` inside [auth.ts](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/wellness/validators/auth.ts) and [program.ts](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/wellness/validators/program.ts), sanitized `href`/`src` rendering in [DailyCheckIn.tsx](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/components/dashboard/tabs/DailyCheckIn.tsx) and [AdminClient.tsx](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/components/admin/AdminClient.tsx), and hardened hostname/protocol parsing in [video-provider.ts](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/wellness/integrations/video-provider.ts).
+2. **`AUD-005` (HIGH — Payment Reference Collision)**: Replaced colliding `Date.now().toString().slice(-6)` suffix in [account.ts](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/wellness/actions/account.ts) with `crypto.randomBytes(6).toString("hex").toUpperCase()`.
+3. **`AUD-008` (HIGH — PWA Service Worker Offline Loop & Media Leak)**: Updated [sw.js](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/public/sw.js) (`bms-wellness-pwa-v8`) to redirect failed delayed navigations cleanly to `/offline.html` instead of looping on `fallbackUrl`, added `pruneNavMaps()` eviction, and excluded `/uploads/` from shared SW caching.
+4. **`AUD-016` (MEDIUM — 500 Error Leakage)**: Replaced raw `error.message` returns on 500 responses in `/api/cron/dispatch-notifications`, `/api/notifications/tick`, and `/api/push/subscribe`.
+5. **`AUD-017` (MEDIUM — Unhandled Rejections in Checkout)**: Added `catch` blocks to `handleModeChange` and `handleRegenerateQris` in [QrisCheckoutModal.tsx](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/components/checkout/QrisCheckoutModal.tsx).
+6. **`AUD-018` (MEDIUM — Missing Web Push Guard)**: Short-circuited `sendWebPushNotification` in [web-push.ts](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/wellness/integrations/web-push.ts) when VAPID keys are unset.
+7. **`AUD-023` (LOW — Broken Static Image)**: Fixed `/program-cover-cardio.webp` (404) in [ProfileTab.tsx](file:///c:/Users/Steven/.gemini/antigravity/scratch/wellness-pwa/src/components/dashboard/tabs/ProfileTab.tsx) to `/image.webp`.
 
 ---
 
-## 5. Strategic Remediation Roadmap
+## 3. Verification Status
 
-1. **Immediate Phase (Pre-Deployment Blockers):**
-   - Enforce mandatory `JWT_SECRET` verification without fallback in production.
-   - Remove hardcoded `VAPID_PRIVATE_KEY` from source code.
-   - Add security headers (HSTS, CSP, Permissions-Policy, COOP, CORP) in `next.config.mjs`.
-   - Isolate notification dispatching strictly to server-side cron (`/api/cron/dispatch-notifications`) with database advisory locking.
-   - Fix Service Worker navigation race condition to prevent reload loops.
-   - Add `"scope": "/"` and precached `offline.html` fallback.
-   - Move `sharp` to runtime `dependencies` in `package.json`.
-
-2. **Medium-Term Phase (Post-Deployment Hardening):**
-   - Connect Supabase Storage or AWS S3 / Cloudflare R2 bucket for direct image uploads.
-   - Integrate Upstash Redis for distributed rate limiting.
-   - Split monolithic `AdminClient.tsx` (11,719 lines) into modular dynamic sub-tabs.
-   - Set up GitHub Actions CI pipeline for automated testing, linting, and vulnerability scanning.
-   - Implement structured JSON logging with Correlation IDs and Sentry error tracking.
+- `npx tsc --noEmit` -> **PASS** (exit code 0 after code edits)
+- `npm run lint` -> **PASS** (`No ESLint warnings or errors`)
+- `npx tsx scripts/test-security-remediation.ts` -> **PASS** (4/4 test groups passed)
+- `npx tsx scripts/test-audit-unit.ts` -> **PASS** (4/4 newly added pure unit test groups passed)
+- `npm run build` -> Baseline build succeeded (exit code 0); post-edit build re-run triggered (`task-250`) after transient Windows sandbox `mkdir EPERM`.
+- DB write tests (`scripts/test-wellness-auth-flow.ts`, etc.), load testing, and live TLS scans -> **NOT TESTED** to protect the live remote Supabase Postgres database in `.env` and adhere to non-destructive read-only rules.
 
 ---
 
-## 6. Production Readiness Verdict
+## 4. Next Required Decisions (Requires Explicit Approval — Stage 6)
 
-```
-Overall Status: PASS WITH WARNINGS (Conditionally Approved upon Blocker Remediation)
-Security Score: 78 / 100
-Reliability Score: 80 / 100
-Performance Score: 82 / 100
-Code Quality Score: 88 / 100
-Data Integrity Score: 94 / 100
-```
+1. Approve migrating media uploads to private cloud storage (S3/R2/Supabase Storage) and purging/migrating DB base64 strings.
+2. Approve integrating a real payment provider (Midtrans or Xendit QRIS + webhook secret) and adding missing `ProgramEnrollment` / `Program` schema indexes & migrations (`prisma migrate`).
+3. Approve rotating secrets (`JWT_SECRET`, `CRON_SECRET`), untracking `.env.production` from git, and deploying Upstash/Redis for distributed rate limiting & cron dispatch locking.

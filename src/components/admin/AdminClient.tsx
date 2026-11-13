@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { safeHttpUrl, safeMediaUrl } from "@/wellness/utils/url-safety";
 import {
   wellnessAdminSaveProgramDay,
   wellnessAdminDeleteProgramDay,
@@ -6713,9 +6714,9 @@ export function AdminClient({
                           </p>
                         </div>
 
-                        {selectedProgram.communityLink && (
+                        {safeHttpUrl(selectedProgram.communityLink) && (
                           <a
-                            href={selectedProgram.communityLink}
+                            href={safeHttpUrl(selectedProgram.communityLink)!}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1.5 shrink-0 w-fit transition"
@@ -10985,11 +10986,13 @@ export function AdminClient({
                                 key={label}
                                 className="group relative rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-white/5 overflow-hidden flex flex-col items-center justify-center min-h-[170px]"
                               >
-                                {url ? (
+                                {(() => {
+                                  const safeUrl = safeMediaUrl(url);
+                                  return safeUrl ? (
                                   <>
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
-                                      src={url}
+                                      src={safeUrl}
                                       alt={label}
                                       loading="lazy"
                                       decoding="async"
@@ -10998,7 +11001,7 @@ export function AdminClient({
                                     <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-white">
                                       <span className="text-xs font-medium font-geometric">{label}</span>
                                       <a
-                                        href={url}
+                                        href={safeUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="p-1 rounded-lg bg-white/20 hover:bg-white/30 text-white transition"
@@ -11013,7 +11016,8 @@ export function AdminClient({
                                     <p className="text-xs font-medium text-zinc-500">{label}</p>
                                     <p className="text-[10px] text-zinc-400">Not uploaded</p>
                                   </div>
-                                )}
+                                );
+                                })()}
                               </div>
                             ))}
                           </div>

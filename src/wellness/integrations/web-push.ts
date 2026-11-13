@@ -35,6 +35,10 @@ export async function sendWebPushNotification(
   sub: { endpoint: string; p256dh: string; auth: string },
   payload: PushNotificationPayload
 ): Promise<SendPushResult> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    return { success: false, error: "Web Push VAPID keys not configured." };
+  }
+
   const pushSubscription: webpush.PushSubscription = {
     endpoint: sub.endpoint,
     keys: {

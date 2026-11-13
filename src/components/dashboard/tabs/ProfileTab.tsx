@@ -384,7 +384,7 @@ export function ProfileTab({
               <div className="absolute inset-0 z-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/program-cover-cardio.webp"
+                  src="/image.webp"
                   alt=""
                   className="w-full h-full object-cover opacity-60 scale-105 transition-transform duration-700"
                 />

@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireAuth } from "../security/guards";
@@ -411,7 +412,7 @@ export async function wellnessEnrollProgram(
             programId: program.id,
             status: "ACTIVE",
             attendanceMode,
-            paymentReference: `FREE-${Date.now().toString().slice(-6)}`,
+            paymentReference: `FREE-${crypto.randomBytes(6).toString("hex").toUpperCase()}`,
             paidAt,
             validUntil,
             termsAgreedAt: new Date(),

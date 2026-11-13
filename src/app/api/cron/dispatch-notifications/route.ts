@@ -75,8 +75,7 @@ async function handleCronDispatch(req: NextRequest) {
     return NextResponse.json({ success: true, ...summary });
   } catch (error: unknown) {
     console.error("[Cron Dispatch Error]:", error);
-    const msg = error instanceof Error ? error.message : "Server error during cron dispatch";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Server error during cron dispatch" }, { status: 500 });
   }
 }
 

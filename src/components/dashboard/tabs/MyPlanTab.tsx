@@ -33,7 +33,7 @@ import { useTheme } from "@/components/theme/ThemeProvider";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
-import { EmptyState, FloatingHeader, safeHttpUrl } from "./shared";
+import { EmptyState, FloatingHeader, InfoPopupModal, formatDateWib, safeHttpUrl } from "./shared";
 
 export interface PlanDay {
   id: string;
@@ -505,23 +505,16 @@ export function MyPlanOverview({
               className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition select-none"
               aria-expanded={showDayStats}
             >
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
-                    {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                    <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
-                  </p>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
-                      showDayStats ? "rotate-180" : ""
-                    }`}
-                  />
-                </div>
-                {fullProgramDays.length > 0 && (
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
-                    {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
-                  </p>
-                )}
+              <div className="flex items-center gap-1.5">
+                <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
+                  {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
+                  <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
+                </p>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                    showDayStats ? "rotate-180" : ""
+                  }`}
+                />
               </div>
               <p className="text-xs font-semibold tracking-wider text-right text-zinc-700 dark:text-zinc-300">
                 {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
@@ -529,8 +522,19 @@ export function MyPlanOverview({
             </button>
 
             {showDayStats && (
-              <div className="px-4 pb-3 pt-2 border-t border-zinc-100 dark:border-white/10 animate-in fade-in duration-200">
-                <dl className="grid grid-cols-3 gap-3 text-sm">
+              <div className="px-4 pb-3.5 pt-2.5 border-t border-zinc-100 dark:border-white/10 space-y-3 animate-in fade-in duration-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {fullProgramDays.length > 0 && (
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                      {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
+                    </span>
+                  )}
+                  <span className="font-mono tabular-nums">
+                    {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
+                  </span>
+                </div>
+
+                <dl className="grid grid-cols-3 gap-3 pt-2 border-t border-zinc-100 dark:border-white/10 text-sm">
                   <div>
                     <dt className="text-[11px] text-zinc-500">Completed Day</dt>
                     <dd className="mt-0.5 text-lg font-medium tabular-nums text-zinc-950 dark:text-white">{stats.completed}</dd>
@@ -548,13 +552,13 @@ export function MyPlanOverview({
             )}
           </section>
 
-          {/* 3-INDEX NAVIGATION WIDGET (TEXT ONLY, SINGLE WORD) */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1.5 shadow-xs">
+          {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR) */}
+          <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1 shadow-xs">
             <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setWidgetIndex(0)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
                   widgetIndex === 0
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
@@ -563,7 +567,7 @@ export function MyPlanOverview({
                 <span>Tasks</span>
                 {pendingTasksCount > 0 && (
                   <span
-                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
+                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
                       widgetIndex === 0
                         ? "bg-white/20 text-white dark:bg-zinc-950/20 dark:text-zinc-950 font-bold"
                         : "bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
@@ -576,7 +580,7 @@ export function MyPlanOverview({
               <button
                 type="button"
                 onClick={() => setWidgetIndex(1)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] ${
+                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
                   widgetIndex === 1
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
@@ -587,7 +591,7 @@ export function MyPlanOverview({
               <button
                 type="button"
                 onClick={() => setWidgetIndex(2)}
-                className={`h-10 px-3 rounded-xl text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] ${
+                className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center transition active:scale-[0.98] ${
                   widgetIndex === 2
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5"
@@ -791,34 +795,34 @@ function CohortPerformanceCard({
   return (
     <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
-            <button
-              type="button"
-              onClick={() => setShowMetricsInfo((prev) => !prev)}
-              aria-label="Metrics calculation info"
-              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
-            >
-              <Info className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Sleep score, training & meal compliance</p>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
+          <button
+            type="button"
+            onClick={() => setShowMetricsInfo(true)}
+            aria-label="Metrics calculation info"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
-      {showMetricsInfo && (
-        <div className="p-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 space-y-2 animate-in fade-in duration-200">
-          <p className="font-semibold text-zinc-950 dark:text-white">How Metrics Are Calculated:</p>
-          <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
-            <li><strong className="text-zinc-900 dark:text-white">Sleep Average:</strong> Graded 1–5 stars. Optimal score 5 requires an average of ≥ 7h 30m nightly sleep across all logged dates.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Training:</strong> Number of completed movement sessions vs total scheduled training days.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Meal:</strong> Days you adhered to the daily nutrition protocol vs total program duration.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Energy & Mood:</strong> Average vitality self-rating from 1 (lowest) to 5 (peak energy).</li>
-            <li><strong className="text-zinc-900 dark:text-white">Program Consistency:</strong> Percentage of days with active check-in activity recorded.</li>
-          </ul>
-        </div>
-      )}
+      <InfoPopupModal
+        open={showMetricsInfo}
+        title="Performance Metrics"
+        subtitle="Sleep score, training & meal compliance"
+        onClose={() => setShowMetricsInfo(false)}
+      >
+        <p className="font-semibold text-zinc-950 dark:text-white">How Metrics Are Calculated:</p>
+        <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
+          <li><strong className="text-zinc-900 dark:text-white">Sleep Average:</strong> Graded 1–5 score. Optimal score 5 requires an average of ≥ 7h 30m nightly sleep across all logged dates.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Training:</strong> Number of completed movement sessions vs total scheduled training days.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Meal:</strong> Days you followed the daily nutrition protocol vs total program duration.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Energy &amp; Mood:</strong> Average vitality self-rating from 1 (lowest) to 5 (peak energy).</li>
+          <li><strong className="text-zinc-900 dark:text-white">Program Consistency:</strong> Percentage of days with active check-in activity recorded.</li>
+        </ul>
+      </InfoPopupModal>
 
       <div className="p-4 space-y-3.5">
         {/* 1. SLEEP AVERAGE (1–5 BAR) */}
@@ -979,7 +983,6 @@ function ProgramCommunityWidget({
   programTitle?: string;
   communityLink?: string | null;
 }) {
-  const [showRules, setShowRules] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const communityUrl = safeHttpUrl(communityLink);
   const fallbackConcierge = `https://wa.me/6281290002026?text=${encodeURIComponent(
@@ -997,28 +1000,17 @@ function ProgramCommunityWidget({
   return (
     <>
       <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-800 dark:text-zinc-200 shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
               <Users className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                  {programTitle ? `${programTitle} Community` : "Program Community"}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowRules((prev) => !prev)}
-                  aria-label="Community rules & info"
-                  title="View Community Rules"
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition shrink-0"
-                >
-                  <Info className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                {programTitle ? `${programTitle} Community` : "Program Community"}
+              </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-                Private cohort peer connection &amp; daily discussion
+                Private cohort discussion &amp; peer support
               </p>
             </div>
           </div>
@@ -1026,39 +1018,11 @@ function ProgramCommunityWidget({
           <button
             type="button"
             onClick={() => setShowDisclaimer(true)}
-            className="self-start sm:self-auto shrink-0 h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs active:scale-95 transition hover:opacity-90"
+            className="shrink-0 h-9 px-4 rounded-full border border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
           >
-            <span>{communityUrl ? "Open Community" : "Join Cohort Group"}</span>
-            <ExternalLink className="w-3.5 h-3.5" />
+            {communityUrl ? "Open" : "Join"}
           </button>
         </div>
-
-        {showRules && (
-          <div className="px-5 py-4 bg-zinc-50 dark:bg-white/[0.03] border-t border-zinc-100 dark:border-white/10 space-y-3 animate-in fade-in duration-200 text-xs">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold text-zinc-950 dark:text-white">
-                {programTitle ? `${programTitle} Community Guidelines` : "Community Guidelines"}
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowRules(false)}
-                className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-xs font-medium"
-              >
-                Close
-              </button>
-            </div>
-            <p className="text-[11px] text-zinc-500 leading-relaxed">
-              This space is an exclusive, safe environment reserved solely for members enrolled in this curriculum cohort to ensure privacy, focused accountability, and peer growth.
-            </p>
-            <ul className="space-y-2 text-[11px] text-zinc-600 dark:text-zinc-400 list-disc list-inside leading-relaxed">
-              <li><strong>Dedicated Cohort Group:</strong> Every program operates an independent, isolated group for focused curriculum sharing.</li>
-              <li><strong>Encourage &amp; Empower:</strong> Celebrate daily milestones, habit streaks, and support peers through challenging days.</li>
-              <li><strong>Strict Confidentiality:</strong> Daily logs, personal reflections, and questions shared within the group remain strictly confidential.</li>
-              <li><strong>Curriculum-Centered:</strong> Focus conversations on movement technique, nutrition protocols, circadian sleep rhythm, and recovery.</li>
-              <li><strong>Zero Solicitation:</strong> Commercial self-promotion, advertising, unsolicited direct messaging, or harassment will result in immediate removal.</li>
-            </ul>
-          </div>
-        )}
       </section>
 
       {/* External Community Disclaimer Modal */}
@@ -1118,7 +1082,7 @@ function ProgramReportEntryWidget({
   programTitle?: string;
   communityLink?: string | null;
 }) {
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showReportPage, setShowReportPage] = useState(false);
 
   return (
     <>
@@ -1140,7 +1104,7 @@ function ProgramReportEntryWidget({
 
           <button
             type="button"
-            onClick={() => setShowDetailModal(true)}
+            onClick={() => setShowReportPage(true)}
             className="shrink-0 h-9 px-4 rounded-full border border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
           >
             Report
@@ -1148,18 +1112,18 @@ function ProgramReportEntryWidget({
         </div>
       </section>
 
-      {showDetailModal && (
-        <ProgramReportDetailModal
+      {showReportPage && (
+        <ProgramReportPageView
           programTitle={programTitle}
           communityLink={communityLink}
-          onClose={() => setShowDetailModal(false)}
+          onClose={() => setShowReportPage(false)}
         />
       )}
     </>
   );
 }
 
-function ProgramReportDetailModal({
+function ProgramReportPageView({
   programTitle,
   communityLink: _communityLink,
   onClose,
@@ -1168,11 +1132,12 @@ function ProgramReportDetailModal({
   communityLink?: string | null;
   onClose: () => void;
 }) {
+  void _communityLink;
   const [activeTab, setActiveTab] = useState<"issue" | "quit">("issue");
   const [issueType, setIssueType] = useState<string>("Coach / Guidance Concern");
   const [quitReason, setQuitReason] = useState<string>("Schedule / Time Conflict");
   const [note, setNote] = useState("");
-  const [showInvestigationPopup, setShowInvestigationPopup] = useState(false);
+  const [submittedDone, setSubmittedDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -1225,9 +1190,9 @@ function ProgramReportDetailModal({
         // Safe fallback
       }
       setIsSubmitting(false);
-      setShowInvestigationPopup(true);
+      setSubmittedDone(true);
       setNote("");
-    }, 450);
+    }, 350);
   };
 
   return typeof document !== "undefined"
@@ -1236,165 +1201,175 @@ function ProgramReportDetailModal({
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-          className="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
+          className="fixed inset-0 z-[85] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto animate-in fade-in duration-150"
         >
-          <div className="relative w-full max-w-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 my-auto max-h-[92vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-zinc-950 dark:text-white">
-                  Program Support &amp; Options
-                </h2>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  {programTitle ? `Curriculum: ${programTitle}` : "Cohort Assistance Desk"}
-                </p>
-              </div>
+          <header
+            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+            className="sticky top-0 z-10 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
+          >
+            <div className="max-w-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close dialog"
-                className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-100 dark:bg-white/5 flex items-center justify-center text-zinc-500 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition shrink-0"
+                className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1.5 active:scale-95 transition"
               >
-                <X className="w-4 h-4" />
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
               </button>
+              <div className="min-w-0 text-right">
+                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
+                  Program Support &amp; Options
+                </p>
+                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+                  {programTitle || "Cohort Assistance Desk"}
+                </p>
+              </div>
             </div>
+          </header>
 
-            {/* Segmented Tab Bar */}
-            <div className="p-1 rounded-2xl bg-zinc-100 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setActiveTab("issue")}
-                className={`py-2 px-3 rounded-xl transition ${
-                  activeTab === "issue"
-                    ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs"
-                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                }`}
-              >
-                Report an Issue
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("quit")}
-                className={`py-2 px-3 rounded-xl transition ${
-                  activeTab === "quit"
-                    ? "bg-red-600 text-white shadow-xs"
-                    : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
-                }`}
-              >
-                Quit Program
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4 pt-1">
-              {/* Category Selection */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                  {activeTab === "quit" ? "Reason for Withdrawing" : "Issue Category"}
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(activeTab === "quit" ? quitOptions : issueOptions).map((opt) => {
-                    const isSelected = activeTab === "quit" ? quitReason === opt : issueType === opt;
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => (activeTab === "quit" ? setQuitReason(opt) : setIssueType(opt))}
-                        className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition border ${
-                          isSelected
-                            ? activeTab === "quit"
-                              ? "bg-red-600 text-white border-transparent shadow-xs"
-                              : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
-                            : "bg-zinc-50 dark:bg-white/5 border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Note textarea */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                  {activeTab === "quit" ? "Additional Context (Optional)" : "Details / Description"}
-                </label>
-                <textarea
-                  rows={3}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder={
-                    activeTab === "quit"
-                      ? "Let us know how we can assist or why you need to leave..."
-                      : "Describe the issue clearly (e.g., coach concern, broken video player, or exercise guidance)..."
-                  }
-                  className="w-full text-xs rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-3 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
-                  required={activeTab === "issue"}
-                />
-              </div>
-
-              {activeTab === "quit" && (
-                <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
-                  <p className="font-semibold text-zinc-900 dark:text-white">Need a temporary pause instead?</p>
-                  <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
-                    You can pause your schedule and resume when your routine clears up. You don&apos;t have to lose your progress.
-                  </p>
-                </div>
-              )}
-
-              {/* Form Action: Clean, Single Dedicated Submit Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || (activeTab === "issue" && !note.trim())}
-                  className={`w-full h-11 rounded-2xl text-xs font-semibold disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
-                    activeTab === "quit"
-                      ? "bg-red-600 text-white hover:bg-red-700"
-                      : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90"
-                  }`}
-                >
-                  {isSubmitting ? (
-                    <span>Submitting...</span>
-                  ) : (
-                    <span>{activeTab === "quit" ? "Submit Withdrawal Request" : "Submit Report"}</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Dedicated Investigation Pop-up Confirmation Modal */}
-          {showInvestigationPopup && (
-            <div className="fixed inset-0 z-[105] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-200">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto shadow-2xs">
+          <main className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24">
+            {submittedDone ? (
+              <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-6 sm:p-8 text-center space-y-5 shadow-xs mt-4">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
-
                 <div className="space-y-2">
-                  <h3 className="text-base font-bold text-zinc-950 dark:text-white">
+                  <h2 className="text-lg font-bold text-zinc-950 dark:text-white">
                     {activeTab === "quit" ? "Withdrawal Under Review" : "Report Under Investigation"}
-                  </h3>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                  </h2>
+                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm mx-auto">
                     {activeTab === "quit"
                       ? "Your withdrawal request has been received. Our concierge support will review your curriculum status and reach out to you within 24 hours to assist you."
-                      : "Thank you for bringing this to our attention. Our team has logged your report and is thoroughly investigating the issue. A member of our support team will contact you back directly with an update."}
+                      : "Thank you for bringing this to our attention. Our team has logged your report and is reviewing the issue."}
+                  </p>
+                </div>
+                <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setSubmittedDone(false)}
+                    className="h-10 px-5 rounded-full border border-zinc-300 dark:border-white/15 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+                  >
+                    Submit Another
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
+                  >
+                    Back to My Plan
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-1">
+                  <h1 className="text-xl font-bold tracking-tight text-zinc-950 dark:text-white">
+                    How can we help you?
+                  </h1>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Submit a technical or curriculum report, or request a withdrawal from {programTitle || "this program"}.
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowInvestigationPopup(false);
-                    onClose();
-                  }}
-                  className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition shadow-xs"
-                >
-                  Understood, Close
-                </button>
+                <div className="p-1 rounded-xl bg-zinc-200/70 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("issue")}
+                    className={`py-2 px-3 rounded-lg transition ${
+                      activeTab === "issue"
+                        ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs"
+                        : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Report an Issue
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("quit")}
+                    className={`py-2 px-3 rounded-lg transition ${
+                      activeTab === "quit"
+                        ? "bg-red-600 text-white shadow-xs"
+                        : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
+                    }`}
+                  >
+                    Quit Program
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="space-y-2.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                      {activeTab === "quit" ? "Reason for Withdrawing" : "Issue Category"}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {(activeTab === "quit" ? quitOptions : issueOptions).map((opt) => {
+                        const isSelected = activeTab === "quit" ? quitReason === opt : issueType === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => (activeTab === "quit" ? setQuitReason(opt) : setIssueType(opt))}
+                            className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition border ${
+                              isSelected
+                                ? activeTab === "quit"
+                                  ? "bg-red-600 text-white border-transparent shadow-xs"
+                                  : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
+                                : "bg-white dark:bg-[#141414] border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                      {activeTab === "quit" ? "Additional Context (Optional)" : "Details / Description"}
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder={
+                        activeTab === "quit"
+                          ? "Let us know how we can assist or why you need to leave..."
+                          : "Describe the issue clearly (e.g., coach concern, broken video player, or exercise guidance)..."
+                      }
+                      className="w-full text-base sm:text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-3.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                      required={activeTab === "issue"}
+                    />
+                  </div>
+
+                  {activeTab === "quit" && (
+                    <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 py-1 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
+                      <p className="font-semibold text-zinc-900 dark:text-white">Need a temporary pause instead?</p>
+                      <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        You can pause your schedule and resume when your routine clears up without losing your logged history.
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || (activeTab === "issue" && !note.trim())}
+                    className={`w-full h-11 rounded-2xl text-xs font-semibold disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
+                      activeTab === "quit"
+                        ? "bg-red-600 text-white hover:bg-red-700"
+                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90"
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <span>Submitting...</span>
+                    ) : (
+                      <span>{activeTab === "quit" ? "Submit Withdrawal Request" : "Submit Report"}</span>
+                    )}
+                  </button>
+                </form>
               </div>
-            </div>
-          )}
+            )}
+          </main>
         </div>,
         document.body
       )
@@ -1738,43 +1713,43 @@ function ProgramPreparationWidgets({
     <>
       <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
-              <button
-                type="button"
-                onClick={() => setShowGuidesInfo((prev) => !prev)}
-                aria-label="Program guides overview"
-                className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
-              >
-                <Info className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">Meal protocol, meetups, gear, blueprint, rules & coaches</p>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
+            <button
+              type="button"
+              onClick={() => setShowGuidesInfo(true)}
+              aria-label="Program guides overview"
+              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+            >
+              <Info className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
-        {showGuidesInfo && (
-          <div className="p-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 space-y-2 animate-in fade-in duration-200">
-            <p className="font-semibold text-zinc-950 dark:text-white">What Program Guides Cover:</p>
-            <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
-              <li><strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily nutrition principles, hydration targets, and dietary suggestions for each program day.</li>
-              <li><strong className="text-zinc-900 dark:text-white">Meetups &amp; Live:</strong> Scheduled Zoom sessions, live coach clinics, and community Q&amp;As.</li>
-              <li><strong className="text-zinc-900 dark:text-white">Equipment:</strong> Required mats, weights, bands, or recovery tools needed for optimal execution.</li>
-              <li><strong className="text-zinc-900 dark:text-white">Objectives &amp; Blueprint:</strong> Target physiological adaptations, phase breakdown, and longevity goals.</li>
-              <li><strong className="text-zinc-900 dark:text-white">References:</strong> Peer-reviewed scientific literature and clinical studies grounding the curriculum.</li>
-              <li><strong className="text-zinc-900 dark:text-white">Terms &amp; Rules:</strong> Membership code of conduct, daily logging deadlines, and safety guidelines.</li>
-              <li><strong className="text-zinc-900 dark:text-white">Coaches &amp; Mentors:</strong> Certified longevity practitioners, movement specialists, and clinical nutritionists guiding this cohort.</li>
-            </ul>
-          </div>
-        )}
+        <InfoPopupModal
+          open={showGuidesInfo}
+          title="Program Guides"
+          subtitle="Meal protocol, meetups, gear, blueprint, rules & coaches"
+          onClose={() => setShowGuidesInfo(false)}
+        >
+          <p className="font-semibold text-zinc-950 dark:text-white">What Program Guides Cover:</p>
+          <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
+            <li><strong className="text-zinc-900 dark:text-white">Meals:</strong> Daily nutrition principles, hydration targets, and dietary guidance for each program day.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Sessions:</strong> Scheduled Zoom clinics, live coaching sessions, and community meetups.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Equipment:</strong> Required mats, weights, bands, or recovery tools needed for training.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Objectives:</strong> Target physiological adaptations, phase breakdown, and cohort goals.</li>
+            <li><strong className="text-zinc-900 dark:text-white">References:</strong> Peer-reviewed scientific literature supporting this curriculum.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Terms &amp; Rules:</strong> Code of conduct, daily logging cutoffs, and safety guidelines.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Coaches:</strong> Dedicated faculty and clinical specialists guiding this cohort.</li>
+          </ul>
+        </InfoPopupModal>
 
         <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cardsContent}
         </div>
       </section>
 
-      {/* DEDICATED FULL-SCREEN VIEWS WITH IMAGE BACKGROUND & BORDERED SECTIONS */}
+      {/* DEDICATED FULL-SCREEN VIEWS FOLLOWING ACTIVE LIGHT / DARK THEME */}
       {activePage &&
         typeof document !== "undefined" &&
         createPortal(
@@ -1783,7 +1758,7 @@ function ProgramPreparationWidgets({
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="dark fixed inset-0 z-[80] bg-[#0e0e0e] text-zinc-100 flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
           >
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
@@ -1924,82 +1899,90 @@ function ProgramPreparationWidgets({
                     </p>
                   </div>
 
-                  {/* Clean Day-by-Day Meal Cards with abundant negative space */}
-                  <div className="space-y-4 pt-1">
+                  {/* Clean Day-by-Day Meal Rows separated by crisp hairlines */}
+                  <div className="divide-y divide-zinc-100 dark:divide-white/10">
                     {mealDays.map((d) => {
                       const isToday = d.id === currentDayId;
                       const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
-                      const lines = splitActivities(d.mealRecommendation);
+                      const rawLines = splitActivities(d.mealRecommendation).map((l) =>
+                        l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
+                      );
+                      const compliance = d.userProgress?.mealCompliance;
+                      const complianceLabel =
+                        compliance === "FULL" || compliance === "YES"
+                          ? "Followed"
+                          : compliance === "PARTIAL"
+                            ? "Partial"
+                            : compliance === "SIMILAR"
+                              ? "Similar"
+                              : compliance === "OFF_TRACK"
+                                ? "Off Track"
+                                : compliance === "SKIPPED"
+                                  ? "Skipped"
+                                  : null;
 
                       return (
                         <div
                           key={d.id}
-                          className={`rounded-2xl border p-5 sm:p-6 transition-all space-y-3.5 ${
+                          className={`py-5 first:pt-2 last:pb-2 space-y-3 transition ${
                             isToday
-                              ? "border-zinc-950 dark:border-white/30 bg-zinc-50/90 dark:bg-white/[0.04] shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10"
-                              : "border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616]"
+                              ? "px-4 sm:px-5 -mx-2 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 my-2"
+                              : ""
                           }`}
                         >
-                          {/* Card Header: Day + Date + Status Badge */}
+                          {/* Header: Day + Date + Today/Logged Badge */}
                           <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2">
                               <span
                                 className={`text-xs font-mono font-bold tracking-wide ${
                                   isToday
                                     ? "text-zinc-950 dark:text-white"
                                     : isPast
-                                      ? "text-zinc-400 dark:text-zinc-500"
+                                      ? "text-zinc-500 dark:text-zinc-400"
                                       : "text-zinc-900 dark:text-zinc-100"
                                 }`}
                               >
                                 Day {d.dayNumber}
                               </span>
                               <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                              <span className={`text-xs ${isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-500"}`}>
+                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                 {formatShortDayDate(d.unlockDate, d.dayNumber)}
                               </span>
                             </div>
 
-                            {isToday ? (
-                              <span className="h-6 px-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center">
-                                Today
-                              </span>
-                            ) : isPast ? (
-                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
-                                Completed
-                              </span>
-                            ) : null}
+                            <div className="flex items-center gap-1.5">
+                              {complianceLabel && (
+                                <span className="h-5 px-2 rounded-full bg-zinc-100 dark:bg-white/10 text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center">
+                                  {complianceLabel}
+                                </span>
+                              )}
+                              {isToday && (
+                                <span className="h-5 px-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center">
+                                  Today
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Meal Items */}
-                          {lines.length > 1 ? (
-                            <ul className="space-y-2 pt-1">
-                              {lines.map((line, idx) => (
+                          {rawLines.length > 0 ? (
+                            <ul className="space-y-2">
+                              {rawLines.map((line, idx) => (
                                 <li
                                   key={idx}
                                   className={`text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed ${
-                                    isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
+                                    isPast ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-300"
                                   }`}
                                 >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${
-                                      isPast ? "bg-zinc-300 dark:bg-zinc-700" : "bg-zinc-400 dark:bg-zinc-500"
-                                    }`}
-                                  />
+                                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-semibold mt-0.5 shrink-0">
+                                    M{idx + 1}
+                                  </span>
                                   <span>{line}</span>
                                 </li>
                               ))}
                             </ul>
-                          ) : d.mealRecommendation && d.mealRecommendation.trim() ? (
-                            <p
-                              className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line ${
-                                isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300"
-                              }`}
-                            >
-                              {d.mealRecommendation}
-                            </p>
                           ) : (
-                            <p className="text-xs text-zinc-400 dark:text-zinc-600 italic">
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
                               Balanced whole-food nutrition and recovery hydration.
                             </p>
                           )}
@@ -2029,7 +2012,7 @@ function ProgramPreparationWidgets({
                   </div>
 
                   {meetupDays.length > 0 ? (
-                    <div className="space-y-4 pt-1">
+                    <div className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
                       {meetupDays.map((d) => {
                         const meetUrl = safeHttpUrl(d.meetupLink);
                         const mapUrl = safeHttpUrl(d.mapLink);
@@ -2039,10 +2022,10 @@ function ProgramPreparationWidgets({
                         return (
                           <div
                             key={d.id}
-                            className={`rounded-2xl border p-5 sm:p-6 transition-all space-y-3.5 ${
+                            className={`py-4 sm:py-5 transition-all space-y-3 ${
                               isToday
-                                ? "border-zinc-950 dark:border-white/30 bg-zinc-50/90 dark:bg-white/[0.04] shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10"
-                                : "border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616]"
+                                ? "border-l-2 border-zinc-950 dark:border-white pl-3.5"
+                                : ""
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -2055,8 +2038,13 @@ function ProgramPreparationWidgets({
                                   <span className="text-xs text-zinc-500">
                                     {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                   </span>
+                                  {isToday && (
+                                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                                      Today
+                                    </span>
+                                  )}
                                   {isPast && (
-                                    <span className="text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-600 ml-1">
+                                    <span className="text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-500 ml-1">
                                       • Concluded
                                     </span>
                                   )}
@@ -2088,14 +2076,14 @@ function ProgramPreparationWidgets({
                             )}
 
                             {(d.onsiteVenue || program.venueAddress) && (
-                              <div className="flex items-start gap-2 text-xs sm:text-sm text-zinc-500 pt-1">
+                              <div className="flex items-start gap-2 text-xs sm:text-sm text-zinc-500 pt-0.5">
                                 <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
                                 <span>{d.onsiteVenue || program.venueAddress}</span>
                               </div>
                             )}
 
                             {(meetUrl || mapUrl) && (
-                              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+                              <div className="flex flex-wrap items-center gap-2.5 pt-1">
                                 {meetUrl && (
                                   <a
                                     href={meetUrl}
@@ -2154,13 +2142,13 @@ function ProgramPreparationWidgets({
                     </p>
                   </div>
 
-                  <div className="space-y-3 pt-1">
+                  <div className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
                     {equipmentItems.map((item, idx) => (
                       <div
                         key={idx}
-                        className="p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] flex items-center gap-3.5"
+                        className="py-3.5 flex items-center gap-3.5"
                       >
-                        <CheckCircle2 className="w-5 h-5 text-zinc-950 dark:text-white shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-zinc-950 dark:text-white shrink-0" />
                         <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
                           {item}
                         </span>
@@ -2170,7 +2158,7 @@ function ProgramPreparationWidgets({
                 </div>
               )}
 
-              {/* 4. OBJECTIVES & BLUEPRINT: STACKED AUDIENCE & LOGISTICS */}
+              {/* 4. OBJECTIVES & BLUEPRINT: FLAT SHEET SECTIONS */}
               {activePage === "objective" && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-1.5">
@@ -2182,39 +2170,39 @@ function ProgramPreparationWidgets({
                     </p>
                   </div>
 
-                  <div className="space-y-4 pt-1">
-                    {/* Audience & Logistics Card */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-3">
+                  <div className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
+                    {/* Audience & Logistics */}
+                    <div className="py-4 sm:py-5 space-y-3">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                         Audience &amp; Logistics
                       </span>
                       <dl className="divide-y divide-zinc-100 dark:divide-white/5 text-xs sm:text-sm">
-                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                           <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Target Audience</dt>
                           <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
                             {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
                           </dd>
                         </div>
-                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                           <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Daily Commitment</dt>
                           <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
                             {program.dailyCommitment || "20–30 mins/day"}
                           </dd>
                         </div>
-                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                           <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Intensity Level</dt>
                           <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
                             {formatIntensityBadge(program.difficultyLevel)}
                           </dd>
                         </div>
-                        <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                           <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Delivery &amp; Location</dt>
                           <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
                             {program.locationType || "Online Studio"}
                           </dd>
                         </div>
                         {program.equipment && (
-                          <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                          <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                             <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Gear Needed</dt>
                             <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
                               {program.equipment}
@@ -2224,8 +2212,8 @@ function ProgramPreparationWidgets({
                       </dl>
                     </div>
 
-                    {/* Methodology Card */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2">
+                    {/* Methodology */}
+                    <div className="py-4 sm:py-5 space-y-2">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                         Methodology &amp; Core Focus
                       </span>
@@ -2234,8 +2222,8 @@ function ProgramPreparationWidgets({
                       </p>
                     </div>
 
-                    {/* Target State Card */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2">
+                    {/* Target State */}
+                    <div className="py-4 sm:py-5 space-y-2">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                         Target Physical &amp; Mental State
                       </span>
@@ -2244,12 +2232,12 @@ function ProgramPreparationWidgets({
                       </p>
                     </div>
 
-                    {/* Expected Outcomes Card */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-3">
+                    {/* Expected Outcomes */}
+                    <div className="py-4 sm:py-5 space-y-3">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                         Expected Benefits &amp; Outcomes
                       </span>
-                      <ul className="space-y-3">
+                      <ul className="space-y-2.5">
                         {(program.expectedBenefits && program.expectedBenefits.length > 0
                           ? program.expectedBenefits
                           : [
@@ -2267,9 +2255,9 @@ function ProgramPreparationWidgets({
                       </ul>
                     </div>
 
-                    {/* Practical Guidelines Card */}
+                    {/* Practical Guidelines */}
                     {program.programGuidelines && program.programGuidelines.length > 0 && (
-                      <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2">
+                      <div className="py-4 sm:py-5 space-y-2">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
                           Practical Guidelines
                         </span>
@@ -2302,15 +2290,15 @@ function ProgramPreparationWidgets({
                   </div>
 
                   {validReferences.length > 0 ? (
-                    <div className="space-y-3.5 pt-1">
+                    <div className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
                       {validReferences.map((ref, idx) => {
                         const url = safeHttpUrl(ref.url);
                         return (
                           <div
                             key={idx}
-                            className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex items-start justify-between gap-4"
+                            className="py-4 sm:py-5 flex items-start justify-between gap-4"
                           >
-                            <div className="min-w-0 space-y-1.5">
+                            <div className="min-w-0 space-y-1">
                               <span className="text-[10px] font-mono text-zinc-400 font-semibold uppercase tracking-wider">
                                 Source {String(idx + 1).padStart(2, "0")}
                               </span>
@@ -2353,7 +2341,7 @@ function ProgramPreparationWidgets({
                     </p>
                   </div>
 
-                  <div className="space-y-4 pt-1">
+                  <div className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
                     {[
                       {
                         title: "1. Daily Cadence & 23:59 WIB Cutoff",
@@ -2378,7 +2366,7 @@ function ProgramPreparationWidgets({
                     ].map((rule, idx) => (
                       <div
                         key={idx}
-                        className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 space-y-2"
+                        className="py-4 sm:py-5 space-y-1.5"
                       >
                         <h3 className="font-semibold text-zinc-950 dark:text-white text-sm">
                           {rule.title}
@@ -2404,9 +2392,9 @@ function ProgramPreparationWidgets({
                     </p>
                   </div>
 
-                  <div className="space-y-4 pt-1">
+                  <div className="divide-y divide-zinc-100 dark:divide-white/10 border-t border-b border-zinc-100 dark:border-white/10">
                     {/* Coach 1: Lead Program Coach */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+                    <div className="py-5 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach.webp"
@@ -2418,7 +2406,7 @@ function ProgramPreparationWidgets({
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             {program.coachName || "Coach Julian Thorne"}
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
                             Lead Guide
                           </span>
                         </div>
@@ -2432,7 +2420,7 @@ function ProgramPreparationWidgets({
                     </div>
 
                     {/* Coach 2: Clinical Nutritionist */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+                    <div className="py-5 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach2.webp"
@@ -2444,7 +2432,7 @@ function ProgramPreparationWidgets({
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Dr. Marcus Vance, ND
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-200 dark:border-white/10 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
                             Nutrition
                           </span>
                         </div>
@@ -2458,7 +2446,7 @@ function ProgramPreparationWidgets({
                     </div>
 
                     {/* Coach 3: Nervous System & Sleep Specialist */}
-                    <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#161616] p-5 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+                    <div className="py-5 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach3.webp"
@@ -2470,7 +2458,7 @@ function ProgramPreparationWidgets({
                           <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                             Elena Rostova, MSc
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold">
+                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
                             Recovery
                           </span>
                         </div>

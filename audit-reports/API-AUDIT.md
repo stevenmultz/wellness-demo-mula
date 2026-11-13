@@ -1,89 +1,32 @@
 # API & BACKEND FLOW AUDIT
 
-**Project:** `wellness-pwa` (+ BMS — Longevity & Movement Sanctuary)  
-**Architecture:** Next.js Route Handlers (REST) + Next.js Server Actions (RPC)  
-**Security & Reliability Rating:** **82 / 100**  
-**Audit Scope:** HTTP Endpoints, Server Actions, Error Contracts, Input Schemas, Idempotency  
+## 1. HTTP API Routes Inventory (`src/app/api/**`)
+
+| Endpoint | Methods | Auth | Rate Limit | Key Issues & Status |
+|---|---|---|---|---|
+| `/api/cron/dispatch-notifications` | `GET`, `POST` | `CRON_SECRET` Bearer/query | None (secret-gated) | Hardcoded dev secret fallback (`AUD-004`). 500 error message sanitized (**Fixed Stage 5** — `AUD-016`). |
+| `/api/explore/programs` | `GET` | Public | None | Unpaginated (`take: 100`), no `Cache-Control` header (`AUD-021`). |
+| `/api/notifications/tick` | `POST` | `getWellnessSession()` | 4 req/min/user (in-memory) | Triggers global N+1 `dispatchDueNotifications` from client (`AUD-007`); in-memory RL (`AUD-006`). 500 sanitized (**Fixed Stage 5** — `AUD-016`). |
+| `/api/profile/avatar` | `POST`, `DELETE` | `getWellnessSession()` | None explicit | Validates MIME + size; updates `User.avatarUrl` cleanly. |
+| `/api/push/subscribe` | `POST`, `DELETE` | `getWellnessSession()` | None explicit | SSRF endpoint allowlist tested & passing (`test-security-remediation.ts`). `upsert` by `endpoint` allows cross-user endpoint takeover (`AUD-019`). 500 sanitized (**Fixed Stage 5** — `AUD-016`). |
+| `/api/upload` | `POST` | `getWellnessSession()` | None explicit | Magic-byte verified, 5MB limit. Writes to public `public/uploads/workouts/` or returns base64 data URI (`AUD-002`). |
 
 ---
 
-## 1. REST API Route Handlers Audit (`/api/*`)
+## 2. Server Actions Inventory (`src/wellness/actions/**`)
 
-| Endpoint | Method | Auth Guard | Input Validation | Status Codes | Rate Limit | Vulnerability / Reliability Findings |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `/api/upload` | `POST` | `getWellnessSession()` | Magic byte inspection, base64 regex, max 5MB | 200, 400, 401, 500 | None | Writes to ephemeral local disk (`public/uploads`); falls back to 5MB base64 string in DB. |
-| `/api/profile/avatar` | `POST`, `DELETE` | `getWellnessSession()` | Magic bytes, max 400KB | 200, 400, 401, 500 | None | Stores normalized base64 directly in `users.avatar_url`. Clean and scoped. |
-| `/api/explore/programs`| `GET` | `getWellnessSession()` | Search query capped at 100 chars, boolean filters | 200, 401, 500 | None | Enforces `take: 100` ceiling to prevent memory spikes. Deterministic multi-key sort. |
-| `/api/push/subscribe` | `GET`, `POST`, `DELETE` | `getWellnessSession()` | URL format, 2048 char limit, Provider Hostname Whitelist | 200, 400, 401, 500 | None | Implements strict SSRF protection on push endpoint domains. |
-| `/api/notifications/tick`| `POST`| `getWellnessSession()` | None (Server clock WIB decides) | 200, 401, 429, 500 | 4 req / min per user | Client-triggered call executes platform-wide notification dispatch. High load risk. |
-| `/api/cron/dispatch-notifications`| `GET`, `POST`| `CRON_SECRET` Header / Query | WIB time normalizer, lookback (1..120 min) | 200, 400, 401, 500 | None | Accepts secret via URL query parameter (`?secret=...`). Timing-safe check verified. |
+- **`auth.ts`**: Sign up, sign in, sign out, forgot password (SHA-256 reset tokens), reset password. Rate limits use in-memory `Map` keyed only by email (`AUD-006`).
+- **`account.ts`**: Profile updates, `HealthProfile` updates (`AUD-003` URL validation fixed Stage 5), program enrollment (`AUD-005` `FREE-` collision fixed Stage 5), QRIS payment confirmation (`AUD-001` simulated/client-only Terms check).
+- **`program.ts`**: Public/member catalog read, day progress submission (`AUD-003` URL validation fixed Stage 5), admin program/day CRUD & completion checks.
+- **`admin.ts`**: Admin metrics, user status/role toggles, `wellnessAdminUpdateCustomerProfile` (**missing Zod validation & try/catch** — `AUD-011`).
+- **`master.ts`**: Master Category/Coach/Audience/Equipment/DailyCommitment CRUD (**non-transactional cache sync + synthetic IDs** — `AUD-014`).
+- **`activity.ts`**: Notification inbox fetch, mark read, clear notifications.
 
 ---
 
-## 2. Server Actions Audit (`src/wellness/actions/*`)
+## 3. Core Flows Traced
 
-| Module | Action Function | Auth Requirement | Validation Schema | Transaction Boundary |
-| :--- | :--- | :--- | :--- | :--- |
-| **`auth.ts`** | `wellnessSignUp` | Public (Guest) | `SignUpSchema` (Zod) | Single DB insert |
-| **`auth.ts`** | `wellnessSignIn` | Public (Guest) | `SignInSchema` (Zod) | Read + Cookie write |
-| **`auth.ts`** | `wellnessSignOut` | Public | None | Cookie clearance |
-| **`auth.ts`** | `wellnessRequestPasswordReset`| Public | `ForgotPasswordSchema` (Zod) | Single DB insert |
-| **`auth.ts`** | `wellnessConfirmPasswordReset`| Public | `ResetPasswordSchema` (Zod) | Atomic `prisma.$transaction` |
-| **`account.ts`** | `wellnessGetProfile` | `requireAuth` | None | Read by session userId |
-| **`account.ts`** | `wellnessUpdateProfile` | `requireAuth` | `UpdateProfileSchema` (Zod) | Update by session userId |
-| **`account.ts`** | `wellnessGetHealthProfile` | `requireAuth` | None | Read by session userId |
-| **`account.ts`** | `wellnessUpdateHealthProfile`| `requireAuth` | `HealthProfileSchema` (Zod) | Upsert by session userId |
-| **`account.ts`** | `wellnessChangePassword` | `requireAuth` | `ChangePasswordSchema` (Zod) | Atomic `prisma.$transaction` |
-| **`account.ts`** | `wellnessEnrollProgram` | `requireAuth` | In-memory verification | Atomic `prisma.$transaction` |
-| **`account.ts`** | `wellnessConfirmQrisPayment`| `requireAuth` | In-memory verification | Atomic `prisma.$transaction` |
-| **`account.ts`** | `wellnessDeleteAccount` | `requireAuth` | `DeleteAccountSchema` (Zod) | Delete by session userId |
-| **`program.ts`** | `wellnessAdminCreateProgram` | `requireSuperadmin`| `CreateProgramSchema` (Zod) | Atomic `prisma.$transaction` |
-| **`program.ts`** | `wellnessAdminSaveProgramDay`| `requireSuperadmin`| `SaveSingleDaySchema` (Zod) | Atomic `prisma.$transaction` |
-| **`program.ts`** | `wellnessAdminDeleteProgramDay`| `requireSuperadmin`| ID string | Delete by programId & dayId |
-| **`program.ts`** | `wellnessAdminUpdateProgramMeta`| `requireSuperadmin`| `UpdateProgramMetaSchema` (Zod)| Atomic `prisma.$transaction` |
-| **`program.ts`** | `wellnessAdminSetProgramStatus`| `requireSuperadmin`| Status enum string | Atomic `prisma.$transaction` |
-| **`program.ts`** | `wellnessAdminDeleteProgram` | `requireSuperadmin`| ID string | Cascade DB delete |
-| **`program.ts`** | `wellnessUserSubmitDayProgress`| `requireAuth` | `SubmitDayProgressSchema` (Zod)| Upsert by userId & dayId |
-| **`program.ts`** | `wellnessAdminGetProgramSubmissions`| `requireSuperadmin`| ID string | Eager read with pagination |
-| **`admin.ts`** | `wellnessAdminGetUsers` | `requireSuperadmin`| Query string, limit, offset | Read with pagination |
-| **`admin.ts`** | `wellnessAdminUpdateUserRole`| `requireSuperadmin`| Role enum string | Atomic `prisma.$transaction` |
-| **`admin.ts`** | `wellnessAdminUpdateUserStatus`| `requireSuperadmin`| Status enum string | Atomic `prisma.$transaction` |
-| **`admin.ts`** | `wellnessAdminApprovePayment`| `requireSuperadmin`| ID string | Atomic `prisma.$transaction` |
-| **`admin.ts`** | `wellnessAdminDeleteUser` | `requireSuperadmin`| ID string | Cascade DB delete |
-| **`admin.ts`** | `wellnessAdminResetUserPassword`| `requireSuperadmin`| ID string | Atomic `prisma.$transaction` |
-| **`master.ts`** | `wellnessCreateMaster*` | `requireSuperadmin`| Name string | Single DB insert |
-| **`master.ts`** | `wellnessUpdateMaster*` | `requireSuperadmin`| ID & Name string | Atomic `prisma.$transaction` |
-| **`master.ts`** | `wellnessDeleteMaster*` | `requireSuperadmin`| ID string | Protected by FK Restrict |
-| **`activity.ts`** | `wellnessGetNotifications` | `requireAuth` | None | Read (take: 100) |
-| **`activity.ts`** | `wellnessMarkNotificationRead`| `requireAuth` | ID string | Scoped by userId |
-| **`activity.ts`** | `wellnessMarkAllNotificationsRead`| `requireAuth` | None | Scoped by userId |
-| **`activity.ts`** | `wellnessGetHistory` | `requireAuth` | None | Scoped by userId |
-
----
-
-## 3. Business Flow Traces & Idempotency
-
-### 3.1 Cohort Enrollment & QRIS Payment Lifecycle
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Member
-    participant Act as wellnessEnrollProgram()
-    participant Pay as createQrisInvoiceAdapter()
-    participant DB as Supabase PostgreSQL
-
-    User->>Act: Enroll in Cohort (attendanceMode: VIRTUAL)
-    Act->>DB: Query Program & Check Quota + Status
-    DB-->>Act: Program Record (Price > 0, Quota Available)
-    Act->>DB: Query Active + Pending Holds
-    DB-->>Act: Available Seats Confirmed
-    Act->>Pay: Generate QRIS Reference (15-min countdown)
-    Pay-->>Act: Payment Reference + Expiration Date
-    Act->>DB: Insert ProgramEnrollment (status: PENDING)
-    Act->>DB: Insert UserNotification (dedupeKey: payment-pending)
-    Act-->>User: QRIS Invoice Details
-```
-
-### 3.2 Idempotency Analysis
-- **Payment Notifications:** Uses unique `dedupeKey: payment-active:${enrollment.id}` to guarantee that a retry or double confirmation will never generate duplicate inbox notifications or duplicate push alerts.
-- **Cadence Daily Notifications:** Uses unique `dedupeKey` calculated from `day.id`, `slot.dateKey`, `slot.time`, and notification item index. Combined with `skipDuplicates: true` in Prisma `createMany`, concurrent execution is safely deduplicated at the database layer.
+1. **Authentication Flow**: `AuthModal` -> `auth.ts` (`bcryptjs` + HS256 JWT cookie) -> `middleware.ts` (signature check) -> RSC `getWellnessSession()` (`ACTIVE` + `tokenVersion` check).
+2. **Enrollment & Checkout Flow**: `ProgramDetailView` -> `wellnessEnrollProgram` -> `QrisCheckoutModal` -> `wellnessConfirmQrisPayment` (**blocked/simulated in prod** — `AUD-001`).
+3. **Daily Check-In Flow**: `DailyCheckIn` -> optional `/api/upload` -> `wellnessSubmitDayProgress` -> `ProgramDayProgress` upsert.
+4. **Notification Dispatch Flow**: `Vercel Cron` (1x/day) + Member `DashboardClient` interval -> `/api/notifications/tick` -> `dispatchDueNotifications` -> `UserNotification` + `web-push` (**N+1 & polling amplification** — `AUD-007`, `AUD-026`).

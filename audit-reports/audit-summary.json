@@ -1,61 +1,51 @@
 {
-  "auditMetadata": {
-    "projectName": "wellness-pwa",
-    "projectTitle": "+ BMS — Longevity & Movement Sanctuary",
-    "auditDate": "2026-11-12T11:38:00+07:00",
-    "auditor": "Antigravity Audit Engine (DeepMind)",
-    "overallStatus": "PASS WITH WARNINGS",
-    "productionReady": false
+  "auditDate": "2026-11-13",
+  "project": "BMS Sanctuary Wellness PWA (wellness-pwa)",
+  "overallScore": {
+    "status": "NOT_READY_FOR_UNRESTRICTED_PRODUCTION",
+    "readinessRating": "CONDITIONAL / BLOCKED BY CRITICAL & HIGH FINDINGS",
+    "domains": {
+      "security": "HIGH RISK",
+      "databaseIntegrity": "MEDIUM-HIGH RISK",
+      "performanceScalability": "MEDIUM-HIGH RISK",
+      "paymentAndBusinessLogic": "CRITICAL RISK",
+      "storageAndMedia": "CRITICAL RISK",
+      "pwaAndOffline": "MEDIUM RISK (Post-Stage-5 Fix)",
+      "ciCdAndObservability": "HIGH RISK (Missing)"
+    }
   },
-  "projectInventory": {
-    "totalFilesAudited": 112,
-    "totalDirectoriesAudited": 43,
-    "runtimeDependencies": 15,
-    "devDependencies": 13,
-    "totalDependencies": 28
-  },
-  "staticAnalysis": {
-    "typescriptErrors": 0,
-    "eslintErrors": 0,
-    "eslintWarnings": 0,
-    "buildStatus": "SUCCESS"
+  "workspaceMetrics": {
+    "directoriesScanned": 42,
+    "totalFilesObserved": 138,
+    "sourceFilesInSrc": 64,
+    "apiRoutes": 6,
+    "serverActionFiles": 6,
+    "uiComponentFiles": 20,
+    "prismaModels": 18,
+    "lockedNpmDependencies": 526
   },
   "findingsSummary": {
-    "critical": 2,
-    "high": 6,
-    "medium": 6,
-    "low": 4,
-    "informational": 3,
-    "total": 21
+    "total": 28,
+    "bySeverity": {
+      "CRITICAL": 2,
+      "HIGH": 9,
+      "MEDIUM": 11,
+      "LOW": 4,
+      "INFORMATIONAL": 2
+    },
+    "byStatus": {
+      "FIXED_IN_STAGE_5": 7,
+      "OPEN_REQUIRES_APPROVAL": 7,
+      "OPEN_RECOMMENDED": 12,
+      "NOT_TESTED_OR_NO_DATA": 2
+    }
   },
-  "categoryScores": {
-    "security": 78,
-    "codeQuality": 88,
-    "architecture": 90,
-    "database": 78,
-    "apiReliability": 82,
-    "dataIntegrity": 94,
-    "performance": 82,
-    "storage": 65,
-    "infrastructure": 78,
-    "dependencySecurity": 84,
-    "backupRecovery": 72,
-    "pwa": 76,
-    "monitoring": 60,
-    "testing": 68,
-    "deploymentReliability": 80
-  },
-  "blockers": [
-    "SEC-01: Remove static fallback JWT secret from middleware.ts and session.ts",
-    "SEC-02: Remove hardcoded VAPID private key fallback in web-push.ts",
-    "SEC-03: Configure HSTS, CSP, and COOP security headers in next.config.mjs",
-    "STOR-01: Migrate workout photo uploads to Cloud Object Storage (S3/R2/Supabase) to avoid 5MB base64 DB fallback",
-    "PWA-01: Stabilize Service Worker 60ms navigation timeout in sw.js to eliminate mobile reload loops"
-  ],
-  "warnings": [
-    "OPS-01: Increase PgBouncer pooler connection_limit from 1 to 5-10 to avoid connection starvation",
-    "SEC-04: Migrate in-memory rate limiting to distributed Upstash Redis",
-    "PERF-01: Decouple client /api/notifications/tick from platform-wide notification dispatch loop",
-    "OPS-02: Move sharp from devDependencies to dependencies in package.json"
-  ]
+  "verificationRuns": {
+    "typecheck": "npx tsc --noEmit -> PASS (exit 0)",
+    "lint": "npm run lint -> PASS (No ESLint warnings or errors)",
+    "unitSecurityTests": "npx tsx scripts/test-security-remediation.ts -> PASS (4/4 groups)",
+    "unitAuditTests": "npx tsx scripts/test-audit-unit.ts -> PASS (4/4 groups)",
+    "dbIntegrationTests": "NOT RUN (remote Supabase DB in .env; non-destructive rule applied)",
+    "loadAndDastTests": "NOT RUN (no live staging server / sandbox isolation)"
+  }
 }

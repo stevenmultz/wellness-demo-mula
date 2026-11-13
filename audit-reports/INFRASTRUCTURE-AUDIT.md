@@ -1,88 +1,28 @@
-# CLOUD INFRASTRUCTURE & DEPLOYMENT AUDIT
+# INFRASTRUCTURE, ENVIRONMENT & CI/CD AUDIT
 
-**Project:** `wellness-pwa` (+ BMS — Longevity & Movement Sanctuary)  
-**Primary Deployment Platform:** Vercel / Edge Network  
-**Database Infrastructure:** Supabase Managed PostgreSQL (AWS Seoul Region: `ap-northeast-2`)  
-**Infrastructure Score:** **78 / 100**  
+## 1. Environment & Secrets Configuration Findings (`AUD-004` — HIGH, OPEN)
 
----
+| File | Git Tracked | Contents / Risk |
+|---|---|---|
+| `.env` | Ignored (`.gitignore`) | Points `DATABASE_URL` & `DIRECT_URL` to remote Supabase pooler (`aws-0-ap-northeast-2.pooler.supabase.com` ports `6543` / `5432`) alongside a **placeholder `JWT_SECRET`** (`placeholder=true`, length `54`). |
+| `.env.example` | Tracked | Documents required keys (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `APP_URL`, `CRON_SECRET`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`). |
+| `.env.production` | **Tracked in Git** | Currently `512 bytes` of comments only (no active `KEY=VAL` pairs), omitted from `.gitignore` — high risk of future accidental secret commit. |
 
-## 1. Hosting Architecture & Topology
-
-```mermaid
-flowchart TD
-    subgraph Users["Global Edge"]
-        User["Client Traffic (HTTPS)"]
-    end
-
-    subgraph EdgeLayer["Edge / CDN Infrastructure (Vercel Edge Network)"]
-        DNS["DNS & Global Anycast AnyCDN"]
-        TLS["TLS 1.3 Termination & HSTS"]
-        EdgeMW["Edge Middleware (src/middleware.ts)"]
-    end
-
-    subgraph ComputeLayer["Serverless Compute (Vercel Serverless Functions)"]
-        NodeRSC["Node.js 20 Serverless Lambdas"]
-        CronTrigger["Vercel Cron (0 0 * * * - 07:00 WIB)"]
-    end
-
-    subgraph DataLayer["Managed Database & Cloud Services"]
-        SupabasePooler["Supabase Transaction Pooler (PgBouncer: 6543)"]
-        SupabaseDirect["Supabase Direct PostgreSQL (Port: 5432)"]
-        WebPushGateway["Google FCM / Apple APNS Web Push"]
-    end
-
-    User --> DNS
-    DNS --> TLS
-    TLS --> EdgeMW
-    EdgeMW --> NodeRSC
-    CronTrigger --> NodeRSC
-    NodeRSC -->|Queries & Transactions| SupabasePooler
-    NodeRSC -.->|Migrations & Seed| SupabaseDirect
-    NodeRSC -->|Encrypted Web Push| WebPushGateway
-```
+- **Hardcoded Fallback Secrets in Code (`AUD-004`)**:
+  - `src/middleware.ts:10`, `src/wellness/security/session.ts:12`, and `src/app/api/cron/dispatch-notifications/route.ts` provide hardcoded fallback secret strings if env vars are missing, instead of failing closed in production.
+  - `src/components/dashboard/DashboardClient.tsx:82-84` embeds a hardcoded fallback `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (`AUD-015`).
 
 ---
 
-## 2. Infrastructure Configuration & Deployment Assets
+## 2. Hosting, Scheduling & CI/CD Findings
 
-### 2.1 Vercel Deployment Configuration (`vercel.json`)
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/dispatch-notifications",
-      "schedule": "0 0 * * *"
-    }
-  ]
-}
-```
-- **Evaluation:** The cron schedule `0 0 * * *` executes at `00:00 UTC`, which corresponds exactly to **`07:00 WIB` (Western Indonesia Time / UTC+7)**.
-- This serves as the scheduled morning dispatch slot for cohort circadian cadence reminders.
-- **Risk Identified:** Vercel Hobby tier only executes crons once daily. To dispatch midday or evening cadence reminders, the application currently relies on `/api/notifications/tick` called by active member browsers. As audited in `API-AUDIT.md`, this should be decoupled into a dedicated background worker (e.g., GitHub Actions cron or external scheduler like Upstash QStash).
-
-### 2.2 Missing Health Check Endpoint (MEDIUM — INFRA-01)
-- **Deficiency:** The application does not expose a lightweight dedicated health check endpoint (e.g. `GET /api/health` or `GET /api/ready`).
-- **Impact:**
-  - Automated cloud uptime monitors (UptimeRobot, BetterUptime, Datadog Synthetics) cannot probe application liveness and database connectivity without invoking full Next.js page renders.
-  - Load balancers and zero-downtime deployment pipelines cannot verify pod readiness prior to routing production traffic.
-- **Remediation:** Add `src/app/api/health/route.ts` that executes a lightweight query (`SELECT 1`) against Prisma and returns HTTP 200 with system uptime and version.
-
-### 2.3 Container & Docker Support (INFORMATIONAL — INFRA-02)
-- No `Dockerfile` or `docker-compose.yml` is present in the repository.
-- While Vercel handles containerless deployments natively, self-hosting via Kubernetes or Docker on AWS ECS / Google Cloud Run requires a production-grade multi-stage `Dockerfile`.
-
----
-
-## 3. Environment Variable & Secret Management
-
-| Variable Name | Required Scope | Sensitivity | Current Storage | Audit Assessment |
-| :--- | :--- | :--- | :--- | :--- |
-| `DATABASE_URL` | Server Runtime | **HIGH (DB Password)** | `.env` / Platform Secrets | Pooler string with redacted credentials |
-| `DIRECT_URL` | Server Migration | **HIGH (DB Password)** | `.env` / Platform Secrets | Direct port 5432 connection |
-| `JWT_SECRET` | Server & Edge | **CRITICAL (Auth Signature)**| `.env` / Platform Secrets | Must be >= 32 characters in production |
-| `CRON_SECRET` | Server Runtime | **HIGH (API Auth)** | `.env` / Platform Secrets | Used to authenticate cron invocations |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`| Client & Server | Low (Public Key) | `.env` / Client Bundle | RFC 8292 Application Server Key |
-| `VAPID_PRIVATE_KEY`| Server Runtime | **CRITICAL (Push Signature)**| `.env` / Platform Secrets | Private key for push signing |
-| `VAPID_SUBJECT` | Server Runtime | Low (Contact Email) | `.env` | e.g. `mailto:support@bms.id` |
-| `APP_URL` | Server Runtime | Low (Domain Origin) | `.env` | Canonical application base URL |
+1. **Vercel Hobby Cron Constraint (`AUD-026` — LOW, OPEN)**:
+   - `vercel.json` defines a single cron job: `/api/cron/dispatch-notifications` at `0 0 * * *` (once per day at 00:00 UTC / 07:00 WIB). Because cohort notifications schedule across arbitrary WIB times throughout the day, the app relies on open member browsers polling `/api/notifications/tick` (`AUD-007`). If zero members keep `/dashboard` open at a scheduled time, notifications are delayed until someone opens the app or next day's cron.
+2. **Missing CI/CD & Quality Gates (`AUD-022` — MEDIUM, OPEN)**:
+   - No `.github/workflows/`, `Dockerfile`, or deployment verification pipeline exists in the workspace.
+   - No automated test, lint, typecheck, migration check, or dependency audit gate runs prior to deployment.
+3. **Serverless Execution Constraints**:
+   - In-memory rate-limit `Map()` (`AUD-006`) resets across Vercel Lambda cold starts and scales independently per instance.
+   - Ephemeral read-only filesystem on Vercel forces `/api/upload` into PostgreSQL base64 fallback mode (`AUD-002`).
+4. **Live Infrastructure / TLS Checks (`AUD-027` — NOT TESTED)**:
+   - Live DNS, Vercel headers, SSL/TLS certificate chain, and Supabase network rules could not be probed from the sandbox without a live deployment target.

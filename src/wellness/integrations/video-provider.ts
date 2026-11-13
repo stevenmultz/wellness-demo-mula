@@ -36,13 +36,20 @@ export function extractYouTubeId(rawUrl: string): string | null {
       }
     }
     const url = new URL(trimmed);
+    const host = url.hostname.toLowerCase();
 
-    if (url.hostname.includes("youtu.be")) {
+    if (host === "youtu.be" || host === "www.youtu.be") {
       const id = url.pathname.split("/").filter(Boolean)[0];
       return id || null;
     }
 
-    if (url.hostname.includes("youtube.com") || url.hostname.includes("youtube-nocookie.com")) {
+    if (
+      host === "youtube.com" ||
+      host === "www.youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "youtube-nocookie.com" ||
+      host === "www.youtube-nocookie.com"
+    ) {
       const vParam = url.searchParams.get("v");
       if (vParam) return vParam;
 
@@ -55,9 +62,21 @@ export function extractYouTubeId(rawUrl: string): string | null {
   } catch {
     // Fallback regex if URL constructor fails
     const match = rawUrl.match(
-      /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i
+      /(?:^|\/\/|(?:www\.|m\.)?)(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i
     );
     return match ? match[1] : null;
+  }
+  return null;
+}
+
+function normalizeHttpVideoUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl.trim());
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return parsed.toString();
+    }
+  } catch {
+    return null;
   }
   return null;
 }
@@ -79,29 +98,44 @@ export function normalizeVideoEmbed(rawUrl?: string | null): NormalizedVideoEmbe
     };
   }
 
+  const safeDirectUrl = normalizeHttpVideoUrl(rawUrl);
+  if (!safeDirectUrl) {
+    return { provider: "UNKNOWN", embedUrl: null, videoId: null };
+  }
+
+  const parsedUrl = new URL(safeDirectUrl);
+  const host = parsedUrl.hostname.toLowerCase();
+
   // Vimeo support template
-  const vimeoMatch = rawUrl.match(/vimeo\.com\/(?:video\/)?([0-9]+)/i);
-  if (vimeoMatch?.[1]) {
-    return {
-      provider: "VIMEO",
-      videoId: vimeoMatch[1],
-      embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?byline=0&portrait=0&dnt=1`,
-    };
+  if (host === "vimeo.com" || host === "www.vimeo.com" || host === "player.vimeo.com") {
+    const vimeoMatch = safeDirectUrl.match(/vimeo\.com\/(?:video\/)?([0-9]+)/i);
+    if (vimeoMatch?.[1]) {
+      return {
+        provider: "VIMEO",
+        videoId: vimeoMatch[1],
+        embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?byline=0&portrait=0&dnt=1`,
+      };
+    }
   }
 
   // Future Cloudflare Stream / Bunny Stream signed URL support
-  if (rawUrl.includes("cloudflarestream.com") || rawUrl.includes("videodelivery.net")) {
+  if (
+    host === "cloudflarestream.com" ||
+    host.endsWith(".cloudflarestream.com") ||
+    host === "videodelivery.net" ||
+    host.endsWith(".videodelivery.net")
+  ) {
     return {
       provider: "CLOUDFLARE_STREAM",
       videoId: null,
-      embedUrl: rawUrl.trim(),
+      embedUrl: safeDirectUrl,
     };
   }
 
   return {
     provider: "DIRECT",
     videoId: null,
-    embedUrl: rawUrl.trim(),
+    embedUrl: safeDirectUrl,
   };
 }
 

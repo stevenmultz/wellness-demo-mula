@@ -104,6 +104,8 @@ export function QrisCheckoutModal({
       } else {
         setErrorMsg(res.message || "Could not update attendance preference.");
       }
+    } catch {
+      setErrorMsg("Unable to update attendance preference. Please try again.");
     } finally {
       setIsRefreshing(false);
     }
@@ -143,6 +145,8 @@ export function QrisCheckoutModal({
       } else {
         setErrorMsg(res.message || "Could not refresh QRIS code.");
       }
+    } catch {
+      setErrorMsg("Unable to refresh QRIS code. Please try again.");
     } finally {
       setIsRefreshing(false);
     }

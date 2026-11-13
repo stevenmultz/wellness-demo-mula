@@ -124,8 +124,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     console.error("[WebPush Subscribe Error]:", error);
-    const msg = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -153,7 +152,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true, message: "Push subscription removed." });
   } catch (error: unknown) {
     console.error("[WebPush Unsubscribe Error]:", error);
-    const msg = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
   }
 }

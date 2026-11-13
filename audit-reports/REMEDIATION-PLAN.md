@@ -1,89 +1,32 @@
-# PRODUCTION REMEDIATION PLAN & IMPLEMENTATION ROADMAP
+# PRIORITIZED REMEDIATION PLAN (STAGE 5 EXECUTED & STAGE 6 AWAITING APPROVAL)
 
-**Project:** `wellness-pwa` (+ BMS — Longevity & Movement Sanctuary)  
-**Strategy Standard:** Defense-in-Depth, Zero-Omission Quality Engineering, Controlled Phased Delivery  
+## Phase 0 — Already Fixed & Verified in Stage 5 (Safe Non-Breaking Changes)
 
----
-
-## 1. Remediation Phase Matrix
-
-```mermaid
-flowchart LR
-    Phase1["Phase 1: Immediate Safe Fixes (Zero Business Impact)"] --> Phase2["Phase 2: Architectural & Infrastructure Fixes (Requires Approval)"]
-    Phase2 --> Phase3["Phase 3: Long-Term SRE & Telemetry Hardening"]
-```
-
-| Phase | Target Scope | Risk Level | Downtime | Production Approval Required? |
-| :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | Security headers, JWT validation hardening, VAPID key cleanup, PWA manifest scope, sharp dependency, .gitignore | **LOW** | 0 min | **Pre-Approved (Safe Non-Breaking Fixes)** |
-| **Phase 2** | Cloud object storage (S3/R2), Service worker navigation rewrite, Redis rate limiting, PgBouncer pooler limit | **MEDIUM** | 0 min | **YES (Database / Storage / Cloud Infrastructure)** |
-| **Phase 3** | Sentry APM, GitHub Actions CI, AdminClient component modularization, Vitest test suite | **LOW** | 0 min | No (Developer Experience & Monitoring) |
+| ID | Fix Applied | Verification |
+|---|---|---|
+| `AUD-003` | Created `url-safety.ts`, validated photo schemas in `auth.ts` & `program.ts`, wrapped `href`/`src` in `DailyCheckIn.tsx` & `AdminClient.tsx`, hardened `video-provider.ts` | `test-audit-unit.ts` PASS + `tsc`/`lint`/`build` PASS |
+| `AUD-005` | Replaced truncated timestamp `FREE-...` reference in `account.ts` with `crypto.randomBytes(6)` | `tsc`/`lint`/`build` PASS |
+| `AUD-008` | Updated `public/sw.js` (`v8`) to route failed delayed navigations to `/offline.html`, prune nav maps, and exclude `/uploads/` | `build` PASS (static asset verified) |
+| `AUD-016` | Sanitized HTTP 500 JSON responses across cron, tick, and push routes | `tsc`/`lint`/`build` PASS |
+| `AUD-017` | Added `catch` error handling in `QrisCheckoutModal.tsx` (`handleModeChange`, `handleRegenerateQris`) | `tsc`/`lint`/`build` PASS |
+| `AUD-018` | Short-circuited `sendWebPushNotification` in `web-push.ts` when VAPID keys are missing | `tsc`/`lint`/`build` PASS |
+| `AUD-023` | Fixed missing `/program-cover-cardio.webp` -> `/image.webp` in `ProfileTab.tsx` | `tsc`/`lint`/`build` PASS |
 
 ---
 
-## 2. Phase 1: Immediate Safe Fixes (Implementation Plan)
+## Phase 1 — Production Blockers (REQUIRES EXPLICIT USER APPROVAL — Stage 6)
 
-### Step 1.1: Enforce Strict JWT_SECRET Verification (SEC-01)
-- **Target:** `src/middleware.ts`, `src/wellness/security/session.ts`
-- **Action:** If `process.env.JWT_SECRET` is unset in production (`NODE_ENV === "production"`), fail closed by throwing an unrecoverable configuration error instead of defaulting to the static dev secret.
-
-### Step 1.2: Remove Hardcoded VAPID Private Key (SEC-02)
-- **Target:** `src/wellness/integrations/web-push.ts`
-- **Action:** Remove the static fallback private key literal. Require `process.env.VAPID_PRIVATE_KEY` and emit a warning in development if missing.
-
-### Step 1.3: Configure Production Security Headers (SEC-03)
-- **Target:** `next.config.mjs`
-- **Action:** Add `Strict-Transport-Security` (HSTS), `Content-Security-Policy` (CSP), `Cross-Origin-Opener-Policy` (COOP), and update `Permissions-Policy` to permit camera for self (needed for workout check-in photos).
-
-### Step 1.4: Disallow Secret via URL Query in Cron Route (SEC-05)
-- **Target:** `src/app/api/cron/dispatch-notifications/route.ts`
-- **Action:** In production mode, strictly require `Authorization: Bearer <CRON_SECRET>`. Reject query parameter tokens (`?secret=...`).
-
-### Step 1.5: Fix PWA Manifest Scope (PWA-02)
-- **Target:** `public/manifest.json`
-- **Action:** Add `"scope": "/"` to guarantee standalone PWA navigation stays within the PWA window.
-
-### Step 1.6: Promote `sharp` to Runtime Dependencies (OPS-02)
-- **Target:** `package.json`
-- **Action:** Move `"sharp": "^0.35.5"` from `devDependencies` to `dependencies`.
-
-### Step 1.7: Update `.gitignore` for Obsolete SQLite Databases (CODE-01)
-- **Target:** `.gitignore`
-- **Action:** Add `/prisma/*.db` to prevent tracking legacy local SQLite databases.
+1. **Private Object Storage Migration (`AUD-002`)**: Provision S3/R2/Supabase private bucket, generate presigned upload & authorized read URLs, migrate existing DB base64/local disk photos, and remove base64 fallback.
+2. **Real QRIS Payment Gateway + Webhook (`AUD-001`)**: Integrate signed Midtrans/Xendit QRIS API, verify webhook HMAC signature + idempotent transaction update, render dynamic QR string, and validate `agreedToTerms` server-side.
+3. **Secrets & Environment Hygiene (`AUD-004`)**: Rotate `JWT_SECRET` & `CRON_SECRET`, untrack `.env.production` from git (`git rm --cached`), remove dev fallback secrets in production paths, and align middleware revocation checks.
+4. **Prisma Migrations & DB Backup Verification (`AUD-010`, `AUD-013`)**: Initialize baseline `prisma/migrations/`, add missing indexes (`invoiceExpiresAt`, `[userId, createdAt]`, `PasswordResetToken.expiresAt`), standardize `Program.status` enum and `Int`/`Decimal` pricing, and verify Supabase PITR + restore drill.
+5. **Distributed Rate Limiting & Notification Queue (`AUD-006`, `AUD-007`)**: Adopt Redis/Upstash rate limiting keyed by `IP + email`, stop client polling ticks from driving full DB notification scans, move dispatch to a scheduled worker, and paginate `/admin` user queries without eager base64 media payloads.
 
 ---
 
-## 3. Phase 2: Infrastructure & Architectural Remediations (Requires Approval)
+## Phase 2 — High-Value Application & Performance Fixes (Recommended Next Sprint)
 
-### 2.1 Cloud Object Storage Migration (STOR-01)
-- **Problem:** Serverless lambdas cannot write to `public/uploads/` and fall back to storing 5MB base64 data URLs in PostgreSQL text columns.
-- **Proposed Architecture:**
-  1. Provision a private Supabase Storage Bucket or Cloudflare R2 / AWS S3 bucket `bms-sanctuary-media`.
-  2. Implement an authenticated signed upload URL endpoint (`POST /api/upload/sign`).
-  3. Client uploads directly to the object store; only the resulting HTTPS CDN URL is stored in `ProgramDayProgress`.
-
-### 2.2 Service Worker Navigation Stabilization (PWA-01)
-- **Problem:** The 60ms timeout race condition in `public/sw.js` risks infinite reload loops on high-latency mobile networks.
-- **Proposed Architecture:**
-  1. Replace the in-memory synthetic 60ms navigation intercept with a reliable Network-First strategy with fallback to `public/offline.html`.
-  2. Enable browser Navigation Preload (`registration.navigationPreload.enable()`) to optimize mobile TTFB without synthetic screen replaces.
-
-### 2.3 Distributed Rate Limiting via Redis (SEC-04)
-- **Problem:** In-memory `Map` rate limiting is bypassed across serverless lambda containers.
-- **Proposed Architecture:**
-  1. Connect Upstash Redis (serverless REST-based Redis).
-  2. Use `@upstash/ratelimit` with a sliding window algorithm across all authentication endpoints.
-
-### 2.4 Supabase PgBouncer Pooler Concurrency Limit (OPS-01)
-- **Problem:** `connection_limit=1` causes connection starvation during concurrent checkouts.
-- **Proposed Architecture:**
-  1. Update `.env.production` / Supabase pooler connection string to set `connection_limit=10`.
-  2. Ensure interactive transactions release connections immediately upon completion.
-
----
-
-## 4. Phase 3: Post-Launch & Long-Term Reliability
-
-1. **APM & Sentry Integration:** Install `@sentry/nextjs` for distributed tracing and real-time crash alerting.
-2. **Modularize Admin Console:** Split `AdminClient.tsx` (11,719 lines) into 5 focused sub-tab components using `next/dynamic`.
-3. **CI/CD Pipeline:** Configure `.github/workflows/ci.yml` running linting, typechecks, Vitest unit tests, and security scans on every pull request.
+6. Implement real Server Actions & DB model for Issue Reporting and Quit Program requests (`AUD-009`).
+7. Strip locked/un-enrolled day content server-side in `/dashboard/page.tsx` and add Zod validation + `try/catch` to `wellnessAdminUpdateCustomerProfile` (`AUD-011`).
+8. Tighten CSP in `next.config.mjs` (remove `'unsafe-eval'` / wildcard `https:` where tested compatible) and enforce PushSubscription ownership checks (`AUD-019`).
+9. Split `AdminClient.tsx` (`11,720` lines) via `next/dynamic`, optimize/compress `public/video.mp4` (`31.2 MB`), add CI/CD quality gates + isolated test DB (`AUD-012`, `AUD-021`, `AUD-022`), and remove unused `pg`/`sharp` if unneeded (`AUD-020`).

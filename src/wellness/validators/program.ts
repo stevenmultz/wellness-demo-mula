@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseTermsChapters } from "@/wellness/utils/json";
+import { isSafePhotoUrl } from "@/wellness/utils/url-safety";
 
 export const DayNotificationInputSchema = z.object({
   time: z.string().min(1, "Waktu notifikasi wajib diisi"), // e.g. "07:00"
@@ -203,8 +204,16 @@ export const SubmitDayProgressSchema = z.object({
   isCompleted: z.boolean(),
   checklistCompleted: z.array(z.string()).default([]),
   selectedWorkout: z.string().optional().or(z.literal("")),
-  photoBeforeUrl: z.string().optional().or(z.literal("")),
-  photoAfterUrl: z.string().optional().or(z.literal("")),
+  photoBeforeUrl: z
+    .string()
+    .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
+    .optional()
+    .or(z.literal("")),
+  photoAfterUrl: z
+    .string()
+    .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
+    .optional()
+    .or(z.literal("")),
   workoutNotes: z.string().optional().or(z.literal("")),
   eventFeedback: z.string().optional().or(z.literal("")),
   mealCompliance: z.string().optional().or(z.literal("")),

@@ -1,7 +1,8 @@
 "use client";
 
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowDown, Loader2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { AlertTriangle, ArrowDown, Info, Loader2, X } from "lucide-react";
 
 /** App timezone: Western Indonesia Time. All user-facing dates use it (SSR and browser agree). */
 export const APP_TIMEZONE = "Asia/Jakarta";
@@ -34,16 +35,7 @@ export function formatIdr(amount: number): string {
   }).format(amount);
 }
 
-/** Only http(s) URLs are ever rendered as links (blocks javascript:/data: URLs from the DB). */
-export function safeHttpUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  try {
-    const u = new URL(url.trim());
-    return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
-  } catch {
-    return null;
-  }
-}
+export { safeHttpUrl } from "@/wellness/utils/url-safety";
 
 /** Floating pill header shared by all tabs (hides on scroll-down like the original header). */
 export function FloatingHeader({
@@ -304,5 +296,93 @@ export function PullToRefreshBanner({
         )}
       </div>
     </div>
+  );
+}
+
+/** Shared accessible pop-up modal used by section (i) info triggers across dashboard tabs. */
+export function InfoPopupModal({
+  open,
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[100] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+              <Info className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white truncate">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close info popup"
+            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shrink-0 active:scale-95 transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-2.5">
+          {children}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
+        >
+          Got it
+        </button>
+      </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { isSafePhotoUrl } from "../utils/url-safety";
+
+const SafePhotoUrlField = z
+  .string()
+  .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
+  .nullable()
+  .optional();
 
 export const SignUpSchema = z.object({
   fullName: z
@@ -137,9 +144,9 @@ export const DeleteAccountSchema = z.object({
 });
 
 export const HealthProfileSchema = z.object({
-  photoFrontUrl: z.string().nullable().optional(),
-  photoSideUrl: z.string().nullable().optional(),
-  photoBackUrl: z.string().nullable().optional(),
+  photoFrontUrl: SafePhotoUrlField,
+  photoSideUrl: SafePhotoUrlField,
+  photoBackUrl: SafePhotoUrlField,
   age: z.number().int().min(10).max(120).nullable().optional(),
   weightKg: z.number().min(20).max(300).nullable().optional(),
   heightCm: z.number().min(50).max(250).nullable().optional(),

@@ -1,100 +1,22 @@
-# PROGRESSIVE WEB APP (PWA) & SERVICE WORKER AUDIT
+# PWA & OFFLINE AUDIT
 
-**Project:** `wellness-pwa` (+ BMS — Longevity & Movement Sanctuary)  
-**Standard:** W3C Progressive Web App Specification, Google Lighthouse PWA Criteria  
-**PWA Readiness Score:** **76 / 100** (Installable, but Service Worker Navigation & Offline Fallback need remediation)  
-
----
-
-## 1. W3C Manifest Validation (`public/manifest.json`)
-
-| Manifest Property | Configured Value | W3C Standard Requirement | Evaluation |
-| :--- | :--- | :--- | :--- |
-| `name` | `+ BMS — Longevity & Movement Sanctuary` | Non-empty string | **PASS** |
-| `short_name` | `+ BMS` | Short name for home screen | **PASS** |
-| `start_url` | `/dashboard` | Absolute or relative URL | **PASS** |
-| `scope` | *Omitted* | Explicit scope recommended | **WARNING (PWA-02):** Should explicitly declare `"scope": "/"` |
-| `display` | `standalone` | `standalone` or `fullscreen` | **PASS** |
-| `orientation` | `portrait-primary` | Specific orientation | **PASS** |
-| `background_color` | `#000000` | Valid hex color | **PASS** |
-| `theme_color` | `#000000` | Valid hex color | **PASS** |
-| `icons` | 180x180, 192x192, 512x512 | PNG icons with `purpose: "any"` and `purpose: "maskable"` | **PASS** |
+## 1. Manifest & Installability (`public/manifest.json`)
+- **Identity & Theme**: Configured with `start_url: "/dashboard"`, `scope: "/"`, `display: "standalone"`, `background_color` / `theme_color`, and complete PNG icon sizes (`192x192`, `512x512`, `apple-touch-icon.png`) plus SVG favicon.
+- **Offline Fallback Page**: `public/offline.html` is pre-cached during SW `install` in `STATIC_ASSETS`.
 
 ---
 
-## 2. Service Worker Architecture (`public/sw.js`)
+## 2. Service Worker (`public/sw.js`) & Lifecycle Findings
 
-### 2.1 Lifecycle Management
-- **Installation:**
-  ```javascript
-  self.addEventListener("install", (event) => {
-    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
-    self.skipWaiting();
-  });
-  ```
-  Forces immediate activation upon new version deployment. (Clean)
-- **Activation:**
-  ```javascript
-  self.addEventListener("activate", (event) => {
-    event.waitUntil(
-      caches.keys().then((keys) =>
-        Promise.all(keys.map((key) => key !== CACHE_NAME && caches.delete(key)))
-      )
-    );
-    self.clients.claim();
-  });
-  ```
-  Deletes stale cache buckets and claims unmanaged clients immediately. (Clean)
-
-### 2.2 Navigation Interception Risk Analysis (HIGH — PWA-01)
-- **Current Logic:**
-  ```javascript
-  if (request.mode === "navigate") {
-    // ...
-    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve("TIMEOUT"), 60));
-    const winner = await Promise.race([networkPromise, timeoutPromise]);
-    if (winner !== "TIMEOUT") return winner;
-
-    // Server took > 60ms: return synthetic loading HTML and fetch /__bms_sw_wait in background
-    inflightNavMap.set(navId, networkPromise);
-    return new Response(buildInstantLoadingHtml(navId, request.url), ...);
-  }
-  ```
-- **Identified Failure Mode:**
-  1. The 60ms threshold is extremely aggressive. On standard mobile cellular connections (4G/5G) or during serverless cold starts (200ms–800ms TTFB), **100% of navigations trip this 60ms timeout**.
-  2. The browser renders the synthetic `buildInstantLoadingHtml` page.
-  3. The synthetic page executes JavaScript to query `/__bms_sw_wait?id=navId`.
-  4. If mobile OS memory pressure terminates the background Service Worker thread before the fetch completes, in-memory `inflightNavMap` is cleared.
-  5. `/__bms_sw_wait` returns `{ ok: false }`, falling back to `window.location.replace(fallbackUrl)`.
-  6. The browser initiates a new navigation, triggering the 60ms race again -> **Infinite Screen Flickering / Reload Loop**.
-- **Remediation:** Remove the in-memory synthetic 60ms navigation race. Implement standard Network-First navigation with fallback to a cached offline page.
-
-### 2.3 Offline Availability & Static Asset Caching (MEDIUM — PWA-02)
-- **Deficiency:**
-  - `STATIC_ASSETS` contains only: `["/", "/manifest.json", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/image.webp"]`.
-  - There is no dedicated offline HTML fallback page (e.g. `public/offline.html`).
-  - If a user opens `/dashboard` while offline and the network fails, the service worker returns cached `/` (the public landing page) without styles or scripts, causing a broken white screen.
-- **Remediation:**
-  1. Create a dedicated self-contained `public/offline.html` with inline styling and offline retry button.
-  2. Precache `/offline.html` during the Service Worker `install` event.
-  3. When `fetch(request)` fails during navigation, return `/offline.html`.
-
----
-
-## 3. Web Push Notifications & iOS Compatibility
-
-### 3.1 Push Lifecycle Implementation
-- **Notification Reception (`push` event):**
-  - Parses JSON payload or fallback text.
-  - Sets vibration pattern `[100, 50, 100]` and icons.
-  - Calls `self.registration.showNotification()`.
-- **Notification Interaction (`notificationclick` event):**
-  - Closes notification banner.
-  - Searches for existing client windows matching `targetUrl` and focuses them; otherwise opens a new window (`clients.openWindow`).
-
-### 3.2 Apple iOS PWA Considerations
-- In `src/components/dashboard/tabs/usePushNotifications.ts#L20-L27`:
-  - Properly detects iOS Safari and verifies `display-mode: standalone`.
-  - Accurately guides users on iOS:
-    *"On iPhone, notifications only work after you add this app to your Home Screen (Share → Add to Home Screen), then open it from there."*
-  - Conforms to Apple Web Push requirements introduced in iOS 16.4+.
+1. **CRITICAL/HIGH Offline Navigation Infinite Reload Loop (`AUD-008` — FIXED in Stage 5)**:
+   - *Before fix*: For HTML navigations slower than `60ms`, `sw.js` painted `buildInstantLoadingHtml(navId, originalUrl)` which fetched `/__bms_sw_wait?id=...`. When offline or if the network promise rejected, `/__bms_sw_wait` returned `{ ok: false }` (`HTTP 200`), causing the inline script to run `window.location.replace(fallbackUrl)` — triggering an **infinite navigation reload loop** instead of rendering `/offline.html`.
+   - *Before fix*: `inflightNavMap` and `resolvedNavMap` lacked bounds/TTL eviction, and the static cache regex cached `/uploads/...` user images into the shared browser SW cache.
+   - *Stage 5 Fix Applied*: Bumped `CACHE_NAME` to `"bms-wellness-pwa-v8"`, updated `/__bms_sw_wait` `.catch()` to return `{ ok: false, offline: true }` and redirect cleanly to `"/offline.html"`, added `pruneNavMaps()`, and excluded `/uploads/` from SW caching.
+2. **SW Registration & Update Lifecycle (`AUD-025` — LOW, OPEN)**:
+   - `src/components/providers/ServiceWorkerRegister.tsx` registers `/sw.js` silently on mount without listening for `updatefound` / `controllerchange` or notifying users to reload for new releases.
+3. **Web Push Delivery (`AUD-018` — FIXED in Stage 5; `AUD-015` — OPEN)**:
+   - `public/sw.js` registers `push` and `notificationclick` listeners properly, and `web-push.ts` classifies `404`/`410` expired push tokens (`isGone: true`) for DB pruning.
+   - Added missing VAPID key configuration guard in `web-push.ts` (**Fixed Stage 5**).
+   - `DashboardClient.tsx` still embeds a fallback VAPID public key string and calls `/api/cron/dispatch-notifications` without auth (`AUD-015` — OPEN).
+4. **Checkout Offline Rejection Handling (`AUD-017` — FIXED in Stage 5)**:
+   - Added `catch` error handling in `QrisCheckoutModal.tsx` (`handleModeChange`, `handleRegenerateQris`) so offline Server Action failures display user feedback instead of failing silently with unhandled promise rejections.

@@ -1,80 +1,26 @@
-# AUTOMATED TESTING & TEST COVERAGE REPORT
+# TEST COVERAGE & VERIFICATION REPORT
 
-**Project:** `wellness-pwa` (+ BMS — Longevity & Movement Sanctuary)  
-**Test Framework:** Standalone TypeScript test scripts (`tsx scripts/*.ts`)  
-**Overall Testing Readiness Score:** **68 / 100** (High unit quality, but missing offline test runner & CI automation)  
+## 1. Existing Test & Script Suite Inventory (`scripts/`)
 
----
-
-## 1. Test Suite Inventory & Execution Results
-
-| Test Script | Test Category | Target Scope | Execution Environment | Execution Result | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `scripts/test-security-remediation.ts` | **Unit Test** | In-memory rate limiting, SSRF push filter, timing-safe secrets, image magic bytes | Offline (Zero DB dependency) | **100% PASS** (4 / 4 test assertions passed) | **PASS** |
-| `scripts/test-wellness-auth-flow.ts` | **Integration Test** | Signup, password hash verification, reset token lifecycle, enrollment | Remote PostgreSQL | **BLOCKED (Sandbox Isolation):** `Can't reach database server at pooler.supabase.com` | **NOT TESTED IN SANDBOX** |
-| `scripts/test-wellness-features.ts` | **Hybrid Unit / DB** | Sleep duration across midnight, 3 day category validation, DB upsert | Hybrid (Unit + Remote DB) | Steps 1 & 2 passed offline; Step 3 requires live DB | **PARTIAL** |
-| `scripts/test-wellness-lifecycle.ts` | **Integration Test** | Cohort drip windows, registration cutoff, and enrollment transition | Remote PostgreSQL | Requires live DB | **NOT TESTED IN SANDBOX** |
-| `scripts/test-health-profile.ts` | **Integration Test** | CustomerHealthProfile creation, body measurements, age derivation | Remote PostgreSQL | Requires live DB | **NOT TESTED IN SANDBOX** |
-| `scripts/check-notification-schedule.ts`| **Diagnostic** | Cadence schedule slots, WIB timestamp matching | Offline simulation | Verified 07:00, 12:00, 19:00 WIB slots | **PASS** |
+| Script | Type | Runs Against | Executed in Audit? | Result |
+|---|---|---|---|---|
+| `npx tsc --noEmit` | TypeScript check | Local source | **Yes (post-edit)** | **PASS** (exit 0) |
+| `npm run lint` | ESLint (`next/core-web-vitals`) | Local source | **Yes (post-edit)** | **PASS** (`No ESLint warnings or errors`) |
+| `npm run build` | `prisma generate && next build` | Local build + `.env` | **Yes (post-edit)** | **PASS** (exit 0; client bundles generated) |
+| `scripts/test-security-remediation.ts` | Unit tests (in-memory) | Rate limit, push SSRF, timing-safe, magic bytes | **Yes (post-edit)** | **PASS** (`4/4` suites) |
+| `scripts/test-audit-unit.ts` *(added Stage 5)* | Unit tests (in-memory) | `url-safety`, `video-provider`, Zod photo validators, WIB timezone/sleep | **Yes (post-edit)** | **PASS** (`4/4` suites) |
+| `scripts/test-wellness-auth-flow.ts` | E2E / DB write test | Reads `.env` -> remote Supabase DB | **NOT RUN** (Safety lock) | `NOT TESTED` (modifies live DB) |
+| `scripts/test-wellness-features.ts` | DB write test | Reads `.env` -> remote Supabase DB | **NOT RUN** (Safety lock) | `NOT TESTED` (modifies live DB) |
+| `scripts/test-health-profile.ts` | DB write test | Reads `.env` -> remote Supabase DB | **NOT RUN** (Safety lock) | `NOT TESTED` (modifies live DB) |
+| `scripts/test-wellness-lifecycle.ts` | DB read script | Reads `.env` -> remote Supabase DB | **NOT RUN** (Offline sandbox) | `NOT TESTED` |
 
 ---
 
-## 2. Test Execution Output (Zero-Trust Security Test Suite)
+## 2. Coverage Gaps (`AUD-022`, `AUD-027`)
 
-```
-========================================================
-🛡️ RUNNING ZERO-TRUST SECURITY REMEDIATION TEST SUITE
-========================================================
-
-1. Testing Rate Limiter (Brute-Force & Flood Protection)...
-   ✅ Rate limit threshold enforced: 4th attempt blocked successfully.
-
-2. Testing SSRF Endpoint Filter...
-   ✅ SSRF filter: Allowed trusted push providers, blocked all internal/unauthorized domains.
-
-3. Testing Timing-Safe Comparison...
-   ✅ Timing-safe secret verification passed.
-
-4. Testing Magic Byte Image Validation...
-   ✅ Image magic byte validation: Verified genuine headers, rejected spoofed payloads.
-
-========================================================
-🎉 ALL ZERO-TRUST SECURITY REMEDIATIONS VERIFIED 100%!
-========================================================
-```
-
----
-
-## 3. Coverage Gap Analysis & Deficiencies
-
-### 3.1 Tight Coupling to Remote Production Database (QA-01)
-- `package.json` configures `"test": "tsx scripts/test-wellness-auth-flow.ts"`.
-- This script connects directly to whatever `DATABASE_URL` is configured in `.env`.
-- In sandboxed, offline, or standard containerized CI/CD environments where outbound internet to Supabase is blocked, `npm test` fails immediately.
-- There is **no SQLite or in-memory database mock** configured for continuous integration.
-
-### 3.2 Absence of Standard Test Framework
-- The project does not include Jest, Vitest, React Testing Library, or Playwright.
-- As a consequence:
-  - No automated code coverage metrics (LCOV, Istanbul) are generated.
-  - UI client components (`AdminClient.tsx`, `DashboardClient.tsx`, `LandingClient.tsx`) have **0% automated component test coverage**.
-  - PWA service worker lifecycle transitions have no end-to-end browser tests.
-
----
-
-## 4. Test Remediation & CI Modernization Plan
-
-1. **Install Vitest for Modern, Fast Next.js Testing:**
-   ```bash
-   npm install --save-dev vitest @vitejs/plugin-react jsdom
-   ```
-2. **Implement Decoupled Unit Test Suite:**
-   - Migrate `test-security-remediation.ts` and `calculateSleepDuration` tests to `vitest`.
-   - Add unit tests for Zod schemas in `src/wellness/validators/`.
-3. **Decouple Integration Tests with In-Memory Mocking:**
-   - Use Prisma mock client (`vitest-mock-extended` or `@prisma/client/runtime`) to test Server Actions without requiring outbound database connectivity.
-4. **Configure Automated GitHub Actions Pipeline (`.github/workflows/ci.yml`):**
-   - Step 1: `npm run lint`
-   - Step 2: `npx tsc --noEmit`
-   - Step 3: `npx vitest run`
-   - Step 4: `npm run build`
+1. **No Framework Test Runner / Coverage Measurement**: There is no Jest, Vitest, or Playwright E2E suite in `package.json`, and zero `%.cov` statement/branch coverage metrics exist.
+2. **Unsafe `npm test` Default**: `package.json` maps `npm test` directly to `tsx scripts/test-wellness-auth-flow.ts`, which connects to whatever `DATABASE_URL` sits in `.env` (currently remote Supabase Postgres) and writes/deletes test records without checking a `TEST_DATABASE_URL` or non-production guard.
+3. **Untested Flows Requiring Staging/Isolated Postgres**:
+   - Full HTTP integration tests on `/api/upload`, `/api/push/subscribe`, `/api/cron/dispatch-notifications`, `/api/notifications/tick`.
+   - End-to-end Playwright browser tests for offline Service Worker fallback (`/offline.html`), QRIS checkout, and Admin RBAC.
+   - Concurrency/load stress testing (`k6` / Locust) for tick polling amplification (`AUD-007`) and free enrollment uniqueness (`AUD-005`).
