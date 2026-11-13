@@ -305,6 +305,7 @@ export function MyPlanOverview({
   onViewHistory,
   onOpenDetails,
   onToggleCheck,
+  onSyncChecklist,
   onSelectWorkout,
   onOpenVideo,
   onSaveSleep,
@@ -326,6 +327,7 @@ export function MyPlanOverview({
   historyDays: PlanDay[];
   allProgramDays?: PlanDay[];
   onToggleCheck: (task: string, dayId: string, isRepUpdate?: boolean) => Promise<void> | void;
+  onSyncChecklist?: (tasks: string[], dayId: string) => Promise<boolean>;
   onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => Promise<void | boolean>;
   onOpenVideo: (dayId: string) => Promise<void | boolean>;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => Promise<void | boolean>;
@@ -345,24 +347,26 @@ export function MyPlanOverview({
       : day?.dayType === "TRAINING_DAY"
         ? movementNames(day)
         : [];
-  const sleepDone = (!!progress?.bedtime && !!progress?.wakeTime) || progress?.bedtime === "SKIPPED";
+  const sleepDone =
+    !!progress?.bedtime &&
+    !!progress?.wakeTime &&
+    progress.bedtime !== "SKIPPED" &&
+    progress.wakeTime !== "SKIPPED";
   const activityDone =
     day?.dayType === "TRAINING_DAY"
-      ? !!progress?.videoWatched ||
-        !!progress?.isCompleted ||
-        !!progress?.workoutNotes ||
-        !!progress?.selectedWorkout ||
+      ? !!progress?.isCompleted ||
+        (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED") ||
         (activities.length > 0 && activities.every((name) => checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))))
       : day?.dayType === "REST_DAY"
         ? activities.length > 0
-          ? activities.every((name) => checks.includes(name))
-          : !!progress?.isCompleted || progress?.workoutNotes === "SKIPPED" || progress?.checklistCompleted === "SKIPPED"
-        : !!progress?.eventFeedback || !!progress?.isCompleted || progress?.eventFeedback === "SKIPPED" || progress?.workoutNotes === "SKIPPED";
+          ? activities.every((name) => checks.includes(name)) || (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED")
+          : !!progress?.isCompleted || (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED")
+        : !!progress?.isCompleted || (!!progress?.eventFeedback && progress.eventFeedback !== "SKIPPED");
   const initialDone: [boolean, boolean, boolean, boolean] = [
     sleepDone,
     activityDone,
-    !!progress?.mealCompliance,
-    !!progress?.dailyReflection,
+    !!progress?.mealCompliance && progress.mealCompliance !== "SKIPPED",
+    !!progress?.dailyReflection && progress.dailyReflection !== "SKIPPED",
   ];
   const pendingTasksCount = day ? initialDone.filter((done) => !done).length : 0;
 
@@ -631,6 +635,7 @@ export function MyPlanOverview({
                   checks={checks}
                   initialDone={initialDone}
                   onToggleCheck={onToggleCheck}
+                  onSyncChecklist={onSyncChecklist}
                   onSelectWorkout={onSelectWorkout}
                   onOpenVideo={onOpenVideo}
                   onSaveSleep={onSaveSleep}

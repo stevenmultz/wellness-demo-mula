@@ -742,6 +742,69 @@ export function DashboardClient({
     router.refresh();
   };
 
+  const handleSyncChecklist = async (
+    updated: string[],
+    dayId?: string
+  ): Promise<boolean> => {
+    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!currentDay) return false;
+    const existing = getCheckedItems(currentDay);
+    setDayChecklists((prev) => ({ ...prev, [currentDay.id]: updated }));
+
+    const videoDone =
+      currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
+        ? true
+        : getVideoWatched(currentDay);
+    const restItems = (currentDay.restInstructions || "")
+      .split(/\n|•|·/)
+      .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
+      .filter((line) => line.length > 1);
+    const allTasksDone =
+      currentDay.dayType === "REST_DAY"
+        ? restItems.length === 0 || restItems.every((name) => updated.includes(name))
+        : areActiveWorkoutMovementsCompleted(currentDay, updated);
+    const autoComplete = videoDone && allTasksDone;
+
+    const res = await wellnessUserSubmitDayProgress({
+      programDayId: currentDay.id,
+      videoWatched: getVideoWatched(currentDay),
+      checklistCompleted: updated,
+      isCompleted: autoComplete || !!currentDay.userProgress?.isCompleted,
+      selectedWorkout: dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout || undefined,
+      photoBeforeUrl: dayPhotosBefore[currentDay.id] || currentDay.userProgress?.photoBeforeUrl || undefined,
+      photoAfterUrl: dayPhotosAfter[currentDay.id] || currentDay.userProgress?.photoAfterUrl || undefined,
+      mealCompliance: dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || undefined,
+      mealNotes: dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || undefined,
+      dailyReflection: dayReflections[currentDay.id] !== undefined ? dayReflections[currentDay.id] : currentDay.userProgress?.dailyReflection || undefined,
+      happinessRate: dayHappiness[currentDay.id] || currentDay.userProgress?.happinessRate || undefined,
+      bedtime: dayBedtimes[currentDay.id] || currentDay.userProgress?.bedtime || undefined,
+      wakeTime: dayWakeTimes[currentDay.id] || currentDay.userProgress?.wakeTime || undefined,
+      assessmentResponse:
+        dayAssessments[currentDay.id] !== undefined
+          ? dayAssessments[currentDay.id]
+          : currentDay.userProgress?.assessmentResponse || "",
+    });
+
+    if (!res.success) {
+      setDayChecklists((prev) => ({ ...prev, [currentDay.id]: existing }));
+      setActionNotice({
+        type: "error",
+        text: res.message || "Failed to save checklist progress.",
+      });
+      setTimeout(() => setActionNotice(null), 4000);
+      return false;
+    }
+
+    if (autoComplete) {
+      setActionNotice({
+        type: "success",
+        text: `Day ${currentDay.dayNumber} checklist completed.`,
+      });
+      setTimeout(() => setActionNotice(null), 3500);
+    }
+    return true;
+  };
+
   const handleToggleChecklist = async (
     task: string,
     dayId?: string,
@@ -859,7 +922,6 @@ export function DashboardClient({
     }
     setActionNotice({ type: "success", text: "Sleep log saved successfully." });
     setTimeout(() => setActionNotice(null), 3000);
-    router.refresh();
     return true;
   };
 
@@ -1026,7 +1088,6 @@ export function DashboardClient({
     }
     setActionNotice({ type: "success", text: "Nutrition notes saved successfully." });
     setTimeout(() => setActionNotice(null), 3000);
-    router.refresh();
     return true;
   };
 
@@ -1052,7 +1113,6 @@ export function DashboardClient({
     }
     setActionNotice({ type: "success", text: "Daily reflection saved." });
     setTimeout(() => setActionNotice(null), 3000);
-    router.refresh();
     return true;
   };
 
@@ -1420,11 +1480,12 @@ export function DashboardClient({
     }
   };
 
-  // Hobby cron runs once a day. While this session is open, ask the server (WIB clock) to send whatever is due.
+  // Hobby cron runs once a day. While this session is visible in foreground, ask the server (WIB clock) for due alerts.
   useEffect(() => {
     let lastMinute = "";
     let stopped = false;
     const tick = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
       const minute = wibNow.toISOString().slice(0, 16);
       if (minute === lastMinute) return;
@@ -1441,14 +1502,21 @@ export function DashboardClient({
           setTimeout(() => setActionNotice(null), 6000);
         }
       } catch {
-        // The next minute retries. A failed tick does not invent a message.
+        // The next visible minute retries cleanly without wasting background battery.
       }
     };
-    tick();
-    const interval = setInterval(tick, 20000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void tick();
+      }
+    };
+    void tick();
+    const interval = setInterval(() => void tick(), 30000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       stopped = true;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -1749,6 +1817,7 @@ export function DashboardClient({
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             onToggleCheck={handleToggleChecklist}
+            onSyncChecklist={handleSyncChecklist}
             onSaveSleep={handleSaveSleep}
             onSaveMeal={handleSaveMeal}
             onSaveReflection={handleSaveReflection}

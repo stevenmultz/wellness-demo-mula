@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle,
   Angry,
   ArrowLeft,
   Calendar,
   Camera,
   Check,
-  ChevronDown,
   ChevronRight,
-  ChevronUp,
   Clock,
   Dumbbell,
   ExternalLink,
@@ -30,10 +27,9 @@ import {
   Smile,
   Sparkles,
   Star,
-  Sun,
   Users,
   Utensils,
-  Video,
+  X,
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
@@ -53,6 +49,7 @@ export interface DailyCheckInProps {
   checks: string[];
   initialDone: [boolean, boolean, boolean, boolean];
   onToggleCheck: (task: string, dayId: string, isRepUpdate?: boolean) => Promise<void> | void;
+  onSyncChecklist?: (tasks: string[], dayId: string) => Promise<boolean>;
   onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => SaveResult;
   onOpenVideo: (dayId: string) => SaveResult;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => SaveResult;
@@ -150,6 +147,14 @@ const MEAL_FEELINGS = [
   { label: "Slightly Bloated", desc: "Mild digestive fullness or heaviness after eating." },
   { label: "Still Hungry", desc: "Lower satiety or lingering appetite between meals." },
   { label: "Sluggish / Heavy", desc: "Post-meal energy dip or lethargic heaviness." },
+];
+
+const REST_FEELINGS = [
+  { label: "Restored & Loose", desc: "Muscles feel light, supple, and recovering well." },
+  { label: "Relaxed & Calm", desc: "Nervous system feels settled and deeply grounded." },
+  { label: "Mild Soreness", desc: "Healthy training recovery feedback; keeping it gentle." },
+  { label: "Still Tight", desc: "Noticeable stiffness remaining in joints or muscles." },
+  { label: "Deeply Fatigued", desc: "Body needs extra hydration, warmth, and early rest." },
 ];
 
 const areaCls =
@@ -289,27 +294,82 @@ function compressImageFile(file: File, maxDim = 960, quality = 0.72): Promise<st
   });
 }
 
+type SubStepId =
+  | "wake"
+  | "bed"
+  | "sleep_mood"
+  | "training_option"
+  | "training_video"
+  | "training_movements"
+  | "training_photos"
+  | "training_mood"
+  | "rest_checklist"
+  | "rest_mood"
+  | "connect_attendance"
+  | "connect_rating"
+  | "meal_checklist"
+  | "meal_count"
+  | "meal_mood"
+  | "reflection_journal"
+  | "reflection_mood";
+
+const JOURNAL_PRESETS = [
+  {
+    title: "Energized & Motivated",
+    text: "High focus and vitality. Accomplished my daily goals and feel strong momentum.",
+  },
+  {
+    title: "Calm & Centered",
+    text: "Maintained good emotional balance, mental peace, and grounded focus throughout.",
+  },
+  {
+    title: "Steady & Disciplined",
+    text: "Consistent moderate energy. Stayed committed to the routine through steady discipline.",
+  },
+  {
+    title: "Tired but Grateful",
+    text: "Low physical battery by evening. Grateful for progress made, taking time to rest and recharge.",
+  },
+  {
+    title: "Challenged & Stressed",
+    text: "Faced physical fatigue or mental stress today. Prioritizing slow recovery, breathwork, and early sleep.",
+  },
+];
+
+const TRAINING_FEELINGS = [
+  { label: "Energized", desc: "High vitality, powerful and moved with ease." },
+  { label: "Accomplished", desc: "Challenging workout, pushed through with solid technique." },
+  { label: "Balanced", desc: "Steady pace, good body control and regulated breath." },
+  { label: "Fatigued", desc: "Challenging effort, muscles feeling worked and tired." },
+  { label: "Strained", desc: "Felt physical tension or stiffness; prioritized safety." },
+];
+
 function TaskForm({
   day,
   locked,
+  isPast,
+  taskTitle,
+  isTaskDone,
   activities,
   checks,
   step,
   onFinish,
+  onClose,
   props,
 }: {
   day: PlanDay;
   locked: boolean;
+  isPast: boolean;
+  taskTitle: string;
+  isTaskDone: boolean;
   activities: string[];
   checks: string[];
   step: number;
   onFinish: () => void;
+  onClose: () => void;
   props: DailyCheckInProps;
 }) {
   const progress = day.userProgress;
-  const wasSleepSkipped = progress?.bedtime === "SKIPPED" || progress?.wakeTime === "SKIPPED";
-  const wasMealSkipped = progress?.mealCompliance === "SKIPPED";
-  const wasReflectionSkipped = progress?.dailyReflection === "SKIPPED";
   const [bed, setBed] = useState(progress?.bedtime === "SKIPPED" ? "" : progress?.bedtime || "");
   const [wake, setWake] = useState(progress?.wakeTime === "SKIPPED" ? "" : progress?.wakeTime || "");
   const [sleepFeeling, setSleepFeeling] = useState<string>(() => {
@@ -317,17 +377,16 @@ function TaskForm({
     const match = raw.match(/Sleep Feeling:\s*(.+)/i);
     return match ? match[1].trim() : "";
   });
+
   const [workout, setWorkout] = useState(progress?.selectedWorkout === "SKIPPED" ? "" : progress?.selectedWorkout || "");
   const [editingRep, setEditingRep] = useState<{ name: string; value: string } | null>(null);
-  const [trainingEntered, setTrainingEntered] = useState(
-    Boolean(progress?.selectedWorkout && progress.selectedWorkout !== "SKIPPED")
-  );
   const [pendingSwitchWorkout, setPendingSwitchWorkout] = useState<string | null>(null);
   const [notes, setNotes] = useState(() =>
     stripLeadingFeeling(progress?.workoutNotes || (progress?.eventFeedback === "SKIPPED" ? "" : progress?.eventFeedback))
   );
   const [photos, setPhotos] = useState({ before: progress?.photoBeforeUrl || "", after: progress?.photoAfterUrl || "" });
   const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
+
   const [trainingFeeling, setTrainingFeeling] = useState<string>(() => {
     const raw = progress?.workoutNotes || "";
     if (raw.includes("Feeling:")) {
@@ -335,9 +394,10 @@ function TaskForm({
     }
     return "";
   });
+
   const [connectAttendance, setConnectAttendance] = useState<"attend" | "cannot_attend" | null>(() => {
     const fb = progress?.eventFeedback || "";
-    if (fb === "SKIPPED") return null;
+    if (!fb || fb === "SKIPPED") return null;
     if (fb.toLowerCase().includes("cannot attend") || fb.toLowerCase().includes("not attend")) return "cannot_attend";
     if (fb.toLowerCase().includes("attend")) return "attend";
     return null;
@@ -361,9 +421,6 @@ function TaskForm({
   const [mealDraft, setMealDraft] = useState<MealDraft>(() =>
     readMealDraft(progress?.mealCompliance, progress?.mealNotes, recommendedMeals)
   );
-  const [skipJournal, setSkipJournal] = useState(
-    () => progress?.dailyReflection === "Skipped reflection journal today."
-  );
   const [review, setReview] = useState(
     progress?.dailyReflection === "Skipped reflection journal today." || progress?.dailyReflection === "SKIPPED"
       ? ""
@@ -372,18 +429,18 @@ function TaskForm({
   const [score, setScore] = useState(
     progress?.dailyReflection === "SKIPPED" ? 0 : progress?.happinessRate ? Math.min(5, progress.happinessRate) : 0
   );
+
+  const [subStepIndex, setSubStepIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
-  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
   const [localChecks, setLocalChecks] = useState(checks);
+  const checksDirtyRef = useRef(false);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setLocalChecks(checks);
+    checksDirtyRef.current = false;
   }, [checks]);
-
-  const tasks = useMemo(() => getTasksForDay(day.dayType), [day.dayType]);
-  const currentTaskInfo = tasks[step] || tasks[0];
 
   const isTraining = day.dayType === "TRAINING_DAY";
   const isRest = day.dayType === "REST_DAY";
@@ -396,7 +453,6 @@ function TaskForm({
     return parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist);
   }, [isTraining, day.workoutOptions, day.videoChecklist]);
 
-  // Require explicit choice when multiple training groups exist
   const hasMultipleOptions = isTraining && groups.length > 0;
   const activeWorkout = hasMultipleOptions ? workout : "";
   const selectedGroup = groups.find((g) => g.optionName === activeWorkout) || (!hasMultipleOptions ? groups[0] : undefined);
@@ -413,7 +469,6 @@ function TaskForm({
       ? activities
       : [];
 
-  // Dynamic video mapped to selected option
   const activeOptionIdx = Math.max(0, groups.findIndex((g) => g.optionName === activeWorkout));
   const activeVideo = useMemo(() => {
     if (!isTraining) return null;
@@ -427,6 +482,34 @@ function TaskForm({
     }
     return null;
   }, [isTraining, hasMultipleOptions, videos, activeOptionIdx, activeWorkout]);
+
+  // Build focused one-input-per-screen flow
+  const subSteps = useMemo<SubStepId[]>(() => {
+    if (step === 0) return ["wake", "bed", "sleep_mood"];
+    if (step === 1) {
+      if (isConnect) {
+        return connectAttendance === "cannot_attend"
+          ? ["connect_attendance"]
+          : ["connect_attendance", "connect_rating"];
+      }
+      if (isRest) {
+        return restLines.length > 0 ? ["rest_checklist", "rest_mood"] : ["rest_mood"];
+      }
+      const list: SubStepId[] = [];
+      if (groups.length > 0) list.push("training_option");
+      if (videos.length > 0) list.push("training_video");
+      if (movements.length > 0 || groups.length > 0) list.push("training_movements");
+      list.push("training_photos", "training_mood");
+      return list;
+    }
+    if (step === 2) return ["meal_checklist", "meal_count", "meal_mood"];
+    return ["reflection_journal", "reflection_mood"];
+  }, [step, isConnect, isRest, connectAttendance, restLines.length, groups.length, videos.length, movements.length]);
+
+  const safeSubIndex = Math.min(subStepIndex, Math.max(0, subSteps.length - 1));
+  const currentSubStep = subSteps[safeSubIndex];
+  const isFirstSubStep = safeSubIndex === 0;
+  const isFinalSubStep = safeSubIndex === subSteps.length - 1;
 
   const isChecked = (name: string) => {
     const cleanTarget = name.trim().toLowerCase();
@@ -447,14 +530,44 @@ function TaskForm({
 
   const checkedCount = movements.filter(isChecked).length;
 
+  // Coalesced battery-friendly checklist sync: instant local state + 1 batched server write
+  const flushChecklist = useCallback(
+    async (items: string[]): Promise<boolean> => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+      if (!checksDirtyRef.current || locked) return true;
+      checksDirtyRef.current = false;
+      if (props.onSyncChecklist) {
+        return await props.onSyncChecklist(items, day.id);
+      }
+      return true;
+    },
+    [day.id, locked, props]
+  );
+
+  const scheduleChecklistSync = useCallback(
+    (nextItems: string[]) => {
+      checksDirtyRef.current = true;
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => {
+        void flushChecklist(nextItems);
+      }, 750);
+    },
+    [flushChecklist]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, []);
+
   const handleClickWorkoutOption = async (optionName: string) => {
-    if (locked) {
-      if (!workout) setWorkout(optionName);
-      setTrainingEntered(true);
-      return;
-    }
+    if (locked) return;
     if (optionName === workout) {
-      setTrainingEntered(true);
+      setError(null);
       return;
     }
     if (workout && checkedCount > 0) {
@@ -463,7 +576,8 @@ function TaskForm({
     }
     setWorkout(optionName);
     setLocalChecks([]);
-    setTrainingEntered(true);
+    checksDirtyRef.current = false;
+    setError(null);
     await props.onSelectWorkout(optionName, day.id, true);
   };
 
@@ -473,83 +587,193 @@ function TaskForm({
     setPendingSwitchWorkout(null);
     setWorkout(nextOpt);
     setLocalChecks([]);
-    setTrainingEntered(true);
+    checksDirtyRef.current = false;
+    setError(null);
     await props.onSelectWorkout(nextOpt, day.id, true);
   };
 
-  const isSleepValid = Boolean(bed && wake && sleepFeeling);
-  const isTrainingValid = isConnect
-    ? notes.trim().length > 0
-    : isRest
-      ? movements.length === 0 || movements.every(isChecked)
-      : hasMultipleOptions
-        ? Boolean(activeWorkout) && (movements.length === 0 || movements.every(isChecked))
-        : movements.length === 0 || movements.every(isChecked);
-  const isMealValid =
-    (mealDraft.checkedMeals.length > 0 || mealDraft.specialOption !== null) &&
-    mealDraft.mealsCount > 0 &&
-    Boolean(mealDraft.mealFeeling);
-  const isReflectionValid = (skipJournal || review.trim().length >= 3) && score > 0;
+  const parseTargetReps = (target?: string | null): number => {
+    if (!target) return 10;
+    const match = target.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 10;
+  };
 
-  const valid = [isSleepValid, isTrainingValid, isMealValid, isReflectionValid];
-
-  const getValidationError = (currentStep: number): string | null => {
-    if (currentStep === 0) {
-      if (!bed && !wake) return "Please enter both bedtime and wake time.";
-      if (!bed) return "Please enter your bedtime.";
-      if (!wake) return "Please enter your wake time.";
-      if (!sleepFeeling) return "Please select how you feel after waking up.";
-      return null;
-    }
-    if (currentStep === 1) {
-      if (isConnect) {
-        if (!connectAttendance) return "Please indicate whether you will attend this session.";
-        if (connectAttendance === "attend" && connectRating === 0) {
-          return "Please rate your experience from 1 to 5 stars.";
+  const getMovementReps = (name: string, defaultTarget: number): number => {
+    const cleanTarget = name.trim().toLowerCase();
+    const entry = localChecks.find((c) => {
+      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+      if (activeWorkout) {
+        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+        const lowerRaw = raw.toLowerCase();
+        if (lowerRaw.startsWith("[")) {
+          if (!lowerRaw.startsWith(expectedPrefix)) return false;
+          const stripped = lowerRaw.slice(expectedPrefix.length).trim();
+          return stripped === cleanTarget;
         }
-        return null;
       }
-      if (isTraining) {
-        if (hasMultipleOptions && !activeWorkout) return "Please select a training routine first.";
+      return raw.toLowerCase() === cleanTarget;
+    });
+    if (!entry || !entry.includes("=")) return defaultTarget;
+    const parsed = parseInt(entry.split("=")[1], 10);
+    return isNaN(parsed) ? defaultTarget : parsed;
+  };
+
+  const updateMovementReps = (name: string, reps: number) => {
+    if (locked) return;
+    const safeReps = Math.max(1, Math.min(999, Math.round(reps) || 1));
+    const cleanTarget = name.trim().toLowerCase();
+    const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
+    const newEntry = `${scoped}=${safeReps}`;
+
+    let found = false;
+    const updated = localChecks.map((c) => {
+      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+      let match = false;
+      if (activeWorkout) {
+        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+        const lowerRaw = raw.toLowerCase();
+        if (lowerRaw.startsWith("[")) {
+          if (lowerRaw.startsWith(expectedPrefix)) {
+            match = lowerRaw.slice(expectedPrefix.length).trim() === cleanTarget;
+          }
+        } else {
+          match = raw.toLowerCase() === cleanTarget;
+        }
+      } else {
+        match = raw.toLowerCase() === cleanTarget;
+      }
+      if (match) {
+        found = true;
+        return newEntry;
+      }
+      return c;
+    });
+
+    if (!found) updated.push(newEntry);
+    setLocalChecks(updated);
+    if (props.onSyncChecklist) {
+      scheduleChecklistSync(updated);
+    } else {
+      void props.onToggleCheck(newEntry, day.id, true);
+    }
+  };
+
+  const toggle = (name: string, defaultReps?: number) => {
+    if (locked) return;
+    const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
+    const cleanTarget = name.trim().toLowerCase();
+    const scopedWithReps = defaultReps ? `${scoped}=${defaultReps}` : scoped;
+
+    let nextChecks: string[];
+    const alreadyChecked = isChecked(name);
+    if (alreadyChecked) {
+      nextChecks = localChecks.filter((c) => {
+        const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
+        if (activeWorkout) {
+          const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
+          const lowerRaw = raw.toLowerCase();
+          if (lowerRaw.startsWith("[")) {
+            if (lowerRaw.startsWith(expectedPrefix)) {
+              return lowerRaw.slice(expectedPrefix.length).trim() !== cleanTarget;
+            }
+          }
+        }
+        return raw.toLowerCase() !== cleanTarget;
+      });
+    } else {
+      nextChecks = [...localChecks, scopedWithReps];
+    }
+    setLocalChecks(nextChecks);
+    if (props.onSyncChecklist) {
+      scheduleChecklistSync(nextChecks);
+    } else {
+      void props.onToggleCheck(alreadyChecked ? scoped : scopedWithReps, day.id);
+    }
+  };
+
+  const pickPhoto = async (type: "before" | "after", file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Photo exceeds maximum allowed size of 5 MB.");
+      return;
+    }
+    setPhotoBusy(type);
+    setError(null);
+    try {
+      const dataUrl = await compressImageFile(file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl, type }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success || !json.url) throw new Error(json?.message || "Upload failed.");
+      const ok = (await props.onUploadPhoto(type, json.url, day.id)) !== false;
+      if (!ok) throw new Error("Could not save the photo.");
+      setPhotos((p) => ({ ...p, [type]: json.url as string }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
+
+  const validateSubStep = (id: SubStepId): string | null => {
+    switch (id) {
+      case "wake":
+        return wake ? null : "Please select the time you woke up today.";
+      case "bed":
+        return bed ? null : "Please select the time you went to sleep last night.";
+      case "sleep_mood":
+        return sleepFeeling ? null : "Please select how you feel after waking up.";
+      case "training_option":
+        return !hasMultipleOptions || activeWorkout ? null : "Please select a training focus to continue.";
+      case "training_video":
+        return null;
+      case "training_movements":
         if (movements.length > 0 && !movements.every(isChecked)) {
           return `Please complete all exercises (${movements.length - checkedCount} remaining).`;
         }
-        if (!photos.before && !photos.after) {
-          return "Please upload at least one progress photo (Before or After session).";
-        }
-        if (!trainingFeeling) {
-          return "Please select how you feel after completing the training.";
+        return null;
+      case "training_photos":
+        return photos.before || photos.after
+          ? null
+          : "Please upload at least one session photo (Before or After).";
+      case "training_mood":
+        return trainingFeeling ? null : "Please select how you feel after training.";
+      case "rest_checklist":
+        if (movements.length > 0 && !movements.every(isChecked)) {
+          return `Please complete all recovery items (${movements.length - checkedCount} remaining).`;
         }
         return null;
-      }
-      if (movements.length > 0 && !movements.every(isChecked)) {
-        return `Please complete all recovery items (${movements.length - checkedCount} remaining).`;
-      }
-      return null;
+      case "rest_mood":
+        return trainingFeeling ? null : "Please select how your body feels today.";
+      case "connect_attendance":
+        return connectAttendance ? null : "Please indicate whether you will attend this session.";
+      case "connect_rating":
+        return connectRating > 0 ? null : "Please rate your session experience from 1 to 5 stars.";
+      case "meal_checklist":
+        return mealDraft.checkedMeals.length > 0 || mealDraft.specialOption
+          ? null
+          : "Please check at least one meal or choose an alternative option.";
+      case "meal_count":
+        return mealDraft.mealsCount > 0
+          ? null
+          : "Please select how many meals you ate today (1, 2, or 3).";
+      case "meal_mood":
+        return mealDraft.mealFeeling ? null : "Please select how you feel after your meals.";
+      case "reflection_journal":
+        return review.trim().length >= 3
+          ? null
+          : "Please select a reflection card or write a brief note (min. 3 characters).";
+      case "reflection_mood":
+        return score > 0 ? null : "Please select your overall mood & energy rating.";
+      default:
+        return null;
     }
-    if (currentStep === 2) {
-      if (mealDraft.checkedMeals.length === 0 && !mealDraft.specialOption) {
-        return "Please check at least one meal or select an alternative option.";
-      }
-      if (!mealDraft.mealsCount) {
-        return "Please select how many meals you ate today (1, 2, or 3).";
-      }
-      if (!mealDraft.mealFeeling) {
-        return "Please select how you feel after your meals.";
-      }
-      return null;
-    }
-    if (currentStep === 3) {
-      if (!skipJournal && review.trim().length < 3) {
-        return "Please select a journal reflection or write a brief note.";
-      }
-      if (!score) return "Please select your daily energy & mood rating.";
-      return null;
-    }
-    return null;
   };
 
-  const persist = async () => {
+  const persistFinal = async (): Promise<boolean> => {
+    await flushChecklist(localChecks);
     if (step === 0) {
       return (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id, sleepFeeling)) !== false;
     }
@@ -561,11 +785,16 @@ function TaskForm({
             : "Cannot Attend session";
         return (await props.onSaveAttendance(attendanceFeedback, day.id)) !== false;
       }
+      if (isRest) {
+        const restNotes = `Feeling: ${trainingFeeling} · Active recovery completed`;
+        return (await props.onSaveWorkoutNotes(restNotes, day.id)) !== false;
+      }
       if (activeWorkout) {
         await props.onSelectWorkout(activeWorkout, day.id, false);
       }
-      // Always save workout notes so training progress is recorded and persisted to database
-      const finalNotes = trainingFeeling ? `Feeling: ${trainingFeeling} · ${notes}`.trim() : notes.trim() || (activeWorkout ? `Completed: ${activeWorkout}` : "Completed training session");
+      const finalNotes = trainingFeeling
+        ? `Feeling: ${trainingFeeling}${notes.trim() ? ` · ${notes.trim()}` : ""}`
+        : notes.trim() || (activeWorkout ? `Completed: ${activeWorkout}` : "Completed training session");
       return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
     }
     if (step === 2) {
@@ -596,349 +825,452 @@ function TaskForm({
         )) !== false
       );
     }
-    const savedReview = skipJournal ? "Skipped reflection journal today." : review.trim();
-    return (await props.onSaveReflection(savedReview, score || 3, day.id)) !== false;
+    return (await props.onSaveReflection(review.trim(), score || 3, day.id)) !== false;
   };
 
-  const handleSave = async () => {
-    if (locked || busy) return;
-    const err = getValidationError(step);
+  const handlePrimaryAction = async () => {
+    if (locked || busy || photoBusy !== null) return;
+    const err = validateSubStep(currentSubStep);
     if (err) {
       setError(err);
       return;
     }
-    setBusy(true);
     setError(null);
+
+    if (!isFinalSubStep) {
+      if (currentSubStep === "training_movements" || currentSubStep === "rest_checklist") {
+        const ok = await flushChecklist(localChecks);
+        if (!ok) {
+          setError("Could not save checklist. Please try again.");
+          return;
+        }
+      }
+      setSubStepIndex((idx) => Math.min(subSteps.length - 1, idx + 1));
+      return;
+    }
+
+    setBusy(true);
     try {
-      const ok = await persist();
+      const ok = await persistFinal();
       if (!ok) {
-        setError("Could not submit entry. Please try again.");
+        setError("Could not save entry. Please try again.");
         return;
       }
       onFinish();
     } catch {
-      setError("Could not submit entry. Please try again.");
+      setError("Could not save entry. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
-  const onSkipClick = () => {
+  const handleBack = () => {
     setError(null);
-    setSkipConfirmOpen(true);
-  };
-
-  const handleSkipTask = async () => {
-    if (locked || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (step === 0) {
-        await props.onSaveSleep("SKIPPED", "SKIPPED", 0, day.id);
-      } else if (step === 1) {
-        if (isConnect) {
-          await props.onSaveAttendance("SKIPPED", day.id);
-        } else {
-          if (hasMultipleOptions) {
-            await props.onSelectWorkout("SKIPPED", day.id, true);
-          }
-          await props.onSaveWorkoutNotes("SKIPPED", day.id);
-        }
-      } else if (step === 2) {
-        await props.onSaveMeal(
-          "SKIPPED",
-          JSON.stringify({ v: 2, mode: "skipped", checkedMeals: [] }),
-          day.id
-        );
-      } else if (step === 3) {
-        await props.onSaveReflection("SKIPPED", 3, day.id);
-      }
-      setSkipConfirmOpen(false);
-      onFinish();
-    } catch {
-      setError("Failed to skip task. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onSubmitClick = () => {
-    const err = getValidationError(step);
-    if (err) {
-      setError(err);
+    if (safeSubIndex > 0) {
+      setSubStepIndex((idx) => Math.max(0, idx - 1));
       return;
     }
-    setError(null);
-    setSubmitConfirmOpen(true);
+    void flushChecklist(localChecks);
+    onClose();
   };
 
-  const pickPhoto = async (type: "before" | "after", file: File) => {
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Photo exceeds maximum allowed size of 5 MB.");
-      return;
-    }
-    setPhotoBusy(type);
-    setError(null);
-    try {
-      const dataUrl = await compressImageFile(file);
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, type }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success || !json.url) throw new Error(json?.message || "Upload failed.");
-      const ok = (await props.onUploadPhoto(type, json.url, day.id)) !== false;
-      if (!ok) throw new Error("Could not save the photo.");
-      setPhotos((p) => ({ ...p, [type]: json.url as string }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
-    } finally {
-      setPhotoBusy(null);
-    }
-  };
-
-  const parseTargetReps = (target?: string | null): number => {
-    if (!target) return 10;
-    const match = target.match(/\d+/);
-    return match ? parseInt(match[0], 10) : 10;
-  };
-
-  const getMovementReps = (name: string, defaultTarget: number): number => {
-    const cleanTarget = name.trim().toLowerCase();
-    const entry = localChecks.find((c) => {
-      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
-      if (activeWorkout) {
-        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
-        const lowerRaw = raw.toLowerCase();
-        if (lowerRaw.startsWith("[")) {
-          if (!lowerRaw.startsWith(expectedPrefix)) return false;
-          const stripped = lowerRaw.slice(expectedPrefix.length).trim();
-          return stripped === cleanTarget;
-        }
-      }
-      return raw.toLowerCase() === cleanTarget;
-    });
-    if (!entry || !entry.includes("=")) return defaultTarget;
-    const parts = entry.split("=");
-    const parsed = parseInt(parts[1], 10);
-    return isNaN(parsed) ? defaultTarget : parsed;
-  };
-
-  const updateMovementReps = async (name: string, reps: number) => {
-    if (locked) return;
-    const safeReps = Math.max(1, Math.min(999, Math.round(reps) || 1));
-    const cleanTarget = name.trim().toLowerCase();
-    const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
-    const newEntry = `${scoped}=${safeReps}`;
-
-    let found = false;
-    const updated = localChecks.map((c) => {
-      const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
-      let match = false;
-      if (activeWorkout) {
-        const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
-        const lowerRaw = raw.toLowerCase();
-        if (lowerRaw.startsWith("[")) {
-          if (lowerRaw.startsWith(expectedPrefix)) {
-            const stripped = lowerRaw.slice(expectedPrefix.length).trim();
-            match = stripped === cleanTarget;
-          }
-        } else {
-          match = raw.toLowerCase() === cleanTarget;
-        }
-      } else {
-        match = raw.toLowerCase() === cleanTarget;
-      }
-      if (match) {
-        found = true;
-        return newEntry;
-      }
-      return c;
-    });
-
-    if (!found) {
-      updated.push(newEntry);
-    }
-
-    setLocalChecks(updated);
-    await props.onToggleCheck(newEntry, day.id, true);
-  };
-
-  const toggle = async (name: string, defaultReps?: number) => {
-    const scoped = activeWorkout ? `[${activeWorkout}] ${name}` : name;
-    const cleanTarget = name.trim().toLowerCase();
-    const scopedWithReps = defaultReps ? `${scoped}=${defaultReps}` : scoped;
-
-    let nextChecks: string[];
-    const alreadyChecked = isChecked(name);
-    if (alreadyChecked) {
-      nextChecks = localChecks.filter((c) => {
-        const raw = (c.includes("=") ? c.split("=")[0] : c).trim();
-        if (activeWorkout) {
-          const expectedPrefix = `[${activeWorkout.toLowerCase()}]`;
-          const lowerRaw = raw.toLowerCase();
-          if (lowerRaw.startsWith("[")) {
-            if (lowerRaw.startsWith(expectedPrefix)) {
-              return lowerRaw.slice(expectedPrefix.length).trim() !== cleanTarget;
-            }
-          }
-        }
-        return raw.toLowerCase() !== cleanTarget;
-      });
-    } else {
-      nextChecks = [...localChecks, scopedWithReps];
-    }
-    setLocalChecks(nextChecks);
-    await props.onToggleCheck(alreadyChecked ? scoped : scopedWithReps, day.id);
+  const handleClose = () => {
+    void flushChecklist(localChecks);
+    onClose();
   };
 
   const totalSleepMins = bed && wake ? sleepMinutes(bed, wake) : 0;
   const sleepQuality = totalSleepMins > 0 ? sleepQualityLabel(totalSleepMins) : null;
+  const progressPct = Math.round(((safeSubIndex + 1) / Math.max(1, subSteps.length)) * 100);
+
+  // READ-ONLY SINGLE-SCREEN SUMMARY WHEN VIEWING LOCKED OR PAST DAYS
+  if (locked) {
+    return (
+      <div className="min-h-full flex flex-col max-w-lg mx-auto w-full px-6 py-5 sm:py-8">
+        <header className="flex items-center justify-between gap-3 pb-5 border-b border-zinc-200/90 dark:border-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
+          <span
+            className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+              isTaskDone
+                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                : isPast
+                  ? "bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
+                  : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300"
+            }`}
+          >
+            {isTaskDone ? "Completed" : isPast ? "Skipped" : "Locked"}
+          </span>
+        </header>
+
+        <div className="flex-1 py-7 space-y-6">
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
+              Day {day.dayNumber} · History Record
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">
+              {taskTitle}
+            </h1>
+          </div>
+
+          {!isTaskDone && isPast ? (
+            <div className="py-10 px-5 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white dark:bg-[#141414] text-center space-y-2">
+              <Clock className="w-5 h-5 mx-auto text-zinc-400" />
+              <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                No entry was recorded before the 23:59 WIB daily cutoff.
+              </p>
+            </div>
+          ) : (
+            <dl className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10 text-sm">
+              {step === 0 && (
+                <>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Wake Time</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{wake || "—"}</dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Bedtime</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{bed || "—"}</dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Total Sleep</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
+                      {totalSleepMins > 0 ? formatDuration(totalSleepMins) : "—"}
+                    </dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Morning Feeling</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white text-right">{sleepFeeling || "—"}</dd>
+                  </div>
+                </>
+              )}
+
+              {step === 1 && isTraining && (
+                <>
+                  {activeWorkout && (
+                    <div className="py-4 flex items-center justify-between gap-4">
+                      <dt className="text-xs font-mono uppercase text-zinc-500">Focus</dt>
+                      <dd className="font-semibold text-zinc-950 dark:text-white">{activeWorkout}</dd>
+                    </div>
+                  )}
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Movements</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
+                      {checkedCount} / {movements.length || checkedCount} Done
+                    </dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Post-Session Mood</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white">{trainingFeeling || "—"}</dd>
+                  </div>
+                </>
+              )}
+
+              {step === 1 && isRest && (
+                <>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Recovery Items</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
+                      {checkedCount} / {movements.length} Checked
+                    </dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Body Condition</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white">{trainingFeeling || "—"}</dd>
+                  </div>
+                </>
+              )}
+
+              {step === 1 && isConnect && (
+                <>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Attendance</dt>
+                    <dd className="font-semibold text-zinc-950 dark:text-white">
+                      {connectAttendance === "attend" ? "Attended" : connectAttendance === "cannot_attend" ? "Could Not Attend" : "—"}
+                    </dd>
+                  </div>
+                  {connectRating > 0 && (
+                    <div className="py-4 flex items-center justify-between gap-4">
+                      <dt className="text-xs font-mono uppercase text-zinc-500">Experience</dt>
+                      <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{connectRating} / 5 Stars</dd>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Meal Plan Status</dt>
+                    <dd className="font-semibold text-zinc-950 dark:text-white">
+                      {mealDraft.specialOption === "similar"
+                        ? "Similar Portion & Nutrition"
+                        : mealDraft.specialOption === "off_track"
+                          ? "Off Plan"
+                          : `${mealDraft.checkedMeals.length} / ${recommendedMeals.length} Recommended`}
+                    </dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Meals Eaten</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
+                      {mealDraft.mealsCount > 0 ? `${mealDraft.mealsCount} ${mealDraft.mealsCount === 1 ? "Time" : "Times"}` : "—"}
+                    </dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Post-Meal Mood</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white">{mealDraft.mealFeeling || "—"}</dd>
+                  </div>
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <div className="py-4 space-y-1.5">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Journal Reflection</dt>
+                    <dd className="text-sm text-zinc-900 dark:text-zinc-100 leading-relaxed">{review || "—"}</dd>
+                  </div>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-mono uppercase text-zinc-500">Mood &amp; Energy</dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
+                      {score > 0 ? `${FACES.find((f) => f.score === score)?.label || score} (${score}/5)` : "—"}
+                    </dd>
+                  </div>
+                </>
+              )}
+            </dl>
+          )}
+        </div>
+
+        <div className="pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition"
+          >
+            Back to Program Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div key={step} className="space-y-4">
-      {/* ===================================================================== */}
-      {/* STEP 0: SLEEP PROTOCOL (FLAT SHEET SECTIONS, NO NESTED BOXES)         */}
-      {/* ===================================================================== */}
-      {step === 0 && (
-        <div className="space-y-6">
-          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed border-l-2 border-zinc-300 dark:border-white/25 pl-3.5">
-            {day.sleepRecommendation || "Target 7.5 to 9 hours of restorative circadian sleep."}
-          </p>
+    <div className="min-h-full flex flex-col max-w-lg mx-auto w-full px-6 pt-4 pb-8">
+      {/* MINIMAL TOP CHROME + STEP PROGRESS */}
+      <header className="space-y-3 pb-4">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
+            className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/10"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
 
-          {wasSleepSkipped && !bed && !wake && (
-            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              Previously skipped — select real sleep times below if you want to record today&apos;s rest.
-            </p>
+          <div className="text-center min-w-0">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block truncate">
+              {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close task"
+            className="w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-300 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/10"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="h-1 w-full rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </header>
+
+      {/* ONE SCREEN, ONE INPUT FORM */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handlePrimaryAction();
+        }}
+        className="flex-1 flex flex-col justify-between gap-8 pt-4"
+      >
+        <div className="space-y-6">
+          {/* SLEEP 1: WAKE TIME */}
+          {currentSubStep === "wake" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Day {day.dayNumber} · Sleep Routine
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  What time did you wake up today?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {day.sleepRecommendation || "Select or enter the exact time you woke up this morning."}
+                </p>
+              </div>
+
+              <input
+                id="input-waketime"
+                type="time"
+                value={wake}
+                enterKeyHint="next"
+                onChange={(e) => {
+                  setWake(e.target.value);
+                  setError(null);
+                }}
+                aria-label="Enter wake time"
+                className="w-full h-16 px-4 rounded-2xl bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
+              />
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                  Quick Presets
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {WAKETIME_PRESETS.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setWake(t);
+                        setError(null);
+                      }}
+                      className={`h-11 rounded-xl text-sm font-mono font-medium transition active:scale-95 ${
+                        wake === t
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                          : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
-          <div className="divide-y divide-zinc-200/90 dark:divide-white/10">
-            {/* Bedtime Row & Presets */}
-            <div className="py-5 first:pt-1 space-y-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <label htmlFor="input-bedtime" className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                    Bedtime
-                  </label>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block mt-0.5">Time you went to sleep</span>
+          {/* SLEEP 2: BEDTIME */}
+          {currentSubStep === "bed" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Woke up at {wake}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  What time did you go to sleep last night?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Used to calculate total circadian recovery duration.
+                </p>
+              </div>
+
+              <input
+                id="input-bedtime"
+                type="time"
+                value={bed}
+                enterKeyHint="next"
+                onChange={(e) => {
+                  setBed(e.target.value);
+                  setError(null);
+                }}
+                aria-label="Enter bedtime"
+                className="w-full h-16 px-4 rounded-2xl bg-white dark:bg-white/5 border border-zinc-300 dark:border-white/20 text-2xl font-mono font-bold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shadow-2xs"
+              />
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                  Quick Presets
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {BEDTIME_PRESETS.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setBed(t);
+                        setError(null);
+                      }}
+                      className={`h-11 rounded-xl text-sm font-mono font-medium transition active:scale-95 ${
+                        bed === t
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                          : "bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15 hover:border-zinc-400"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
                 </div>
-                <input
-                  id="input-bedtime"
-                  type="time"
-                  value={bed}
-                  disabled={locked}
-                  onChange={(e) => setBed(e.target.value)}
-                  aria-label="Enter bedtime"
-                  className="w-36 h-10 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0"
-                />
               </div>
 
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                {BEDTIME_PRESETS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => setBed(t)}
-                    className={`h-8 sm:h-9 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
-                      bed === t
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                        : "bg-zinc-100/80 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Wake Time Row & Presets */}
-            <div className="py-5 space-y-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <label htmlFor="input-waketime" className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                    Wake Time
-                  </label>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block mt-0.5">Time you woke up</span>
-                </div>
-                <input
-                  id="input-waketime"
-                  type="time"
-                  value={wake}
-                  disabled={locked}
-                  onChange={(e) => setWake(e.target.value)}
-                  aria-label="Enter wake time"
-                  className="w-36 h-10 px-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white transition text-center shrink-0"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                {WAKETIME_PRESETS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => setWake(t)}
-                    className={`h-8 sm:h-9 px-2 rounded-lg text-xs font-mono font-medium transition active:scale-95 text-center ${
-                      wake === t
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                        : "bg-zinc-100/80 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Recorded Summary Row */}
-            {totalSleepMins > 0 && (
-              <div className="py-5 flex items-center justify-between gap-3 text-xs">
-                <span className="text-zinc-500 dark:text-zinc-400 font-medium">Recorded Rest</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
-                    {formatDuration(totalSleepMins)}
-                  </span>
-                  {sleepQuality && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${sleepQuality.cls}`}>
-                      {sleepQuality.label}
+              {totalSleepMins > 0 && (
+                <div className="pt-3 border-t border-zinc-200/90 dark:border-white/10 flex items-center justify-between gap-3 text-xs">
+                  <span className="text-zinc-500 dark:text-zinc-400 font-medium">Calculated Rest</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
+                      {formatDuration(totalSleepMins)}
                     </span>
-                  )}
+                    {sleepQuality && (
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${sleepQuality.cls}`}>
+                        {sleepQuality.label}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            {/* Post-Sleep Mood Check (Always Bottom) */}
-            <div className="py-5 space-y-3">
-              <div>
-                <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
+          {/* SLEEP 3: POST-SLEEP MOOD */}
+          {currentSubStep === "sleep_mood" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  {bed} → {wake} · {formatDuration(totalSleepMins)}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
                   How do you feel after waking up?
-                </span>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
-                  Select the morning condition that best describes your rest
-                </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Select the condition that best describes your morning energy.
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 gap-2.5">
                 {SLEEP_FEELINGS.map((item) => {
                   const active = sleepFeeling === item.label;
                   return (
                     <button
                       key={item.label}
                       type="button"
-                      disabled={locked}
-                      onClick={() => setSleepFeeling(item.label)}
-                      className={`w-full p-3.5 rounded-xl border text-left transition select-none ${
+                      onClick={() => {
+                        setSleepFeeling(item.label);
+                        setError(null);
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
                       }`}
                     >
-                      <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                      <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.label}
                       </p>
-                      <p className={`text-[11px] mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
                         {item.desc}
                       </p>
                     </button>
@@ -946,27 +1278,24 @@ function TaskForm({
                 })}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* ===================================================================== */}
-      {/* STEP 1A: TRAINING DAY (SCREEN 1: CHOOSE -> SCREEN 2: ROUTINE)         */}
-      {/* ===================================================================== */}
-      {step === 1 && isTraining && (
-        <div className="space-y-4">
-          {groups.length > 0 && !trainingEntered ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-200/60 dark:border-white/10">
-                <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                  Training Options
+          {/* TRAINING 1: WORKOUT OPTION */}
+          {currentSubStep === "training_option" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Day {day.dayNumber} · Training Focus
                 </span>
-                <span className="text-[10px] font-mono text-zinc-400">
-                  {groups.length} {groups.length === 1 ? "Option" : "Options"}
-                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Choose today&apos;s training option
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Select the variation that fits your readiness level today.
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 {groups.map((g, idx) => {
                   const isSelected = activeWorkout === g.optionName;
                   const matchVideo =
@@ -979,8 +1308,8 @@ function TaskForm({
                     <button
                       key={g.optionName}
                       type="button"
-                      onClick={() => handleClickWorkoutOption(g.optionName)}
-                      className={`relative w-full h-36 rounded-2xl overflow-hidden text-left transition active:scale-[0.98] group ${
+                      onClick={() => void handleClickWorkoutOption(g.optionName)}
+                      className={`relative w-full h-32 rounded-2xl overflow-hidden text-left transition active:scale-[0.99] group ${
                         isSelected
                           ? "ring-2 ring-zinc-950 dark:ring-white shadow-md"
                           : "ring-1 ring-zinc-900/10 dark:ring-white/15 hover:ring-zinc-400"
@@ -990,24 +1319,24 @@ function TaskForm({
                       <img
                         src={thumbUrl}
                         alt={g.optionName}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/15" />
 
                       <div className="relative z-10 h-full p-4 flex items-end justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-base font-semibold text-white tracking-tight leading-snug drop-shadow-sm truncate">
+                          <p className="text-base font-semibold text-white tracking-tight leading-snug truncate">
                             {g.optionName}
                           </p>
-                          <p className="text-xs font-medium text-white/80 mt-1 drop-shadow-xs">
-                            {g.movements.length} {g.movements.length === 1 ? "Assessment" : "Assessments"}
+                          <p className="text-xs font-medium text-white/80 mt-1">
+                            {g.movements.length} {g.movements.length === 1 ? "Movement" : "Movements"}
                           </p>
                         </div>
                         <span
-                          className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 shadow-sm transition ${
+                          className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-1 transition ${
                             isSelected
-                              ? "bg-white text-zinc-950 dark:bg-white dark:text-zinc-950 font-bold"
-                              : "bg-white/20 hover:bg-white text-white hover:text-zinc-950 backdrop-blur-md"
+                              ? "bg-white text-zinc-950 font-bold"
+                              : "bg-white/20 text-white backdrop-blur-md"
                           }`}
                         >
                           <span>{isSelected ? "Selected" : "Select"}</span>
@@ -1019,99 +1348,90 @@ function TaskForm({
                 })}
               </div>
             </div>
-          ) : (
-            /* SCREEN 2: WORKOUT DETAIL & CHECKLIST */
-            <div className="space-y-4">
-              {groups.length > 0 && (
-                <div className="flex items-center justify-between gap-2 pb-1">
-                  <button
-                    type="button"
-                    onClick={() => setTrainingEntered(false)}
-                    aria-label="Back to options"
-                    className="h-8 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 inline-flex items-center gap-1.5 text-xs font-medium active:scale-95 transition"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>All Options</span>
-                  </button>
-                  {activeWorkout && (
-                    <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                      {activeWorkout}
-                    </span>
-                  )}
-                </div>
-              )}
+          )}
 
-              {/* 1. LARGE VIDEO THUMBNAIL ON TOP WITH LINK BUTTON */}
+          {/* TRAINING 2: GUIDED VIDEO */}
+          {currentSubStep === "training_video" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  {activeWorkout || `Day ${day.dayNumber} Training`}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Watch the guided session
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Review form cues and pacing before logging your movements.
+                </p>
+              </div>
+
               {activeVideo && (() => {
                 const safeVideoUrl = safeHttpUrl(activeVideo.url);
                 return (
-                <div className="space-y-2.5">
-                  <div className="relative w-full aspect-video sm:h-56 rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200/50 dark:border-white/10 group">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
-                      alt=""
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    {safeVideoUrl && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
-                        <a
-                          href={safeVideoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => props.onOpenVideo(day.id)}
-                          className="w-12 h-12 rounded-full bg-white/95 text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 hover:scale-110 transition-transform"
-                        >
-                          <Play className="w-5 h-5 fill-current ml-0.5" />
-                        </a>
+                  <div className="space-y-3">
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                      {safeVideoUrl && (
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
+                          <a
+                            href={safeVideoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => void props.onOpenVideo(day.id)}
+                            className="w-14 h-14 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                          >
+                            <Play className="w-6 h-6 fill-current ml-0.5" />
+                          </a>
+                        </div>
+                      )}
+                      <div className="absolute bottom-3 left-4 right-4 text-white">
+                        <p className="text-sm font-semibold truncate">{activeVideo.title}</p>
+                        <p className="text-xs text-white/80">Guided training movement cues</p>
                       </div>
-                    )}
-                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                      <p className="text-xs font-semibold truncate drop-shadow-sm">{activeVideo.title}</p>
-                      <p className="text-[11px] text-white/80">Guided training movement cues</p>
                     </div>
-                  </div>
 
-                  {safeVideoUrl && (
-                    <a
-                      href={safeVideoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => props.onOpenVideo(day.id)}
-                      className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition active:scale-[0.99]"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Watch Video Session</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
-                    </a>
-                  )}
-                </div>
+                    {safeVideoUrl && (
+                      <a
+                        href={safeVideoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => void props.onOpenVideo(day.id)}
+                        className="w-full h-11 px-4 rounded-xl border border-zinc-300 dark:border-white/20 bg-white dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-center gap-2 transition hover:bg-zinc-50 dark:hover:bg-white/10"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Open Video Guide</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                      </a>
+                    )}
+                  </div>
                 );
               })()}
+            </div>
+          )}
 
-              {/* 2. PROGRESS BAR DIRECTLY UNDERNEATH */}
-              {movements.length > 0 && (
-                <div className="pt-2 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-zinc-950 dark:text-white">
-                      Movement Checklist
-                    </span>
-                    <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                      {checkedCount} / {movements.length} Completed ({movements.length > 0 ? Math.round((checkedCount / movements.length) * 100) : 0}%)
-                    </span>
-                  </div>
-
-                  <div className="h-2 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
-                      style={{ width: `${movements.length > 0 ? Math.round((checkedCount / movements.length) * 100) : 0}%` }}
-                    />
-                  </div>
+          {/* TRAINING 3: MOVEMENT CHECKLIST & REPS */}
+          {currentSubStep === "training_movements" && (
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
+                    {activeWorkout || "Movement Checklist"}
+                  </span>
+                  <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                    {checkedCount} / {movements.length} Done
+                  </span>
                 </div>
-              )}
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Log your completed movements
+                </h1>
+              </div>
 
-              {/* 3. CHECKLIST (SPACIOUS, ALWAYS-INTERACTIVE REP STEPPER & TARGET COMPARISON) */}
-              {movements.length > 0 && (
+              {movements.length > 0 ? (
                 <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
                   {movements.map((name) => {
                     const checked = isChecked(name);
@@ -1122,22 +1442,18 @@ function TaskForm({
                     const isEditing = editingRep?.name === name;
 
                     return (
-                      <div
-                        key={name}
-                        className="py-3.5 px-1 transition hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]"
-                      >
+                      <div key={name} className="py-4 px-1">
                         <div className="flex items-center justify-between gap-3">
                           <label className="flex items-start gap-3 min-w-0 cursor-pointer select-none flex-1">
                             <input
                               type="checkbox"
-                              disabled={locked}
                               checked={checked}
                               onChange={() => toggle(name, currentReps)}
                               className="w-4 h-4 mt-0.5 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
                             />
                             <div className="min-w-0">
                               <span
-                                className={`text-xs sm:text-sm leading-relaxed block transition ${
+                                className={`text-sm leading-relaxed block transition ${
                                   checked
                                     ? "line-through text-zinc-400 dark:text-zinc-500"
                                     : "font-medium text-zinc-900 dark:text-white"
@@ -1146,26 +1462,23 @@ function TaskForm({
                                 {name}
                               </span>
                               {targetLabel && (
-                                <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 block mt-0.5">
+                                <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mt-0.5">
                                   Target: {targetLabel}
                                 </span>
                               )}
                             </div>
                           </label>
 
-                          <div
-                            className="flex items-center gap-1 shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              disabled={locked || currentReps <= 1}
+                              disabled={currentReps <= 1}
                               onClick={() => {
                                 setEditingRep(null);
-                                void updateMovementReps(name, Math.max(1, currentReps - 1));
+                                updateMovementReps(name, Math.max(1, currentReps - 1));
                               }}
                               aria-label={`Decrease reps for ${name}`}
-                              className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/80 dark:border-white/10"
+                              className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
@@ -1174,7 +1487,6 @@ function TaskForm({
                               min={1}
                               max={999}
                               inputMode="numeric"
-                              disabled={locked}
                               aria-label={`Reps for ${name}`}
                               value={isEditing ? editingRep.value : String(currentReps)}
                               onFocus={() => setEditingRep({ name, value: String(currentReps) })}
@@ -1183,225 +1495,173 @@ function TaskForm({
                                 const parsed = parseInt(editingRep?.value || "", 10);
                                 setEditingRep(null);
                                 if (!isNaN(parsed) && parsed >= 1) {
-                                  void updateMovementReps(name, parsed);
+                                  updateMovementReps(name, parsed);
                                 }
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
+                                  e.preventDefault();
                                   (e.currentTarget as HTMLInputElement).blur();
                                 }
                               }}
-                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white bg-zinc-50 dark:bg-white/5 border border-zinc-200/90 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-900 dark:text-white bg-white dark:bg-white/5 border border-zinc-200/90 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <button
                               type="button"
-                              disabled={locked || currentReps >= 999}
+                              disabled={currentReps >= 999}
                               onClick={() => {
                                 setEditingRep(null);
-                                void updateMovementReps(name, Math.min(999, currentReps + 1));
+                                updateMovementReps(name, Math.min(999, currentReps + 1));
                               }}
                               aria-label={`Increase reps for ${name}`}
-                              className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/80 dark:border-white/10"
+                              className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 hover:bg-zinc-100 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200/90 dark:border-white/15"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
-
-                        {checked && targetLabel && (
-                          <div className="mt-2 ml-7 flex items-center gap-2">
-                            {currentReps === targetReps ? (
-                              <span className="text-[10px] font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-2 py-0.5 rounded-full">
-                                Target Met ({targetReps} reps)
-                              </span>
-                            ) : currentReps < targetReps ? (
-                              <span className="text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100/70 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 px-2 py-0.5 rounded-full">
-                                {currentReps} of {targetReps} reps completed (Target: {targetLabel})
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-2 py-0.5 rounded-full">
-                                Exceeded target by +{currentReps - targetReps} reps
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
                 </div>
+              ) : (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  No individual movements configured for this session. Proceed to the next step.
+                </p>
               )}
+            </div>
+          )}
 
-              {/* 4. UPLOAD PHOTO (MAX 5 MB) */}
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                    Progress Photos
-                  </span>
-                  <span className="text-[10px] font-mono text-zinc-400">
-                    Max 5 MB each (Required)
-                  </span>
-                </div>
+          {/* TRAINING 4: PROGRESS PHOTO */}
+          {currentSubStep === "training_photos" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Session Verification
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Upload a progress photo
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Add a before or after session photo (max 5 MB each).
+                </p>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {(["before", "after"] as const).map((type) => (
-                    <label key={type} className="block text-[11px] text-zinc-500 cursor-pointer">
-                      <span className="font-medium text-zinc-700 dark:text-zinc-300 block mb-1">
-                        {type === "before" ? "Before Session" : "After Session"}
-                      </span>
-                      <span className="relative flex h-24 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 transition">
-                        {photos[type] ? (
-                          <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={photos[type]} alt="" className="w-full h-full object-cover" />
-                            {!locked && (
-                              <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-medium">
-                                Change
-                              </span>
-                            )}
-                          </>
-                        ) : photoBusy === type ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-zinc-400">
-                            <Camera className="w-4 h-4" /> Upload Photo
+              <div className="grid grid-cols-2 gap-3.5">
+                {(["before", "after"] as const).map((type) => (
+                  <label key={type} className="block cursor-pointer">
+                    <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block mb-2">
+                      {type === "before" ? "Before Session" : "After Session"}
+                    </span>
+                    <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition">
+                      {photos[type] ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={photos[type]} alt="" className="w-full h-full object-cover" />
+                          <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/75 text-white text-[11px] font-medium">
+                            Change
                           </span>
-                        )}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={locked || photoBusy !== null}
-                        className="sr-only"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = "";
-                          if (file) pickPhoto(type, file);
-                        }}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* 5. FEELING AFTER TRAINING (5 MOOD CHOICES) */}
-              <div className="space-y-2.5 pt-2 border-t border-zinc-100 dark:border-white/10">
-                <div>
-                  <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                    Feeling After Training
-                  </span>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">Select how your body feels after completing this session (Required)</p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { label: "Energized", desc: "High vitality, powerful and moved with ease" },
-                    { label: "Accomplished", desc: "Challenging workout, pushed through with solid technique" },
-                    { label: "Balanced", desc: "Steady pace, good body control and regulated breath" },
-                    { label: "Fatigued", desc: "Challenging effort, muscles feeling worked and tired" },
-                    { label: "Strained", desc: "Felt physical tension or stiffness, prioritized safety" },
-                  ].map((item) => {
-                    const active = trainingFeeling === item.label;
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        disabled={locked}
-                        onClick={() => setTrainingFeeling(item.label)}
-                        className={`w-full p-3 rounded-xl border text-left transition select-none ${
-                          active
-                            ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                            : "border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
-                        }`}
-                      >
-                        <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
-                          {item.label}
-                        </p>
-                        <p className={`text-[11px] mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
-                          {item.desc}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </>
+                      ) : photoBusy === type ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+                      ) : (
+                        <span className="inline-flex flex-col items-center gap-2 text-xs font-mono text-zinc-500">
+                          <Camera className="w-5 h-5" />
+                          <span>Upload</span>
+                        </span>
+                      )}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={photoBusy !== null}
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) void pickPhoto(type, file);
+                      }}
+                    />
+                  </label>
+                ))}
               </div>
             </div>
           )}
 
-          {/* VALIDATION MODAL FOR SWITCHING WORKOUT VARIATION */}
-          {pendingSwitchWorkout && (
-            <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                      Change Training Variation?
-                    </h3>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      Switching from <strong className="text-zinc-800 dark:text-zinc-200">{workout}</strong> to{" "}
-                      <strong className="text-zinc-800 dark:text-zinc-200">{pendingSwitchWorkout}</strong> will reset and clear the{" "}
-                      <strong>{checkedCount}</strong> checked movement(s) in your current checklist.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setPendingSwitchWorkout(null)}
-                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmSwitchWorkout}
-                    className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
-                  >
-                    Switch &amp; Enter
-                  </button>
-                </div>
+          {/* TRAINING 5: POST-TRAINING MOOD */}
+          {currentSubStep === "training_mood" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  {activeWorkout || "Post-Session Check"}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  How do you feel after training?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Capture how your body responded to today&apos;s session.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {TRAINING_FEELINGS.map((item) => {
+                  const active = trainingFeeling === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setTrainingFeeling(item.label);
+                        setError(null);
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
+                        active
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                        {item.label}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        {item.desc}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* ===================================================================== */}
-      {/* STEP 1B: REST & RECOVERY DAY (FLAT SHEET ROWS)                        */}
-      {/* ===================================================================== */}
-      {step === 1 && isRest && (
-        <div className="space-y-5">
-          <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 space-y-1">
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-              Active Recovery Protocol
-            </span>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Focus on parasympathetic down-regulation, tissue hydration, and light mobility.
-            </p>
-          </div>
+          {/* REST 1: RECOVERY CHECKLIST */}
+          {currentSubStep === "rest_checklist" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Day {day.dayNumber} · Active Recovery
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Complete your recovery protocol
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Focus on parasympathetic down-regulation, hydration, and light mobility.
+                </p>
+              </div>
 
-          {restLines.length > 0 && (
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                Rest &amp; Mobility Checklist
-              </span>
               <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
                 {restLines.map((line, idx) => {
                   const checked = isChecked(line);
                   return (
                     <li key={idx}>
-                      <label className="flex items-start gap-3 py-3.5 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
+                      <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
                         <input
                           type="checkbox"
-                          disabled={locked}
                           checked={checked}
                           onChange={() => toggle(line)}
-                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
+                          className="w-4 h-4 mt-0.5 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
                         />
                         <span
-                          className={`text-xs sm:text-sm leading-relaxed ${
+                          className={`text-sm leading-relaxed ${
                             checked
                               ? "line-through text-zinc-400 dark:text-zinc-500"
                               : "text-zinc-800 dark:text-zinc-200"
@@ -1416,494 +1676,448 @@ function TaskForm({
               </ul>
             </div>
           )}
-        </div>
-      )}
 
-      {/* ===================================================================== */}
-      {/* STEP 1C: COMMUNITY / MEETUP DAY (FLAT SHEET SECTIONS)                 */}
-      {/* ===================================================================== */}
-      {step === 1 && isConnect && (
-        <div className="space-y-5">
-          {/* SESSION OVERVIEW SECTION */}
-          <div className="pb-5 border-b border-zinc-100 dark:border-white/10 space-y-3.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
-                {day.meetupLink ? "Online Zoom Session" : day.onsiteVenue ? "Onsite Gathering" : "Community Session"}
-              </span>
-              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                {day.onsiteSchedule || "Live Session"}
-              </span>
-            </div>
-
-            <div>
-              <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
-                {day.eventTitle || "Community Connect & Discussion"}
-              </h3>
-              {day.eventDetails && (
-                <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
-                  {day.eventDetails}
+          {/* REST 2: POST-REST MOOD */}
+          {currentSubStep === "rest_mood" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Day {day.dayNumber} · Recovery Check
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  How does your body feel today?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Select how recovered and energized your body feels on this rest day.
                 </p>
-              )}
-            </div>
-
-            {/* If Online: Zoom Meeting Link */}
-            {safeHttpUrl(day.meetupLink) && (
-              <div className="pt-1 space-y-1.5">
-                <a
-                  href={safeHttpUrl(day.meetupLink)!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-10 px-4 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition shadow-sm"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Join Zoom Meeting</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
               </div>
-            )}
 
-            {/* If Onsite: Address, Schedule, Host & Map */}
-            {day.onsiteVenue && (
-              <div className="pt-2 space-y-2.5 text-xs">
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Venue &amp; Location
-                  </span>
-                  <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
-                    {day.onsiteVenue}
+              <div className="grid grid-cols-1 gap-2.5">
+                {REST_FEELINGS.map((item) => {
+                  const active = trainingFeeling === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setTrainingFeeling(item.label);
+                        setError(null);
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
+                        active
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                        {item.label}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        {item.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* CONNECT 1: ATTENDANCE & LOGISTICS */}
+          {currentSubStep === "connect_attendance" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  {day.onsiteSchedule || "Live Community Session"}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Will you attend {day.eventTitle || "this session"}?
+                </h1>
+                {day.eventDetails && (
+                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {day.eventDetails}
                   </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Date &amp; Time
-                    </span>
-                    <p className="font-medium text-zinc-800 dark:text-zinc-200 mt-0.5">
-                      {day.onsiteSchedule || "Check cohort calendar"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Meet With (Host)
-                    </span>
-                    <p className="font-medium text-zinc-800 dark:text-zinc-200 mt-0.5">
-                      {day.eventHost || day.coachName || "Coach & Community Lead"}
-                    </p>
-                  </div>
-                </div>
-
-                {safeHttpUrl(day.mapLink) && (
-                  <a
-                    href={safeHttpUrl(day.mapLink)!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-white hover:underline pt-1"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>Open Google Maps</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* ATTENDANCE SELECTION (ATTEND OR NOT) */}
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-              Will you attend this session?
-            </span>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => setConnectAttendance("attend")}
-                className={`h-11 px-4 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-2 select-none ${
-                  connectAttendance === "attend"
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                }`}
-              >
-                <Check className="w-4 h-4" />
-                <span>I Will Attend</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => setConnectAttendance("cannot_attend")}
-                className={`h-11 px-4 rounded-xl border text-xs font-semibold transition flex items-center justify-center gap-2 select-none ${
-                  connectAttendance === "cannot_attend"
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                }`}
-              >
-                <span>Cannot Attend</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 1-5 STAR RATING (EXPERIENCE) */}
-          <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/10">
-            <div>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                Session Experience Rating
-              </span>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Rate your overall takeaway and experience (1 to 5 Stars)</p>
-            </div>
-
-            <div className="flex items-center gap-2 py-1">
-              {[1, 2, 3, 4, 5].map((star) => {
-                const filled = star <= connectRating;
-                return (
-                  <button
-                    key={star}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => setConnectRating(star)}
-                    className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
-                    aria-label={`${star} Stars`}
-                  >
-                    <Star
-                      className={`w-7 h-7 transition-colors ${
-                        filled
-                          ? "fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white"
-                          : "text-zinc-300 dark:text-zinc-700"
-                      }`}
-                    />
-                  </button>
-                );
-              })}
-              {connectRating > 0 && (
-                <span className="text-xs font-mono font-semibold ml-2 text-zinc-800 dark:text-zinc-200">
-                  {connectRating} of 5 Stars
-                </span>
+              {(safeHttpUrl(day.meetupLink) || day.onsiteVenue) && (
+                <div className="py-4 border-t border-b border-zinc-200/90 dark:border-white/10 space-y-2.5 text-xs">
+                  {day.onsiteVenue && (
+                    <div className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300">
+                      <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
+                      <span>{day.onsiteVenue}</span>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {safeHttpUrl(day.meetupLink) && (
+                      <a
+                        href={safeHttpUrl(day.meetupLink)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Join Zoom Meeting</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {safeHttpUrl(day.mapLink) && (
+                      <a
+                        href={safeHttpUrl(day.mapLink)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>Open Maps</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* ===================================================================== */}
-      {/* STEP 2: NUTRITION & MEAL (UNIFIED CHECKLIST + MEAL COUNT + POST MOOD) */}
-      {/* ===================================================================== */}
-      {step === 2 && (
-        <div className="space-y-6">
-          {wasMealSkipped && mealDraft.checkedMeals.length === 0 && !mealDraft.specialOption && (
-            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              Previously skipped — check off your meals or select an option below to update today&apos;s log.
-            </p>
-          )}
+              <div className="grid grid-cols-1 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConnectAttendance("attend");
+                    setError(null);
+                  }}
+                  className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
+                    connectAttendance === "attend"
+                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                  }`}
+                >
+                  <span>I Will Attend</span>
+                  <Check className="w-4 h-4" />
+                </button>
 
-          {/* Unified Recommended Meals + Overall Alternatives Checklist */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                Today&apos;s Recommended Meals &amp; Status
-              </span>
-              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                {mealDraft.specialOption === "similar"
-                  ? "Similar food"
-                  : mealDraft.specialOption === "off_track"
-                    ? "Off plan"
-                    : `${mealDraft.checkedMeals.length} / ${recommendedMeals.length} checked`}
-              </span>
-            </div>
-
-            <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-              {recommendedMeals.map((mealLine, idx) => {
-                const checked = mealDraft.checkedMeals.includes(mealLine);
-                const cleanDescription = stripMealLabelPrefix(mealLine);
-                return (
-                  <li key={idx}>
-                    <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
-                      <input
-                        type="checkbox"
-                        disabled={locked}
-                        checked={checked}
-                        onChange={() => {
-                          setMealDraft((prev) => {
-                            const nextChecked = prev.checkedMeals.includes(mealLine)
-                              ? prev.checkedMeals.filter((m) => m !== mealLine)
-                              : [...prev.checkedMeals, mealLine];
-                            return {
-                              ...prev,
-                              checkedMeals: nextChecked,
-                              specialOption: null,
-                            };
-                          });
-                        }}
-                        className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                          Meal {idx + 1}
-                        </span>
-                        <p
-                          className={`text-xs sm:text-sm mt-0.5 leading-relaxed ${
-                            checked
-                              ? "font-semibold text-zinc-950 dark:text-white"
-                              : "text-zinc-700 dark:text-zinc-300"
-                          }`}
-                        >
-                          {cleanDescription || mealLine}
-                        </p>
-                      </div>
-                    </label>
-                  </li>
-                );
-              })}
-
-              <li>
-                <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
-                  <input
-                    type="checkbox"
-                    disabled={locked}
-                    checked={mealDraft.specialOption === "similar"}
-                    onChange={() => {
-                      setMealDraft((prev) => ({
-                        ...prev,
-                        checkedMeals: [],
-                        specialOption: prev.specialOption === "similar" ? null : "similar",
-                      }));
-                    }}
-                    className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
-                  />
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                      Alternative
-                    </span>
-                    <p
-                      className={`text-xs sm:text-sm mt-0.5 leading-relaxed ${
-                        mealDraft.specialOption === "similar"
-                          ? "font-semibold text-zinc-950 dark:text-white"
-                          : "text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      Ate similar food portion &amp; nutrition as recommended
-                    </p>
-                  </div>
-                </label>
-              </li>
-
-              <li>
-                <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none hover:bg-zinc-50/50 dark:hover:bg-white/[0.02]">
-                  <input
-                    type="checkbox"
-                    disabled={locked}
-                    checked={mealDraft.specialOption === "off_track"}
-                    onChange={() => {
-                      setMealDraft((prev) => ({
-                        ...prev,
-                        checkedMeals: [],
-                        specialOption: prev.specialOption === "off_track" ? null : "off_track",
-                      }));
-                    }}
-                    className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
-                  />
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
-                      Off Plan
-                    </span>
-                    <p
-                      className={`text-xs sm:text-sm mt-0.5 leading-relaxed ${
-                        mealDraft.specialOption === "off_track"
-                          ? "font-semibold text-zinc-950 dark:text-white"
-                          : "text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      Did not follow meal recommendations today
-                    </p>
-                  </div>
-                </label>
-              </li>
-            </ul>
-          </div>
-
-          {/* Number of Meals Eaten Today (1, 2, 3 Times) */}
-          <div className="pt-2 space-y-3">
-            <div>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                Meals Eaten Today
-              </span>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
-                How many full meals did you have today?
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2.5">
-              {([1, 2, 3] as const).map((count) => {
-                const active = mealDraft.mealsCount === count;
-                return (
-                  <button
-                    key={count}
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setMealDraft((prev) => ({
-                        ...prev,
-                        mealsCount: count,
-                      }))
-                    }
-                    className={`py-3 px-2 rounded-xl border text-center transition active:scale-95 ${
-                      active
-                        ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
-                    }`}
-                  >
-                    <span className="block text-base font-mono font-bold tabular-nums leading-none">
-                      {count}
-                    </span>
-                    <span
-                      className={`block text-[10px] font-mono uppercase tracking-wider mt-1 ${
-                        active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"
-                      }`}
-                    >
-                      {count === 1 ? "Time" : "Times"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Post-Meal Mood Check (Always Bottom) */}
-          <div className="pt-4 border-t border-zinc-200/90 dark:border-white/10 space-y-3">
-            <div>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                How do you feel after your meals?
-              </span>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
-                Select the post-meal state that matches your digestion &amp; energy
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2">
-              {MEAL_FEELINGS.map((item) => {
-                const active = mealDraft.mealFeeling === item.label;
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    disabled={locked}
-                    onClick={() =>
-                      setMealDraft((prev) => ({
-                        ...prev,
-                        mealFeeling: item.label,
-                      }))
-                    }
-                    className={`w-full p-3.5 rounded-xl border text-left transition select-none ${
-                      active
-                        ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
-                    }`}
-                  >
-                    <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
-                      {item.label}
-                    </p>
-                    <p className={`text-[11px] mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
-                      {item.desc}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ===================================================================== */}
-      {/* STEP 3: DAILY REFLECTION (JOURNAL FIRST, MOOD RATING ALWAYS BOTTOM)   */}
-      {/* ===================================================================== */}
-      {step === 3 && (
-        <div className="space-y-6">
-          {wasReflectionSkipped && !skipJournal && !review && score === 0 && (
-            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-              Previously skipped — log a brief reflection and select your mood rating below to update today&apos;s entry.
-            </p>
-          )}
-
-          {day.dailyAssessment && (
-            <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                Today&apos;s Focus Prompt
-              </span>
-              <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                {day.dailyAssessment}
-              </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConnectAttendance("cannot_attend");
+                    setConnectRating(0);
+                    setError(null);
+                  }}
+                  className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
+                    connectAttendance === "cannot_attend"
+                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                  }`}
+                >
+                  <span>Cannot Attend</span>
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Option: Prefer not to write journal today */}
-          <label className="flex items-center gap-3 p-3.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50/60 dark:bg-white/5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              disabled={locked}
-              checked={skipJournal}
-              onChange={(e) => {
-                setSkipJournal(e.target.checked);
-              }}
-              className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 accent-zinc-950 dark:accent-white"
-            />
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-              I prefer not to write a journal today
-            </span>
-          </label>
-
-          {!skipJournal ? (
-            <div className="space-y-3">
-              <div>
-                <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                  Daily Journal
+          {/* CONNECT 2: SESSION RATING */}
+          {currentSubStep === "connect_rating" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Session Feedback
                 </span>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Select a reflection prompt or write your personal thoughts below
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  How would you rate today&apos;s session?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Rate your overall takeaway and experience from 1 to 5 stars.
                 </p>
               </div>
 
-              {/* 5 JOURNAL OPTIONS (CLEAN NEGATIVE SPACE) */}
+              <div className="flex items-center justify-between gap-2 py-4">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const filled = star <= connectRating;
+                  return (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => {
+                        setConnectRating(star);
+                        setError(null);
+                      }}
+                      className="flex-1 py-3 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 flex flex-col items-center gap-1.5 hover:border-zinc-400 active:scale-95 transition"
+                      aria-label={`${star} Stars`}
+                    >
+                      <Star
+                        className={`w-7 h-7 transition-colors ${
+                          filled
+                            ? "fill-zinc-950 text-zinc-950 dark:fill-white dark:text-white"
+                            : "text-zinc-300 dark:text-zinc-700"
+                        }`}
+                      />
+                      <span className="text-[11px] font-mono text-zinc-500">{star}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* MEAL 1: UNIFIED MEAL CHECKLIST */}
+          {currentSubStep === "meal_checklist" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Day {day.dayNumber} · Nutrition Checklist
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Which meals did you follow today?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Check each recommended meal completed or select an overall status.
+                </p>
+              </div>
+
+              <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
+                {recommendedMeals.map((mealLine, idx) => {
+                  const checked = mealDraft.checkedMeals.includes(mealLine);
+                  const cleanDescription = stripMealLabelPrefix(mealLine);
+                  return (
+                    <li key={idx}>
+                      <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setError(null);
+                            setMealDraft((prev) => {
+                              const nextChecked = prev.checkedMeals.includes(mealLine)
+                                ? prev.checkedMeals.filter((m) => m !== mealLine)
+                                : [...prev.checkedMeals, mealLine];
+                              return {
+                                ...prev,
+                                checkedMeals: nextChecked,
+                                specialOption: null,
+                              };
+                            });
+                          }}
+                          className="w-4 h-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-950 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
+                            Meal {idx + 1}
+                          </span>
+                          <p
+                            className={`text-sm mt-0.5 leading-relaxed ${
+                              checked
+                                ? "font-semibold text-zinc-950 dark:text-white"
+                                : "text-zinc-700 dark:text-zinc-300"
+                            }`}
+                          >
+                            {cleanDescription || mealLine}
+                          </p>
+                        </div>
+                      </label>
+                    </li>
+                  );
+                })}
+
+                <li>
+                  <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
+                    <input
+                      type="checkbox"
+                      checked={mealDraft.specialOption === "similar"}
+                      onChange={() => {
+                        setError(null);
+                        setMealDraft((prev) => ({
+                          ...prev,
+                          checkedMeals: [],
+                          specialOption: prev.specialOption === "similar" ? null : "similar",
+                        }));
+                      }}
+                      className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
+                        Alternative
+                      </span>
+                      <p
+                        className={`text-sm mt-0.5 leading-relaxed ${
+                          mealDraft.specialOption === "similar"
+                            ? "font-semibold text-zinc-950 dark:text-white"
+                            : "text-zinc-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        Ate similar food portion &amp; nutrition as recommended
+                      </p>
+                    </div>
+                  </label>
+                </li>
+
+                <li>
+                  <label className="flex items-start gap-3.5 py-4 px-1 cursor-pointer transition select-none">
+                    <input
+                      type="checkbox"
+                      checked={mealDraft.specialOption === "off_track"}
+                      onChange={() => {
+                        setError(null);
+                        setMealDraft((prev) => ({
+                          ...prev,
+                          checkedMeals: [],
+                          specialOption: prev.specialOption === "off_track" ? null : "off_track",
+                        }));
+                      }}
+                      className="w-4 h-4 rounded border-zinc-300 shrink-0 mt-0.5 accent-zinc-950 dark:accent-white"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block font-semibold">
+                        Off Plan
+                      </span>
+                      <p
+                        className={`text-sm mt-0.5 leading-relaxed ${
+                          mealDraft.specialOption === "off_track"
+                            ? "font-semibold text-zinc-950 dark:text-white"
+                            : "text-zinc-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        Did not follow meal recommendations today
+                      </p>
+                    </div>
+                  </label>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* MEAL 2: NUMBER OF MEALS EATEN TODAY (1 / 2 / 3) */}
+          {currentSubStep === "meal_count" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Daily Intake Frequency
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  How many meals did you eat today?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Select your total full meals for today.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                {([1, 2, 3] as const).map((count) => {
+                  const active = mealDraft.mealsCount === count;
+                  return (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMealDraft((prev) => ({ ...prev, mealsCount: count }));
+                      }}
+                      className={`py-6 px-2 rounded-2xl border text-center transition active:scale-95 ${
+                        active
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <span className="block text-3xl font-mono font-bold tabular-nums leading-none">
+                        {count}
+                      </span>
+                      <span
+                        className={`block text-[11px] font-mono uppercase tracking-wider mt-2 ${
+                          active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        {count === 1 ? "Time" : "Times"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* MEAL 3: POST-MEAL MOOD */}
+          {currentSubStep === "meal_mood" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  {mealDraft.mealsCount} {mealDraft.mealsCount === 1 ? "Meal" : "Meals"} Logged
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  How do you feel after your meals?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Note your post-meal digestion and sustained energy state.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {MEAL_FEELINGS.map((item) => {
+                  const active = mealDraft.mealFeeling === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMealDraft((prev) => ({ ...prev, mealFeeling: item.label }));
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left transition select-none ${
+                        active
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                        {item.label}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        {item.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* REFLECTION 1: DAILY JOURNAL */}
+          {currentSubStep === "reflection_journal" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  Day {day.dayNumber} · Daily Reflection
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  Reflect on your day
+                </h1>
+                {day.dailyAssessment ? (
+                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
+                    {day.dailyAssessment}
+                  </p>
+                ) : (
+                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                    Choose a preset mindset or write a brief personal thought.
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 gap-2">
-                {[
-                  {
-                    title: "Energized & Motivated",
-                    text: "High focus and vitality. Accomplished my daily goals and feel strong momentum.",
-                  },
-                  {
-                    title: "Calm & Centered",
-                    text: "Maintained good emotional balance, mental peace, and grounded focus throughout.",
-                  },
-                  {
-                    title: "Steady & Disciplined",
-                    text: "Consistent moderate energy. Stayed committed to the routine through steady discipline.",
-                  },
-                  {
-                    title: "Tired but Grateful",
-                    text: "Low physical battery by evening. Grateful for progress made, taking time to rest and recharge.",
-                  },
-                  {
-                    title: "Challenged & Stressed",
-                    text: "Faced physical fatigue or mental stress today. Prioritizing slow recovery, breathwork, and early sleep.",
-                  },
-                ].map((item) => {
+                {JOURNAL_PRESETS.map((item) => {
                   const val = `${item.title}: ${item.text}`;
                   const active = review === val;
                   return (
                     <button
                       key={item.title}
                       type="button"
-                      disabled={locked}
-                      onClick={() => setReview(val)}
-                      className={`w-full p-3.5 rounded-xl border text-left transition select-none ${
+                      onClick={() => {
+                        setReview(val);
+                        setError(null);
+                      }}
+                      className={`w-full p-3.5 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300"
                       }`}
                     >
-                      <p className={`text-xs font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
+                      <p className={`text-xs sm:text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
                         {item.title}
                       </p>
-                      <p className={`text-[11px] mt-0.5 leading-relaxed ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                      <p className={`text-[11px] sm:text-xs mt-0.5 leading-relaxed ${active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"}`}>
                         {item.text}
                       </p>
                     </button>
@@ -1911,186 +2125,122 @@ function TaskForm({
                 })}
               </div>
 
-              <div className="pt-1">
-                <textarea
-                  value={review}
-                  disabled={locked}
-                  onChange={(e) => setReview(e.target.value)}
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Or customize / type your personal thoughts here..."
-                  className={areaCls}
-                />
+              <textarea
+                value={review}
+                onChange={(e) => {
+                  setReview(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    void handlePrimaryAction();
+                  }
+                }}
+                rows={3}
+                maxLength={2000}
+                placeholder="Or write your own reflection here..."
+                className={areaCls}
+              />
+            </div>
+          )}
+
+          {/* REFLECTION 2: DAILY ENERGY & MOOD RATING (ALWAYS LAST) */}
+          {currentSubStep === "reflection_mood" && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  End of Day Check-In
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white leading-tight">
+                  How is your overall mood &amp; energy today?
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                  Select your overall rating to wrap up today&apos;s reflection.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2.5 pt-2" role="radiogroup" aria-label="Satisfaction Rating">
+                {FACES.map(({ score: n, Icon, label }) => {
+                  const active = score === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      aria-label={label}
+                      onClick={() => {
+                        setScore(n);
+                        setError(null);
+                      }}
+                      className={`py-4 px-1 rounded-2xl border flex flex-col items-center justify-center gap-2 transition active:scale-95 ${
+                        active
+                          ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
+                      }`}
+                    >
+                      <Icon className="w-6 h-6" strokeWidth={1.75} />
+                      <span className="text-[11px] font-mono font-medium">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          ) : (
-            <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-white/5 text-xs text-zinc-500 font-mono">
-              Reflection journal entry skipped for today.
+          )}
+        </div>
+
+        <div className="space-y-3 pt-2">
+          {error && (
+            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-mono">
+              {error}
             </div>
           )}
 
-          {/* Daily Mood & Energy Rating (Always Bottom) */}
-          <div className="pt-4 border-t border-zinc-200/90 dark:border-white/10 space-y-3">
-            <div>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white block">
-                How is your overall mood &amp; energy today?
-              </span>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">
-                Rate how you feel overall at the end of today
-              </span>
-            </div>
-            <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Satisfaction Rating">
-              {FACES.map(({ score: n, Icon, label }) => {
-                const active = score === n;
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    aria-label={label}
-                    disabled={locked}
-                    onClick={() => setScore(n)}
-                    className={`py-3 px-1 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
-                      active
-                        ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
-                        : "border-zinc-200 dark:border-white/15 bg-zinc-50/60 dark:bg-white/5 text-zinc-500 hover:border-zinc-400"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" strokeWidth={1.75} />
-                    <span className="text-[10px] font-mono font-medium">{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button
+            type="submit"
+            disabled={busy || photoBusy !== null}
+            className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40 shadow-sm"
+          >
+            {busy ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isFinalSubStep ? (
+              <Check className="w-4 h-4" />
+            ) : null}
+            <span>{isFinalSubStep ? "Save & Finish" : "Continue"}</span>
+            {!isFinalSubStep && <ChevronRight className="w-4 h-4" />}
+          </button>
         </div>
-      )}
+      </form>
 
-      {error && (
-        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-mono">
-          {error}
-        </div>
-      )}
-
-      {/* SUBMIT & SKIP BUTTONS (HIDDEN ON TRAINING SELECTION SCREEN) */}
-      {!(step === 1 && isTraining && groups.length > 0 && !trainingEntered) && (
-        <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-white/10 gap-2">
-          {locked ? (
-            <div className="w-full flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5" />
-                <span>View-only history record</span>
-              </span>
-              <button
-                type="button"
-                onClick={onFinish}
-                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
-              >
-                Close
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={onSkipClick}
-                className="h-10 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 active:scale-95 transition"
-              >
-                Skip
-              </button>
-
-              <button
-                type="button"
-                disabled={busy || photoBusy !== null}
-                onClick={onSubmitClick}
-                className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 shadow-sm"
-              >
-                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                <span>Submit</span>
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* SKIP VALIDATION / CONFIRMATION MODAL */}
-      {skipConfirmOpen && (
-        <div
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        >
+      {/* CONFIRMATION MODAL FOR SWITCHING WORKOUT VARIATION */}
+      {pendingSwitchWorkout && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                Skip This Task?
+                Change Training Variation?
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Skip {currentTaskInfo.title} for today?
+                Switching from <strong className="text-zinc-800 dark:text-zinc-200">{workout}</strong> to{" "}
+                <strong className="text-zinc-800 dark:text-zinc-200">{pendingSwitchWorkout}</strong> will reset your{" "}
+                <strong>{checkedCount}</strong> logged movement(s) in this session.
               </p>
             </div>
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => setSkipConfirmOpen(false)}
+                onClick={() => setPendingSwitchWorkout(null)}
                 className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={busy}
-                onClick={handleSkipTask}
-                className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition active:scale-95 inline-flex items-center justify-center gap-1.5"
+                onClick={() => void confirmSwitchWorkout()}
+                className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95"
               >
-                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Yes, Skip</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SUBMIT CONFIRMATION MODAL */}
-      {submitConfirmOpen && (
-        <div
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        >
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
-            <div className="space-y-1.5">
-              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
-                Submit Task Entry?
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Confirm and submit your entry for {currentTaskInfo.title}.
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setSubmitConfirmOpen(false)}
-                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setSubmitConfirmOpen(false);
-                  await handleSave();
-                }}
-                className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition active:scale-95 inline-flex items-center gap-1.5"
-              >
-                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                <span>Confirm &amp; Submit</span>
+                Switch Variation
               </button>
             </div>
           </div>
@@ -2178,20 +2328,30 @@ function deriveDayChecks(d: PlanDay): string[] {
 
 function deriveDayDone(d: PlanDay, acts: string[], chks: string[]): [boolean, boolean, boolean, boolean] {
   const p = d.userProgress;
-  const sleepDone = (!!p?.bedtime && !!p?.wakeTime) || p?.bedtime === "SKIPPED";
+  // "SKIPPED" is never counted as completed — missed tasks auto-mark Skipped only after 23:59 WIB.
+  const sleepDone =
+    !!p?.bedtime &&
+    !!p?.wakeTime &&
+    p.bedtime !== "SKIPPED" &&
+    p.wakeTime !== "SKIPPED";
   const activityDone =
     d.dayType === "TRAINING_DAY"
       ? !!p?.videoWatched ||
         !!p?.isCompleted ||
-        !!p?.workoutNotes ||
+        (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED") ||
         !!p?.selectedWorkout ||
         (acts.length > 0 && acts.every((name) => chks.some((c) => c.toLowerCase().includes(name.toLowerCase()))))
       : d.dayType === "REST_DAY"
         ? acts.length > 0
           ? acts.every((name) => chks.includes(name))
-          : !!p?.isCompleted || p?.workoutNotes === "SKIPPED" || p?.checklistCompleted === "SKIPPED"
-        : !!p?.eventFeedback || !!p?.isCompleted || p?.eventFeedback === "SKIPPED" || p?.workoutNotes === "SKIPPED";
-  return [sleepDone, activityDone, !!p?.mealCompliance, !!p?.dailyReflection];
+          : !!p?.isCompleted
+        : (!!p?.eventFeedback && p.eventFeedback !== "SKIPPED") || !!p?.isCompleted;
+  return [
+    sleepDone,
+    activityDone,
+    !!p?.mealCompliance && p.mealCompliance !== "SKIPPED",
+    !!p?.dailyReflection && p.dailyReflection !== "SKIPPED",
+  ];
 }
 
 export function DailyCheckIn(props: DailyCheckInProps) {
@@ -2215,27 +2375,24 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   const [resetCountdown, setResetCountdown] = useState<string>(() => getWibResetCountdown());
   const [showDailyTasksInfo, setShowDailyTasksInfo] = useState(false);
+
+  // Battery-efficient reset timer: pauses while backgrounded, syncs on visibilitychange, skips redundant re-renders.
   useEffect(() => {
-    setResetCountdown(getWibResetCountdown());
-    const interval = setInterval(() => {
-      setResetCountdown(getWibResetCountdown());
-    }, 30000);
-    return () => clearInterval(interval);
+    const syncCountdown = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const next = getWibResetCountdown();
+      setResetCountdown((prev) => (prev === next ? prev : next));
+    };
+    syncCountdown();
+    const interval = setInterval(syncCountdown, 60000);
+    document.addEventListener("visibilitychange", syncCountdown);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", syncCountdown);
+    };
   }, []);
 
   const [detailOpen, setDetailOpen] = useState(false);
-  const [taskDetailHeaderVisible, setTaskDetailHeaderVisible] = useState(true);
-  const taskDetailScrollYRef = useRef(0);
-
-  const handleTaskDetailScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const currentScrollY = e.currentTarget.scrollTop;
-    if (currentScrollY > taskDetailScrollYRef.current && currentScrollY > 40) {
-      setTaskDetailHeaderVisible(false);
-    } else {
-      setTaskDetailHeaderVisible(true);
-    }
-    taskDetailScrollYRef.current = currentScrollY;
-  };
   const [step, setStep] = useState(0);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -2334,7 +2491,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   const currentTask = tasks[step] || tasks[0];
-  const CurrentTaskIcon = currentTask.Icon;
   const allDone = done.every(Boolean);
 
   const handleFinishTask = () => {
@@ -2374,7 +2530,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
           <li><strong className="text-zinc-900 dark:text-white">Task Cadence:</strong> Complete each day&apos;s routine: sleep tracking, training workout, nutrition logging, and daily reflection.</li>
           <li><strong className="text-zinc-900 dark:text-white">Daily Reset:</strong> Active tasks reset every night at 00:00 WIB (UTC+7). Complete submissions before the 23:59 WIB cutoff.</li>
-          <li><strong className="text-zinc-900 dark:text-white">Skipping Tasks:</strong> If you cannot finish a task today, tap &quot;Skip&quot; to clear your pending queue cleanly.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Automatic Skip Status:</strong> Any task left incomplete at the end of the day automatically becomes Skipped after 23:59 WIB.</li>
           <li><strong className="text-zinc-900 dark:text-white">Day Navigation:</strong> Select any day chip below to review past submissions or preview upcoming unlocked dates.</li>
         </ul>
       </InfoPopupModal>
@@ -2532,16 +2688,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     <span>Locked</span>
                   </span>
                 ) : isSelectedPast ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDetail(index);
-                    }}
-                    className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
-                  >
-                    <span>View</span>
-                  </button>
+                  <div className="inline-flex items-center gap-2">
+                    {!isDone && (
+                      <span className="h-6 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300 inline-flex items-center">
+                        Skipped
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(index);
+                      }}
+                      className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
+                    >
+                      <span>View</span>
+                    </button>
+                  </div>
                 ) : isDone ? (
                   <button
                     type="button"
@@ -2623,99 +2786,33 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         ) : null}
       </div>
 
-      {/* TASK DETAIL FULL-SCREEN MODAL WITH IMAGE BANNER & CURVED BORDER SECTION */}
+      {/* FOCUSED SINGLE-INPUT FULL-SCREEN TASK DETAIL MODAL (LIGHTWEIGHT & MATTE) */}
       {detailOpen &&
         typeof document !== "undefined" &&
         createPortal(
           <div
-            onScroll={handleTaskDetailScroll}
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[80] bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto overscroll-contain"
+            style={{
+              paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+              paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
+            }}
           >
-            {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
-            <header
-              style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
-                taskDetailHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => setDetailOpen(false)}
-                className="pointer-events-auto h-8 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-
-              <a
-                href={
-                  (props.communityLink ? safeHttpUrl(props.communityLink) : null) ||
-                  `https://wa.me/6281290002026?text=${encodeURIComponent(
-                    `Hello Coach, I would like to ask about Day ${selectedDay.dayNumber} task - ${currentTask.title}${props.programTitle ? ` (${props.programTitle})` : ""}`
-                  )}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center"
-              >
-                <span>{props.communityLink ? "Community" : "Concierge"}</span>
-              </a>
-            </header>
-
-            {/* TOP BANNER IMAGE (SPACIOUS, CLEAN OVERLAY) */}
-            <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-zinc-950 shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={currentTask.image}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
-
-              {/* Title and metadata overlying the image banner, aligned with the sheet content below */}
-              <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
-                <div className="max-w-xl mx-auto w-full px-6 sm:px-8 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold">
-                      Day {selectedDay.dayNumber}
-                    </span>
-                    <span
-                      className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${
-                        selectedDone[step]
-                          ? "bg-white text-zinc-950 font-semibold"
-                          : isSelectedPast
-                            ? "bg-white/20 text-white/80"
-                            : "bg-white/25 backdrop-blur-md text-white"
-                      }`}
-                    >
-                      {selectedDone[step] ? "Completed" : isSelectedPast ? "Archived" : "Active"}
-                    </span>
-                  </div>
-
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
-                    {currentTask.title}
-                  </h1>
-
-                  <p className="text-xs text-white/75 font-normal line-clamp-2">
-                    {currentTask.description}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* SINGLE CLEAN CURVED SHEET (ALIGNED PADDING & CRISP BORDERS) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-xl pt-9 px-6 sm:px-8 pb-28 max-w-xl mx-auto w-full flex-1">
+            <div className="max-w-xl mx-auto w-full px-5 sm:px-8 flex-1 flex flex-col">
               <TaskForm
                 key={`${selectedDay.id}-${step}`}
                 day={selectedDay}
                 locked={selectedLocked}
+                isPast={isSelectedPast}
+                taskTitle={currentTask.title}
+                isTaskDone={selectedDone[step]}
                 activities={selectedActivities}
                 checks={selectedChecks}
                 step={step}
                 onFinish={handleFinishTask}
+                onClose={() => setDetailOpen(false)}
                 props={props}
               />
             </div>
