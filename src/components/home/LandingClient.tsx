@@ -165,7 +165,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-950 font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] transition-colors duration-300">
+    <div className="min-h-screen flex flex-col relative overflow-x-clip text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-950 font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] transition-colors duration-300">
       {/* Account Deletion Notice */}
       {deletedNotice && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm glass-panel py-2.5 px-4 rounded-xl text-xs flex items-center justify-between shadow-lg">
@@ -275,7 +275,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       <section
         style={{ paddingTop: "calc(4.5rem + env(safe-area-inset-top))" }}
-        className="relative w-full min-h-[100dvh] pb-16 sm:pb-24 px-4 sm:px-8 flex items-center justify-center overflow-hidden bg-neutral-950 text-white"
+        className="relative w-full min-h-screen pb-16 sm:pb-24 px-4 sm:px-8 flex items-center justify-center overflow-hidden bg-neutral-950 text-white"
       >
         {/* Full-width Ambient Motion Video & Fallback Poster */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">

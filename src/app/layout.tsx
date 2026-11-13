@@ -138,7 +138,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-[100dvh] bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-hidden antialiased`}
+        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-clip antialiased`}
       >
         <div id="bms-pwa-splash" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}

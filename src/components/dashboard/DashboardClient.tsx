@@ -1669,7 +1669,7 @@ export function DashboardClient({
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col relative overflow-x-hidden font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
@@ -1693,8 +1693,8 @@ export function DashboardClient({
       {/* Unified Bottom Floating Dock (4 Menus: My Plan, Explore, Alerts, Profile) */}
       <nav
         aria-label="Primary"
-        style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/80 dark:bg-neutral-950/85 backdrop-blur-2xl shadow-xl font-mono"
+        style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/95 dark:bg-[#141414]/95 backdrop-blur-2xl shadow-xl font-mono"
       >
         {(
           [
@@ -1726,10 +1726,13 @@ export function DashboardClient({
         ))}
       </nav>
 
-      {/* Main Content Area with safe-area spacing below seamless top header */}
+      {/* Main Content Area with safe-area spacing below seamless top header and above bottom dock */}
       <main
-        style={{ paddingTop: "calc(4.5rem + env(safe-area-inset-top))" }}
-        className="max-w-5xl mx-auto px-4 sm:px-8 pb-32 sm:pb-36 flex-1 w-full"
+        style={{
+          paddingTop: "calc(4.5rem + env(safe-area-inset-top))",
+          paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom))",
+        }}
+        className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full"
       >
         {actionNotice && (
           <div
