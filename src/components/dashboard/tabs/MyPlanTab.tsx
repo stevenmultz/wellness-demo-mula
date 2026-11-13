@@ -33,7 +33,7 @@ import { useTheme } from "@/components/theme/ThemeProvider";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
-import { EmptyState, FloatingHeader, InfoPopupModal, formatDateWib, safeHttpUrl } from "./shared";
+import { EmptyState, FloatingHeader, InfoPopupModal, safeHttpUrl } from "./shared";
 
 export interface PlanDay {
   id: string;
@@ -241,12 +241,6 @@ function formatStartsIn(startDate: string | Date): { headline: string; dateLabel
 const fieldCls =
   "w-full px-3.5 py-3 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/15 text-base sm:text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-500";
 
-function scheduleMeta(dayType: string | undefined) {
-  if (dayType === "REST_DAY") return { label: "Rest Day" };
-  if (dayType === "TRAINING_DAY") return { label: "Training Day" };
-  return { label: "Connect Day" };
-}
-
 function splitActivities(text: string | null | undefined): string[] {
   if (!text) return [];
   return text
@@ -297,7 +291,6 @@ export function MyPlanOverview({
   program,
   plan,
   day,
-  stats,
   checklist,
   historyDays,
   allProgramDays,
@@ -340,7 +333,6 @@ export function MyPlanOverview({
 }) {
   const progress = day?.userProgress;
   const checks = day ? checkedList(day, checklist) : [];
-  const schedule = scheduleMeta(day?.dayType);
   const activities =
     day?.dayType === "REST_DAY"
       ? splitActivities(day.restInstructions)
@@ -370,19 +362,12 @@ export function MyPlanOverview({
   ];
   const pendingTasksCount = day ? initialDone.filter((done) => !done).length : 0;
 
-  const totalProgramDays = program?.totalDays || 0;
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
   const locked = !day || !day.isCalendarUnlocked || day.isPast2359;
   const community = safeHttpUrl(program?.communityLink);
   const fullProgramDays = allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays;
-  const trainingDaysTotal = fullProgramDays.filter((d) => d.dayType === "TRAINING_DAY").length;
-  const restDaysTotal = fullProgramDays.filter((d) => d.dayType === "REST_DAY").length;
-  const connectDaysTotal = fullProgramDays.filter(
-    (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
-  ).length;
 
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
-  const [showDayStats, setShowDayStats] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
 
@@ -503,78 +488,6 @@ export function MyPlanOverview({
         })()
       ) : (
         <>
-          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-            <button
-              type="button"
-              onClick={() => setShowDayStats((v) => !v)}
-              aria-expanded={showDayStats}
-              className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-zinc-50/80 dark:hover:bg-white/[0.02] transition active:scale-[0.995]"
-            >
-              <p className="font-medium tabular-nums text-sm text-zinc-950 dark:text-white">
-                {currentDayNumber > 0 ? `Day ${currentDayNumber}` : "—"}
-                <span className="text-zinc-400 font-normal"> / {totalProgramDays}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold tracking-wider text-zinc-700 dark:text-zinc-300">
-                  {day ? schedule.label.toUpperCase() : "NO OPEN DAY"}
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-zinc-400 dark:text-zinc-500 transition-transform duration-200 ${
-                    showDayStats ? "rotate-180 text-zinc-700 dark:text-zinc-300" : ""
-                  }`}
-                />
-              </div>
-            </button>
-
-            {showDayStats && (
-              <div className="px-4 pb-4 pt-3 border-t border-zinc-200/80 dark:border-white/10 space-y-3.5 bg-zinc-50/70 dark:bg-white/[0.02]">
-                <dl className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-zinc-500 dark:text-zinc-400">Program Dates</dt>
-                    <dd className="font-mono tabular-nums font-medium text-zinc-900 dark:text-white text-right">
-                      {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)}
-                    </dd>
-                  </div>
-                  {fullProgramDays.length > 0 && (
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-zinc-500 dark:text-zinc-400">Day Structure</dt>
-                      <dd className="font-medium text-zinc-900 dark:text-white text-right">
-                        {trainingDaysTotal} Training · {restDaysTotal} Rest · {connectDaysTotal} Connect
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-
-                <dl className="grid grid-cols-3 gap-2 pt-3 border-t border-zinc-200/80 dark:border-white/10">
-                  <div className="rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-3 py-2">
-                    <dt className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      Completed
-                    </dt>
-                    <dd className="mt-0.5 text-base font-semibold font-mono tabular-nums text-zinc-950 dark:text-white">
-                      {stats.completed}
-                    </dd>
-                  </div>
-                  <div className="rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-3 py-2">
-                    <dt className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      Skipped
-                    </dt>
-                    <dd className="mt-0.5 text-base font-semibold font-mono tabular-nums text-zinc-950 dark:text-white">
-                      {stats.skipped}
-                    </dd>
-                  </div>
-                  <div className="rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-3 py-2">
-                    <dt className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      Remaining
-                    </dt>
-                    <dd className="mt-0.5 text-base font-semibold font-mono tabular-nums text-zinc-950 dark:text-white">
-                      {stats.remaining}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            )}
-          </section>
-
           {/* 3-INDEX NAVIGATION WIDGET (COMPACT BAR): Guides | Tasks (Default) | Metrics */}
           <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-1 shadow-xs">
             <div className="grid grid-cols-3 gap-1">
