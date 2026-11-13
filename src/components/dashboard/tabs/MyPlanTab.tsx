@@ -412,23 +412,26 @@ export function MyPlanOverview({
 
   return (
     <div>
-      {/* Full-screen backdrop extending behind header, hero, Daily Tasks, and bottom dock */}
-      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none bg-zinc-950">
-        {program?.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={program.coverImage} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-zinc-900" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/80" />
-      </div>
-
-      <div className="relative z-10">
+      <section className="relative left-1/2 -translate-x-1/2 w-screen overflow-hidden bg-zinc-900">
         <div
-          style={{ paddingTop: "calc(clamp(8rem, 20vh, 12.5rem) + env(safe-area-inset-top))" }}
-          className="pb-6 space-y-5 text-white"
+          className={`relative w-full flex flex-col justify-between ${
+            showSubtabs
+              ? "min-h-[380px] sm:min-h-[430px]"
+              : "min-h-[310px] sm:min-h-[350px]"
+          }`}
         >
-          <div className="space-y-2.5">
+          {program?.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-zinc-800" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/80" />
+
+          <div
+            style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
+            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8"
+          >
             {program && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
@@ -440,97 +443,99 @@ export function MyPlanOverview({
                 </span>
               </div>
             )}
+          </div>
 
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-12 pt-14 space-y-5 text-white">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-medium tracking-tight leading-tight truncate drop-shadow-xs">
+              <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
                 {program?.title || "No active program"}
               </h2>
               {program && (
                 <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
               )}
             </div>
+
+            {showSubtabs && (
+              <div
+                role="tablist"
+                aria-label="Plan sections"
+                className="rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid grid-cols-3 gap-1"
+              >
+                {(
+                  [
+                    { index: 0, label: "Guides", count: 0 },
+                    { index: 1, label: "Tasks", count: pendingTasksCount },
+                    { index: 2, label: "Metrics", count: 0 },
+                  ] as const
+                ).map(({ index, label, count }) => {
+                  const active = widgetIndex === index;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setWidgetIndex(index)}
+                      className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                        active
+                          ? "bg-white text-zinc-950 shadow-sm"
+                          : "text-white/75 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span>{label}</span>
+                      {count > 0 && (
+                        <span
+                          className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                            active
+                              ? "bg-zinc-950/15 text-zinc-950 font-bold"
+                              : "bg-white/20 text-white font-semibold"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          {showSubtabs && (
-            <div
-              role="tablist"
-              aria-label="Plan sections"
-              className="rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid grid-cols-3 gap-1"
-            >
-              {(
-                [
-                  { index: 0, label: "Guides", count: 0 },
-                  { index: 1, label: "Tasks", count: pendingTasksCount },
-                  { index: 2, label: "Metrics", count: 0 },
-                ] as const
-              ).map(({ index, label, count }) => {
-                const active = widgetIndex === index;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setWidgetIndex(index)}
-                    className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                      active
-                        ? "bg-white text-zinc-950 shadow-sm"
-                        : "text-white/75 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <span>{label}</span>
-                    {count > 0 && (
-                      <span
-                        className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
-                          active
-                            ? "bg-zinc-950/15 text-zinc-950 font-bold"
-                            : "bg-white/20 text-white font-semibold"
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
+      </section>
 
-        <div className="space-y-5 pb-4">
+      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4 border-t border-black/[0.04] dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
           {!program ? (
-            <div className="rounded-3xl bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl shadow-lg">
-              <EmptyState
-                title="No active program"
-                description="You do not have an active cohort right now. Explore available plans or view your completed programs in History."
-                action={
-                  <div className="flex flex-wrap items-center justify-center gap-2">
+            <EmptyState
+              title="No active program"
+              description="You do not have an active cohort right now. Explore available plans or view your completed programs in History."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onExplore}
+                    className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
+                  >
+                    <Compass className="w-3.5 h-3.5" /> Explore Plan
+                  </button>
+                  {onViewHistory && (
                     <button
                       type="button"
-                      onClick={onExplore}
-                      className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
+                      onClick={onViewHistory}
+                      className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
                     >
-                      <Compass className="w-3.5 h-3.5" /> Explore Plan
+                      View History
                     </button>
-                    {onViewHistory && (
-                      <button
-                        type="button"
-                        onClick={onViewHistory}
-                        className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
-                      >
-                        View History
-                      </button>
-                    )}
-                  </div>
-                }
-              />
-            </div>
+                  )}
+                </div>
+              }
+            />
           ) : program.isUpcoming ? (
             (() => {
               const startsInInfo = formatStartsIn(program.startDate);
               return (
                 <>
-                  <section className="rounded-3xl border border-white/40 dark:border-white/15 bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl p-5 shadow-lg">
+                  <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 shadow-xs">
                     <div className="space-y-1">
                       <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
                         {startsInInfo.headline}
@@ -605,9 +610,7 @@ export function MyPlanOverview({
                       onSwitchWidget={setWidgetIndex}
                     />
                   ) : (
-                    <div className="rounded-3xl bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl shadow-lg">
-                      <EmptyState title="No tasks today" description="There is no open session for today." />
-                    </div>
+                    <EmptyState title="No tasks today" description="There is no open session for today." />
                   )}
                 </div>
 
@@ -759,7 +762,7 @@ function CohortPerformanceCard({
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
   return (
-    <section className="rounded-3xl border border-white/40 dark:border-white/15 bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl overflow-hidden shadow-lg">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
@@ -899,7 +902,7 @@ function ProgramReferencesWidget({
   if (validRefs.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-white/40 dark:border-white/15 bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl p-4 sm:p-5 space-y-3 shadow-lg">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-xs">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
           <BookOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -965,7 +968,7 @@ function ProgramCommunityWidget({
 
   return (
     <>
-      <section className="rounded-3xl border border-white/40 dark:border-white/15 bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl overflow-hidden shadow-lg">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
@@ -1054,7 +1057,7 @@ function ProgramReportEntryWidget({
 
   return (
     <>
-      <section className="rounded-3xl border border-white/40 dark:border-white/15 bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl overflow-hidden shadow-lg">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
@@ -1679,7 +1682,7 @@ function ProgramPreparationWidgets({
 
   return (
     <>
-      <section className="rounded-3xl border border-white/40 dark:border-white/15 bg-white/95 dark:bg-[#141414]/88 backdrop-blur-xl overflow-hidden shadow-lg">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
