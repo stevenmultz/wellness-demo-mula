@@ -2724,7 +2724,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   return (
     <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       {/* Daily Task Header (No Caption Below Title; Info Opens Pop-up) */}
-      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
           <button
@@ -2757,7 +2757,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       </InfoPopupModal>
 
       {/* Unified Single Day Selector (Side-by-Side Arrows + Clean Stacked Pill Strip) */}
-      <div className="px-3 py-3 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center gap-2">
+      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center gap-2.5">
         <button
           type="button"
           disabled={safeDayIndex <= 0}
@@ -2843,7 +2843,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       </div>
 
       {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}
-      <ol className="p-3.5 space-y-2.5">
+      <ol className="p-4 sm:p-5 space-y-3.5">
         {tasks.map((t, index) => {
           const isDone = selectedDone[index];
           const TaskIcon = t.Icon;

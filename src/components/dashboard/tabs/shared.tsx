@@ -50,9 +50,9 @@ export function FloatingHeader({
   return (
     <header
       style={{ paddingTop: "env(safe-area-inset-top)" }}
-      className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 w-full transition-[transform,opacity,background-color] duration-300 ${
         transparent
-          ? "bg-gradient-to-b from-black/60 via-black/25 to-transparent border-b border-transparent"
+          ? "bg-transparent border-b-0 shadow-none"
           : "bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 border-b border-zinc-200/80 dark:border-white/10"
       } ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"

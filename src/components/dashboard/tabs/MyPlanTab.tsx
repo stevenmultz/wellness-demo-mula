@@ -416,8 +416,8 @@ export function MyPlanOverview({
         <div
           className={`relative w-full flex flex-col justify-between ${
             showSubtabs
-              ? "min-h-[340px] sm:min-h-[390px]"
-              : "min-h-[280px] sm:min-h-[320px]"
+              ? "min-h-[380px] sm:min-h-[430px]"
+              : "min-h-[310px] sm:min-h-[350px]"
           }`}
         >
           {program?.coverImage ? (
@@ -426,14 +426,14 @@ export function MyPlanOverview({
           ) : (
             <div className="absolute inset-0 bg-zinc-800" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/40 to-black/80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/80" />
 
           <div
-            style={{ paddingTop: "calc(4.5rem + env(safe-area-inset-top))" }}
+            style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
             className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8"
           >
             {program && (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold tracking-wider text-white inline-flex items-center gap-1">
                   <Clock className="w-3 h-3 text-zinc-300" />
                   <span>{program.dailyCommitment || "15–20 Mins / Day"}</span>
@@ -445,7 +445,7 @@ export function MyPlanOverview({
             )}
           </div>
 
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-10 pt-8 space-y-3.5 text-white">
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-12 pt-14 space-y-5 text-white">
             <div>
               <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
                 {program?.title || "No active program"}
@@ -503,8 +503,8 @@ export function MyPlanOverview({
         </div>
       </section>
 
-      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-5 z-20 rounded-t-[28px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-5 border-t border-black/5 dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-3">
+      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4 border-t border-black/[0.04] dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
           {!program ? (
             <EmptyState
               title="No active program"
@@ -763,7 +763,7 @@ function CohortPerformanceCard({
 
   return (
     <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
           <button
@@ -793,7 +793,7 @@ function CohortPerformanceCard({
         </ul>
       </InfoPopupModal>
 
-      <div className="p-4 space-y-3.5">
+      <div className="p-5 space-y-4">
         {/* 1. SLEEP AVERAGE (1–5 BAR) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-xs">
@@ -1683,7 +1683,7 @@ function ProgramPreparationWidgets({
   return (
     <>
       <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-        <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
             <button
@@ -1715,7 +1715,7 @@ function ProgramPreparationWidgets({
           </ul>
         </InfoPopupModal>
 
-        <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {cardsContent}
         </div>
       </section>
