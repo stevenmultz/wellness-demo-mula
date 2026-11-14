@@ -503,7 +503,7 @@ export function MyPlanOverview({
         </div>
       </section>
 
-      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4 border-t border-black/[0.04] dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
+      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4">
         <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
           {!program ? (
             <EmptyState

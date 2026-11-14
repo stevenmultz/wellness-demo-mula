@@ -37,7 +37,7 @@ export function formatIdr(amount: number): string {
 
 export { safeHttpUrl } from "@/wellness/utils/url-safety";
 
-/** Full-width seamless top header bar (extends into top safe-area/notch, slides away on scroll-down). */
+/** Full-width seamless top header bar (borderless, extends into top safe-area/notch, slides away on scroll-down). */
 export function FloatingHeader({
   visible,
   transparent = false,
@@ -50,10 +50,10 @@ export function FloatingHeader({
   return (
     <header
       style={{ paddingTop: "env(safe-area-inset-top)" }}
-      className={`fixed top-0 left-0 right-0 z-50 w-full transition-[transform,opacity,background-color] duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 w-full transition-[transform,opacity,background-color] duration-300 border-0 shadow-none ${
         transparent
-          ? "bg-transparent border-b-0 shadow-none"
-          : "bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 border-b border-zinc-200/80 dark:border-white/10"
+          ? "bg-transparent"
+          : "bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
       } ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
       }`}
@@ -77,7 +77,7 @@ export function SectionCard({
   right?: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl p-5 sm:p-6 bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/10 shadow-sm space-y-4">
+    <section className="py-2 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           {eyebrow && (
@@ -107,14 +107,14 @@ export function LoadingState({ label = "Loading..." }: { label?: string }) {
         <Loader2 className="w-4 h-4 animate-spin shrink-0" />
         <span>{label}</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 space-y-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+        <div className="py-2 space-y-2.5">
           <div className="h-3.5 w-24 skeleton-block" />
           <div className="h-5 w-3/4 skeleton-block" />
           <div className="h-3 w-full skeleton-block" />
           <div className="h-8 w-28 rounded-full skeleton-block mt-2" />
         </div>
-        <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 space-y-2.5 hidden sm:block">
+        <div className="py-2 space-y-2.5 hidden sm:block">
           <div className="h-3.5 w-20 skeleton-block" />
           <div className="h-5 w-2/3 skeleton-block" />
           <div className="h-3 w-5/6 skeleton-block" />
@@ -129,7 +129,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   return (
     <div
       role="alert"
-      className="py-8 px-4 flex flex-col items-center justify-center gap-3 text-center rounded-2xl border border-red-500/30 bg-red-50 dark:bg-red-950/20"
+      className="py-8 px-4 flex flex-col items-center justify-center gap-3 text-center rounded-2xl bg-red-500/10"
     >
       <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
       <p className="text-xs text-red-700 dark:text-red-300">{message}</p>
@@ -156,7 +156,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="py-10 px-4 flex flex-col items-center justify-center gap-2 text-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/15">
+    <div className="py-10 px-4 flex flex-col items-center justify-center gap-2 text-center">
       <p className="text-sm font-medium text-zinc-900 dark:text-white">{title}</p>
       {description && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
@@ -288,7 +288,7 @@ export function PullToRefreshBanner({
       }}
       className="flex items-center justify-center overflow-hidden transition-all duration-150"
     >
-      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/15 shadow-sm text-[11px] font-mono text-zinc-600 dark:text-zinc-300">
+      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-200/70 dark:bg-white/10 text-[11px] font-mono text-zinc-600 dark:text-zinc-300">
         {refreshing ? (
           <>
             <Loader2 className="w-3 h-3 animate-spin" />
@@ -350,11 +350,11 @@ export function InfoPopupModal({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md rounded-3xl bg-[#f6f6f4] dark:bg-[#161616] p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-zinc-200/70 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
               <Info className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -372,7 +372,7 @@ export function InfoPopupModal({
             type="button"
             onClick={onClose}
             aria-label="Close info popup"
-            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shrink-0 active:scale-95 transition"
+            className="w-8 h-8 rounded-xl bg-zinc-200/60 dark:bg-white/5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shrink-0 active:scale-95 transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -385,7 +385,7 @@ export function InfoPopupModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
+          className="w-full h-10 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
         >
           Got it
         </button>

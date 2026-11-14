@@ -947,7 +947,7 @@ export function DashboardClient({
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div className="member-dashboard-unboxed min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
@@ -969,7 +969,7 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 border border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-[#161616]/95 backdrop-blur-2xl shadow-xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 bg-white/95 dark:bg-[#161616]/95 backdrop-blur-2xl shadow-xl font-mono border-0"
       >
         {(
           [
@@ -1017,11 +1017,11 @@ export function DashboardClient({
             className={`${
               activeTab === "my_plan"
                 ? "fixed left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md shadow-xl"
-                : "mb-4 shadow-sm"
-            } glass-panel p-4 rounded-xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border font-mono ${
+                : "mb-4"
+            } bg-zinc-200/80 dark:bg-white/10 p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in font-mono ${
               actionNotice.type === "error"
-                ? "border-red-500/30 text-red-700 dark:text-red-300"
-                : "border-zinc-300 dark:border-white/20 text-zinc-900 dark:text-zinc-100"
+                ? "text-red-700 dark:text-red-300"
+                : "text-zinc-900 dark:text-zinc-100"
             }`}
           >
             {actionNotice.type === "error" ? (
@@ -1172,7 +1172,7 @@ export function DashboardClient({
       {/* Delete Account Modal */}
       {deleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md glass-panel rounded-2xl p-6 sm:p-8 space-y-4">
+          <div className="w-full max-w-md bg-[#f6f6f4] dark:bg-[#161616] rounded-3xl p-6 sm:p-8 space-y-4 shadow-2xl">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
               Delete Your Account
             </h3>
