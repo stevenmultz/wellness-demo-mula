@@ -397,34 +397,41 @@ export function ProfileTab({
               alt=""
               className="w-full h-full object-cover object-top"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/25" />
           </div>
 
           <div
             style={{ minHeight: "100dvh" }}
-            className="relative z-10 w-full flex-1 flex flex-col justify-between gap-10 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(5.25rem+env(safe-area-inset-bottom))]"
+            className="relative z-10 w-full flex-1 flex flex-col justify-end gap-8 pt-[calc(4.75rem+env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
           >
-            <div className="space-y-2.5 max-w-md">
-              <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/75 block">
-                Account
-              </span>
-              <h1 className="text-3xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-xs">
-                Profile &amp; Settings
-              </h1>
-              <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-sm">
-                Manage your personal details, emergency contacts, security credentials, and account preferences.
-              </p>
-            </div>
+            <div className="space-y-6 max-w-md">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-5 h-px bg-white/50" />
+                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
+                    Account
+                  </span>
+                </div>
+                <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
+                  Profile &amp; Settings
+                </h1>
+                <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
+                  Manage your personal details, emergency contacts, security credentials, and account preferences.
+                </p>
+              </div>
 
-            <div className="max-w-sm">
-              <button
-                type="button"
-                onClick={() => setMode("menu")}
-                className="py-1.5 text-white hover:text-white/80 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-              >
-                <span>Open Profile &amp; Settings</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="w-10 h-px bg-white/30" />
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMode("menu")}
+                  className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>Open Profile &amp; Settings</span>
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

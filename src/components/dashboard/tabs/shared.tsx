@@ -51,7 +51,7 @@ export function BrandWordmark({ light = false }: { light?: boolean }) {
   );
 }
 
-/** Unified borderless pill back button used across headers, plan detail, guides, and daily task detail. */
+/** Unified borderless & boxless back button used consistently across all detail & subview headers. */
 export function HeaderBackButton({
   onClick,
   label = "Back",
@@ -73,13 +73,13 @@ export function HeaderBackButton({
       onClick={onClick}
       aria-label={ariaLabel}
       title={title}
-      className={`shrink-0 h-9 px-3.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
+      className={`shrink-0 py-1.5 text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
         overlay
-          ? "bg-black/45 hover:bg-black/60 backdrop-blur-md text-white shadow-xs"
-          : "bg-zinc-200/80 hover:bg-zinc-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-900 dark:text-white"
+          ? "text-white hover:text-white/80 drop-shadow-xs"
+          : "text-zinc-900 hover:text-zinc-600 dark:text-white dark:hover:text-white/75"
       } ${className}`}
     >
-      <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+      <ArrowLeft className="w-4 h-4 shrink-0" />
       <span>{label}</span>
     </button>
   );

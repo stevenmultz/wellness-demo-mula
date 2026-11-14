@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import {
-  ArrowLeft,
   BookOpen,
   Calendar,
   Check,
@@ -22,7 +21,7 @@ import {
 } from "lucide-react";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import type { ProgramTermChapter } from "@/wellness/utils/json";
-import { formatDateWib, formatIdr, safeHttpUrl } from "./shared";
+import { HeaderBackButton, formatDateWib, formatIdr, safeHttpUrl } from "./shared";
 
 export interface DetailDay {
   dayNumber: number;
@@ -243,10 +242,12 @@ export function ProgramDetailView({
     )}`;
 
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [overHero, setOverHero] = useState(true);
   const lastScrollYRef = useRef(0);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const currentScrollY = e.currentTarget.scrollTop;
+    setOverHero(currentScrollY < 220);
     if (currentScrollY > lastScrollYRef.current && currentScrollY > 40) {
       setHeaderVisible(false);
     } else {
@@ -258,33 +259,36 @@ export function ProgramDetailView({
   return (
     <div onScroll={handleScroll} className="fixed inset-0 z-[60] bg-[#f3f2ed] dark:bg-[#0e0e0e] overflow-y-auto">
       {/* ================================================================= */}
-      {/* FLOATING HEADER: BACK BUTTON + TEXT-ONLY RIGHT BUTTON (NO ICON)   */}
+      {/* FLOATING HEADER: CONSISTENT BORDERLESS BACK BUTTON                */}
       {/* ================================================================= */}
       <header
-        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-        className={`fixed left-1/2 -translate-x-1/2 z-[70] w-[94%] max-w-2xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className={`fixed top-0 left-0 right-0 z-[70] w-full pointer-events-none transition-all duration-300 ${
           headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
         }`}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className="pointer-events-auto h-8 px-3.5 rounded-[2px] bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
-        </button>
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+          <HeaderBackButton
+            onClick={onClose}
+            overlay={overHero}
+            className="pointer-events-auto"
+          />
 
-        {!hideHeaderAction && (
-          <a
-            href={conciergeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pointer-events-auto h-8 px-4 rounded-[2px] bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
-          >
-            <span>{community ? "Community" : "Concierge"}</span>
-          </a>
-        )}
+          {!hideHeaderAction && (
+            <a
+              href={conciergeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`pointer-events-auto py-1.5 text-xs sm:text-sm font-medium active:scale-95 transition inline-flex items-center justify-center ${
+                overHero
+                  ? "text-white hover:text-white/80 drop-shadow-xs"
+                  : "text-zinc-900 hover:text-zinc-600 dark:text-white dark:hover:text-white/75"
+              }`}
+            >
+              <span>{community ? "Community" : "Concierge"}</span>
+            </a>
+          )}
+        </div>
       </header>
 
       <div className="max-w-2xl mx-auto pb-32">

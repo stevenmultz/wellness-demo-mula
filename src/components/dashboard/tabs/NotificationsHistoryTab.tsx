@@ -225,53 +225,60 @@ export function NotificationsHistoryTab({
               alt=""
               className="w-full h-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/25" />
           </div>
 
           <div
             style={{ minHeight: "100dvh" }}
-            className="relative z-10 w-full flex-1 flex flex-col justify-between gap-10 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(5.25rem+env(safe-area-inset-bottom))]"
+            className="relative z-10 w-full flex-1 flex flex-col justify-between gap-8 pt-[calc(4.75rem+env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
           >
-            <div className="space-y-4">
+            <div>
               <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
+            </div>
 
-              <section className="space-y-2.5 max-w-md">
-                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/75 block">
-                  Activity
-                </span>
-                <h1 className="text-3xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-xs">
+            <div className="space-y-6 max-w-md">
+              <section className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-5 h-px bg-white/50" />
+                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
+                    Activity
+                  </span>
+                </div>
+                <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
                   Notifications &amp; History
                 </h1>
-                <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-sm">
+                <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
                   Stay updated with cohort alerts, session reminders, completed programs, and billing records.
                 </p>
               </section>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 max-w-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  setSection("notifications");
-                  setMode("feed");
-                }}
-                className="py-1.5 text-white hover:text-white/80 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-              >
-                <span>Notifications</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="w-10 h-px bg-white/30" />
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSection("history");
-                  setMode("feed");
-                }}
-                className="py-1.5 text-white/80 hover:text-white text-xs sm:text-sm font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-              >
-                <span>History</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex flex-col items-start gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSection("notifications");
+                    setMode("feed");
+                  }}
+                  className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>Notifications</span>
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSection("history");
+                    setMode("feed");
+                  }}
+                  className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>History</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

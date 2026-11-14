@@ -250,23 +250,28 @@ export function MyPlanIndex({
   ];
 
   return (
-    <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
-      {/* Spacious Greeting Header */}
-      <section className="space-y-2 px-0.5">
-        <span className="text-[11px] font-medium text-zinc-400 block">
-          My Plan
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-          Hello, {firstName}
-        </h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-          {plans.length > 0
-            ? "Here are the active programs you're currently enrolled in. Select a plan below to open today's session."
-            : "You have no active plans right now. Explore available programs to get started."}
-        </p>
+    <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-10">
+      {/* Spacious Greeting Header — Typographic scale matches Tabs 2, 3, 4 */}
+      <section className="space-y-5 px-0.5">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="w-5 h-px bg-zinc-400 dark:bg-white/40" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+              My Plan
+            </span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.08]">
+            Hello, {firstName}
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm">
+            {plans.length > 0
+              ? "Here are the active programs you're currently enrolled in. Select a plan below to open today's session."
+              : "You have no active plans right now. Explore available programs to get started."}
+          </p>
+        </div>
 
         {plans.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {filterOptions.map(({ key, label, count }) => {
               const isSelected = planFilter === key;
               return (
@@ -274,7 +279,7 @@ export function MyPlanIndex({
                   key={key}
                   type="button"
                   onClick={() => handleFilterSelect(key)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 inline-flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition active:scale-95 inline-flex items-center gap-1.5 ${
                     isSelected
                       ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                       : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"

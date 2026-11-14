@@ -1256,13 +1256,14 @@ function TaskForm({
             )}
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 flex justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold active:scale-[0.99] transition shadow-sm"
+              className="py-1.5 text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition"
             >
-              Back to Program Dashboard
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Program Dashboard</span>
             </button>
           </div>
         </div>
@@ -2424,19 +2425,23 @@ function TaskForm({
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={busy || photoBusy !== null}
-            className="w-full h-12 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold inline-flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40 shadow-sm"
-          >
-            {busy ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : isFinalSubStep ? (
-              <Check className="w-4 h-4" />
-            ) : null}
-            <span>{isFinalSubStep ? "Save & Finish" : "Continue"}</span>
-            {!isFinalSubStep && <ChevronRight className="w-4 h-4" />}
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={busy || photoBusy !== null}
+              className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40"
+            >
+              {busy ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isFinalSubStep ? (
+                <Check className="w-4 h-4" />
+              ) : null}
+              <span>{isFinalSubStep ? "Save & Finish" : "Continue"}</span>
+              {!isFinalSubStep && (
+                <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              )}
+            </button>
+          </div>
         </div>
       </form>
 
