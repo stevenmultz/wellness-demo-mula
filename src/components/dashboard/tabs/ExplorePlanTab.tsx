@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
+  ArrowRight,
   Calendar,
   ChevronDown,
   ChevronLeft,
@@ -16,6 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
 import {
   EmptyState,
@@ -232,6 +235,8 @@ function coachAvatarFor(name: string): string {
 export function ExplorePlanTab({
   headerVisible,
   isActive = true,
+  viewMode,
+  onChangeViewMode,
   onRegister,
   onViewDetails,
   onOpenPlan: _onOpenPlan,
@@ -239,12 +244,22 @@ export function ExplorePlanTab({
 }: {
   headerVisible: boolean;
   isActive?: boolean;
+  viewMode?: "intro" | "catalog";
+  onChangeViewMode?: (mode: "intro" | "catalog") => void;
   onRegister: (programId: string) => void;
   onViewDetails: (programId: string) => void;
   onOpenPlan: (programId: string) => void;
   registeringId: string | null;
 }) {
   void _onOpenPlan;
+  const { theme, toggleTheme } = useTheme();
+  const [internalMode, setInternalMode] = useState<"intro" | "catalog">("intro");
+  const mode = viewMode ?? internalMode;
+  const setMode = (next: "intro" | "catalog") => {
+    setInternalMode(next);
+    onChangeViewMode?.(next);
+    window.scrollTo({ top: 0 });
+  };
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
@@ -410,44 +425,170 @@ export function ExplorePlanTab({
   return (
     <>
       <FloatingHeader visible={headerVisible}>
-        <div className="relative w-full flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 rounded-[2px] bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
-            <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-            <input
-              type="search"
-              inputMode="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search program or keyword..."
-              aria-label="Search program or keyword..."
-              maxLength={100}
-              className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
-            />
+        {mode === "intro" ? (
+          <>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Toggle visual theme"
+              title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
+              className="select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none text-zinc-950 dark:text-white"
+            >
+              <span className="font-light text-lg leading-none">+</span>
+              <span className="font-geometric font-semibold text-sm tracking-[0.22em] uppercase">BMS</span>
+            </button>
+            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+              {state.status === "ready" ? `${catalog.length} Programs` : "Catalog"}
+            </span>
+          </>
+        ) : (
+          <div className="relative w-full flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("intro")}
+              aria-label="Back to Explore overview"
+              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
+              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <input
+                type="search"
+                inputMode="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search program or keyword..."
+                aria-label="Search program or keyword..."
+                maxLength={100}
+                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(applied);
+                setFiltersOpen(true);
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              className={`shrink-0 h-9 px-3 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+                activeCount > 0
+                  ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-white/20"
+                  : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/10"
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filter</span>
+              {activeCount > 0 && (
+                <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-bold inline-flex items-center justify-center">
+                  {activeCount}
+                </span>
+              )}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(applied);
-              setFiltersOpen(true);
-            }}
-            aria-haspopup="dialog"
-            aria-expanded={filtersOpen}
-            className={`shrink-0 h-9 px-3 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
-              activeCount > 0
-                ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-white/20"
-                : "border-zinc-300 dark:border-white/15 bg-white dark:bg-white/10"
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Filter</span>
-            {activeCount > 0 && (
-              <span className="min-w-4 h-4 px-1 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-bold inline-flex items-center justify-center">
-                {activeCount}
-              </span>
-            )}
-          </button>
-        </div>
+        )}
       </FloatingHeader>
+
+      {mode === "intro" ? (
+        <div className="space-y-10 pt-2">
+          <PullToRefreshBanner
+            pullDistance={pullDistance}
+            refreshing={refreshing && state.status === "ready"}
+          />
+
+          <section className="space-y-4 max-w-2xl">
+            <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
+              Explore
+            </span>
+            <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
+              Explore All Programs
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Browse curated movement, whole-food nutrition, and circadian recovery cohorts designed by certified longevity practitioners—available online, onsite, or hybrid.
+            </p>
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMode("catalog")}
+                className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium tracking-wide inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
+              >
+                <span>Browse All Programs</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-3 gap-6 py-6 border-y border-zinc-200/80 dark:border-white/10 max-w-2xl">
+            <div className="space-y-1">
+              <span className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white block">
+                {state.status === "ready" ? catalog.length : "—"}
+              </span>
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                Programs
+              </span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white block">
+                {availableCoaches.length}
+              </span>
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                Coaches
+              </span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white block">
+                {supported.format.length || 3}
+              </span>
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                Formats
+              </span>
+            </div>
+          </section>
+
+          <section className="space-y-4 max-w-2xl">
+            <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
+              Browse by Format
+            </span>
+            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+              {FORMAT_OPTIONS.map((fmt) => {
+                const count = catalog.filter((p) => p.locationType === fmt.id).length;
+                return (
+                  <button
+                    key={fmt.id}
+                    type="button"
+                    onClick={() => {
+                      setApplied({ ...EMPTY, format: [fmt.id] });
+                      setDraft({ ...EMPTY, format: [fmt.id] });
+                      setSelectedCoach(null);
+                      setMode("catalog");
+                    }}
+                    className="w-full py-4 flex items-center justify-between gap-4 text-left group transition hover:opacity-80"
+                  >
+                    <div className="space-y-0.5">
+                      <span className="text-sm sm:text-base font-geometric font-medium text-zinc-950 dark:text-white block">
+                        {fmt.label} Cohorts
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {fmt.id === "ONLINE"
+                          ? "Guided daily sessions from anywhere"
+                          : fmt.id === "ONSITE"
+                            ? "In-person studio clinics & coaching"
+                            : "Combined digital tracking and onsite sessions"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
+                      {state.status === "ready" && <span>{count}</span>}
+                      <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white transition" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : (
+        <>
 
       {filtersOpen &&
         typeof document !== "undefined" &&
@@ -865,6 +1006,8 @@ export function ExplorePlanTab({
           </>
         )}
       </div>
+        </>
+      )}
     </>
   );
 }

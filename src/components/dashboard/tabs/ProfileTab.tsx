@@ -28,6 +28,7 @@ import {
 import { wellnessChangePassword, wellnessUpdateProfile } from "@/wellness/actions/account";
 import { GENDER_OPTIONS, calculateAgeFromDob } from "@/wellness/validators/auth";
 import { usePushNotifications } from "./usePushNotifications";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { FloatingHeader, formatDateWib } from "./shared";
 
 export interface ProfileUser {
@@ -82,9 +83,9 @@ type View =
   | "account";
 
 const inputCls =
-  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
 
-const labelSpanCls = "block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-1.5";
+const labelSpanCls = "block text-[11px] font-geometric font-medium text-zinc-600 dark:text-zinc-300 mb-1.5";
 
 function filled(value: unknown) {
   if (value === null || value === undefined) return false;
@@ -102,7 +103,7 @@ function Banner({ msg }: { msg: Msg }) {
   return (
     <p
       role={msg.type === "error" ? "alert" : "status"}
-      className={`text-xs px-3.5 py-2.5 rounded-[2px] border font-mono ${
+      className={`text-xs px-4 py-3 rounded-2xl border font-mono ${
         msg.type === "error"
           ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/40"
           : "bg-zinc-900/5 text-zinc-900 border-zinc-300 dark:bg-white/10 dark:text-zinc-100 dark:border-white/20"
@@ -171,6 +172,7 @@ export function ProfileTab({
 }) {
   void _health;
   const router = useRouter();
+  const { toggleTheme } = useTheme();
   const [view, setView] = useState<View | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl ?? null);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -350,64 +352,82 @@ export function ProfileTab({
     <>
       <FloatingHeader visible={headerVisible}>
         {view ? (
-          <button
-            type="button"
-            onClick={() => {
-              setView(null);
-              setMsg(null);
-            }}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white active:scale-95 transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>{TITLES[view]}</span>
-          </button>
+          <div className="flex items-center justify-between w-full min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                setView(null);
+                setMsg(null);
+              }}
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white active:scale-95 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{TITLES[view]}</span>
+            </button>
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 shrink-0">
+              Profile
+            </span>
+          </div>
         ) : (
           <div className="flex items-center justify-between w-full min-w-0">
-            <span className="font-geometric font-semibold text-xs tracking-[0.2em] uppercase text-zinc-950 dark:text-white">
-              Profile & Settings
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title="Switch light / dark mode"
+              className="font-geometric font-medium text-sm tracking-[0.22em] uppercase text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:opacity-70 active:scale-95 transition-all"
+            >
+              <span>+</span>
+              <span>BMS</span>
+            </button>
+            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-zinc-400 truncate max-w-[180px] sm:max-w-xs">
+              Profile
             </span>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[11px] font-mono text-zinc-500 truncate max-w-[180px] sm:max-w-xs">
-                {form.fullName || user.email}
-              </span>
-            </div>
           </div>
         )}
       </FloatingHeader>
 
       {!view && (
-        <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="space-y-8 max-w-2xl mx-auto pt-2">
+          <div className="space-y-1.5 px-1">
+            <span className="block text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400">
+              Account & Preferences
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+              Profile
+            </h2>
+          </div>
+
           {/* Top Profile Image Banner */}
-          <section className="overflow-hidden rounded-[2px] sm:rounded-[2px] bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
-            <div className="relative aspect-[16/7] sm:aspect-[21/9] min-h-[170px] sm:min-h-[200px] w-full flex items-end">
-              {/* Background Cover Image with atmospheric luxury dark overlay */}
+          <section className="overflow-hidden rounded-3xl bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
+            <div className="relative aspect-[16/8] sm:aspect-[21/9] min-h-[180px] sm:min-h-[210px] w-full flex items-end">
+              {/* Background Cover Image */}
               <div className="absolute inset-0 z-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/image.webp"
                   alt=""
-                  className="w-full h-full object-cover opacity-60 scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover opacity-55 scale-105 transition-transform duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/35" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
               </div>
 
               {/* Top Badges */}
-              <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
-                <span className="px-2.5 py-1 rounded-[2px] bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
+                <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-[0.18em] text-white inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   <span>Active Member</span>
                 </span>
-                <span className="px-2.5 py-1 rounded-[2px] bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
+                <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
                   Joined {new Date(user.createdAt).getFullYear()}
                 </span>
               </div>
 
               {/* Profile Photo & Identity Banner Content */}
-              <div className="relative z-10 p-4 sm:p-6 w-full flex items-end justify-between gap-4">
-                <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+              <div className="relative z-10 p-5 sm:p-6 w-full flex items-end justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                   {/* Avatar with Camera Quick Upload */}
                   <div className="relative group shrink-0">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2px] overflow-hidden bg-zinc-800 border-2 border-white/90 dark:border-white/20 shadow-2xl flex items-center justify-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-zinc-800 border border-white/40 shadow-2xl flex items-center justify-center">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt={form.fullName} className="w-full h-full object-cover" />
@@ -422,15 +442,15 @@ export function ProfileTab({
                         setTimeout(() => fileRef.current?.click(), 150);
                       }}
                       title="Update profile picture"
-                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-[2px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
+                      className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
                     >
-                      <Camera className="w-3 h-3" />
+                      <Camera className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
                   {/* Name, email, occupation */}
                   <div className="min-w-0 text-white drop-shadow-sm space-y-0.5">
-                    <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate leading-snug">
+                    <h1 className="text-lg sm:text-xl font-geometric font-medium tracking-tight truncate leading-snug">
                       {form.fullName || "Member Profile"}
                     </h1>
                     <p className="text-xs text-white/80 font-mono truncate">{user.email}</p>
@@ -447,7 +467,7 @@ export function ProfileTab({
                     setMsg(null);
                     setView("basic");
                   }}
-                  className="shrink-0 hidden sm:inline-flex px-3.5 py-1.5 rounded-[2px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 text-white text-xs font-semibold tracking-wide uppercase transition active:scale-95"
+                  className="shrink-0 hidden sm:inline-flex px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-[11px] font-geometric font-medium tracking-wider uppercase transition active:scale-95"
                 >
                   Edit Profile
                 </button>
@@ -457,18 +477,18 @@ export function ProfileTab({
 
           {/* Settings Menus */}
           {menu.map((group) => (
-            <section key={group.title} className="space-y-2">
+            <section key={group.title} className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
-                <h2 className="text-[10px] font-mono uppercase tracking-[0.18em] font-semibold text-zinc-500">
+                <h2 className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400">
                   {group.title}
                 </h2>
                 {group.pct !== null && (
-                  <span className="text-[11px] font-mono font-semibold text-zinc-500">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                     {group.pct}% Complete
                   </span>
                 )}
               </div>
-              <div className="rounded-[2px] bg-white dark:bg-[#121215] border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 overflow-hidden">
+              <div className="rounded-3xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
                 {group.items.map(([id, label, desc]) => (
                   <button
                     key={id}
@@ -477,13 +497,13 @@ export function ProfileTab({
                       setMsg(null);
                       setView(id);
                     }}
-                    className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition group"
+                    className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition group"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition">
+                      <p className="text-sm font-geometric font-medium text-zinc-950 dark:text-white group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition">
                         {label}
                       </p>
-                      <p className="text-[11px] text-zinc-500 truncate mt-0.5">{desc}</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">{desc}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
                   </button>
@@ -495,24 +515,24 @@ export function ProfileTab({
       )}
 
       {view && (
-        <div className="max-w-xl mx-auto space-y-4">
+        <div className="max-w-xl mx-auto space-y-5 pt-2">
           <Banner msg={msg} />
 
-          <div className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 sm:p-6 space-y-5">
+          <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 sm:p-7 space-y-6">
             {/* Clean Section Header */}
-            <div className="pb-3 border-b border-zinc-100 dark:border-white/10 space-y-0.5">
-              <h2 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
+            <div className="pb-4 border-b border-zinc-100 dark:border-white/10 space-y-1">
+              <h2 className="text-lg font-geometric font-medium text-zinc-950 dark:text-white">
                 {TITLES[view]}
               </h2>
-              <p className="text-xs text-zinc-500">{SUBTITLES[view]}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{SUBTITLES[view]}</p>
             </div>
 
             {/* 1. BASIC INFORMATION */}
             {view === "basic" && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-14 h-14 rounded-[2px] overflow-hidden bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center shrink-0">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -521,7 +541,7 @@ export function ProfileTab({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-zinc-900 dark:text-white">Profile Picture</p>
+                      <p className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">Profile Picture</p>
                       <p className="text-[11px] text-zinc-500">JPEG, PNG, or WebP</p>
                     </div>
                   </div>
@@ -529,7 +549,7 @@ export function ProfileTab({
                     type="button"
                     disabled={avatarBusy}
                     onClick={() => fileRef.current?.click()}
-                    className="h-9 px-3.5 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
+                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
                   >
                     {avatarBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                     <span>Upload</span>
@@ -600,15 +620,15 @@ export function ProfileTab({
             {/* 2. CONTACT DETAILS */}
             {view === "contact" && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Mail className="w-4 h-4 text-zinc-500 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-[11px] text-zinc-500">Registered Email</p>
-                      <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">{user.email}</p>
+                      <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white truncate">{user.email}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-[2px] bg-zinc-200/80 text-zinc-900 dark:bg-white/10 dark:text-zinc-200 text-[10px] font-mono font-medium">
+                  <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-zinc-200/80 text-zinc-900 dark:bg-white/10 dark:text-zinc-200 text-[10px] font-mono">
                     Verified
                   </span>
                 </div>
@@ -761,7 +781,7 @@ export function ProfileTab({
                     <button
                       type="submit"
                       disabled={saving}
-                      className="h-10 px-5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
+                      className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
                     >
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
                       <span>Update Password</span>
@@ -769,8 +789,8 @@ export function ProfileTab({
                   </div>
                 </form>
 
-                <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
+                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-geometric font-medium text-zinc-950 dark:text-white">
                     <ShieldCheck className="w-4 h-4 text-zinc-900 dark:text-zinc-200" />
                     <span>Session & Credential Security</span>
                   </div>
@@ -787,29 +807,29 @@ export function ProfileTab({
             {/* 6. PRIVACY & DATA EXPORT */}
             {view === "privacy" && (
               <div className="space-y-4">
-                <dl className="rounded-[2px] border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] divide-y divide-zinc-200/60 dark:divide-white/10 text-xs">
+                <dl className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] divide-y divide-zinc-200/60 dark:divide-white/10 text-xs overflow-hidden">
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <dt className="text-zinc-500">Registered Email</dt>
-                    <dd className="font-semibold text-zinc-900 dark:text-white truncate">{user.email}</dd>
+                    <dd className="font-medium text-zinc-900 dark:text-white truncate">{user.email}</dd>
                   </div>
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <dt className="text-zinc-500">Account Status</dt>
-                    <dd className="inline-flex items-center gap-1.5 font-semibold capitalize text-zinc-900 dark:text-zinc-100">
+                    <dd className="inline-flex items-center gap-1.5 font-medium capitalize text-zinc-900 dark:text-zinc-100">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>{user.status.toLowerCase()}</span>
                     </dd>
                   </div>
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <dt className="text-zinc-500">Member Since</dt>
-                    <dd className="font-semibold text-zinc-900 dark:text-white">
+                    <dd className="font-medium text-zinc-900 dark:text-white">
                       {formatDateWib(user.createdAt)}
                     </dd>
                   </div>
                 </dl>
 
-                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
                   <div>
-                    <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
+                    <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
                       Export Wellness Account Data
                     </h3>
                     <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -819,16 +839,16 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={handleExportData}
-                    className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-geometric font-medium text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download Data (.json)</span>
                   </button>
                 </div>
 
-                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
                   <div>
-                    <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
+                    <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
                       Local Storage & Cache Manager
                     </h3>
                     <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -838,7 +858,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={handleClearCache}
-                    className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-geometric font-medium text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Clear Local Cache</span>
@@ -851,10 +871,10 @@ export function ProfileTab({
             {view === "account" && (
               <div className="space-y-4">
                 {/* Concierge Support Card */}
-                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-2.5">
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-2.5">
                   <div className="flex items-center gap-2">
                     <LifeBuoy className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
-                    <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
+                    <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
                       Concierge & Technical Support
                     </h3>
                   </div>
@@ -863,7 +883,7 @@ export function ProfileTab({
                   </p>
                   <a
                     href="mailto:support@wellness.com?subject=Wellness%20Account%20Inquiry"
-                    className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-white underline hover:opacity-80"
+                    className="inline-flex items-center gap-2 text-xs font-geometric font-medium text-zinc-900 dark:text-white underline hover:opacity-80"
                   >
                     <span>Contact Concierge Desk</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -874,7 +894,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="w-full px-4 py-3.5 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white flex items-center justify-between transition"
+                    className="w-full px-5 py-3.5 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs sm:text-sm font-geometric font-medium text-zinc-900 dark:text-white flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <LogOut className="w-4 h-4 text-zinc-500" />
@@ -886,7 +906,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onDeleteAccount}
-                    className="w-full px-4 py-3.5 rounded-[2px] border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-semibold text-red-600 dark:text-red-400 flex items-center justify-between transition"
+                    className="w-full px-5 py-3.5 rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-geometric font-medium text-red-600 dark:text-red-400 flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <Trash2 className="w-4 h-4" />
@@ -910,7 +930,7 @@ function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="h-10 px-5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
+      className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
     >
       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
       <span>Save Changes</span>
@@ -935,15 +955,15 @@ function NotificationPrefs() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Push Notifications Toggle */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
             <Bell className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-900 dark:text-white">Push Notifications</p>
+            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Push Notifications</p>
             <p className="text-[11px] text-zinc-500">Instant device alerts for daily tasks</p>
           </div>
         </div>
@@ -966,13 +986,13 @@ function NotificationPrefs() {
       </div>
 
       {/* Routine Reminders */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Smartphone className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-900 dark:text-white">Daily Task Reminders</p>
+            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Daily Task Reminders</p>
             <p className="text-[11px] text-zinc-500">Morning cue for training and check-in</p>
           </div>
         </div>
@@ -994,13 +1014,13 @@ function NotificationPrefs() {
       </div>
 
       {/* Cohort Community Announcements */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Users className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-900 dark:text-white">Cohort & Meetup Alerts</p>
+            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Cohort & Meetup Alerts</p>
             <p className="text-[11px] text-zinc-500">Broadcasts for scheduled connects</p>
           </div>
         </div>
@@ -1022,13 +1042,13 @@ function NotificationPrefs() {
       </div>
 
       {/* Weekly Progress Digest */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Mail className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-900 dark:text-white">Weekly Performance Digest</p>
+            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Weekly Performance Digest</p>
             <p className="text-[11px] text-zinc-500">Summary of completion rates and streak</p>
           </div>
         </div>

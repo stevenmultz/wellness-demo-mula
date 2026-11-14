@@ -11,6 +11,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Compass,
@@ -260,6 +261,27 @@ export function MyPlanIndex({
   onViewHistory: () => void;
 }) {
   const firstName = (userName || "Member").trim().split(/\s+/)[0] || "Member";
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  const safeSlide = Math.min(activeSlide, Math.max(0, plans.length - 1));
+
+  const scrollToSlide = (idx: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(plans.length - 1, idx));
+    el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" });
+    setActiveSlide(clamped);
+  };
+
+  const handleTrackScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth <= 0) return;
+    const nextIdx = Math.round(el.scrollLeft / el.clientWidth);
+    if (nextIdx !== activeSlide && nextIdx >= 0 && nextIdx < plans.length) {
+      setActiveSlide(nextIdx);
+    }
+  };
 
   return (
     <div className="space-y-8 sm:space-y-10 pt-2">
@@ -273,20 +295,56 @@ export function MyPlanIndex({
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
           {plans.length > 0
-            ? `You have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"} in progress. Select a program below to open your daily protocol, guides, and metrics.`
+            ? `You have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"} in progress. Swipe or select a cohort below to continue your daily protocol.`
             : "You have no active plans right now. Explore upcoming cohorts to begin your daily routine."}
         </p>
       </section>
 
-      {/* Active Enrolled Plans */}
+      {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
       {plans.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-            <span>Active Cohorts</span>
-            <span>{plans.length} {plans.length === 1 ? "Program" : "Programs"}</span>
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+              Active Cohorts
+            </span>
+
+            {plans.length > 1 ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400 mr-1">
+                  {String(safeSlide + 1).padStart(2, "0")} / {String(plans.length).padStart(2, "0")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => scrollToSlide(safeSlide - 1)}
+                  disabled={safeSlide === 0}
+                  aria-label="Previous plan"
+                  className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-200 disabled:opacity-35 transition hover:border-zinc-400 dark:hover:border-white/30 active:scale-95"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToSlide(safeSlide + 1)}
+                  disabled={safeSlide >= plans.length - 1}
+                  aria-label="Next plan"
+                  className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-200 disabled:opacity-35 transition hover:border-zinc-400 dark:hover:border-white/30 active:scale-95"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                01 / 01
+              </span>
+            )}
           </div>
 
-          <div className="space-y-3.5">
+          <div
+            ref={trackRef}
+            onScroll={handleTrackScroll}
+            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-1 px-1"
+            style={{ scrollbarWidth: "none" }}
+          >
             {plans.map((p) => {
               const total = p.totalDays || p.dayCount || 0;
               const pct = total > 0 ? Math.min(100, Math.round((p.completedDays / total) * 100)) : 0;
@@ -301,69 +359,93 @@ export function MyPlanIndex({
               const startsIn = p.isUpcoming ? formatStartsIn(p.startDate) : null;
 
               return (
-                <button
-                  key={p.programId}
-                  type="button"
-                  onClick={() => onSelectPlan(p.programId)}
-                  className="group w-full text-left rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 flex items-center gap-4 sm:gap-5 shadow-xs hover:border-zinc-300 dark:hover:border-white/25 transition active:scale-[0.995]"
-                >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-zinc-100 dark:bg-white/5 shrink-0 border border-zinc-200/70 dark:border-white/10">
-                    {p.coverImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.coverImage}
-                        alt={p.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs font-mono text-zinc-400">
-                        BMS
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      <span className="text-zinc-950 dark:text-white font-semibold">
-                        {startsIn
-                          ? startsIn.headline
-                          : p.currentDayNumber > 0
-                            ? `Day ${p.currentDayNumber} of ${total || p.currentDayNumber}`
-                            : `${total} Days`}
-                      </span>
-                      <span>&bull;</span>
-                      <span>{locationLabel}</span>
-                    </div>
-
-                    <div>
-                      <h2 className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white leading-snug truncate">
-                        {p.title}
-                      </h2>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                        {p.coachName || "BMS Coach"}
-                      </p>
-                    </div>
-
-                    {!p.isUpcoming && total > 0 && (
-                      <div className="flex items-center gap-3 pt-0.5">
-                        <div className="flex-1 h-1 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
-                            style={{ width: `${pct}%` }}
-                          />
+                <div key={p.programId} className="w-full shrink-0 snap-center px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => onSelectPlan(p.programId)}
+                    className="group w-full text-left rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs hover:border-zinc-300 dark:hover:border-white/25 transition active:scale-[0.995] flex flex-col"
+                  >
+                    <div className="relative h-48 sm:h-60 w-full overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+                      {p.coverImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.coverImage}
+                          alt={p.title}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-sm font-mono tracking-[0.25em] text-zinc-400">
+                          + BMS
                         </div>
-                        <span className="text-[10px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
-                          {p.completedDays}/{total} done
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                      <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-white/90">
+                        <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20">
+                          {startsIn
+                            ? startsIn.headline
+                            : p.currentDayNumber > 0
+                              ? `Day ${p.currentDayNumber} of ${total || p.currentDayNumber}`
+                              : `${total} Days`}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20">
+                          {locationLabel}
                         </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:translate-x-0.5 transition shrink-0" />
-                </button>
+                    <div className="p-5 sm:p-6 space-y-5 flex-1 flex flex-col justify-between">
+                      <div className="space-y-1.5">
+                        <h2 className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white leading-snug">
+                          {p.title}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                          Coach {p.coachName || "BMS Faculty"}
+                        </p>
+                      </div>
+
+                      {!p.isUpcoming && total > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                            <span>Progress</span>
+                            <span className="tabular-nums">{p.completedDays} / {total} days</span>
+                          </div>
+                          <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-xs font-medium text-zinc-950 dark:text-white">
+                        <span>Open Plan</span>
+                        <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:translate-x-0.5 transition" />
+                      </div>
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
+
+          {plans.length > 1 && (
+            <div className="flex items-center justify-center gap-1.5 pt-1">
+              {plans.map((p, idx) => (
+                <button
+                  key={p.programId}
+                  type="button"
+                  onClick={() => scrollToSlide(idx)}
+                  aria-label={`Show plan ${idx + 1}`}
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === safeSlide
+                      ? "w-6 bg-zinc-950 dark:bg-white"
+                      : "w-1.5 bg-zinc-300 dark:bg-white/20 hover:bg-zinc-400"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </section>
       ) : (
         <EmptyState

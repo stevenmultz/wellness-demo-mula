@@ -206,6 +206,7 @@ export function DashboardClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
   const [myPlanView, setMyPlanView] = useState<"index" | "detail">("index");
+  const [exploreView, setExploreView] = useState<"intro" | "catalog">("intro");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
 
   useEffect(() => {
@@ -986,6 +987,7 @@ export function DashboardClient({
             window.scrollTo({ top: 0 });
           }}
           onExplore={() => {
+            setExploreView("catalog");
             setActiveTab("all_plan");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
@@ -1015,6 +1017,8 @@ export function DashboardClient({
               setActiveTab(key);
               if (key === "my_plan") {
                 setMyPlanView("index");
+              } else if (key === "all_plan") {
+                setExploreView("intro");
               }
               setIsOverHero(true);
               window.scrollTo({ top: 0 });
@@ -1081,6 +1085,7 @@ export function DashboardClient({
                 window.scrollTo({ top: 0 });
               }}
               onExplore={() => {
+                setExploreView("catalog");
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
@@ -1150,6 +1155,7 @@ export function DashboardClient({
               onSelectWorkout={handleSelectWorkout}
               onOpenVideo={handleOpenVideo}
               onExplore={() => {
+                setExploreView("catalog");
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
@@ -1174,6 +1180,8 @@ export function DashboardClient({
             <ExplorePlanTab
               headerVisible={isHeaderVisible}
               isActive={activeTab === "all_plan"}
+              viewMode={exploreView}
+              onChangeViewMode={setExploreView}
               registeringId={enrollingId}
               onRegister={(id) => handleOpenQrisCheckout(id)}
               onViewDetails={(id) => {
