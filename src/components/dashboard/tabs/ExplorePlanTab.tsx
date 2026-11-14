@@ -417,7 +417,7 @@ export function ExplorePlanTab({
 
   return (
     <>
-      <FloatingHeader visible={headerVisible}>
+      <FloatingHeader visible={headerVisible} transparent={mode === "intro"}>
         {mode === "intro" ? (
           <>
             <button
@@ -425,12 +425,12 @@ export function ExplorePlanTab({
               onClick={toggleTheme}
               aria-label="Toggle visual theme"
               title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
-              className="select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none text-zinc-950 dark:text-white"
+              className="select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none text-white drop-shadow-xs"
             >
               <span className="font-light text-lg leading-none">+</span>
               <span className="font-geometric font-semibold text-sm tracking-[0.06em] uppercase">BMS</span>
             </button>
-            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-[11px] font-medium text-white/85 drop-shadow-xs">
               {state.status === "ready" ? `${catalog.length} Programs` : "Catalog"}
             </span>
           </>
@@ -484,47 +484,48 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-10">
-          <PullToRefreshBanner
-            pullDistance={pullDistance}
-            refreshing={refreshing && state.status === "ready"}
+        <section className="relative left-1/2 -translate-x-1/2 w-screen min-h-[100svh] overflow-hidden flex flex-col bg-zinc-950">
+          {/* Full-bleed Editorial Background Photography */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/image.webp"
+            alt="Curated wellness studio atmosphere"
+            className="absolute inset-0 w-full h-full object-cover object-center"
           />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
 
-          <div className="space-y-2 px-0.5">
-            <span className="text-[11px] font-medium text-zinc-400 block">
-              Curated Programs
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-              Explore All Programs
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-              Structured movement, whole-food nutrition, and circadian recovery programs led by certified longevity practitioners.
-            </p>
-          </div>
-
-          <section>
-            {/* Editorial Photography Banner with Overlaid CTA */}
-            <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/image.webp"
-                alt="Curated wellness studio atmosphere"
-                className="w-full h-full object-cover object-center"
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))] flex-1 flex flex-col justify-between gap-10">
+            <div className="space-y-4">
+              <PullToRefreshBanner
+                pullDistance={pullDistance}
+                refreshing={refreshing && state.status === "ready"}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => setMode("catalog")}
-                  className="h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-md"
-                >
-                  <span>Browse All Programs</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+
+              <div className="space-y-2.5 max-w-md">
+                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/75 block">
+                  Curated Programs
+                </span>
+                <h1 className="text-3xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-xs">
+                  Explore All Programs
+                </h1>
+                <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-sm">
+                  Structured movement, whole-food nutrition, and circadian recovery programs led by certified longevity practitioners.
+                </p>
               </div>
             </div>
-          </section>
-        </div>
+
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setMode("catalog")}
+                className="h-11 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+              >
+                <span>Browse All Programs</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </section>
       ) : (
         <>
 

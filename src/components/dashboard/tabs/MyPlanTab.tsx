@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   BarChart3,
   BookOpen,
   Calendar,
@@ -20,6 +21,7 @@ import {
   Info,
   MapPin,
   Moon,
+  MoveHorizontal,
   Shield,
   Smile,
   Sparkles,
@@ -125,7 +127,11 @@ export function MyPlanHeader({
       <div className="relative min-w-0">
         {mode === "index" ? (
           plans.length > 0 ? (
-            <span className="text-[11px] font-medium tracking-normal text-zinc-600 dark:text-zinc-300">
+            <span
+              className={`text-[11px] font-medium tracking-normal ${
+                overlay ? "text-white/85 drop-shadow-xs" : "text-zinc-600 dark:text-zinc-300"
+              }`}
+            >
               {plans.length} Active {plans.length === 1 ? "Plan" : "Plans"}
             </span>
           ) : (
@@ -228,110 +234,28 @@ export function MyPlanIndex({
     }
   };
 
-  return (
-    <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
-      {/* Spacious Greeting Header */}
-      <section className="space-y-2 px-0.5">
-        <span className="text-[11px] font-medium text-zinc-400 block">
-          My Plan
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-          Hello, {firstName}
-        </h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-          {plans.length > 0
-            ? "Select a program below to continue today's session."
-            : "You have no active plans right now. Explore available programs to get started."}
-        </p>
-      </section>
+  const scrollToSlide = (idx: number) => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth <= 0) return;
+    el.scrollTo({ left: idx * el.clientWidth, behavior: "smooth" });
+    setActiveSlide(idx);
+  };
 
-      {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
-      {plans.length > 0 ? (
-        <section className="space-y-2.5">
-          <div className="flex items-center justify-between gap-3 px-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <span className="font-mono tabular-nums text-zinc-950 dark:text-white font-medium">
-              {safeSlide + 1}/{plans.length}
-            </span>
-            <span>{plans.length > 1 ? "Swipe to switch plans" : "Tap plan to open"}</span>
-          </div>
-
-          <div
-            ref={trackRef}
-            onScroll={handleTrackScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-0.5 px-0.5"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {plans.map((p) => {
-              const total = p.totalDays || p.dayCount || 0;
-              const startsIn = p.isUpcoming ? formatStartsIn(p.startDate) : null;
-              const todayTypeLabel = !p.isUpcoming ? formatDayTypeLabel(p.todayDayType) : null;
-              const pendingTasks = !p.isUpcoming ? p.pendingTasksCount ?? 0 : 0;
-              const dayStatusLabel = startsIn
-                ? startsIn.headline
-                : `Day ${p.currentDayNumber || 1} of ${total || p.currentDayNumber || 1}${
-                    todayTypeLabel ? ` · ${todayTypeLabel}` : ""
-                  }`;
-
-              return (
-                <div key={p.programId} className="w-full shrink-0 snap-center px-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onSelectPlan(p.programId)}
-                    className="group w-full text-left transition active:scale-[0.995]"
-                  >
-                    <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
-                      {p.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.coverImage}
-                          alt={p.title}
-                          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs font-mono tracking-wide text-zinc-400">
-                          + BMS
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/15" />
-
-                      {/* Status & Commitment Labels */}
-                      <div className="absolute top-3.5 left-4 right-4 flex items-center justify-between gap-2">
-                        <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[11px] font-semibold shadow-sm">
-                          {dayStatusLabel}
-                        </span>
-                        {p.dailyCommitment && (
-                          <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium text-white inline-flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{p.dailyCommitment}</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Overlaid Program Title, Coach & Pending Task Count */}
-                      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-                        <div className="min-w-0 space-y-0.5">
-                          <h2 className="text-base sm:text-lg font-geometric font-medium text-white leading-snug line-clamp-1">
-                            {p.title}
-                          </h2>
-                          <p className="text-xs text-white/80 truncate">
-                            Coach {p.coachName || "BMS Faculty"}
-                          </p>
-                        </div>
-
-                        {pendingTasks > 0 && (
-                          <span className="shrink-0 px-2.5 py-1 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums shadow-sm">
-                            {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+  if (plans.length === 0) {
+    return (
+      <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
+        <section className="space-y-2 px-0.5">
+          <span className="text-[11px] font-medium text-zinc-400 block">
+            My Plan
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
+            Hello, {firstName}
+          </h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
+            You have no active plans right now. Explore available programs to get started.
+          </p>
         </section>
-      ) : (
+
         <EmptyState
           title="No active plans"
           description="Explore available programs to start a cohort or review your completed journeys in History."
@@ -356,7 +280,145 @@ export function MyPlanIndex({
             </div>
           }
         />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative left-1/2 -translate-x-1/2 w-screen min-h-[100svh] overflow-hidden bg-zinc-950">
+      {/* Anchored Top Greeting & Polished Index / Swipe Strip */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 z-20 pt-[calc(5.25rem+env(safe-area-inset-top))]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
+          <div className="space-y-2.5 max-w-md">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/75 block">
+              My Plan
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-xs">
+              Hello, {firstName}
+            </h1>
+            <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-sm">
+              Select a program below to continue today&apos;s session.
+            </p>
+          </div>
+
+          <div className="pointer-events-auto inline-flex flex-wrap items-center gap-3 px-3.5 py-2 rounded-full bg-black/45 backdrop-blur-md border border-white/15 shadow-sm">
+            {plans.length > 1 && (
+              <div className="flex items-center gap-1.5" role="tablist" aria-label="Active plans switcher">
+                {plans.map((pl, idx) => {
+                  const isCurrent = idx === safeSlide;
+                  return (
+                    <button
+                      key={pl.programId}
+                      type="button"
+                      role="tab"
+                      aria-selected={isCurrent}
+                      aria-label={`View plan ${idx + 1}: ${pl.title}`}
+                      onClick={() => scrollToSlide(idx)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        isCurrent
+                          ? "w-6 bg-white"
+                          : "w-1.5 bg-white/35 hover:bg-white/65"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            <span className="text-[11px] font-mono tabular-nums font-semibold text-white">
+              {safeSlide + 1}/{plans.length}
+            </span>
+
+            <span className="h-3 w-px bg-white/20" aria-hidden="true" />
+
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-white/85">
+              <MoveHorizontal className="w-3.5 h-3.5 text-white/75 shrink-0" />
+              <span>{plans.length > 1 ? "Swipe to switch plans" : "Tap plan to open"}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Full-Bleed Horizontal Swipe Track (1 Plan Per Screen) */}
+      <div
+        ref={trackRef}
+        onScroll={handleTrackScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar w-full min-h-[100svh]"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {plans.map((p) => {
+          const total = p.totalDays || p.dayCount || 0;
+          const startsIn = p.isUpcoming ? formatStartsIn(p.startDate) : null;
+          const todayTypeLabel = !p.isUpcoming ? formatDayTypeLabel(p.todayDayType) : null;
+          const pendingTasks = !p.isUpcoming ? p.pendingTasksCount ?? 0 : 0;
+          const dayStatusLabel = startsIn
+            ? startsIn.headline
+            : `Day ${p.currentDayNumber || 1} of ${total || p.currentDayNumber || 1}${
+                todayTypeLabel ? ` · ${todayTypeLabel}` : ""
+              }`;
+
+          return (
+            <div key={p.programId} className="relative w-screen min-h-[100svh] shrink-0 snap-center overflow-hidden flex flex-col justify-end">
+              {p.coverImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={p.coverImage}
+                  alt={p.title}
+                  className="absolute inset-0 w-full h-full object-cover object-center"
+                />
+              ) : (
+                <div className="absolute inset-0 w-full h-full flex items-center justify-center text-sm font-mono tracking-widest text-white/25 bg-zinc-900">
+                  + BMS
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/25 to-black/90" />
+
+              <button
+                type="button"
+                onClick={() => onSelectPlan(p.programId)}
+                className="relative z-10 w-full text-left flex-1 flex flex-col justify-end focus:outline-none group"
+              >
+                <div className="w-full max-w-5xl mx-auto px-4 sm:px-8 pt-[calc(15rem+env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))] space-y-4">
+                  {/* Status & Commitment Badges */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[11px] font-semibold shadow-sm">
+                      {dayStatusLabel}
+                    </span>
+                    {p.dailyCommitment && (
+                      <span className="px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[11px] font-medium text-white inline-flex items-center gap-1.5">
+                        <Clock className="w-3 h-3" />
+                        <span>{p.dailyCommitment}</span>
+                      </span>
+                    )}
+                    {pendingTasks > 0 && (
+                      <span className="px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[11px] font-mono tabular-nums font-medium text-white">
+                        {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Program Title, Coach & Open Plan Action */}
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <h2 className="text-2xl sm:text-3xl font-geometric font-light text-white leading-snug line-clamp-2 drop-shadow-xs">
+                        {p.title}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-white/80 truncate">
+                        Coach {p.coachName || "BMS Faculty"}
+                      </p>
+                    </div>
+
+                    <span className="self-start sm:self-end shrink-0 h-10 px-5 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center gap-2 shadow-lg transition group-hover:bg-zinc-100 group-active:scale-95">
+                      <span>Open Plan</span>
+                      <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </div>
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

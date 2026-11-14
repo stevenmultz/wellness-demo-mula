@@ -975,13 +975,18 @@ export function DashboardClient({
     ? dailyPlans.find((p) => p.programId === overviewEnrollment.programId) ?? null
     : null;
 
+  const isFullBleedFirstPage =
+    (activeTab === "my_plan" && myPlanView === "index" && myPlanIndexItems.length > 0) ||
+    (activeTab === "all_plan" && exploreView === "intro") ||
+    (activeTab === "notifications" && historyView === "intro");
+
   return (
     <div className="member-dashboard-unboxed min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
           visible={isHeaderVisible}
-          overlay={myPlanView === "detail" ? isOverHero : false}
+          overlay={myPlanView === "detail" ? isOverHero : myPlanIndexItems.length > 0}
           mode={myPlanView}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
@@ -1059,10 +1064,12 @@ export function DashboardClient({
       <main
         style={{
           paddingTop:
-            activeTab === "my_plan" && myPlanView === "detail"
+            (activeTab === "my_plan" && myPlanView === "detail") || isFullBleedFirstPage
               ? "0px"
               : "calc(4.5rem + env(safe-area-inset-top))",
-          paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom))",
+          paddingBottom: isFullBleedFirstPage
+            ? "0px"
+            : "calc(6.5rem + env(safe-area-inset-bottom))",
         }}
         className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full"
       >
