@@ -14,7 +14,6 @@ import {
   EyeOff,
   ArrowRight,
   ArrowLeft,
-  Check,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
@@ -76,20 +75,20 @@ export function AuthGatewayCard({
     onTabChange?.(newTab);
   };
 
-  const passChecks = {
-    length: signUpData.password.length >= 8,
-    upper: /[A-Z]/.test(signUpData.password),
-    number: /\d/.test(signUpData.password),
-  };
-
   const validatePassword = (pass: string) => {
     return pass.length >= 8 && /[A-Z]/.test(pass) && /\d/.test(pass);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     resetStatus();
+
+    if (!signInData.email.trim() || !signInData.password) {
+      setErrorMsg("Please fill in your email and password.");
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const result = await wellnessSignIn(signInData);
@@ -128,6 +127,16 @@ export function AuthGatewayCard({
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    resetStatus();
+
+    if (signUpData.fullName.trim().length < 3) {
+      setErrorMsg("Full name must be at least 3 characters.");
+      return;
+    }
+    if (!signUpData.email.trim()) {
+      setErrorMsg("Email is required.");
+      return;
+    }
     if (signUpData.phone.trim().length < 10) {
       setErrorMsg("WhatsApp number must be at least 10 digits.");
       return;
@@ -140,7 +149,6 @@ export function AuthGatewayCard({
     }
 
     setIsLoading(true);
-    resetStatus();
 
     try {
       const result = await wellnessSignUp(signUpData);
@@ -168,8 +176,14 @@ export function AuthGatewayCard({
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     resetStatus();
+
+    if (!forgotEmail.trim()) {
+      setErrorMsg("Please enter your registered email.");
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const result = await wellnessRequestPasswordReset(forgotEmail);
@@ -292,7 +306,7 @@ export function AuthGatewayCard({
         </div>
       )}
 
-      {/* Unboxed Feedback Notices */}
+      {/* Validation & Feedback Notices (Only shown on error or submit) */}
       {errorMsg && (
         <div
           role="alert"
@@ -324,7 +338,7 @@ export function AuthGatewayCard({
       )}
 
       {/* =================================================================== */}
-      {/* TAB 1: SIGN IN (SIMPLE LABEL + INPUT)                               */}
+      {/* TAB 1: SIGN IN (SIMPLE LABEL + INPUT, ALL REQUIRED)                 */}
       {/* =================================================================== */}
       {tab === "signin" && (
         <form onSubmit={handleSignIn} className="space-y-3 sm:space-y-3.5">
@@ -406,7 +420,7 @@ export function AuthGatewayCard({
       )}
 
       {/* =================================================================== */}
-      {/* TAB 2: SIGN UP (SIMPLE LABEL + INPUT, REQUIRED WHATSAPP)            */}
+      {/* TAB 2: SIGN UP (SIMPLE LABEL + INPUT, ALL REQUIRED)                 */}
       {/* =================================================================== */}
       {tab === "signup" && (
         <form onSubmit={handleSignUp} className="space-y-2.5 sm:space-y-3">
@@ -446,8 +460,6 @@ export function AuthGatewayCard({
               <input
                 type="tel"
                 required
-                minLength={10}
-                maxLength={18}
                 autoComplete="tel"
                 value={signUpData.phone}
                 onChange={(e) =>
@@ -460,30 +472,7 @@ export function AuthGatewayCard({
           </div>
 
           <div>
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <label className="text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Password
-              </label>
-              <div className="flex items-center gap-2 text-[10px] font-mono">
-                {[
-                  { key: "length", label: "8+", met: passChecks.length },
-                  { key: "upper", label: "A-Z", met: passChecks.upper },
-                  { key: "number", label: "0-9", met: passChecks.number },
-                ].map((req) => (
-                  <span
-                    key={req.key}
-                    className={`inline-flex items-center gap-0.5 transition ${
-                      req.met
-                        ? "text-zinc-950 dark:text-white font-semibold"
-                        : "text-zinc-500 dark:text-zinc-400"
-                    }`}
-                  >
-                    <Check className="w-2.5 h-2.5" />
-                    <span>{req.label}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
+            <label className={labelBaseCls}>Password</label>
             <div className="relative">
               <input
                 type={peekPassword ? "text" : "password"}
@@ -534,7 +523,7 @@ export function AuthGatewayCard({
       )}
 
       {/* =================================================================== */}
-      {/* TAB 3: FORGOT PASSWORD (SIMPLE LABEL + INPUT)                       */}
+      {/* TAB 3: FORGOT PASSWORD (SIMPLE LABEL + INPUT, REQUIRED)             */}
       {/* =================================================================== */}
       {tab === "forgot" && (
         <form onSubmit={handleForgotPassword} className="space-y-3 sm:space-y-4">
