@@ -19,12 +19,11 @@ export const SignUpSchema = z.object({
     .toLowerCase()
     .trim(),
   phone: z
-    .string()
+    .string({ required_error: "WhatsApp number is required" })
+    .trim()
     .regex(/^[0-9+\s\-]*$/, "Phone number may only contain digits, +, spaces, or hyphens")
     .min(10, "Phone number must be at least 10 digits")
-    .max(18, "Phone number cannot exceed 18 digits")
-    .optional()
-    .or(z.literal("")),
+    .max(18, "Phone number cannot exceed 18 digits"),
   password: z
     .string({ required_error: "Password is required" })
     .min(8, "Password must be at least 8 characters")
@@ -97,6 +96,7 @@ export const UpdateProfileSchema = z.object({
     .trim(),
   phone: z
     .string()
+    .trim()
     .regex(/^[0-9+\s\-]*$/, "Phone number may only contain digits, +, spaces, or hyphens")
     .min(10, "Phone number must be at least 10 digits")
     .max(18, "Phone number cannot exceed 18 digits")

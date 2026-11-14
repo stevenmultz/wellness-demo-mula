@@ -37,11 +37,11 @@ export function PublicMobileBackdrop() {
 }
 
 /**
- * Top bar: + BMS logo and a borderless icon-only theme toggle right next to it.
+ * Top bar: + BMS logo on top-left and text-only theme toggle ("Dark" / "Light") on top-right.
  */
 export function PublicTopBrand() {
   return (
-    <header className="w-full flex items-center gap-2.5 shrink-0">
+    <header className="w-full flex items-center justify-between shrink-0">
       <Link
         href="/"
         className="flex items-center gap-1.5 text-left group shrink-0"

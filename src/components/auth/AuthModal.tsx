@@ -128,6 +128,10 @@ export function AuthGatewayCard({
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (signUpData.phone.trim().length < 10) {
+      setErrorMsg("WhatsApp number must be at least 10 digits.");
+      return;
+    }
     if (!validatePassword(signUpData.password)) {
       setErrorMsg(
         "Password must be at least 8 characters and include at least 1 uppercase letter and 1 number."
@@ -188,13 +192,13 @@ export function AuthGatewayCard({
   };
 
   const inputBaseCls =
-    "w-full px-3.5 py-2.5 sm:px-4 sm:py-3.5 rounded-xl sm:rounded-2xl bg-white/90 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border-0 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
+    "w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl bg-white/90 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border-0 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
   const labelBaseCls =
-    "block text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1 sm:mb-1.5";
+    "block text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1";
 
   return (
     <div
-      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-4 sm:space-y-5 ${
+      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-3.5 sm:space-y-5 ${
         isModal
           ? "rounded-3xl bg-[#f6f6f4] dark:bg-[#141414] p-5 sm:p-8 shadow-2xl"
           : ""
@@ -221,7 +225,7 @@ export function AuthGatewayCard({
       {contextProgramTitle && (
         <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
           <span className="font-mono text-[10px] uppercase tracking-widest shrink-0">
-            Selected Cohort:
+            Cohort:
           </span>
           <span className="font-semibold text-zinc-950 dark:text-white truncate">
             {contextProgramTitle}
@@ -231,12 +235,12 @@ export function AuthGatewayCard({
 
       {/* Clean Unboxed Heading & Mode Tabs */}
       {tab !== "forgot" ? (
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-2.5 sm:space-y-3.5">
           <div className="space-y-1">
             <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
               {tab === "signin" ? "Sign in to BMS" : "Create your account"}
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+            <p className="hidden sm:block text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {tab === "signin"
                 ? "Enter your details to access your daily 00:00 WIB cohort protocol."
                 : "Join private athletic cohorts and track your daily longevity rituals."}
@@ -254,7 +258,7 @@ export function AuthGatewayCard({
               role="tab"
               aria-selected={tab === "signin"}
               onClick={() => switchTab("signin")}
-              className={`pb-2 sm:pb-2.5 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
+              className={`pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
                 tab === "signin"
                   ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -267,7 +271,7 @@ export function AuthGatewayCard({
               role="tab"
               aria-selected={tab === "signup"}
               onClick={() => switchTab("signup")}
-              className={`pb-2 sm:pb-2.5 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
+              className={`pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
                 tab === "signup"
                   ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -320,10 +324,10 @@ export function AuthGatewayCard({
       )}
 
       {/* =================================================================== */}
-      {/* TAB 1: SIGN IN (BORDERLESS & UNBOXED)                               */}
+      {/* TAB 1: SIGN IN (SIMPLE LABEL + INPUT)                               */}
       {/* =================================================================== */}
       {tab === "signin" && (
-        <form onSubmit={handleSignIn} className="space-y-3 sm:space-y-4">
+        <form onSubmit={handleSignIn} className="space-y-3 sm:space-y-3.5">
           <div>
             <label className={labelBaseCls}>Email</label>
             <input
@@ -340,7 +344,7 @@ export function AuthGatewayCard({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+            <div className="flex items-center justify-between mb-1">
               <label className="text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300">
                 Password
               </label>
@@ -379,7 +383,7 @@ export function AuthGatewayCard({
             </div>
           </div>
 
-          <div className="pt-1 sm:pt-2 space-y-3">
+          <div className="pt-1.5">
             <button
               type="submit"
               disabled={isLoading}
@@ -397,26 +401,15 @@ export function AuthGatewayCard({
                 </>
               )}
             </button>
-
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center">
-              Don&apos;t have an account?{" "}
-              <button
-                type="button"
-                onClick={() => switchTab("signup")}
-                className="font-semibold text-zinc-950 dark:text-white underline underline-offset-4 ml-1"
-              >
-                Sign up
-              </button>
-            </p>
           </div>
         </form>
       )}
 
       {/* =================================================================== */}
-      {/* TAB 2: SIGN UP (BORDERLESS & UNBOXED)                               */}
+      {/* TAB 2: SIGN UP (SIMPLE LABEL + INPUT, REQUIRED WHATSAPP)            */}
       {/* =================================================================== */}
       {tab === "signup" && (
-        <form onSubmit={handleSignUp} className="space-y-2.5 sm:space-y-3.5">
+        <form onSubmit={handleSignUp} className="space-y-2.5 sm:space-y-3">
           <div>
             <label className={labelBaseCls}>Full Name</label>
             <input
@@ -449,14 +442,12 @@ export function AuthGatewayCard({
             </div>
 
             <div>
-              <label className={labelBaseCls}>
-                WhatsApp{" "}
-                <span className="text-zinc-500 dark:text-zinc-400 font-normal text-[10px]">
-                  (Optional)
-                </span>
-              </label>
+              <label className={labelBaseCls}>WhatsApp</label>
               <input
                 type="tel"
+                required
+                minLength={10}
+                maxLength={18}
                 autoComplete="tel"
                 value={signUpData.phone}
                 onChange={(e) =>
@@ -469,7 +460,30 @@ export function AuthGatewayCard({
           </div>
 
           <div>
-            <label className={labelBaseCls}>Password</label>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Password
+              </label>
+              <div className="flex items-center gap-2 text-[10px] font-mono">
+                {[
+                  { key: "length", label: "8+", met: passChecks.length },
+                  { key: "upper", label: "A-Z", met: passChecks.upper },
+                  { key: "number", label: "0-9", met: passChecks.number },
+                ].map((req) => (
+                  <span
+                    key={req.key}
+                    className={`inline-flex items-center gap-0.5 transition ${
+                      req.met
+                        ? "text-zinc-950 dark:text-white font-semibold"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }`}
+                  >
+                    <Check className="w-2.5 h-2.5" />
+                    <span>{req.label}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
             <div className="relative">
               <input
                 type={peekPassword ? "text" : "password"}
@@ -495,34 +509,9 @@ export function AuthGatewayCard({
                 )}
               </button>
             </div>
-
-            {/* Unboxed Minimal Password Requirement Indicators */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-1.5 text-[10px] sm:text-[11px] font-mono">
-              {[
-                {
-                  key: "length",
-                  label: "8+ characters",
-                  met: passChecks.length,
-                },
-                { key: "upper", label: "1 uppercase", met: passChecks.upper },
-                { key: "number", label: "1 number", met: passChecks.number },
-              ].map((req) => (
-                <span
-                  key={req.key}
-                  className={`inline-flex items-center gap-1 transition ${
-                    req.met
-                      ? "text-zinc-950 dark:text-white font-semibold"
-                      : "text-zinc-500 dark:text-zinc-400"
-                  }`}
-                >
-                  <Check className="w-3 h-3" />
-                  <span>{req.label}</span>
-                </span>
-              ))}
-            </div>
           </div>
 
-          <div className="pt-1 sm:pt-2 space-y-3">
+          <div className="pt-1.5">
             <button
               type="submit"
               disabled={isLoading}
@@ -540,23 +529,12 @@ export function AuthGatewayCard({
                 </>
               )}
             </button>
-
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center">
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => switchTab("signin")}
-                className="font-semibold text-zinc-950 dark:text-white underline underline-offset-4 ml-1"
-              >
-                Sign in
-              </button>
-            </p>
           </div>
         </form>
       )}
 
       {/* =================================================================== */}
-      {/* TAB 3: FORGOT PASSWORD (BORDERLESS & UNBOXED)                       */}
+      {/* TAB 3: FORGOT PASSWORD (SIMPLE LABEL + INPUT)                       */}
       {/* =================================================================== */}
       {tab === "forgot" && (
         <form onSubmit={handleForgotPassword} className="space-y-3 sm:space-y-4">
