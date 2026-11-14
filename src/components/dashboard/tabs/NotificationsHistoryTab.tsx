@@ -251,45 +251,30 @@ export function NotificationsHistoryTab({
               </section>
             </div>
 
-            <div className="space-y-4 max-w-sm">
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSection("notifications");
-                    setMode("feed");
-                  }}
-                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
-                >
-                  <span>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-zinc-950 text-white text-[10px] font-mono leading-none">
-                      {unreadCount}
-                    </span>
-                  )}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <p className="text-[11px] text-white/75 leading-relaxed">
-                  Cohort alerts, daily task reminders, coach updates, and push notification settings.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-3 max-w-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setSection("notifications");
+                  setMode("feed");
+                }}
+                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+              >
+                <span>Notifications</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
 
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSection("history");
-                    setMode("feed");
-                  }}
-                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition"
-                >
-                  <span>History</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <p className="text-[11px] text-white/75 leading-relaxed">
-                  Completed programs archive, past attendance logs, and billing records.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSection("history");
+                  setMode("feed");
+                }}
+                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition"
+              >
+                <span>History</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>

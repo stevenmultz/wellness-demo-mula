@@ -266,6 +266,7 @@ export function ExplorePlanTab({
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
+  const [coachPage, setCoachPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
@@ -518,96 +519,130 @@ export function ExplorePlanTab({
               </div>
             </div>
 
-            <div className="space-y-4 max-w-sm">
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCoach(null);
-                    setMode("catalog");
-                  }}
-                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
-                >
-                  <span>Browse All Programs</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <p className="text-[11px] text-white/75 leading-relaxed">
-                  Full directory of guided movement, nutrition, and recovery cohorts with schedule filters.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-3 max-w-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCoach(null);
+                  setMode("catalog");
+                }}
+                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+              >
+                <span>Browse All Programs</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
 
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => setMode("coaches")}
-                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition"
-                >
-                  <span>Explore All Coaches</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <p className="text-[11px] text-white/75 leading-relaxed">
-                  Meet certified faculty and filter cohorts by the coach guiding each program.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachPage(1);
+                  setMode("coaches");
+                }}
+                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition"
+              >
+                <span>Explore All Coaches</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
       ) : mode === "coaches" ? (
-        <div className="space-y-6 max-w-3xl mx-auto pt-2">
-          <PullToRefreshBanner
-            pullDistance={pullDistance}
-            refreshing={refreshing && state.status === "ready"}
-          />
+        (() => {
+          const COACH_PAGE_SIZE = 8;
+          const coachPages = Math.max(1, Math.ceil(availableCoaches.length / COACH_PAGE_SIZE));
+          const safeCoachPage = Math.min(coachPage, coachPages);
+          const paginatedCoaches = availableCoaches.slice(
+            (safeCoachPage - 1) * COACH_PAGE_SIZE,
+            safeCoachPage * COACH_PAGE_SIZE
+          );
 
-          <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              Program Faculty &amp; Coaches
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Select a coach to browse the cohorts they lead.
-            </p>
-          </div>
+          return (
+            <div className="space-y-6 max-w-3xl mx-auto pt-2">
+              <PullToRefreshBanner
+                pullDistance={pullDistance}
+                refreshing={refreshing && state.status === "ready"}
+              />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableCoaches.map(({ name, avatar }) => {
-              const count = catalog.filter(
-                (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
-              ).length;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCoach(name);
-                    setPage(1);
-                    setMode("catalog");
-                  }}
-                  className="group relative aspect-[4/5] w-full rounded-3xl overflow-hidden bg-zinc-900 text-left transition active:scale-[0.99]"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={avatar}
-                    alt={name}
-                    className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4 space-y-1.5">
-                    <span className="text-[10px] font-mono text-white/75 block">
-                      {count} {count === 1 ? "Program" : "Programs"}
-                    </span>
-                    <h2 className="text-base font-geometric font-medium text-white leading-snug">
-                      {name}
-                    </h2>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90 group-hover:underline underline-offset-4">
-                      <span>View Programs</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+              <div className="space-y-1">
+                <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+                  Program Faculty &amp; Coaches
+                </h1>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {paginatedCoaches.map(({ name, avatar }) => {
+                  const count = catalog.filter(
+                    (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
+                  ).length;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCoach(name);
+                        setPage(1);
+                        setMode("catalog");
+                      }}
+                      className="group relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-zinc-900 text-left transition active:scale-[0.99]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={avatar}
+                        alt={name}
+                        className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+                      <div className="absolute bottom-3 left-3 right-3 space-y-0.5">
+                        <h2 className="text-xs sm:text-sm font-geometric font-medium text-white leading-snug line-clamp-1">
+                          {name}
+                        </h2>
+                        <span className="text-[10px] font-mono text-white/75 block">
+                          {count} {count === 1 ? "Program" : "Programs"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {coachPages > 1 && (
+                <nav aria-label="Coach pages" className="flex items-center justify-center gap-1.5 pt-2">
+                  <button
+                    type="button"
+                    disabled={safeCoachPage === 1}
+                    onClick={() => setCoachPage(safeCoachPage - 1)}
+                    className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                  </button>
+                  {Array.from({ length: coachPages }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-current={n === safeCoachPage ? "page" : undefined}
+                      onClick={() => setCoachPage(n)}
+                      className={`w-9 h-9 rounded-full text-xs font-semibold ${
+                        n === safeCoachPage
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                          : "border border-zinc-200 dark:border-white/15"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={safeCoachPage === coachPages}
+                    onClick={() => setCoachPage(safeCoachPage + 1)}
+                    className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
+                  >
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </nav>
+              )}
+            </div>
+          );
+        })()
       ) : (
         <>
 

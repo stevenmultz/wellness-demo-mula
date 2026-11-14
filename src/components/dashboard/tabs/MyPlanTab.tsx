@@ -104,10 +104,27 @@ export function MyPlanHeader({
 }) {
   void _onSelect;
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
+  const showDetailBack = mode === "detail" && !!current;
 
   return (
     <FloatingHeader visible={visible} transparent={overlay}>
-      <BrandWordmark light={overlay} />
+      {showDetailBack ? (
+        <button
+          type="button"
+          onClick={() => onBackToIndex?.()}
+          title="Back to All My Plans"
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition active:scale-95 ${
+            overlay
+              ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
+              : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
+          }`}
+        >
+          <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+          <span>Back</span>
+        </button>
+      ) : (
+        <BrandWordmark light={overlay} />
+      )}
 
       <div className="relative min-w-0">
         {mode === "index" ? (
@@ -134,21 +151,7 @@ export function MyPlanHeader({
             <Compass className="w-3.5 h-3.5" />
             <span>Explore Plan</span>
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onBackToIndex?.()}
-            title="Back to All My Plans"
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition active:scale-95 ${
-              overlay
-                ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
-                : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
-            }`}
-          >
-            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-            <span>All My Plans</span>
-          </button>
-        )}
+        ) : null}
       </div>
     </FloatingHeader>
   );
@@ -201,13 +204,23 @@ export function MyPlanIndex({
   const firstName = (userName || "Member").trim().split(/\s+/)[0] || "Member";
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
-  const safeSlide = Math.min(activeSlide, Math.max(0, plans.length - 1));
+  const [planFilter, setPlanFilter] = useState<"all" | "ongoing" | "upcoming">("all");
+  const [allPlansOpen, setAllPlansOpen] = useState(false);
+
+  const visiblePlans =
+    planFilter === "ongoing"
+      ? plans.filter((p) => !p.isUpcoming)
+      : planFilter === "upcoming"
+      ? plans.filter((p) => p.isUpcoming)
+      : plans;
+
+  const safeSlide = Math.min(activeSlide, Math.max(0, visiblePlans.length - 1));
 
   const handleTrackScroll = () => {
     const el = trackRef.current;
     if (!el || el.clientWidth <= 0) return;
     const nextIdx = Math.round(el.scrollLeft / el.clientWidth);
-    if (nextIdx !== activeSlide && nextIdx >= 0 && nextIdx < plans.length) {
+    if (nextIdx !== activeSlide && nextIdx >= 0 && nextIdx < visiblePlans.length) {
       setActiveSlide(nextIdx);
     }
   };
@@ -218,6 +231,22 @@ export function MyPlanIndex({
     el.scrollTo({ left: idx * el.clientWidth, behavior: "smooth" });
     setActiveSlide(idx);
   };
+
+  const handleFilterSelect = (next: "ongoing" | "upcoming") => {
+    setAllPlansOpen(false);
+    setPlanFilter((prev) => (prev === next ? "all" : next));
+    setActiveSlide(0);
+    if (trackRef.current) {
+      trackRef.current.scrollTo({ left: 0, behavior: "smooth" });
+    }
+  };
+
+  const filterHeadingLabel =
+    planFilter === "ongoing"
+      ? "Ongoing Plans"
+      : planFilter === "upcoming"
+      ? "Upcoming Plans"
+      : "Your Enrolled Plans";
 
   return (
     <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
@@ -236,24 +265,80 @@ export function MyPlanIndex({
         </p>
 
         {plans.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2">
-            {plans.map((pl, idx) => {
-              const isCurrent = idx === safeSlide;
-              return (
-                <button
-                  key={pl.programId}
-                  type="button"
-                  onClick={() => scrollToSlide(idx)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition active:scale-95 ${
-                    isCurrent
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                      : "bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+          <div className="relative pt-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                aria-expanded={allPlansOpen}
+                onClick={() => {
+                  setAllPlansOpen((v) => !v);
+                  if (planFilter !== "all") {
+                    setPlanFilter("all");
+                    setActiveSlide(0);
+                    if (trackRef.current) {
+                      trackRef.current.scrollTo({ left: 0, behavior: "smooth" });
+                    }
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 inline-flex items-center gap-1 ${
+                  planFilter === "all" || allPlansOpen
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
+                }`}
+              >
+                <span>See All Plans</span>
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform duration-200 ${
+                    allPlansOpen ? "rotate-180" : ""
                   }`}
-                >
-                  {pl.title}
-                </button>
-              );
-            })}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFilterSelect("ongoing")}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 ${
+                  planFilter === "ongoing"
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
+                }`}
+              >
+                Ongoing Plans
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFilterSelect("upcoming")}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 ${
+                  planFilter === "upcoming"
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
+                }`}
+              >
+                Upcoming Plans
+              </button>
+            </div>
+
+            {allPlansOpen && (
+              <div className="mt-2 rounded-2xl bg-[#ececea] dark:bg-[#1f1f1f] p-1.5 shadow-lg space-y-0.5">
+                {plans.map((pl) => (
+                  <button
+                    key={pl.programId}
+                    type="button"
+                    onClick={() => {
+                      setAllPlansOpen(false);
+                      onSelectPlan(pl.programId);
+                    }}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left text-xs text-zinc-900 dark:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/10 transition"
+                  >
+                    <span className="font-medium truncate">{pl.title}</span>
+                    <span className="shrink-0 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                      {pl.isUpcoming ? "Upcoming" : `Day ${pl.currentDayNumber || 1}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -263,12 +348,12 @@ export function MyPlanIndex({
         <section className="space-y-2.5">
           <div className="flex items-center justify-between gap-3 px-0.5">
             <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              Your Enrolled Plans
+              {filterHeadingLabel}
             </span>
 
-            {plans.length > 1 && (
+            {visiblePlans.length > 1 && (
               <div className="flex items-center gap-1.5" role="tablist" aria-label="Active plans switcher">
-                {plans.map((pl, idx) => {
+                {visiblePlans.map((pl, idx) => {
                   const isCurrent = idx === safeSlide;
                   return (
                     <button
@@ -290,81 +375,101 @@ export function MyPlanIndex({
             )}
           </div>
 
-          <div
-            ref={trackRef}
-            onScroll={handleTrackScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-0.5 px-0.5"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {plans.map((p) => {
-              const total = p.totalDays || p.dayCount || 0;
-              const startsIn = p.isUpcoming ? formatStartsIn(p.startDate) : null;
-              const todayTypeLabel = !p.isUpcoming ? formatDayTypeLabel(p.todayDayType) : null;
-              const pendingTasks = !p.isUpcoming ? p.pendingTasksCount ?? 0 : 0;
-              const dayStatusLabel = startsIn
-                ? startsIn.headline
-                : `Day ${p.currentDayNumber || 1} of ${total || p.currentDayNumber || 1}${
-                    todayTypeLabel ? ` · ${todayTypeLabel}` : ""
-                  }`;
+          {visiblePlans.length > 0 ? (
+            <div
+              ref={trackRef}
+              onScroll={handleTrackScroll}
+              className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-0.5 px-0.5"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {visiblePlans.map((p) => {
+                const total = p.totalDays || p.dayCount || 0;
+                const startsIn = p.isUpcoming ? formatStartsIn(p.startDate) : null;
+                const todayTypeLabel = !p.isUpcoming ? formatDayTypeLabel(p.todayDayType) : null;
+                const pendingTasks = !p.isUpcoming ? p.pendingTasksCount ?? 0 : 0;
+                const dayStatusLabel = startsIn
+                  ? startsIn.headline
+                  : `Day ${p.currentDayNumber || 1} of ${total || p.currentDayNumber || 1}${
+                      todayTypeLabel ? ` · ${todayTypeLabel}` : ""
+                    }`;
 
-              return (
-                <div key={p.programId} className="w-full shrink-0 snap-center px-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onSelectPlan(p.programId)}
-                    className="group w-full text-left transition active:scale-[0.995]"
-                  >
-                    <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
-                      {p.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.coverImage}
-                          alt={p.title}
-                          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs font-mono tracking-wide text-zinc-400">
-                          + BMS
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/15" />
-
-                      {/* Status & Commitment Labels */}
-                      <div className="absolute top-3.5 left-4 right-4 flex items-center justify-between gap-2">
-                        <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[11px] font-semibold shadow-sm">
-                          {dayStatusLabel}
-                        </span>
-                        {p.dailyCommitment && (
-                          <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium text-white inline-flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{p.dailyCommitment}</span>
-                          </span>
+                return (
+                  <div key={p.programId} className="w-full shrink-0 snap-center px-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onSelectPlan(p.programId)}
+                      className="group w-full text-left transition active:scale-[0.995]"
+                    >
+                      <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+                        {p.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.coverImage}
+                            alt={p.title}
+                            className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs font-mono tracking-wide text-zinc-400">
+                            + BMS
+                          </div>
                         )}
-                      </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/15" />
 
-                      {/* Overlaid Program Title, Coach & Pending Task Count */}
-                      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-                        <div className="min-w-0 space-y-0.5">
-                          <h2 className="text-base sm:text-lg font-geometric font-medium text-white leading-snug line-clamp-1">
-                            {p.title}
-                          </h2>
-                          <p className="text-xs text-white/80 truncate">
-                            Coach {p.coachName || "BMS Faculty"}
-                          </p>
+                        {/* Status & Commitment Labels */}
+                        <div className="absolute top-3.5 left-4 right-4 flex items-center justify-between gap-2">
+                          <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[11px] font-semibold shadow-sm">
+                            {dayStatusLabel}
+                          </span>
+                          {p.dailyCommitment && (
+                            <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium text-white inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{p.dailyCommitment}</span>
+                            </span>
+                          )}
                         </div>
 
-                        {pendingTasks > 0 && (
-                          <span className="shrink-0 px-2.5 py-1 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums shadow-sm">
-                            {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
-                          </span>
-                        )}
+                        {/* Overlaid Program Title, Coach & Pending Task Count */}
+                        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+                          <div className="min-w-0 space-y-0.5">
+                            <h2 className="text-base sm:text-lg font-geometric font-medium text-white leading-snug line-clamp-1">
+                              {p.title}
+                            </h2>
+                            <p className="text-xs text-white/80 truncate">
+                              Coach {p.coachName || "BMS Faculty"}
+                            </p>
+                          </div>
+
+                          {pendingTasks > 0 && (
+                            <span className="shrink-0 px-2.5 py-1 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums shadow-sm">
+                              {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-[#ececea] dark:bg-[#1f1f1f] px-5 py-10 text-center space-y-3">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                {planFilter === "upcoming"
+                  ? "You have no upcoming plans right now."
+                  : "You have no ongoing plans right now."}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlanFilter("all");
+                  setActiveSlide(0);
+                }}
+                className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-medium"
+              >
+                Show All Plans
+              </button>
+            </div>
+          )}
         </section>
       ) : (
         <EmptyState

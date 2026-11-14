@@ -423,7 +423,7 @@ export function ProfileTab({
               </p>
             </div>
 
-            <div className="space-y-1.5 max-w-sm">
+            <div className="max-w-sm">
               <button
                 type="button"
                 onClick={() => setMode("menu")}
@@ -432,9 +432,6 @@ export function ProfileTab({
                 <span>Open Profile &amp; Settings</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-              <p className="text-[11px] text-white/75 leading-relaxed">
-                Personal info, password &amp; security, notification alerts, data export, and concierge support.
-              </p>
             </div>
           </div>
         </div>
