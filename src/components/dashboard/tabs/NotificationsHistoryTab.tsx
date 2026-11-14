@@ -196,25 +196,16 @@ export function NotificationsHistoryTab({
       {/* ================================================================= */}
       {section === "notifications" && (
         <section className="space-y-6">
-          <div className="space-y-1.5 px-1">
-            <span className="block text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400">
-              Inbox & Alerts
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              Notifications
-            </h2>
-          </div>
-
-          {/* PUSH NOTIFICATION TOGGLE CARD */}
-          <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 flex items-center justify-between gap-4">
+          {/* PUSH NOTIFICATION TOGGLE */}
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                <Bell className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
                   Push Notifications
                 </h3>
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
                 {push.status === "on"
                   ? "Alerts active for daily tasks & live sessions"
                   : push.status === "denied"
@@ -236,9 +227,9 @@ export function NotificationsHistoryTab({
                   type="button"
                   onClick={push.status === "on" ? push.disable : push.enable}
                   disabled={push.busy || push.status === "checking"}
-                  className="shrink-0 px-4 py-2 rounded-full text-[11px] font-geometric font-medium uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
+                  className="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-geometric font-medium uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
-                  {(push.busy || push.status === "checking") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {(push.busy || push.status === "checking") && <Loader2 className="w-3 h-3 animate-spin" />}
                   {push.status === "on" ? "Turn Off" : "Turn On"}
                 </button>
               )}
@@ -246,7 +237,7 @@ export function NotificationsHistoryTab({
           </div>
 
           {/* NOTIFICATION LIST */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
                 {notifs.status === "ready" ? `${allNotifications.length} Alerts` : "Recent Alerts"}
@@ -256,7 +247,7 @@ export function NotificationsHistoryTab({
                   type="button"
                   onClick={markAllRead}
                   disabled={markingAll}
-                  className="text-[11px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1.5 transition"
+                  className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1.5 transition"
                 >
                   <CheckCheck className="w-3.5 h-3.5 text-zinc-400" />
                   <span>Mark all read</span>
@@ -274,23 +265,23 @@ export function NotificationsHistoryTab({
             )}
 
             {allNotifications.length > 0 && (
-              <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+              <div className="divide-y divide-zinc-200 dark:divide-white/10 border-y border-zinc-200 dark:border-white/10">
                 {allNotifications.map((n) => (
                   <button
                     key={n.id}
                     type="button"
                     onClick={() => markRead(n)}
-                    className={`w-full text-left py-4 px-2 transition hover:bg-zinc-50/70 dark:hover:bg-white/[0.03] ${
+                    className={`w-full text-left py-4 px-1 transition hover:bg-zinc-50/70 dark:hover:bg-white/[0.03] ${
                       n.isRead ? "opacity-75" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
                         {!n.isRead && (
                           <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 dark:bg-white shrink-0" />
                         )}
                         <span
-                          className={`text-xs sm:text-sm font-geometric truncate ${
+                          className={`text-xs font-geometric truncate ${
                             n.isRead
                               ? "text-zinc-600 dark:text-zinc-300 font-normal"
                               : "font-medium text-zinc-950 dark:text-white"
@@ -303,7 +294,7 @@ export function NotificationsHistoryTab({
                         {formatDateTimeWib(n.createdAt)}
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                    <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
                       {n.body}
                     </p>
                   </button>
@@ -319,21 +310,12 @@ export function NotificationsHistoryTab({
       {/* ================================================================= */}
       {section === "history" && (
         <section className="space-y-8">
-          <div className="space-y-1.5 px-1">
-            <span className="block text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400">
-              Archive & Billing
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              History
-            </h2>
-          </div>
-
           {history.status === "loading" && <LoadingState label="Loading history..." />}
           {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
 
           {/* COMPLETED PROGRAMS (ALUMNI) */}
           {completedPrograms.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 inline-flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-zinc-400" />
@@ -341,37 +323,39 @@ export function NotificationsHistoryTab({
                 </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="divide-y divide-zinc-200 dark:divide-white/10 border-y border-zinc-200 dark:border-white/10">
                 {completedPrograms.map((cp) => (
                   <article
                     key={cp.programId}
-                    className="rounded-3xl border border-zinc-200 dark:border-white/10 p-5 bg-white dark:bg-[#141414] space-y-3 transition-all hover:border-zinc-400 dark:hover:border-white/25"
+                    className="py-4 px-1 space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                          Completed
-                        </span>
-                        <h4 className="text-base font-geometric font-medium truncate text-zinc-950 dark:text-white">
+                      <div className="min-w-0 space-y-0.5">
+                        <h4 className="text-xs sm:text-sm font-geometric font-medium truncate text-zinc-950 dark:text-white">
                           {cp.title}
                         </h4>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                           Coach {cp.coachName}
                         </p>
                       </div>
-                      {cp.endDate && (
-                        <span className="text-[10px] font-mono text-zinc-400 shrink-0 pt-1">
-                          {new Date(cp.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                          Completed
                         </span>
-                      )}
+                        {cp.endDate && (
+                          <span className="text-[10px] font-mono text-zinc-400">
+                            {new Date(cp.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {onOpenProgramDetail && (
-                      <div className="pt-3 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                      <div className="flex justify-end pt-1">
                         <button
                           type="button"
                           onClick={() => onOpenProgramDetail(cp.programId)}
-                          className="text-[11px] font-geometric font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white uppercase tracking-wider inline-flex items-center gap-1.5 transition"
+                          className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
                         >
                           <span>View Details</span>
                           <ExternalLink className="w-3 h-3" />
@@ -386,7 +370,7 @@ export function NotificationsHistoryTab({
 
           {/* PAYMENT & INVOICE LEDGER */}
           {history.status === "ready" && history.data.payments.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 inline-flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
@@ -397,11 +381,11 @@ export function NotificationsHistoryTab({
                 </span>
               </div>
 
-              <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+              <div className="divide-y divide-zinc-200 dark:divide-white/10 border-y border-zinc-200 dark:border-white/10">
                 {history.data.payments.map((p) => (
                   <article
                     key={p.enrollmentId}
-                    className="py-4 px-2 space-y-2.5"
+                    className="py-4 px-1 space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -414,7 +398,7 @@ export function NotificationsHistoryTab({
                         </p>
                       </div>
                       <span
-                        className={`text-[9px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full shrink-0 border ${
+                        className={`text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 border ${
                           p.status === "ACTIVE"
                             ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white"
                             : "bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10"
@@ -424,11 +408,11 @@ export function NotificationsHistoryTab({
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                    <div className="flex items-center justify-between text-xs pt-0.5">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                         Total Billed
                       </span>
-                      <span className="font-geometric font-medium text-zinc-950 dark:text-white">
+                      <span className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
                         {p.isFree ? "Free Program" : formatIdr(p.amount)}
                       </span>
                     </div>

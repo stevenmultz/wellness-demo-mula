@@ -491,99 +491,31 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="space-y-10 pt-2">
+        <div className="space-y-6 max-w-md mx-auto pt-2">
           <PullToRefreshBanner
             pullDistance={pullDistance}
             refreshing={refreshing && state.status === "ready"}
           />
 
-          <section className="space-y-4 max-w-2xl">
-            <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
+          <section className="space-y-4 pt-4">
+            <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400 block">
               Explore
             </span>
-            <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
+            <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
               Explore All Programs
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              Browse curated movement, whole-food nutrition, and circadian recovery cohorts designed by certified longevity practitioners—available online, onsite, or hybrid.
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Browse curated movement, whole-food nutrition, and circadian recovery cohorts designed by certified longevity practitioners.
             </p>
-            <div className="pt-2 flex flex-wrap items-center gap-3">
+            <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setMode("catalog")}
-                className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium tracking-wide inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
+                className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium tracking-wide inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
               >
                 <span>Browse All Programs</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-3 gap-6 py-6 border-y border-zinc-200/80 dark:border-white/10 max-w-2xl">
-            <div className="space-y-1">
-              <span className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white block">
-                {state.status === "ready" ? catalog.length : "—"}
-              </span>
-              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                Programs
-              </span>
-            </div>
-            <div className="space-y-1">
-              <span className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white block">
-                {availableCoaches.length}
-              </span>
-              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                Coaches
-              </span>
-            </div>
-            <div className="space-y-1">
-              <span className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white block">
-                {supported.format.length || 3}
-              </span>
-              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                Formats
-              </span>
-            </div>
-          </section>
-
-          <section className="space-y-4 max-w-2xl">
-            <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
-              Browse by Format
-            </span>
-            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-              {FORMAT_OPTIONS.map((fmt) => {
-                const count = catalog.filter((p) => p.locationType === fmt.id).length;
-                return (
-                  <button
-                    key={fmt.id}
-                    type="button"
-                    onClick={() => {
-                      setApplied({ ...EMPTY, format: [fmt.id] });
-                      setDraft({ ...EMPTY, format: [fmt.id] });
-                      setSelectedCoach(null);
-                      setMode("catalog");
-                    }}
-                    className="w-full py-4 flex items-center justify-between gap-4 text-left group transition hover:opacity-80"
-                  >
-                    <div className="space-y-0.5">
-                      <span className="text-sm sm:text-base font-geometric font-medium text-zinc-950 dark:text-white block">
-                        {fmt.label} Cohorts
-                      </span>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {fmt.id === "ONLINE"
-                          ? "Guided daily sessions from anywhere"
-                          : fmt.id === "ONSITE"
-                            ? "In-person studio clinics & coaching"
-                            : "Combined digital tracking and onsite sessions"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
-                      {state.status === "ready" && <span>{count}</span>}
-                      <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white transition" />
-                    </div>
-                  </button>
-                );
-              })}
             </div>
           </section>
         </div>

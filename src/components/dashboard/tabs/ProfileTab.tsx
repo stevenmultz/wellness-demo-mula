@@ -387,16 +387,7 @@ export function ProfileTab({
       </FloatingHeader>
 
       {!view && (
-        <div className="space-y-8 max-w-2xl mx-auto pt-2">
-          <div className="space-y-1.5 px-1">
-            <span className="block text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400">
-              Account & Preferences
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              Profile
-            </h2>
-          </div>
-
+        <div className="space-y-6 max-w-2xl mx-auto pt-2">
           {/* Top Profile Image Banner */}
           <section className="overflow-hidden rounded-3xl bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
             <div className="relative aspect-[16/8] sm:aspect-[21/9] min-h-[180px] sm:min-h-[210px] w-full flex items-end">

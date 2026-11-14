@@ -10,7 +10,6 @@ import {
   Calendar,
   Check,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -91,7 +90,7 @@ export function MyPlanHeader({
   mode = "detail",
   plans,
   selectedProgramId,
-  onSelect,
+  onSelect: _onSelect,
   onBackToIndex,
   onExplore,
 }: {
@@ -104,8 +103,8 @@ export function MyPlanHeader({
   onBackToIndex?: () => void;
   onExplore: () => void;
 }) {
+  void _onSelect;
   const { theme, toggleTheme } = useTheme();
-  const [open, setOpen] = useState(false);
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
 
   return (
@@ -153,76 +152,21 @@ export function MyPlanHeader({
             <span>Explore Plan</span>
           </button>
         ) : (
-          <>
-            <button
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-              className={`max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition active:scale-95 ${
-                overlay
-                  ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
-                  : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
-              }`}
-            >
-              <span className="truncate font-semibold uppercase tracking-wide">{current.title}</span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 shrink-0 transition-transform ${
-                  overlay ? "text-white/80" : "text-zinc-500"
-                } ${open ? "rotate-180" : ""}`}
-              />
-            </button>
-            {open && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-                <ul
-                  role="listbox"
-                  className="absolute right-0 top-full mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl bg-white dark:bg-[#0c0c10] border border-zinc-200 dark:border-white/15 p-2 shadow-2xl z-50"
-                >
-                  {onBackToIndex && (
-                    <li className="pb-1.5 mb-1.5 border-b border-zinc-100 dark:border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpen(false);
-                          onBackToIndex();
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 flex items-center gap-2 transition"
-                      >
-                        <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-                        <span>All Active Plans</span>
-                      </button>
-                    </li>
-                  )}
-                  <li className="px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-semibold">
-                    My Plans ({plans.length})
-                  </li>
-                  {plans.map((p) => {
-                    const selected = p.programId === current.programId;
-                    return (
-                      <li key={p.programId} role="option" aria-selected={selected}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onSelect(p.programId);
-                            setOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition ${
-                            selected
-                              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold"
-                              : "hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-800 dark:text-zinc-200"
-                          }`}
-                        >
-                          <span className="truncate uppercase tracking-tight">{p.title}</span>
-                          {selected && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </>
+          <button
+            type="button"
+            onClick={() => onBackToIndex?.()}
+            title="Back to My Plan list"
+            className={`max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition active:scale-95 ${
+              overlay
+                ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
+                : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
+            }`}
+          >
+            <ArrowLeft
+              className={`w-3.5 h-3.5 shrink-0 ${overlay ? "text-white/80" : "text-zinc-500"}`}
+            />
+            <span className="truncate font-semibold uppercase tracking-wide">{current.title}</span>
+          </button>
         )}
       </div>
     </FloatingHeader>
@@ -284,33 +228,33 @@ export function MyPlanIndex({
   };
 
   return (
-    <div className="space-y-8 sm:space-y-10 pt-2">
-      {/* Greeting Header */}
-      <section className="space-y-3 max-w-2xl">
-        <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
+    <div className="space-y-6 max-w-md mx-auto pt-1">
+      {/* Compact Greeting Header */}
+      <section className="space-y-1.5 px-0.5">
+        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 block">
           My Plan
         </span>
-        <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
+        <h1 className="text-lg sm:text-xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-snug">
           Hello, {firstName}
         </h1>
-        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
           {plans.length > 0
-            ? `You have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"} in progress. Swipe or select a cohort below to continue your daily protocol.`
-            : "You have no active plans right now. Explore upcoming cohorts to begin your daily routine."}
+            ? `You have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"} in progress. Select a plan below to continue.`
+            : "You have no active plans right now. Explore available programs to start a cohort."}
         </p>
       </section>
 
       {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
       {plans.length > 0 ? (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3 px-0.5">
+            <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400">
               Active Cohorts
             </span>
 
             {plans.length > 1 ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400 mr-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono tabular-nums text-zinc-400 mr-1">
                   {String(safeSlide + 1).padStart(2, "0")} / {String(plans.length).padStart(2, "0")}
                 </span>
                 <button
@@ -318,22 +262,22 @@ export function MyPlanIndex({
                   onClick={() => scrollToSlide(safeSlide - 1)}
                   disabled={safeSlide === 0}
                   aria-label="Previous plan"
-                  className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-200 disabled:opacity-35 transition hover:border-zinc-400 dark:hover:border-white/30 active:scale-95"
+                  className="w-7 h-7 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-200 disabled:opacity-35 transition hover:border-zinc-400 dark:hover:border-white/30 active:scale-95"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => scrollToSlide(safeSlide + 1)}
                   disabled={safeSlide >= plans.length - 1}
                   aria-label="Next plan"
-                  className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-200 disabled:opacity-35 transition hover:border-zinc-400 dark:hover:border-white/30 active:scale-95"
+                  className="w-7 h-7 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-200 disabled:opacity-35 transition hover:border-zinc-400 dark:hover:border-white/30 active:scale-95"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+              <span className="text-[10px] font-mono tabular-nums text-zinc-400">
                 01 / 01
               </span>
             )}
@@ -342,7 +286,7 @@ export function MyPlanIndex({
           <div
             ref={trackRef}
             onScroll={handleTrackScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-1 px-1"
+            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-0.5 px-0.5"
             style={{ scrollbarWidth: "none" }}
           >
             {plans.map((p) => {
@@ -363,49 +307,49 @@ export function MyPlanIndex({
                   <button
                     type="button"
                     onClick={() => onSelectPlan(p.programId)}
-                    className="group w-full text-left rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs hover:border-zinc-300 dark:hover:border-white/25 transition active:scale-[0.995] flex flex-col"
+                    className="group w-full text-left rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden hover:border-zinc-300 dark:hover:border-white/25 transition active:scale-[0.995] flex flex-col"
                   >
-                    <div className="relative h-48 sm:h-60 w-full overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+                    <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
                       {p.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={p.coverImage}
                           alt={p.title}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-sm font-mono tracking-[0.25em] text-zinc-400">
+                        <div className="w-full h-full flex items-center justify-center text-xs font-mono tracking-[0.25em] text-zinc-400">
                           + BMS
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-                      <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-white/90">
-                        <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                      <div className="absolute bottom-3 left-3.5 right-3.5 flex items-center justify-between gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-white/95">
+                        <span className="px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20">
                           {startsIn
                             ? startsIn.headline
                             : p.currentDayNumber > 0
                               ? `Day ${p.currentDayNumber} of ${total || p.currentDayNumber}`
                               : `${total} Days`}
                         </span>
-                        <span className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20">
+                        <span className="px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20">
                           {locationLabel}
                         </span>
                       </div>
                     </div>
 
-                    <div className="p-5 sm:p-6 space-y-5 flex-1 flex flex-col justify-between">
-                      <div className="space-y-1.5">
-                        <h2 className="text-xl sm:text-2xl font-geometric font-medium text-zinc-950 dark:text-white leading-snug">
+                    <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                      <div className="space-y-1">
+                        <h2 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white leading-snug line-clamp-1">
                           {p.title}
                         </h2>
-                        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                           Coach {p.coachName || "BMS Faculty"}
                         </p>
                       </div>
 
                       {!p.isUpcoming && total > 0 && (
                         <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
                             <span>Progress</span>
                             <span className="tabular-nums">{p.completedDays} / {total} days</span>
                           </div>
@@ -418,9 +362,9 @@ export function MyPlanIndex({
                         </div>
                       )}
 
-                      <div className="pt-3 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-xs font-medium text-zinc-950 dark:text-white">
+                      <div className="pt-2.5 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-[11px] font-geometric font-medium text-zinc-800 dark:text-zinc-200">
                         <span>Open Plan</span>
-                        <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:translate-x-0.5 transition" />
+                        <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:translate-x-0.5 transition" />
                       </div>
                     </div>
                   </button>
@@ -430,16 +374,16 @@ export function MyPlanIndex({
           </div>
 
           {plans.length > 1 && (
-            <div className="flex items-center justify-center gap-1.5 pt-1">
+            <div className="flex items-center justify-center gap-1.5 pt-0.5">
               {plans.map((p, idx) => (
                 <button
                   key={p.programId}
                   type="button"
                   onClick={() => scrollToSlide(idx)}
                   aria-label={`Show plan ${idx + 1}`}
-                  className={`h-1.5 rounded-full transition-all ${
+                  className={`h-1 rounded-full transition-all ${
                     idx === safeSlide
-                      ? "w-6 bg-zinc-950 dark:bg-white"
+                      ? "w-5 bg-zinc-950 dark:bg-white"
                       : "w-1.5 bg-zinc-300 dark:bg-white/20 hover:bg-zinc-400"
                   }`}
                 />
@@ -456,7 +400,7 @@ export function MyPlanIndex({
               <button
                 type="button"
                 onClick={onExplore}
-                className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
+                className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-medium uppercase tracking-wider inline-flex items-center gap-1.5"
               >
                 <Compass className="w-3.5 h-3.5" /> Explore Plan
               </button>
@@ -464,7 +408,7 @@ export function MyPlanIndex({
                 <button
                   type="button"
                   onClick={onViewHistory}
-                  className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
+                  className="px-4 py-2 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-[11px] font-medium uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
                 >
                   View History
                 </button>
@@ -942,7 +886,7 @@ function formatSleepHours(mins: number): string {
 
 function TwentyBarMeter({ percent }: { percent: number }) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
-  const filledBars = Math.round((safePercent / 100) * 20);
+  const filledBars = Math.round((safePercent / 100) * 50);
   return (
     <div
       className="flex items-center justify-between py-0.5"
@@ -952,10 +896,10 @@ function TwentyBarMeter({ percent }: { percent: number }) {
       aria-valuemax={100}
       aria-label={`${safePercent}%`}
     >
-      {Array.from({ length: 20 }, (_, i) => i + 1).map((bar) => (
+      {Array.from({ length: 50 }, (_, i) => i + 1).map((bar) => (
         <div
           key={bar}
-          className={`w-[2px] sm:w-[2.5px] h-4 sm:h-5 rounded-full transition-all ${
+          className={`w-[1.5px] h-4 sm:h-5 rounded-full transition-all ${
             bar <= filledBars
               ? "bg-zinc-950 dark:bg-white"
               : "bg-zinc-200 dark:bg-white/15"
