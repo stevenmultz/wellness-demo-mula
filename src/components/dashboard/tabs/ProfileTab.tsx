@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   ArrowRight,
   Bell,
   Camera,
@@ -29,7 +28,7 @@ import {
 import { wellnessChangePassword, wellnessUpdateProfile } from "@/wellness/actions/account";
 import { GENDER_OPTIONS, calculateAgeFromDob } from "@/wellness/validators/auth";
 import { usePushNotifications } from "./usePushNotifications";
-import { BrandWordmark, FloatingHeader, formatDateWib } from "./shared";
+import { BrandWordmark, FloatingHeader, HeaderBackButton, formatDateWib } from "./shared";
 
 export interface ProfileUser {
   id: string;
@@ -364,31 +363,25 @@ export function ProfileTab({
     <>
       <FloatingHeader visible={headerVisible} transparent={!view && mode === "intro"}>
         {view ? (
-          <div className="flex items-center justify-between w-full min-w-0">
-            <button
-              type="button"
+          <div className="flex items-center gap-2.5 w-full min-w-0">
+            <HeaderBackButton
               onClick={() => {
                 setView(null);
                 setMsg(null);
               }}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white active:scale-95 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>{TITLES[view]}</span>
-            </button>
+            />
+            <span className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white truncate">
+              {TITLES[view]}
+            </span>
           </div>
         ) : mode === "intro" ? (
           <BrandWordmark light />
         ) : (
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
+            <HeaderBackButton
               onClick={() => setMode("intro")}
-              aria-label="Back to Profile overview"
-              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+              ariaLabel="Back to Profile overview"
+            />
             <BrandWordmark />
           </div>
         )}

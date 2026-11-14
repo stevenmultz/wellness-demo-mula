@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   Calendar,
   ChevronDown,
@@ -23,6 +22,7 @@ import {
   EmptyState,
   ErrorState,
   FloatingHeader,
+  HeaderBackButton,
   LoadingState,
   PullToRefreshBanner,
   formatDateWib,
@@ -260,6 +260,7 @@ export function ExplorePlanTab({
   };
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [coachSearch, setCoachSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -421,29 +422,34 @@ export function ExplorePlanTab({
         {mode === "intro" ? (
           <BrandWordmark light />
         ) : mode === "coaches" ? (
-          <div className="w-full flex items-center gap-3">
-            <button
-              type="button"
+          <div className="w-full flex items-center gap-2">
+            <HeaderBackButton
               onClick={() => setMode("intro")}
-              aria-label="Back to Explore overview"
-              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white">
-              All Coaches
-            </span>
+              ariaLabel="Back to Explore overview"
+            />
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
+              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <input
+                type="search"
+                inputMode="search"
+                value={coachSearch}
+                onChange={(e) => {
+                  setCoachSearch(e.target.value);
+                  setCoachPage(1);
+                }}
+                placeholder="Search coach name..."
+                aria-label="Search coach name..."
+                maxLength={100}
+                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
+              />
+            </div>
           </div>
         ) : (
           <div className="relative w-full flex items-center gap-2">
-            <button
-              type="button"
+            <HeaderBackButton
               onClick={() => setMode("intro")}
-              aria-label="Back to Explore overview"
-              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+              ariaLabel="Back to Explore overview"
+            />
             <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
               <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
               <input
@@ -535,6 +541,7 @@ export function ExplorePlanTab({
               <button
                 type="button"
                 onClick={() => {
+                  setCoachSearch("");
                   setCoachPage(1);
                   setMode("coaches");
                 }}
@@ -548,10 +555,14 @@ export function ExplorePlanTab({
         </div>
       ) : mode === "coaches" ? (
         (() => {
+          const query = coachSearch.trim().toLowerCase();
+          const filteredCoaches = query
+            ? availableCoaches.filter((c) => c.name.toLowerCase().includes(query))
+            : availableCoaches;
           const COACH_PAGE_SIZE = 8;
-          const coachPages = Math.max(1, Math.ceil(availableCoaches.length / COACH_PAGE_SIZE));
+          const coachPages = Math.max(1, Math.ceil(filteredCoaches.length / COACH_PAGE_SIZE));
           const safeCoachPage = Math.min(coachPage, coachPages);
-          const paginatedCoaches = availableCoaches.slice(
+          const paginatedCoaches = filteredCoaches.slice(
             (safeCoachPage - 1) * COACH_PAGE_SIZE,
             safeCoachPage * COACH_PAGE_SIZE
           );
@@ -569,76 +580,97 @@ export function ExplorePlanTab({
                 </h1>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {paginatedCoaches.map(({ name, avatar }) => {
-                  const count = catalog.filter(
-                    (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
-                  ).length;
-                  return (
+              {filteredCoaches.length === 0 ? (
+                <EmptyState
+                  title="No coaches found"
+                  description="No coaches match that name right now."
+                  action={
                     <button
-                      key={name}
                       type="button"
                       onClick={() => {
-                        setSelectedCoach(name);
-                        setPage(1);
-                        setMode("catalog");
+                        setCoachSearch("");
+                        setCoachPage(1);
                       }}
-                      className="group relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-zinc-900 text-left transition active:scale-[0.99]"
+                      className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={avatar}
-                        alt={name}
-                        className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
-                      <div className="absolute bottom-3 left-3 right-3 space-y-0.5">
-                        <h2 className="text-xs sm:text-sm font-geometric font-medium text-white leading-snug line-clamp-1">
-                          {name}
-                        </h2>
-                        <span className="text-[10px] font-mono text-white/75 block">
-                          {count} {count === 1 ? "Program" : "Programs"}
-                        </span>
-                      </div>
+                      Clear Search
                     </button>
-                  );
-                })}
-              </div>
+                  }
+                />
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {paginatedCoaches.map(({ name, avatar }) => {
+                      const count = catalog.filter(
+                        (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
+                      ).length;
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCoach(name);
+                            setPage(1);
+                            setMode("catalog");
+                          }}
+                          className="group relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-zinc-900 text-left transition active:scale-[0.99]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={avatar}
+                            alt={name}
+                            className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+                          <div className="absolute bottom-3 left-3 right-3 space-y-0.5">
+                            <h2 className="text-xs sm:text-sm font-geometric font-medium text-white leading-snug line-clamp-1">
+                              {name}
+                            </h2>
+                            <span className="text-[10px] font-mono text-white/75 block">
+                              {count} {count === 1 ? "Program" : "Programs"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              {coachPages > 1 && (
-                <nav aria-label="Coach pages" className="flex items-center justify-center gap-1.5 pt-2">
-                  <button
-                    type="button"
-                    disabled={safeCoachPage === 1}
-                    onClick={() => setCoachPage(safeCoachPage - 1)}
-                    className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                  </button>
-                  {Array.from({ length: coachPages }, (_, i) => i + 1).map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      aria-current={n === safeCoachPage ? "page" : undefined}
-                      onClick={() => setCoachPage(n)}
-                      className={`w-9 h-9 rounded-full text-xs font-semibold ${
-                        n === safeCoachPage
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                          : "border border-zinc-200 dark:border-white/15"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    disabled={safeCoachPage === coachPages}
-                    onClick={() => setCoachPage(safeCoachPage + 1)}
-                    className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
-                  >
-                    Next <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </nav>
+                  {coachPages > 1 && (
+                    <nav aria-label="Coach pages" className="flex items-center justify-center gap-1.5 pt-2">
+                      <button
+                        type="button"
+                        disabled={safeCoachPage === 1}
+                        onClick={() => setCoachPage(safeCoachPage - 1)}
+                        className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                      </button>
+                      {Array.from({ length: coachPages }, (_, i) => i + 1).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          aria-current={n === safeCoachPage ? "page" : undefined}
+                          onClick={() => setCoachPage(n)}
+                          className={`w-9 h-9 rounded-full text-xs font-semibold ${
+                            n === safeCoachPage
+                              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                              : "border border-zinc-200 dark:border-white/15"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={safeCoachPage === coachPages}
+                        onClick={() => setCoachPage(safeCoachPage + 1)}
+                        className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
+                      >
+                        Next <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </nav>
+                  )}
+                </>
               )}
             </div>
           );
@@ -772,6 +804,21 @@ export function ExplorePlanTab({
               </button>
             );
           })}
+
+          {availableCoaches.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setCoachSearch("");
+                setCoachPage(1);
+                setMode("coaches");
+              }}
+              className="shrink-0 h-8 px-3.5 rounded-full bg-zinc-200/80 hover:bg-zinc-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 transition active:scale-95"
+            >
+              <span>And more</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         {chips.length > 0 && (

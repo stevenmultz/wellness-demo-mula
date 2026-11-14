@@ -4,7 +4,6 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
-  ArrowLeft,
   BarChart3,
   BookOpen,
   Calendar,
@@ -32,7 +31,7 @@ import {
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
-import { BrandWordmark, EmptyState, FloatingHeader, InfoPopupModal, safeHttpUrl } from "./shared";
+import { BrandWordmark, EmptyState, FloatingHeader, HeaderBackButton, InfoPopupModal, safeHttpUrl } from "./shared";
 
 export interface PlanDay {
   id: string;
@@ -109,19 +108,11 @@ export function MyPlanHeader({
   return (
     <FloatingHeader visible={visible} transparent={overlay}>
       {showDetailBack ? (
-        <button
-          type="button"
+        <HeaderBackButton
           onClick={() => onBackToIndex?.()}
           title="Back to All My Plans"
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition active:scale-95 ${
-            overlay
-              ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
-              : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
-          }`}
-        >
-          <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-          <span>Back</span>
-        </button>
+          overlay={overlay}
+        />
       ) : (
         <BrandWordmark light={overlay} />
       )}
@@ -205,13 +196,14 @@ export function MyPlanIndex({
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
   const [planFilter, setPlanFilter] = useState<"all" | "ongoing" | "upcoming">("all");
-  const [allPlansOpen, setAllPlansOpen] = useState(false);
 
+  const ongoingPlans = plans.filter((p) => !p.isUpcoming);
+  const upcomingPlans = plans.filter((p) => p.isUpcoming);
   const visiblePlans =
     planFilter === "ongoing"
-      ? plans.filter((p) => !p.isUpcoming)
+      ? ongoingPlans
       : planFilter === "upcoming"
-      ? plans.filter((p) => p.isUpcoming)
+      ? upcomingPlans
       : plans;
 
   const safeSlide = Math.min(activeSlide, Math.max(0, visiblePlans.length - 1));
@@ -232,9 +224,8 @@ export function MyPlanIndex({
     setActiveSlide(idx);
   };
 
-  const handleFilterSelect = (next: "ongoing" | "upcoming") => {
-    setAllPlansOpen(false);
-    setPlanFilter((prev) => (prev === next ? "all" : next));
+  const handleFilterSelect = (next: "all" | "ongoing" | "upcoming") => {
+    setPlanFilter((prev) => (next !== "all" && prev === next ? "all" : next));
     setActiveSlide(0);
     if (trackRef.current) {
       trackRef.current.scrollTo({ left: 0, behavior: "smooth" });
@@ -243,10 +234,20 @@ export function MyPlanIndex({
 
   const filterHeadingLabel =
     planFilter === "ongoing"
-      ? "Ongoing Plans"
+      ? "My Ongoing Plans"
       : planFilter === "upcoming"
-      ? "Upcoming Plans"
+      ? "My Upcoming Plans"
       : "Your Enrolled Plans";
+
+  const filterOptions: Array<{
+    key: "all" | "ongoing" | "upcoming";
+    label: string;
+    count: number;
+  }> = [
+    { key: "all", label: "See All My Plans", count: plans.length },
+    { key: "ongoing", label: "My Ongoing Plans", count: ongoingPlans.length },
+    { key: "upcoming", label: "My Upcoming Plans", count: upcomingPlans.length },
+  ];
 
   return (
     <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
@@ -265,80 +266,33 @@ export function MyPlanIndex({
         </p>
 
         {plans.length > 0 && (
-          <div className="relative pt-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                aria-expanded={allPlansOpen}
-                onClick={() => {
-                  setAllPlansOpen((v) => !v);
-                  if (planFilter !== "all") {
-                    setPlanFilter("all");
-                    setActiveSlide(0);
-                    if (trackRef.current) {
-                      trackRef.current.scrollTo({ left: 0, behavior: "smooth" });
-                    }
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 inline-flex items-center gap-1 ${
-                  planFilter === "all" || allPlansOpen
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
-                }`}
-              >
-                <span>See All Plans</span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${
-                    allPlansOpen ? "rotate-180" : ""
+          <div className="flex flex-wrap items-center gap-1.5 pt-2">
+            {filterOptions.map(({ key, label, count }) => {
+              const isSelected = planFilter === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleFilterSelect(key)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 inline-flex items-center gap-1.5 ${
+                    isSelected
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                      : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
                   }`}
-                />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleFilterSelect("ongoing")}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 ${
-                  planFilter === "ongoing"
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
-                }`}
-              >
-                Ongoing Plans
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleFilterSelect("upcoming")}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95 ${
-                  planFilter === "upcoming"
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white"
-                }`}
-              >
-                Upcoming Plans
-              </button>
-            </div>
-
-            {allPlansOpen && (
-              <div className="mt-2 rounded-2xl bg-[#ececea] dark:bg-[#1f1f1f] p-1.5 shadow-lg space-y-0.5">
-                {plans.map((pl) => (
-                  <button
-                    key={pl.programId}
-                    type="button"
-                    onClick={() => {
-                      setAllPlansOpen(false);
-                      onSelectPlan(pl.programId);
-                    }}
-                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left text-xs text-zinc-900 dark:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/10 transition"
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums leading-none ${
+                      isSelected
+                        ? "bg-white/20 text-white dark:bg-zinc-950/15 dark:text-zinc-950"
+                        : "bg-black/10 text-zinc-700 dark:bg-white/15 dark:text-zinc-200"
+                    }`}
                   >
-                    <span className="font-medium truncate">{pl.title}</span>
-                    <span className="shrink-0 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                      {pl.isUpcoming ? "Upcoming" : `Day ${pl.currentDayNumber || 1}`}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </section>
@@ -758,13 +712,16 @@ export function MyPlanOverview({
     }
   };
 
+  const isUpcoming = !!program?.isUpcoming;
+  const activeWidget: 0 | 1 | 2 = isUpcoming ? 0 : widgetIndex;
+
   const handleWidgetTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
   };
 
   const handleWidgetTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    if (isUpcoming || touchStartXRef.current === null || touchStartYRef.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
     const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
     touchStartXRef.current = null;
@@ -779,7 +736,14 @@ export function MyPlanOverview({
     }
   };
 
-  const showSubtabs = !!program && !program.isUpcoming;
+  const showSubtabs = !!program;
+  const subtabs = isUpcoming
+    ? ([{ index: 0, label: "Guides", count: 0 }] as const)
+    : ([
+        { index: 0, label: "Guides", count: 0 },
+        { index: 1, label: "Tasks", count: pendingTasksCount },
+        { index: 2, label: "Metrics", count: 0 },
+      ] as const);
 
   return (
     <div>
@@ -809,7 +773,12 @@ export function MyPlanOverview({
                   {program?.title || "No active program"}
                 </h2>
                 {program && (
-                  <p className="mt-1 text-xs text-white/80 truncate">{program.coachName || "—"}</p>
+                  <p className="mt-1 text-xs text-white/80 truncate">
+                    {program.coachName || "—"}
+                    {isUpcoming
+                      ? ` · ${formatStartsIn(program.startDate).headline} (${formatStartsIn(program.startDate).dateLabel})`
+                      : ""}
+                  </p>
                 )}
               </div>
 
@@ -839,16 +808,12 @@ export function MyPlanOverview({
               <div
                 role="tablist"
                 aria-label="Plan sections"
-                className="rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid grid-cols-3 gap-1"
+                className={`rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid gap-1 ${
+                  isUpcoming ? "grid-cols-1" : "grid-cols-3"
+                }`}
               >
-                {(
-                  [
-                    { index: 0, label: "Guides", count: 0 },
-                    { index: 1, label: "Tasks", count: pendingTasksCount },
-                    { index: 2, label: "Metrics", count: 0 },
-                  ] as const
-                ).map(({ index, label, count }) => {
-                  const active = widgetIndex === index;
+                {subtabs.map(({ index, label, count }) => {
+                  const active = activeWidget === index;
                   return (
                     <button
                       key={label}
@@ -910,32 +875,6 @@ export function MyPlanOverview({
                 </div>
               }
             />
-          ) : program.isUpcoming ? (
-            (() => {
-              const startsInInfo = formatStartsIn(program.startDate);
-              return (
-                <>
-                  <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 shadow-xs">
-                    <div className="space-y-1">
-                      <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
-                        {startsInInfo.headline}
-                      </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Program begins on <span className="font-medium text-zinc-800 dark:text-zinc-200">{startsInInfo.dateLabel}</span>
-                      </p>
-                    </div>
-                  </section>
-
-                  <ProgramPreparationWidgets
-                    program={program}
-                    days={allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays}
-                    currentDayId={day?.id}
-                  />
-
-                  <ProgramReferencesWidget references={program.scientificReferences} />
-                </>
-              );
-            })()
           ) : (
             <>
               <div
@@ -943,7 +882,7 @@ export function MyPlanOverview({
                 onTouchEnd={handleWidgetTouchEnd}
                 className="transition-all duration-200"
               >
-                <div className={widgetIndex === 0 ? "block" : "hidden"}>
+                <div className={activeWidget === 0 ? "block" : "hidden"}>
                   <ProgramPreparationWidgets
                     program={program}
                     days={fullProgramDays}
@@ -952,7 +891,9 @@ export function MyPlanOverview({
                   />
                 </div>
 
-                <div className={widgetIndex === 1 ? "block" : "hidden"}>
+                {!isUpcoming && (
+                  <>
+                    <div className={activeWidget === 1 ? "block" : "hidden"}>
                   {day ? (
                     <DailyCheckIn
                       key={day.id}
@@ -984,13 +925,15 @@ export function MyPlanOverview({
                   )}
                 </div>
 
-                <div className={widgetIndex === 2 ? "block" : "hidden"}>
+                <div className={activeWidget === 2 ? "block" : "hidden"}>
                   <CohortPerformanceCard
                     days={fullProgramDays}
                     currentDayNumber={currentDayNumber}
                     onSwitchWidget={setWidgetIndex}
                   />
                 </div>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -1356,58 +1299,6 @@ function formatShortDayDate(unlockDate: string | undefined, dayNumber: number): 
   }).format(d);
 }
 
-function ProgramReferencesWidget({
-  references,
-}: {
-  references?: Array<{ title: string; url?: string }> | null;
-}) {
-  const validRefs = (references || []).filter((r) => r && r.title && r.title.trim().length > 0);
-  if (validRefs.length === 0) return null;
-
-  return (
-    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-xs">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
-          <BookOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-          <span>References</span>
-        </div>
-        <span className="text-[10px] font-mono text-zinc-400">
-          {validRefs.length} {validRefs.length === 1 ? "source" : "sources"}
-        </span>
-      </div>
-
-      <ul className="divide-y divide-zinc-100 dark:divide-white/5">
-        {validRefs.map((ref, idx) => {
-          const url = safeHttpUrl(ref.url);
-          return (
-            <li key={idx} className="py-2.5 first:pt-1 last:pb-0 flex items-center justify-between gap-3">
-              <div className="min-w-0 flex items-start gap-2">
-                <span className="text-[10px] font-mono text-zinc-400 mt-0.5 shrink-0">
-                  {idx + 1}.
-                </span>
-                <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-snug">
-                  {ref.title}
-                </p>
-              </div>
-              {url ? (
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 h-7 px-3 rounded-full border border-zinc-300 dark:border-white/15 hover:bg-zinc-100 dark:hover:bg-white/10 text-[11px] font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1 transition"
-                >
-                  <span>Open</span>
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 function ProgramReportPageView({
   programTitle,
   communityLink: _communityLink,
@@ -1493,14 +1384,7 @@ function ProgramReportPageView({
             className="sticky top-0 z-10 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
           >
             <div className="max-w-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-1.5 active:scale-95 transition"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
+              <HeaderBackButton onClick={onClose} />
               <div className="min-w-0 text-right">
                 <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
                   Program Support &amp; Options
@@ -1721,10 +1605,12 @@ function ProgramPreparationWidgets({
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const [showGuidesInfo, setShowGuidesInfo] = useState(false);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
+  const [prepOverBanner, setPrepOverBanner] = useState(true);
   const prepScrollYRef = useRef(0);
 
   const handlePrepScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const currentScrollY = e.currentTarget.scrollTop;
+    setPrepOverBanner(currentScrollY < 260);
     if (currentScrollY > prepScrollYRef.current && currentScrollY > 40) {
       setPrepHeaderVisible(false);
     } else {
@@ -1738,6 +1624,9 @@ function ProgramPreparationWidgets({
 
   useEffect(() => {
     if (!activePage) return;
+    setPrepOverBanner(true);
+    setPrepHeaderVisible(true);
+    prepScrollYRef.current = 0;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
@@ -2263,46 +2152,20 @@ function ProgramPreparationWidgets({
             onTouchEnd={(e) => e.stopPropagation()}
             className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
           >
-            {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON */}
+            {/* FLOATING HEADER: CONSISTENT BACK BUTTON */}
             <header
-              style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-              className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
+              style={{ paddingTop: "env(safe-area-inset-top)" }}
+              className={`fixed top-0 left-0 right-0 z-[90] w-full pointer-events-none transition-all duration-300 ${
                 prepHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
               }`}
             >
-              <button
-                type="button"
-                onClick={() => setActivePage(null)}
-                className="pointer-events-auto h-8 px-3.5 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-
-              <a
-                href={
-                  safeHttpUrl(program.communityLink) ||
-                  `https://wa.me/6281290002026?text=${encodeURIComponent(
-                    `Hello Concierge, I would like to inquire about ${
-                      activePage === "meal"
-                        ? "Meals"
-                        : activePage === "meetup"
-                          ? "Sessions"
-                          : activePage === "overview"
-                            ? "Program Overview"
-                            : activePage === "rules"
-                              ? "Rules & Guidelines"
-                              : "Coaches"
-                    } in program: ${program.title}`
-                  )}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pointer-events-auto py-1 text-white/95 hover:text-white text-xs font-medium tracking-wide active:scale-95 transition inline-flex items-center gap-1.5 drop-shadow-sm"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Join Community</span>
-              </a>
+              <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+                <HeaderBackButton
+                  onClick={() => setActivePage(null)}
+                  overlay={prepOverBanner}
+                  className="pointer-events-auto"
+                />
+              </div>
             </header>
 
             {/* TOP BANNER IMAGE */}

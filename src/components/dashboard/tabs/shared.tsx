@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowDown, Info, Loader2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowLeft, Info, Loader2, X } from "lucide-react";
 
 /** App timezone: Western Indonesia Time. All user-facing dates use it (SSR and browser agree). */
 export const APP_TIMEZONE = "Asia/Jakarta";
@@ -48,6 +48,40 @@ export function BrandWordmark({ light = false }: { light?: boolean }) {
       <span className="font-light text-lg leading-none">+</span>
       <span className="font-semibold text-sm tracking-[0.06em] uppercase leading-none">BMS</span>
     </div>
+  );
+}
+
+/** Unified borderless pill back button used across headers, plan detail, guides, and daily task detail. */
+export function HeaderBackButton({
+  onClick,
+  label = "Back",
+  ariaLabel,
+  title,
+  overlay = false,
+  className = "",
+}: {
+  onClick: () => void;
+  label?: string;
+  ariaLabel?: string;
+  title?: string;
+  overlay?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      title={title}
+      className={`shrink-0 h-9 px-3.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
+        overlay
+          ? "bg-black/45 hover:bg-black/60 backdrop-blur-md text-white shadow-xs"
+          : "bg-zinc-200/80 hover:bg-zinc-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-900 dark:text-white"
+      } ${className}`}
+    >
+      <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+      <span>{label}</span>
+    </button>
   );
 }
 

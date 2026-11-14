@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowRight, Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
 import {
   HistoryPayload,
   InboxNotification,
@@ -16,6 +16,7 @@ import {
   EmptyState,
   ErrorState,
   FloatingHeader,
+  HeaderBackButton,
   LoadingState,
   PullToRefreshBanner,
   formatDateTimeWib,
@@ -176,14 +177,10 @@ export function NotificationsHistoryTab({
           <BrandWordmark light />
         ) : (
           <div className="w-full flex items-center gap-2">
-            <button
-              type="button"
+            <HeaderBackButton
               onClick={() => setMode("intro")}
-              aria-label="Back to Activity overview"
-              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+              ariaLabel="Back to Activity overview"
+            />
             <div className="flex-1 flex p-1 rounded-full bg-zinc-100 dark:bg-white/10">
               <button
                 type="button"

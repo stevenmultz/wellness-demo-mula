@@ -34,7 +34,7 @@ import {
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import type { PlanDay } from "./MyPlanTab";
-import { InfoPopupModal, safeHttpUrl } from "./shared";
+import { HeaderBackButton, InfoPopupModal, safeHttpUrl } from "./shared";
 
 type SaveResult = Promise<void | boolean>;
 
@@ -158,7 +158,7 @@ const REST_FEELINGS = [
 ];
 
 const areaCls =
-  "w-full px-4 py-3.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 text-base sm:text-sm leading-relaxed text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition disabled:opacity-50 resize-none";
+  "w-full px-4 py-3.5 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-base sm:text-sm leading-relaxed text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition disabled:opacity-50 resize-none";
 const primaryBtn =
   "h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm";
 
@@ -197,7 +197,7 @@ function TimeInputField({
   return (
     <div className="space-y-4 min-w-0">
       <div
-        className="w-full h-14 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0"
+        className="w-full h-14 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0"
         role="group"
         aria-label={label}
       >
@@ -277,7 +277,7 @@ function TimeInputField({
               className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
                 value === t
                   ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                  : "bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-300 dark:hover:border-white/25"
+                  : "bg-white dark:bg-[#141414] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-300 dark:hover:border-white/25"
               }`}
             >
               {t}
@@ -1074,37 +1074,35 @@ function TaskForm({
   // READ-ONLY SINGLE-SCREEN SUMMARY WHEN VIEWING LOCKED OR PAST DAYS
   if (locked) {
     return (
-      <div className="h-full w-full overflow-y-auto overscroll-contain bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100">
-        <div
-          className="w-full max-w-md mx-auto min-h-full flex flex-col px-5 sm:px-6"
-          style={{
-            paddingTop: "max(1rem, env(safe-area-inset-top))",
-            paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
-          }}
+      <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col">
+        <header
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+          className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
         >
-          <header className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-white/10">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back</span>
-            </button>
+          <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+            <HeaderBackButton onClick={onClose} />
             <span
               className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${
                 isTaskDone
                   ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                   : isPast
-                    ? "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15"
-                    : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/15"
+                    ? "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300"
+                    : "bg-zinc-200/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300"
               }`}
             >
               {isTaskDone ? "Completed" : isPast ? "Skipped" : "Locked"}
             </span>
-          </header>
+          </div>
+        </header>
 
-          <div className="flex-1 py-6 space-y-6">
+        <div
+          className="w-full max-w-xl mx-auto flex-1 flex flex-col px-4 sm:px-6 pt-5 sm:pt-7 space-y-6"
+          style={{
+            paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))",
+          }}
+        >
+
+          <div className="space-y-6">
             <div className="space-y-1.5">
               <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
                 Day {day.dayNumber} · History Record
@@ -1115,7 +1113,7 @@ function TaskForm({
             </div>
 
             {!isTaskDone && isPast ? (
-              <div className="py-10 px-5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-center space-y-2">
+              <div className="py-10 px-5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-center space-y-2">
                 <Clock className="w-5 h-5 mx-auto text-zinc-400" />
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">Task Marked as Skipped</p>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
@@ -1258,7 +1256,7 @@ function TaskForm({
             )}
           </div>
 
-          <div className="pt-4">
+          <div className="pt-2">
             <button
               type="button"
               onClick={onClose}
@@ -1273,52 +1271,49 @@ function TaskForm({
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto overscroll-contain bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100">
+    <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col">
+      {/* CLEAN SINGLE-ACTION STICKY HEADER */}
+      <header
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
+      >
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+          <HeaderBackButton
+            onClick={handleBack}
+            ariaLabel={isFirstSubStep ? "Back to dashboard" : "Previous question"}
+          />
+
+          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold truncate max-w-[60%]">
+            {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
+          </span>
+        </div>
+      </header>
+
       <div
-        className="w-full max-w-md mx-auto min-h-full flex flex-col px-5 sm:px-6"
+        className="w-full max-w-xl mx-auto flex-1 flex flex-col px-4 sm:px-6 pt-5 sm:pt-7"
         style={{
-          paddingTop: "max(1rem, env(safe-area-inset-top))",
-          paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+          paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))",
         }}
       >
-        {/* CLEAN SINGLE-ACTION HEADER + STEP INDICATOR */}
-        <header className="space-y-3 pb-4">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              aria-label={isFirstSubStep ? "Back to dashboard" : "Previous question"}
-              className="h-9 px-3.5 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-medium text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-100 dark:hover:bg-white/10"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back</span>
-            </button>
-
-            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold truncate max-w-[60%]">
-              {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
-            </span>
-          </div>
-
-          <div
-            className="flex items-center gap-1.5 w-full"
-            role="progressbar"
-            aria-valuenow={safeSubIndex + 1}
-            aria-valuemin={1}
-            aria-valuemax={subSteps.length}
-            aria-label={`Step ${safeSubIndex + 1} of ${subSteps.length}`}
-          >
-            {subSteps.map((s, idx) => (
-              <div
-                key={s}
-                className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                  idx <= safeSubIndex
-                    ? "bg-zinc-950 dark:bg-white"
-                    : "bg-zinc-200/80 dark:bg-white/10"
-                }`}
-              />
-            ))}
-          </div>
-        </header>
+        <div
+          className="flex items-center gap-1.5 w-full"
+          role="progressbar"
+          aria-valuenow={safeSubIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={subSteps.length}
+          aria-label={`Step ${safeSubIndex + 1} of ${subSteps.length}`}
+        >
+          {subSteps.map((s, idx) => (
+            <div
+              key={s}
+              className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                idx <= safeSubIndex
+                  ? "bg-zinc-950 dark:bg-white"
+                  : "bg-zinc-200/80 dark:bg-white/10"
+              }`}
+            />
+          ))}
+        </div>
 
       {/* ONE SCREEN, ONE INPUT FORM */}
       <form
@@ -1326,7 +1321,7 @@ function TaskForm({
           e.preventDefault();
           void handlePrimaryAction();
         }}
-        className="flex-1 flex flex-col justify-between gap-8 pt-4 min-w-0"
+        className="space-y-7 pt-5 min-w-0"
       >
         <div className="space-y-6 min-w-0">
           {/* SLEEP 1: WAKE TIME */}
@@ -1432,7 +1427,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
@@ -1567,7 +1562,7 @@ function TaskForm({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => void props.onOpenVideo(day.id)}
-                        className="w-full h-12 px-4 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-semibold text-zinc-950 dark:text-white flex items-center justify-center gap-2 transition hover:border-zinc-300 dark:hover:border-white/25"
+                        className="w-full h-12 px-4 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-semibold text-zinc-950 dark:text-white flex items-center justify-center gap-2 transition hover:border-zinc-300 dark:hover:border-white/25"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
                         <span>Open Video Guide</span>
@@ -1644,7 +1639,7 @@ function TaskForm({
                                 updateMovementReps(name, Math.max(1, currentReps - 1));
                               }}
                               aria-label={`Decrease reps for ${name}`}
-                              className="w-8 h-8 rounded-lg bg-zinc-50 dark:bg-white/[0.04] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
+                              className="w-8 h-8 rounded-lg bg-white dark:bg-[#141414] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
@@ -1670,7 +1665,7 @@ function TaskForm({
                                   (e.currentTarget as HTMLInputElement).blur();
                                 }
                               }}
-                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-950 dark:text-white bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-950 dark:text-white bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <button
                               type="button"
@@ -1680,7 +1675,7 @@ function TaskForm({
                                 updateMovementReps(name, Math.min(999, currentReps + 1));
                               }}
                               aria-label={`Increase reps for ${name}`}
-                              className="w-8 h-8 rounded-lg bg-zinc-50 dark:bg-white/[0.04] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
+                              className="w-8 h-8 rounded-lg bg-white dark:bg-[#141414] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -1719,7 +1714,7 @@ function TaskForm({
                     <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block mb-2">
                       {type === "before" ? "Before Session" : "After Session"}
                     </span>
-                    <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-zinc-50 dark:bg-white/[0.04] hover:border-zinc-400 dark:hover:border-white/30 transition">
+                    <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-white dark:bg-[#141414] hover:border-zinc-400 dark:hover:border-white/30 transition">
                       {photos[type] ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1783,7 +1778,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
@@ -1872,7 +1867,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
@@ -1931,7 +1926,7 @@ function TaskForm({
                         href={safeHttpUrl(day.mapLink)!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 hover:border-zinc-300 dark:hover:border-white/25 transition"
+                        className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 hover:border-zinc-300 dark:hover:border-white/25 transition"
                       >
                         <MapPin className="w-3.5 h-3.5" />
                         <span>Open Maps</span>
@@ -1951,7 +1946,7 @@ function TaskForm({
                   className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
                     connectAttendance === "attend"
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                   }`}
                 >
                   <span>I Will Attend</span>
@@ -1968,7 +1963,7 @@ function TaskForm({
                   className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
                     connectAttendance === "cannot_attend"
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                   }`}
                 >
                   <span>Cannot Attend</span>
@@ -2006,7 +2001,7 @@ function TaskForm({
                       className={`min-w-0 py-3.5 px-1 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
                         filled
                           ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/[0.08]"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                       aria-label={`${star} Stars`}
                     >
@@ -2064,7 +2059,7 @@ function TaskForm({
                       className={`py-5 px-2 rounded-2xl border text-center transition active:scale-95 ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <span className="block text-2xl font-mono font-bold tabular-nums leading-none">
@@ -2151,7 +2146,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         entry?.status === "followed"
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p
@@ -2210,7 +2205,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         entry?.status === "similar"
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p
@@ -2239,7 +2234,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         entry?.status === "off_track"
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p
@@ -2295,7 +2290,7 @@ function TaskForm({
                       className={`w-full p-4 rounded-2xl border text-left transition select-none ${
                         active
                           ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"}`}>
@@ -2360,7 +2355,7 @@ function TaskForm({
                   className={`w-full p-4 rounded-2xl border text-left transition select-none flex items-center justify-between gap-3 ${
                     preferNotAnswer
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                   }`}
                 >
                   <div className="min-w-0">
@@ -2409,7 +2404,7 @@ function TaskForm({
                       className={`min-w-0 py-3.5 px-1 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
                         active
                           ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-sm"
-                          : "border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-white/25"
+                          : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
                       <Icon className="w-6 h-6" strokeWidth={1.75} />
@@ -3033,7 +3028,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 overflow-hidden"
+            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 overflow-hidden"
           >
             <TaskForm
               key={`${selectedDay.id}-${step}`}
