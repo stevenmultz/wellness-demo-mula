@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import {
   HistoryPayload,
   InboxNotification,
@@ -43,14 +44,30 @@ export function NotificationsHistoryTab({
   completedPrograms = [],
   onOpenProgramDetail,
   initialSection = "notifications",
+  viewMode,
+  onChangeViewMode,
 }: {
   headerVisible: boolean;
   isActive?: boolean;
   completedPrograms?: CompletedProgramItem[];
   onOpenProgramDetail?: (programId: string) => void;
   initialSection?: Section;
+  viewMode?: "intro" | "feed";
+  onChangeViewMode?: (next: "intro" | "feed") => void;
 }) {
+  const { theme, toggleTheme } = useTheme();
+  const [internalMode, setInternalMode] = useState<"intro" | "feed">("intro");
+  const mode = viewMode ?? internalMode;
+  const setMode = (next: "intro" | "feed") => {
+    setInternalMode(next);
+    onChangeViewMode?.(next);
+    window.scrollTo({ top: 0 });
+  };
+
   const [section, setSection] = useState<Section>(initialSection);
+  useEffect(() => {
+    setSection(initialSection);
+  }, [initialSection]);
   const [notifs, setNotifs] = useState<Loadable<{ items: InboxNotification[]; unreadCount: number }>>({ status: "loading" });
   const [history, setHistory] = useState<Loadable<HistoryPayload>>({ status: "loading" });
   const [markingAll, setMarkingAll] = useState(false);
@@ -152,44 +169,146 @@ export function NotificationsHistoryTab({
 
   const allNotifications = notifs.status === "ready" ? notifs.data.items : [];
   const unreadCount = notifs.status === "ready" ? notifs.data.unreadCount : 0;
+  const totalHistoryCount =
+    completedPrograms.length + (history.status === "ready" ? history.data.payments.length : 0);
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto pt-2">
-      {/* FLOATING HEADER: SUBTAB SWITCHER (NOTIFICATIONS | HISTORY) */}
+    <>
       <FloatingHeader visible={headerVisible}>
-        <div className="w-full flex p-1 rounded-full bg-zinc-100 dark:bg-white/10">
-          <button
-            type="button"
-            onClick={() => setSection("notifications")}
-            className={`flex-1 py-1.5 rounded-full text-xs font-geometric font-medium transition ${
-              section === "notifications"
-                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-            }`}
-          >
-            <span>Notifications</span>
-            {unreadCount > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
-                {unreadCount}
-              </span>
-            )}
-          </button>
+        {mode === "intro" ? (
+          <>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Toggle visual theme"
+              title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
+              className="select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none text-zinc-950 dark:text-white"
+            >
+              <span className="font-light text-lg leading-none">+</span>
+              <span className="font-geometric font-semibold text-sm tracking-[0.06em] uppercase">BMS</span>
+            </button>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              Activity
+            </span>
+          </>
+        ) : (
+          <div className="w-full flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("intro")}
+              aria-label="Back to Activity overview"
+              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex-1 flex p-1 rounded-full bg-zinc-100 dark:bg-white/10">
+              <button
+                type="button"
+                onClick={() => setSection("notifications")}
+                className={`flex-1 py-1.5 rounded-full text-xs font-geometric font-medium transition ${
+                  section === "notifications"
+                    ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setSection("history")}
-            className={`flex-1 py-1.5 rounded-full text-xs font-geometric font-medium transition ${
-              section === "history"
-                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-            }`}
-          >
-            History
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={() => setSection("history")}
+                className={`flex-1 py-1.5 rounded-full text-xs font-geometric font-medium transition ${
+                  section === "history"
+                    ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                History
+              </button>
+            </div>
+          </div>
+        )}
       </FloatingHeader>
 
-      <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
+      {mode === "intro" ? (
+        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-center max-w-md mx-auto py-8 space-y-10">
+          <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
+
+          <section className="space-y-2.5 px-0.5">
+            <span className="text-[11px] font-medium text-zinc-400 block">
+              Inbox &amp; Archive
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
+              Notifications &amp; History
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
+              Stay updated with cohort alerts, session reminders, completed programs, and billing records.
+            </p>
+          </section>
+
+          <section className="space-y-6">
+            <div className="grid grid-cols-2 divide-x divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10 py-5">
+              <div className="pr-5 space-y-1">
+                <span className="text-[11px] text-zinc-400 block">Alerts</span>
+                <p className="text-2xl font-geometric font-light tabular-nums text-zinc-950 dark:text-white">
+                  {notifs.status === "ready" ? allNotifications.length : "—"}
+                </p>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                  {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
+                </span>
+              </div>
+
+              <div className="pl-5 space-y-1">
+                <span className="text-[11px] text-zinc-400 block">Records</span>
+                <p className="text-2xl font-geometric font-light tabular-nums text-zinc-950 dark:text-white">
+                  {history.status === "ready" ? totalHistoryCount : "—"}
+                </p>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                  Programs &amp; receipts
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSection("notifications");
+                  setMode("feed");
+                }}
+                className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
+              >
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white text-[10px] font-mono leading-none">
+                    {unreadCount}
+                  </span>
+                )}
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSection("history");
+                  setMode("feed");
+                }}
+                className="h-10 px-5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition hover:border-zinc-500 dark:hover:border-white/30"
+              >
+                <span>History</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="space-y-8 max-w-2xl mx-auto pt-2">
+          <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
 
       {/* ================================================================= */}
       {/* 1. SUB-TAB: NOTIFICATIONS                                         */}
@@ -420,6 +539,8 @@ export function NotificationsHistoryTab({
           )}
         </section>
       )}
-    </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -241,28 +241,35 @@ export function MyPlanIndex({
   };
 
   return (
-    <div className="space-y-6 max-w-md mx-auto pt-1">
-      {/* Compact Greeting Header */}
-      <section className="space-y-1.5 px-0.5">
-        <span className="text-[11px] font-medium text-zinc-400 block">
-          My Plan
-        </span>
-        <h1 className="text-lg sm:text-xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-snug">
+    <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-4 pb-2 gap-10">
+      {/* Compact Greeting Header with Spacious Breathing Room */}
+      <section className="space-y-2 px-0.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] font-medium text-zinc-400">
+            My Plan
+          </span>
+          {plans.length > 0 && (
+            <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-medium tabular-nums">
+              {plans.length} Active
+            </span>
+          )}
+        </div>
+        <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
           Hello, {firstName}
         </h1>
-        <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
           {plans.length > 0
-            ? `You have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"} in progress. Select a plan below to continue.`
+            ? `You currently have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"}. Select below to continue today's session.`
             : "You have no active plans right now. Explore available programs to get started."}
         </p>
       </section>
 
       {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
       {plans.length > 0 ? (
-        <section className="space-y-3">
+        <section className="space-y-3.5">
           <div className="flex items-center justify-between gap-3 px-0.5">
             <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              Active Plans
+              Active Plans ({plans.length})
             </span>
 
             <span className="text-[11px] font-mono tabular-nums text-zinc-400">
@@ -298,7 +305,7 @@ export function MyPlanIndex({
                     onClick={() => onSelectPlan(p.programId)}
                     className="group w-full text-left flex flex-col gap-3.5 transition active:scale-[0.995]"
                   >
-                    <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+                    <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
                       {p.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -713,8 +720,8 @@ export function MyPlanOverview({
         <div
           className={`relative w-full flex flex-col justify-end ${
             showSubtabs
-              ? "min-h-[340px] sm:min-h-[390px]"
-              : "min-h-[280px] sm:min-h-[320px]"
+              ? "min-h-[430px] sm:min-h-[490px]"
+              : "min-h-[370px] sm:min-h-[430px]"
           }`}
         >
           {program?.coverImage ? (
@@ -1975,7 +1982,7 @@ function ProgramPreparationWidgets({
             </header>
 
             {/* TOP BANNER IMAGE */}
-            <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-zinc-950 shrink-0">
+            <div className="relative h-[360px] sm:h-[430px] w-full overflow-hidden bg-zinc-950 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={
@@ -2176,23 +2183,17 @@ function ProgramPreparationWidgets({
                           return (
                             <div
                               key={d.id}
-                              className={`py-5 space-y-2.5 transition ${
-                                isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
-                              }`}
+                              className="py-5 space-y-2.5"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 space-y-0.5">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                                      {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
-                                    </h3>
-                                    {isToday && (
-                                      <span className="px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-semibold">
-                                        Today
-                                      </span>
-                                    )}
-                                  </div>
+                                  <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                                    {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
+                                  </h3>
                                   <span className="text-[11px] text-zinc-400 block">
+                                    {isToday && (
+                                      <span className="font-medium text-zinc-900 dark:text-white">Today · </span>
+                                    )}
                                     {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                   </span>
                                 </div>
@@ -2374,23 +2375,17 @@ function ProgramPreparationWidgets({
                               return (
                                 <div
                                   key={d.id}
-                                  className={`py-5 space-y-2.5 ${
-                                    isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
-                                  }`}
+                                  className="py-5 space-y-2.5"
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="space-y-0.5 min-w-0">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                                          {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
-                                        </h3>
-                                        {isToday && (
-                                          <span className="px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-semibold">
-                                            Today
-                                          </span>
-                                        )}
-                                      </div>
+                                      <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                                        {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
+                                      </h3>
                                       <p className="text-[11px] text-zinc-400">
+                                        {isToday && (
+                                          <span className="font-medium text-zinc-900 dark:text-white">Today · </span>
+                                        )}
                                         {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                         {hostName ? ` · Hosted by ${hostName}` : ""}
                                       </p>

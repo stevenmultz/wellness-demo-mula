@@ -207,6 +207,9 @@ export function DashboardClient({
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
   const [myPlanView, setMyPlanView] = useState<"index" | "detail">("index");
   const [exploreView, setExploreView] = useState<"intro" | "catalog">("intro");
+  const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
+  const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
+  const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
 
   useEffect(() => {
@@ -1025,17 +1028,32 @@ export function DashboardClient({
                 setMyPlanView("index");
               } else if (key === "all_plan") {
                 setExploreView("intro");
+              } else if (key === "notifications") {
+                setHistoryView("intro");
+              } else if (key === "profile") {
+                setProfileViewMode("intro");
               }
               setIsOverHero(true);
               window.scrollTo({ top: 0 });
             }}
-            className={`flex-1 h-9 px-2 rounded-xl transition flex items-center justify-center text-xs font-medium whitespace-nowrap tracking-wide ${
+            className={`flex-1 h-9 px-2 rounded-xl transition flex items-center justify-center gap-1.5 text-xs font-medium whitespace-nowrap tracking-wide ${
               activeTab === key
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                 : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
             <span>{label}</span>
+            {key === "my_plan" && activeEnrollments.length > 0 && (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none tabular-nums ${
+                  activeTab === "my_plan"
+                    ? "bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white"
+                    : "bg-zinc-200 text-zinc-800 dark:bg-white/15 dark:text-zinc-200"
+                }`}
+              >
+                {activeEnrollments.length}
+              </span>
+            )}
           </button>
         ))}
       </nav>
@@ -1096,6 +1114,8 @@ export function DashboardClient({
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               onViewHistory={() => {
+                setHistorySection("history");
+                setHistoryView("feed");
                 setActiveTab("notifications");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
@@ -1166,6 +1186,8 @@ export function DashboardClient({
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               onViewHistory={() => {
+                setHistorySection("history");
+                setHistoryView("feed");
                 setActiveTab("notifications");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
@@ -1211,6 +1233,9 @@ export function DashboardClient({
             <NotificationsHistoryTab
               headerVisible={isHeaderVisible}
               isActive={activeTab === "notifications"}
+              viewMode={historyView}
+              onChangeViewMode={setHistoryView}
+              initialSection={historySection}
               completedPrograms={completedEnrollments.map((e) => ({
                 programId: e.programId,
                 title: e.title,
@@ -1235,6 +1260,8 @@ export function DashboardClient({
               user={user}
               health={healthProfile}
               headerVisible={isHeaderVisible}
+              viewMode={profileViewMode}
+              onChangeViewMode={setProfileViewMode}
               onLogout={handleSignOut}
               onDeleteAccount={() => setDeleteModalOpen(true)}
             />

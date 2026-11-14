@@ -484,27 +484,27 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="max-w-md mx-auto pt-1 space-y-6">
+        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-10">
           <PullToRefreshBanner
             pullDistance={pullDistance}
             refreshing={refreshing && state.status === "ready"}
           />
 
-          <div className="space-y-1.5 px-0.5">
-            <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-400 block">
+          <div className="space-y-2 px-0.5">
+            <span className="text-[11px] font-medium text-zinc-400 block">
               Curated Programs
             </span>
-            <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
+            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
               Explore All Programs
             </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Browse structured movement, whole-food nutrition, and circadian recovery programs led by certified longevity practitioners.
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
+              Structured movement, whole-food nutrition, and circadian recovery programs led by certified longevity practitioners.
             </p>
           </div>
 
           <section className="space-y-5">
             {/* Editorial Photography Banner */}
-            <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+            <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/image.webp"
@@ -512,13 +512,16 @@ export function ExplorePlanTab({
                 className="w-full h-full object-cover object-center"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-              <div className="absolute bottom-3.5 left-4 right-4 flex items-center justify-between gap-2 text-[11px] font-medium text-white/95">
+              <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between gap-2 text-[11px] font-medium text-white/95">
                 <span>BMS Studio</span>
                 <span>{state.status === "ready" ? `${catalog.length} Programs` : "Guided Series"}</span>
               </div>
             </div>
 
-            <div className="px-0.5">
+            <div className="flex items-center justify-between gap-4 px-0.5">
+              <span className="text-[11px] text-zinc-400">
+                Updated cohort schedule
+              </span>
               <button
                 type="button"
                 onClick={() => setMode("catalog")}

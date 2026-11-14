@@ -1070,7 +1070,6 @@ function TaskForm({
 
   const totalSleepMins = bed && wake ? sleepMinutes(bed, wake) : 0;
   const sleepQuality = totalSleepMins > 0 ? sleepQualityLabel(totalSleepMins) : null;
-  const progressPct = Math.round(((safeSubIndex + 1) / Math.max(1, subSteps.length)) * 100);
 
   // READ-ONLY SINGLE-SCREEN SUMMARY WHEN VIEWING LOCKED OR PAST DAYS
   if (locked) {
@@ -1300,11 +1299,24 @@ function TaskForm({
             </span>
           </div>
 
-          <div className="h-1 w-full rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
-              style={{ width: `${progressPct}%` }}
-            />
+          <div
+            className="flex items-center gap-1.5 w-full"
+            role="progressbar"
+            aria-valuenow={safeSubIndex + 1}
+            aria-valuemin={1}
+            aria-valuemax={subSteps.length}
+            aria-label={`Step ${safeSubIndex + 1} of ${subSteps.length}`}
+          >
+            {subSteps.map((s, idx) => (
+              <div
+                key={s}
+                className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                  idx <= safeSubIndex
+                    ? "bg-zinc-950 dark:bg-white"
+                    : "bg-zinc-200/80 dark:bg-white/10"
+                }`}
+              />
+            ))}
           </div>
         </header>
 
@@ -2756,8 +2768,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Unified Single Day Selector (Side-by-Side Arrows + Clean Stacked Pill Strip) */}
-      <div className="px-4 py-3.5 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center gap-2.5">
+      {/* Unified Single Day Selector (Side-by-Side Arrows + Uniform Day Pill Strip) */}
+      <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center gap-2.5">
         <button
           type="button"
           disabled={safeDayIndex <= 0}
@@ -2777,7 +2789,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-          className="flex-1 overflow-x-auto no-scrollbar py-0.5 px-1 scroll-smooth"
+          className="flex-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           <div className="inline-flex items-center gap-1.5 min-w-full">
@@ -2802,7 +2814,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   }}
                   type="button"
                   onClick={() => setSelectedDayId(d.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-xl text-left transition active:scale-95 select-none flex flex-col items-center justify-center min-w-[76px] ${
+                  className={`shrink-0 w-[84px] py-1.5 px-2 rounded-xl text-center transition active:scale-95 select-none flex flex-col items-center justify-center ${
                     isActiveSelected
                       ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                       : isTodayItem
@@ -2814,7 +2826,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                             : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
                   }`}
                 >
-                  <span className="text-[11px] font-semibold leading-tight inline-flex items-center gap-1">
+                  <span className="text-[11px] font-semibold leading-tight inline-flex items-center justify-center gap-1">
                     <span>{dateStr}</span>
                     {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0" />}
                   </span>
@@ -2843,7 +2855,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       </div>
 
       {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}
-      <ol className="p-4 sm:p-5 space-y-3.5">
+      <ol className="p-5 space-y-3.5">
         {tasks.map((t, index) => {
           const isDone = selectedDone[index];
           const TaskIcon = t.Icon;
@@ -2857,7 +2869,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   openDetail(index);
                 }
               }}
-              className={`group relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between gap-3 transition ${
+              className={`group w-full relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between gap-3 transition ${
                 isDone
                   ? "border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-[#181818]"
                   : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/20"
@@ -2892,40 +2904,40 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 >
                   {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    {t.title}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                      {t.title}
+                    </p>
+                    {isSelectedPast && !isDone && (
+                      <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        · Skipped
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                     {t.description}
                   </p>
                 </div>
               </div>
 
-              <div className="relative z-10 shrink-0">
+              <div className="relative z-10 w-[86px] shrink-0 flex justify-end">
                 {isSelectedFuture ? (
-                  <span className="h-8 px-3 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
+                  <span className="w-full h-8 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center justify-center gap-1">
                     <Lock className="w-3 h-3" />
                     <span>Locked</span>
                   </span>
                 ) : isSelectedPast ? (
-                  <div className="inline-flex items-center gap-2">
-                    {!isDone && (
-                      <span className="h-6 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300 inline-flex items-center">
-                        Skipped
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDetail(index);
-                      }}
-                      className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
-                    >
-                      <span>View</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDetail(index);
+                    }}
+                    className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
+                  >
+                    <span>View</span>
+                  </button>
                 ) : isDone ? (
                   <button
                     type="button"
@@ -2933,7 +2945,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       e.stopPropagation();
                       openDetail(index);
                     }}
-                    className="h-8 px-3.5 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center gap-1"
+                    className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
                   >
                     <span>{locked ? "View" : "Edit"}</span>
                   </button>
@@ -2945,7 +2957,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       e.stopPropagation();
                       openDetail(index);
                     }}
-                    className={primaryBtn}
+                    className="w-full h-8 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center active:scale-95 transition shadow-sm"
                   >
                     Do Task
                   </button>
@@ -2957,7 +2969,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       </ol>
 
       {/* BOTTOM ACTION: CONTEXT-AWARE FOR TODAY / PAST / FUTURE */}
-      <div className="p-3.5 border-t border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
+      <div className="px-5 py-3.5 border-t border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
         {isSelectedFuture ? (
           <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-500">
             <span className="inline-flex items-center gap-2">
