@@ -135,7 +135,7 @@ export async function getPublicSanctuaryData(): Promise<{
             orderBy: { dayNumber: "asc" },
           },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
       })
       .catch(() => []),
     sessionUser
@@ -166,7 +166,7 @@ export async function getPublicSanctuaryData(): Promise<{
             },
           },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
       })
       .catch(() => []),
     prisma.masterCategory
