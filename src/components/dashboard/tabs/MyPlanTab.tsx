@@ -10,6 +10,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -307,9 +308,9 @@ export function MyPlanIndex({
                   <button
                     type="button"
                     onClick={() => onSelectPlan(p.programId)}
-                    className="group w-full text-left rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden hover:border-zinc-300 dark:hover:border-white/25 transition active:scale-[0.995] flex flex-col"
+                    className="group w-full text-left flex flex-col gap-3.5 transition active:scale-[0.995]"
                   >
-                    <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                    <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
                       {p.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -337,7 +338,7 @@ export function MyPlanIndex({
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                    <div className="space-y-3 px-0.5">
                       <div className="space-y-1">
                         <h2 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white leading-snug line-clamp-1">
                           {p.title}
@@ -353,7 +354,7 @@ export function MyPlanIndex({
                             <span>Progress</span>
                             <span className="tabular-nums">{p.completedDays} / {total} days</span>
                           </div>
-                          <div className="h-1 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                          <div className="h-[2px] rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
                             <div
                               className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
                               style={{ width: `${pct}%` }}
@@ -362,7 +363,7 @@ export function MyPlanIndex({
                         </div>
                       )}
 
-                      <div className="pt-2.5 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-[11px] font-geometric font-medium text-zinc-800 dark:text-zinc-200">
+                      <div className="pt-2.5 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between text-[11px] font-geometric font-medium text-zinc-800 dark:text-zinc-200">
                         <span>Open Plan</span>
                         <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:translate-x-0.5 transition" />
                       </div>
@@ -490,6 +491,49 @@ function splitActivities(text: string | null | undefined): string[] {
     .split(/\n|•|·/)
     .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
     .filter((line) => line.length > 1 && line.length < 160);
+}
+
+function formatMealNoteSummary(rawNotes: string | null | undefined): string | null {
+  const trimmed = rawNotes?.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        mode?: string;
+        checkedMeals?: unknown;
+        mealsCount?: number;
+        mealEntries?: Array<{ status?: string; mealItem?: string }>;
+        mealFeeling?: string;
+      };
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const parts: string[] = [];
+        if (Array.isArray(parsed.mealEntries) && parsed.mealEntries.length > 0) {
+          const followed = parsed.mealEntries.filter((e) => e?.status === "followed").length;
+          const similar = parsed.mealEntries.filter((e) => e?.status === "similar").length;
+          const total = parsed.mealEntries.length;
+          if (followed > 0) parts.push(`${followed}/${total} meals followed`);
+          else if (similar > 0) parts.push(`${similar}/${total} similar meals`);
+        } else if (Array.isArray(parsed.checkedMeals) && parsed.checkedMeals.length > 0) {
+          const valid = parsed.checkedMeals.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+          if (valid.length > 0) parts.push(`${valid.length} ${valid.length === 1 ? "meal" : "meals"} logged`);
+        } else if (parsed.mode === "similar") {
+          parts.push("Followed similar whole-food meals");
+        } else if (parsed.mode === "off_track") {
+          parts.push("Off-track nutrition day");
+        }
+        if (typeof parsed.mealFeeling === "string" && parsed.mealFeeling.trim()) {
+          parts.push(`Feeling: ${parsed.mealFeeling.trim()}`);
+        }
+        return parts.length > 0 ? parts.join(" · ") : null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  return trimmed;
 }
 
 function movementNames(day: PlanDay): string[] {
@@ -1633,6 +1677,8 @@ function ProgramPreparationWidgets({
 }) {
   void _onSwitchWidget;
   const [activePage, setActivePage] = useState<"meal" | "meetup" | "overview" | "rules" | "coach" | null>(null);
+  const [showPastMeals, setShowPastMeals] = useState(false);
+  const [showPastMeetups, setShowPastMeetups] = useState(false);
   const [showGuidesInfo, setShowGuidesInfo] = useState(false);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
   const prepScrollYRef = useRef(0);
@@ -1680,8 +1726,42 @@ function ProgramPreparationWidgets({
     [sortedDays]
   );
 
-  // All program days from Day 1 to end for the Meal Guide
+  // All program days partitioned into Part 1 (Past Days) & Part 2 (Today & Upcoming)
   const mealDays = sortedDays;
+  const pastMealDays = useMemo(
+    () =>
+      mealDays.filter((d) => {
+        const isToday = d.id === currentDayId;
+        return !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
+      }),
+    [mealDays, currentDayId, currentDay]
+  );
+  const upcomingMealDays = useMemo(
+    () =>
+      mealDays.filter((d) => {
+        const isToday = d.id === currentDayId;
+        const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
+        return !isPast;
+      }),
+    [mealDays, currentDayId, currentDay]
+  );
+  const pastMeetupDays = useMemo(
+    () =>
+      meetupDays.filter((d) => {
+        const isToday = d.id === currentDayId;
+        return !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
+      }),
+    [meetupDays, currentDayId, currentDay]
+  );
+  const upcomingMeetupDays = useMemo(
+    () =>
+      meetupDays.filter((d) => {
+        const isToday = d.id === currentDayId;
+        const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
+        return !isPast;
+      }),
+    [meetupDays, currentDayId, currentDay]
+  );
 
   // Clean equipment checklist items
   const equipmentItems = useMemo(() => {
@@ -2047,106 +2127,205 @@ function ProgramPreparationWidgets({
                     </h2>
                   </div>
 
-                  <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                    {mealDays.map((d) => {
-                      const isToday = d.id === currentDayId;
-                      const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
-                      const rawLines = splitActivities(d.mealRecommendation).map((l) =>
-                        l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
-                      );
-                      const compliance = d.userProgress?.mealCompliance;
-                      const complianceLabel =
-                        compliance === "FULL" || compliance === "YES"
-                          ? "Followed"
-                          : compliance === "PARTIAL"
-                            ? "Partial"
-                            : compliance === "SIMILAR"
-                              ? "Similar"
-                              : compliance === "OFF_TRACK"
-                                ? "Off Track"
-                                : compliance === "SKIPPED"
-                                  ? "Skipped"
-                                  : null;
-                      const mealNotes = d.userProgress?.mealNotes?.trim();
+                  {/* PART 1: PAST DAYS (COLLAPSED BY DEFAULT) */}
+                  {pastMealDays.length > 0 && (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowPastMeals((v) => !v)}
+                        aria-expanded={showPastMeals}
+                        className="w-full rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/[0.03] px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:border-zinc-300 dark:hover:border-white/20 transition"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block">
+                            Part 1 · Past Days
+                          </span>
+                          <span className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">
+                            {pastMealDays.length} Completed {pastMealDays.length === 1 ? "Day" : "Days"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                          <span>{showPastMeals ? "Collapse" : "Expand"}</span>
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform duration-200 ${showPastMeals ? "rotate-180" : ""}`}
+                          />
+                        </div>
+                      </button>
 
-                      return (
-                        <div
-                          key={d.id}
-                          className={`py-6 space-y-3 transition ${
-                            isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
-                              <span
-                                className={`font-semibold ${
-                                  isToday
-                                    ? "text-zinc-950 dark:text-white"
-                                    : isPast
-                                      ? "text-zinc-500 dark:text-zinc-400"
-                                      : "text-zinc-900 dark:text-zinc-100"
-                                }`}
-                              >
-                                Day {d.dayNumber}
-                              </span>
-                              <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                              <span className="text-zinc-500 dark:text-zinc-400">
-                                {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                              </span>
-                              {isToday && (
-                                <span className="px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
-                                  Today
-                                </span>
-                              )}
-                            </div>
+                      {showPastMeals && (
+                        <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                          {pastMealDays.map((d) => {
+                            const rawLines = splitActivities(d.mealRecommendation).map((l) =>
+                              l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
+                            );
+                            const compliance = d.userProgress?.mealCompliance;
+                            const complianceLabel =
+                              compliance === "FULL" || compliance === "YES"
+                                ? "Followed"
+                                : compliance === "PARTIAL"
+                                  ? "Partial"
+                                  : compliance === "SIMILAR"
+                                    ? "Similar"
+                                    : compliance === "OFF_TRACK"
+                                      ? "Off Track"
+                                      : compliance === "SKIPPED"
+                                        ? "Skipped"
+                                        : null;
+                            const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
 
-                            {complianceLabel && (
-                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
-                                {complianceLabel}
-                              </span>
-                            )}
-                          </div>
+                            return (
+                              <div key={d.id} className="py-5 space-y-2.5 opacity-80">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                    <span className="font-semibold">Day {d.dayNumber}</span>
+                                    <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                    <span>{formatShortDayDate(d.unlockDate, d.dayNumber)}</span>
+                                  </div>
+                                  {complianceLabel && (
+                                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
+                                      {complianceLabel}
+                                    </span>
+                                  )}
+                                </div>
 
-                          {d.title && (
-                            <h3
-                              className={`text-sm sm:text-base font-geometric font-medium leading-snug ${
-                                isPast ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-950 dark:text-white"
+                                {d.title && (
+                                  <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-600 dark:text-zinc-300">
+                                    {d.title}
+                                  </h3>
+                                )}
+
+                                {rawLines.length > 0 ? (
+                                  <ul className="space-y-2 pt-0.5">
+                                    {rawLines.map((line, idx) => (
+                                      <li
+                                        key={idx}
+                                        className="text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed"
+                                      >
+                                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mt-0.5 shrink-0">
+                                          {String(idx + 1).padStart(2, "0")}
+                                        </span>
+                                        <span>{line}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                    Balanced whole-food nutrition and circadian recovery hydration.
+                                  </p>
+                                )}
+
+                                {mealNotes && (
+                                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
+                                    {mealNotes}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PART 2: TODAY & UPCOMING DAYS */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+                      <span>{pastMealDays.length > 0 ? "Part 2 · Today & Upcoming" : "Schedule"}</span>
+                      <span>{upcomingMealDays.length} {upcomingMealDays.length === 1 ? "Day" : "Days"}</span>
+                    </div>
+
+                    {upcomingMealDays.length > 0 ? (
+                      <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                        {upcomingMealDays.map((d) => {
+                          const isToday = d.id === currentDayId;
+                          const rawLines = splitActivities(d.mealRecommendation).map((l) =>
+                            l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
+                          );
+                          const compliance = d.userProgress?.mealCompliance;
+                          const complianceLabel =
+                            compliance === "FULL" || compliance === "YES"
+                              ? "Followed"
+                              : compliance === "PARTIAL"
+                                ? "Partial"
+                                : compliance === "SIMILAR"
+                                  ? "Similar"
+                                  : compliance === "OFF_TRACK"
+                                    ? "Off Track"
+                                    : compliance === "SKIPPED"
+                                      ? "Skipped"
+                                      : null;
+                          const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
+
+                          return (
+                            <div
+                              key={d.id}
+                              className={`py-6 space-y-3 transition ${
+                                isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
                               }`}
                             >
-                              {d.title}
-                            </h3>
-                          )}
-
-                          {rawLines.length > 0 ? (
-                            <ul className="space-y-2.5 pt-0.5">
-                              {rawLines.map((line, idx) => (
-                                <li
-                                  key={idx}
-                                  className={`text-xs sm:text-sm flex items-start gap-3 leading-relaxed ${
-                                    isPast ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-300"
-                                  }`}
-                                >
-                                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
-                                    {String(idx + 1).padStart(2, "0")}
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
+                                  <span className="font-semibold text-zinc-950 dark:text-white">
+                                    Day {d.dayNumber}
                                   </span>
-                                  <span>{line}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                              Balanced whole-food nutrition and circadian recovery hydration.
-                            </p>
-                          )}
+                                  <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                  <span className="text-zinc-500 dark:text-zinc-400">
+                                    {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                                  </span>
+                                  {isToday && (
+                                    <span className="px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                                      Today
+                                    </span>
+                                  )}
+                                </div>
 
-                          {mealNotes && (
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                              Note: {mealNotes}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
+                                {complianceLabel && (
+                                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
+                                    {complianceLabel}
+                                  </span>
+                                )}
+                              </div>
+
+                              {d.title && (
+                                <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                                  {d.title}
+                                </h3>
+                              )}
+
+                              {rawLines.length > 0 ? (
+                                <ul className="space-y-2.5 pt-0.5">
+                                  {rawLines.map((line, idx) => (
+                                    <li
+                                      key={idx}
+                                      className="text-xs sm:text-sm flex items-start gap-3 leading-relaxed text-zinc-600 dark:text-zinc-300"
+                                    >
+                                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
+                                        {String(idx + 1).padStart(2, "0")}
+                                      </span>
+                                      <span>{line}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                  Balanced whole-food nutrition and circadian recovery hydration.
+                                </p>
+                              )}
+
+                              {mealNotes && (
+                                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
+                                  {mealNotes}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="py-10 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                        All scheduled meal days have passed.
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2165,114 +2344,215 @@ function ProgramPreparationWidgets({
                   </div>
 
                   {meetupDays.length > 0 ? (
-                    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                      {meetupDays.map((d) => {
-                        const meetUrl = safeHttpUrl(d.meetupLink);
-                        const mapUrl = safeHttpUrl(d.mapLink);
-                        const isToday = d.id === currentDayId;
-                        const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
-                        const hostName = d.eventHost || d.coachName || program.coachName;
-
-                        return (
-                          <div
-                            key={d.id}
-                            className={`py-6 space-y-3 ${
-                              isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
-                            }`}
+                    <div className="space-y-6">
+                      {/* PAST MEETUPS (COLLAPSED BY DEFAULT, EXPANDABLE) */}
+                      {pastMeetupDays.length > 0 && (
+                        <div className="space-y-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowPastMeetups((v) => !v)}
+                            aria-expanded={showPastMeetups}
+                            className="w-full rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/[0.03] px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:border-zinc-300 dark:hover:border-white/20 transition"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="space-y-1.5">
-                                <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
-                                  <span className="font-semibold text-zinc-950 dark:text-white">
-                                    Day {d.dayNumber}
-                                  </span>
-                                  <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                  <span className="text-zinc-500 dark:text-zinc-400">
-                                    {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                  </span>
-                                  {isToday && (
-                                    <span className="px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
-                                      Today
-                                    </span>
-                                  )}
-                                  {isPast && (
-                                    <span className="text-zinc-400 dark:text-zinc-500">
-                                      &bull; Concluded
-                                    </span>
-                                  )}
-                                </div>
-                                <h3
-                                  className={`text-base sm:text-lg font-geometric font-medium leading-snug ${
-                                    isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-950 dark:text-white"
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block">
+                                Concluded Sessions
+                              </span>
+                              <span className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">
+                                {pastMeetupDays.length} Past {pastMeetupDays.length === 1 ? "Meetup" : "Meetups"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                              <span>{showPastMeetups ? "Collapse" : "Expand"}</span>
+                              <ChevronDown
+                                className={`w-4 h-4 transition-transform duration-200 ${showPastMeetups ? "rotate-180" : ""}`}
+                              />
+                            </div>
+                          </button>
+
+                          {showPastMeetups && (
+                            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                              {pastMeetupDays.map((d) => {
+                                const meetUrl = safeHttpUrl(d.meetupLink);
+                                const mapUrl = safeHttpUrl(d.mapLink);
+                                const hostName = d.eventHost || d.coachName || program.coachName;
+
+                                return (
+                                  <div key={d.id} className="py-5 space-y-2.5 opacity-80">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                          <span className="font-semibold">Day {d.dayNumber}</span>
+                                          <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                          <span>{formatShortDayDate(d.unlockDate, d.dayNumber)}</span>
+                                          <span>&bull; Concluded</span>
+                                        </div>
+                                        <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-600 dark:text-zinc-300">
+                                          {d.eventTitle || d.title || "Live Coaching Session"}
+                                        </h3>
+                                        {hostName && (
+                                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                            Hosted by {hostName}
+                                          </p>
+                                        )}
+                                      </div>
+                                      {d.onsiteSchedule && (
+                                        <span className="text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1 shrink-0 pt-0.5">
+                                          <Clock className="w-3 h-3" />
+                                          <span>{d.onsiteSchedule}</span>
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {d.eventDetails && (
+                                      <p className="text-xs leading-relaxed whitespace-pre-line text-zinc-500 dark:text-zinc-400">
+                                        {d.eventDetails}
+                                      </p>
+                                    )}
+
+                                    {(d.onsiteVenue || program.venueAddress) && (
+                                      <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                        <span>{d.onsiteVenue || program.venueAddress}</span>
+                                      </div>
+                                    )}
+
+                                    {(meetUrl || mapUrl) && (
+                                      <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                                        {meetUrl && (
+                                          <a
+                                            href={meetUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
+                                          >
+                                            <Video className="w-3.5 h-3.5" />
+                                            <span>Session Archive</span>
+                                            <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                        )}
+                                        {mapUrl && (
+                                          <a
+                                            href={mapUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                                          >
+                                            <MapPin className="w-3.5 h-3.5" />
+                                            <span>Directions</span>
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* TODAY & UPCOMING MEETUPS */}
+                      {upcomingMeetupDays.length > 0 && (
+                        <div className="space-y-3">
+                          {pastMeetupDays.length > 0 && (
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 block">
+                              Today &amp; Upcoming
+                            </span>
+                          )}
+                          <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                            {upcomingMeetupDays.map((d) => {
+                              const meetUrl = safeHttpUrl(d.meetupLink);
+                              const mapUrl = safeHttpUrl(d.mapLink);
+                              const isToday = d.id === currentDayId;
+                              const hostName = d.eventHost || d.coachName || program.coachName;
+
+                              return (
+                                <div
+                                  key={d.id}
+                                  className={`py-6 space-y-3 ${
+                                    isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
                                   }`}
                                 >
-                                  {d.eventTitle || d.title || "Live Coaching Session"}
-                                </h3>
-                                {hostName && (
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    Hosted by {hostName}
-                                  </p>
-                                )}
-                              </div>
-                              {d.onsiteSchedule && (
-                                <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5 shrink-0 pt-0.5">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{d.onsiteSchedule}</span>
-                                </span>
-                              )}
-                            </div>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1.5">
+                                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
+                                        <span className="font-semibold text-zinc-950 dark:text-white">
+                                          Day {d.dayNumber}
+                                        </span>
+                                        <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                        <span className="text-zinc-500 dark:text-zinc-400">
+                                          {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                                        </span>
+                                        {isToday && (
+                                          <span className="px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                                            Today
+                                          </span>
+                                        )}
+                                      </div>
+                                      <h3 className="text-base sm:text-lg font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                                        {d.eventTitle || d.title || "Live Coaching Session"}
+                                      </h3>
+                                      {hostName && (
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                          Hosted by {hostName}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {d.onsiteSchedule && (
+                                      <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5 shrink-0 pt-0.5">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{d.onsiteSchedule}</span>
+                                      </span>
+                                    )}
+                                  </div>
 
-                            {d.eventDetails && (
-                              <p
-                                className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line ${
-                                  isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-600 dark:text-zinc-300"
-                                }`}
-                              >
-                                {d.eventDetails}
-                              </p>
-                            )}
+                                  {d.eventDetails && (
+                                    <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
+                                      {d.eventDetails}
+                                    </p>
+                                  )}
 
-                            {(d.onsiteVenue || program.venueAddress) && (
-                              <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                <span>{d.onsiteVenue || program.venueAddress}</span>
-                              </div>
-                            )}
+                                  {(d.onsiteVenue || program.venueAddress) && (
+                                    <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                      <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                      <span>{d.onsiteVenue || program.venueAddress}</span>
+                                    </div>
+                                  )}
 
-                            {(meetUrl || mapUrl) && (
-                              <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                                {meetUrl && (
-                                  <a
-                                    href={meetUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
-                                      isPast
-                                        ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                                    }`}
-                                  >
-                                    <Video className="w-3.5 h-3.5" />
-                                    <span>{isPast ? "Session Archive" : "Join Live Meeting"}</span>
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
-                                {mapUrl && (
-                                  <a
-                                    href={mapUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
-                                  >
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    <span>Directions</span>
-                                  </a>
-                                )}
-                              </div>
-                            )}
+                                  {(meetUrl || mapUrl) && (
+                                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                                      {meetUrl && (
+                                        <a
+                                          href={meetUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                                        >
+                                          <Video className="w-3.5 h-3.5" />
+                                          <span>Join Live Meeting</span>
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      )}
+                                      {mapUrl && (
+                                        <a
+                                          href={mapUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                                        >
+                                          <MapPin className="w-3.5 h-3.5" />
+                                          <span>Directions</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="py-12 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -2534,7 +2814,7 @@ function ProgramPreparationWidgets({
                 </div>
               )}
 
-              {/* 5. COACHES & MENTORS (KEEPING AVATAR IMAGES INTACT) */}
+              {/* 5. COACHES & MENTORS — EDITORIAL PHOTOGRAPHY */}
               {activePage === "coach" && (
                 <div className="space-y-8">
                   <div className="space-y-1">
@@ -2546,84 +2826,63 @@ function ProgramPreparationWidgets({
                     </h2>
                   </div>
 
-                  <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                    {/* Coach 1: Lead Program Coach */}
-                    <div className="py-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/coach.webp"
-                        alt={program.coachName || "Lead Coach"}
-                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
-                      />
-                      <div className="min-w-0 space-y-1.5 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-base font-geometric font-medium text-zinc-950 dark:text-white">
-                            {program.coachName || "Coach Julian Thorne"}
-                          </h3>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
-                            Lead Guide
-                          </span>
+                  <div className="space-y-10">
+                    {[
+                      {
+                        photo: "/coach.webp",
+                        alt: program.coachName || "Lead Coach",
+                        name: program.coachName || "Coach Julian Thorne",
+                        role: "Lead Guide",
+                        title: program.coachTitle || "Master Longevity & Movement Specialist",
+                        bio: "Specializes in biomechanics, mobility progression, and neuromuscular longevity conditioning. Designed the daily training curriculum for this cohort.",
+                      },
+                      {
+                        photo: "/coach2.webp",
+                        alt: "Nutrition Specialist",
+                        name: "Dr. Marcus Vance, ND",
+                        role: "Nutrition",
+                        title: "Integrative Nutritionist & Metabolic Health Researcher",
+                        bio: "Oversees dietary recommendations, circadian fasting windows, and cellular anti-inflammatory nutrition protocols for optimal recovery.",
+                      },
+                      {
+                        photo: "/coach3.webp",
+                        alt: "Sleep & Recovery Guide",
+                        name: "Elena Rostova, MSc",
+                        role: "Recovery",
+                        title: "Circadian Somatics & Autonomic Nervous System Coach",
+                        bio: "Guides breathwork sessions, parasympathetic wind-down routines, and daily sleep hygiene protocols.",
+                      },
+                    ].map((coach, idx) => (
+                      <article
+                        key={coach.name}
+                        className={`space-y-4 ${idx > 0 ? "pt-8 border-t border-zinc-200/80 dark:border-white/10" : ""}`}
+                      >
+                        <div className="relative aspect-[4/3] sm:aspect-[16/10] w-full rounded-3xl overflow-hidden bg-zinc-900">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={coach.photo}
+                            alt={coach.alt}
+                            className="w-full h-full object-cover object-top"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                          <div className="absolute bottom-5 left-5 right-5 space-y-1">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[9px] font-mono uppercase tracking-[0.18em] text-white">
+                              {coach.role}
+                            </span>
+                            <h3 className="text-lg sm:text-xl font-geometric font-medium text-white leading-snug pt-0.5">
+                              {coach.name}
+                            </h3>
+                            <p className="text-xs text-white/75 leading-snug">
+                              {coach.title}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {program.coachTitle || "Master Longevity & Movement Specialist"}
-                        </p>
-                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
-                          Specializes in biomechanics, mobility progression, and neuromuscular longevity conditioning. Designed the daily training curriculum for this cohort.
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Coach 2: Clinical Nutritionist */}
-                    <div className="py-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/coach2.webp"
-                        alt="Nutrition Specialist"
-                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
-                      />
-                      <div className="min-w-0 space-y-1.5 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-base font-geometric font-medium text-zinc-950 dark:text-white">
-                            Dr. Marcus Vance, ND
-                          </h3>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
-                            Nutrition
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          Integrative Nutritionist &amp; Metabolic Health Researcher
+                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed px-1">
+                          {coach.bio}
                         </p>
-                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
-                          Oversees dietary recommendations, circadian fasting windows, and cellular anti-inflammatory nutrition protocols for optimal recovery.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Coach 3: Nervous System & Sleep Specialist */}
-                    <div className="py-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/coach3.webp"
-                        alt="Sleep & Recovery Guide"
-                        className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-sm"
-                      />
-                      <div className="min-w-0 space-y-1.5 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-base font-geometric font-medium text-zinc-950 dark:text-white">
-                            Elena Rostova, MSc
-                          </h3>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
-                            Recovery
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          Circadian Somatics &amp; Autonomic Nervous System Coach
-                        </p>
-                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
-                          Guides breathwork sessions, parasympathetic wind-down routines, and daily sleep hygiene protocols.
-                        </p>
-                      </div>
-                    </div>
+                      </article>
+                    ))}
                   </div>
                 </div>
               )}

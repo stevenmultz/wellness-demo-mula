@@ -265,14 +265,16 @@ export function NotificationsHistoryTab({
             )}
 
             {allNotifications.length > 0 && (
-              <div className="divide-y divide-zinc-200 dark:divide-white/10 border-y border-zinc-200 dark:border-white/10">
+              <div className="space-y-3">
                 {allNotifications.map((n) => (
                   <button
                     key={n.id}
                     type="button"
                     onClick={() => markRead(n)}
-                    className={`w-full text-left py-4 px-1 transition hover:bg-zinc-50/70 dark:hover:bg-white/[0.03] ${
-                      n.isRead ? "opacity-75" : ""
+                    className={`w-full text-left rounded-2xl border p-4 space-y-2 transition ${
+                      n.isRead
+                        ? "border-zinc-200/80 dark:border-white/10 bg-white/70 dark:bg-[#141414]/60 opacity-80"
+                        : "border-zinc-300 dark:border-white/25 bg-white dark:bg-[#181818]"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -290,13 +292,24 @@ export function NotificationsHistoryTab({
                           {n.title}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-zinc-400 shrink-0 pt-0.5">
-                        {formatDateTimeWib(n.createdAt)}
+                      <span
+                        className={`text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${
+                          n.isRead
+                            ? "bg-zinc-100 dark:bg-white/5 text-zinc-400"
+                            : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                        }`}
+                      >
+                        {n.isRead ? "Read" : "New"}
                       </span>
                     </div>
-                    <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+
+                    <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                       {n.body}
                     </p>
+
+                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                      <span>{formatDateTimeWib(n.createdAt)}</span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -315,7 +328,7 @@ export function NotificationsHistoryTab({
 
           {/* COMPLETED PROGRAMS (ALUMNI) */}
           {completedPrograms.length > 0 && (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div className="px-1 flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 inline-flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-zinc-400" />
@@ -323,11 +336,11 @@ export function NotificationsHistoryTab({
                 </span>
               </div>
 
-              <div className="divide-y divide-zinc-200 dark:divide-white/10 border-y border-zinc-200 dark:border-white/10">
+              <div className="space-y-3">
                 {completedPrograms.map((cp) => (
                   <article
                     key={cp.programId}
-                    className="py-4 px-1 space-y-2"
+                    className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
@@ -338,30 +351,32 @@ export function NotificationsHistoryTab({
                           Coach {cp.coachName}
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                          Completed
-                        </span>
-                        {cp.endDate && (
-                          <span className="text-[10px] font-mono text-zinc-400">
-                            {new Date(cp.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </span>
-                        )}
-                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 shrink-0">
+                        Completed
+                      </span>
                     </div>
 
-                    {onOpenProgramDetail && (
-                      <div className="flex justify-end pt-1">
+                    <div className="pt-2.5 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+                      <span className="text-[10px] font-mono text-zinc-400">
+                        {cp.endDate
+                          ? new Date(cp.endDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "Completed"}
+                      </span>
+                      {onOpenProgramDetail && (
                         <button
                           type="button"
                           onClick={() => onOpenProgramDetail(cp.programId)}
-                          className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
+                          className="text-[10px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
                         >
                           <span>View Details</span>
                           <ExternalLink className="w-3 h-3" />
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </article>
                 ))}
               </div>
@@ -370,8 +385,8 @@ export function NotificationsHistoryTab({
 
           {/* PAYMENT & INVOICE LEDGER */}
           {history.status === "ready" && history.data.payments.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="px-1 flex items-center justify-between">
+            <div className="space-y-3 pt-2 border-t border-zinc-200/80 dark:border-white/10">
+              <div className="px-1 pt-2 flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 inline-flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
                   <span>Payment & Billing Ledger</span>
@@ -381,11 +396,11 @@ export function NotificationsHistoryTab({
                 </span>
               </div>
 
-              <div className="divide-y divide-zinc-200 dark:divide-white/10 border-y border-zinc-200 dark:border-white/10">
+              <div className="space-y-3">
                 {history.data.payments.map((p) => (
                   <article
                     key={p.enrollmentId}
-                    className="py-4 px-1 space-y-2"
+                    className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -408,7 +423,7 @@ export function NotificationsHistoryTab({
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs pt-0.5">
+                    <div className="pt-2.5 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-xs">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                         Total Billed
                       </span>

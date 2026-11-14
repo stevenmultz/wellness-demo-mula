@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Clock,
   MapPin,
   Search,
@@ -263,7 +262,6 @@ export function ExplorePlanTab({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
-  const [showAllCoaches, setShowAllCoaches] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
@@ -372,11 +370,6 @@ export function ExplorePlanTab({
     if (!map.has("Elena Rostova")) map.set("Elena Rostova", "/coach3.webp");
     return Array.from(map.entries()).map(([name, avatar]) => ({ name, avatar }));
   }, [catalog]);
-
-  const displayedCoaches = useMemo(() => {
-    if (showAllCoaches) return availableCoaches;
-    return availableCoaches.slice(0, 5);
-  }, [availableCoaches, showAllCoaches]);
 
   const filtered = catalog.filter((p) => {
     if (selectedCoach && p.coachName.trim().toLowerCase() !== selectedCoach.trim().toLowerCase()) {
@@ -491,31 +484,48 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="space-y-6 max-w-md mx-auto pt-2">
+        <div className="min-h-[calc(100svh-12rem)] flex flex-col justify-center max-w-md mx-auto py-4">
           <PullToRefreshBanner
             pullDistance={pullDistance}
             refreshing={refreshing && state.status === "ready"}
           />
 
-          <section className="space-y-4 pt-4">
-            <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400 block">
-              Explore
-            </span>
-            <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
-              Explore All Programs
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Browse curated movement, whole-food nutrition, and circadian recovery cohorts designed by certified longevity practitioners.
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setMode("catalog")}
-                className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium tracking-wide inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
-              >
-                <span>Browse All Programs</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+          <section className="space-y-6">
+            {/* Editorial Photography Visual */}
+            <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/image.webp"
+                alt="Curated wellness studio atmosphere"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+              <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-white/90">
+                <span>+ BMS Studio</span>
+                <span>Curated Cohorts</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400 block">
+                Explore
+              </span>
+              <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
+                Explore All Programs
+              </h1>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Browse curated movement, whole-food nutrition, and circadian recovery cohorts designed by certified longevity practitioners.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("catalog")}
+                  className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium tracking-wide inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
+                >
+                  <span>Browse All Programs</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -608,85 +618,90 @@ export function ExplorePlanTab({
           refreshing={refreshing && state.status === "ready"}
         />
 
-        {/* COACH FILTER GALLERY */}
-        <div className="pt-0.5 pb-1">
-          {selectedCoach && (
-            <div className="flex items-center justify-end px-1 pb-1.5">
+        {/* EDITORIAL PORTRAIT COACH FILTER */}
+        <div className="space-y-2.5 pt-1">
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+              Filter by Coach
+            </span>
+            {selectedCoach && (
               <button
                 type="button"
                 onClick={() => setSelectedCoach(null)}
-                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
+                className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition"
               >
-                Clear coach filter
+                Reset
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           <div
-            className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth"
+            className="flex items-start gap-3.5 overflow-x-auto no-scrollbar py-1 px-0.5 scroll-smooth"
             style={{ scrollbarWidth: "none" }}
           >
-            {/* All Coaches Pill */}
+            {/* All Coaches Portrait Tile */}
             <button
               type="button"
               onClick={() => setSelectedCoach(null)}
-              className={`shrink-0 h-10 px-3.5 rounded-full text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
-                !selectedCoach
-                  ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
-                  : "bg-white dark:bg-[#121215] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
-              }`}
+              className="shrink-0 w-16 flex flex-col items-center gap-1.5 group focus:outline-none"
             >
-              <span className="w-5 h-5 rounded-[2px] bg-zinc-200 dark:bg-white/15 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200">
+              <div
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-[10px] font-mono uppercase tracking-[0.16em] transition ${
+                  !selectedCoach
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e]"
+                    : "bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-zinc-600 dark:text-zinc-300 group-hover:border-zinc-400 dark:group-hover:border-white/30"
+                }`}
+              >
+                All
+              </div>
+              <span
+                className={`text-[11px] font-geometric text-center line-clamp-1 w-full transition ${
+                  !selectedCoach
+                    ? "font-medium text-zinc-950 dark:text-white"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
                 All
               </span>
-              <span>All Coaches</span>
             </button>
 
-            {displayedCoaches.map(({ name, avatar }) => {
+            {availableCoaches.map(({ name, avatar }) => {
               const isSelected = selectedCoach?.toLowerCase() === name.toLowerCase();
               return (
                 <button
                   key={name}
                   type="button"
                   onClick={() => setSelectedCoach(isSelected ? null : name)}
-                  className={`shrink-0 h-10 pl-1.5 pr-4 rounded-full text-xs font-semibold inline-flex items-center gap-2 transition active:scale-95 border ${
-                    isSelected
-                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white shadow-xs"
-                      : "bg-white dark:bg-[#121215] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
-                  }`}
+                  className="shrink-0 w-16 flex flex-col items-center gap-1.5 group focus:outline-none"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={avatar}
-                    alt={name}
-                    className="w-7 h-7 rounded-[2px] object-cover border border-white/20 shadow-2xs"
-                  />
-                  <span className="truncate">{name}</span>
+                  <div
+                    className={`w-14 h-14 rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900 transition ${
+                      isSelected
+                        ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e]"
+                        : selectedCoach
+                          ? "opacity-55 group-hover:opacity-90 border border-zinc-200 dark:border-white/10"
+                          : "border border-zinc-200 dark:border-white/15 group-hover:border-zinc-400 dark:group-hover:border-white/30"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatar}
+                      alt={name}
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                  <span
+                    className={`text-[11px] font-geometric text-center line-clamp-1 w-full transition ${
+                      isSelected
+                        ? "font-medium text-zinc-950 dark:text-white"
+                        : "text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
+                    }`}
+                  >
+                    {name}
+                  </span>
                 </button>
               );
             })}
-
-            {availableCoaches.length > 5 && (
-              <button
-                type="button"
-                onClick={() => setShowAllCoaches((prev) => !prev)}
-                className="shrink-0 h-10 px-3.5 rounded-[2px] text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10"
-              >
-                {showAllCoaches ? (
-                  <>
-                    <span>Show Less</span>
-                    <ChevronUp className="w-3.5 h-3.5 text-zinc-500" />
-                  </>
-                ) : (
-                  <>
-                    <span>Show All Coaches</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-[2px] bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
-                      {availableCoaches.length}
-                    </span>
-                  </>
-                )}
-              </button>
-            )}
           </div>
         </div>
 
