@@ -3517,7 +3517,17 @@ export function AdminClient({
     }
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const handleDeleteProgram = async (prog: AdminProgram) => {
+    if (confirmDeleteId !== prog.id) {
+      setConfirmDeleteId(prog.id);
+      setFeedback({
+        type: "error",
+        text: `Click Delete Program again to permanently delete "${prog.title}".`,
+      });
+      return;
+    }
+    setConfirmDeleteId(null);
     setDeletingProgId(prog.id);
     try {
       const res = await wellnessAdminDeleteProgram(prog.id);
@@ -3996,11 +4006,11 @@ export function AdminClient({
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row text-xs font-sans selection:bg-zinc-800 selection:text-white bg-[#F4F6F9] dark:bg-[#0B0D10]">
+    <div className="min-h-screen flex flex-col lg:flex-row text-xs font-sans selection:bg-zinc-800 selection:text-white bg-zinc-100/70 dark:bg-zinc-950">
       {/* ================================================================= */}
       {/* STICKY MINIMALIST SIDEBAR                                         */}
       {/* ================================================================= */}
-      <aside className="w-full lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen bg-white/95 dark:bg-[#11151A]/95 backdrop-blur-xl border-b lg:border-b-0 lg:border-r border-zinc-200/80 dark:border-zinc-700/80 flex flex-col justify-between p-6 z-30">
+      <aside className="w-full lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b lg:border-b-0 lg:border-r border-zinc-200/80 dark:border-white/10 flex flex-col justify-between p-6 z-30">
         <div className="space-y-7">
           {/* Brand Header */}
           <div className="space-y-2.5">
@@ -4036,8 +4046,8 @@ export function AdminClient({
               }}
               className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
                 activeMenu === "dashboard"
-                  ? "chrome-button font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#171C22] hover:text-zinc-900 dark:hover:text-white"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -4057,8 +4067,8 @@ export function AdminClient({
               }}
               className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
                 activeMenu === "programs"
-                  ? "chrome-button font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#171C22] hover:text-zinc-900 dark:hover:text-white"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -4079,8 +4089,8 @@ export function AdminClient({
               }}
               className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
                 activeMenu === "master"
-                  ? "chrome-button font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#171C22] hover:text-zinc-900 dark:hover:text-white"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -4101,8 +4111,8 @@ export function AdminClient({
               }}
               className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
                 activeMenu === "members"
-                  ? "chrome-button font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#171C22] hover:text-zinc-900 dark:hover:text-white"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -4122,8 +4132,8 @@ export function AdminClient({
               }}
               className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
                 activeMenu === "payments"
-                  ? "chrome-button font-semibold"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#171C22] hover:text-zinc-900 dark:hover:text-white"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -4135,7 +4145,7 @@ export function AdminClient({
         </div>
 
         {/* Bottom Actions */}
-        <div className="pt-6 border-t border-zinc-200/80 dark:border-zinc-700/80 space-y-1">
+        <div className="pt-6 border-t border-zinc-200/80 dark:border-white/10 space-y-1">
           <Link
             href="/"
             target="_blank"

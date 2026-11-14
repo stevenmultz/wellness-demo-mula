@@ -218,11 +218,11 @@ function TimeInputField({
               hourStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
             }`}
           >
-            <option value="" className="bg-white dark:bg-[#171C22] text-zinc-500">
+            <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
               HH
             </option>
             {HOURS_24.map((h) => (
-              <option key={h} value={h} className="bg-white dark:bg-[#171C22] text-zinc-950 dark:text-white">
+              <option key={h} value={h} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
                 {h}
               </option>
             ))}
@@ -251,11 +251,11 @@ function TimeInputField({
               minStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
             }`}
           >
-            <option value="" className="bg-white dark:bg-[#171C22] text-zinc-500">
+            <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
               MM
             </option>
             {MINUTES_60.map((m) => (
-              <option key={m} value={m} className="bg-white dark:bg-[#171C22] text-zinc-950 dark:text-white">
+              <option key={m} value={m} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
                 {m}
               </option>
             ))}
@@ -1075,7 +1075,7 @@ function TaskForm({
   // READ-ONLY SINGLE-SCREEN SUMMARY WHEN VIEWING LOCKED OR PAST DAYS
   if (locked) {
     return (
-      <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100">
+      <div className="h-full w-full overflow-y-auto overscroll-contain bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100">
         <div
           className="w-full max-w-md mx-auto min-h-full flex flex-col px-5 sm:px-6"
           style={{
@@ -1274,7 +1274,7 @@ function TaskForm({
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100">
+    <div className="h-full w-full overflow-y-auto overscroll-contain bg-white dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100">
       <div
         className="w-full max-w-md mx-auto min-h-full flex flex-col px-5 sm:px-6"
         style={{
@@ -2435,8 +2435,8 @@ function TaskForm({
 
       {/* CONFIRMATION MODAL FOR SWITCHING WORKOUT VARIATION */}
       {pendingSwitchWorkout && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-[#0B0D10]/75 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#171C22] border border-zinc-200 dark:border-zinc-700/80 p-5 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 space-y-4 shadow-2xl">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
                 Change Training Variation?
@@ -2722,9 +2722,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   return (
-    <section className="rounded-3xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-xs">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       {/* Daily Task Header (No Caption Below Title; Info Opens Pop-up) */}
-      <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+      <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
           <button
@@ -2859,8 +2859,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               }}
               className={`group relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between gap-3 transition ${
                 isDone
-                  ? "border-zinc-300 dark:border-zinc-700 bg-zinc-50/70 dark:bg-[#20262E]"
-                  : "border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#11151A] hover:border-zinc-300 dark:hover:border-zinc-600"
+                  ? "border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-[#181818]"
+                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/20"
               } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
             >
               {/* Right-side Motion-Blur Image with Hardware-Accelerated Fade (0 mask-image) */}
@@ -2876,8 +2876,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <div
                   className={`absolute inset-0 bg-gradient-to-r ${
                     isDone
-                      ? "from-zinc-50 via-zinc-50/85 to-transparent dark:from-[#20262E] dark:via-[#20262E]/85"
-                      : "from-white via-white/85 to-transparent dark:from-[#11151A] dark:via-[#11151A]/85"
+                      ? "from-zinc-50 via-zinc-50/85 to-transparent dark:from-[#181818] dark:via-[#181818]/85"
+                      : "from-white via-white/85 to-transparent dark:from-[#141414] dark:via-[#141414]/85"
                   }`}
                 />
               </div>
@@ -3015,7 +3015,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100 overflow-hidden"
+            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 overflow-hidden"
           >
             <TaskForm
               key={`${selectedDay.id}-${step}`}

@@ -157,19 +157,19 @@ export function NotificationsHistoryTab({
     <>
       {/* FLOATING HEADER: SUBTAB SWITCHER (NOTIFICATIONS | HISTORY) */}
       <FloatingHeader visible={headerVisible}>
-        <div className="w-full flex p-1 rounded-xl bg-zinc-200/70 dark:bg-[#171C22] border border-zinc-200 dark:border-zinc-700/80">
+        <div className="w-full flex p-1 rounded-xl bg-zinc-100 dark:bg-white/10">
           <button
             type="button"
             onClick={() => setSection("notifications")}
             className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
               section === "notifications"
-                ? "chrome-button shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             <span>Notifications</span>
             {unreadCount > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-zinc-950 dark:text-zinc-100">
+              <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                 {unreadCount}
               </span>
             )}
@@ -180,8 +180,8 @@ export function NotificationsHistoryTab({
             onClick={() => setSection("history")}
             className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${
               section === "history"
-                ? "chrome-button shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
+                : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
             }`}
           >
             History
@@ -197,11 +197,11 @@ export function NotificationsHistoryTab({
       {section === "notifications" && (
         <section className="space-y-3">
           {/* PUSH NOTIFICATION TOGGLE CARD (Placed directly in Notifications) */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] p-4 flex items-center justify-between gap-3 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 flex items-center justify-between gap-3 shadow-sm">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
-                <h3 className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">Push Notifications</h3>
+                <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">Push Notifications</h3>
               </div>
               <p className="text-[11px] text-zinc-500 mt-0.5">
                 {push.status === "on"
@@ -225,7 +225,7 @@ export function NotificationsHistoryTab({
                   type="button"
                   onClick={push.status === "on" ? push.disable : push.enable}
                   disabled={push.busy || push.status === "checking"}
-                  className="shrink-0 px-3.5 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider chrome-button disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
+                  className="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
                   {(push.busy || push.status === "checking") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {push.status === "on" ? "Turn Off" : "Turn On"}
@@ -244,7 +244,7 @@ export function NotificationsHistoryTab({
                 type="button"
                 onClick={markAllRead}
                 disabled={markingAll}
-                className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-100 inline-flex items-center gap-1 transition"
+                className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
               >
                 <CheckCheck className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Mark all read</span>
@@ -268,15 +268,15 @@ export function NotificationsHistoryTab({
               onClick={() => markRead(n)}
               className={`w-full text-left rounded-2xl border p-4 transition-all shadow-sm ${
                 n.isRead
-                  ? "border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-[#11151A]"
-                  : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-[#171C22] ring-1 ring-zinc-950/5 dark:ring-zinc-300/10"
+                  ? "border-zinc-200 dark:border-white/10 bg-white/60 dark:bg-[#141414]/60"
+                  : "border-zinc-300 dark:border-white/25 bg-white dark:bg-[#181818] ring-1 ring-zinc-950/5 dark:ring-white/10"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className={`text-xs sm:text-sm ${n.isRead ? "text-zinc-700 dark:text-zinc-300 font-medium" : "font-semibold text-zinc-950 dark:text-zinc-100"}`}>
+                <span className={`text-xs sm:text-sm ${n.isRead ? "text-zinc-700 dark:text-zinc-300 font-medium" : "font-semibold text-zinc-950 dark:text-white"}`}>
                   {n.title}
                 </span>
-                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-md ${n.isRead ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400" : "chrome-button font-semibold"}`}>
+                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-full ${n.isRead ? "bg-zinc-100 dark:bg-white/5 text-zinc-400" : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"}`}>
                   {n.isRead ? "Read" : "New"}
                 </span>
               </div>
@@ -299,7 +299,7 @@ export function NotificationsHistoryTab({
           {completedPrograms.length > 0 && (
             <div className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-950 dark:text-zinc-100 flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-zinc-400" />
                   <span>Completed Programs ({completedPrograms.length})</span>
                 </span>
@@ -308,14 +308,14 @@ export function NotificationsHistoryTab({
               {completedPrograms.map((cp) => (
                 <article
                   key={cp.programId}
-                  className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 p-4 bg-white dark:bg-[#171C22] space-y-2.5 shadow-sm transition-all hover:border-zinc-400 dark:hover:border-zinc-500"
+                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#141414] space-y-2.5 shadow-sm transition-all hover:border-zinc-400 dark:hover:border-white/20"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-[9px] font-mono font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">
                         Completed
                       </span>
-                      <h4 className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                      <h4 className="text-sm font-semibold truncate text-zinc-900 dark:text-white">
                         {cp.title}
                       </h4>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -330,11 +330,11 @@ export function NotificationsHistoryTab({
                   </div>
 
                   {onOpenProgramDetail && (
-                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-700/70 flex justify-end">
+                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
                       <button
                         type="button"
                         onClick={() => onOpenProgramDetail(cp.programId)}
-                        className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-100 uppercase tracking-wider inline-flex items-center gap-1"
+                        className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white uppercase tracking-wider inline-flex items-center gap-1"
                       >
                         <span>View Details</span>
                         <ExternalLink className="w-3 h-3" />
@@ -350,7 +350,7 @@ export function NotificationsHistoryTab({
           {history.status === "ready" && history.data.payments.length > 0 && (
             <div className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-950 dark:text-zinc-100 flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
                   <span>Payment & Billing History</span>
                 </span>
@@ -362,7 +362,7 @@ export function NotificationsHistoryTab({
               {history.data.payments.map((p) => (
                 <article
                   key={p.enrollmentId}
-                  className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 p-4 bg-white dark:bg-[#171C22] space-y-2 shadow-sm"
+                  className="rounded-2xl border border-zinc-200 dark:border-white/10 p-4 bg-white dark:bg-[#141414] space-y-2 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

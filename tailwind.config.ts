@@ -1,21 +1,6 @@
 import path from "path";
 import type { Config } from "tailwindcss";
 
-const obsidianChromeScale = {
-  50: "#F4F6F9",
-  100: "#E8ECF1", // Primary text / Polished silver
-  200: "#DCE2E9", // Light border / Cool silver
-  300: "#C7D0DA", // Chrome highlight
-  400: "#A1AAB5", // Secondary text
-  500: "#707B88", // Muted text / Metallic slate
-  600: "#525E6E", // Deep metallic accent
-  700: "#2A323C", // Primary structural border
-  800: "#20262E", // Interactive surface / Subtle border
-  850: "#171C22", // Elevated surface
-  900: "#11151A", // Secondary background
-  950: "#0B0D10", // Main background (Deep Obsidian)
-};
-
 const config: Config = {
   darkMode: "class",
   content: [
@@ -48,25 +33,29 @@ const config: Config = {
         ],
       },
       colors: {
-        zinc: obsidianChromeScale,
         chrome: {
-          ...obsidianChromeScale,
-          highlight: "#C7D0DA",
-          metallic: "#8996A5",
+          50: "#fafafa",
+          100: "#f4f4f5",
+          200: "#e4e4e7",
+          300: "#d4d4d8",
+          400: "#a1a1aa",
+          500: "#71717a",
+          600: "#52525b",
+          700: "#3f3f46",
+          800: "#27272a",
+          900: "#18181b",
+          950: "#09090b",
         },
         steel: {
-          light: "#F4F6F9",
-          surface: "#E8ECF1",
-          border: "#C7D0DA",
-          deep: "#525E6E",
+          light: "#f6f6f4",
+          surface: "#e6e6e4",
+          border: "#d4d4d2",
+          deep: "#52525b",
         },
         obsidian: {
-          base: "#0B0D10",
-          secondary: "#11151A",
-          card: "#171C22",
-          surface: "#20262E",
-          border: "#2A323C",
-          subtle: "#202730",
+          base: "#0e0e0e",
+          card: "#171717",
+          surface: "#1f1f1f",
         },
       },
     },

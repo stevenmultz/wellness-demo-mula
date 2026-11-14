@@ -174,7 +174,7 @@ export function ProgramDetailView({
       <button
         type="button"
         onClick={onOpenPlan}
-        className="px-5 py-2.5 rounded-xl chrome-button text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
+        className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
       >
         Open Plan
       </button>
@@ -184,7 +184,7 @@ export function ProgramDetailView({
       <button
         type="button"
         onClick={onEnroll}
-        className="px-5 py-2.5 rounded-xl chrome-button text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
+        className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
       >
         {enrollmentStatus === "PENDING" ? "Complete Payment" : program.price > 0 ? "Enroll Now" : "Join Program"}
       </button>
@@ -195,7 +195,7 @@ export function ProgramDetailView({
         href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Hello Concierge, I would like to join the waitlist for: ${program.title}`)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="px-5 py-2.5 rounded-xl chrome-button text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+        className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition"
       >
         Join Waitlist
       </a>
@@ -256,7 +256,7 @@ export function ProgramDetailView({
   };
 
   return (
-    <div onScroll={handleScroll} className="fixed inset-0 z-[60] bg-[#F4F6F9] dark:bg-[#0B0D10] overflow-y-auto">
+    <div onScroll={handleScroll} className="fixed inset-0 z-[60] bg-[#f3f2ed] dark:bg-[#0e0e0e] overflow-y-auto">
       {/* ================================================================= */}
       {/* FLOATING HEADER: BACK BUTTON + TEXT-ONLY RIGHT BUTTON (NO ICON)   */}
       {/* ================================================================= */}
@@ -269,7 +269,7 @@ export function ProgramDetailView({
         <button
           type="button"
           onClick={onClose}
-          className="pointer-events-auto h-8 px-3.5 rounded-xl bg-[#11151A]/80 backdrop-blur-md border border-zinc-700/80 text-zinc-100 text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-[#171C22]"
+          className="pointer-events-auto h-8 px-3.5 rounded-[2px] bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-md active:scale-95 transition hover:bg-black/80"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back</span>
@@ -280,7 +280,7 @@ export function ProgramDetailView({
             href={conciergeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="pointer-events-auto h-8 px-4 rounded-xl bg-[#11151A]/80 backdrop-blur-md border border-zinc-700/80 text-zinc-100 text-xs font-medium tracking-wide active:scale-95 transition hover:bg-[#171C22] inline-flex items-center justify-center shadow-md"
+            className="pointer-events-auto h-8 px-4 rounded-[2px] bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
           >
             <span>{community ? "Community" : "Concierge"}</span>
           </a>
@@ -299,12 +299,12 @@ export function ProgramDetailView({
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/image.webp" alt="" className="w-full h-full object-cover" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D10] via-[#0B0D10]/45 to-black/15" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
           {/* Clean title & metadata banner: Status, Title, Coach, Commitment */}
           <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-6 sm:px-8 z-0 space-y-2">
             <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-white/80">
-              <span className="px-3 py-1 rounded-lg bg-zinc-100 text-zinc-950 text-[10px] font-bold shadow-sm">
+              <span className="px-3 py-1 rounded-[2px] bg-white text-zinc-950 text-[10px] font-bold shadow-sm">
                 {enrolled ? "Enrolled" : badge}
               </span>
             </div>
@@ -327,16 +327,16 @@ export function ProgramDetailView({
         {/* ================================================================= */}
         {/* CURVED SHEET CONTAINER (LEKUKAN DI BANNER IMAGE)                  */}
         {/* ================================================================= */}
-        <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-zinc-700/80 bg-[#F4F6F9] dark:bg-[#0B0D10] shadow-xl pt-6 px-4 sm:px-6 pb-28 space-y-4">
+        <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-[#f3f2ed] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-28 space-y-4">
           {/* Header Action: Curriculum Overview & Expand / Collapse */}
           <div className="flex items-center justify-between px-1 pb-1">
-            <span className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white">
               Program Curriculum
             </span>
             <button
               type="button"
               onClick={toggleAll}
-              className="h-7 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-[#20262E] active:scale-95 transition inline-flex items-center gap-1 shadow-2xs"
+              className="h-7 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#121215] text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shadow-2xs"
             >
               <span>{allExpanded ? "Collapse All" : "Expand All"}</span>
             </button>
@@ -345,14 +345,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 1. OVERVIEW & SPECIFICATIONS                                      */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("overview")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <BookOpen className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -417,14 +417,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 2. COACH & FACULTY PROFILE                                        */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("coach")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Users className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -456,14 +456,14 @@ export function ProgramDetailView({
                           : "/coach.webp"
                     }
                     alt={program.coachName}
-                    className="w-16 h-16 rounded-xl object-cover shrink-0 border border-zinc-200 dark:border-zinc-700/80 shadow-xs"
+                    className="w-16 h-16 rounded-[2px] object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-xs"
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <h3 className="text-sm font-bold text-zinc-950 dark:text-white">
                         Coach {program.coachName}
                       </h3>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 text-zinc-800 dark:text-zinc-200 font-semibold">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
                         Verified Lead Guide
                       </span>
                     </div>
@@ -499,14 +499,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 3. TIMELINE, DATES & CURRICULUM                                   */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("timeline")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -549,15 +549,15 @@ export function ProgramDetailView({
                     Curriculum Structure
                   </span>
                   <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="py-2.5 px-2 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-100 dark:border-zinc-800">
+                    <div className="py-2.5 px-2 rounded-[2px] bg-zinc-50 dark:bg-white/5">
                       <span className="text-base font-bold text-zinc-950 dark:text-white block">{trainingDaysCount}</span>
                       <span className="text-[10px] font-mono uppercase text-zinc-400">Training Days</span>
                     </div>
-                    <div className="py-2.5 px-2 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-100 dark:border-zinc-800">
+                    <div className="py-2.5 px-2 rounded-[2px] bg-zinc-50 dark:bg-white/5">
                       <span className="text-base font-bold text-zinc-950 dark:text-white block">{connectDaysCount}</span>
                       <span className="text-[10px] font-mono uppercase text-zinc-400">Connect Days</span>
                     </div>
-                    <div className="py-2.5 px-2 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-100 dark:border-zinc-800">
+                    <div className="py-2.5 px-2 rounded-[2px] bg-zinc-50 dark:bg-white/5">
                       <span className="text-base font-bold text-zinc-950 dark:text-white block">{restDaysCount}</span>
                       <span className="text-[10px] font-mono uppercase text-zinc-400">Rest Days</span>
                     </div>
@@ -578,14 +578,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 3. SESSIONS: KAPAN SAJA, DIMANA, TANGGAL BERAPA                   */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("sessions")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Video className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -616,12 +616,12 @@ export function ProgramDetailView({
                       return (
                         <article
                           key={session.dayNumber}
-                          className="rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 p-4 space-y-2 bg-zinc-50/40 dark:bg-[#11151A]"
+                          className="rounded-[2px] border border-zinc-200/80 dark:border-white/10 p-4 space-y-2 bg-zinc-50/40 dark:bg-white/[0.02]"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-zinc-200/80 dark:bg-[#20262E] text-zinc-800 dark:text-zinc-200">
+                                <span className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
                                   Day {session.dayNumber}
                                 </span>
                                 <span className="text-xs font-semibold text-zinc-900 dark:text-white">
@@ -634,7 +634,7 @@ export function ProgramDetailView({
                             </div>
 
                             {session.onsiteSchedule && (
-                              <span className="text-[11px] font-mono px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-[#20262E] text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
+                              <span className="text-[11px] font-mono px-2 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
                                 <Clock className="w-3 h-3 text-zinc-400" />
                                 <span>{session.onsiteSchedule}</span>
                               </span>
@@ -660,7 +660,7 @@ export function ProgramDetailView({
                                 href={meetUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="h-7 px-3 rounded-lg chrome-button text-[11px] font-semibold inline-flex items-center gap-1 active:scale-95 transition"
+                                className="h-7 px-3 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1 active:scale-95 transition"
                               >
                                 <Video className="w-3 h-3" />
                                 <span>Join Session</span>
@@ -678,7 +678,7 @@ export function ProgramDetailView({
                                 href={mapUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="h-7 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700/80 text-[11px] text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 active:scale-95 transition"
+                                className="h-7 px-2.5 rounded-[2px] border border-zinc-200 dark:border-white/15 text-[11px] text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 active:scale-95 transition"
                               >
                                 <MapPin className="w-3 h-3" />
                                 <span>Map</span>
@@ -701,14 +701,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 4. NUTRITION PROTOCOL                                             */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("meals")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Utensils className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -737,10 +737,10 @@ export function ProgramDetailView({
                     return (
                       <article
                         key={day.dayNumber}
-                        className="p-3 rounded-xl border border-zinc-200/70 dark:border-zinc-700/80 bg-zinc-50/40 dark:bg-[#11151A] space-y-1 text-xs"
+                        className="p-3 rounded-[2px] border border-zinc-200/70 dark:border-white/10 bg-zinc-50/40 dark:bg-white/[0.02] space-y-1 text-xs"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-[#20262E] text-zinc-800 dark:text-zinc-200">
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-200/70 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
                             Day {day.dayNumber} · {formatDateWib(dayDate)}
                           </span>
                           <span className="text-[10px] font-mono uppercase text-zinc-400">
@@ -777,14 +777,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 5. REQUIRED EQUIPMENT                                             */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("equipment")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Dumbbell className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -809,7 +809,7 @@ export function ProgramDetailView({
                   {equipmentList.map((item, idx) => (
                     <div
                       key={idx}
-                      className="py-2.5 px-3 rounded-xl bg-zinc-50/50 dark:bg-[#11151A] border border-zinc-200/60 dark:border-zinc-800 flex items-center gap-2 text-zinc-800 dark:text-zinc-200"
+                      className="py-2.5 px-3 rounded-[2px] bg-zinc-50/50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2 text-zinc-800 dark:text-zinc-200"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0" />
                       <span className="font-medium">{item}</span>
@@ -823,14 +823,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 6. METHODOLOGY & SCIENTIFIC BLUEPRINT                             */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("blueprint")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -943,14 +943,14 @@ export function ProgramDetailView({
           {/* ================================================================= */}
           {/* 7. TERMS & CONDITIONS                                             */}
           {/* ================================================================= */}
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] overflow-hidden shadow-sm transition-all duration-200">
+          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
             <button
               type="button"
               onClick={() => toggleSection("terms")}
               className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#20262E] border border-transparent dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -972,9 +972,9 @@ export function ProgramDetailView({
             {openSections.terms && (
               <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
                 {/* Community Access Card */}
-                <div className="py-3 px-3.5 rounded-xl bg-zinc-50/70 dark:bg-[#11151A] border border-zinc-200/60 dark:border-zinc-700/80 flex items-center justify-between gap-3">
+                <div className="py-3 px-3.5 rounded-[2px] bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-[2px] bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
                       <Users className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
@@ -991,13 +991,13 @@ export function ProgramDetailView({
                       href={community}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="h-7 px-3 rounded-lg chrome-button text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 active:scale-95 transition"
+                      className="h-7 px-3 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 active:scale-95 transition"
                     >
                       <span>Join</span>
                       <ExternalLink className="w-2.5 h-2.5" />
                     </a>
                   ) : (
-                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-lg bg-zinc-200/70 dark:bg-[#20262E] text-zinc-500 inline-flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-[2px] bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
                       <Lock className="w-2.5 h-2.5" /> Members
                     </span>
                   )}
@@ -1042,7 +1042,7 @@ export function ProgramDetailView({
 
       {/* FLOATING STICKY BOTTOM DOCK WIDGET */}
       <div className="fixed bottom-3 sm:bottom-4 inset-x-0 z-[61] px-4 pointer-events-none">
-        <div className="max-w-xl mx-auto rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white/95 dark:bg-[#171C22]/95 backdrop-blur-2xl shadow-2xl p-3.5 sm:px-5 flex items-center justify-between gap-3 pointer-events-auto">
+        <div className="max-w-xl mx-auto rounded-[2px] border border-zinc-200/80 dark:border-white/15 bg-white/95 dark:bg-[#121215]/95 backdrop-blur-2xl shadow-2xl p-3.5 sm:px-5 flex items-center justify-between gap-3 pointer-events-auto">
           <div className="min-w-0">
             <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate">
               {enrolled ? "Active Member" : badge} · {seatsLeft} slots left

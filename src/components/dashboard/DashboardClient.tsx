@@ -947,7 +947,7 @@ export function DashboardClient({
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
@@ -969,7 +969,7 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-zinc-700/80 bg-white/95 dark:bg-[#171C22]/95 backdrop-blur-2xl shadow-xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 border border-zinc-200/80 dark:border-white/10 bg-white/95 dark:bg-[#161616]/95 backdrop-blur-2xl shadow-xl font-mono"
       >
         {(
           [
@@ -992,8 +992,8 @@ export function DashboardClient({
             }}
             className={`flex-1 h-9 rounded-xl transition flex items-center justify-center ${
               activeTab === key
-                ? "chrome-button shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -1020,14 +1020,14 @@ export function DashboardClient({
                 : "mb-4 shadow-sm"
             } glass-panel p-4 rounded-xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border font-mono ${
               actionNotice.type === "error"
-                ? "border-red-500/35 text-red-700 dark:text-red-300"
-                : "border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
+                ? "border-red-500/30 text-red-700 dark:text-red-300"
+                : "border-zinc-300 dark:border-white/20 text-zinc-900 dark:text-zinc-100"
             }`}
           >
             {actionNotice.type === "error" ? (
-              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
             ) : (
-              <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-zinc-900 dark:text-white shrink-0" />
             )}
             <span>{actionNotice.text}</span>
           </div>
@@ -1171,7 +1171,7 @@ export function DashboardClient({
 
       {/* Delete Account Modal */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 dark:bg-[#0B0D10]/85 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in">
           <div className="w-full max-w-md glass-panel rounded-2xl p-6 sm:p-8 space-y-4">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
               Delete Your Account

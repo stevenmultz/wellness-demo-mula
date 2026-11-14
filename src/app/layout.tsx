@@ -32,8 +32,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F4F6F9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0B0D10" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -46,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
@@ -58,10 +58,10 @@ export default function RootLayout({
               html, body {
                 margin: 0;
                 padding: 0;
-                background-color: #F4F6F9;
+                background-color: #f6f6f4;
               }
               html.dark, html.dark body {
-                background-color: #0B0D10;
+                background-color: #0e0e0e;
               }
               @keyframes bmsLoadingSlide {
                 0% { transform: translateX(-100%); }
@@ -76,8 +76,8 @@ export default function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #0B0D10;
-                color: #E8ECF1;
+                background-color: #0e0e0e;
+                color: #ffffff;
                 user-select: none;
                 overflow: hidden;
                 transition: opacity 0.25s ease-out;
@@ -95,7 +95,7 @@ export default function RootLayout({
               #bms-pwa-splash .bms-splash-scrim {
                 position: absolute;
                 inset: 0;
-                background: rgba(11, 13, 16, 0.38);
+                background: rgba(0, 0, 0, 0.28);
                 pointer-events: none;
               }
               #bms-pwa-splash .bms-splash-brand {
@@ -110,7 +110,7 @@ export default function RootLayout({
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55);
+                text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
               }
               #bms-pwa-splash .bms-splash-bar-wrap {
                 position: absolute;
@@ -124,14 +124,14 @@ export default function RootLayout({
                 width: 100%;
                 height: 2px;
                 border-radius: 9999px;
-                background-color: rgba(199, 208, 218, 0.28);
+                background-color: rgba(255, 255, 255, 0.3);
                 overflow: hidden;
               }
               #bms-pwa-splash .bms-splash-bar-fill {
                 width: 40%;
                 height: 100%;
                 border-radius: 9999px;
-                background-color: #E8ECF1;
+                background-color: #ffffff;
                 animation: bmsLoadingSlide 1.3s ease-in-out infinite;
               }
             `,
@@ -139,12 +139,12 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const t=localStorage.getItem("wellness-theme");const d=t!=="light";if(d){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}const m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",d?"#0B0D10":"#F4F6F9")}}catch(e){}`,
+            __html: `try{const t=localStorage.getItem("wellness-theme");const d=t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}const m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",d?"#0e0e0e":"#f6f6f4")}}catch(e){}`,
           }}
         />
       </head>
       <body
-        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#F4F6F9] dark:bg-[#0B0D10] text-[#0B0D10] dark:text-[#E8ECF1] relative overflow-x-clip antialiased`}
+        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-clip antialiased`}
       >
         <div id="bms-pwa-splash" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,8 +158,8 @@ export default function RootLayout({
           <div className="bms-splash-scrim" />
           <div className="bms-splash-brand">
             <div className="bms-splash-title">
-              <span style={{ fontWeight: 300, fontSize: "1.25rem", lineHeight: 1, color: "#E8ECF1" }}>+</span>
-              <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "#E8ECF1" }}>
+              <span style={{ fontWeight: 300, fontSize: "1.25rem", lineHeight: 1, color: "#ffffff" }}>+</span>
+              <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "#ffffff" }}>
                 BMS
               </span>
             </div>

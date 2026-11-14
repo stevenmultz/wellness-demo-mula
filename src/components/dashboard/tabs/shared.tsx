@@ -53,7 +53,7 @@ export function FloatingHeader({
       className={`fixed top-0 left-0 right-0 z-50 w-full transition-[transform,opacity,background-color] duration-300 ${
         transparent
           ? "bg-transparent border-b-0 shadow-none"
-          : "bg-[#F4F6F9]/95 dark:bg-[#0B0D10]/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-700/80"
+          : "bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 border-b border-zinc-200/80 dark:border-white/10"
       } ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
       }`}
@@ -350,15 +350,15 @@ export function InfoPopupModal({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-[#171C22] border border-zinc-200 dark:border-zinc-700/80 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 flex items-center justify-center shrink-0 border border-zinc-200/70 dark:border-zinc-700">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
               <Info className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-100 truncate">
+              <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white truncate">
                 {title}
               </h3>
               {subtitle && (
@@ -372,7 +372,7 @@ export function InfoPopupModal({
             type="button"
             onClick={onClose}
             aria-label="Close info popup"
-            className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-100 flex items-center justify-center shrink-0 active:scale-95 transition"
+            className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shrink-0 active:scale-95 transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -385,7 +385,7 @@ export function InfoPopupModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-10 rounded-xl chrome-button text-xs font-semibold active:scale-[0.98] transition"
+          className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
         >
           Got it
         </button>

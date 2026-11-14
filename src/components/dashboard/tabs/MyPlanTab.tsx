@@ -503,7 +503,7 @@ export function MyPlanOverview({
         </div>
       </section>
 
-      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#F4F6F9] dark:bg-[#0B0D10] pt-7 pb-4 border-t border-black/[0.04] dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
+      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4 border-t border-black/[0.04] dark:border-white/10 shadow-[0_-10px_28px_rgba(0,0,0,0.18)]">
         <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
           {!program ? (
             <EmptyState
@@ -535,7 +535,7 @@ export function MyPlanOverview({
               const startsInInfo = formatStartsIn(program.startDate);
               return (
                 <>
-                  <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-5 shadow-xs">
+                  <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 shadow-xs">
                     <div className="space-y-1">
                       <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
                         {startsInInfo.headline}
@@ -762,7 +762,7 @@ function CohortPerformanceCard({
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
   return (
-    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] overflow-hidden shadow-xs">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
       <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
@@ -902,7 +902,7 @@ function ProgramReferencesWidget({
   if (validRefs.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 sm:p-5 space-y-3 shadow-xs">
+    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 sm:p-5 space-y-3 shadow-xs">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
           <BookOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -968,7 +968,7 @@ function ProgramCommunityWidget({
 
   return (
     <>
-      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] overflow-hidden shadow-xs">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
@@ -1004,7 +1004,7 @@ function ProgramCommunityWidget({
           onTouchEnd={(e) => e.stopPropagation()}
           className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#171C22] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-sm bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto shadow-2xs">
               <Shield className="w-6 h-6" />
             </div>
@@ -1057,7 +1057,7 @@ function ProgramReportEntryWidget({
 
   return (
     <>
-      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] overflow-hidden shadow-xs">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
@@ -1172,11 +1172,11 @@ function ProgramReportPageView({
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-          className="fixed inset-0 z-[85] bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto animate-in fade-in duration-150"
+          className="fixed inset-0 z-[85] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto animate-in fade-in duration-150"
         >
           <header
             style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-            className="sticky top-0 z-10 bg-white/90 dark:bg-[#171C22]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
+            className="sticky top-0 z-10 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
           >
             <div className="max-w-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
               <button
@@ -1200,7 +1200,7 @@ function ProgramReportPageView({
 
           <main className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24">
             {submittedDone ? (
-              <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-6 sm:p-8 text-center space-y-5 shadow-xs mt-4">
+              <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-6 sm:p-8 text-center space-y-5 shadow-xs mt-4">
                 <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
@@ -1285,7 +1285,7 @@ function ProgramReportPageView({
                                 ? activeTab === "quit"
                                   ? "bg-red-600 text-white border-transparent shadow-xs"
                                   : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
-                                : "bg-white dark:bg-[#171C22] border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
+                                : "bg-white dark:bg-[#141414] border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
                             }`}
                           >
                             {opt}
@@ -1308,7 +1308,7 @@ function ProgramReportPageView({
                           ? "Let us know how we can assist or why you need to leave..."
                           : "Describe the issue clearly (e.g., coach concern, broken video player, or exercise guidance)..."
                       }
-                      className="w-full text-base sm:text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-3.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                      className="w-full text-base sm:text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-3.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
                       required={activeTab === "issue"}
                     />
                   </div>
@@ -1430,7 +1430,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("meal")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1441,7 +1441,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1466,7 +1466,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("meetup")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1477,7 +1477,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1502,7 +1502,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("equipment")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1513,7 +1513,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1538,7 +1538,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("objective")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1549,7 +1549,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1574,7 +1574,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("reference")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1585,7 +1585,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1610,7 +1610,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("terms")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1621,7 +1621,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1646,7 +1646,7 @@ function ProgramPreparationWidgets({
       <button
         type="button"
         onClick={() => setActivePage("coach")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1657,7 +1657,7 @@ function ProgramPreparationWidgets({
             decoding="async"
             className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#171C22] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
         </div>
 
         <div className="relative z-10 flex items-center justify-between w-full">
@@ -1682,7 +1682,7 @@ function ProgramPreparationWidgets({
 
   return (
     <>
-      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#171C22] overflow-hidden shadow-xs">
+      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
         <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
@@ -1729,7 +1729,7 @@ function ProgramPreparationWidgets({
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
-            className="fixed inset-0 z-[80] bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
           >
             {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
             <header
@@ -1853,7 +1853,7 @@ function ProgramPreparationWidgets({
             </div>
 
             {/* CURVED SHEET CONTAINER (AIRY, SPACIOUS, ZERO NESTED BOXES) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#171C22] shadow-2xl pt-9 px-6 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-9 px-6 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
               {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
               {activePage === "meal" && (
                 <div className="space-y-7">
