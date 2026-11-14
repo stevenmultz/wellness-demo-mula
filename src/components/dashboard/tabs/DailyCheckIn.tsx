@@ -2919,9 +2919,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   </div>
                 </div>
 
-                <div className="relative z-10 w-[86px] shrink-0 flex justify-end">
+                <div className="relative z-10 shrink-0 flex justify-end">
                   {isSelectedFuture ? (
-                    <span className="w-full h-8 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center justify-center gap-1">
+                    <span className="py-1 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
                       <Lock className="w-3 h-3" />
                       <span>Locked</span>
                     </span>
@@ -2932,9 +2932,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
+                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition inline-flex items-center gap-1"
                     >
                       <span>View</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   ) : isDone ? (
                     <button
@@ -2943,9 +2944,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
+                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition inline-flex items-center gap-1"
                     >
                       <span>{locked ? "View" : "Edit"}</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   ) : (
                     <button
@@ -2955,9 +2957,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="w-full h-8 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center active:scale-95 transition shadow-sm"
+                      className="py-1 text-xs font-semibold text-zinc-950 dark:text-white hover:opacity-75 disabled:opacity-40 inline-flex items-center gap-1 active:scale-95 transition"
                     >
-                      Do Task
+                      <span>Do Task</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>

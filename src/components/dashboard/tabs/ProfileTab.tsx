@@ -420,7 +420,7 @@ export function ProfileTab({
               <button
                 type="button"
                 onClick={() => setMode("menu")}
-                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+                className="py-1.5 text-white hover:text-white/80 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
               >
                 <span>Open Profile &amp; Settings</span>
                 <ArrowRight className="w-3.5 h-3.5" />

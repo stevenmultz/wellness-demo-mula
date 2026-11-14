@@ -525,14 +525,14 @@ export function ExplorePlanTab({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 max-w-sm">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 max-w-sm">
               <button
                 type="button"
                 onClick={() => {
                   setSelectedCoach(null);
                   setMode("catalog");
                 }}
-                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+                className="py-1.5 text-white hover:text-white/80 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
               >
                 <span>Browse All Programs</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -545,7 +545,7 @@ export function ExplorePlanTab({
                   setCoachPage(1);
                   setMode("coaches");
                 }}
-                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition"
+                className="py-1.5 text-white/80 hover:text-white text-xs sm:text-sm font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
               >
                 <span>Explore All Coaches</span>
                 <ArrowRight className="w-3.5 h-3.5" />
