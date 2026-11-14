@@ -165,7 +165,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-clip text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-950 font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] transition-colors duration-300">
+    <div className="min-h-screen flex flex-col relative overflow-x-clip text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-950 font-sans bg-[#F4F6F9] dark:bg-[#0B0D10] transition-colors duration-300">
       {/* Account Deletion Notice */}
       {deletedNotice && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm glass-panel py-2.5 px-4 rounded-xl text-xs flex items-center justify-between shadow-lg">
@@ -189,14 +189,14 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       <header
         style={{ paddingTop: "env(safe-area-inset-top)" }}
-        className="fixed top-0 left-0 right-0 z-50 w-full bg-[#f6f6f4]/90 dark:bg-[#0e0e0e]/90 border-b border-zinc-200/70 dark:border-white/10 transition-colors duration-300"
+        className="fixed top-0 left-0 right-0 z-50 w-full bg-[#F4F6F9]/90 dark:bg-[#0B0D10]/90 backdrop-blur-md border-b border-zinc-200/70 dark:border-zinc-700/80 transition-colors duration-300"
       >
         <div className="max-w-5xl mx-auto h-14 px-4 sm:px-8 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-1.5 group shrink-0" title="Home">
-          <span className="font-mono font-light text-xl text-zinc-900 dark:text-white leading-none">
+          <span className="font-mono font-light text-xl text-zinc-900 dark:text-zinc-100 leading-none">
             +
           </span>
-          <span className="font-geometric font-semibold text-xs tracking-[0.28em] text-zinc-900 dark:text-white uppercase">
+          <span className="font-geometric font-semibold text-xs tracking-[0.28em] text-zinc-900 dark:text-zinc-100 uppercase">
             BMS
           </span>
         </Link>
@@ -204,30 +204,30 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
         <nav aria-label="Primary Navigation" className="flex items-center gap-3 sm:gap-6 text-xs">
           <a
             href="#curriculum"
-            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition text-xs font-medium hidden sm:inline"
+            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition text-xs font-medium hidden sm:inline"
           >
             Curriculum
           </a>
           <a
             href="#programs"
-            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition text-xs font-medium"
+            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition text-xs font-medium"
           >
             Programs
           </a>
           <a
             href="#coaches"
-            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition text-xs font-medium hidden sm:inline"
+            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition text-xs font-medium hidden sm:inline"
           >
             Specialists
           </a>
           <a
             href="#contact"
-            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition text-xs font-medium"
+            className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition text-xs font-medium"
           >
             Contact
           </a>
 
-          <div className="h-3 w-px bg-zinc-200 dark:bg-white/10" />
+          <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-700" />
 
           <ThemeToggle />
 
@@ -236,14 +236,14 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
               {sessionUser.role === "SUPERADMIN" && (
                 <Link
                   href="/admin"
-                  className="px-2.5 py-1 rounded-full border border-zinc-300 dark:border-white/15 text-[10px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition"
+                  className="px-2.5 py-1 rounded-xl graphite-button text-[10px] font-medium transition"
                 >
                   Admin
                 </Link>
               )}
               <Link
                 href="/dashboard"
-                className="px-3.5 py-1.5 rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] font-bold tracking-wider uppercase transition shadow-sm"
+                className="px-3.5 py-1.5 rounded-xl chrome-button text-[10px] font-bold tracking-wider uppercase transition shadow-sm"
               >
                 Dashboard
               </Link>
@@ -253,14 +253,14 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
               <button
                 type="button"
                 onClick={() => openAuth("signin")}
-                className="px-2 py-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition text-[10px] font-semibold uppercase tracking-wider"
+                className="px-2 py-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition text-[10px] font-semibold uppercase tracking-wider"
               >
                 Sign In
               </button>
               <button
                 type="button"
                 onClick={() => openAuth("signup")}
-                className="px-3.5 py-1.5 rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] font-bold uppercase tracking-wider transition shadow-sm"
+                className="px-3.5 py-1.5 rounded-xl chrome-button text-[10px] font-bold uppercase tracking-wider transition shadow-sm"
               >
                 Join
               </button>
@@ -347,13 +347,13 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       {/* 3. CORE PILLARS: 3 SLEEK CARDS (MOVEMENT, FUEL, RECOVERY)            */}
       {/* ===================================================================== */}
-      <section id="curriculum" className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-white/10 bg-[#f6f6f4] dark:bg-[#0e0e0e]">
+      <section id="curriculum" className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-zinc-700/80 bg-[#F4F6F9] dark:bg-[#0B0D10]">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="text-center space-y-1">
             <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.22em] font-semibold">
               Curriculum Core
             </span>
-            <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-900 dark:text-white uppercase">
+            <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
               Three Daily Disciplines
             </h2>
           </div>
@@ -365,10 +365,10 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                 <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-widest font-semibold">
                   01 / MOVEMENT
                 </span>
-                <Activity className="w-4 h-4 text-zinc-900 dark:text-white" />
+                <Activity className="w-4 h-4 text-zinc-900 dark:text-zinc-100" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-[15px] font-geometric font-semibold text-zinc-900 dark:text-white">
+                <h3 className="text-[15px] font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
                   Functional Spine &amp; Joint
                 </h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
@@ -386,7 +386,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                 <Flame className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-[15px] font-geometric font-semibold text-zinc-900 dark:text-white">
+                <h3 className="text-[15px] font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
                   Whole Food Fuel
                 </h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
@@ -404,7 +404,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                 <Moon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-[15px] font-geometric font-semibold text-zinc-900 dark:text-white">
+                <h3 className="text-[15px] font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
                   Circadian Restoration
                 </h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
@@ -419,15 +419,15 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       {/* 4. CURATED PROGRAMS SHOWCASE                                          */}
       {/* ===================================================================== */}
-      <section id="programs" className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-white/10 bg-[#f6f6f4] dark:bg-[#0e0e0e]">
+      <section id="programs" className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-zinc-700/80 bg-[#F4F6F9] dark:bg-[#0B0D10]">
         <div className="max-w-4xl mx-auto space-y-5">
           {/* Section Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-200/80 dark:border-white/10">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-200/80 dark:border-zinc-700/80">
             <div className="space-y-0.5">
               <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.22em] font-semibold">
                 Curated Cohorts
               </span>
-              <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-900 dark:text-white uppercase">
+              <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
                 Active Programs
               </h2>
             </div>
@@ -438,7 +438,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                 type="button"
                 onClick={handlePrevCohort}
                 aria-label="Previous program"
-                className="w-8 h-8 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center transition active:scale-95"
+                className="w-8 h-8 rounded-xl graphite-button flex items-center justify-center transition active:scale-95"
               >
                 <ChevronLeft className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
               </button>
@@ -446,7 +446,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                 type="button"
                 onClick={handleNextCohort}
                 aria-label="Next program"
-                className="w-8 h-8 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center transition active:scale-95"
+                className="w-8 h-8 rounded-xl graphite-button flex items-center justify-center transition active:scale-95"
               >
                 <ChevronRight className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
               </button>
@@ -454,7 +454,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
           </div>
 
           {/* Program Card Viewport */}
-          <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-950 shadow-xl">
+          <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-950 shadow-xl">
             <div
               className="flex transition-transform duration-500 ease-out"
               style={{ transform: `translateX(-${activeCohortIdx * 100}%)` }}
@@ -568,7 +568,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                       {/* Bottom Action Area */}
                       <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between gap-3 font-mono">
                         <div className="text-[11px] text-zinc-300">
-                          35 Member Cap &bull; Private Access
+                          {prog.maxQuota} Member Cap &bull; Private Access
                         </div>
 
                         <div>
@@ -576,7 +576,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                             <button
                               type="button"
                               onClick={() => router.push("/dashboard")}
-                              className="px-5 py-2 rounded-full bg-white text-zinc-950 text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition hover:bg-zinc-200"
+                              className="px-5 py-2 rounded-xl chrome-button text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition"
                             >
                               <span>Enrolled • Dashboard</span>
                               <ArrowRight className="w-3.5 h-3.5" />
@@ -585,7 +585,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                             <button
                               type="button"
                               onClick={() => handleProgramAction(prog.id)}
-                              className="px-5 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition active:scale-[0.98] shadow-lg"
+                              className="px-5 py-2 rounded-xl chrome-button text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition active:scale-[0.98] shadow-lg"
                             >
                               <span>Join Now</span>
                               <span>•</span>
@@ -596,7 +596,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                             <button
                               type="button"
                               disabled
-                              className="px-5 py-2 rounded-full bg-zinc-900 border border-white/10 text-[11px] font-medium text-zinc-400 cursor-not-allowed"
+                              className="px-5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-[11px] font-medium text-zinc-400 cursor-not-allowed"
                             >
                               <span>{publicBadge}</span>
                             </button>
@@ -615,13 +615,13 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       {/* 5. SPECIALISTS / COACHES: COMPACT PORTRAITS                           */}
       {/* ===================================================================== */}
-      <section id="coaches" className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-white/10 bg-[#f6f6f4] dark:bg-[#0e0e0e]">
+      <section id="coaches" className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-zinc-700/80 bg-[#F4F6F9] dark:bg-[#0B0D10]">
         <div className="max-w-4xl mx-auto space-y-5">
-          <div className="space-y-0.5 border-b border-zinc-200/80 dark:border-white/10 pb-3">
+          <div className="space-y-0.5 border-b border-zinc-200/80 dark:border-zinc-700/80 pb-3">
             <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.22em] font-semibold">
               Specialist Faculty
             </span>
-            <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-900 dark:text-white uppercase">
+            <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
               Guided by Specialists
             </h2>
           </div>
@@ -630,7 +630,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
             {displayCoaches.map((coach, idx) => (
               <div
                 key={idx}
-                className="relative rounded-2xl overflow-hidden min-h-[290px] p-4 flex flex-col justify-between group border border-zinc-200 dark:border-white/10 shadow-sm"
+                className="relative rounded-2xl overflow-hidden min-h-[290px] p-4 flex flex-col justify-between group border border-zinc-200 dark:border-zinc-700/80 shadow-sm"
               >
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                   <Image
@@ -666,9 +666,9 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       {/* 6. EDITORIAL STATEMENT                                                */}
       {/* ===================================================================== */}
-      <section className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-white/10 text-center bg-[#eeeeec]/50 dark:bg-[#141414]">
+      <section className="py-14 sm:py-20 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-zinc-700/80 text-center bg-[#ECEFF4] dark:bg-[#11151A]">
         <div className="max-w-2xl mx-auto space-y-3.5">
-          <Quote className="w-5 h-5 text-zinc-400 dark:text-zinc-600 mx-auto" />
+          <Quote className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mx-auto" />
           <blockquote className="font-geometric text-lg sm:text-xl text-zinc-800 dark:text-zinc-200 font-light leading-snug">
             &ldquo;Consistency over intensity. Discipline in quiet ease.&rdquo;
           </blockquote>
@@ -681,7 +681,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       {/* 7. PARTNERS STRIP                                                     */}
       {/* ===================================================================== */}
-      <section className="py-8 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-white/10 font-mono bg-[#f6f6f4] dark:bg-[#0e0e0e]">
+      <section className="py-8 px-4 sm:px-8 border-t border-zinc-200/80 dark:border-zinc-700/80 font-mono bg-[#F4F6F9] dark:bg-[#0B0D10]">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-zinc-500 text-[11px] uppercase tracking-widest font-semibold">
           {BRAND_PARTNERS.map((p, idx) => (
             <span key={idx} className="hover:text-zinc-900 dark:hover:text-zinc-300 transition">
@@ -694,7 +694,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
       {/* ===================================================================== */}
       {/* 8. CONCIERGE & FOOTER                                                 */}
       {/* ===================================================================== */}
-      <footer id="contact" className="py-12 px-4 sm:px-8 border-t border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 text-xs bg-white dark:bg-[#0a0a0a]">
+      <footer id="contact" className="py-12 px-4 sm:px-8 border-t border-zinc-200 dark:border-zinc-700/80 text-zinc-600 dark:text-zinc-400 text-xs bg-white dark:bg-[#11151A]">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -711,7 +711,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
                 href="https://wa.me/6281290002026?text=Hello%20Sanctuary,%20I%20would%20like%20to%20inquire%20about%20the%20upcoming%20cohort."
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white text-[11px] font-semibold tracking-wider uppercase inline-flex items-center gap-1.5 transition"
+                className="px-4 py-2 rounded-xl chrome-button text-[11px] font-semibold tracking-wider uppercase inline-flex items-center gap-1.5 transition"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>WhatsApp</span>
@@ -719,7 +719,7 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
 
               <a
                 href="mailto:concierge@bms.id?subject=Cohort%20Inquiry"
-                className="px-4 py-2 rounded-full border border-zinc-300 hover:bg-zinc-100 text-zinc-800 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/15 dark:text-white text-[11px] font-semibold tracking-wider uppercase inline-flex items-center gap-1.5 transition"
+                className="px-4 py-2 rounded-xl graphite-button text-[11px] font-semibold tracking-wider uppercase inline-flex items-center gap-1.5 transition"
               >
                 <Mail className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span>Email</span>
@@ -727,10 +727,10 @@ export function LandingClient({ sessionUser, programs, coaches }: LandingClientP
             </div>
           </div>
 
-          <div className="pt-6 border-t border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-mono">
+          <div className="pt-6 border-t border-zinc-200/80 dark:border-zinc-700/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-mono">
             <div className="flex items-center gap-2">
-              <span className="text-zinc-900 dark:text-white font-light text-xl leading-none">+</span>
-              <span className="text-zinc-900 dark:text-white font-semibold text-xs tracking-[0.28em] uppercase font-geometric">BMS</span>
+              <span className="text-zinc-900 dark:text-zinc-100 font-light text-xl leading-none">+</span>
+              <span className="text-zinc-900 dark:text-zinc-100 font-semibold text-xs tracking-[0.28em] uppercase font-geometric">BMS</span>
               <span className="text-zinc-400 dark:text-zinc-600">•</span>
               <span className="text-zinc-600 dark:text-zinc-400 font-sans">Minimalist Longevity Sanctuary</span>
             </div>

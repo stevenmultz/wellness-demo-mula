@@ -52,7 +52,7 @@ async function DashboardContent() {
     prisma.program.findMany({
       where: {
         OR: [
-          { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE", "COMING_SOON", "OPEN"] } },
+          { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE", "COMING_SOON"] } },
           { isPublished: true },
           { enrollments: { some: { userId: session.userId } } },
         ],
@@ -156,9 +156,9 @@ async function DashboardContent() {
   const allPrograms = allProgramsData.map((p) => {
     const isPaidMember = userActiveProgramIds.has(p.id);
     const normalizedStatus =
-      p.status === "COMING_SOON"
-        ? "COMING_SOON"
-        : p.isPublished || p.status === "ACTIVE" || p.status === "PUBLISHED"
+      p.status === "COMING_SOON" || p.status === "DONE" || p.status === "ARCHIVE"
+        ? p.status
+        : p.isPublished || p.status === "ACTIVE" || p.status === "PUBLISHED" || p.status === "PUBLISH"
         ? "ACTIVE"
         : "COMING_SOON";
 

@@ -11,17 +11,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
+  theme: "dark",
   toggleTheme: () => {},
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   const syncThemeMeta = (next: Theme) => {
-    const color = next === "dark" ? "#0e0e0e" : "#f6f6f4";
+    const color = next === "dark" ? "#0B0D10" : "#F4F6F9";
     document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
       el.setAttribute("content", color);
     });
@@ -29,15 +29,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem("wellness-theme") as Theme | null;
-    if (saved === "dark") {
-      setThemeState("dark");
-      document.documentElement.classList.add("dark");
-      syncThemeMeta("dark");
-    } else {
-      // Default to Monochrome Light + Orange Silver luxury theme
+    if (saved === "light") {
       setThemeState("light");
       document.documentElement.classList.remove("dark");
       syncThemeMeta("light");
+    } else {
+      // Default to OBSIDIAN CHROME primary dark interface
+      setThemeState("dark");
+      document.documentElement.classList.add("dark");
+      syncThemeMeta("dark");
     }
     setMounted(true);
   }, []);

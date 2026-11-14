@@ -190,8 +190,9 @@ async function main() {
 
     if (dayCount < prog.durationDays) {
       console.log(`Generating ${prog.durationDays} curriculum days for ${prog.title}...`);
+      await prisma.programDay.deleteMany({ where: { programId: prog.id } });
       const daysToCreate = [];
-      for (let d = dayCount + 1; d <= prog.durationDays; d++) {
+      for (let d = 1; d <= prog.durationDays; d++) {
         const isRest = d % 7 === 0;
         const isMeetup = d === 1 || d === Math.floor(prog.durationDays / 2);
         const dayType = isMeetup
@@ -224,7 +225,6 @@ async function main() {
 
       await prisma.programDay.createMany({
         data: daysToCreate,
-        skipDuplicates: true,
       });
     }
 

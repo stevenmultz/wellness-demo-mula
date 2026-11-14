@@ -61,7 +61,10 @@ export async function dispatchDueNotifications(options: {
 
   const programs = await prisma.program.findMany({
     where: {
-      OR: [{ status: "PUBLISHED" }, { isPublished: true }],
+      OR: [
+        { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE"] } },
+        { isPublished: true },
+      ],
       ...(scopedUserId
         ? {
             enrollments: {

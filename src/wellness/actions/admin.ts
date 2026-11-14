@@ -208,6 +208,8 @@ export async function wellnessAdminApprovePayment(
           status: "ACTIVE",
           paidAt,
           validUntil,
+          termsAgreedAt: enrollment.termsAgreedAt ?? paidAt,
+          termsAgreedVersion: enrollment.termsAgreedVersion ?? "v1.0",
         },
       });
     });
@@ -387,6 +389,7 @@ export async function wellnessAdminUpdateCustomerProfile(
         where: { userId: data.userId },
         create: {
           userId: data.userId,
+          age: data.age !== undefined ? data.age : null,
           dietType: data.dietType?.trim() || null,
           heightCm: data.heightCm !== undefined ? data.heightCm : null,
           weightKg: data.weightKg !== undefined ? data.weightKg : null,
@@ -396,6 +399,7 @@ export async function wellnessAdminUpdateCustomerProfile(
           coachNotes: data.coachNotes?.trim() || null,
         },
         update: {
+          age: data.age !== undefined ? data.age : undefined,
           dietType:
             data.dietType !== undefined ? (data.dietType?.trim() || null) : undefined,
           heightCm: data.heightCm !== undefined ? data.heightCm : undefined,

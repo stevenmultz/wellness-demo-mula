@@ -8,12 +8,12 @@ export default function DesktopRequiredPage() {
       <div className="absolute top-5 right-5 z-20">
         <ThemeToggle />
       </div>
-      <div className="glass-panel rounded-3xl p-8 max-w-md w-full space-y-6 relative z-10">
-        <div className="w-12 h-12 glass-panel-subtle text-zinc-900 dark:text-white rounded-2xl flex items-center justify-center mx-auto">
+      <div className="glass-panel rounded-2xl p-8 max-w-md w-full space-y-6 relative z-10">
+        <div className="w-12 h-12 glass-panel-subtle text-zinc-900 dark:text-zinc-100 rounded-xl flex items-center justify-center mx-auto">
           <Monitor className="w-6 h-6" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
             Desktop Browser Required
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
@@ -29,7 +29,7 @@ export default function DesktopRequiredPage() {
           </Link>
           <Link
             href="/"
-            className="flex-1 inline-flex items-center justify-center px-5 py-2.5 rounded-xl glass-panel text-xs font-medium text-zinc-700 dark:text-zinc-300"
+            className="flex-1 inline-flex items-center justify-center px-5 py-2.5 rounded-xl graphite-button text-xs font-medium"
           >
             Home
           </Link>

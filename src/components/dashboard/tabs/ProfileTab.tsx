@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -82,7 +82,7 @@ type View =
   | "account";
 
 const inputCls =
-  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200 dark:border-zinc-700/80 text-xs sm:text-sm text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:border-zinc-500 dark:focus:border-zinc-300 transition";
 
 const labelSpanCls = "block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-1.5";
 
@@ -102,10 +102,10 @@ function Banner({ msg }: { msg: Msg }) {
   return (
     <p
       role={msg.type === "error" ? "alert" : "status"}
-      className={`text-xs px-3.5 py-2.5 rounded-[2px] border font-mono ${
+      className={`text-xs px-3.5 py-2.5 rounded-xl border font-mono ${
         msg.type === "error"
           ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/40"
-          : "bg-zinc-900/5 text-zinc-900 border-zinc-300 dark:bg-white/10 dark:text-zinc-100 dark:border-white/20"
+          : "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25"
       }`}
     >
       {msg.text}
@@ -378,7 +378,7 @@ export function ProfileTab({
       {!view && (
         <div className="space-y-6 max-w-2xl mx-auto">
           {/* Top Profile Image Banner */}
-          <section className="overflow-hidden rounded-[2px] sm:rounded-[2px] bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
+          <section className="overflow-hidden rounded-2xl bg-[#0B0D10] border border-zinc-200 dark:border-zinc-700/80 shadow-sm relative">
             <div className="relative aspect-[16/7] sm:aspect-[21/9] min-h-[170px] sm:min-h-[200px] w-full flex items-end">
               {/* Background Cover Image with atmospheric luxury dark overlay */}
               <div className="absolute inset-0 z-0">
@@ -388,16 +388,16 @@ export function ProfileTab({
                   alt=""
                   className="w-full h-full object-cover opacity-60 scale-105 transition-transform duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/35" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D10] via-[#0B0D10]/60 to-black/35" />
               </div>
 
               {/* Top Badges */}
               <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
-                <span className="px-2.5 py-1 rounded-[2px] bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono font-semibold uppercase tracking-wider text-white inline-flex items-center gap-1.5">
+                <span className="px-2.5 py-1 rounded-lg bg-[#11151A]/80 backdrop-blur-md border border-zinc-700/80 text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-100 inline-flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>Active Member</span>
                 </span>
-                <span className="px-2.5 py-1 rounded-[2px] bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
+                <span className="px-2.5 py-1 rounded-lg bg-[#11151A]/80 backdrop-blur-md border border-zinc-700/80 text-[10px] font-mono text-zinc-300">
                   Joined {new Date(user.createdAt).getFullYear()}
                 </span>
               </div>
@@ -407,7 +407,7 @@ export function ProfileTab({
                 <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
                   {/* Avatar with Camera Quick Upload */}
                   <div className="relative group shrink-0">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2px] overflow-hidden bg-zinc-800 border-2 border-white/90 dark:border-white/20 shadow-2xl flex items-center justify-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-[#171C22] border-2 border-white/90 dark:border-zinc-700/80 shadow-2xl flex items-center justify-center">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt={form.fullName} className="w-full h-full object-cover" />
@@ -422,7 +422,7 @@ export function ProfileTab({
                         setTimeout(() => fileRef.current?.click(), 150);
                       }}
                       title="Update profile picture"
-                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-[2px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
+                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-white dark:bg-[#171C22] border border-zinc-200 dark:border-zinc-700/80 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
                     >
                       <Camera className="w-3 h-3" />
                     </button>
@@ -447,7 +447,7 @@ export function ProfileTab({
                     setMsg(null);
                     setView("basic");
                   }}
-                  className="shrink-0 hidden sm:inline-flex px-3.5 py-1.5 rounded-[2px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 text-white text-xs font-semibold tracking-wide uppercase transition active:scale-95"
+                  className="shrink-0 hidden sm:inline-flex px-3.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-semibold tracking-wide uppercase transition active:scale-95"
                 >
                   Edit Profile
                 </button>
@@ -468,7 +468,7 @@ export function ProfileTab({
                   </span>
                 )}
               </div>
-              <div className="rounded-[2px] bg-white dark:bg-[#121215] border border-zinc-200 dark:border-white/10 divide-y divide-zinc-100 dark:divide-white/10 overflow-hidden">
+              <div className="rounded-2xl bg-white dark:bg-[#171C22] border border-zinc-200 dark:border-zinc-700/80 divide-y divide-zinc-100 dark:divide-zinc-800/80 overflow-hidden shadow-xs">
                 {group.items.map(([id, label, desc]) => (
                   <button
                     key={id}
@@ -498,9 +498,9 @@ export function ProfileTab({
         <div className="max-w-xl mx-auto space-y-4">
           <Banner msg={msg} />
 
-          <div className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] p-4 sm:p-6 space-y-5">
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-[#171C22] p-4 sm:p-6 space-y-5 shadow-xs">
             {/* Clean Section Header */}
-            <div className="pb-3 border-b border-zinc-100 dark:border-white/10 space-y-0.5">
+            <div className="pb-3 border-b border-zinc-100 dark:border-zinc-800 space-y-0.5">
               <h2 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
                 {TITLES[view]}
               </h2>
@@ -510,9 +510,9 @@ export function ProfileTab({
             {/* 1. BASIC INFORMATION */}
             {view === "basic" && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-14 h-14 rounded-[2px] overflow-hidden bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-zinc-200/70 dark:bg-[#20262E] flex items-center justify-center shrink-0">
                       {avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -529,7 +529,7 @@ export function ProfileTab({
                     type="button"
                     disabled={avatarBusy}
                     onClick={() => fileRef.current?.click()}
-                    className="h-9 px-3.5 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
+                    className="h-9 px-3.5 rounded-xl border border-zinc-300 dark:border-zinc-700/80 bg-white dark:bg-[#20262E] text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition active:scale-95"
                   >
                     {avatarBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                     <span>Upload</span>
@@ -600,7 +600,7 @@ export function ProfileTab({
             {/* 2. CONTACT DETAILS */}
             {view === "contact" && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Mail className="w-4 h-4 text-zinc-500 shrink-0" />
                     <div className="min-w-0">
@@ -608,7 +608,7 @@ export function ProfileTab({
                       <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">{user.email}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-[2px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-mono font-medium">
+                  <span className="shrink-0 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[10px] font-mono font-medium">
                     Verified
                   </span>
                 </div>
@@ -757,11 +757,11 @@ export function ProfileTab({
                     </label>
                   </div>
 
-                  <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="h-10 px-5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
+                      className="h-10 px-5 rounded-xl chrome-button text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
                     >
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
                       <span>Update Password</span>
@@ -769,7 +769,7 @@ export function ProfileTab({
                   </div>
                 </form>
 
-                <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-2">
+                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 space-y-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-zinc-950 dark:text-white">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Session & Credential Security</span>
@@ -787,7 +787,7 @@ export function ProfileTab({
             {/* 6. PRIVACY & DATA EXPORT */}
             {view === "privacy" && (
               <div className="space-y-4">
-                <dl className="rounded-[2px] border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] divide-y divide-zinc-200/60 dark:divide-white/10 text-xs">
+                <dl className="rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-[#11151A] divide-y divide-zinc-200/60 dark:divide-zinc-800 text-xs">
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <dt className="text-zinc-500">Registered Email</dt>
                     <dd className="font-semibold text-zinc-900 dark:text-white truncate">{user.email}</dd>
@@ -807,7 +807,7 @@ export function ProfileTab({
                   </div>
                 </dl>
 
-                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
+                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-[#11151A] space-y-3">
                   <div>
                     <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
                       Export Wellness Account Data
@@ -819,14 +819,14 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={handleExportData}
-                    className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    className="h-9 px-4 rounded-xl border border-zinc-300 dark:border-zinc-700/80 bg-white dark:bg-[#20262E] text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 active:scale-95 transition"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download Data (.json)</span>
                   </button>
                 </div>
 
-                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
+                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-[#11151A] space-y-3">
                   <div>
                     <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
                       Local Storage & Cache Manager
@@ -838,7 +838,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={handleClearCache}
-                    className="h-9 px-4 rounded-[2px] border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    className="h-9 px-4 rounded-xl border border-zinc-300 dark:border-zinc-700/80 bg-white dark:bg-[#20262E] text-xs font-semibold text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 active:scale-95 transition"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Clear Local Cache</span>
@@ -851,7 +851,7 @@ export function ProfileTab({
             {view === "account" && (
               <div className="space-y-4">
                 {/* Concierge Support Card */}
-                <div className="p-4 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-2.5">
+                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-[#11151A] space-y-2.5">
                   <div className="flex items-center gap-2">
                     <LifeBuoy className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
                     <h3 className="text-xs font-semibold text-zinc-950 dark:text-white">
@@ -874,7 +874,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="w-full px-4 py-3.5 rounded-[2px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white flex items-center justify-between transition"
+                    className="w-full px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-[#11151A] hover:bg-zinc-100 dark:hover:bg-[#20262E] text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <LogOut className="w-4 h-4 text-zinc-500" />
@@ -886,7 +886,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onDeleteAccount}
-                    className="w-full px-4 py-3.5 rounded-[2px] border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-semibold text-red-600 dark:text-red-400 flex items-center justify-between transition"
+                    className="w-full px-4 py-3.5 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-semibold text-red-600 dark:text-red-400 flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <Trash2 className="w-4 h-4" />
@@ -910,7 +910,7 @@ function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="h-10 px-5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
+      className="h-10 px-5 rounded-xl chrome-button text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
     >
       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
       <span>Save Changes</span>
@@ -918,12 +918,36 @@ function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
   );
 }
 
+const NOTIF_PREFS_KEY = "wellness_notification_prefs";
+
 function NotificationPrefs() {
   const push = usePushNotifications();
   const isOn = push.status === "on";
   const [dailyReminders, setDailyReminders] = useState(true);
   const [communityUpdates, setCommunityUpdates] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(true);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(NOTIF_PREFS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.dailyReminders === "boolean") setDailyReminders(parsed.dailyReminders);
+        if (typeof parsed.communityUpdates === "boolean") setCommunityUpdates(parsed.communityUpdates);
+        if (typeof parsed.weeklyDigest === "boolean") setWeeklyDigest(parsed.weeklyDigest);
+      }
+    } catch {
+      // ignore localStorage read errors
+    }
+  }, []);
+
+  const persistPrefs = (next: { dailyReminders: boolean; communityUpdates: boolean; weeklyDigest: boolean }) => {
+    try {
+      localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(next));
+    } catch {
+      // ignore localStorage write errors
+    }
+  };
 
   const handleTogglePush = () => {
     if (push.busy) return;
@@ -937,9 +961,9 @@ function NotificationPrefs() {
   return (
     <div className="space-y-4">
       {/* Push Notifications Toggle */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 flex items-center justify-center shrink-0">
             <Bell className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -954,7 +978,7 @@ function NotificationPrefs() {
           aria-checked={isOn}
           role="switch"
           className={`w-12 h-7 rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${
-            isOn ? "bg-zinc-950 dark:bg-white" : "bg-zinc-200 dark:bg-zinc-700"
+            isOn ? "bg-zinc-950 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"
           } ${push.busy ? "opacity-50" : ""}`}
         >
           <div
@@ -966,9 +990,9 @@ function NotificationPrefs() {
       </div>
 
       {/* Routine Reminders */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-[#20262E] flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Smartphone className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -978,11 +1002,15 @@ function NotificationPrefs() {
         </div>
         <button
           type="button"
-          onClick={() => setDailyReminders((v) => !v)}
+          onClick={() => {
+            const nextVal = !dailyReminders;
+            setDailyReminders(nextVal);
+            persistPrefs({ dailyReminders: nextVal, communityUpdates, weeklyDigest });
+          }}
           aria-checked={dailyReminders}
           role="switch"
           className={`w-12 h-7 rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${
-            dailyReminders ? "bg-zinc-950 dark:bg-white" : "bg-zinc-200 dark:bg-zinc-700"
+            dailyReminders ? "bg-zinc-950 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"
           }`}
         >
           <div
@@ -994,9 +1022,9 @@ function NotificationPrefs() {
       </div>
 
       {/* Cohort Community Announcements */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-[#20262E] flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Users className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -1006,11 +1034,15 @@ function NotificationPrefs() {
         </div>
         <button
           type="button"
-          onClick={() => setCommunityUpdates((v) => !v)}
+          onClick={() => {
+            const nextVal = !communityUpdates;
+            setCommunityUpdates(nextVal);
+            persistPrefs({ dailyReminders, communityUpdates: nextVal, weeklyDigest });
+          }}
           aria-checked={communityUpdates}
           role="switch"
           className={`w-12 h-7 rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${
-            communityUpdates ? "bg-zinc-950 dark:bg-white" : "bg-zinc-200 dark:bg-zinc-700"
+            communityUpdates ? "bg-zinc-950 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"
           }`}
         >
           <div
@@ -1022,9 +1054,9 @@ function NotificationPrefs() {
       </div>
 
       {/* Weekly Progress Digest */}
-      <div className="p-4 rounded-[2px] bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#11151A] border border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+          <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-[#20262E] flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Mail className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -1034,11 +1066,15 @@ function NotificationPrefs() {
         </div>
         <button
           type="button"
-          onClick={() => setWeeklyDigest((v) => !v)}
+          onClick={() => {
+            const nextVal = !weeklyDigest;
+            setWeeklyDigest(nextVal);
+            persistPrefs({ dailyReminders, communityUpdates, weeklyDigest: nextVal });
+          }}
           aria-checked={weeklyDigest}
           role="switch"
           className={`w-12 h-7 rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${
-            weeklyDigest ? "bg-zinc-950 dark:bg-white" : "bg-zinc-200 dark:bg-zinc-700"
+            weeklyDigest ? "bg-zinc-950 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-700"
           }`}
         >
           <div

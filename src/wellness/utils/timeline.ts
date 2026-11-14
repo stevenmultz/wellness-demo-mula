@@ -120,42 +120,42 @@ export function getPublicBadgeMeta(badge: PublicProgramBadge): {
       return {
         label: "Coming Soon",
         colorClass:
-          "bg-zinc-100 text-zinc-800 border-zinc-300 dark:bg-zinc-800/80 dark:text-zinc-200 dark:border-zinc-700",
+          "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800/90 dark:text-zinc-300 dark:border-zinc-700",
         canEnroll: false,
       };
     case "Open Registration":
       return {
         label: "Open Registration",
         colorClass:
-          "bg-neutral-900 text-white border-neutral-900 dark:bg-zinc-100 dark:text-neutral-950 dark:border-zinc-100",
+          "bg-emerald-500/15 text-emerald-800 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/35",
         canEnroll: true,
       };
     case "Full":
       return {
         label: "Full",
         colorClass:
-          "bg-zinc-200/80 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+          "bg-amber-500/15 text-amber-800 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/35",
         canEnroll: false,
       };
     case "Close Registration":
       return {
         label: "Close Registration",
         colorClass:
-          "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-white/10 dark:text-zinc-300 dark:border-white/15",
+          "bg-zinc-200/80 text-zinc-700 border-zinc-300 dark:bg-zinc-800/80 dark:text-zinc-400 dark:border-zinc-700",
         canEnroll: false,
       };
     case "On going":
       return {
         label: "On going",
         colorClass:
-          "bg-zinc-900/10 text-zinc-900 border-zinc-400 dark:bg-white/15 dark:text-white dark:border-white/30",
+          "bg-blue-500/15 text-blue-800 border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/35",
         canEnroll: false,
       };
     case "End":
       return {
         label: "End",
         colorClass:
-          "bg-zinc-200/80 text-zinc-600 border-zinc-300 dark:bg-zinc-800/70 dark:text-zinc-400 dark:border-zinc-700",
+          "bg-zinc-200/70 text-zinc-600 border-zinc-300 dark:bg-zinc-900/80 dark:text-zinc-500 dark:border-zinc-800",
         canEnroll: false,
       };
   }

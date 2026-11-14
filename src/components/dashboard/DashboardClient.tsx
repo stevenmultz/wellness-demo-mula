@@ -2,22 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { QrisCheckoutModal, QrisInvoiceData } from "@/components/checkout/QrisCheckoutModal";
 import {
-  wellnessUpdateProfile,
-  wellnessChangePassword,
   wellnessEnrollProgram,
   wellnessDeleteAccount,
-  wellnessUpdateHealthProfile,
 } from "@/wellness/actions/account";
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
-import { normalizeVideoEmbed } from "@/wellness/integrations/video-provider";
-import { parseWorkoutOptionGroups, parseTermsChapters, ProgramTermChapter } from "@/wellness/utils/json";
-import { resolvePublicBadge, PublicProgramBadge } from "@/wellness/utils/timeline";
+import { parseWorkoutOptionGroups, ProgramTermChapter } from "@/wellness/utils/json";
+import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { MyPlanHeader, MyPlanOverview } from "./tabs/MyPlanTab";
 import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
@@ -26,73 +19,14 @@ import { ProfileTab } from "./tabs/ProfileTab";
 import { ProgramDetailView } from "./tabs/ProgramDetailView";
 import {
   CheckCircle,
-  CheckCircle2,
-  Clock,
-  Lock,
-  Loader2,
-  Shield,
-  LogOut,
   Eye,
   EyeOff,
-  Video,
-  Utensils,
-  CheckSquare,
-  Square,
-  ExternalLink,
-  ArrowRight,
-  ArrowLeft,
-  Search,
-  Filter,
-  CreditCard,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  LayoutDashboard,
-  Play,
   AlertTriangle,
-  MessageCircle,
-  MapPin,
   Bell,
-  Smartphone,
-  QrCode,
-  ShieldCheck,
-  X,
-  Sparkles,
-  Info,
   Calendar,
   Compass,
-  Sliders,
   User,
-  Users,
-  Camera,
-  Scale,
-  Activity,
-  Heart,
-  Moon,
-  Smile,
-  Dumbbell,
-  Upload,
-  Trash2,
-  Award,
-  Server,
-  RefreshCw,
-  Radio,
 } from "lucide-react";
-
-const VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  "BNWi5lDIv-G3f7GRj22k8hNtW2wAJXJNReSHFHlUddSELpcCyuDwKZQmC7p1Bpm_NpbBw41VZhJr-_b4BpNwvSs";
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
 
 export interface ProgramDayItem {
   id: string;
@@ -280,11 +214,6 @@ export function DashboardClient({
   useEffect(() => {
     setVisitedTabs((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
   }, [activeTab]);
-  const [isViewingPlanDetail, setIsViewingPlanDetail] = useState(false);
-  const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
-  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
-  const [activeDetailPhase, setActiveDetailPhase] = useState<"movement" | "fuel" | "recovery">("movement");
-  const [profileActiveDetail, setProfileActiveDetail] = useState<null | "personal" | "medical" | "payments" | "account">(null);
 
   // Scroll Hide / Show for Top Header (Scroll down hides, scroll up reveals)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
@@ -307,21 +236,9 @@ export function DashboardClient({
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  // Explore (All Programs) Search, Filter, Pagination States
-  const [programSearch, setProgramSearch] = useState("");
-  const [formatFilter, setFormatFilter] = useState<"ALL" | "ONLINE" | "ONSITE" | "HYBRID">("ALL");
-  const [availabilityFilter, setAvailabilityFilter] = useState<"ALL" | "OPEN" | "ACTIVE" | "COMING_SOON">("ALL");
-  const [programsPage, setProgramsPage] = useState(1);
-  const ITEMS_PER_PAGE = 4;
-
   // Filter ONLY programs the user has enrolled in
   const enrolledProgramIds = new Set(myPrograms.map((e) => e.programId));
   const myEnrolledPrograms = allPrograms.filter((p) => enrolledProgramIds.has(p.id));
-
-  // 3 Newly Published Programs for Dashboard discovery section (excluding already enrolled if possible)
-  const newlyPublishedPrograms = allPrograms
-    .filter((p) => !enrolledProgramIds.has(p.id) || myEnrolledPrograms.length === 0)
-    .slice(0, 3);
 
   const isCohortEnded = (startDate?: string | Date | null, endDate?: string | Date | null, dayCount?: number) => {
     const n = new Date();
@@ -354,22 +271,6 @@ export function DashboardClient({
   const defaultProgramId = ongoingOrUpcomingEnrollment?.programId || allActiveEnrollments[0]?.programId || "";
   const [selectedProgId, setSelectedProgId] = useState<string>(defaultProgramId);
 
-  const initialProg =
-    myEnrolledPrograms.find((p) => p.id === defaultProgramId) ||
-    myEnrolledPrograms.find((p) => !isCohortEnded(p.startDate, p.endDate, p.dayCount)) ||
-    myEnrolledPrograms[0] ||
-    null;
-  const initialTodayIdx = initialProg
-    ? Math.max(
-        0,
-        initialProg.days.reduce(
-          (acc, d, idx) => (d.isCalendarUnlocked && !d.isPast2359 ? idx : acc),
-          0
-        )
-      )
-    : 0;
-  const [activeDayIndex, setActiveDayIndex] = useState<number>(initialTodayIdx);
-
   const [dayChecklists, setDayChecklists] = useState<Record<string, string[]>>({});
   const [dayVideoWatched, setDayVideoWatched] = useState<Record<string, boolean>>({});
   const [dayAssessments, setDayAssessments] = useState<Record<string, string>>({});
@@ -380,72 +281,17 @@ export function DashboardClient({
   const [dayMealNotes, setDayMealNotes] = useState<Record<string, string>>({});
   const [dayWorkoutNotes, setDayWorkoutNotes] = useState<Record<string, string>>({});
   const [dayEventFeedback, setDayEventFeedback] = useState<Record<string, string>>({});
-  const [isSavingFeedback, setIsSavingFeedback] = useState(false);
-  const [feedbackSaved, setFeedbackSaved] = useState(false);
   const [dayReflections, setDayReflections] = useState<Record<string, string>>({});
   const [dayHappiness, setDayHappiness] = useState<Record<string, number>>({});
   const [dayBedtimes, setDayBedtimes] = useState<Record<string, string>>({});
   const [dayWakeTimes, setDayWakeTimes] = useState<Record<string, string>>({});
-  const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [actionNotice, setActionNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [qrisInvoice, setQrisInvoice] = useState<QrisInvoiceData | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
-  const [notifPermission, setNotifPermission] = useState<string>(
-    typeof window !== "undefined" && "Notification" in window
-      ? Notification.permission
-      : "default"
-  );
-  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
-  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
-  const [cronTriggerResult, setCronTriggerResult] = useState<Record<string, unknown> | null>(null);
-  const [isTriggeringCron, setIsTriggeringCron] = useState(false);
-  const [isIosDevice, setIsIosDevice] = useState(false);
-  const [isStandalonePwa, setIsStandalonePwa] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isStandalone =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-      setIsIosDevice(isIos);
-      setIsStandalonePwa(isStandalone);
-
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.ready
-          .then((reg) => {
-            return reg.pushManager ? reg.pushManager.getSubscription() : null;
-          })
-          .then((sub) => {
-            if (sub) {
-              setIsPushSubscribed(true);
-            }
-          })
-          .catch(() => {});
-      }
-    }
-  }, []);
-
-  // Profile Settings States
-  const [profileForm, setProfileForm] = useState({
-    fullName: user.fullName || "",
-    phone: user.phone || "",
-    age: user.age ? String(user.age) : "",
-    gender: user.gender || "",
-    occupation: user.occupation || "",
-    address: user.address || "",
-    city: user.city || "",
-    province: user.province || "",
-    emergencyContactName: user.emergencyContactName || "",
-    emergencyContactPhone: user.emergencyContactPhone || "",
-  });
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  // Health & Body Baseline Profile States
-  const [healthProfile, setHealthProfile] = useState<HealthProfileData>(() => ({
+  // Health & Body Baseline Profile State (passed to ProfileTab)
+  const [healthProfile] = useState<HealthProfileData>(() => ({
     photoFrontUrl: initialHealthProfile?.photoFrontUrl || null,
     photoSideUrl: initialHealthProfile?.photoSideUrl || null,
     photoBackUrl: initialHealthProfile?.photoBackUrl || null,
@@ -467,96 +313,6 @@ export function DashboardClient({
     sleepQualityNotes: initialHealthProfile?.sleepQualityNotes || "",
     eatingPatterns: initialHealthProfile?.eatingPatterns || "",
   }));
-  const [isUpdatingHealth, setIsUpdatingHealth] = useState(false);
-  const [healthMsg, setHealthMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [uploadingPhotoKey, setUploadingPhotoKey] = useState<"front" | "side" | "back" | null>(null);
-
-  const handlePhotoUpload = async (key: "front" | "side" | "back", file: File) => {
-    setUploadingPhotoKey(key);
-    try {
-      const compressed = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.onload = (e) => {
-          const raw = e.target?.result as string;
-          if (!raw) return reject(new Error("Empty data"));
-          const img = new window.Image();
-          img.onerror = () => resolve(raw);
-          img.onload = () => {
-            const maxDim = 1080;
-            let { width, height } = img;
-            if (width > maxDim || height > maxDim) {
-              if (width > height) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
-              } else {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
-              }
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return resolve(raw);
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL("image/jpeg", 0.78));
-          };
-          img.src = raw;
-        };
-        reader.readAsDataURL(file);
-      });
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl: compressed, type: key }),
-      });
-      const data = await res.json();
-      if (data.success && data.url) {
-        const fieldName = key === "front" ? "photoFrontUrl" : key === "side" ? "photoSideUrl" : "photoBackUrl";
-        setHealthProfile((prev) => ({ ...prev, [fieldName]: data.url }));
-        setHealthMsg({ type: "success", text: `${key.toUpperCase()} photo uploaded. Remember to click 'Save Health Profile'.` });
-      } else {
-        setHealthMsg({ type: "error", text: data.message || "Failed to upload photo." });
-      }
-    } catch {
-      setHealthMsg({ type: "error", text: "Photo upload failed. Please try again." });
-    } finally {
-      setUploadingPhotoKey(null);
-    }
-  };
-
-  const handleSaveHealthProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdatingHealth(true);
-    setHealthMsg(null);
-    try {
-      const res = await wellnessUpdateHealthProfile(healthProfile);
-      if (res.success) {
-        setHealthMsg({ type: "success", text: "Health & lifestyle baseline profile saved successfully." });
-        setTimeout(() => setHealthMsg(null), 4000);
-      } else {
-        setHealthMsg({ type: "error", text: res.message || "Failed to save health profile." });
-      }
-    } catch {
-      setHealthMsg({ type: "error", text: "Network error occurred." });
-    } finally {
-      setIsUpdatingHealth(false);
-    }
-  };
-
-  // Password Form States & Peek
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [peekCurrentPass, setPeekCurrentPass] = useState(false);
-  const [peekNewPass, setPeekNewPass] = useState(false);
-  const [peekConfirmPass, setPeekConfirmPass] = useState(false);
-  const [isChangingPass, setIsChangingPass] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Delete Account States & Peek
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -578,10 +334,6 @@ export function DashboardClient({
     myEnrolledPrograms.find((p) => p.id === selectedProgId) ||
     myEnrolledPrograms[0] ||
     null;
-  const currentEnrollment = currentProgram
-    ? myPrograms.find((e) => e.programId === currentProgram.id)
-    : null;
-  const hasActiveAccess = currentEnrollment?.status === "ACTIVE";
   const todayIndex = currentProgram?.days?.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359) ?? -1;
   const currentDay = todayIndex >= 0 ? currentProgram?.days?.[todayIndex] || null : null;
   const calendarDay = currentDay;
@@ -686,109 +438,67 @@ export function DashboardClient({
   };
 
   const handleOpenVideo = async (dayId?: string): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay || getVideoWatched(currentDay)) return true;
-    setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: true }));
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay || getVideoWatched(targetDay)) return true;
+    setDayVideoWatched((prev) => ({ ...prev, [targetDay.id]: true }));
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
+      programDayId: targetDay.id,
       videoWatched: true,
-      checklistCompleted: getCheckedItems(currentDay),
-      isCompleted: !!currentDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      isCompleted: !!targetDay.userProgress?.isCompleted,
     });
     if (!res.success) {
-      setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: false }));
+      setDayVideoWatched((prev) => ({ ...prev, [targetDay.id]: false }));
       return false;
     }
     return true;
-  };
-
-  const handleToggleVideoWatched = async () => {
-    if (!currentDay) return;
-    const prevVideo = getVideoWatched(currentDay);
-    const nextVideo = !prevVideo;
-    setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: nextVideo }));
-
-    const checked = getCheckedItems(currentDay);
-    const allTasksDone = areActiveWorkoutMovementsCompleted(currentDay, checked);
-    const autoComplete = nextVideo && allTasksDone;
-
-    const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      videoWatched: nextVideo,
-      checklistCompleted: checked,
-      isCompleted: autoComplete,
-      assessmentResponse:
-        dayAssessments[currentDay.id] !== undefined
-          ? dayAssessments[currentDay.id]
-          : currentDay.userProgress?.assessmentResponse || "",
-    });
-
-    if (!res.success) {
-      // Rollback optimistic state
-      setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: prevVideo }));
-      setActionNotice({
-        type: "error",
-        text: res.message || "Failed to save video progress.",
-      });
-      setTimeout(() => setActionNotice(null), 4000);
-      return;
-    }
-
-    if (autoComplete) {
-      setActionNotice({
-        type: "success",
-        text: `Day ${currentDay.dayNumber} completed.`,
-      });
-      setTimeout(() => setActionNotice(null), 3500);
-    }
-    router.refresh();
   };
 
   const handleSyncChecklist = async (
     updated: string[],
     dayId?: string
   ): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
-    const existing = getCheckedItems(currentDay);
-    setDayChecklists((prev) => ({ ...prev, [currentDay.id]: updated }));
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
+    const existing = getCheckedItems(targetDay);
+    setDayChecklists((prev) => ({ ...prev, [targetDay.id]: updated }));
 
     const videoDone =
-      currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
+      targetDay.dayType !== "TRAINING_DAY" || !targetDay.videoUrl
         ? true
-        : getVideoWatched(currentDay);
-    const restItems = (currentDay.restInstructions || "")
+        : getVideoWatched(targetDay);
+    const restItems = (targetDay.restInstructions || "")
       .split(/\n|•|·/)
       .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
       .filter((line) => line.length > 1);
     const allTasksDone =
-      currentDay.dayType === "REST_DAY"
+      targetDay.dayType === "REST_DAY"
         ? restItems.length === 0 || restItems.every((name) => updated.includes(name))
-        : areActiveWorkoutMovementsCompleted(currentDay, updated);
+        : areActiveWorkoutMovementsCompleted(targetDay, updated);
     const autoComplete = videoDone && allTasksDone;
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      videoWatched: getVideoWatched(targetDay),
       checklistCompleted: updated,
-      isCompleted: autoComplete || !!currentDay.userProgress?.isCompleted,
-      selectedWorkout: dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout || undefined,
-      photoBeforeUrl: dayPhotosBefore[currentDay.id] || currentDay.userProgress?.photoBeforeUrl || undefined,
-      photoAfterUrl: dayPhotosAfter[currentDay.id] || currentDay.userProgress?.photoAfterUrl || undefined,
-      mealCompliance: dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || undefined,
-      mealNotes: dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || undefined,
-      dailyReflection: dayReflections[currentDay.id] !== undefined ? dayReflections[currentDay.id] : currentDay.userProgress?.dailyReflection || undefined,
-      happinessRate: dayHappiness[currentDay.id] || currentDay.userProgress?.happinessRate || undefined,
-      bedtime: dayBedtimes[currentDay.id] || currentDay.userProgress?.bedtime || undefined,
-      wakeTime: dayWakeTimes[currentDay.id] || currentDay.userProgress?.wakeTime || undefined,
+      isCompleted: autoComplete || !!targetDay.userProgress?.isCompleted,
+      selectedWorkout: dayWorkouts[targetDay.id] || targetDay.userProgress?.selectedWorkout || undefined,
+      photoBeforeUrl: dayPhotosBefore[targetDay.id] || targetDay.userProgress?.photoBeforeUrl || undefined,
+      photoAfterUrl: dayPhotosAfter[targetDay.id] || targetDay.userProgress?.photoAfterUrl || undefined,
+      mealCompliance: dayMealCompliance[targetDay.id] || targetDay.userProgress?.mealCompliance || undefined,
+      mealNotes: dayMealNotes[targetDay.id] !== undefined ? dayMealNotes[targetDay.id] : targetDay.userProgress?.mealNotes || undefined,
+      dailyReflection: dayReflections[targetDay.id] !== undefined ? dayReflections[targetDay.id] : targetDay.userProgress?.dailyReflection || undefined,
+      happinessRate: dayHappiness[targetDay.id] || targetDay.userProgress?.happinessRate || undefined,
+      bedtime: dayBedtimes[targetDay.id] || targetDay.userProgress?.bedtime || undefined,
+      wakeTime: dayWakeTimes[targetDay.id] || targetDay.userProgress?.wakeTime || undefined,
       assessmentResponse:
-        dayAssessments[currentDay.id] !== undefined
-          ? dayAssessments[currentDay.id]
-          : currentDay.userProgress?.assessmentResponse || "",
+        dayAssessments[targetDay.id] !== undefined
+          ? dayAssessments[targetDay.id]
+          : targetDay.userProgress?.assessmentResponse || "",
     });
 
     if (!res.success) {
-      setDayChecklists((prev) => ({ ...prev, [currentDay.id]: existing }));
+      setDayChecklists((prev) => ({ ...prev, [targetDay.id]: existing }));
       setActionNotice({
         type: "error",
         text: res.message || "Failed to save checklist progress.",
@@ -800,7 +510,7 @@ export function DashboardClient({
     if (autoComplete) {
       setActionNotice({
         type: "success",
-        text: `Day ${currentDay.dayNumber} checklist completed.`,
+        text: `Day ${targetDay.dayNumber} checklist completed.`,
       });
       setTimeout(() => setActionNotice(null), 3500);
     }
@@ -812,9 +522,9 @@ export function DashboardClient({
     dayId?: string,
     isRepUpdate = false
   ) => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return;
-    const existing = getCheckedItems(currentDay);
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return;
+    const existing = getCheckedItems(targetDay);
     const getBaseKey = (item: string) =>
       (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase();
     const targetBase = getBaseKey(task);
@@ -828,46 +538,45 @@ export function DashboardClient({
         ? existing.filter((t) => getBaseKey(t) !== targetBase)
         : [...existing, task];
 
-    setDayChecklists((prev) => ({ ...prev, [currentDay.id]: updated }));
+    setDayChecklists((prev) => ({ ...prev, [targetDay.id]: updated }));
 
     const videoDone =
-      currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
+      targetDay.dayType !== "TRAINING_DAY" || !targetDay.videoUrl
         ? true
-        : getVideoWatched(currentDay);
-    const restItems = (currentDay.restInstructions || "")
+        : getVideoWatched(targetDay);
+    const restItems = (targetDay.restInstructions || "")
       .split(/\n|•|·/)
       .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
       .filter((line) => line.length > 1);
     const allTasksDone =
-      currentDay.dayType === "REST_DAY"
+      targetDay.dayType === "REST_DAY"
         ? restItems.length === 0 || restItems.every((name) => updated.includes(name))
-        : areActiveWorkoutMovementsCompleted(currentDay, updated);
+        : areActiveWorkoutMovementsCompleted(targetDay, updated);
 
     const autoComplete = videoDone && allTasksDone;
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      videoWatched: getVideoWatched(targetDay),
       checklistCompleted: updated,
       isCompleted: autoComplete,
-      selectedWorkout: dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout || undefined,
-      photoBeforeUrl: dayPhotosBefore[currentDay.id] || currentDay.userProgress?.photoBeforeUrl || undefined,
-      photoAfterUrl: dayPhotosAfter[currentDay.id] || currentDay.userProgress?.photoAfterUrl || undefined,
-      mealCompliance: dayMealCompliance[currentDay.id] || currentDay.userProgress?.mealCompliance || undefined,
-      mealNotes: dayMealNotes[currentDay.id] !== undefined ? dayMealNotes[currentDay.id] : currentDay.userProgress?.mealNotes || undefined,
-      dailyReflection: dayReflections[currentDay.id] !== undefined ? dayReflections[currentDay.id] : currentDay.userProgress?.dailyReflection || undefined,
-      happinessRate: dayHappiness[currentDay.id] || currentDay.userProgress?.happinessRate || undefined,
-      bedtime: dayBedtimes[currentDay.id] || currentDay.userProgress?.bedtime || undefined,
-      wakeTime: dayWakeTimes[currentDay.id] || currentDay.userProgress?.wakeTime || undefined,
+      selectedWorkout: dayWorkouts[targetDay.id] || targetDay.userProgress?.selectedWorkout || undefined,
+      photoBeforeUrl: dayPhotosBefore[targetDay.id] || targetDay.userProgress?.photoBeforeUrl || undefined,
+      photoAfterUrl: dayPhotosAfter[targetDay.id] || targetDay.userProgress?.photoAfterUrl || undefined,
+      mealCompliance: dayMealCompliance[targetDay.id] || targetDay.userProgress?.mealCompliance || undefined,
+      mealNotes: dayMealNotes[targetDay.id] !== undefined ? dayMealNotes[targetDay.id] : targetDay.userProgress?.mealNotes || undefined,
+      dailyReflection: dayReflections[targetDay.id] !== undefined ? dayReflections[targetDay.id] : targetDay.userProgress?.dailyReflection || undefined,
+      happinessRate: dayHappiness[targetDay.id] || targetDay.userProgress?.happinessRate || undefined,
+      bedtime: dayBedtimes[targetDay.id] || targetDay.userProgress?.bedtime || undefined,
+      wakeTime: dayWakeTimes[targetDay.id] || targetDay.userProgress?.wakeTime || undefined,
       assessmentResponse:
-        dayAssessments[currentDay.id] !== undefined
-          ? dayAssessments[currentDay.id]
-          : currentDay.userProgress?.assessmentResponse || "",
+        dayAssessments[targetDay.id] !== undefined
+          ? dayAssessments[targetDay.id]
+          : targetDay.userProgress?.assessmentResponse || "",
     });
 
     if (!res.success) {
-      // Rollback optimistic state
-      setDayChecklists((prev) => ({ ...prev, [currentDay.id]: existing }));
+      setDayChecklists((prev) => ({ ...prev, [targetDay.id]: existing }));
       setActionNotice({
         type: "error",
         text: res.message || "Failed to update checklist item.",
@@ -879,7 +588,7 @@ export function DashboardClient({
     if (autoComplete) {
       setActionNotice({
         type: "success",
-        text: `Day ${currentDay.dayNumber} checklist completed.`,
+        text: `Day ${targetDay.dayNumber} checklist completed.`,
       });
       setTimeout(() => setActionNotice(null), 3500);
     }
@@ -892,25 +601,25 @@ export function DashboardClient({
     dayId?: string,
     sleepFeeling?: string
   ): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
     const formattedAssessment =
       bedtime === "SKIPPED"
         ? ""
         : sleepFeeling
           ? `Sleep Feeling: ${sleepFeeling}`
           : undefined;
-    setDayBedtimes((prev) => ({ ...prev, [currentDay.id]: bedtime }));
-    setDayWakeTimes((prev) => ({ ...prev, [currentDay.id]: wakeTime }));
+    setDayBedtimes((prev) => ({ ...prev, [targetDay.id]: bedtime }));
+    setDayWakeTimes((prev) => ({ ...prev, [targetDay.id]: wakeTime }));
     if (formattedAssessment !== undefined) {
-      setDayAssessments((prev) => ({ ...prev, [currentDay.id]: formattedAssessment }));
+      setDayAssessments((prev) => ({ ...prev, [targetDay.id]: formattedAssessment }));
     }
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(currentDay),
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
       bedtime,
       wakeTime,
       sleepDurationMinutes,
@@ -928,19 +637,19 @@ export function DashboardClient({
   };
 
   const handleSelectWorkout = async (workout: string, dayId?: string, resetChecklist?: boolean): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
-    setDayWorkouts((prev) => ({ ...prev, [currentDay.id]: workout }));
-    const nextChecklist = resetChecklist ? [] : getCheckedItems(currentDay);
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
+    setDayWorkouts((prev) => ({ ...prev, [targetDay.id]: workout }));
+    const nextChecklist = resetChecklist ? [] : getCheckedItems(targetDay);
     if (resetChecklist) {
-      setDayChecklists((prev) => ({ ...prev, [currentDay.id]: [] }));
+      setDayChecklists((prev) => ({ ...prev, [targetDay.id]: [] }));
     }
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
       checklistCompleted: nextChecklist,
-      videoWatched: getVideoWatched(currentDay),
+      videoWatched: getVideoWatched(targetDay),
       selectedWorkout: workout,
     });
 
@@ -949,24 +658,23 @@ export function DashboardClient({
       setTimeout(() => setActionNotice(null), 4000);
       return false;
     }
-    // Optimistic client state is already updated; do NOT call router.refresh() here to prevent full-screen loading splash
     return true;
   };
 
   const handleUploadPhoto = async (type: "before" | "after", base64OrUrl: string, dayId?: string): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
     if (type === "before") {
-      setDayPhotosBefore((prev) => ({ ...prev, [currentDay.id]: base64OrUrl }));
+      setDayPhotosBefore((prev) => ({ ...prev, [targetDay.id]: base64OrUrl }));
     } else {
-      setDayPhotosAfter((prev) => ({ ...prev, [currentDay.id]: base64OrUrl }));
+      setDayPhotosAfter((prev) => ({ ...prev, [targetDay.id]: base64OrUrl }));
     }
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(currentDay),
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
       photoBeforeUrl: type === "before" ? base64OrUrl : undefined,
       photoAfterUrl: type === "after" ? base64OrUrl : undefined,
     });
@@ -985,15 +693,15 @@ export function DashboardClient({
   };
 
   const handleSaveWorkoutNotes = async (notes: string, dayId?: string): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
-    setDayWorkoutNotes((prev) => ({ ...prev, [currentDay.id]: notes }));
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
+    setDayWorkoutNotes((prev) => ({ ...prev, [targetDay.id]: notes }));
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(currentDay),
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
       workoutNotes: notes,
     });
 
@@ -1007,78 +715,39 @@ export function DashboardClient({
     return true;
   };
 
-  const handleUpdateChecklistRep = async (task: string, repVal: string) => {
-    if (!currentDay) return;
-    const taskName = task.includes("=") ? task.split("=")[0].trim() : task.trim();
-    const currentList = getCheckedItems(currentDay);
-
-    const filtered = currentList.filter((item) => {
-      const iName = item.includes("=") ? item.split("=")[0].trim() : item.trim();
-      return iName.toLowerCase() !== taskName.toLowerCase() && item !== task;
-    });
-
-    const formattedItem = repVal.trim() ? `${taskName} = ${repVal.trim()}` : task;
-    const nextList = [...filtered, formattedItem];
-    setDayChecklists((prev) => ({ ...prev, [currentDay.id]: nextList }));
-
-    const videoDone =
-      currentDay.dayType !== "TRAINING_DAY" || !currentDay.videoUrl
-        ? true
-        : getVideoWatched(currentDay);
-    const allTasksDone = areActiveWorkoutMovementsCompleted(currentDay, nextList);
-    const autoComplete = videoDone && allTasksDone;
-
-    await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: autoComplete || !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: nextList,
-      videoWatched: getVideoWatched(currentDay),
-      selectedWorkout:
-        dayWorkouts[currentDay.id] || currentDay.userProgress?.selectedWorkout || undefined,
-    });
-  };
-
   const handleSaveEventFeedback = async (feedbackText: string, dayId?: string): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
-    setIsSavingFeedback(true);
-    setFeedbackSaved(false);
-    try {
-      setDayEventFeedback((prev) => ({ ...prev, [currentDay.id]: feedbackText }));
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
+    setDayEventFeedback((prev) => ({ ...prev, [targetDay.id]: feedbackText }));
 
-      const res = await wellnessUserSubmitDayProgress({
-        programDayId: currentDay.id,
-        isCompleted: !!currentDay.userProgress?.isCompleted,
-        checklistCompleted: getCheckedItems(currentDay),
-        videoWatched: getVideoWatched(currentDay),
-        eventFeedback: feedbackText,
-      });
+    const res = await wellnessUserSubmitDayProgress({
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
+      eventFeedback: feedbackText,
+    });
 
-      if (!res.success) {
-        setActionNotice({ type: "error", text: res.message || "Failed to save event feedback." });
-        setTimeout(() => setActionNotice(null), 4000);
-        return false;
-      }
-      setFeedbackSaved(true);
-      router.refresh();
-      setTimeout(() => setFeedbackSaved(false), 3000);
-      return true;
-    } finally {
-      setIsSavingFeedback(false);
+    if (!res.success) {
+      setActionNotice({ type: "error", text: res.message || "Failed to save event feedback." });
+      setTimeout(() => setActionNotice(null), 4000);
+      return false;
     }
+    router.refresh();
+    return true;
   };
 
   const handleSaveMeal = async (compliance: string, notes: string, dayId?: string): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
-    setDayMealCompliance((prev) => ({ ...prev, [currentDay.id]: compliance }));
-    setDayMealNotes((prev) => ({ ...prev, [currentDay.id]: notes }));
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
+    setDayMealCompliance((prev) => ({ ...prev, [targetDay.id]: compliance }));
+    setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: notes }));
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(currentDay),
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
       mealCompliance: compliance,
       mealNotes: notes,
     });
@@ -1094,16 +763,16 @@ export function DashboardClient({
   };
 
   const handleSaveReflection = async (reflection: string, happinessRate: number, dayId?: string): Promise<boolean> => {
-    const currentDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
-    if (!currentDay) return false;
-    setDayReflections((prev) => ({ ...prev, [currentDay.id]: reflection }));
-    setDayHappiness((prev) => ({ ...prev, [currentDay.id]: happinessRate }));
+    const targetDay = dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
+    if (!targetDay) return false;
+    setDayReflections((prev) => ({ ...prev, [targetDay.id]: reflection }));
+    setDayHappiness((prev) => ({ ...prev, [targetDay.id]: happinessRate }));
 
     const res = await wellnessUserSubmitDayProgress({
-      programDayId: currentDay.id,
-      isCompleted: !!currentDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(currentDay),
-      videoWatched: getVideoWatched(currentDay),
+      programDayId: targetDay.id,
+      isCompleted: !!targetDay.userProgress?.isCompleted,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
       dailyReflection: reflection,
       happinessRate,
     });
@@ -1136,92 +805,6 @@ export function DashboardClient({
     setTimeout(() => setActionNotice(null), 3000);
     router.refresh();
     return true;
-  };
-
-  const handleSaveAssessment = async () => {
-    if (!currentDay) return;
-    const responseText =
-      dayAssessments[currentDay.id] !== undefined
-        ? dayAssessments[currentDay.id]
-        : currentDay.userProgress?.assessmentResponse || "";
-
-    setIsSavingProgress(true);
-    try {
-      const res = await wellnessUserSubmitDayProgress({
-        programDayId: currentDay.id,
-        videoWatched: getVideoWatched(currentDay),
-        assessmentResponse: responseText,
-        checklistCompleted: getCheckedItems(currentDay),
-        isCompleted: currentDay.userProgress?.isCompleted || false,
-      });
-
-      if (res.success) {
-        setActionNotice({ type: "success", text: "Daily note saved." });
-        setTimeout(() => setActionNotice(null), 3000);
-      } else {
-        setActionNotice({
-          type: "error",
-          text: res.message || "Failed to save daily note.",
-        });
-        setTimeout(() => setActionNotice(null), 4000);
-      }
-    } finally {
-      setIsSavingProgress(false);
-    }
-  };
-
-  const handleToggleCompleteDay = async () => {
-    if (!currentDay) return;
-    const currentCompleted = !!currentDay.userProgress?.isCompleted;
-    const nextCompleted = !currentCompleted;
-
-    const nextChecklist = nextCompleted
-      ? currentDay.videoChecklist
-      : getCheckedItems(currentDay);
-
-    const prevVideo = getVideoWatched(currentDay);
-    const prevChecklist = getCheckedItems(currentDay);
-
-    setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: nextCompleted }));
-    if (nextCompleted) {
-      setDayChecklists((prev) => ({ ...prev, [currentDay.id]: currentDay.videoChecklist }));
-    }
-
-    setIsSavingProgress(true);
-    try {
-      const res = await wellnessUserSubmitDayProgress({
-        programDayId: currentDay.id,
-        videoWatched: nextCompleted,
-        isCompleted: nextCompleted,
-        checklistCompleted: nextChecklist,
-        assessmentResponse:
-          dayAssessments[currentDay.id] !== undefined
-            ? dayAssessments[currentDay.id]
-            : currentDay.userProgress?.assessmentResponse || "",
-      });
-
-      if (res.success) {
-        setActionNotice({
-          type: "success",
-          text: nextCompleted
-            ? `Day ${currentDay.dayNumber} marked as completed.`
-            : `Day ${currentDay.dayNumber} reopened.`,
-        });
-        setTimeout(() => setActionNotice(null), 3000);
-        router.refresh();
-      } else {
-        // Rollback
-        setDayVideoWatched((prev) => ({ ...prev, [currentDay.id]: prevVideo }));
-        setDayChecklists((prev) => ({ ...prev, [currentDay.id]: prevChecklist }));
-        setActionNotice({
-          type: "error",
-          text: res.message || "Unable to update completion state.",
-        });
-        setTimeout(() => setActionNotice(null), 4000);
-      }
-    } finally {
-      setIsSavingProgress(false);
-    }
   };
 
   const handleOpenQrisCheckout = async (
@@ -1282,206 +865,6 @@ export function DashboardClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const fireBrowserNotification = (title: string, body: string) => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-
-    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.showNotification(title, {
-          body,
-          icon: "/favicon.svg",
-          badge: "/favicon.svg",
-          vibrate: [100, 50, 100],
-          data: { url: "/dashboard" },
-        } as NotificationOptions).catch(() => {
-          try {
-            new Notification(title, { body, icon: "/favicon.svg" });
-          } catch {}
-        });
-      });
-    } else {
-      try {
-        new Notification(title, { body, icon: "/favicon.svg" });
-      } catch (err) {
-        console.warn("Notification error:", err);
-      }
-    }
-  };
-
-  const handleEnableNotifications = async () => {
-    if (typeof window === "undefined") return;
-
-    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-
-    if (isIos && !isStandalone) {
-      setActionNotice({
-        type: "error",
-        text: "iPhone Requirement: Tap the Share icon in Safari > 'Add to Home Screen', then launch the app from your Home Screen to enable notifications.",
-      });
-      setTimeout(() => setActionNotice(null), 8000);
-      return;
-    }
-
-    if (!("Notification" in window)) {
-      setActionNotice({
-        type: "error",
-        text: "Browser notifications are not supported on this device.",
-      });
-      return;
-    }
-    setIsSubscribingPush(true);
-    try {
-      const perm = await Notification.requestPermission();
-      setNotifPermission(perm);
-      if (perm !== "granted") {
-        setActionNotice({
-          type: "error",
-          text: "Notification permission was not granted.",
-        });
-        setTimeout(() => setActionNotice(null), 3500);
-        return;
-      }
-
-      // Handshake Web Push Subscription with Service Worker
-      if ("serviceWorker" in navigator && "PushManager" in window) {
-        const reg = await navigator.serviceWorker.ready;
-        if (!reg.pushManager) {
-          throw new Error("PushManager is not available in this browser context.");
-        }
-
-        let sub = await reg.pushManager.getSubscription();
-
-        if (!sub) {
-          const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedKey,
-          });
-        }
-
-        if (sub) {
-          const subJson = sub.toJSON();
-          const res = await fetch("/api/push/subscribe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              endpoint: sub.endpoint,
-              keys: {
-                p256dh: subJson.keys?.p256dh,
-                auth: subJson.keys?.auth,
-              },
-            }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            setIsPushSubscribed(true);
-            setActionNotice({
-              type: "success",
-              text: "+ BMS Web Push activated & synced with server dispatcher.",
-            });
-            setTimeout(() => setActionNotice(null), 4000);
-          } else {
-            setActionNotice({
-              type: "error",
-              text: data.message || "Failed to register push subscription on server.",
-            });
-            setTimeout(() => setActionNotice(null), 4000);
-          }
-        }
-      } else {
-        fireBrowserNotification(
-          "Notifications on",
-          "Reminders follow your program schedule in WIB."
-        );
-        setActionNotice({
-          type: "success",
-          text: "Push notification alert enabled locally.",
-        });
-        setTimeout(() => setActionNotice(null), 3500);
-      }
-    } catch (err: unknown) {
-      console.warn("Failed to subscribe push:", err);
-      const errorMsg = err instanceof Error ? err.message : "Subscription failed";
-      setActionNotice({
-        type: "error",
-        text: `Push subscription notice: ${errorMsg}`,
-      });
-      setTimeout(() => setActionNotice(null), 6000);
-    } finally {
-      setIsSubscribingPush(false);
-    }
-  };
-
-  const handleTriggerCronServer = async (simulateTime?: string) => {
-    setIsTriggeringCron(true);
-    setCronTriggerResult(null);
-    try {
-      let clientSub: { endpoint: string; p256dh: string; auth: string } | null = null;
-      if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-        try {
-          const reg = await navigator.serviceWorker.ready;
-          if (reg.pushManager) {
-            let s = await reg.pushManager.getSubscription();
-            if (!s) {
-              const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-              s = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: convertedKey,
-              });
-            }
-            if (s) {
-              const sJson = s.toJSON();
-              if (sJson.keys?.p256dh && sJson.keys?.auth) {
-                clientSub = {
-                  endpoint: s.endpoint,
-                  p256dh: sJson.keys.p256dh,
-                  auth: sJson.keys.auth,
-                };
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("[Cron] Could not read active client subscription:", err);
-        }
-      }
-
-      const res = await fetch("/api/cron/dispatch-notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          simulateTime,
-          bypass: true,
-          clientSubscription: clientSub,
-        }),
-      });
-      const data = await res.json();
-      setCronTriggerResult(data);
-      if (data.success) {
-        setActionNotice({
-          type: "success",
-          text: `Server Cron: ${data.notificationsTriggered} alert(s) triggered, ${data.totalDispatched} push notification(s) sent.`,
-        });
-        setTimeout(() => setActionNotice(null), 5000);
-      } else {
-        setActionNotice({
-          type: "error",
-          text: data.error || data.message || "Failed to trigger server cron dispatcher.",
-        });
-        setTimeout(() => setActionNotice(null), 4000);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Cron request failed";
-      setActionNotice({ type: "error", text: msg });
-      setTimeout(() => setActionNotice(null), 4000);
-    } finally {
-      setIsTriggeringCron(false);
-    }
-  };
-
   // Hobby cron runs once a day. While this session is visible in foreground, ask the server (WIB clock) for due alerts.
   useEffect(() => {
     let lastMinute = "";
@@ -1522,84 +905,6 @@ export function DashboardClient({
     };
   }, []);
 
-  const handleFireSpecificNotification = (progTitle: string, time: string, message: string) => {
-    const title = `+ BMS • ${progTitle}`;
-    fireBrowserNotification(title, `[${time} WIB] ${message}`);
-    setActionNotice({
-      type: "success",
-      text: `[${time} WIB] ${progTitle}: ${message}`,
-    });
-    setTimeout(() => setActionNotice(null), 5000);
-  };
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdatingProfile(true);
-    setProfileMsg(null);
-    try {
-      const res = await wellnessUpdateProfile({
-        fullName: profileForm.fullName,
-        phone: profileForm.phone || undefined,
-        age: profileForm.age ? parseInt(profileForm.age, 10) : null,
-        gender: profileForm.gender || null,
-        occupation: profileForm.occupation || null,
-        address: profileForm.address || null,
-        city: profileForm.city || null,
-        province: profileForm.province || null,
-        emergencyContactName: profileForm.emergencyContactName || null,
-        emergencyContactPhone: profileForm.emergencyContactPhone || null,
-      });
-      if (res.success) {
-        setProfileMsg({ type: "success", text: "Profile updated successfully." });
-        router.refresh();
-      } else {
-        setProfileMsg({ type: "error", text: res.message || "Failed to update profile." });
-      }
-    } catch {
-      setProfileMsg({ type: "error", text: "Connection error." });
-    } finally {
-      setIsUpdatingProfile(false);
-    }
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordMsg({ type: "error", text: "New passwords do not match." });
-      return;
-    }
-    if (
-      passwordForm.newPassword.length < 8 ||
-      !/[A-Z]/.test(passwordForm.newPassword) ||
-      !/\d/.test(passwordForm.newPassword)
-    ) {
-      setPasswordMsg({
-        type: "error",
-        text: "New password must be at least 8 characters with at least 1 uppercase letter and 1 number.",
-      });
-      return;
-    }
-    setIsChangingPass(true);
-    setPasswordMsg(null);
-    try {
-      const res = await wellnessChangePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-        confirmPassword: passwordForm.confirmPassword,
-      });
-      if (res.success) {
-        setPasswordMsg({ type: "success", text: "Password updated successfully." });
-        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      } else {
-        setPasswordMsg({ type: "error", text: res.message || "Failed to update password." });
-      }
-    } catch {
-      setPasswordMsg({ type: "error", text: "Connection error." });
-    } finally {
-      setIsChangingPass(false);
-    }
-  };
-
   const handleDeleteAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsDeletingAccount(true);
@@ -1624,23 +929,6 @@ export function DashboardClient({
     ).length || 0;
   const skippedDaysCount =
     currentProgram?.days?.filter((d) => d.isSkipped && !d.userProgress?.isCompleted).length || 0;
-  const totalDays = currentProgram?.days?.length || 0;
-  const currentActiveCalendarDay =
-    currentProgram?.days?.find((d) => d.isCalendarUnlocked && !d.isPast2359) ||
-    currentProgram?.days?.[0];
-
-  const isWorkoutDone = !!(
-    currentActiveCalendarDay?.userProgress?.isCompleted ||
-    currentActiveCalendarDay?.userProgress?.videoWatched
-  );
-  const isMealDone = !!currentActiveCalendarDay?.userProgress?.mealCompliance;
-  const isReflectionDone = !!currentActiveCalendarDay?.userProgress?.dailyReflection;
-  const completedTasksCount = (isWorkoutDone ? 1 : 0) + (isMealDone ? 1 : 0) + (isReflectionDone ? 1 : 0);
-
-  const formatShortDate = (iso: string | Date) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
 
   // Separate completed/ended cohorts from active/upcoming cohorts
   const completedEnrollments = allActiveEnrollments.filter((e) =>
@@ -1658,20 +946,8 @@ export function DashboardClient({
     ? dailyPlans.find((p) => p.programId === overviewEnrollment.programId) ?? null
     : null;
 
-  const handleOpenToday = () => {
-    if (!overviewEnrollment) return;
-    const prog = myEnrolledPrograms.find((p) => p.id === overviewEnrollment.programId);
-    if (!prog) return;
-    const todayNo = overviewPlan?.today?.dayNumber;
-    const idx = todayNo ? prog.days.findIndex((d) => d.dayNumber === todayNo) : -1;
-    setSelectedProgId(prog.id);
-    setActiveDayIndex(idx >= 0 ? idx : 0);
-    setIsViewingPlanDetail(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#F4F6F9] dark:bg-[#0B0D10] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
       {/* Per-tab header: My Plan renders it here; the other tabs render their own */}
       {activeTab === "my_plan" && (
         <MyPlanHeader
@@ -1681,10 +957,6 @@ export function DashboardClient({
           selectedProgramId={overviewEnrollment?.programId ?? ""}
           onSelect={(id) => {
             setSelectedProgId(id);
-            const prog = myEnrolledPrograms.find((p) => p.id === id);
-            const idx = prog ? prog.days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359) : -1;
-            setActiveDayIndex(idx >= 0 ? idx : 0);
-            setIsViewingPlanDetail(false);
           }}
           onExplore={() => {
             setActiveTab("all_plan");
@@ -1697,7 +969,7 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-full px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-white/15 bg-white/95 dark:bg-[#141414]/95 backdrop-blur-2xl shadow-xl font-mono"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 border border-zinc-200 dark:border-zinc-700/80 bg-white/95 dark:bg-[#171C22]/95 backdrop-blur-2xl shadow-xl font-mono"
       >
         {(
           [
@@ -1715,14 +987,13 @@ export function DashboardClient({
             aria-current={activeTab === key ? "page" : undefined}
             onClick={() => {
               setActiveTab(key);
-              setIsViewingPlanDetail(false);
               setIsOverHero(true);
               window.scrollTo({ top: 0 });
             }}
-            className={`flex-1 h-9 rounded-full transition flex items-center justify-center ${
+            className={`flex-1 h-9 rounded-xl transition flex items-center justify-center ${
               activeTab === key
-                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                ? "chrome-button shadow-sm"
+                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -1747,16 +1018,16 @@ export function DashboardClient({
               activeTab === "my_plan"
                 ? "fixed left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md shadow-xl"
                 : "mb-4 shadow-sm"
-            } glass-panel p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border font-mono ${
+            } glass-panel p-4 rounded-xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in border font-mono ${
               actionNotice.type === "error"
-                ? "border-red-500/30 text-red-700 dark:text-red-300"
-                : "border-zinc-300 dark:border-white/25 text-zinc-900 dark:text-white"
+                ? "border-red-500/35 text-red-700 dark:text-red-300"
+                : "border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
             }`}
           >
             {actionNotice.type === "error" ? (
               <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
             ) : (
-              <CheckCircle className="w-4 h-4 text-zinc-800 dark:text-zinc-200 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             )}
             <span>{actionNotice.text}</span>
           </div>
@@ -1854,7 +1125,6 @@ export function DashboardClient({
               }}
               onOpenPlan={(id) => {
                 setSelectedProgId(id);
-                setIsViewingPlanDetail(false);
                 setActiveTab("my_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
@@ -1898,11 +1168,12 @@ export function DashboardClient({
           </div>
         )}
       </main>
+
       {/* Delete Account Modal */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/75 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md glass-panel rounded-3xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 dark:bg-[#0B0D10]/85 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-md glass-panel rounded-2xl p-6 sm:p-8 space-y-4">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
               Delete Your Account
             </h3>
             <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -1910,7 +1181,7 @@ export function DashboardClient({
             </p>
 
             {deleteError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs">
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-700 dark:text-red-300 text-xs">
                 {deleteError}
               </div>
             )}
@@ -1929,7 +1200,7 @@ export function DashboardClient({
                   type="button"
                   aria-label={peekDeletePass ? "Hide password" : "Show password"}
                   onClick={() => setPeekDeletePass(!peekDeletePass)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                 >
                   {peekDeletePass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -1943,7 +1214,7 @@ export function DashboardClient({
                     setDeletePassword("");
                     setDeleteError(null);
                   }}
-                  className="px-4 py-2 rounded-xl glass-panel-subtle text-zinc-800 dark:text-zinc-200 text-xs font-medium"
+                  className="px-4 py-2 rounded-xl graphite-button text-xs font-medium"
                 >
                   Cancel
                 </button>
@@ -1992,11 +1263,7 @@ export function DashboardClient({
           onClose={() => setDetailedProgram(null)}
           onOpenPlan={() => {
             setSelectedProgId(detailedProgram.id);
-            const prog = myEnrolledPrograms.find((item) => item.id === detailedProgram.id);
-            const idx = prog ? prog.days.findIndex((day) => day.isCalendarUnlocked && !day.isPast2359) : -1;
-            setActiveDayIndex(idx >= 0 ? idx : 0);
             setActiveTab("my_plan");
-            setIsViewingPlanDetail(false);
             setDetailedProgram(null);
             window.scrollTo({ top: 0 });
           }}
@@ -2007,7 +1274,6 @@ export function DashboardClient({
           }}
         />
       )}
-
     </div>
   );
 }

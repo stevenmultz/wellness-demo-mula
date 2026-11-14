@@ -119,7 +119,7 @@ export function QrisCheckoutModal({
     setIsProcessing(true);
     setErrorMsg(null);
     try {
-      const res = await wellnessConfirmQrisPayment(currentInvoice.id);
+      const res = await wellnessConfirmQrisPayment(currentInvoice.id, agreedToTerms);
       if (res.success) {
         setPaidSuccess(true);
         setTimeout(() => {
@@ -159,18 +159,18 @@ export function QrisCheckoutModal({
     currentInvoice.locationType === "HYBRID";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 dark:bg-[#0B0D10]/85 backdrop-blur-md animate-in fade-in duration-200">
       <div
         data-lenis-prevent
-        className="w-full max-w-md glass-panel rounded-[2px] overflow-hidden shadow-2xl max-h-[92vh] flex flex-col border border-zinc-200/70 dark:border-white/10"
+        className="w-full max-w-md glass-panel rounded-2xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col border border-zinc-200/70 dark:border-zinc-700/80"
       >
         {/* Header */}
-        <div className="px-7 py-5 border-b border-zinc-200/70 dark:border-white/10 flex items-center justify-between shrink-0">
+        <div className="px-7 py-5 border-b border-zinc-200/70 dark:border-zinc-700/80 flex items-center justify-between shrink-0">
           <div className="space-y-0.5">
             <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block font-mono">
               + BMS &bull; Tuition Settlement
             </span>
-            <h3 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
+            <h3 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2 font-geometric">
               <QrCode className="w-4 h-4 text-zinc-400" />
               <span>QRIS Secure Checkout</span>
             </h3>
@@ -179,7 +179,7 @@ export function QrisCheckoutModal({
             type="button"
             aria-label="Close checkout dialog"
             onClick={onClose}
-            className="p-2 rounded-[2px] text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition"
+            className="p-2 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -187,18 +187,18 @@ export function QrisCheckoutModal({
 
         <div className="p-7 space-y-5 overflow-y-auto">
           {/* Program & Fee Summary */}
-          <div className="p-5 rounded-[2px] glass-panel-subtle space-y-3 border border-zinc-200/60 dark:border-white/10">
+          <div className="p-5 rounded-xl glass-panel-subtle space-y-3 border border-zinc-200/60 dark:border-zinc-700/70">
             <div className="flex items-center justify-between text-micro uppercase tracking-wider text-zinc-400">
               <span>Program Cohort</span>
               <span className="font-mono text-zinc-500">{currentInvoice.paymentReference}</span>
             </div>
-            <h4 className="text-base font-light tracking-tight text-zinc-900 dark:text-white">
+            <h4 className="text-base font-light tracking-tight text-zinc-900 dark:text-zinc-100">
               {currentInvoice.programTitle}
             </h4>
 
             {/* Attendance Modality Selector (On-Site vs Virtual) */}
             {isHybridOrOnsite && (
-              <div className="pt-2 border-t border-zinc-200/70 dark:border-white/10 space-y-2">
+              <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-700/70 space-y-2">
                 <span className="text-micro uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400 block font-mono">
                   Attendance Modality:
                 </span>
@@ -206,25 +206,25 @@ export function QrisCheckoutModal({
                   <button
                     type="button"
                     onClick={() => handleModeChange("IN_PERSON")}
-                    className={`py-2 px-3 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
                       attendanceMode === "IN_PERSON"
                         ? "chrome-button shadow-sm"
-                        : "glass-panel-subtle text-zinc-700 dark:text-zinc-300"
+                        : "graphite-button text-zinc-700 dark:text-zinc-300"
                     }`}
                   >
-                    <MapPin className="w-3.5 h-3.5 text-zinc-400" />
+                    <MapPin className="w-3.5 h-3.5 opacity-70" />
                     <span>In-Studio</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleModeChange("VIRTUAL")}
-                    className={`py-2 px-3 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition font-mono ${
                       attendanceMode === "VIRTUAL"
                         ? "chrome-button shadow-sm"
-                        : "glass-panel-subtle text-zinc-700 dark:text-zinc-300"
+                        : "graphite-button text-zinc-700 dark:text-zinc-300"
                     }`}
                   >
-                    <Video className="w-3.5 h-3.5 text-zinc-400" />
+                    <Video className="w-3.5 h-3.5 opacity-70" />
                     <span>Virtual Stream</span>
                   </button>
                 </div>
@@ -236,18 +236,18 @@ export function QrisCheckoutModal({
               </div>
             )}
 
-            <div className="pt-2 border-t border-zinc-200/70 dark:border-white/10 flex items-baseline justify-between font-mono">
+            <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-700/70 flex items-baseline justify-between font-mono">
               <span className="text-micro uppercase tracking-wider text-zinc-500">
                 Total Tuition
               </span>
-              <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+              <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 Rp {currentInvoice.price.toLocaleString("id-ID")}
               </span>
             </div>
           </div>
 
           {/* 15-Minute Countdown */}
-          <div className="flex items-center justify-between px-4 py-2.5 rounded-[2px] glass-panel-subtle font-mono">
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl glass-panel-subtle font-mono">
             <span className="text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-zinc-500" /> Payment Window (15 Mins)
             </span>
@@ -256,8 +256,8 @@ export function QrisCheckoutModal({
                 isExpired
                   ? "text-red-600 dark:text-red-400"
                   : secondsLeft < 180
-                  ? "text-zinc-500"
-                  : "text-zinc-900 dark:text-white"
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-zinc-900 dark:text-zinc-100"
               }`}
             >
               {isExpired ? "EXPIRED" : formattedTime}
@@ -265,7 +265,7 @@ export function QrisCheckoutModal({
           </div>
 
           {/* QRIS Visual Matrix */}
-          <div className="relative mx-auto w-44 h-44 rounded-[2px] bg-white p-3.5 flex flex-col items-center justify-center border border-zinc-200 shadow-sm">
+          <div className="relative mx-auto w-44 h-44 rounded-xl bg-white p-3.5 flex flex-col items-center justify-center border border-zinc-200 shadow-sm">
             <svg
               viewBox="0 0 100 100"
               className={`w-full h-full text-zinc-950 ${isExpired ? "opacity-20 blur-[2px]" : ""}`}
@@ -306,13 +306,13 @@ export function QrisCheckoutModal({
             </span>
 
             {isExpired && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs rounded-[2px] p-4 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-xs rounded-xl p-4 text-center">
                 <p className="text-xs text-white font-medium mb-2">QR Code Expired</p>
                 <button
                   type="button"
                   onClick={handleRegenerateQris}
                   disabled={isRefreshing}
-                  className="px-3.5 py-1.5 rounded-[2px] bg-white text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow"
+                  className="px-3.5 py-1.5 rounded-lg bg-white text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
                   Refresh QRIS
@@ -322,7 +322,7 @@ export function QrisCheckoutModal({
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-[2px] bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -330,7 +330,7 @@ export function QrisCheckoutModal({
 
           {/* Program Terms & Conditions Clickwrap Agreement */}
           {!paidSuccess && (
-            <div className="p-4 rounded-[2px] glass-panel-subtle border border-zinc-200/70 dark:border-white/10 space-y-3 font-sans">
+            <div className="p-4 rounded-xl glass-panel-subtle border border-zinc-200/70 dark:border-zinc-700/70 space-y-3 font-sans">
               <div className="flex items-center justify-between font-mono">
                 <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-500 dark:text-zinc-400">
                   Terms &amp; Conditions ({programTerms?.length || 4})
@@ -352,7 +352,7 @@ export function QrisCheckoutModal({
                   </li>
                 ))}
               </ol>
-              <label className="pt-2 border-t border-zinc-200/60 dark:border-white/10 flex items-start gap-2.5 cursor-pointer select-none">
+              <label className="pt-2 border-t border-zinc-200/60 dark:border-zinc-700/70 flex items-start gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={agreedToTerms}
@@ -362,11 +362,11 @@ export function QrisCheckoutModal({
                       setErrorMsg(null);
                     }
                   }}
-                  className="mt-0.5 w-4 h-4 rounded border-zinc-300 dark:border-white/20 accent-zinc-900 dark:accent-white shrink-0"
+                  className="mt-0.5 w-4 h-4 rounded border-zinc-300 dark:border-zinc-600 accent-zinc-900 dark:accent-zinc-100 shrink-0"
                 />
                 <span className="text-[11px] text-zinc-700 dark:text-zinc-200 leading-snug">
                   I have read, understood, and agree to the{" "}
-                  <strong className="font-semibold text-zinc-900 dark:text-white">
+                  <strong className="font-semibold text-zinc-900 dark:text-zinc-100">
                     Program Terms &amp; Conditions
                   </strong>{" "}
                   above.
@@ -376,8 +376,8 @@ export function QrisCheckoutModal({
           )}
 
           {paidSuccess ? (
-            <div className="p-3.5 rounded-[2px] bg-zinc-900/5 dark:bg-white/10 border border-zinc-300 dark:border-white/20 text-xs text-zinc-900 dark:text-white flex items-center justify-center gap-2 font-medium font-mono">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-zinc-900 dark:text-white" />
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-center gap-2 font-medium font-mono">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>Payment confirmed! Opening your program...</span>
             </div>
           ) : (
@@ -386,7 +386,7 @@ export function QrisCheckoutModal({
                 type="button"
                 onClick={handleVerifyPayment}
                 disabled={isProcessing || isExpired}
-                className="w-full py-3 rounded-[2px] chrome-button text-xs font-semibold tracking-wide flex items-center justify-center gap-2 disabled:opacity-50 shadow-md"
+                className="w-full py-3 rounded-xl chrome-button text-xs font-semibold tracking-wide flex items-center justify-center gap-2 disabled:opacity-50 shadow-md"
               >
                 {isProcessing ? (
                   <>

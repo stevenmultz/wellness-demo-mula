@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         take: 100, // Enforce maximum upper boundary to prevent unbounded query memory spikes
         where: {
           status: { in: PUBLISHED_STATUSES },
-          ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
+          ...(q ? { title: { contains: q } } : {}),
         },
         include: {
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
@@ -79,9 +79,11 @@ export async function GET(req: NextRequest) {
     const enrollmentByProgram = new Map(enrollments.map((e) => [e.programId, e.status]));
     const alreadyFollowed = new Set(["ACTIVE", "EXPIRED", "COMPLETED", "FINISHED"]);
     const now = new Date();
+    const qLower = q.toLowerCase();
 
     let items: ExploreProgramItem[] = programs
       .filter((p) => normalizeProgramStatus(p.status) === "PUBLISH")
+      .filter((p) => !qLower || p.title.toLowerCase().includes(qLower))
       // Enrolled or finished programs come from program_enrollments, not a client-side hide.
       // PENDING stays visible so an unpaid invoice can still be completed.
       .filter((p) => !alreadyFollowed.has((enrollmentByProgram.get(p.id) || "").toUpperCase()))

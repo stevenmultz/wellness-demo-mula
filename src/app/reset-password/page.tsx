@@ -55,12 +55,12 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="w-full max-w-md glass-panel rounded-3xl p-6 sm:p-8 space-y-6">
+    <div className="w-full max-w-md glass-panel rounded-2xl p-6 sm:p-8 space-y-6">
       <div className="text-center space-y-2">
-        <div className="w-10 h-10 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center mx-auto">
+        <div className="w-10 h-10 rounded-xl chrome-button flex items-center justify-center mx-auto">
           <Lock className="w-4 h-4" />
         </div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
+        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
           Set New Password
         </h1>
         <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -69,15 +69,15 @@ function ResetPasswordForm() {
       </div>
 
       {errorMsg && (
-        <div className="flex items-start gap-2.5 p-3.5 text-xs rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300">
+        <div className="flex items-start gap-2.5 p-3.5 text-xs rounded-xl bg-red-500/10 border border-red-500/25 text-red-700 dark:text-red-300">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
           <p className="leading-relaxed">{errorMsg}</p>
         </div>
       )}
 
       {successMsg && (
-        <div className="flex items-start gap-2.5 p-3.5 text-xs rounded-2xl bg-zinc-900/5 dark:bg-white/10 border border-zinc-300 dark:border-white/20 text-zinc-900 dark:text-white font-mono">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-zinc-900 dark:text-zinc-200 mt-0.5" />
+        <div className="flex items-start gap-2.5 p-3.5 text-xs rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300 font-mono">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
           <p className="leading-relaxed">{successMsg}</p>
         </div>
       )}

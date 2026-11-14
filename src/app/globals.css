@@ -3,55 +3,89 @@
 @tailwind utilities;
 
 :root {
-  /* 60% Primary Neutral Canvas */
-  --background: #f6f6f4;
-  --surface-60: #f6f6f4;
-  /* 30% Structural Surfaces & Dividers */
-  --card-bg: #ffffff;
-  --surface-30: #eeeeec;
-  --card-border: #e6e6e4;
-  --card-outer-border: #e6e6e4;
-  /* 10% High-Contrast Emphasis & Accents */
-  --foreground: #171717;
-  --accent-10: #171717;
-  --muted-foreground: #71717a;
-  --card-shadow: 0 1px 2px rgba(23, 23, 23, 0.04);
+  /* Light Mode (Cool Brushed Aluminum & Architectural Slate) */
+  --bg-main: #F4F6F9;
+  --bg-secondary: #ECEFF4;
+  --surface-elevated: #FFFFFF;
+  --surface-interactive: #E4E9F0;
+  --text-primary: #0B0D10;
+  --text-secondary: #4A5565;
+  --text-muted: #707B88;
+  --border-strong: #CFD6E0;
+  --border-subtle: #E2E7EE;
+  --chrome-highlight: #C7D0DA;
+  --metallic-accent: #8996A5;
+
+  /* Functional Semantic Tokens */
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-error: #EF4444;
+  --status-info: #3B82F6;
+
+  /* Legacy Alias Tokens Mapped to Obsidian Chrome System */
+  --background: var(--bg-main);
+  --surface-60: var(--bg-main);
+  --card-bg: var(--surface-elevated);
+  --surface-30: var(--bg-secondary);
+  --card-border: var(--border-strong);
+  --card-outer-border: var(--border-strong);
+  --foreground: var(--text-primary);
+  --accent-10: var(--text-primary);
+  --muted-foreground: var(--text-muted);
+  --card-shadow: 0 2px 8px -2px rgba(11, 13, 16, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
   --radius-card: 16px;
   --radius-control: 12px;
 }
 
 .dark {
-  /* 60% Primary Neutral Canvas */
-  --background: #0e0e0e;
-  --surface-60: #0e0e0e;
-  /* 30% Structural Surfaces & Dividers */
-  --card-bg: #171717;
-  --surface-30: #1f1f1f;
-  --card-border: #2a2a2a;
-  --card-outer-border: #2a2a2a;
-  /* 10% High-Contrast Emphasis & Accents */
-  --foreground: #f5f5f4;
-  --accent-10: #f5f5f4;
-  --muted-foreground: #a1a1aa;
-  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  /* OBSIDIAN CHROME PRIMARY PALETTE */
+  --bg-main: #0B0D10;
+  --bg-secondary: #11151A;
+  --surface-elevated: #171C22;
+  --surface-interactive: #20262E;
+  --text-primary: #E8ECF1;
+  --text-secondary: #A1AAB5;
+  --text-muted: #707B88;
+  --border-strong: #2A323C;
+  --border-subtle: #202730;
+  --chrome-highlight: #C7D0DA;
+  --metallic-accent: #8996A5;
+
+  /* Controlled Functional Colors */
+  --status-success: #34D399;
+  --status-warning: #FBBF24;
+  --status-error: #F87171;
+  --status-info: #60A5FA;
+
+  /* Legacy Alias Tokens Mapped to Obsidian Chrome System */
+  --background: var(--bg-main);
+  --surface-60: var(--bg-main);
+  --card-bg: var(--surface-elevated);
+  --surface-30: var(--bg-secondary);
+  --card-border: var(--border-strong);
+  --card-outer-border: var(--border-strong);
+  --foreground: var(--text-primary);
+  --accent-10: var(--text-primary);
+  --muted-foreground: var(--text-muted);
+  --card-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(199, 208, 218, 0.06);
 }
 
 html {
   scroll-behavior: auto;
   min-height: 100%;
-  background-color: var(--background);
+  background-color: var(--bg-main);
   overflow-x: clip;
 }
 
 body {
   min-height: 100%;
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--text-primary);
+  background: var(--bg-main);
   font-family: var(--font-geometric), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: clip;
-  transition: background-color 0.4s ease, color 0.4s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 @keyframes bmsLoadingSlide {
@@ -64,11 +98,11 @@ body {
 }
 
 .silver-mint-canvas {
-  background: #f6f6f4;
+  background: var(--bg-main);
 }
 
 .dark .silver-mint-canvas {
-  background: #0e0e0e;
+  background: radial-gradient(circle at 50% 0%, #141920 0%, #0B0D10 70%);
 }
 
 /* Mobile Touch Optimization: Disable fixed background on mobile to eliminate GPU jank and repaint lag */
@@ -125,137 +159,182 @@ body {
   font-weight: 600;
 }
 
+/* ========================================================================= */
+/* OBSIDIAN CHROME ELEVATED SURFACES & PANELS                                */
+/* ========================================================================= */
 .glass-panel,
 .glass-panel-subtle,
 .glass-panel-interactive {
-  background: var(--card-bg);
-  border: 1px solid var(--card-outer-border);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
   box-shadow: var(--card-shadow);
   border-radius: var(--radius-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.glass-panel-subtle {
+  background: var(--bg-secondary);
+  border-color: var(--border-subtle);
 }
 
 .glass-panel-interactive:hover {
-  border-color: #a3a3a3;
+  border-color: var(--metallic-accent);
 }
 
 .dark .glass-panel-interactive:hover {
-  border-color: #525252;
+  background: var(--surface-interactive);
+  border-color: #3B4654;
 }
 
-/* Dark Frosted Glass Overlay specifically for over images */
+/* Dark Frosted Obsidian Overlay specifically for over images */
 .glass-image-overlay {
-  background: rgba(12, 12, 16, 0.52);
-  backdrop-filter: blur(22px) saturate(190%);
-  -webkit-backdrop-filter: blur(22px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+  background: rgba(11, 13, 16, 0.68);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(199, 208, 218, 0.18);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(232, 236, 241, 0.16);
 }
 
 /* Floating Navigation Blur Dock */
 .blur-dock {
-  background: #ffffff;
-  border: 1px solid #e6e6e4;
-  box-shadow: 0 1px 2px rgba(23, 23, 23, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 4px 16px rgba(11, 13, 16, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .dark .blur-dock {
-  background: #171717;
-  border: 1px solid #2a2a2a;
-  box-shadow: none;
+  background: rgba(23, 28, 34, 0.92);
+  border: 1px solid #2A323C;
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(199, 208, 218, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* Frosted Form Inputs */
+/* Standardized Obsidian Chrome Form Inputs */
 .glass-input {
-  background: #fafafa;
-  border: 1px solid #e6e6e4;
+  background: #FFFFFF;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
-  box-shadow: none;
-  color: #171717;
-  transition: border-color 0.15s ease;
+  box-shadow: inset 0 1px 2px rgba(11, 13, 16, 0.03);
+  color: var(--text-primary);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
 .glass-input::placeholder {
-  color: #71717a;
+  color: var(--text-muted);
 }
 
 .dark .glass-input {
-  background: #141414;
-  border: 1px solid #2a2a2a;
-  box-shadow: none;
-  color: #f5f5f4;
+  background: #11151A;
+  border: 1px solid #2A323C;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  color: #E8ECF1;
 }
 
 .dark .glass-input::placeholder {
-  color: #71717a;
+  color: #707B88;
 }
 
 .glass-input:focus {
   outline: none;
-  background: #ffffff;
-  border-color: #171717;
-  box-shadow: none;
+  background: #FFFFFF;
+  border-color: #525E6E;
+  box-shadow: 0 0 0 3px rgba(137, 150, 165, 0.15);
 }
 
 .dark .glass-input:focus {
-  background: #141414;
-  border-color: #f5f5f4;
-  box-shadow: none;
+  background: #171C22;
+  border-color: #C7D0DA;
+  box-shadow: 0 0 0 3px rgba(199, 208, 218, 0.12);
 }
 
 /* ========================================================================= */
-/* MATTE SILVER CHROME (NON-GLOSSY, BRUSHED ALUMINUM/SILVER TONE)            */
+/* STANDARDIZED OBSIDIAN CHROME BUTTON HIERARCHY                              */
 /* ========================================================================= */
+
+/* 1. Primary Chrome Button: Brushed metallic silver-chrome surface */
 .chrome-button {
   position: relative;
-  background-color: #e4e4e7;
-  color: #09090b;
+  background: linear-gradient(180deg, #171C22 0%, #0B0D10 100%);
+  color: #E8ECF1;
   font-weight: 600;
-  border: 1px solid #d4d4d8;
-  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.08);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #2A323C;
+  border-radius: var(--radius-control);
+  box-shadow: 0 2px 8px -1px rgba(11, 13, 16, 0.16), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.chrome-button:hover {
-  background-color: #d4d4d8;
-  border-color: #a1a1aa;
+.chrome-button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #20262E 0%, #11151A 100%);
+  border-color: #525E6E;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 14px -2px rgba(11, 13, 16, 0.22);
 }
 
 .dark .chrome-button {
-  background-color: #e4e4e7;
-  color: #09090b;
-  border: 1px solid #ffffff;
-  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, #E8ECF1 0%, #C7D0DA 100%);
+  color: #0B0D10;
+  border: 1px solid #E8ECF1;
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
 }
 
-.dark .chrome-button:hover {
-  background-color: #f4f4f5;
-  border-color: #ffffff;
+.dark .chrome-button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #F4F6F9 0%, #DCE2E9 100%);
+  border-color: #FFFFFF;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px -2px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
 }
 
-/* Matte Silver Chrome Badge */
+/* 2. Secondary Graphite Button: Elevated graphite surface with subtle metallic border */
+.graphite-button {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.graphite-button:hover:not(:disabled) {
+  background: var(--surface-interactive);
+  border-color: var(--metallic-accent);
+}
+
+.dark .graphite-button {
+  background: #171C22;
+  color: #E8ECF1;
+  border: 1px solid #2A323C;
+  box-shadow: inset 0 1px 0 0 rgba(199, 208, 218, 0.06);
+}
+
+.dark .graphite-button:hover:not(:disabled) {
+  background: #20262E;
+  border-color: #8996A5;
+}
+
+/* 3. Matte Silver Chrome Badge */
 .chrome-badge {
-  background: rgba(228, 228, 231, 0.15);
-  border: 1px solid rgba(212, 212, 216, 0.4);
-  color: #27272a;
+  background: rgba(199, 208, 218, 0.18);
+  border: 1px solid rgba(137, 150, 165, 0.35);
+  color: #20262E;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px -1px rgba(11, 13, 16, 0.04);
 }
 
 .dark .chrome-badge {
-  background: rgba(228, 228, 231, 0.08);
-  border: 1px solid rgba(228, 228, 231, 0.22);
-  color: #e4e4e7;
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.35);
+  background: rgba(199, 208, 218, 0.08);
+  border: 1px solid rgba(199, 208, 218, 0.22);
+  color: #E8ECF1;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
 }
 
 /* Matte Silver Chrome Typography */
 .text-chrome-shine {
-  color: #e4e4e7;
+  color: #C7D0DA;
 }
 
 /* Structured Monochromatic Skeleton Placeholders */
@@ -269,13 +348,13 @@ body {
 }
 
 .skeleton-block {
-  background-color: #e6e6e4;
+  background-color: #DCE2E9;
   border-radius: var(--radius-control);
   animation: skeleton-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .dark .skeleton-block {
-  background-color: #242424;
+  background-color: #20262E;
 }
 
 @media (prefers-reduced-motion: reduce) {

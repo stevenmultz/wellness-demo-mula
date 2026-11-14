@@ -15,6 +15,27 @@ function revalidateAdminMasterRoutes() {
   }
 }
 
+function replaceCsvToken(
+  csvValue: string | null | undefined,
+  oldToken: string,
+  newToken: string
+): string | null {
+  if (!csvValue) return null;
+  const parts = csvValue
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let changed = false;
+  const updated = parts.map((part) => {
+    if (part === oldToken) {
+      changed = true;
+      return newToken;
+    }
+    return part;
+  });
+  return changed ? Array.from(new Set(updated)).join(", ") : null;
+}
+
 export interface MasterDataPayload {
   coaches: Array<{ id: string; name: string; title: string }>;
   targetAudiences: Array<{ id: string; name: string }>;
@@ -183,21 +204,63 @@ export async function wellnessUpdateMasterCoach(input: {
     return { success: false, message: "Coach not found." };
   }
 
-  const coach = await prisma.masterCoach.update({
-    where: { id: input.id },
-    data: { name, title },
-  });
-
-  if (oldCoach.name !== name || oldCoach.title !== title) {
-    await prisma.program.updateMany({
-      where: { coachName: oldCoach.name },
-      data: {
-        coachName: name,
-        coachTitle: title,
-        coachCache: name,
-      },
+  const coach = await prisma.$transaction(async (tx) => {
+    const updatedCoach = await tx.masterCoach.update({
+      where: { id: input.id },
+      data: { name, title },
     });
-  }
+
+    if (oldCoach.name !== name || oldCoach.title !== title) {
+      const affectedPrograms = await tx.program.findMany({
+        where: {
+          OR: [
+            { coachName: { contains: oldCoach.name } },
+            { coachCache: { contains: oldCoach.name } },
+          ],
+        },
+        select: { id: true, coachName: true, coachTitle: true, coachCache: true },
+      });
+
+      for (const prog of affectedPrograms) {
+        const nextCoachName =
+          prog.coachName === oldCoach.name
+            ? name
+            : replaceCsvToken(prog.coachName, oldCoach.name, name) ?? prog.coachName;
+        const nextCoachCache =
+          prog.coachCache === oldCoach.name
+            ? name
+            : replaceCsvToken(prog.coachCache, oldCoach.name, name) ?? prog.coachCache;
+        const nextCoachTitle =
+          prog.coachName === oldCoach.name || prog.coachTitle === oldCoach.title
+            ? title
+            : prog.coachTitle;
+
+        if (
+          nextCoachName !== prog.coachName ||
+          nextCoachCache !== prog.coachCache ||
+          nextCoachTitle !== prog.coachTitle
+        ) {
+          await tx.program.update({
+            where: { id: prog.id },
+            data: {
+              coachName: nextCoachName,
+              coachTitle: nextCoachTitle,
+              coachCache: nextCoachCache,
+            },
+          });
+        }
+      }
+
+      if (oldCoach.name !== name) {
+        await tx.programDay.updateMany({
+          where: { coachName: oldCoach.name },
+          data: { coachName: name },
+        });
+      }
+    }
+
+    return updatedCoach;
+  });
 
   revalidateAdminMasterRoutes();
   return { success: true, message: `Coach "${coach.name}" updated.`, data: coach };
@@ -259,17 +322,49 @@ export async function wellnessUpdateMasterTargetAudience(input: {
     return { success: false, message: "Target audience not found." };
   }
 
-  const item = await prisma.masterTargetAudience.update({
-    where: { id: input.id },
-    data: { name },
-  });
-
-  if (oldItem.name !== name) {
-    await prisma.program.updateMany({
-      where: { recommendedFor: oldItem.name },
-      data: { recommendedFor: name, audienceCache: name },
+  const item = await prisma.$transaction(async (tx) => {
+    const updatedItem = await tx.masterTargetAudience.update({
+      where: { id: input.id },
+      data: { name },
     });
-  }
+
+    if (oldItem.name !== name) {
+      const affectedPrograms = await tx.program.findMany({
+        where: {
+          OR: [
+            { recommendedFor: { contains: oldItem.name } },
+            { audienceCache: { contains: oldItem.name } },
+          ],
+        },
+        select: { id: true, recommendedFor: true, audienceCache: true },
+      });
+
+      for (const prog of affectedPrograms) {
+        const nextRec =
+          prog.recommendedFor === oldItem.name
+            ? name
+            : replaceCsvToken(prog.recommendedFor, oldItem.name, name) ?? prog.recommendedFor;
+        const nextCache =
+          prog.audienceCache === oldItem.name
+            ? name
+            : replaceCsvToken(prog.audienceCache, oldItem.name, name) ?? prog.audienceCache;
+
+        if (nextRec !== prog.recommendedFor || nextCache !== prog.audienceCache) {
+          await tx.program.update({
+            where: { id: prog.id },
+            data: { recommendedFor: nextRec, audienceCache: nextCache },
+          });
+        }
+      }
+
+      await tx.programDay.updateMany({
+        where: { recommendedFor: oldItem.name },
+        data: { recommendedFor: name },
+      });
+    }
+
+    return updatedItem;
+  });
 
   revalidateAdminMasterRoutes();
   return { success: true, message: `Target audience "${item.name}" updated.`, data: item };
@@ -331,17 +426,44 @@ export async function wellnessUpdateMasterCategory(input: {
     return { success: false, message: "Category not found." };
   }
 
-  const item = await prisma.masterCategory.update({
-    where: { id: input.id },
-    data: { name },
-  });
-
-  if (oldItem.name !== name) {
-    await prisma.program.updateMany({
-      where: { category: oldItem.name },
-      data: { category: name, categoryCache: name },
+  const item = await prisma.$transaction(async (tx) => {
+    const updatedItem = await tx.masterCategory.update({
+      where: { id: input.id },
+      data: { name },
     });
-  }
+
+    if (oldItem.name !== name) {
+      const affectedPrograms = await tx.program.findMany({
+        where: {
+          OR: [
+            { category: { contains: oldItem.name } },
+            { categoryCache: { contains: oldItem.name } },
+          ],
+        },
+        select: { id: true, category: true, categoryCache: true },
+      });
+
+      for (const prog of affectedPrograms) {
+        const nextCat =
+          prog.category === oldItem.name
+            ? name
+            : replaceCsvToken(prog.category, oldItem.name, name) ?? prog.category;
+        const nextCache =
+          prog.categoryCache === oldItem.name
+            ? name
+            : replaceCsvToken(prog.categoryCache, oldItem.name, name) ?? prog.categoryCache;
+
+        if (nextCat !== prog.category || nextCache !== prog.categoryCache) {
+          await tx.program.update({
+            where: { id: prog.id },
+            data: { category: nextCat, categoryCache: nextCache },
+          });
+        }
+      }
+    }
+
+    return updatedItem;
+  });
 
   revalidateAdminMasterRoutes();
   return { success: true, message: `Category "${item.name}" updated.`, data: item };
@@ -407,17 +529,44 @@ export async function wellnessUpdateMasterEquipment(input: {
     return { success: false, message: "Equipment not found." };
   }
 
-  const item = await prisma.masterEquipment.update({
-    where: { id: input.id },
-    data: { name },
-  });
-
-  if (oldItem.name !== name) {
-    await prisma.program.updateMany({
-      where: { equipment: oldItem.name },
-      data: { equipment: name, equipmentCache: name },
+  const item = await prisma.$transaction(async (tx) => {
+    const updatedItem = await tx.masterEquipment.update({
+      where: { id: input.id },
+      data: { name },
     });
-  }
+
+    if (oldItem.name !== name) {
+      const affectedPrograms = await tx.program.findMany({
+        where: {
+          OR: [
+            { equipment: { contains: oldItem.name } },
+            { equipmentCache: { contains: oldItem.name } },
+          ],
+        },
+        select: { id: true, equipment: true, equipmentCache: true },
+      });
+
+      for (const prog of affectedPrograms) {
+        const nextEq =
+          prog.equipment === oldItem.name
+            ? name
+            : replaceCsvToken(prog.equipment, oldItem.name, name) ?? prog.equipment;
+        const nextCache =
+          prog.equipmentCache === oldItem.name
+            ? name
+            : replaceCsvToken(prog.equipmentCache, oldItem.name, name) ?? prog.equipmentCache;
+
+        if (nextEq !== prog.equipment || nextCache !== prog.equipmentCache) {
+          await tx.program.update({
+            where: { id: prog.id },
+            data: { equipment: nextEq, equipmentCache: nextCache },
+          });
+        }
+      }
+    }
+
+    return updatedItem;
+  });
 
   revalidateAdminMasterRoutes();
   return { success: true, message: `Equipment "${item.name}" updated.`, data: item };
@@ -483,17 +632,21 @@ export async function wellnessUpdateMasterDailyCommitment(input: {
     return { success: false, message: "Daily commitment not found." };
   }
 
-  const item = await prisma.masterDailyCommitment.update({
-    where: { id: input.id },
-    data: { name },
-  });
-
-  if (oldItem.name !== name) {
-    await prisma.program.updateMany({
-      where: { dailyCommitment: oldItem.name },
-      data: { dailyCommitment: name, commitmentCache: name },
+  const item = await prisma.$transaction(async (tx) => {
+    const updatedItem = await tx.masterDailyCommitment.update({
+      where: { id: input.id },
+      data: { name },
     });
-  }
+
+    if (oldItem.name !== name) {
+      await tx.program.updateMany({
+        where: { dailyCommitment: oldItem.name },
+        data: { dailyCommitment: name, commitmentCache: name },
+      });
+    }
+
+    return updatedItem;
+  });
 
   revalidateAdminMasterRoutes();
   return { success: true, message: `Daily commitment "${item.name}" updated.`, data: item };

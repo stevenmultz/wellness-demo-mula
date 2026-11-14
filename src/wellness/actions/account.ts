@@ -115,6 +115,13 @@ export async function wellnessUpdateProfile(
     },
   });
 
+  if (updatedUser.age !== undefined) {
+    await prisma.customerHealthProfile.updateMany({
+      where: { userId: session.userId },
+      data: { age: updatedUser.age },
+    });
+  }
+
   return {
     success: true,
     message: "Profile details updated successfully.",
@@ -466,79 +473,100 @@ export async function wellnessEnrollProgram(
     amountIdr: program.price,
   });
 
-  if (existingEnrollment) {
-    const isStillValid =
-      existingEnrollment.status === "PENDING" &&
-      existingEnrollment.invoiceExpiresAt &&
-      new Date() < new Date(existingEnrollment.invoiceExpiresAt);
+  try {
+    const { enrollment, isRefresh } = await prisma.$transaction(async (tx) => {
+      const txNow = new Date();
+      const liveHoldCount = await tx.programEnrollment.count({
+        where: {
+          programId: program.id,
+          OR: [
+            { status: "ACTIVE" },
+            {
+              status: "PENDING",
+              invoiceExpiresAt: { gt: txNow },
+              userId: { not: session.userId },
+            },
+          ],
+        },
+      });
 
-    // Preserve active 15-minute countdown if not expired; otherwise refresh
-    const refreshed = await prisma.programEnrollment.update({
-      where: { id: existingEnrollment.id },
-      data: {
-        status: "PENDING",
-        attendanceMode,
-        paymentReference: isStillValid
-          ? existingEnrollment.paymentReference || gatewayInvoice.paymentReference
-          : gatewayInvoice.paymentReference,
-        invoiceExpiresAt: isStillValid
-          ? existingEnrollment.invoiceExpiresAt
-          : gatewayInvoice.invoiceExpiresAt,
-      },
+      if (liveHoldCount >= program.maxQuota) {
+        throw new Error(
+          `This cohort batch has reached its maximum quota of ${program.maxQuota} participants (including active checkout holds).`
+        );
+      }
+
+      if (existingEnrollment) {
+        const isStillValid =
+          existingEnrollment.status === "PENDING" &&
+          existingEnrollment.invoiceExpiresAt &&
+          txNow < new Date(existingEnrollment.invoiceExpiresAt);
+
+        const refreshed = await tx.programEnrollment.update({
+          where: { id: existingEnrollment.id },
+          data: {
+            status: "PENDING",
+            attendanceMode,
+            paymentReference: isStillValid
+              ? existingEnrollment.paymentReference || gatewayInvoice.paymentReference
+              : gatewayInvoice.paymentReference,
+            invoiceExpiresAt: isStillValid
+              ? existingEnrollment.invoiceExpiresAt
+              : gatewayInvoice.invoiceExpiresAt,
+          },
+        });
+        return { enrollment: refreshed, isRefresh: true };
+      }
+
+      const created = await tx.programEnrollment.create({
+        data: {
+          userId: session.userId,
+          programId: program.id,
+          status: "PENDING",
+          attendanceMode,
+          paymentReference: gatewayInvoice.paymentReference,
+          invoiceExpiresAt: gatewayInvoice.invoiceExpiresAt,
+        },
+      });
+      return { enrollment: created, isRefresh: false };
     });
+
+    if (!isRefresh) {
+      await createUserNotifications([
+        {
+          userId: session.userId,
+          type: "PAYMENT",
+          title: "Payment pending",
+          body: `Complete your QRIS payment for "${program.title}" before the invoice expires.`,
+          url: "/dashboard",
+          dedupeKey: `payment-pending:${enrollment.id}:${enrollment.paymentReference ?? ""}`,
+        },
+      ]);
+    }
 
     return {
       success: true,
-      message: "QRIS checkout invoice ready.",
+      message: isRefresh
+        ? "QRIS checkout invoice ready."
+        : `QRIS invoice generated for ${program.title}. Valid for 15 minutes.`,
       data: {
-        id: refreshed.id,
+        id: enrollment.id,
         programId: program.id,
         programTitle: program.title,
         price: program.price,
-        status: refreshed.status,
-        attendanceMode: refreshed.attendanceMode,
-        paymentReference: refreshed.paymentReference,
-        invoiceExpiresAt: refreshed.invoiceExpiresAt,
+        status: enrollment.status,
+        attendanceMode: enrollment.attendanceMode,
+        paymentReference: enrollment.paymentReference,
+        invoiceExpiresAt: enrollment.invoiceExpiresAt,
       },
     };
+  } catch (err) {
+    return {
+      success: false,
+      message:
+        err instanceof Error ? err.message : "Failed to generate QRIS invoice.",
+    };
   }
-
-  const enrollment = await prisma.programEnrollment.create({
-    data: {
-      userId: session.userId,
-      programId: program.id,
-      status: "PENDING",
-      attendanceMode,
-      paymentReference: gatewayInvoice.paymentReference,
-      invoiceExpiresAt: gatewayInvoice.invoiceExpiresAt,
-    },
-  });
-
-  await createUserNotifications([
-    {
-      userId: session.userId,
-      type: "PAYMENT",
-      title: "Payment pending",
-      body: `Complete your QRIS payment for "${program.title}" before the invoice expires.`,
-      url: "/dashboard",
-      dedupeKey: `payment-pending:${enrollment.id}:${enrollment.paymentReference ?? ""}`,
-    },
-  ]);
-
-  return {
-    success: true,
-    message: `QRIS invoice generated for ${program.title}. Valid for 15 minutes.`,
-    data: {
-      id: enrollment.id,
-      programId: program.id,
-      programTitle: program.title,
-      price: program.price,
-      status: enrollment.status,
-      attendanceMode: enrollment.attendanceMode,
-      paymentReference: enrollment.paymentReference,
-      invoiceExpiresAt: enrollment.invoiceExpiresAt,
-    },
-  };
 }
 
 /**
@@ -546,9 +574,17 @@ export async function wellnessEnrollProgram(
  * Verifies the 15-minute QRIS invoice window and unlocks cohort access immediately.
  */
 export async function wellnessConfirmQrisPayment(
-  enrollmentId: string
+  enrollmentId: string,
+  termsAgreed: boolean = true
 ): Promise<WellnessActionResult> {
   const session = await requireAuth();
+
+  if (!termsAgreed) {
+    return {
+      success: false,
+      message: "You must agree to the program terms and conditions before confirming payment.",
+    };
+  }
 
   const enrollment = await prisma.programEnrollment.findUnique({
     where: { id: enrollmentId },
