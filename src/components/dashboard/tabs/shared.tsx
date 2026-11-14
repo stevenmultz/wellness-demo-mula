@@ -81,7 +81,7 @@ export function SectionCard({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           {eyebrow && (
-            <span className="text-[10px] uppercase tracking-[0.22em] font-semibold text-zinc-500 dark:text-zinc-400 block">
+            <span className="text-[10px] uppercase tracking-[0.06em] font-semibold text-zinc-500 dark:text-zinc-400 block">
               {eyebrow}
             </span>
           )}

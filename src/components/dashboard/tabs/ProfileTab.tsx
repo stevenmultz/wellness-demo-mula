@@ -364,7 +364,7 @@ export function ProfileTab({
               <ArrowLeft className="w-4 h-4" />
               <span>{TITLES[view]}</span>
             </button>
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 shrink-0">
+            <span className="text-[10px] font-medium uppercase tracking-[0.04em] text-zinc-400 shrink-0">
               Profile
             </span>
           </div>
@@ -374,12 +374,12 @@ export function ProfileTab({
               type="button"
               onClick={toggleTheme}
               title="Switch light / dark mode"
-              className="font-geometric font-medium text-sm tracking-[0.22em] uppercase text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:opacity-70 active:scale-95 transition-all"
+              className="font-geometric font-medium text-sm tracking-[0.06em] uppercase text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:opacity-70 active:scale-95 transition-all"
             >
               <span>+</span>
               <span>BMS</span>
             </button>
-            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-zinc-400 truncate max-w-[180px] sm:max-w-xs">
+            <span className="text-[11px] font-medium text-zinc-400 truncate max-w-[180px] sm:max-w-xs">
               Profile
             </span>
           </div>
@@ -404,7 +404,7 @@ export function ProfileTab({
 
               {/* Top Badges */}
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
-                <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-[0.18em] text-white inline-flex items-center gap-1.5">
+                <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium tracking-[0.02em] text-white inline-flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   <span>Active Member</span>
                 </span>
@@ -470,7 +470,7 @@ export function ProfileTab({
           {menu.map((group) => (
             <section key={group.title} className="space-y-2.5">
               <div className="px-1 flex items-center justify-between">
-                <h2 className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400">
+                <h2 className="text-[11px] font-medium tracking-[0.04em] text-zinc-400">
                   {group.title}
                 </h2>
                 {group.pct !== null && (

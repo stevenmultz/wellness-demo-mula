@@ -428,9 +428,9 @@ export function ExplorePlanTab({
               className="select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none text-zinc-950 dark:text-white"
             >
               <span className="font-light text-lg leading-none">+</span>
-              <span className="font-geometric font-semibold text-sm tracking-[0.22em] uppercase">BMS</span>
+              <span className="font-geometric font-semibold text-sm tracking-[0.06em] uppercase">BMS</span>
             </button>
-            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
               {state.status === "ready" ? `${catalog.length} Programs` : "Catalog"}
             </span>
           </>
@@ -484,48 +484,49 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="min-h-[calc(100svh-12rem)] flex flex-col justify-center max-w-md mx-auto py-4">
+        <div className="max-w-md mx-auto pt-1 space-y-6">
           <PullToRefreshBanner
             pullDistance={pullDistance}
             refreshing={refreshing && state.status === "ready"}
           />
 
-          <section className="space-y-6">
-            {/* Editorial Photography Visual */}
-            <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-900">
+          <div className="space-y-1.5 px-0.5">
+            <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-400 block">
+              Curated Programs
+            </span>
+            <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
+              Explore All Programs
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Browse structured movement, whole-food nutrition, and circadian recovery programs led by certified longevity practitioners.
+            </p>
+          </div>
+
+          <section className="space-y-5">
+            {/* Editorial Photography Banner */}
+            <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/image.webp"
                 alt="Curated wellness studio atmosphere"
                 className="w-full h-full object-cover object-center"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-              <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-white/90">
-                <span>+ BMS Studio</span>
-                <span>Curated Cohorts</span>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+              <div className="absolute bottom-3.5 left-4 right-4 flex items-center justify-between gap-2 text-[11px] font-medium text-white/95">
+                <span>BMS Studio</span>
+                <span>{state.status === "ready" ? `${catalog.length} Programs` : "Guided Series"}</span>
               </div>
             </div>
 
-            <div className="space-y-3 px-0.5">
-              <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-400 block">
-                Explore
-              </span>
-              <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
-                Explore All Programs
-              </h1>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Browse curated movement, whole-food nutrition, and circadian recovery cohorts designed by certified longevity practitioners.
-              </p>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setMode("catalog")}
-                  className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium tracking-wide inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
-                >
-                  <span>Browse All Programs</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className="px-0.5">
+              <button
+                type="button"
+                onClick={() => setMode("catalog")}
+                className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
+              >
+                <span>Browse All Programs</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </section>
         </div>
@@ -618,91 +619,46 @@ export function ExplorePlanTab({
           refreshing={refreshing && state.status === "ready"}
         />
 
-        {/* EDITORIAL PORTRAIT COACH FILTER */}
-        <div className="space-y-2.5 pt-1">
-          <div className="flex items-center justify-between px-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
-              Filter by Coach
-            </span>
-            {selectedCoach && (
-              <button
-                type="button"
-                onClick={() => setSelectedCoach(null)}
-                className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-
-          <div
-            className="flex items-start gap-3.5 overflow-x-auto no-scrollbar py-1 px-0.5 scroll-smooth"
-            style={{ scrollbarWidth: "none" }}
+        {/* MINIMAL COMPACT COACH FILTER STRIP */}
+        <div
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 pb-0.5 scroll-smooth"
+          style={{ scrollbarWidth: "none" }}
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedCoach(null)}
+            className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
+              !selectedCoach
+                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
+            }`}
           >
-            {/* All Coaches Portrait Tile */}
-            <button
-              type="button"
-              onClick={() => setSelectedCoach(null)}
-              className="shrink-0 w-16 flex flex-col items-center gap-1.5 group focus:outline-none"
-            >
-              <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-[10px] font-mono uppercase tracking-[0.16em] transition ${
-                  !selectedCoach
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e]"
-                    : "bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-zinc-600 dark:text-zinc-300 group-hover:border-zinc-400 dark:group-hover:border-white/30"
-                }`}
-              >
-                All
-              </div>
-              <span
-                className={`text-[11px] font-geometric text-center line-clamp-1 w-full transition ${
-                  !selectedCoach
-                    ? "font-medium text-zinc-950 dark:text-white"
-                    : "text-zinc-500 dark:text-zinc-400"
-                }`}
-              >
-                All
-              </span>
-            </button>
+            All Coaches
+          </button>
 
-            {availableCoaches.map(({ name, avatar }) => {
-              const isSelected = selectedCoach?.toLowerCase() === name.toLowerCase();
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setSelectedCoach(isSelected ? null : name)}
-                  className="shrink-0 w-16 flex flex-col items-center gap-1.5 group focus:outline-none"
-                >
-                  <div
-                    className={`w-14 h-14 rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900 transition ${
-                      isSelected
-                        ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e]"
-                        : selectedCoach
-                          ? "opacity-55 group-hover:opacity-90 border border-zinc-200 dark:border-white/10"
-                          : "border border-zinc-200 dark:border-white/15 group-hover:border-zinc-400 dark:group-hover:border-white/30"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={avatar}
-                      alt={name}
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <span
-                    className={`text-[11px] font-geometric text-center line-clamp-1 w-full transition ${
-                      isSelected
-                        ? "font-medium text-zinc-950 dark:text-white"
-                        : "text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
-                    }`}
-                  >
-                    {name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {availableCoaches.map(({ name, avatar }) => {
+            const isSelected = selectedCoach?.toLowerCase() === name.toLowerCase();
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setSelectedCoach(isSelected ? null : name)}
+                className={`shrink-0 h-8 pl-1 pr-3 rounded-full inline-flex items-center gap-2 text-xs font-geometric font-medium transition focus:outline-none ${
+                  isSelected
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={avatar}
+                  alt={name}
+                  className="w-6 h-6 rounded-full object-cover object-top shrink-0 bg-zinc-200 dark:bg-zinc-800"
+                />
+                <span className="whitespace-nowrap">{name}</span>
+              </button>
+            );
+          })}
         </div>
 
         {chips.length > 0 && (

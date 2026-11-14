@@ -12,7 +12,7 @@ import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { parseWorkoutOptionGroups, ProgramTermChapter } from "@/wellness/utils/json";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
-import { MyPlanHeader, MyPlanIndex, MyPlanOverview } from "./tabs/MyPlanTab";
+import { evaluateDayTaskState, MyPlanHeader, MyPlanIndex, MyPlanOverview } from "./tabs/MyPlanTab";
 import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
@@ -944,7 +944,10 @@ export function DashboardClient({
     const totalDays = days.length || e.dayCount || 0;
     const completedDays = days.filter((d) => !!d.userProgress?.isCompleted).length;
     const liveIdx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
-    const currentDayNumber = liveIdx >= 0 ? days[liveIdx]?.dayNumber || 0 : 0;
+    const liveDay = liveIdx >= 0 ? days[liveIdx] : null;
+    const currentDayNumber = liveDay?.dayNumber || 0;
+    const isUpcoming = isCohortUpcoming(e.startDate || fullProg?.startDate);
+    const pendingTasksCount = !isUpcoming && liveDay ? evaluateDayTaskState(liveDay).pendingTasksCount : 0;
     return {
       programId: e.programId,
       title: e.title,
@@ -955,10 +958,13 @@ export function DashboardClient({
       endDate: e.endDate,
       locationType: e.locationType || fullProg?.locationType,
       city: e.city || fullProg?.city || null,
-      isUpcoming: isCohortUpcoming(e.startDate || fullProg?.startDate),
+      isUpcoming,
       completedDays,
       totalDays,
       currentDayNumber,
+      dailyCommitment: fullProg?.dailyCommitment || "15–20 Mins / Day",
+      todayDayType: !isUpcoming && liveDay ? liveDay.dayType : null,
+      pendingTasksCount,
     };
   });
   const overviewEnrollment =

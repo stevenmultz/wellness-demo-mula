@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Calendar, CheckCheck, CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
 import {
   HistoryPayload,
   InboxNotification,
@@ -239,7 +239,7 @@ export function NotificationsHistoryTab({
           {/* NOTIFICATION LIST */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+              <span className="text-[11px] font-medium text-zinc-400">
                 {notifs.status === "ready" ? `${allNotifications.length} Alerts` : "Recent Alerts"}
               </span>
               {unreadCount > 0 && (
@@ -322,42 +322,39 @@ export function NotificationsHistoryTab({
       {/* 2. SUB-TAB: HISTORY                                               */}
       {/* ================================================================= */}
       {section === "history" && (
-        <section className="space-y-8">
+        <section className="space-y-3">
           {history.status === "loading" && <LoadingState label="Loading history..." />}
           {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
 
-          {/* COMPLETED PROGRAMS (ALUMNI) */}
-          {completedPrograms.length > 0 && (
-            <div className="space-y-3">
-              <div className="px-1 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 inline-flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Completed Programs ({completedPrograms.length})</span>
+          {history.status === "ready" && (completedPrograms.length > 0 || history.data.payments.length > 0) && (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[11px] font-medium text-zinc-400">
+                  {completedPrograms.length + history.data.payments.length} Records
                 </span>
               </div>
 
               <div className="space-y-3">
                 {completedPrograms.map((cp) => (
                   <article
-                    key={cp.programId}
-                    className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3"
+                    key={`completed-${cp.programId}`}
+                    className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-0.5">
-                        <h4 className="text-xs sm:text-sm font-geometric font-medium truncate text-zinc-950 dark:text-white">
-                          {cp.title}
-                        </h4>
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                          Coach {cp.coachName}
-                        </p>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 shrink-0">
+                      <span className="text-xs font-geometric font-medium truncate text-zinc-950 dark:text-white min-w-0">
+                        {cp.title}
+                      </span>
+                      <span className="text-[9px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
                         Completed
                       </span>
                     </div>
 
-                    <div className="pt-2.5 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
-                      <span className="text-[10px] font-mono text-zinc-400">
+                    <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Coach {cp.coachName}
+                    </p>
+
+                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3 text-[10px] text-zinc-400">
+                      <span className="font-mono">
                         {cp.endDate
                           ? new Date(cp.endDate).toLocaleDateString("en-US", {
                               month: "short",
@@ -370,7 +367,7 @@ export function NotificationsHistoryTab({
                         <button
                           type="button"
                           onClick={() => onOpenProgramDetail(cp.programId)}
-                          className="text-[10px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
+                          className="font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
                         >
                           <span>View Details</span>
                           <ExternalLink className="w-3 h-3" />
@@ -379,57 +376,34 @@ export function NotificationsHistoryTab({
                     </div>
                   </article>
                 ))}
-              </div>
-            </div>
-          )}
 
-          {/* PAYMENT & INVOICE LEDGER */}
-          {history.status === "ready" && history.data.payments.length > 0 && (
-            <div className="space-y-3 pt-2 border-t border-zinc-200/80 dark:border-white/10">
-              <div className="px-1 pt-2 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 inline-flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Payment & Billing Ledger</span>
-                </span>
-                <span className="text-[10px] font-mono text-zinc-400">
-                  {history.data.payments.length} transactions
-                </span>
-              </div>
-
-              <div className="space-y-3">
                 {history.data.payments.map((p) => (
                   <article
-                    key={p.enrollmentId}
-                    className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-3"
+                    key={`payment-${p.enrollmentId}`}
+                    className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h4 className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white truncate">
-                          {p.programTitle}
-                        </h4>
-                        <p className="text-[10px] font-mono text-zinc-400 mt-1">
-                          {formatDateTimeWib(p.transactionDate)}
-                          {p.reference ? ` · Ref: ${p.reference}` : ""}
-                        </p>
-                      </div>
+                      <span className="text-xs font-geometric font-medium truncate text-zinc-950 dark:text-white min-w-0">
+                        {p.programTitle}
+                      </span>
                       <span
-                        className={`text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 border ${
+                        className={`text-[9px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${
                           p.status === "ACTIVE"
-                            ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white"
-                            : "bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10"
+                            ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                            : "bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400"
                         }`}
                       >
                         {p.statusLabel}
                       </span>
                     </div>
 
-                    <div className="pt-2.5 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-xs">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                        Total Billed
-                      </span>
-                      <span className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
-                        {p.isFree ? "Free Program" : formatIdr(p.amount)}
-                      </span>
+                    <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Total Billed · {p.isFree ? "Free Program" : formatIdr(p.amount)}
+                      {p.reference ? ` · Ref: ${p.reference}` : ""}
+                    </p>
+
+                    <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                      <span>{formatDateTimeWib(p.transactionDate)}</span>
                     </div>
                   </article>
                 ))}
