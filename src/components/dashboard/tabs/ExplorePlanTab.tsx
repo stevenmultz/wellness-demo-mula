@@ -484,17 +484,22 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <section className="relative left-1/2 -translate-x-1/2 w-screen min-h-[100svh] overflow-hidden flex flex-col bg-zinc-950">
-          {/* Full-bleed Editorial Background Photography */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/image.webp"
-            alt="Curated wellness studio atmosphere"
-            className="absolute inset-0 w-full h-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
+        <div className="relative flex-1 flex flex-col">
+          {/* True Full-Viewport Background Image */}
+          <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none bg-zinc-950">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/image.webp"
+              alt=""
+              className="w-full h-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
+          </div>
 
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))] flex-1 flex flex-col justify-between gap-10">
+          <div
+            style={{ minHeight: "100dvh" }}
+            className="relative z-10 w-full flex-1 flex flex-col justify-between gap-10 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(5.25rem+env(safe-area-inset-bottom))]"
+          >
             <div className="space-y-4">
               <PullToRefreshBanner
                 pullDistance={pullDistance}
@@ -525,7 +530,7 @@ export function ExplorePlanTab({
               </button>
             </div>
           </div>
-        </section>
+        </div>
       ) : (
         <>
 

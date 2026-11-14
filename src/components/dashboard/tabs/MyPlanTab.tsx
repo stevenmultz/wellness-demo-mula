@@ -247,7 +247,7 @@ export function MyPlanIndex({
         </h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
           {plans.length > 0
-            ? "Select a program below to continue today's session."
+            ? "Here are the active programs you're currently enrolled in. Select a plan below to open today's session."
             : "You have no active plans right now. Explore available programs to get started."}
         </p>
       </section>
@@ -256,6 +256,10 @@ export function MyPlanIndex({
       {plans.length > 0 ? (
         <section className="space-y-2.5">
           <div className="flex items-center justify-between gap-3 px-0.5">
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              Your Enrolled Plans
+            </span>
+
             {plans.length > 1 && (
               <div className="flex items-center gap-1.5" role="tablist" aria-label="Active plans switcher">
                 {plans.map((pl, idx) => {
@@ -278,10 +282,6 @@ export function MyPlanIndex({
                 })}
               </div>
             )}
-
-            <span className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400 ml-auto">
-              {safeSlide + 1}/{plans.length}
-            </span>
           </div>
 
           <div

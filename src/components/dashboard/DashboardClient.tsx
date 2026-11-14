@@ -1006,57 +1006,76 @@ export function DashboardClient({
         />
       )}
 
-      {/* Unified Bottom Floating Dock (4 Menus: My Plan, Explore, History, Profile) */}
+      {/* Seamless Bottom Navigation (Unboxed & Borderless: My Plan, Explore, History, Profile) */}
       <nav
         aria-label="Primary"
-        style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 bg-white/95 dark:bg-[#161616]/95 backdrop-blur-2xl shadow-xl font-geometric border-0"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        className={`fixed bottom-0 left-0 right-0 z-50 border-0 shadow-none font-geometric transition-colors duration-200 ${
+          isFullBleedFirstPage
+            ? "bg-transparent"
+            : "bg-[#f6f6f4]/90 dark:bg-[#0e0e0e]/90 backdrop-blur-md"
+        }`}
       >
-        {(
-          [
-            { key: "my_plan", label: "My Plan" },
-            { key: "all_plan", label: "Explore" },
-            { key: "notifications", label: "History" },
-            { key: "profile", label: "Profile" },
-          ] as const
-        ).map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            aria-label={label}
-            aria-current={activeTab === key ? "page" : undefined}
-            onClick={() => {
-              setActiveTab(key);
-              if (key === "my_plan") {
-                setMyPlanView("index");
-              } else if (key === "all_plan") {
-                setExploreView("intro");
-              } else if (key === "notifications") {
-                setHistoryView("intro");
-              }
-              setIsOverHero(true);
-              window.scrollTo({ top: 0 });
-            }}
-            className={`flex-1 h-9 px-2 rounded-xl transition flex items-center justify-center gap-1.5 text-xs font-medium whitespace-nowrap tracking-wide ${
-              activeTab === key
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-            }`}
-          >
-            <span>{label}</span>
-            {key === "my_plan" && activeEnrollments.length > 0 && (
-              <span
-                className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none tabular-nums ${
-                  activeTab === "my_plan"
-                    ? "bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white"
-                    : "bg-zinc-200 text-zinc-800 dark:bg-white/15 dark:text-zinc-200"
+        <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-around gap-1">
+          {(
+            [
+              { key: "my_plan", label: "My Plan" },
+              { key: "all_plan", label: "Explore" },
+              { key: "notifications", label: "History" },
+              { key: "profile", label: "Profile" },
+            ] as const
+          ).map(({ key, label }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
+                onClick={() => {
+                  setActiveTab(key);
+                  if (key === "my_plan") {
+                    setMyPlanView("index");
+                  } else if (key === "all_plan") {
+                    setExploreView("intro");
+                  } else if (key === "notifications") {
+                    setHistoryView("intro");
+                  }
+                  setIsOverHero(true);
+                  window.scrollTo({ top: 0 });
+                }}
+                className={`relative flex-1 h-11 px-2 flex flex-col items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${
+                  isFullBleedFirstPage
+                    ? active
+                      ? "text-white font-semibold drop-shadow-xs"
+                      : "text-white/60 hover:text-white/90 font-medium"
+                    : active
+                      ? "text-zinc-950 dark:text-white font-semibold"
+                      : "text-zinc-400 hover:text-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-200 font-medium"
                 }`}
               >
-                {activeEnrollments.length}
-              </span>
-            )}
-          </button>
-        ))}
+                <span className="inline-flex items-center gap-1">
+                  <span>{label}</span>
+                  {key === "my_plan" && activeEnrollments.length > 0 && (
+                    <span className="text-[10px] font-mono tabular-nums opacity-70">
+                      {activeEnrollments.length}
+                    </span>
+                  )}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`h-0.5 rounded-full transition-all duration-200 ${
+                    active
+                      ? isFullBleedFirstPage
+                        ? "w-4 bg-white"
+                        : "w-4 bg-zinc-950 dark:bg-white"
+                      : "w-0 bg-transparent"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Main Content Area with safe-area spacing below seamless top header and above bottom dock */}
@@ -1068,9 +1087,9 @@ export function DashboardClient({
               : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: isFullBleedFirstPage
             ? "0px"
-            : "calc(6.5rem + env(safe-area-inset-bottom))",
+            : "calc(5.5rem + env(safe-area-inset-bottom))",
         }}
-        className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full"
+        className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full flex flex-col"
       >
         {actionNotice && (
           <div
@@ -1207,7 +1226,7 @@ export function DashboardClient({
 
         {/* TAB 2: EXPLORE PLAN (kept alive once visited) */}
         {(visitedTabs.all_plan || activeTab === "all_plan") && (
-          <div className={activeTab === "all_plan" ? "block" : "hidden"} hidden={activeTab !== "all_plan"}>
+          <div className={activeTab === "all_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "all_plan"}>
             <ExplorePlanTab
               headerVisible={isHeaderVisible}
               isActive={activeTab === "all_plan"}
@@ -1232,7 +1251,7 @@ export function DashboardClient({
 
         {/* TAB 3: NOTIFICATION & HISTORY (kept alive once visited) */}
         {(visitedTabs.notifications || activeTab === "notifications") && (
-          <div className={activeTab === "notifications" ? "block" : "hidden"} hidden={activeTab !== "notifications"}>
+          <div className={activeTab === "notifications" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "notifications"}>
             <NotificationsHistoryTab
               headerVisible={isHeaderVisible}
               isActive={activeTab === "notifications"}
