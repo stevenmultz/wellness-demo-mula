@@ -9,7 +9,10 @@ import {
   AuthModal,
   AuthTabMode,
 } from "@/components/auth/AuthModal";
-import { PublicNavbar } from "@/components/home/PublicNavbar";
+import {
+  PublicTopBrand,
+  PublicBottomNavbar,
+} from "@/components/home/PublicNavbar";
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import {
   ArrowRight,
@@ -73,7 +76,21 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200">
+    <div className="relative min-h-screen flex flex-col lg:flex-row bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
+      {/* =================================================================== */}
+      {/* MOBILE FULL-SCREEN IMAGE BACKGROUND (ONLY ON MOBILE < lg)           */}
+      {/* =================================================================== */}
+      <div className="fixed inset-0 z-0 lg:hidden pointer-events-none">
+        <Image
+          src="/pic.webp"
+          alt=""
+          fill
+          priority
+          className="object-cover object-center grayscale contrast-[1.08]"
+        />
+        <div className="absolute inset-0 bg-[#f6f6f4]/85 dark:bg-[#0e0e0e]/85 backdrop-blur-[2px]" />
+      </div>
+
       {/* Account Deletion Notice */}
       {deletedNotice && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 py-2.5 px-5 text-xs flex items-center justify-between shadow-xl font-mono">
@@ -93,13 +110,13 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
       )}
 
       {/* =================================================================== */}
-      {/* LEFT COLUMN: SINGLE TOP NAVBAR + BORDERLESS SIGN IN / SIGN UP FORM  */}
+      {/* LEFT COLUMN: LOGO + THEME TEXT AT TOP, FORM IN CENTER, NAV AT BOTTOM*/}
       {/* =================================================================== */}
-      <div className="w-full lg:w-[48%] xl:w-[44%] min-h-screen flex flex-col justify-between px-6 sm:px-12 lg:px-14 xl:px-16 py-6 sm:py-8">
-        {/* SINGLE NAVBAR */}
-        <PublicNavbar sessionUser={sessionUser} />
+      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-screen flex flex-col justify-between px-6 sm:px-12 lg:px-14 xl:px-16 py-6 sm:py-8">
+        {/* TOP: LOGO + TEXT THEME TOGGLE NEXT TO IT */}
+        <PublicTopBrand />
 
-        {/* CENTER SIGN IN / SIGN UP FORM (UNBOXED, ZERO BORDERS) */}
+        {/* CENTER: SIGN IN / SIGN UP FORM (UNBOXED, ZERO BORDERS) */}
         <main className="my-auto py-8 sm:py-10 w-full max-w-md mx-auto lg:mx-0">
           <div className="animate-in fade-in duration-150">
             {!sessionUser ? (
@@ -157,16 +174,14 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
           </div>
         </main>
 
-        {/* SUBTLE COPYRIGHT ONLY (NO DUPLICATE NAVBAR) */}
-        <div className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-          © 2026 + BMS Sanctuary
-        </div>
+        {/* BOTTOM: SINGLE NAVBAR */}
+        <PublicBottomNavbar />
       </div>
 
       {/* =================================================================== */}
-      {/* RIGHT COLUMN: FULL-BLEED IMAGE SHOWCASE (ZERO BORDERS / BOXES)      */}
+      {/* RIGHT COLUMN: DESKTOP FULL-BLEED IMAGE SHOWCASE (HIDDEN ON MOBILE)  */}
       {/* =================================================================== */}
-      <div className="w-full lg:w-[52%] xl:w-[56%] relative min-h-[360px] lg:min-h-screen overflow-hidden bg-zinc-950">
+      <div className="hidden lg:block lg:w-[52%] xl:w-[56%] relative min-h-screen overflow-hidden bg-zinc-950">
         <Image
           src="/pic.webp"
           alt="BMS Sanctuary"
@@ -186,7 +201,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
               Precision Movement. Engineered Longevity.
             </p>
           </div>
-          <span className="hidden sm:inline-block text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-300">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-300">
             Jakarta • Online
           </span>
         </div>

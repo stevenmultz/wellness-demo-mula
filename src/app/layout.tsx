@@ -63,10 +63,6 @@ export default function RootLayout({
               html.dark, html.dark body {
                 background-color: #0e0e0e;
               }
-              @keyframes bmsLoadingSlide {
-                0% { transform: translateX(-100%); }
-                100% { transform: translateX(260%); }
-              }
               #bms-pwa-splash {
                 position: fixed;
                 inset: 0;
@@ -112,28 +108,6 @@ export default function RootLayout({
                 gap: 6px;
                 text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
               }
-              #bms-pwa-splash .bms-splash-bar-wrap {
-                position: absolute;
-                left: 50%;
-                transform: translateX(-50%);
-                bottom: calc(2.5rem + env(safe-area-inset-bottom));
-                z-index: 10;
-                width: min(180px, 46vw);
-              }
-              #bms-pwa-splash .bms-splash-bar {
-                width: 100%;
-                height: 2px;
-                border-radius: 9999px;
-                background-color: rgba(255, 255, 255, 0.3);
-                overflow: hidden;
-              }
-              #bms-pwa-splash .bms-splash-bar-fill {
-                width: 40%;
-                height: 100%;
-                border-radius: 9999px;
-                background-color: #ffffff;
-                animation: bmsLoadingSlide 1.3s ease-in-out infinite;
-              }
             `,
           }}
         />
@@ -162,11 +136,6 @@ export default function RootLayout({
               <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "#ffffff" }}>
                 BMS
               </span>
-            </div>
-          </div>
-          <div className="bms-splash-bar-wrap">
-            <div className="bms-splash-bar">
-              <div className="bms-splash-bar-fill" />
             </div>
           </div>
         </div>

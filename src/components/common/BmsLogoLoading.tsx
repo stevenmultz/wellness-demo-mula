@@ -27,15 +27,6 @@ export function BmsLogoLoading() {
           </span>
         </div>
       </div>
-
-      <div
-        style={{ bottom: "calc(2.5rem + env(safe-area-inset-bottom))" }}
-        className="absolute left-1/2 -translate-x-1/2 z-10 w-[min(180px,46vw)]"
-      >
-        <div className="w-full h-[2px] rounded-full bg-white/30 overflow-hidden">
-          <div className="w-[40%] h-full rounded-full bg-white animate-[bmsLoadingSlide_1.3s_ease-in-out_infinite]" />
-        </div>
-      </div>
     </div>
   );
 }
