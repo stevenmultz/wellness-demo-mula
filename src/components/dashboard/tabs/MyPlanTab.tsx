@@ -215,6 +215,18 @@ export function MyPlanIndex({
   onViewHistory: () => void;
 }) {
   const firstName = (userName || "Member").trim().split(/\s+/)[0] || "Member";
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const safeSlide = Math.min(activeSlide, Math.max(0, plans.length - 1));
+
+  const handleTrackScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth <= 0) return;
+    const nextIdx = Math.round(el.scrollLeft / el.clientWidth);
+    if (nextIdx !== activeSlide && nextIdx >= 0 && nextIdx < plans.length) {
+      setActiveSlide(nextIdx);
+    }
+  };
 
   return (
     <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
@@ -235,8 +247,17 @@ export function MyPlanIndex({
 
       {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
       {plans.length > 0 ? (
-        <section>
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between gap-3 px-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="font-mono tabular-nums text-zinc-950 dark:text-white font-medium">
+              {safeSlide + 1}/{plans.length}
+            </span>
+            <span>{plans.length > 1 ? "Swipe to switch plans" : "Tap plan to open"}</span>
+          </div>
+
           <div
+            ref={trackRef}
+            onScroll={handleTrackScroll}
             className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-0.5 px-0.5"
             style={{ scrollbarWidth: "none" }}
           >
@@ -256,9 +277,9 @@ export function MyPlanIndex({
                   <button
                     type="button"
                     onClick={() => onSelectPlan(p.programId)}
-                    className="group w-full text-left flex flex-col gap-3.5 transition active:scale-[0.995]"
+                    className="group w-full text-left transition active:scale-[0.995]"
                   >
-                    <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+                    <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
                       {p.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -271,10 +292,10 @@ export function MyPlanIndex({
                           + BMS
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/15" />
 
                       {/* Status & Commitment Labels */}
-                      <div className="absolute top-3 left-3.5 right-3.5 flex items-center justify-between gap-2">
+                      <div className="absolute top-3.5 left-4 right-4 flex items-center justify-between gap-2">
                         <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[11px] font-semibold shadow-sm">
                           {dayStatusLabel}
                         </span>
@@ -286,22 +307,23 @@ export function MyPlanIndex({
                         )}
                       </div>
 
-                      {pendingTasks > 0 && (
-                        <div className="absolute bottom-3 right-3.5">
-                          <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums shadow-sm">
+                      {/* Overlaid Program Title, Coach & Pending Task Count */}
+                      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+                        <div className="min-w-0 space-y-0.5">
+                          <h2 className="text-base sm:text-lg font-geometric font-medium text-white leading-snug line-clamp-1">
+                            {p.title}
+                          </h2>
+                          <p className="text-xs text-white/80 truncate">
+                            Coach {p.coachName || "BMS Faculty"}
+                          </p>
+                        </div>
+
+                        {pendingTasks > 0 && (
+                          <span className="shrink-0 px-2.5 py-1 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums shadow-sm">
                             {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
                           </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-1 px-0.5">
-                      <h2 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white leading-snug line-clamp-1">
-                        {p.title}
-                      </h2>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        Coach {p.coachName || "BMS Faculty"}
-                      </p>
+                        )}
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -1063,15 +1085,15 @@ function CohortPerformanceCard({
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
   return (
-    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+    <section className="w-full space-y-4">
+      <div className="w-full flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Performance Metrics</h2>
           <button
             type="button"
             onClick={() => setShowMetricsInfo(true)}
             aria-label="Metrics calculation info"
-            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
           >
             <Info className="w-3.5 h-3.5" />
           </button>
@@ -1094,7 +1116,7 @@ function CohortPerformanceCard({
         </ul>
       </InfoPopupModal>
 
-      <div className="p-5 space-y-4">
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4">
         {/* 1. SLEEP AVERAGE */}
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
@@ -1800,15 +1822,15 @@ function ProgramPreparationWidgets({
 
   return (
     <>
-      <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-        <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+      <section className="w-full space-y-4">
+        <div className="w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
             <button
               type="button"
               onClick={() => setShowGuidesInfo(true)}
               aria-label="Program guides overview"
-              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+              className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
             >
               <Info className="w-3.5 h-3.5" />
             </button>
@@ -1831,7 +1853,7 @@ function ProgramPreparationWidgets({
           </ul>
         </InfoPopupModal>
 
-        <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {cardsContent}
         </div>
       </section>

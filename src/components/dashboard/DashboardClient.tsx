@@ -209,7 +209,6 @@ export function DashboardClient({
   const [exploreView, setExploreView] = useState<"intro" | "catalog">("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
-  const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
 
   useEffect(() => {
@@ -1030,8 +1029,6 @@ export function DashboardClient({
                 setExploreView("intro");
               } else if (key === "notifications") {
                 setHistoryView("intro");
-              } else if (key === "profile") {
-                setProfileViewMode("intro");
               }
               setIsOverHero(true);
               window.scrollTo({ top: 0 });
@@ -1260,8 +1257,6 @@ export function DashboardClient({
               user={user}
               health={healthProfile}
               headerVisible={isHeaderVisible}
-              viewMode={profileViewMode}
-              onChangeViewMode={setProfileViewMode}
               onLogout={handleSignOut}
               onDeleteAccount={() => setDeleteModalOpen(true)}
             />

@@ -2738,8 +2738,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   return (
     <section className="w-full space-y-4">
-      {/* Daily Task Header (Full Width, Unboxed) */}
-      <div className="w-full flex items-center justify-between gap-3 px-0.5">
+      {/* Daily Task Header (Full Width Flush Alignment) */}
+      <div className="w-full flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
           <button
@@ -2863,108 +2863,109 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           const isDone = selectedDone[index];
           const TaskIcon = t.Icon;
           return (
-            <li
-              key={t.title}
-              onClick={() => {
-                if (!isSelectedFuture && (!locked || isSelectedPast || isDone)) {
-                  openDetail(index);
-                } else if (!isSelectedFuture && !locked) {
-                  openDetail(index);
-                }
-              }}
-              className={`group w-full relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between gap-3 transition ${
-                isDone
-                  ? "border-zinc-300 dark:border-white/20 bg-zinc-50/70 dark:bg-[#181818]"
-                  : "border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/20"
-              } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
-            >
-              {/* Right-side Motion-Blur Image with Hardware-Accelerated Fade (0 mask-image) */}
-              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={t.image}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-                />
-                <div
-                  className={`absolute inset-0 bg-gradient-to-r ${
-                    isDone
-                      ? "from-zinc-50 via-zinc-50/85 to-transparent dark:from-[#181818] dark:via-[#181818]/85"
-                      : "from-white via-white/85 to-transparent dark:from-[#141414] dark:via-[#141414]/85"
-                  }`}
-                />
-              </div>
-
-              <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
-                    isDone
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                      : "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white"
-                  }`}
-                >
-                  {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
+            <li key={t.title} className="w-full">
+              <div
+                onClick={() => {
+                  if (!isSelectedFuture && (!locked || isSelectedPast || isDone)) {
+                    openDetail(index);
+                  } else if (!isSelectedFuture && !locked) {
+                    openDetail(index);
+                  }
+                }}
+                className={`group w-full relative overflow-hidden rounded-2xl p-4 flex items-center justify-between gap-3 transition ${
+                  isDone
+                    ? "bg-[#e5e5e2] dark:bg-white/[0.08]"
+                    : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
+                } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
+              >
+                {/* Right-side Motion-Blur Image with Hardware-Accelerated Fade (0 mask-image) */}
+                <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={t.image}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-r ${
+                      isDone
+                        ? "from-[#e5e5e2] via-[#e5e5e2]/85 to-transparent dark:from-[#1f1f1f] dark:via-[#1f1f1f]/85"
+                        : "from-[#ececea] via-[#ececea]/85 to-transparent dark:from-[#161616] dark:via-[#161616]/85"
+                    }`}
+                  />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                      {t.title}
-                    </p>
-                    {isSelectedPast && !isDone && (
-                      <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                        · Skipped
-                      </span>
-                    )}
+
+                <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
+                      isDone
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                        : "bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white"
+                    }`}
+                  >
+                    {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
                   </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                    {t.description}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                        {t.title}
+                      </p>
+                      {isSelectedPast && !isDone && (
+                        <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                          · Skipped
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                      {t.description}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="relative z-10 w-[86px] shrink-0 flex justify-end">
-                {isSelectedFuture ? (
-                  <span className="w-full h-8 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center justify-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    <span>Locked</span>
-                  </span>
-                ) : isSelectedPast ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDetail(index);
-                    }}
-                    className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
-                  >
-                    <span>View</span>
-                  </button>
-                ) : isDone ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDetail(index);
-                    }}
-                    className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
-                  >
-                    <span>{locked ? "View" : "Edit"}</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={locked}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDetail(index);
-                    }}
-                    className="w-full h-8 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center active:scale-95 transition shadow-sm"
-                  >
-                    Do Task
-                  </button>
-                )}
+                <div className="relative z-10 w-[86px] shrink-0 flex justify-end">
+                  {isSelectedFuture ? (
+                    <span className="w-full h-8 rounded-full bg-zinc-100/90 dark:bg-black/50 border border-zinc-200 dark:border-white/10 text-[11px] font-mono text-zinc-400 inline-flex items-center justify-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Locked</span>
+                    </span>
+                  ) : isSelectedPast ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(index);
+                      }}
+                      className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
+                    >
+                      <span>View</span>
+                    </button>
+                  ) : isDone ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(index);
+                      }}
+                      className="w-full h-8 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-800 dark:text-zinc-200 active:scale-95 transition inline-flex items-center justify-center"
+                    >
+                      <span>{locked ? "View" : "Edit"}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(index);
+                      }}
+                      className="w-full h-8 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 inline-flex items-center justify-center active:scale-95 transition shadow-sm"
+                    >
+                      Do Task
+                    </button>
+                  )}
+                </div>
               </div>
             </li>
           );
@@ -2975,7 +2976,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {showStatusFooter && (
         <div className="w-full">
           {isSelectedFuture ? (
-            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between gap-2 text-xs text-zinc-500">
+            <div className="w-full py-2.5 px-4 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] flex items-center justify-between gap-2 text-xs text-zinc-500">
               <span className="inline-flex items-center gap-2">
                 <Lock className="w-3.5 h-3.5 shrink-0" />
                 <span>Unlocks on {formatDayDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB</span>
@@ -2989,7 +2990,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               </button>
             </div>
           ) : isSelectedPast ? (
-            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+            <div className="w-full py-2.5 px-4 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
               <span className="inline-flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                 <span>Viewing Day {selectedDay.dayNumber} History (Read-Only)</span>
@@ -3003,7 +3004,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               </button>
             </div>
           ) : day.userProgress?.isCompleted ? (
-            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
+            <div className="w-full py-2.5 px-4 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
               <span className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
                 <span>Today&apos;s Routine Completed</span>
@@ -3013,7 +3014,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               </span>
             </div>
           ) : allDone ? (
-            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
+            <div className="w-full py-2.5 px-4 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
               <span className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
                 <span>All daily tasks submitted for today</span>

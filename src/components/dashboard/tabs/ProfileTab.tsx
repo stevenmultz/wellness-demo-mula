@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowRight,
   Bell,
   Camera,
   Check,
@@ -162,36 +161,19 @@ export function ProfileTab({
   user,
   health: _health,
   headerVisible,
-  viewMode,
-  onChangeViewMode,
   onLogout,
   onDeleteAccount,
 }: {
   user: ProfileUser;
   health?: HealthProfileData | null;
   headerVisible: boolean;
-  viewMode?: "intro" | "menu";
-  onChangeViewMode?: (next: "intro" | "menu") => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
   void _health;
   const router = useRouter();
   const { toggleTheme } = useTheme();
-  const [internalMode, setInternalMode] = useState<"intro" | "menu">("intro");
-  const mode = viewMode ?? internalMode;
-  const setMode = (next: "intro" | "menu") => {
-    setInternalMode(next);
-    onChangeViewMode?.(next);
-    window.scrollTo({ top: 0 });
-  };
   const [view, setView] = useState<View | null>(null);
-
-  useEffect(() => {
-    if (mode === "intro") {
-      setView(null);
-    }
-  }, [mode]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl ?? null);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
@@ -386,26 +368,6 @@ export function ProfileTab({
               Profile
             </span>
           </div>
-        ) : mode === "menu" ? (
-          <div className="flex items-center justify-between w-full min-w-0">
-            <button
-              type="button"
-              onClick={() => setMode("intro")}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white active:scale-95 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Account &amp; Settings</span>
-            </button>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              title="Switch light / dark mode"
-              className="font-geometric font-medium text-sm tracking-[0.06em] uppercase text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:opacity-70 active:scale-95 transition-all"
-            >
-              <span>+</span>
-              <span>BMS</span>
-            </button>
-          </div>
         ) : (
           <div className="flex items-center justify-between w-full min-w-0">
             <button
@@ -424,93 +386,7 @@ export function ProfileTab({
         )}
       </FloatingHeader>
 
-      {mode === "intro" && !view && (
-        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-10">
-          <div className="space-y-5">
-            {/* Editorial Visual + Member Portrait Anchor */}
-            <div className="relative aspect-[16/10] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/coach3.webp"
-                alt="Wellness studio portrait atmosphere"
-                className="w-full h-full object-cover object-center"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-            </div>
-
-            <div className="flex items-end gap-4 px-1 -mt-12 relative z-10">
-              <div className="relative group shrink-0">
-                <div className="w-20 h-20 rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900 border-2 border-[#f6f6f4] dark:border-[#0e0e0e] flex items-center justify-center shadow-md">
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt={form.fullName} className="w-full h-full object-cover" />
-                  ) : (
-                    <UserIcon className="w-8 h-8 text-zinc-400" />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("menu");
-                    setView("basic");
-                    setTimeout(() => fileRef.current?.click(), 150);
-                  }}
-                  title="Update profile picture"
-                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1 px-1">
-              <h1 className="text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                {form.fullName || "Member Profile"}
-              </h1>
-              <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                {user.email}
-              </p>
-              <p className="text-[11px] text-zinc-400">
-                Member since {new Date(user.createdAt).getFullYear()}
-                {form.occupation ? ` · ${form.occupation}` : ""}
-              </p>
-            </div>
-          </div>
-
-          <section className="space-y-4 border-t border-zinc-200/80 dark:border-white/10 pt-5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-zinc-500 dark:text-zinc-400">Profile Completion</span>
-              <span className="font-mono font-medium text-zinc-950 dark:text-white">{personalPct}%</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setMsg(null);
-                  setMode("menu");
-                }}
-                className="flex-1 h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium inline-flex items-center justify-center gap-2 active:scale-95 transition hover:opacity-90"
-              >
-                <span>Account &amp; Settings</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMsg(null);
-                  setMode("menu");
-                  setView("basic");
-                }}
-                className="h-10 px-5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-white text-xs font-geometric font-medium active:scale-95 transition hover:border-zinc-500 dark:hover:border-white/30"
-              >
-                Edit Profile
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {mode === "menu" && !view && (
+      {!view && (
         <div className="space-y-6 max-w-2xl mx-auto pt-2">
           {/* Top Profile Image Banner */}
           <section className="overflow-hidden rounded-3xl bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">

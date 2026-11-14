@@ -249,8 +249,8 @@ export function NotificationsHistoryTab({
             </p>
           </section>
 
-          <section className="space-y-5">
-            {/* Editorial Photography Banner */}
+          <section>
+            {/* Editorial Photography Banner with Unified Overlaid Action */}
             <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -258,38 +258,22 @@ export function NotificationsHistoryTab({
                 alt="Mindful recovery journal and activity archive"
                 className="w-full h-full object-cover object-center"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5 px-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setSection("notifications");
-                  setMode("feed");
-                }}
-                className="flex-1 h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium inline-flex items-center justify-center gap-2 active:scale-95 transition hover:opacity-90"
-              >
-                <span>Notifications</span>
-                {unreadCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-white text-zinc-950 dark:bg-zinc-950 dark:text-white text-[10px] font-mono leading-none">
-                    {unreadCount}
-                  </span>
-                )}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSection("history");
-                  setMode("feed");
-                }}
-                className="h-10 px-5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition hover:border-zinc-500 dark:hover:border-white/30"
-              >
-                <span>History</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMode("feed")}
+                  className="h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-md"
+                >
+                  <span>Notifications &amp; History</span>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-zinc-950 text-white text-[10px] font-mono leading-none">
+                      {unreadCount}
+                    </span>
+                  )}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </section>
         </div>
