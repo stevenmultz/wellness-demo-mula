@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   Bell,
   Camera,
   Check,
@@ -28,8 +29,7 @@ import {
 import { wellnessChangePassword, wellnessUpdateProfile } from "@/wellness/actions/account";
 import { GENDER_OPTIONS, calculateAgeFromDob } from "@/wellness/validators/auth";
 import { usePushNotifications } from "./usePushNotifications";
-import { useTheme } from "@/components/theme/ThemeProvider";
-import { FloatingHeader, formatDateWib } from "./shared";
+import { BrandWordmark, FloatingHeader, formatDateWib } from "./shared";
 
 export interface ProfileUser {
   id: string;
@@ -161,19 +161,31 @@ export function ProfileTab({
   user,
   health: _health,
   headerVisible,
+  viewMode,
+  onChangeViewMode,
   onLogout,
   onDeleteAccount,
 }: {
   user: ProfileUser;
   health?: HealthProfileData | null;
   headerVisible: boolean;
+  viewMode?: "intro" | "menu";
+  onChangeViewMode?: (next: "intro" | "menu") => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
   void _health;
   const router = useRouter();
-  const { toggleTheme } = useTheme();
+  const [internalMode, setInternalMode] = useState<"intro" | "menu">("intro");
+  const mode = viewMode ?? internalMode;
   const [view, setView] = useState<View | null>(null);
+  const setMode = (next: "intro" | "menu") => {
+    setInternalMode(next);
+    onChangeViewMode?.(next);
+    setView(null);
+    setMsg(null);
+    window.scrollTo({ top: 0 });
+  };
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl ?? null);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
@@ -350,7 +362,7 @@ export function ProfileTab({
 
   return (
     <>
-      <FloatingHeader visible={headerVisible}>
+      <FloatingHeader visible={headerVisible} transparent={!view && mode === "intro"}>
         {view ? (
           <div className="flex items-center justify-between w-full min-w-0">
             <button
@@ -364,30 +376,72 @@ export function ProfileTab({
               <ArrowLeft className="w-4 h-4" />
               <span>{TITLES[view]}</span>
             </button>
-            <span className="text-[10px] font-medium uppercase tracking-[0.04em] text-zinc-400 shrink-0">
-              Profile
-            </span>
           </div>
+        ) : mode === "intro" ? (
+          <BrandWordmark light />
         ) : (
-          <div className="flex items-center justify-between w-full min-w-0">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={toggleTheme}
-              title="Switch light / dark mode"
-              className="font-geometric font-medium text-sm tracking-[0.06em] uppercase text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:opacity-70 active:scale-95 transition-all"
+              onClick={() => setMode("intro")}
+              aria-label="Back to Profile overview"
+              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
             >
-              <span>+</span>
-              <span>BMS</span>
+              <ArrowLeft className="w-4 h-4" />
             </button>
-            <span className="text-[11px] font-medium text-zinc-400 truncate max-w-[180px] sm:max-w-xs">
-              Profile
-            </span>
+            <BrandWordmark />
           </div>
         )}
       </FloatingHeader>
 
-      {!view && (
-        <div className="space-y-6 max-w-2xl mx-auto pt-2">
+      {!view && mode === "intro" && (
+        <div className="relative flex-1 flex flex-col">
+          {/* True Full-Viewport Background Image */}
+          <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none bg-zinc-950">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/coach3.webp"
+              alt=""
+              className="w-full h-full object-cover object-top"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
+          </div>
+
+          <div
+            style={{ minHeight: "100dvh" }}
+            className="relative z-10 w-full flex-1 flex flex-col justify-between gap-10 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(5.25rem+env(safe-area-inset-bottom))]"
+          >
+            <div className="space-y-2.5 max-w-md">
+              <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/75 block">
+                Account
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-xs">
+                Profile &amp; Settings
+              </h1>
+              <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-sm">
+                Manage your personal details, emergency contacts, security credentials, and account preferences.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 max-w-sm">
+              <button
+                type="button"
+                onClick={() => setMode("menu")}
+                className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+              >
+                <span>Open Profile &amp; Settings</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <p className="text-[11px] text-white/75 leading-relaxed">
+                Personal info, password &amp; security, notification alerts, data export, and concierge support.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!view && mode === "menu" && (
+        <div className="space-y-6 max-w-2xl w-full mx-auto pt-2">
           {/* Top Profile Image Banner */}
           <section className="overflow-hidden rounded-3xl bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
             <div className="relative aspect-[16/8] sm:aspect-[21/9] min-h-[180px] sm:min-h-[210px] w-full flex items-end">
@@ -506,7 +560,7 @@ export function ProfileTab({
       )}
 
       {view && (
-        <div className="max-w-xl mx-auto space-y-5 pt-2">
+        <div className="max-w-xl w-full mx-auto space-y-5 pt-2">
           <Banner msg={msg} />
 
           <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 sm:p-7 space-y-6">

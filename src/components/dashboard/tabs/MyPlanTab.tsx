@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -29,11 +29,10 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { useTheme } from "@/components/theme/ThemeProvider";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
-import { EmptyState, FloatingHeader, InfoPopupModal, safeHttpUrl } from "./shared";
+import { BrandWordmark, EmptyState, FloatingHeader, InfoPopupModal, safeHttpUrl } from "./shared";
 
 export interface PlanDay {
   id: string;
@@ -104,31 +103,15 @@ export function MyPlanHeader({
   onExplore: () => void;
 }) {
   void _onSelect;
-  const { theme, toggleTheme } = useTheme();
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
 
   return (
     <FloatingHeader visible={visible} transparent={overlay}>
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label="Toggle visual theme"
-        title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
-        className={`select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none ${
-          overlay ? "text-white drop-shadow-xs" : "text-zinc-950 dark:text-white"
-        }`}
-      >
-        <span className="font-light text-lg leading-none">+</span>
-        <span className="font-geometric font-semibold text-sm tracking-[0.06em] uppercase">BMS</span>
-      </button>
+      <BrandWordmark light={overlay} />
 
       <div className="relative min-w-0">
         {mode === "index" ? (
-          plans.length > 0 ? (
-            <span className="text-[11px] font-medium tracking-normal text-zinc-600 dark:text-zinc-300">
-              {plans.length} Active {plans.length === 1 ? "Plan" : "Plans"}
-            </span>
-          ) : (
+          plans.length > 0 ? null : (
             <button
               type="button"
               onClick={onExplore}
@@ -155,14 +138,15 @@ export function MyPlanHeader({
           <button
             type="button"
             onClick={() => onBackToIndex?.()}
-            title="Back to My Plan list"
-            className={`max-w-[210px] sm:max-w-xs flex items-center px-3.5 py-1.5 rounded-full text-xs transition active:scale-95 ${
+            title="Back to All My Plans"
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition active:scale-95 ${
               overlay
                 ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
                 : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
             }`}
           >
-            <span className="truncate font-semibold uppercase tracking-wide">{current.title}</span>
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+            <span>All My Plans</span>
           </button>
         )}
       </div>
@@ -250,6 +234,28 @@ export function MyPlanIndex({
             ? "Here are the active programs you're currently enrolled in. Select a plan below to open today's session."
             : "You have no active plans right now. Explore available programs to get started."}
         </p>
+
+        {plans.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-2">
+            {plans.map((pl, idx) => {
+              const isCurrent = idx === safeSlide;
+              return (
+                <button
+                  key={pl.programId}
+                  type="button"
+                  onClick={() => scrollToSlide(idx)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition active:scale-95 ${
+                    isCurrent
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                      : "bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                  }`}
+                >
+                  {pl.title}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
@@ -703,11 +709,11 @@ export function MyPlanOverview({
               </div>
 
               {program && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-5 pt-0.5">
                   <button
                     type="button"
                     onClick={() => setShowCommunityModal(true)}
-                    className="h-8 px-3.5 rounded-full bg-white text-zinc-950 text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition shadow-xs"
+                    className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs"
                   >
                     <Users className="w-3.5 h-3.5" />
                     <span>Join Community</span>
@@ -715,7 +721,7 @@ export function MyPlanOverview({
                   <button
                     type="button"
                     onClick={() => setShowReportModal(true)}
-                    className="h-8 px-3.5 rounded-full bg-black/45 hover:bg-black/60 backdrop-blur-md border border-white/25 text-white text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition"
+                    className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs"
                   >
                     <AlertCircle className="w-3.5 h-3.5" />
                     <span>Report</span>
@@ -1550,6 +1556,48 @@ function ProgramReportPageView({
     : null;
 }
 
+function GuideAccordion({
+  title,
+  count,
+  open,
+  onToggle,
+  leading,
+  children,
+}: {
+  title: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  leading?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full py-3.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between gap-3 text-xs text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white transition"
+      >
+        <span className="flex items-center gap-2.5 min-w-0 font-medium text-left">
+          {leading}
+          <span className="truncate">
+            {title}
+            {typeof count === "number" ? ` (${count})` : ""}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1 shrink-0 text-zinc-400">
+          <span>{open ? "Hide" : "Show"}</span>
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </span>
+      </button>
+      {open && <div>{children}</div>}
+    </div>
+  );
+}
+
 function ProgramPreparationWidgets({
   program,
   days,
@@ -1563,10 +1611,9 @@ function ProgramPreparationWidgets({
 }) {
   void _onSwitchWidget;
   const [activePage, setActivePage] = useState<"meal" | "meetup" | "overview" | "rules" | "coach" | null>(null);
-  const [showPastMeals, setShowPastMeals] = useState(false);
-  const [showUpcomingMeals, setShowUpcomingMeals] = useState(false);
-  const [showPastMeetups, setShowPastMeetups] = useState(false);
-  const [showUpcomingMeetups, setShowUpcomingMeetups] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const [showGuidesInfo, setShowGuidesInfo] = useState(false);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
   const prepScrollYRef = useRef(0);
@@ -1663,6 +1710,219 @@ function ProgramPreparationWidgets({
   const validReferences = useMemo(
     () => (program.scientificReferences || []).filter((r) => r && r.title && r.title.trim().length > 0),
     [program.scientificReferences]
+  );
+
+  const benefitsList =
+    program.expectedBenefits && program.expectedBenefits.length > 0
+      ? program.expectedBenefits
+      : [
+          "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
+          "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
+          "Enhanced joint mobility, core stability, and functional movement mechanics.",
+          "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
+        ];
+
+  const conductRules = [
+    {
+      title: "Daily Cadence & 23:59 WIB Cutoff",
+      desc: "Curriculum tasks unlock at 00:00 WIB and must be logged before 23:59 WIB. Daily consistency anchors neural adaptation. Missed tasks can be marked as skipped without penalizing your habit profile.",
+    },
+    {
+      title: "Medical Safety & Intuitive Pacing",
+      desc: "Listen to biofeedback. Movement drills should never cause sharp pain. Stop immediately and contact your physician if feeling faint or discomfort.",
+    },
+    {
+      title: "Cohort Privacy & Respectful Space",
+      desc: "Everything shared within the cohort (photos, journals, questions) is strictly confidential. Mutual respect and encouragement are mandatory.",
+    },
+    {
+      title: "Data Integrity & Truthful Logging",
+      desc: "Log sleep hours, training reps, and meals accurately. Authentic tracking empowers personalized AI adjustments and honest self-discovery.",
+    },
+    {
+      title: "Rest Days & Nervous System Restoration",
+      desc: "Rest days are as vital as training days. Respect recovery protocols to allow neuromuscular integration and avoid chronic sympathetic overload.",
+    },
+  ];
+
+  const coachesList = [
+    {
+      id: "lead",
+      photo: "/coach.webp",
+      alt: program.coachName || "Lead Coach",
+      name: program.coachName || "Coach Julian Thorne",
+      role: "Lead Guide",
+      title: program.coachTitle || "Master Longevity & Movement Specialist",
+      bio: "Specializes in biomechanics, mobility progression, and neuromuscular longevity conditioning. Designed the daily training curriculum for this cohort.",
+    },
+    {
+      id: "nutrition",
+      photo: "/coach2.webp",
+      alt: "Nutrition Specialist",
+      name: "Dr. Marcus Vance, ND",
+      role: "Nutrition",
+      title: "Integrative Nutritionist & Metabolic Health Researcher",
+      bio: "Oversees dietary recommendations, circadian fasting windows, and cellular anti-inflammatory nutrition protocols for optimal recovery.",
+    },
+    {
+      id: "recovery",
+      photo: "/coach3.webp",
+      alt: "Sleep & Recovery Guide",
+      name: "Elena Rostova, MSc",
+      role: "Recovery",
+      title: "Circadian Somatics & Autonomic Nervous System Coach",
+      bio: "Guides breathwork sessions, parasympathetic wind-down routines, and daily sleep hygiene protocols.",
+    },
+  ];
+
+  const renderMealRows = (list: PlanDay[], dimmed: boolean) => (
+    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+      {list.map((d) => {
+        const rawLines = splitActivities(d.mealRecommendation).map((l) =>
+          l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
+        );
+        const compliance = d.userProgress?.mealCompliance;
+        const complianceLabel =
+          compliance === "FULL" || compliance === "YES"
+            ? "Followed"
+            : compliance === "PARTIAL"
+              ? "Partial"
+              : compliance === "SIMILAR"
+                ? "Similar"
+                : compliance === "OFF_TRACK"
+                  ? "Off Track"
+                  : compliance === "SKIPPED"
+                    ? "Skipped"
+                    : null;
+        const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
+        const cleanTitle = d.title ? d.title.replace(/^day\s*\d+\s*:\s*/i, "").trim() : "";
+
+        return (
+          <div key={d.id} className={`py-5 space-y-2.5 ${dimmed ? "opacity-80" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-0.5">
+                <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                  {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
+                </h3>
+                <span className="text-[11px] text-zinc-400 block">
+                  {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                </span>
+              </div>
+              {complianceLabel && (
+                <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
+                  {complianceLabel}
+                </span>
+              )}
+            </div>
+
+            {rawLines.length > 0 ? (
+              <ul className="space-y-2 pt-0.5">
+                {rawLines.map((line, idx) => (
+                  <li
+                    key={idx}
+                    className="text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed text-zinc-600 dark:text-zinc-300"
+                  >
+                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Balanced whole-food nutrition and circadian recovery hydration.
+              </p>
+            )}
+
+            {mealNotes && (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
+                {mealNotes}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderMeetupRows = (list: PlanDay[], isPast: boolean) => (
+    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+      {list.map((d) => {
+        const meetUrl = safeHttpUrl(d.meetupLink);
+        const mapUrl = safeHttpUrl(d.mapLink);
+        const hostName = d.eventHost || d.coachName || program.coachName;
+        const rawSessionTitle = d.eventTitle || d.title || "Live Coaching Session";
+        const cleanSessionTitle = rawSessionTitle.replace(/^day\s*\d+\s*:\s*/i, "").trim();
+
+        return (
+          <div key={d.id} className={`py-5 space-y-2.5 ${isPast ? "opacity-80" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5 min-w-0">
+                <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                  {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                  {hostName ? ` · Hosted by ${hostName}` : ""}
+                </p>
+              </div>
+              {d.onsiteSchedule && (
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1 shrink-0 pt-0.5">
+                  <Clock className="w-3 h-3" />
+                  <span>{d.onsiteSchedule}</span>
+                </span>
+              )}
+            </div>
+
+            {d.eventDetails && (
+              <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
+                {d.eventDetails}
+              </p>
+            )}
+
+            {(d.onsiteVenue || program.venueAddress) && (
+              <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>{d.onsiteVenue || program.venueAddress}</span>
+              </div>
+            )}
+
+            {(meetUrl || mapUrl) && (
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                {meetUrl && (
+                  <a
+                    href={meetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
+                      isPast
+                        ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
+                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    }`}
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span>{isPast ? "Session Archive" : "Join Live Meeting"}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                {mapUrl && (
+                  <a
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Directions</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 
   const cardsContent = (
@@ -1933,14 +2193,15 @@ function ProgramPreparationWidgets({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pointer-events-auto h-8 px-4 rounded-full bg-black/60 dark:bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-medium tracking-wide active:scale-95 transition hover:bg-black/80 inline-flex items-center justify-center shadow-md"
+                className="pointer-events-auto py-1 text-white/95 hover:text-white text-xs font-medium tracking-wide active:scale-95 transition inline-flex items-center gap-1.5 drop-shadow-sm"
               >
+                <Users className="w-3.5 h-3.5" />
                 <span>Join Community</span>
               </a>
             </header>
 
             {/* TOP BANNER IMAGE */}
-            <div className="relative h-[360px] sm:h-[430px] w-full overflow-hidden bg-zinc-950 shrink-0">
+            <div className="relative h-[340px] sm:h-[400px] w-full overflow-hidden bg-zinc-950 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={
@@ -1960,24 +2221,12 @@ function ProgramPreparationWidgets({
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
               <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
-                <div className="max-w-2xl mx-auto w-full px-6 sm:px-10 space-y-2">
-                  <span className="text-[11px] font-medium tracking-[0.04em] text-white/80 block">
-                    {activePage === "meal"
-                      ? "Nutrition"
-                      : activePage === "meetup"
-                        ? "Schedule"
-                        : activePage === "overview"
-                          ? "Curriculum"
-                          : activePage === "rules"
-                            ? "Policy"
-                            : "Faculty"}
-                  </span>
-
+                <div className="max-w-2xl mx-auto w-full px-6 sm:px-10 space-y-1.5">
                   <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-md">
                     {activePage === "meal"
-                      ? "Meals"
+                      ? "Meal Guide"
                       : activePage === "meetup"
-                        ? "Sessions"
+                        ? "Meetups & Live"
                         : activePage === "overview"
                           ? "Overview"
                           : activePage === "rules"
@@ -1985,446 +2234,81 @@ function ProgramPreparationWidgets({
                             : "Coaches"}
                   </h1>
 
-                  <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-xl">
+                  <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-lg">
                     {activePage === "meal"
-                      ? "Daily whole-food nutrition principles and circadian hydration guidance for every cohort day."
+                      ? `${mealDays.length} cohort days of nutrition & hydration guidance.`
                       : activePage === "meetup"
-                        ? "Interactive live sessions, movement clinics, and cohort gatherings."
+                        ? `${meetupDays.length} scheduled live coaching & cohort sessions.`
                         : activePage === "overview"
-                          ? "Program logistics, methodology, adaptation targets, required gear, and scientific references."
+                          ? "Commitment, methodology, gear, and clinical references."
                           : activePage === "rules"
-                            ? "Practical guidelines, daily logging cadence, and safety standards for enrolled members."
-                            : "Certified longevity practitioners, movement specialists, and dedicated cohort mentors."}
+                            ? "Daily cadence, medical safety, and cohort conduct."
+                            : `${coachesList.length} specialists guiding this program.`}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* CURVED SHEET CONTAINER WITH CLEAN PUBLIC-STYLE EDITORIAL TEXT */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-10 sm:pt-12 px-6 sm:px-10 pb-32 max-w-2xl mx-auto w-full flex-1">
+            {/* CURVED SHEET CONTAINER WITH COLLAPSIBLE DROPDOWNS */}
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-8 sm:pt-10 px-6 sm:px-10 pb-32 max-w-2xl mx-auto w-full flex-1">
               {/* 1. MEAL GUIDE */}
               {activePage === "meal" && (
-                <div className="space-y-8">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                      <span>Daily Nutrition</span>
-                      <span>{mealDays.length} {mealDays.length === 1 ? "Day" : "Days"}</span>
-                    </div>
-                    <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                      Meal Schedule
-                    </h2>
-                  </div>
-
-                  {/* PART 1: PAST DAYS (COLLAPSED BY DEFAULT) */}
+                <div className="space-y-4">
                   {pastMealDays.length > 0 && (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowPastMeals((v) => !v)}
-                        aria-expanded={showPastMeals}
-                        className="w-full py-2.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
-                      >
-                        <span className="font-medium">
-                          Past Days ({pastMealDays.length})
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <span>{showPastMeals ? "Hide" : "Show"}</span>
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 transition-transform duration-200 ${showPastMeals ? "rotate-180" : ""}`}
-                          />
-                        </span>
-                      </button>
-
-                      {showPastMeals && (
-                        <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
-                          {pastMealDays.map((d) => {
-                            const rawLines = splitActivities(d.mealRecommendation).map((l) =>
-                              l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
-                            );
-                            const compliance = d.userProgress?.mealCompliance;
-                            const complianceLabel =
-                              compliance === "FULL" || compliance === "YES"
-                                ? "Followed"
-                                : compliance === "PARTIAL"
-                                  ? "Partial"
-                                  : compliance === "SIMILAR"
-                                    ? "Similar"
-                                    : compliance === "OFF_TRACK"
-                                      ? "Off Track"
-                                      : compliance === "SKIPPED"
-                                        ? "Skipped"
-                                        : null;
-                            const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
-                            const cleanTitle = d.title ? d.title.replace(/^day\s*\d+\s*:\s*/i, "").trim() : "";
-
-                            return (
-                              <div key={d.id} className="py-5 space-y-2.5 opacity-80">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 space-y-0.5">
-                                    <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-700 dark:text-zinc-200">
-                                      {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
-                                    </h3>
-                                    <span className="text-[11px] text-zinc-400 block">
-                                      {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                    </span>
-                                  </div>
-                                  {complianceLabel && (
-                                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
-                                      {complianceLabel}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {rawLines.length > 0 ? (
-                                  <ul className="space-y-2 pt-0.5">
-                                    {rawLines.map((line, idx) => (
-                                      <li
-                                        key={idx}
-                                        className="text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed"
-                                      >
-                                        <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-0.5 shrink-0">
-                                          {String(idx + 1).padStart(2, "0")}
-                                        </span>
-                                        <span>{line}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                                    Balanced whole-food nutrition and circadian recovery hydration.
-                                  </p>
-                                )}
-
-                                {mealNotes && (
-                                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                                    {mealNotes}
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <GuideAccordion
+                      title="Past Days"
+                      count={pastMealDays.length}
+                      open={!!openSections["meal-past"]}
+                      onToggle={() => toggleSection("meal-past")}
+                    >
+                      {renderMealRows(pastMealDays, true)}
+                    </GuideAccordion>
                   )}
 
-                  {/* PART 2: UPCOMING DAYS (COLLAPSED BY DEFAULT, EXPANDABLE) */}
-                  <div className="space-y-2">
-                    {upcomingMealDays.length > 0 ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setShowUpcomingMeals((v) => !v)}
-                          aria-expanded={showUpcomingMeals}
-                          className="w-full py-2.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
-                        >
-                          <span className="font-medium">
-                            Upcoming Days ({upcomingMealDays.length})
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <span>{showUpcomingMeals ? "Hide" : "Show"}</span>
-                            <ChevronDown
-                              className={`w-3.5 h-3.5 transition-transform duration-200 ${showUpcomingMeals ? "rotate-180" : ""}`}
-                            />
-                          </span>
-                        </button>
-
-                        {showUpcomingMeals && (
-                          <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
-                            {upcomingMealDays.map((d) => {
-                              const rawLines = splitActivities(d.mealRecommendation).map((l) =>
-                                l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
-                              );
-                              const compliance = d.userProgress?.mealCompliance;
-                              const complianceLabel =
-                                compliance === "FULL" || compliance === "YES"
-                                  ? "Followed"
-                                  : compliance === "PARTIAL"
-                                    ? "Partial"
-                                    : compliance === "SIMILAR"
-                                      ? "Similar"
-                                      : compliance === "OFF_TRACK"
-                                        ? "Off Track"
-                                        : compliance === "SKIPPED"
-                                          ? "Skipped"
-                                          : null;
-                              const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
-                              const cleanTitle = d.title ? d.title.replace(/^day\s*\d+\s*:\s*/i, "").trim() : "";
-
-                              return (
-                                <div
-                                  key={d.id}
-                                  className="py-5 space-y-2.5"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0 space-y-0.5">
-                                      <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                                        {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
-                                      </h3>
-                                      <span className="text-[11px] text-zinc-400 block">
-                                        {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                      </span>
-                                    </div>
-
-                                    {complianceLabel && (
-                                      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
-                                        {complianceLabel}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {rawLines.length > 0 ? (
-                                    <ul className="space-y-2 pt-0.5">
-                                      {rawLines.map((line, idx) => (
-                                        <li
-                                          key={idx}
-                                          className="text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed text-zinc-600 dark:text-zinc-300"
-                                        >
-                                          <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
-                                            {String(idx + 1).padStart(2, "0")}
-                                          </span>
-                                          <span>{line}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                                      Balanced whole-food nutrition and circadian recovery hydration.
-                                    </p>
-                                  )}
-
-                                  {mealNotes && (
-                                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                                      {mealNotes}
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="py-10 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                        All scheduled meal days have passed.
-                      </div>
-                    )}
-                  </div>
+                  {upcomingMealDays.length > 0 ? (
+                    <GuideAccordion
+                      title="Upcoming Days"
+                      count={upcomingMealDays.length}
+                      open={!!openSections["meal-upcoming"]}
+                      onToggle={() => toggleSection("meal-upcoming")}
+                    >
+                      {renderMealRows(upcomingMealDays, false)}
+                    </GuideAccordion>
+                  ) : (
+                    <div className="py-10 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                      All scheduled meal days have passed.
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* 2. MEETUPS & LIVE SESSIONS */}
               {activePage === "meetup" && (
-                <div className="space-y-8">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                      <span>Live Schedule</span>
-                      <span>{meetupDays.length} {meetupDays.length === 1 ? "Session" : "Sessions"}</span>
-                    </div>
-                    <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                      Upcoming &amp; Past Meetups
-                    </h2>
-                  </div>
-
+                <div className="space-y-4">
                   {meetupDays.length > 0 ? (
-                    <div className="space-y-6">
-                      {/* PAST MEETUPS (COLLAPSED BY DEFAULT, EXPANDABLE) */}
+                    <>
                       {pastMeetupDays.length > 0 && (
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowPastMeetups((v) => !v)}
-                            aria-expanded={showPastMeetups}
-                            className="w-full py-2.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
-                          >
-                            <span className="font-medium">
-                              Past Meetups ({pastMeetupDays.length})
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <span>{showPastMeetups ? "Hide" : "Show"}</span>
-                              <ChevronDown
-                                className={`w-3.5 h-3.5 transition-transform duration-200 ${showPastMeetups ? "rotate-180" : ""}`}
-                              />
-                            </span>
-                          </button>
-
-                          {showPastMeetups && (
-                            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
-                              {pastMeetupDays.map((d) => {
-                                const meetUrl = safeHttpUrl(d.meetupLink);
-                                const mapUrl = safeHttpUrl(d.mapLink);
-                                const hostName = d.eventHost || d.coachName || program.coachName;
-                                const rawSessionTitle = d.eventTitle || d.title || "Live Coaching Session";
-                                const cleanSessionTitle = rawSessionTitle.replace(/^day\s*\d+\s*:\s*/i, "").trim();
-
-                                return (
-                                  <div key={d.id} className="py-5 space-y-2.5 opacity-80">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="space-y-0.5 min-w-0">
-                                        <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-700 dark:text-zinc-200">
-                                          {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
-                                        </h3>
-                                        <p className="text-[11px] text-zinc-400">
-                                          {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                          {hostName ? ` · Hosted by ${hostName}` : ""}
-                                        </p>
-                                      </div>
-                                      {d.onsiteSchedule && (
-                                        <span className="text-[11px] text-zinc-400 inline-flex items-center gap-1 shrink-0 pt-0.5">
-                                          <Clock className="w-3 h-3" />
-                                          <span>{d.onsiteSchedule}</span>
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {d.eventDetails && (
-                                      <p className="text-xs leading-relaxed whitespace-pre-line text-zinc-500 dark:text-zinc-400">
-                                        {d.eventDetails}
-                                      </p>
-                                    )}
-
-                                    {(d.onsiteVenue || program.venueAddress) && (
-                                      <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                        <span>{d.onsiteVenue || program.venueAddress}</span>
-                                      </div>
-                                    )}
-
-                                    {(meetUrl || mapUrl) && (
-                                      <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                                        {meetUrl && (
-                                          <a
-                                            href={meetUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                                          >
-                                            <Video className="w-3.5 h-3.5" />
-                                            <span>Session Archive</span>
-                                            <ExternalLink className="w-3 h-3" />
-                                          </a>
-                                        )}
-                                        {mapUrl && (
-                                          <a
-                                            href={mapUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
-                                          >
-                                            <MapPin className="w-3.5 h-3.5" />
-                                            <span>Directions</span>
-                                          </a>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                        <GuideAccordion
+                          title="Past Meetups"
+                          count={pastMeetupDays.length}
+                          open={!!openSections["meetup-past"]}
+                          onToggle={() => toggleSection("meetup-past")}
+                        >
+                          {renderMeetupRows(pastMeetupDays, true)}
+                        </GuideAccordion>
                       )}
 
-                      {/* UPCOMING MEETUPS (COLLAPSED BY DEFAULT, EXPANDABLE) */}
                       {upcomingMeetupDays.length > 0 && (
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowUpcomingMeetups((v) => !v)}
-                            aria-expanded={showUpcomingMeetups}
-                            className="w-full py-2.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
-                          >
-                            <span className="font-medium">
-                              Upcoming Meetups ({upcomingMeetupDays.length})
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <span>{showUpcomingMeetups ? "Hide" : "Show"}</span>
-                              <ChevronDown
-                                className={`w-3.5 h-3.5 transition-transform duration-200 ${showUpcomingMeetups ? "rotate-180" : ""}`}
-                              />
-                            </span>
-                          </button>
-
-                          {showUpcomingMeetups && (
-                            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
-                              {upcomingMeetupDays.map((d) => {
-                                const meetUrl = safeHttpUrl(d.meetupLink);
-                                const mapUrl = safeHttpUrl(d.mapLink);
-                                const hostName = d.eventHost || d.coachName || program.coachName;
-                                const rawSessionTitle = d.eventTitle || d.title || "Live Coaching Session";
-                                const cleanSessionTitle = rawSessionTitle.replace(/^day\s*\d+\s*:\s*/i, "").trim();
-
-                                return (
-                                  <div
-                                    key={d.id}
-                                    className="py-5 space-y-2.5"
-                                  >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="space-y-0.5 min-w-0">
-                                        <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                                          {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
-                                        </h3>
-                                        <p className="text-[11px] text-zinc-400">
-                                          {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                          {hostName ? ` · Hosted by ${hostName}` : ""}
-                                        </p>
-                                      </div>
-                                      {d.onsiteSchedule && (
-                                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5 shrink-0 pt-0.5">
-                                          <Clock className="w-3 h-3" />
-                                          <span>{d.onsiteSchedule}</span>
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {d.eventDetails && (
-                                      <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
-                                        {d.eventDetails}
-                                      </p>
-                                    )}
-
-                                    {(d.onsiteVenue || program.venueAddress) && (
-                                      <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                        <span>{d.onsiteVenue || program.venueAddress}</span>
-                                      </div>
-                                    )}
-
-                                    {(meetUrl || mapUrl) && (
-                                      <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                                        {meetUrl && (
-                                          <a
-                                            href={meetUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                                          >
-                                            <Video className="w-3.5 h-3.5" />
-                                            <span>Join Live Meeting</span>
-                                            <ExternalLink className="w-3 h-3" />
-                                          </a>
-                                        )}
-                                        {mapUrl && (
-                                          <a
-                                            href={mapUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
-                                          >
-                                            <MapPin className="w-3.5 h-3.5" />
-                                            <span>Directions</span>
-                                          </a>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                        <GuideAccordion
+                          title="Upcoming Meetups"
+                          count={upcomingMeetupDays.length}
+                          open={!!openSections["meetup-upcoming"]}
+                          onToggle={() => toggleSection("meetup-upcoming")}
+                        >
+                          {renderMeetupRows(upcomingMeetupDays, false)}
+                        </GuideAccordion>
                       )}
-                    </div>
+                    </>
                   ) : (
                     <div className="py-12 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
                       No live sessions scheduled for this program.
@@ -2433,20 +2317,15 @@ function ProgramPreparationWidgets({
                 </div>
               )}
 
-              {/* 3. OVERVIEW (MERGED: OBJECTIVES + EQUIPMENT + REFERENCES) */}
+              {/* 3. OVERVIEW (COLLAPSIBLE DROPDOWNS) */}
               {activePage === "overview" && (
-                <div className="space-y-12">
-                  {/* Logistics */}
-                  <section className="space-y-4">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                        Logistics
-                      </span>
-                      <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                        Audience &amp; Commitment
-                      </h2>
-                    </div>
-                    <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
+                <div className="space-y-4">
+                  <GuideAccordion
+                    title="Logistics & Commitment"
+                    open={!!openSections["ov-logistics"]}
+                    onToggle={() => toggleSection("ov-logistics")}
+                  >
+                    <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
                       <div className="py-3.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                         <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Target Audience</dt>
                         <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
@@ -2472,31 +2351,24 @@ function ProgramPreparationWidgets({
                         </dd>
                       </div>
                     </dl>
-                  </section>
+                  </GuideAccordion>
 
-                  {/* Methodology & Target State */}
-                  <section className="space-y-6">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                        Blueprint
-                      </span>
-                      <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                        Methodology &amp; Target State
-                      </h2>
-                    </div>
-
-                    <div className="space-y-5 border-t border-zinc-200/80 dark:border-white/10 pt-5">
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-medium tracking-[0.03em] text-zinc-500 dark:text-zinc-400 block">
+                  <GuideAccordion
+                    title="Methodology & Target State"
+                    open={!!openSections["ov-methodology"]}
+                    onToggle={() => toggleSection("ov-methodology")}
+                  >
+                    <div className="space-y-4 py-4 border-b border-zinc-200/80 dark:border-white/10">
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block">
                           Core Focus
                         </span>
                         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
                           {program.methodology || program.description || "Evidence-based somatic training combined with structured recovery routines and circadian alignment."}
                         </p>
                       </div>
-
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-medium tracking-[0.03em] text-zinc-500 dark:text-zinc-400 block">
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block">
                           Target Physical &amp; Mental State
                         </span>
                         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
@@ -2504,50 +2376,33 @@ function ProgramPreparationWidgets({
                         </p>
                       </div>
                     </div>
-                  </section>
+                  </GuideAccordion>
 
-                  {/* Expected Outcomes */}
-                  <section className="space-y-4">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                        Outcomes
-                      </span>
-                      <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                        Expected Benefits
-                      </h2>
-                    </div>
-                    <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                      {(program.expectedBenefits && program.expectedBenefits.length > 0
-                        ? program.expectedBenefits
-                        : [
-                            "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
-                            "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
-                            "Enhanced joint mobility, core stability, and functional movement mechanics.",
-                            "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
-                          ]
-                      ).map((benefit, i) => (
-                        <li key={i} className="py-4 flex items-start gap-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                  <GuideAccordion
+                    title="Expected Benefits"
+                    count={benefitsList.length}
+                    open={!!openSections["ov-benefits"]}
+                    onToggle={() => toggleSection("ov-benefits")}
+                  >
+                    <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                      {benefitsList.map((benefit, i) => (
+                        <li key={i} className="py-3.5 flex items-start gap-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
                           <Check className="w-4 h-4 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
                           <span>{benefit}</span>
                         </li>
                       ))}
                     </ul>
-                  </section>
+                  </GuideAccordion>
 
-                  {/* Required Gear (Merged Equipment) */}
-                  <section className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400">
-                        <span>Equipment</span>
-                        <span>{equipmentItems.length} {equipmentItems.length === 1 ? "Item" : "Items"}</span>
-                      </div>
-                      <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                        Required Gear
-                      </h2>
-                    </div>
-                    <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                  <GuideAccordion
+                    title="Required Gear"
+                    count={equipmentItems.length}
+                    open={!!openSections["ov-gear"]}
+                    onToggle={() => toggleSection("ov-gear")}
+                  >
+                    <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
                       {equipmentItems.map((item, idx) => (
-                        <li key={idx} className="py-4 flex items-center gap-3">
+                        <li key={idx} className="py-3.5 flex items-center gap-3">
                           <CheckCircle2 className="w-4 h-4 text-zinc-950 dark:text-white shrink-0" />
                           <span className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
                             {item}
@@ -2555,28 +2410,22 @@ function ProgramPreparationWidgets({
                         </li>
                       ))}
                     </ul>
-                  </section>
+                  </GuideAccordion>
 
-                  {/* Scientific References (Merged References) */}
-                  <section className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400">
-                        <span>Literature</span>
-                        <span>{validReferences.length} {validReferences.length === 1 ? "Source" : "Sources"}</span>
-                      </div>
-                      <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                        Scientific References
-                      </h2>
-                    </div>
-
+                  <GuideAccordion
+                    title="Scientific References"
+                    count={validReferences.length}
+                    open={!!openSections["ov-refs"]}
+                    onToggle={() => toggleSection("ov-refs")}
+                  >
                     {validReferences.length > 0 ? (
-                      <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                      <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
                         {validReferences.map((ref, idx) => {
                           const url = safeHttpUrl(ref.url);
                           return (
                             <div
                               key={idx}
-                              className="py-4 flex items-start justify-between gap-4"
+                              className="py-3.5 flex items-start justify-between gap-4"
                             >
                               <div className="min-w-0 space-y-1">
                                 <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
@@ -2602,30 +2451,27 @@ function ProgramPreparationWidgets({
                         })}
                       </div>
                     ) : (
-                      <p className="py-6 border-y border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                      <p className="py-5 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
                         No clinical references cited for this program.
                       </p>
                     )}
-                  </section>
+                  </GuideAccordion>
                 </div>
               )}
 
-              {/* 4. RULES & PRACTICAL GUIDELINES */}
+              {/* 4. RULES & GUIDELINES (COLLAPSIBLE DROPDOWNS) */}
               {activePage === "rules" && (
-                <div className="space-y-12">
+                <div className="space-y-4">
                   {program.programGuidelines && program.programGuidelines.length > 0 && (
-                    <section className="space-y-4">
-                      <div className="space-y-1">
-                        <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                          Preparation
-                        </span>
-                        <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                          Practical Guidelines
-                        </h2>
-                      </div>
-                      <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                    <GuideAccordion
+                      title="Practical Guidelines"
+                      count={program.programGuidelines.length}
+                      open={!!openSections["rules-practical"]}
+                      onToggle={() => toggleSection("rules-practical")}
+                    >
+                      <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
                         {program.programGuidelines.map((g, i) => (
-                          <li key={i} className="py-4 flex items-start gap-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                          <li key={i} className="py-3.5 flex items-start gap-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
                             <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
                               {String(i + 1).padStart(2, "0")}
                             </span>
@@ -2633,42 +2479,18 @@ function ProgramPreparationWidgets({
                           </li>
                         ))}
                       </ul>
-                    </section>
+                    </GuideAccordion>
                   )}
 
-                  <section className="space-y-4">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                        Policy
-                      </span>
-                      <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                        Program Code of Conduct
-                      </h2>
-                    </div>
-                    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                      {[
-                        {
-                          title: "Daily Cadence & 23:59 WIB Cutoff",
-                          desc: "Curriculum tasks unlock at 00:00 WIB and must be logged before 23:59 WIB. Daily consistency anchors neural adaptation. Missed tasks can be marked as skipped without penalizing your habit profile.",
-                        },
-                        {
-                          title: "Medical Safety & Intuitive Pacing",
-                          desc: "Listen to biofeedback. Movement drills should never cause sharp pain. Stop immediately and contact your physician if feeling faint or discomfort.",
-                        },
-                        {
-                          title: "Cohort Privacy & Respectful Space",
-                          desc: "Everything shared within the cohort (photos, journals, questions) is strictly confidential. Mutual respect and encouragement are mandatory.",
-                        },
-                        {
-                          title: "Data Integrity & Truthful Logging",
-                          desc: "Log sleep hours, training reps, and meals accurately. Authentic tracking empowers personalized AI adjustments and honest self-discovery.",
-                        },
-                        {
-                          title: "Rest Days & Nervous System Restoration",
-                          desc: "Rest days are as vital as training days. Respect recovery protocols to allow neuromuscular integration and avoid chronic sympathetic overload.",
-                        },
-                      ].map((rule, idx) => (
-                        <div key={idx} className="py-5 sm:py-6 space-y-2">
+                  <GuideAccordion
+                    title="Code of Conduct"
+                    count={conductRules.length}
+                    open={!!openSections["rules-conduct"]}
+                    onToggle={() => toggleSection("rules-conduct")}
+                  >
+                    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                      {conductRules.map((rule, idx) => (
+                        <div key={idx} className="py-4 space-y-1.5">
                           <span className="text-[10px] font-mono tracking-[0.04em] text-zinc-400 dark:text-zinc-500 block">
                             {String(idx + 1).padStart(2, "0")}
                           </span>
@@ -2681,53 +2503,29 @@ function ProgramPreparationWidgets({
                         </div>
                       ))}
                     </div>
-                  </section>
+                  </GuideAccordion>
                 </div>
               )}
 
-              {/* 5. COACHES & MENTORS — EDITORIAL PHOTOGRAPHY */}
+              {/* 5. COACHES & MENTORS (COLLAPSIBLE DROPDOWNS + EDITORIAL PHOTOGRAPHY) */}
               {activePage === "coach" && (
-                <div className="space-y-8">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-medium tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                      Dedicated Faculty
-                    </span>
-                    <h2 className="text-lg sm:text-xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                      Program Coaches
-                    </h2>
-                  </div>
-
-                  <div className="space-y-10">
-                    {[
-                      {
-                        photo: "/coach.webp",
-                        alt: program.coachName || "Lead Coach",
-                        name: program.coachName || "Coach Julian Thorne",
-                        role: "Lead Guide",
-                        title: program.coachTitle || "Master Longevity & Movement Specialist",
-                        bio: "Specializes in biomechanics, mobility progression, and neuromuscular longevity conditioning. Designed the daily training curriculum for this cohort.",
-                      },
-                      {
-                        photo: "/coach2.webp",
-                        alt: "Nutrition Specialist",
-                        name: "Dr. Marcus Vance, ND",
-                        role: "Nutrition",
-                        title: "Integrative Nutritionist & Metabolic Health Researcher",
-                        bio: "Oversees dietary recommendations, circadian fasting windows, and cellular anti-inflammatory nutrition protocols for optimal recovery.",
-                      },
-                      {
-                        photo: "/coach3.webp",
-                        alt: "Sleep & Recovery Guide",
-                        name: "Elena Rostova, MSc",
-                        role: "Recovery",
-                        title: "Circadian Somatics & Autonomic Nervous System Coach",
-                        bio: "Guides breathwork sessions, parasympathetic wind-down routines, and daily sleep hygiene protocols.",
-                      },
-                    ].map((coach, idx) => (
-                      <article
-                        key={coach.name}
-                        className={`space-y-4 ${idx > 0 ? "pt-8 border-t border-zinc-200/80 dark:border-white/10" : ""}`}
-                      >
+                <div className="space-y-4">
+                  {coachesList.map((coach) => (
+                    <GuideAccordion
+                      key={coach.id}
+                      title={`${coach.name} · ${coach.role}`}
+                      open={!!openSections[`coach-${coach.id}`]}
+                      onToggle={() => toggleSection(`coach-${coach.id}`)}
+                      leading={
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={coach.photo}
+                          alt=""
+                          className="w-7 h-7 rounded-full object-cover object-top shrink-0 bg-zinc-200 dark:bg-zinc-800"
+                        />
+                      }
+                    >
+                      <article className="pt-2 pb-4 border-b border-zinc-200/80 dark:border-white/10 space-y-3.5">
                         <div className="relative aspect-[4/3] sm:aspect-[16/10] w-full rounded-3xl overflow-hidden bg-zinc-900">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -2737,7 +2535,7 @@ function ProgramPreparationWidgets({
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
                           <div className="absolute bottom-5 left-5 right-5 space-y-1">
-                            <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[10px] font-medium tracking-[0.03em] text-white">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] font-medium tracking-[0.03em] text-white">
                               {coach.role}
                             </span>
                             <h3 className="text-lg sm:text-xl font-geometric font-medium text-white leading-snug pt-0.5">
@@ -2753,8 +2551,8 @@ function ProgramPreparationWidgets({
                           {coach.bio}
                         </p>
                       </article>
-                    ))}
-                  </div>
+                    </GuideAccordion>
+                  ))}
                 </div>
               )}
             </div>

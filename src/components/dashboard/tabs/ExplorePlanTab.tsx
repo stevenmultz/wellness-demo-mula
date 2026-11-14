@@ -17,9 +17,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useTheme } from "@/components/theme/ThemeProvider";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
 import {
+  BrandWordmark,
   EmptyState,
   ErrorState,
   FloatingHeader,
@@ -243,18 +243,17 @@ export function ExplorePlanTab({
 }: {
   headerVisible: boolean;
   isActive?: boolean;
-  viewMode?: "intro" | "catalog";
-  onChangeViewMode?: (mode: "intro" | "catalog") => void;
+  viewMode?: "intro" | "catalog" | "coaches";
+  onChangeViewMode?: (mode: "intro" | "catalog" | "coaches") => void;
   onRegister: (programId: string) => void;
   onViewDetails: (programId: string) => void;
   onOpenPlan: (programId: string) => void;
   registeringId: string | null;
 }) {
   void _onOpenPlan;
-  const { theme, toggleTheme } = useTheme();
-  const [internalMode, setInternalMode] = useState<"intro" | "catalog">("intro");
+  const [internalMode, setInternalMode] = useState<"intro" | "catalog" | "coaches">("intro");
   const mode = viewMode ?? internalMode;
-  const setMode = (next: "intro" | "catalog") => {
+  const setMode = (next: "intro" | "catalog" | "coaches") => {
     setInternalMode(next);
     onChangeViewMode?.(next);
     window.scrollTo({ top: 0 });
@@ -419,21 +418,21 @@ export function ExplorePlanTab({
     <>
       <FloatingHeader visible={headerVisible} transparent={mode === "intro"}>
         {mode === "intro" ? (
-          <>
+          <BrandWordmark light />
+        ) : mode === "coaches" ? (
+          <div className="w-full flex items-center gap-3">
             <button
               type="button"
-              onClick={toggleTheme}
-              aria-label="Toggle visual theme"
-              title={theme === "dark" ? "Switch to Pearl Light theme" : "Switch to Obsidian Dark theme"}
-              className="select-none flex items-center gap-1 active:scale-95 transition hover:opacity-75 focus:outline-none text-white drop-shadow-xs"
+              onClick={() => setMode("intro")}
+              aria-label="Back to Explore overview"
+              className="shrink-0 w-9 h-9 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-100 inline-flex items-center justify-center active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/15"
             >
-              <span className="font-light text-lg leading-none">+</span>
-              <span className="font-geometric font-semibold text-sm tracking-[0.06em] uppercase">BMS</span>
+              <ArrowLeft className="w-4 h-4" />
             </button>
-            <span className="text-[11px] font-medium text-white/85 drop-shadow-xs">
-              {state.status === "ready" ? `${catalog.length} Programs` : "Catalog"}
+            <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white">
+              All Coaches
             </span>
-          </>
+          </div>
         ) : (
           <div className="relative w-full flex items-center gap-2">
             <button
@@ -519,16 +518,94 @@ export function ExplorePlanTab({
               </div>
             </div>
 
-            <div className="flex items-center justify-start">
-              <button
-                type="button"
-                onClick={() => setMode("catalog")}
-                className="w-full sm:w-auto h-11 px-7 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
-              >
-                <span>Browse All Programs</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+            <div className="space-y-4 max-w-sm">
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCoach(null);
+                    setMode("catalog");
+                  }}
+                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+                >
+                  <span>Browse All Programs</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <p className="text-[11px] text-white/75 leading-relaxed">
+                  Full directory of guided movement, nutrition, and recovery cohorts with schedule filters.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMode("coaches")}
+                  className="w-full sm:w-auto h-10 px-6 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition"
+                >
+                  <span>Explore All Coaches</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <p className="text-[11px] text-white/75 leading-relaxed">
+                  Meet certified faculty and filter cohorts by the coach guiding each program.
+                </p>
+              </div>
             </div>
+          </div>
+        </div>
+      ) : mode === "coaches" ? (
+        <div className="space-y-6 max-w-3xl mx-auto pt-2">
+          <PullToRefreshBanner
+            pullDistance={pullDistance}
+            refreshing={refreshing && state.status === "ready"}
+          />
+
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+              Program Faculty &amp; Coaches
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Select a coach to browse the cohorts they lead.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {availableCoaches.map(({ name, avatar }) => {
+              const count = catalog.filter(
+                (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
+              ).length;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCoach(name);
+                    setPage(1);
+                    setMode("catalog");
+                  }}
+                  className="group relative aspect-[4/5] w-full rounded-3xl overflow-hidden bg-zinc-900 text-left transition active:scale-[0.99]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={avatar}
+                    alt={name}
+                    className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4 space-y-1.5">
+                    <span className="text-[10px] font-mono text-white/75 block">
+                      {count} {count === 1 ? "Program" : "Programs"}
+                    </span>
+                    <h2 className="text-base font-geometric font-medium text-white leading-snug">
+                      {name}
+                    </h2>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90 group-hover:underline underline-offset-4">
+                      <span>View Programs</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : (

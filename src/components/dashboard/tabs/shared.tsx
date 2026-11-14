@@ -37,6 +37,20 @@ export function formatIdr(amount: number): string {
 
 export { safeHttpUrl } from "@/wellness/utils/url-safety";
 
+/** Unified static brand wordmark rendered identically across all top headers. */
+export function BrandWordmark({ light = false }: { light?: boolean }) {
+  return (
+    <div
+      className={`select-none inline-flex items-center gap-1 font-geometric ${
+        light ? "text-white drop-shadow-xs" : "text-zinc-950 dark:text-white"
+      }`}
+    >
+      <span className="font-light text-lg leading-none">+</span>
+      <span className="font-semibold text-sm tracking-[0.06em] uppercase leading-none">BMS</span>
+    </div>
+  );
+}
+
 /** Full-width seamless top header bar (borderless, extends into top safe-area/notch, slides away on scroll-down). */
 export function FloatingHeader({
   visible,

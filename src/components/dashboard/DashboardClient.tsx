@@ -206,8 +206,9 @@ export function DashboardClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
   const [myPlanView, setMyPlanView] = useState<"index" | "detail">("index");
-  const [exploreView, setExploreView] = useState<"intro" | "catalog">("intro");
+  const [exploreView, setExploreView] = useState<"intro" | "catalog" | "coaches">("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
+  const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
 
@@ -977,7 +978,8 @@ export function DashboardClient({
 
   const isFullBleedFirstPage =
     (activeTab === "all_plan" && exploreView === "intro") ||
-    (activeTab === "notifications" && historyView === "intro");
+    (activeTab === "notifications" && historyView === "intro") ||
+    (activeTab === "profile" && profileViewMode === "intro");
 
   return (
     <div className="member-dashboard-unboxed min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
@@ -1040,6 +1042,8 @@ export function DashboardClient({
                     setExploreView("intro");
                   } else if (key === "notifications") {
                     setHistoryView("intro");
+                  } else if (key === "profile") {
+                    setProfileViewMode("intro");
                   }
                   setIsOverHero(true);
                   window.scrollTo({ top: 0 });
@@ -1277,11 +1281,13 @@ export function DashboardClient({
 
         {/* TAB 4: PROFILE & SETTINGS (kept alive once visited) */}
         {(visitedTabs.profile || activeTab === "profile") && (
-          <div className={activeTab === "profile" ? "block" : "hidden"} hidden={activeTab !== "profile"}>
+          <div className={activeTab === "profile" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "profile"}>
             <ProfileTab
               user={user}
               health={healthProfile}
               headerVisible={isHeaderVisible}
+              viewMode={profileViewMode}
+              onChangeViewMode={setProfileViewMode}
               onLogout={handleSignOut}
               onDeleteAccount={() => setDeleteModalOpen(true)}
             />
