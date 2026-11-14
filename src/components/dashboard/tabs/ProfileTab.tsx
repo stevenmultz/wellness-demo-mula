@@ -425,45 +425,55 @@ export function ProfileTab({
       </FloatingHeader>
 
       {mode === "intro" && !view && (
-        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-10 pb-2 gap-12">
-          <div className="flex flex-col items-center text-center space-y-5 my-auto py-4">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900 border border-zinc-200 dark:border-white/15 flex items-center justify-center shadow-sm">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={form.fullName} className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon className="w-9 h-9 text-zinc-400" />
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("menu");
-                  setView("basic");
-                  setTimeout(() => fileRef.current?.click(), 150);
-                }}
-                title="Update profile picture"
-                className="absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
+        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-10">
+          <div className="space-y-5">
+            {/* Editorial Visual + Member Portrait Anchor */}
+            <div className="relative aspect-[16/10] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/coach3.webp"
+                alt="Wellness studio portrait atmosphere"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
             </div>
 
-            <div className="space-y-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-[10px] font-medium text-zinc-600 dark:text-zinc-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 dark:bg-white" />
-                <span>Member since {new Date(user.createdAt).getFullYear()}</span>
-              </span>
-              <h1 className="text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white pt-1">
+            <div className="flex items-end gap-4 px-1 -mt-12 relative z-10">
+              <div className="relative group shrink-0">
+                <div className="w-20 h-20 rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-900 border-2 border-[#f6f6f4] dark:border-[#0e0e0e] flex items-center justify-center shadow-md">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt={form.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-8 h-8 text-zinc-400" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("menu");
+                    setView("basic");
+                    setTimeout(() => fileRef.current?.click(), 150);
+                  }}
+                  title="Update profile picture"
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/20 shadow-md flex items-center justify-center text-zinc-800 dark:text-zinc-200 hover:scale-105 active:scale-95 transition"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1 px-1">
+              <h1 className="text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
                 {form.fullName || "Member Profile"}
               </h1>
               <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
                 {user.email}
               </p>
-              {form.occupation && (
-                <p className="text-xs text-zinc-400">{form.occupation}</p>
-              )}
+              <p className="text-[11px] text-zinc-400">
+                Member since {new Date(user.createdAt).getFullYear()}
+                {form.occupation ? ` · ${form.occupation}` : ""}
+              </p>
             </div>
           </div>
 

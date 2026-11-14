@@ -2733,17 +2733,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setDetailOpen(false);
   };
 
+  const showStatusFooter =
+    isSelectedFuture || isSelectedPast || !!day.userProgress?.isCompleted || allDone;
+
   return (
-    <section className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden shadow-xs">
-      {/* Daily Task Header (No Caption Below Title; Info Opens Pop-up) */}
-      <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+    <section className="w-full space-y-4">
+      {/* Daily Task Header (Full Width, Unboxed) */}
+      <div className="w-full flex items-center justify-between gap-3 px-0.5">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Daily Tasks</h2>
           <button
             type="button"
             onClick={() => setShowDailyTasksInfo(true)}
             aria-label="Daily tasks info"
-            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
           >
             <Info className="w-3.5 h-3.5" />
           </button>
@@ -2768,8 +2771,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Unified Single Day Selector (Side-by-Side Arrows + Uniform Day Pill Strip) */}
-      <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] flex items-center gap-2.5">
+      {/* Unified Single Day Selector (Full Width) */}
+      <div className="w-full flex items-center gap-2">
         <button
           type="button"
           disabled={safeDayIndex <= 0}
@@ -2779,7 +2782,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             }
           }}
           aria-label="Previous day"
-          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
         </button>
@@ -2818,11 +2821,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     isActiveSelected
                       ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                       : isTodayItem
-                        ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white border border-zinc-950 dark:border-white"
+                        ? "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white border border-zinc-950 dark:border-white"
                         : isDoneItem
                           ? "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/20"
                           : isPastItem
-                            ? "bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
+                            ? "bg-white dark:bg-[#141414] text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
                             : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
                   }`}
                 >
@@ -2848,14 +2851,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             }
           }}
           aria-label="Next day"
-          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
+          className="w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-25 active:scale-95 transition shadow-2xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
         </button>
       </div>
 
-      {/* Image-Backed Daily Task Widgets (Sleep Protocol to Daily Reflection) */}
-      <ol className="p-5 space-y-3.5">
+      {/* Image-Backed Daily Task Cards (Exact Full Width Matching Header & Day Strip) */}
+      <ol className="w-full space-y-3">
         {tasks.map((t, index) => {
           const isDone = selectedDone[index];
           const TaskIcon = t.Icon;
@@ -2968,56 +2971,58 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* BOTTOM ACTION: CONTEXT-AWARE FOR TODAY / PAST / FUTURE */}
-      <div className="px-5 py-3.5 border-t border-zinc-100 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
-        {isSelectedFuture ? (
-          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-500">
-            <span className="inline-flex items-center gap-2">
-              <Lock className="w-3.5 h-3.5 shrink-0" />
-              <span>Unlocks on {formatDayDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelectedDayId(day.id)}
-              className="text-[11px] font-semibold text-zinc-900 dark:text-white underline shrink-0"
-            >
-              Back to Today
-            </button>
-          </div>
-        ) : isSelectedPast ? (
-          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
-            <span className="inline-flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-              <span>Viewing Day {selectedDay.dayNumber} History (Read-Only)</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelectedDayId(day.id)}
-              className="text-[11px] font-semibold text-zinc-900 dark:text-white underline shrink-0"
-            >
-              Back to Today
-            </button>
-          </div>
-        ) : day.userProgress?.isCompleted ? (
-          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
-            <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
-              <span>Today&apos;s Routine Completed</span>
-            </span>
-            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
-              <Lock className="w-3 h-3" /> Locked
-            </span>
-          </div>
-        ) : allDone ? (
-          <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
-            <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
-              <span>All daily tasks submitted for today</span>
-            </span>
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">Done</span>
-          </div>
-        ) : null}
-      </div>
+      {/* BOTTOM ACTION: RENDERED ONLY WHEN CONTEXTUALLY NEEDED */}
+      {showStatusFooter && (
+        <div className="w-full">
+          {isSelectedFuture ? (
+            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between gap-2 text-xs text-zinc-500">
+              <span className="inline-flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 shrink-0" />
+                <span>Unlocks on {formatDayDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedDayId(day.id)}
+                className="text-[11px] font-semibold text-zinc-900 dark:text-white underline shrink-0"
+              >
+                Back to Today
+              </button>
+            </div>
+          ) : isSelectedPast ? (
+            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+              <span className="inline-flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+                <span>Viewing Day {selectedDay.dayNumber} History (Read-Only)</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedDayId(day.id)}
+                className="text-[11px] font-semibold text-zinc-900 dark:text-white underline shrink-0"
+              >
+                Back to Today
+              </button>
+            </div>
+          ) : day.userProgress?.isCompleted ? (
+            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
+              <span className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
+                <span>Today&apos;s Routine Completed</span>
+              </span>
+              <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Locked
+              </span>
+            </div>
+          ) : allDone ? (
+            <div className="w-full py-2.5 px-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
+              <span className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
+                <span>All daily tasks submitted for today</span>
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">Done</span>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* SEAMLESS FULL-SCREEN STEP-BY-STEP TASK DETAIL PORTAL */}
       {detailOpen &&

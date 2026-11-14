@@ -169,8 +169,6 @@ export function NotificationsHistoryTab({
 
   const allNotifications = notifs.status === "ready" ? notifs.data.items : [];
   const unreadCount = notifs.status === "ready" ? notifs.data.unreadCount : 0;
-  const totalHistoryCount =
-    completedPrograms.length + (history.status === "ready" ? history.data.payments.length : 0);
 
   return (
     <>
@@ -236,12 +234,12 @@ export function NotificationsHistoryTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-center max-w-md mx-auto py-8 space-y-10">
+        <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-10">
           <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
 
-          <section className="space-y-2.5 px-0.5">
+          <section className="space-y-2 px-0.5">
             <span className="text-[11px] font-medium text-zinc-400 block">
-              Inbox &amp; Archive
+              Activity
             </span>
             <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
               Notifications &amp; History
@@ -251,37 +249,26 @@ export function NotificationsHistoryTab({
             </p>
           </section>
 
-          <section className="space-y-6">
-            <div className="grid grid-cols-2 divide-x divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10 py-5">
-              <div className="pr-5 space-y-1">
-                <span className="text-[11px] text-zinc-400 block">Alerts</span>
-                <p className="text-2xl font-geometric font-light tabular-nums text-zinc-950 dark:text-white">
-                  {notifs.status === "ready" ? allNotifications.length : "—"}
-                </p>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
-                  {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
-                </span>
-              </div>
-
-              <div className="pl-5 space-y-1">
-                <span className="text-[11px] text-zinc-400 block">Records</span>
-                <p className="text-2xl font-geometric font-light tabular-nums text-zinc-950 dark:text-white">
-                  {history.status === "ready" ? totalHistoryCount : "—"}
-                </p>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
-                  Programs &amp; receipts
-                </span>
-              </div>
+          <section className="space-y-5">
+            {/* Editorial Photography Banner */}
+            <div className="relative aspect-[4/3] w-full rounded-3xl overflow-hidden bg-zinc-200 dark:bg-zinc-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/pic.webp"
+                alt="Mindful recovery journal and activity archive"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5 px-0.5">
               <button
                 type="button"
                 onClick={() => {
                   setSection("notifications");
                   setMode("feed");
                 }}
-                className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition hover:opacity-90"
+                className="flex-1 h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium inline-flex items-center justify-center gap-2 active:scale-95 transition hover:opacity-90"
               >
                 <span>Notifications</span>
                 {unreadCount > 0 && (

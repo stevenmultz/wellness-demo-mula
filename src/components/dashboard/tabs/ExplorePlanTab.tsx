@@ -511,17 +511,10 @@ export function ExplorePlanTab({
                 alt="Curated wellness studio atmosphere"
                 className="w-full h-full object-cover object-center"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-              <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between gap-2 text-[11px] font-medium text-white/95">
-                <span>BMS Studio</span>
-                <span>{state.status === "ready" ? `${catalog.length} Programs` : "Guided Series"}</span>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
             </div>
 
-            <div className="flex items-center justify-between gap-4 px-0.5">
-              <span className="text-[11px] text-zinc-400">
-                Updated cohort schedule
-              </span>
+            <div className="flex items-center justify-end px-0.5">
               <button
                 type="button"
                 onClick={() => setMode("catalog")}

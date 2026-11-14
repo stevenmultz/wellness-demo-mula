@@ -156,15 +156,12 @@ export function MyPlanHeader({
             type="button"
             onClick={() => onBackToIndex?.()}
             title="Back to My Plan list"
-            className={`max-w-[210px] sm:max-w-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition active:scale-95 ${
+            className={`max-w-[210px] sm:max-w-xs flex items-center px-3.5 py-1.5 rounded-full text-xs transition active:scale-95 ${
               overlay
                 ? "bg-black/40 hover:bg-black/55 backdrop-blur-md border border-white/25 text-white shadow-xs"
                 : "bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-white"
             }`}
           >
-            <ArrowLeft
-              className={`w-3.5 h-3.5 shrink-0 ${overlay ? "text-white/80" : "text-zinc-500"}`}
-            />
             <span className="truncate font-semibold uppercase tracking-wide">{current.title}</span>
           </button>
         )}
@@ -218,85 +215,41 @@ export function MyPlanIndex({
   onViewHistory: () => void;
 }) {
   const firstName = (userName || "Member").trim().split(/\s+/)[0] || "Member";
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [activeSlide, setActiveSlide] = useState(0);
-
-  const safeSlide = Math.min(activeSlide, Math.max(0, plans.length - 1));
-
-  const scrollToSlide = (idx: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const clamped = Math.max(0, Math.min(plans.length - 1, idx));
-    el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" });
-    setActiveSlide(clamped);
-  };
-
-  const handleTrackScroll = () => {
-    const el = trackRef.current;
-    if (!el || el.clientWidth <= 0) return;
-    const nextIdx = Math.round(el.scrollLeft / el.clientWidth);
-    if (nextIdx !== activeSlide && nextIdx >= 0 && nextIdx < plans.length) {
-      setActiveSlide(nextIdx);
-    }
-  };
 
   return (
-    <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-4 pb-2 gap-10">
-      {/* Compact Greeting Header with Spacious Breathing Room */}
+    <div className="min-h-[calc(100svh-13rem)] flex flex-col justify-between max-w-md mx-auto pt-6 pb-2 gap-12">
+      {/* Spacious Greeting Header */}
       <section className="space-y-2 px-0.5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] font-medium text-zinc-400">
-            My Plan
-          </span>
-          {plans.length > 0 && (
-            <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-medium tabular-nums">
-              {plans.length} Active
-            </span>
-          )}
-        </div>
-        <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
+        <span className="text-[11px] font-medium text-zinc-400 block">
+          My Plan
+        </span>
+        <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
           Hello, {firstName}
         </h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
           {plans.length > 0
-            ? `You currently have ${plans.length} active ${plans.length === 1 ? "plan" : "plans"}. Select below to continue today's session.`
+            ? "Select a program below to continue today's session."
             : "You have no active plans right now. Explore available programs to get started."}
         </p>
       </section>
 
       {/* Active Enrolled Plans — Horizontal 1-Plan-Per-Page */}
       {plans.length > 0 ? (
-        <section className="space-y-3.5">
-          <div className="flex items-center justify-between gap-3 px-0.5">
-            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              Active Plans ({plans.length})
-            </span>
-
-            <span className="text-[11px] font-mono tabular-nums text-zinc-400">
-              {String(safeSlide + 1).padStart(2, "0")} / {String(plans.length).padStart(2, "0")}
-            </span>
-          </div>
-
+        <section>
           <div
-            ref={trackRef}
-            onScroll={handleTrackScroll}
             className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-0.5 px-0.5"
             style={{ scrollbarWidth: "none" }}
           >
             {plans.map((p) => {
               const total = p.totalDays || p.dayCount || 0;
-              const pct = total > 0 ? Math.min(100, Math.round((p.completedDays / total) * 100)) : 0;
-              const locationLabel =
-                p.locationType === "ONLINE"
-                  ? "Online"
-                  : p.locationType === "ONSITE"
-                    ? p.city || "On-Site"
-                    : p.city
-                      ? `Hybrid • ${p.city}`
-                      : p.locationType || "Online Studio";
               const startsIn = p.isUpcoming ? formatStartsIn(p.startDate) : null;
               const todayTypeLabel = !p.isUpcoming ? formatDayTypeLabel(p.todayDayType) : null;
               const pendingTasks = !p.isUpcoming ? p.pendingTasksCount ?? 0 : 0;
+              const dayStatusLabel = startsIn
+                ? startsIn.headline
+                : `Day ${p.currentDayNumber || 1} of ${total || p.currentDayNumber || 1}${
+                    todayTypeLabel ? ` · ${todayTypeLabel}` : ""
+                  }`;
 
               return (
                 <div key={p.programId} className="w-full shrink-0 snap-center px-0.5">
@@ -320,89 +273,41 @@ export function MyPlanIndex({
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
 
-                      {/* Prominent Status Label (On Progress / Starts in) */}
+                      {/* Status & Commitment Labels */}
                       <div className="absolute top-3 left-3.5 right-3.5 flex items-center justify-between gap-2">
                         <span className="px-3 py-1 rounded-full bg-white text-zinc-950 text-[11px] font-semibold shadow-sm">
-                          {startsIn ? startsIn.headline : "On Progress"}
+                          {dayStatusLabel}
                         </span>
-                        <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium text-white">
-                          {locationLabel}
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-3 left-3.5 right-3.5 flex items-center justify-between gap-2 text-[11px] text-white/95">
-                        <span className="inline-flex items-center gap-1.5 font-medium">
-                          {p.currentDayNumber > 0
-                            ? `Day ${p.currentDayNumber} of ${total || p.currentDayNumber}`
-                            : `${total} Days`}
-                          {todayTypeLabel && (
-                            <span className="text-white/75">· {todayTypeLabel}</span>
-                          )}
-                        </span>
-                        {pendingTasks > 0 && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums">
-                            {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
+                        {p.dailyCommitment && (
+                          <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium text-white inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{p.dailyCommitment}</span>
                           </span>
                         )}
                       </div>
-                    </div>
 
-                    <div className="space-y-2.5 px-0.5">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h2 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white leading-snug line-clamp-1">
-                            {p.title}
-                          </h2>
-                          {p.dailyCommitment && (
-                            <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                              <Clock className="w-3 h-3" />
-                              <span>{p.dailyCommitment}</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                          Coach {p.coachName || "BMS Faculty"}
-                        </p>
-                      </div>
-
-                      {!p.isUpcoming && total > 0 && (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-                            <span>Progress</span>
-                            <span className="tabular-nums">{p.completedDays} / {total} days</span>
-                          </div>
-                          <div className="h-[2px] rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
+                      {pendingTasks > 0 && (
+                        <div className="absolute bottom-3 right-3.5">
+                          <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] font-semibold tabular-nums shadow-sm">
+                            {pendingTasks} Task{pendingTasks === 1 ? "" : "s"} Left
+                          </span>
                         </div>
                       )}
+                    </div>
+
+                    <div className="space-y-1 px-0.5">
+                      <h2 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white leading-snug line-clamp-1">
+                        {p.title}
+                      </h2>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Coach {p.coachName || "BMS Faculty"}
+                      </p>
                     </div>
                   </button>
                 </div>
               );
             })}
           </div>
-
-          {plans.length > 1 && (
-            <div className="flex items-center justify-center gap-1.5 pt-0.5">
-              {plans.map((p, idx) => (
-                <button
-                  key={p.programId}
-                  type="button"
-                  onClick={() => scrollToSlide(idx)}
-                  aria-label={`Show plan ${idx + 1}`}
-                  className={`h-1 rounded-full transition-all ${
-                    idx === safeSlide
-                      ? "w-5 bg-zinc-950 dark:bg-white"
-                      : "w-1.5 bg-zinc-300 dark:bg-white/20 hover:bg-zinc-400"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
         </section>
       ) : (
         <EmptyState
@@ -734,7 +639,7 @@ export function MyPlanOverview({
 
           <div
             style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
-            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-12 space-y-5 text-white"
+            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-12 space-y-9 text-white"
           >
             <div className="space-y-3">
               <div>
@@ -1608,7 +1513,9 @@ function ProgramPreparationWidgets({
   void _onSwitchWidget;
   const [activePage, setActivePage] = useState<"meal" | "meetup" | "overview" | "rules" | "coach" | null>(null);
   const [showPastMeals, setShowPastMeals] = useState(false);
+  const [showUpcomingMeals, setShowUpcomingMeals] = useState(false);
   const [showPastMeetups, setShowPastMeetups] = useState(false);
+  const [showUpcomingMeetups, setShowUpcomingMeetups] = useState(false);
   const [showGuidesInfo, setShowGuidesInfo] = useState(false);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
   const prepScrollYRef = useRef(0);
@@ -2150,90 +2057,102 @@ function ProgramPreparationWidgets({
                     </div>
                   )}
 
-                  {/* PART 2: TODAY & UPCOMING DAYS */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <span>{pastMealDays.length > 0 ? "Today & Upcoming" : "Schedule"}</span>
-                      <span>{upcomingMealDays.length} {upcomingMealDays.length === 1 ? "Day" : "Days"}</span>
-                    </div>
-
+                  {/* PART 2: UPCOMING DAYS (COLLAPSED BY DEFAULT, EXPANDABLE) */}
+                  <div className="space-y-2">
                     {upcomingMealDays.length > 0 ? (
-                      <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                        {upcomingMealDays.map((d) => {
-                          const isToday = d.id === currentDayId;
-                          const rawLines = splitActivities(d.mealRecommendation).map((l) =>
-                            l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
-                          );
-                          const compliance = d.userProgress?.mealCompliance;
-                          const complianceLabel =
-                            compliance === "FULL" || compliance === "YES"
-                              ? "Followed"
-                              : compliance === "PARTIAL"
-                                ? "Partial"
-                                : compliance === "SIMILAR"
-                                  ? "Similar"
-                                  : compliance === "OFF_TRACK"
-                                    ? "Off Track"
-                                    : compliance === "SKIPPED"
-                                      ? "Skipped"
-                                      : null;
-                          const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
-                          const cleanTitle = d.title ? d.title.replace(/^day\s*\d+\s*:\s*/i, "").trim() : "";
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setShowUpcomingMeals((v) => !v)}
+                          aria-expanded={showUpcomingMeals}
+                          className="w-full py-2.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
+                        >
+                          <span className="font-medium">
+                            Upcoming Days ({upcomingMealDays.length})
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <span>{showUpcomingMeals ? "Hide" : "Show"}</span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform duration-200 ${showUpcomingMeals ? "rotate-180" : ""}`}
+                            />
+                          </span>
+                        </button>
 
-                          return (
-                            <div
-                              key={d.id}
-                              className="py-5 space-y-2.5"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 space-y-0.5">
-                                  <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                                    {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
-                                  </h3>
-                                  <span className="text-[11px] text-zinc-400 block">
-                                    {isToday && (
-                                      <span className="font-medium text-zinc-900 dark:text-white">Today · </span>
-                                    )}
-                                    {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                  </span>
-                                </div>
+                        {showUpcomingMeals && (
+                          <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                            {upcomingMealDays.map((d) => {
+                              const rawLines = splitActivities(d.mealRecommendation).map((l) =>
+                                l.replace(/^meal\s*\d+\s*:\s*/i, "").trim()
+                              );
+                              const compliance = d.userProgress?.mealCompliance;
+                              const complianceLabel =
+                                compliance === "FULL" || compliance === "YES"
+                                  ? "Followed"
+                                  : compliance === "PARTIAL"
+                                    ? "Partial"
+                                    : compliance === "SIMILAR"
+                                      ? "Similar"
+                                      : compliance === "OFF_TRACK"
+                                        ? "Off Track"
+                                        : compliance === "SKIPPED"
+                                          ? "Skipped"
+                                          : null;
+                              const mealNotes = formatMealNoteSummary(d.userProgress?.mealNotes);
+                              const cleanTitle = d.title ? d.title.replace(/^day\s*\d+\s*:\s*/i, "").trim() : "";
 
-                                {complianceLabel && (
-                                  <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
-                                    {complianceLabel}
-                                  </span>
-                                )}
-                              </div>
-
-                              {rawLines.length > 0 ? (
-                                <ul className="space-y-2 pt-0.5">
-                                  {rawLines.map((line, idx) => (
-                                    <li
-                                      key={idx}
-                                      className="text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed text-zinc-600 dark:text-zinc-300"
-                                    >
-                                      <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
-                                        {String(idx + 1).padStart(2, "0")}
+                              return (
+                                <div
+                                  key={d.id}
+                                  className="py-5 space-y-2.5"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 space-y-0.5">
+                                      <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                                        {cleanTitle ? `Day ${d.dayNumber} · ${cleanTitle}` : `Day ${d.dayNumber}`}
+                                      </h3>
+                                      <span className="text-[11px] text-zinc-400 block">
+                                        {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                       </span>
-                                      <span>{line}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                                  Balanced whole-food nutrition and circadian recovery hydration.
-                                </p>
-                              )}
+                                    </div>
 
-                              {mealNotes && (
-                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                                  {mealNotes}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                                    {complianceLabel && (
+                                      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
+                                        {complianceLabel}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {rawLines.length > 0 ? (
+                                    <ul className="space-y-2 pt-0.5">
+                                      {rawLines.map((line, idx) => (
+                                        <li
+                                          key={idx}
+                                          className="text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed text-zinc-600 dark:text-zinc-300"
+                                        >
+                                          <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
+                                            {String(idx + 1).padStart(2, "0")}
+                                          </span>
+                                          <span>{line}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                      Balanced whole-food nutrition and circadian recovery hydration.
+                                    </p>
+                                  )}
+
+                                  {mealNotes && (
+                                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
+                                      {mealNotes}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="py-10 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs text-zinc-500 dark:text-zinc-400">
                         All scheduled meal days have passed.
@@ -2355,93 +2274,103 @@ function ProgramPreparationWidgets({
                         </div>
                       )}
 
-                      {/* TODAY & UPCOMING MEETUPS */}
+                      {/* UPCOMING MEETUPS (COLLAPSED BY DEFAULT, EXPANDABLE) */}
                       {upcomingMeetupDays.length > 0 && (
-                        <div className="space-y-3">
-                          {pastMeetupDays.length > 0 && (
-                            <span className="text-xs text-zinc-400 block">
-                              Today &amp; Upcoming
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowUpcomingMeetups((v) => !v)}
+                            aria-expanded={showUpcomingMeetups}
+                            className="w-full py-2.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
+                          >
+                            <span className="font-medium">
+                              Upcoming Meetups ({upcomingMeetupDays.length})
                             </span>
-                          )}
-                          <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
-                            {upcomingMeetupDays.map((d) => {
-                              const meetUrl = safeHttpUrl(d.meetupLink);
-                              const mapUrl = safeHttpUrl(d.mapLink);
-                              const isToday = d.id === currentDayId;
-                              const hostName = d.eventHost || d.coachName || program.coachName;
-                              const rawSessionTitle = d.eventTitle || d.title || "Live Coaching Session";
-                              const cleanSessionTitle = rawSessionTitle.replace(/^day\s*\d+\s*:\s*/i, "").trim();
+                            <span className="inline-flex items-center gap-1">
+                              <span>{showUpcomingMeetups ? "Hide" : "Show"}</span>
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 transition-transform duration-200 ${showUpcomingMeetups ? "rotate-180" : ""}`}
+                              />
+                            </span>
+                          </button>
 
-                              return (
-                                <div
-                                  key={d.id}
-                                  className="py-5 space-y-2.5"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="space-y-0.5 min-w-0">
-                                      <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                                        {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
-                                      </h3>
-                                      <p className="text-[11px] text-zinc-400">
-                                        {isToday && (
-                                          <span className="font-medium text-zinc-900 dark:text-white">Today · </span>
-                                        )}
-                                        {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                                        {hostName ? ` · Hosted by ${hostName}` : ""}
-                                      </p>
+                          {showUpcomingMeetups && (
+                            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                              {upcomingMeetupDays.map((d) => {
+                                const meetUrl = safeHttpUrl(d.meetupLink);
+                                const mapUrl = safeHttpUrl(d.mapLink);
+                                const hostName = d.eventHost || d.coachName || program.coachName;
+                                const rawSessionTitle = d.eventTitle || d.title || "Live Coaching Session";
+                                const cleanSessionTitle = rawSessionTitle.replace(/^day\s*\d+\s*:\s*/i, "").trim();
+
+                                return (
+                                  <div
+                                    key={d.id}
+                                    className="py-5 space-y-2.5"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="space-y-0.5 min-w-0">
+                                        <h3 className="text-sm sm:text-base font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
+                                          {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
+                                        </h3>
+                                        <p className="text-[11px] text-zinc-400">
+                                          {formatShortDayDate(d.unlockDate, d.dayNumber)}
+                                          {hostName ? ` · Hosted by ${hostName}` : ""}
+                                        </p>
+                                      </div>
+                                      {d.onsiteSchedule && (
+                                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5 shrink-0 pt-0.5">
+                                          <Clock className="w-3 h-3" />
+                                          <span>{d.onsiteSchedule}</span>
+                                        </span>
+                                      )}
                                     </div>
-                                    {d.onsiteSchedule && (
-                                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5 shrink-0 pt-0.5">
-                                        <Clock className="w-3 h-3" />
-                                        <span>{d.onsiteSchedule}</span>
-                                      </span>
+
+                                    {d.eventDetails && (
+                                      <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
+                                        {d.eventDetails}
+                                      </p>
+                                    )}
+
+                                    {(d.onsiteVenue || program.venueAddress) && (
+                                      <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                        <span>{d.onsiteVenue || program.venueAddress}</span>
+                                      </div>
+                                    )}
+
+                                    {(meetUrl || mapUrl) && (
+                                      <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                                        {meetUrl && (
+                                          <a
+                                            href={meetUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                                          >
+                                            <Video className="w-3.5 h-3.5" />
+                                            <span>Join Live Meeting</span>
+                                            <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                        )}
+                                        {mapUrl && (
+                                          <a
+                                            href={mapUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                                          >
+                                            <MapPin className="w-3.5 h-3.5" />
+                                            <span>Directions</span>
+                                          </a>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
-
-                                  {d.eventDetails && (
-                                    <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
-                                      {d.eventDetails}
-                                    </p>
-                                  )}
-
-                                  {(d.onsiteVenue || program.venueAddress) && (
-                                    <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                      <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                      <span>{d.onsiteVenue || program.venueAddress}</span>
-                                    </div>
-                                  )}
-
-                                  {(meetUrl || mapUrl) && (
-                                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                                      {meetUrl && (
-                                        <a
-                                          href={meetUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                                        >
-                                          <Video className="w-3.5 h-3.5" />
-                                          <span>Join Live Meeting</span>
-                                          <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                      )}
-                                      {mapUrl && (
-                                        <a
-                                          href={mapUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
-                                        >
-                                          <MapPin className="w-3.5 h-3.5" />
-                                          <span>Directions</span>
-                                        </a>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
