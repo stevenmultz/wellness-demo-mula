@@ -12,7 +12,7 @@ import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { parseWorkoutOptionGroups, ProgramTermChapter } from "@/wellness/utils/json";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
-import { MyPlanHeader, MyPlanOverview } from "./tabs/MyPlanTab";
+import { MyPlanHeader, MyPlanIndex, MyPlanOverview } from "./tabs/MyPlanTab";
 import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
@@ -205,6 +205,7 @@ export function DashboardClient({
 }: DashboardProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
+  const [myPlanView, setMyPlanView] = useState<"index" | "detail">("index");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
 
   useEffect(() => {
@@ -936,6 +937,29 @@ export function DashboardClient({
     (e) => !isCohortEnded(e.startDate, e.endDate, e.dayCount)
   );
   const planOptions = activeEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
+  const myPlanIndexItems = activeEnrollments.map((e) => {
+    const fullProg = myEnrolledPrograms.find((p) => p.id === e.programId);
+    const days = fullProg?.days || [];
+    const totalDays = days.length || e.dayCount || 0;
+    const completedDays = days.filter((d) => !!d.userProgress?.isCompleted).length;
+    const liveIdx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
+    const currentDayNumber = liveIdx >= 0 ? days[liveIdx]?.dayNumber || 0 : 0;
+    return {
+      programId: e.programId,
+      title: e.title,
+      coachName: e.coachName || fullProg?.coachName || "",
+      coverImage: fullProg?.coverImage || e.coverImage || null,
+      dayCount: e.dayCount,
+      startDate: e.startDate,
+      endDate: e.endDate,
+      locationType: e.locationType || fullProg?.locationType,
+      city: e.city || fullProg?.city || null,
+      isUpcoming: isCohortUpcoming(e.startDate || fullProg?.startDate),
+      completedDays,
+      totalDays,
+      currentDayNumber,
+    };
+  });
   const overviewEnrollment =
     activeEnrollments.find((e) => e.programId === selectedProgId) || activeEnrollments[0] || null;
   const overviewPlan = overviewEnrollment
@@ -948,11 +972,18 @@ export function DashboardClient({
       {activeTab === "my_plan" && (
         <MyPlanHeader
           visible={isHeaderVisible}
-          overlay={isOverHero}
+          overlay={myPlanView === "detail" ? isOverHero : false}
+          mode={myPlanView}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
           onSelect={(id) => {
             setSelectedProgId(id);
+            setMyPlanView("detail");
+          }}
+          onBackToIndex={() => {
+            setMyPlanView("index");
+            setIsOverHero(true);
+            window.scrollTo({ top: 0 });
           }}
           onExplore={() => {
             setActiveTab("all_plan");
@@ -965,7 +996,7 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 bg-white/95 dark:bg-[#161616]/95 backdrop-blur-2xl shadow-xl font-mono border-0"
+        className="fixed left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md h-12 rounded-2xl px-2 flex items-center justify-between gap-1 bg-white/95 dark:bg-[#161616]/95 backdrop-blur-2xl shadow-xl font-geometric border-0"
       >
         {(
           [
@@ -982,10 +1013,13 @@ export function DashboardClient({
             aria-current={activeTab === key ? "page" : undefined}
             onClick={() => {
               setActiveTab(key);
+              if (key === "my_plan") {
+                setMyPlanView("index");
+              }
               setIsOverHero(true);
               window.scrollTo({ top: 0 });
             }}
-            className={`flex-1 h-9 px-2 rounded-xl transition flex items-center justify-center text-[11px] sm:text-xs font-medium whitespace-nowrap tracking-tight ${
+            className={`flex-1 h-9 px-2 rounded-xl transition flex items-center justify-center text-xs font-medium whitespace-nowrap tracking-wide ${
               activeTab === key
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                 : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
@@ -999,7 +1033,10 @@ export function DashboardClient({
       {/* Main Content Area with safe-area spacing below seamless top header and above bottom dock */}
       <main
         style={{
-          paddingTop: activeTab === "my_plan" ? "0px" : "calc(4.5rem + env(safe-area-inset-top))",
+          paddingTop:
+            activeTab === "my_plan" && myPlanView === "detail"
+              ? "0px"
+              : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: "calc(6.5rem + env(safe-area-inset-bottom))",
         }}
         className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full"
@@ -1007,10 +1044,13 @@ export function DashboardClient({
         {actionNotice && (
           <div
             style={{
-              top: activeTab === "my_plan" ? "calc(4.25rem + env(safe-area-inset-top))" : undefined,
+              top:
+                activeTab === "my_plan" && myPlanView === "detail"
+                  ? "calc(4.25rem + env(safe-area-inset-top))"
+                  : undefined,
             }}
             className={`${
-              activeTab === "my_plan"
+              activeTab === "my_plan" && myPlanView === "detail"
                 ? "fixed left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md shadow-xl"
                 : "mb-4"
             } bg-zinc-200/80 dark:bg-white/10 p-4 rounded-2xl text-xs font-medium flex items-center gap-2.5 animate-in fade-in font-mono ${
@@ -1029,81 +1069,103 @@ export function DashboardClient({
         )}
 
         <div className={activeTab === "my_plan" ? "block" : "hidden"} hidden={activeTab !== "my_plan"}>
-          <MyPlanOverview
-            program={
-              overviewEnrollment && currentProgram
-                ? {
-                    title: currentProgram.title,
-                    coachName: currentProgram.coachName,
-                    coachTitle: currentProgram.coachTitle,
-                    category: currentProgram.category,
-                    difficultyLevel: currentProgram.difficultyLevel,
-                    description: currentProgram.description,
-                    locationType: currentProgram.locationType,
-                    city: currentProgram.city,
-                    venueAddress: currentProgram.venueAddress,
-                    equipment: currentProgram.equipment,
-                    durationDays: currentProgram.durationDays,
-                    coverImage: currentProgram.coverImage || overviewEnrollment.coverImage || null,
-                    startDate: overviewEnrollment.startDate,
-                    endDate: overviewEnrollment.endDate,
-                    communityLink: overviewEnrollment.communityLink,
-                    scientificReferences: currentProgram.scientificReferences || [],
-                    totalDays: currentProgram.days.length || currentProgram.durationDays || 0,
-                    isUpcoming: isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
-                    targetState: currentProgram.targetState || null,
-                    methodology: currentProgram.methodology || null,
-                    expectedBenefits: currentProgram.expectedBenefits || [],
-                    programGuidelines: currentProgram.programGuidelines || [],
-                    recommendedFor: currentProgram.recommendedFor || null,
-                    audience: currentProgram.audience || null,
-                    dailyCommitment: currentProgram.dailyCommitment || null,
-                  }
-                : null
-            }
-            plan={overviewPlan}
-            day={liveDay}
-            stats={{
-              completed: completedDaysCount,
-              skipped: skippedDaysCount,
-              remaining: currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted).length || 0,
-              segments: (currentProgram?.days || []).map((d) =>
-                d.userProgress?.isCompleted
-                  ? ("done" as const)
-                  : d.isCalendarUnlocked && !d.isPast2359
-                    ? ("today" as const)
-                    : d.isPast2359
-                      ? ("skipped" as const)
-                      : ("upcoming" as const)
-              ),
-            }}
-            onOpenDetails={() => {
-              const prog = allPrograms.find((p) => p.id === overviewEnrollment?.programId);
-              if (prog) setDetailedProgram(prog);
-            }}
-            onUploadPhoto={handleUploadPhoto}
-            onSaveWorkoutNotes={handleSaveWorkoutNotes}
-            historyDays={historyDays}
-            allProgramDays={(currentProgram?.days || []).map(overlayDay)}
-            checklist={currentDay ? dayChecklists[currentDay.id] : undefined}
-            onSelectWorkout={handleSelectWorkout}
-            onOpenVideo={handleOpenVideo}
-            onExplore={() => {
-              setActiveTab("all_plan");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            onViewHistory={() => {
-              setActiveTab("notifications");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            onToggleCheck={handleToggleChecklist}
-            onSyncChecklist={handleSyncChecklist}
-            onSaveSleep={handleSaveSleep}
-            onSaveMeal={handleSaveMeal}
-            onSaveReflection={handleSaveReflection}
-            onSaveAttendance={handleSaveEventFeedback}
-            onCompleteDay={handleCompleteProgramDay}
-          />
+          {myPlanView === "index" ? (
+            <MyPlanIndex
+              userName={user.fullName}
+              plans={myPlanIndexItems}
+              completedCount={completedEnrollments.length}
+              onSelectPlan={(programId) => {
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onExplore={() => {
+                setActiveTab("all_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              onViewHistory={() => {
+                setActiveTab("notifications");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          ) : (
+            <MyPlanOverview
+              program={
+                overviewEnrollment && currentProgram
+                  ? {
+                      title: currentProgram.title,
+                      coachName: currentProgram.coachName,
+                      coachTitle: currentProgram.coachTitle,
+                      category: currentProgram.category,
+                      difficultyLevel: currentProgram.difficultyLevel,
+                      description: currentProgram.description,
+                      locationType: currentProgram.locationType,
+                      city: currentProgram.city,
+                      venueAddress: currentProgram.venueAddress,
+                      equipment: currentProgram.equipment,
+                      durationDays: currentProgram.durationDays,
+                      coverImage: currentProgram.coverImage || overviewEnrollment.coverImage || null,
+                      startDate: overviewEnrollment.startDate,
+                      endDate: overviewEnrollment.endDate,
+                      communityLink: overviewEnrollment.communityLink,
+                      scientificReferences: currentProgram.scientificReferences || [],
+                      totalDays: currentProgram.days.length || currentProgram.durationDays || 0,
+                      isUpcoming: isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
+                      targetState: currentProgram.targetState || null,
+                      methodology: currentProgram.methodology || null,
+                      expectedBenefits: currentProgram.expectedBenefits || [],
+                      programGuidelines: currentProgram.programGuidelines || [],
+                      recommendedFor: currentProgram.recommendedFor || null,
+                      audience: currentProgram.audience || null,
+                      dailyCommitment: currentProgram.dailyCommitment || null,
+                    }
+                  : null
+              }
+              plan={overviewPlan}
+              day={liveDay}
+              stats={{
+                completed: completedDaysCount,
+                skipped: skippedDaysCount,
+                remaining: currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted).length || 0,
+                segments: (currentProgram?.days || []).map((d) =>
+                  d.userProgress?.isCompleted
+                    ? ("done" as const)
+                    : d.isCalendarUnlocked && !d.isPast2359
+                      ? ("today" as const)
+                      : d.isPast2359
+                        ? ("skipped" as const)
+                        : ("upcoming" as const)
+                ),
+              }}
+              onOpenDetails={() => {
+                const prog = allPrograms.find((p) => p.id === overviewEnrollment?.programId);
+                if (prog) setDetailedProgram(prog);
+              }}
+              onUploadPhoto={handleUploadPhoto}
+              onSaveWorkoutNotes={handleSaveWorkoutNotes}
+              historyDays={historyDays}
+              allProgramDays={(currentProgram?.days || []).map(overlayDay)}
+              checklist={currentDay ? dayChecklists[currentDay.id] : undefined}
+              onSelectWorkout={handleSelectWorkout}
+              onOpenVideo={handleOpenVideo}
+              onExplore={() => {
+                setActiveTab("all_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              onViewHistory={() => {
+                setActiveTab("notifications");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              onToggleCheck={handleToggleChecklist}
+              onSyncChecklist={handleSyncChecklist}
+              onSaveSleep={handleSaveSleep}
+              onSaveMeal={handleSaveMeal}
+              onSaveReflection={handleSaveReflection}
+              onSaveAttendance={handleSaveEventFeedback}
+              onCompleteDay={handleCompleteProgramDay}
+            />
+          )}
         </div>
 
         {/* TAB 2: EXPLORE PLAN (kept alive once visited) */}
@@ -1120,7 +1182,9 @@ export function DashboardClient({
               }}
               onOpenPlan={(id) => {
                 setSelectedProgId(id);
+                setMyPlanView("detail");
                 setActiveTab("my_plan");
+                setIsOverHero(true);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             />
