@@ -494,7 +494,7 @@ export function ExplorePlanTab({
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/30 to-black/90" />
 
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))] flex-1 flex flex-col justify-between gap-10">
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))] flex-1 flex flex-col justify-between gap-10">
             <div className="space-y-4">
               <PullToRefreshBanner
                 pullDistance={pullDistance}
@@ -514,11 +514,11 @@ export function ExplorePlanTab({
               </div>
             </div>
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-start">
               <button
                 type="button"
                 onClick={() => setMode("catalog")}
-                className="h-11 px-6 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
+                className="w-full sm:w-auto h-11 px-7 rounded-full bg-white text-zinc-950 text-xs font-geometric font-semibold inline-flex items-center justify-center gap-2 active:scale-95 transition hover:bg-zinc-100 shadow-lg"
               >
                 <span>Browse All Programs</span>
                 <ArrowRight className="w-3.5 h-3.5" />

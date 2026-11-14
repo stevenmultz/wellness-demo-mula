@@ -976,7 +976,6 @@ export function DashboardClient({
     : null;
 
   const isFullBleedFirstPage =
-    (activeTab === "my_plan" && myPlanView === "index" && myPlanIndexItems.length > 0) ||
     (activeTab === "all_plan" && exploreView === "intro") ||
     (activeTab === "notifications" && historyView === "intro");
 
@@ -986,7 +985,7 @@ export function DashboardClient({
       {activeTab === "my_plan" && (
         <MyPlanHeader
           visible={isHeaderVisible}
-          overlay={myPlanView === "detail" ? isOverHero : myPlanIndexItems.length > 0}
+          overlay={myPlanView === "detail" ? isOverHero : false}
           mode={myPlanView}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
