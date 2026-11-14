@@ -29,12 +29,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem("wellness-theme") as Theme | null;
-    if (saved === "dark") {
+    const isDark =
+      saved === "dark" ||
+      (!saved &&
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+    if (isDark) {
       setThemeState("dark");
       document.documentElement.classList.add("dark");
       syncThemeMeta("dark");
     } else {
-      // Default to Monochrome Light + Orange Silver luxury theme
       setThemeState("light");
       document.documentElement.classList.remove("dark");
       syncThemeMeta("light");

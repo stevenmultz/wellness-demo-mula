@@ -4,25 +4,28 @@ import { getPublicSanctuaryData } from "@/wellness/public-data";
 import {
   PublicTopBrand,
   PublicBottomNavbar,
+  PublicMobileBackdrop,
+  PublicPageActions,
 } from "@/components/home/PublicNavbar";
 import {
   resolvePublicBadge,
   PublicProgramBadge,
 } from "@/wellness/utils/timeline";
 import {
-  ArrowLeft,
   ArrowRight,
   Calendar,
   MapPin,
   Users,
+  Clock,
+  Dumbbell,
   CheckCircle2,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const FALLBACK_COHORT_IMAGES = [
-  "/pic.webp",
   "/test.webp",
+  "/pic.webp",
   "/image.webp",
   "/coach.webp",
   "/coach2.webp",
@@ -44,55 +47,46 @@ export default async function ProgramsPage() {
   const { sessionUser, programs } = await getPublicSanctuaryData();
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
-      {/* Mobile Full-Screen Image Background */}
-      <div className="fixed inset-0 z-0 lg:hidden pointer-events-none">
-        <Image
-          src="/pic.webp"
-          alt=""
-          fill
-          priority
-          className="object-cover object-center grayscale contrast-[1.08]"
-        />
-        <div className="absolute inset-0 bg-[#f6f6f4]/88 dark:bg-[#0e0e0e]/88 backdrop-blur-[2px]" />
-      </div>
+    <div className="relative min-h-[100dvh] flex flex-col justify-between bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
+      <PublicMobileBackdrop />
 
-      <div className="relative z-10 max-w-5xl w-full mx-auto px-6 sm:px-10 py-6 sm:py-8 flex-1 flex flex-col justify-between space-y-12 sm:space-y-16">
-        {/* TOP: LOGO + TEXT THEME TOGGLE */}
+      <div className="relative z-10 max-w-5xl w-full mx-auto px-5 sm:px-10 py-5 sm:py-8 flex-1 flex flex-col justify-between space-y-6 sm:space-y-10">
+        {/* TOP: LOGO + BORDERLESS THEME ICON */}
         <PublicTopBrand />
 
-        <div className="space-y-12 sm:space-y-16">
+        <div className="space-y-6 sm:space-y-10 my-auto">
           {/* HEADER */}
-          <section className="space-y-4 max-w-3xl">
-            <span className="text-[10px] font-mono uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500 block">
-              Curated Cohorts • Private 35-Member Batches
+          <section className="space-y-2.5 max-w-3xl">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-400 block">
+              Curated Cohorts • Live Database Catalog
             </span>
-            <h1 className="text-3xl sm:text-5xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.12]">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
               Active Programs ({programs.length})
             </h1>
-            <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Select a cohort below to inspect its daily training structure,
-              specialist faculty, studio location, and enrollment availability.
+            <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              Explore all published cohorts with their exact curriculum length,
+              specialist faculty, daily commitment, equipment, and real-time
+              seat availability.
             </p>
           </section>
 
           {/* PROGRAMS LIST */}
           {programs.length === 0 ? (
-            <section className="p-10 rounded-3xl bg-zinc-200/45 dark:bg-white/[0.04] text-center space-y-4">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <section className="p-6 sm:p-10 rounded-2xl sm:rounded-3xl bg-white/85 lg:bg-zinc-200/50 dark:bg-zinc-900/85 lg:dark:bg-white/[0.05] text-center space-y-3">
+              <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">
                 No active cohorts are currently published. Please check back
                 soon or contact our Private Concierge.
               </p>
               <Link
                 href="/concierge"
-                className="h-11 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
+                className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
               >
                 <span>Contact Concierge</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </section>
           ) : (
-            <section className="space-y-8">
+            <section className="space-y-4 sm:space-y-6">
               {programs.map((prog, idx) => {
                 const startDate = formatDate(prog.startDate);
                 const endDate = formatDate(prog.endDate);
@@ -111,10 +105,10 @@ export default async function ProgramsPage() {
 
                 const attendanceLabel =
                   prog.locationType === "ONLINE"
-                    ? "Online Sanctuary"
+                    ? "Online"
                     : prog.locationType === "ONSITE"
-                      ? `On-Site • ${prog.city || "Jakarta"}`
-                      : `Hybrid • ${prog.city || "Jakarta"}`;
+                      ? `On-Site • ${prog.city || "Jakarta Selatan"}`
+                      : `Hybrid • ${prog.city || "Jakarta Selatan"}`;
 
                 const coverSrc =
                   prog.coverImage && prog.coverImage.trim().length > 0
@@ -126,117 +120,143 @@ export default async function ProgramsPage() {
                 return (
                   <article
                     key={prog.id}
-                    className="rounded-3xl bg-zinc-200/45 dark:bg-white/[0.04] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
+                    className="rounded-2xl sm:rounded-3xl bg-white/85 lg:bg-zinc-200/50 dark:bg-zinc-900/85 lg:dark:bg-white/[0.05] overflow-hidden grid grid-cols-1 lg:grid-cols-12"
                   >
-                    {/* Visual Column */}
-                    <div className="lg:col-span-5 relative min-h-[260px] lg:min-h-full bg-zinc-950">
+                    {/* Visual Column (Compact height on mobile) */}
+                    <div className="lg:col-span-4 relative h-40 sm:h-52 lg:h-auto bg-zinc-950">
                       <Image
                         src={coverSrc}
                         alt={prog.title}
                         fill
                         priority={idx === 0}
                         unoptimized={/^https?:/i.test(coverSrc)}
-                        className="object-cover object-center grayscale contrast-[1.08] brightness-[0.8]"
+                        className="object-cover object-center grayscale contrast-[1.08] brightness-[0.78]"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute top-5 left-5 flex flex-wrap items-center gap-2">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                      <div className="absolute top-3.5 left-3.5 right-3.5 flex flex-wrap items-center gap-1.5">
                         <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
                             isEnrollable
                               ? "bg-white text-zinc-950"
-                              : "bg-black/60 text-zinc-200 backdrop-blur-md"
+                              : "bg-black/70 text-zinc-100"
                           }`}
                         >
                           {publicBadge}
                         </span>
                         {prog.category && (
-                          <span className="px-3 py-1 rounded-full bg-black/60 text-zinc-200 backdrop-blur-md text-[10px] font-mono uppercase tracking-wider">
+                          <span className="px-2.5 py-0.5 rounded-full bg-black/70 text-zinc-100 text-[10px] font-mono uppercase tracking-wider truncate max-w-[200px]">
                             {prog.category}
                           </span>
                         )}
                       </div>
-                      <div className="absolute bottom-5 left-5 right-5 text-white">
-                        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-300 block">
-                          Guided by Coach {prog.coachName || "BMS Specialist"}
+                      <div className="absolute bottom-3.5 left-3.5 right-3.5 text-white">
+                        <span className="text-[11px] font-semibold text-white block truncate">
+                          {prog.coachName || "BMS Specialist"}
                         </span>
-                        <span className="text-xs text-zinc-300">
+                        <span className="text-[10px] text-zinc-300 block truncate">
                           {prog.coachTitle || "Movement & Longevity Faculty"}
                         </span>
                       </div>
                     </div>
 
                     {/* Details Column */}
-                    <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-6">
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5" />
+                    <div className="lg:col-span-8 p-4 sm:p-6 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2.5">
+                        {/* Metadata Badges */}
+                        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="w-3 h-3 shrink-0" />
                             <span>
-                              {prog.trainingDays || prog.durationDays || 3}{" "}
-                              Training Days + {prog.connectionDays || 2}{" "}
-                              Connection Days
+                              {prog.durationDays} Days ({prog.trainingDays}{" "}
+                              Train
+                              {prog.restDays > 0
+                                ? ` • ${prog.restDays} Rest`
+                                : ""}
+                              {prog.connectionDays > 0
+                                ? ` • ${prog.connectionDays} Live`
+                                : ""}
+                              )
                             </span>
                           </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5" />
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="w-3 h-3 shrink-0" />
                             <span>{attendanceLabel}</span>
                           </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5" />
-                            <span>{prog.maxQuota} Member Cap</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="w-3 h-3 shrink-0" />
+                            <span>
+                              {prog.enrolledCount}/{prog.maxQuota} Enrolled
+                            </span>
                           </span>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <h2 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+                        <div className="space-y-1">
+                          <h2 className="text-base sm:text-xl font-geometric font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
                             {prog.title}
                           </h2>
-                          {(startDate || prog.recommendedFor) && (
-                            <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                              {startDate
-                                ? `Schedule: ${startDate}${endDate ? ` – ${endDate}` : ""}`
-                                : "Flexible Cohort Schedule"}{" "}
-                              {prog.recommendedFor
-                                ? `• Recommended for ${prog.recommendedFor}`
+                          {startDate && (
+                            <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+                              Timeline: {startDate}
+                              {endDate ? ` – ${endDate}` : ""}
+                              {prog.venueAddress
+                                ? ` • ${prog.venueAddress}`
                                 : ""}
                             </p>
                           )}
                         </div>
 
-                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                           {prog.description}
                         </p>
 
-                        {prog.termsList && prog.termsList.length > 0 && (
-                          <div className="space-y-1.5 pt-1">
-                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 block">
-                              Cohort Inclusions &amp; Terms
+                        {/* Equipment, Commitment, Audience Tags */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[10px]">
+                          {prog.dailyCommitment && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium">
+                              <Clock className="w-3 h-3" />
+                              <span>{prog.dailyCommitment}</span>
                             </span>
-                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                              {prog.termsList.slice(0, 4).map((term, tIdx) => (
-                                <li
-                                  key={tIdx}
-                                  className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-400"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
-                                  <span>{term}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                          )}
+                          {prog.equipment && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium">
+                              <Dumbbell className="w-3 h-3" />
+                              <span>{prog.equipment}</span>
+                            </span>
+                          )}
+                          {prog.recommendedFor && (
+                            <span className="px-2.5 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium">
+                              For: {prog.recommendedFor}
+                            </span>
+                          )}
+                        </div>
+
+                        {prog.termsList && prog.termsList.length > 0 && (
+                          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1">
+                            {prog.termsList.slice(0, 4).map((term, tIdx) => (
+                              <li
+                                key={tIdx}
+                                className="flex items-start gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-300"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
+                                <span>{term}</span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
 
-                      <div className="pt-4 flex flex-wrap items-center justify-between gap-4">
+                      {/* Price & Action Row */}
+                      <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
                         <div>
                           {prog.discountPercentage &&
                           prog.discountPercentage > 0 &&
                           prog.actualPrice ? (
-                            <span className="text-xs font-mono text-zinc-400 line-through block">
-                              Rp {prog.actualPrice.toLocaleString("id-ID")}
+                            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 line-through block">
+                              Rp {prog.actualPrice.toLocaleString("id-ID")} (
+                              {prog.discountPercentage}% Off)
                             </span>
                           ) : null}
-                          <span className="text-xl sm:text-2xl font-geometric font-semibold text-zinc-950 dark:text-white">
+                          <span className="text-base sm:text-xl font-geometric font-semibold text-zinc-950 dark:text-white">
                             Rp {prog.price.toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -244,7 +264,7 @@ export default async function ProgramsPage() {
                         {sessionUser && prog.isUserEnrolled ? (
                           <Link
                             href="/dashboard"
-                            className="h-11 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
+                            className="h-9 sm:h-10 px-4 sm:px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 transition"
                           >
                             <span>Open in Dashboard</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -256,7 +276,7 @@ export default async function ProgramsPage() {
                                 ? `/dashboard?enroll=${prog.id}`
                                 : `/?auth=signup&program=${encodeURIComponent(prog.title)}`
                             }
-                            className="h-11 px-6 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
+                            className="h-9 sm:h-10 px-4 sm:px-5 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 transition"
                           >
                             <span>
                               {sessionUser
@@ -266,7 +286,7 @@ export default async function ProgramsPage() {
                             <ArrowRight className="w-3.5 h-3.5" />
                           </Link>
                         ) : (
-                          <span className="h-11 px-6 rounded-full bg-zinc-300/60 dark:bg-white/10 text-zinc-500 dark:text-zinc-400 text-xs font-mono uppercase tracking-wider inline-flex items-center">
+                          <span className="h-9 sm:h-10 px-4 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 text-[11px] font-mono uppercase tracking-wider inline-flex items-center">
                             {publicBadge}
                           </span>
                         )}
@@ -278,26 +298,12 @@ export default async function ProgramsPage() {
             </section>
           )}
 
-          {/* SINGLE BACK TO SIGN IN CTA */}
-          <section className="pt-2 flex flex-wrap items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="h-12 px-7 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>
-                {sessionUser ? "Return to Account" : "Back to Sign In"}
-              </span>
-            </Link>
-
-            <Link
-              href="/specialists"
-              className="h-12 px-7 rounded-full bg-zinc-200/70 hover:bg-zinc-200 dark:bg-white/[0.08] dark:hover:bg-white/[0.14] text-zinc-950 dark:text-white text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
-            >
-              <span>Meet Specialist Faculty</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </section>
+          {/* BACK TO SIGN IN & NEXT PAGE BUTTONS */}
+          <PublicPageActions
+            sessionUser={sessionUser}
+            nextHref="/specialists"
+            nextLabel="Next: Specialists"
+          />
         </div>
 
         {/* BOTTOM: SINGLE NAVBAR */}

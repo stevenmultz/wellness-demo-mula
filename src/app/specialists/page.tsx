@@ -4,32 +4,73 @@ import { getPublicSanctuaryData } from "@/wellness/public-data";
 import {
   PublicTopBrand,
   PublicBottomNavbar,
+  PublicMobileBackdrop,
+  PublicPageActions,
 } from "@/components/home/PublicNavbar";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowUpRight, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_COACH_PROFILES = [
   {
-    name: "Marcus Vance",
-    role: "Movement & Mobility Lead",
-    specialty: "Functional Movement & Spine Longevity",
-    bio: "Specializes in postural decompression, scapular mechanics, and low-impact spinal articulation across daily 25-minute movement sequences.",
-    image: "/coach.webp",
+    id: "coach-1",
+    name: "Coach Sarah Jenkins, CPT",
+    title: "Senior Mobility & Pilates Specialist",
+    programs: [
+      {
+        id: "prog-1",
+        title: "21-Day Holistic Movement & Spinal Longevity",
+        category: "Pilates, Mobility & Longevity",
+        durationDays: 21,
+        dailyCommitment: "25 - 30 Mins / Day",
+        recommendedFor: "Desk Professionals & Sedentary Workers",
+      },
+    ],
   },
   {
-    name: "Elena Rostova",
-    role: "Nutrition & Longevity Director",
-    specialty: "Anti-Inflammatory Whole Food Protocols",
-    bio: "Designs sustainable, zero-fatigue whole-food menus focused on glycemic stability, gut microbiome resilience, and clean cellular energy.",
-    image: "/coach2.webp",
+    id: "coach-2",
+    name: "Dr. Marcus Vance, ND",
+    title: "Director of Longevity Nutrition",
+    programs: [
+      {
+        id: "prog-2",
+        title: "14-Day Anti-Inflammatory Nutrition & Gut Reset",
+        category: "Nutrition & Gut Health",
+        durationDays: 14,
+        dailyCommitment: "15 - 20 Mins / Day",
+        recommendedFor: "All Levels & Beginners",
+      },
+    ],
   },
   {
-    name: "Julian Thorne",
-    role: "Breathwork & Recovery Lead",
-    specialty: "Parasympathetic Recovery & Sleep Architecture",
-    bio: "Guides evening nervous-system down-regulation, breath cadence training, and circadian sleep restoration protocols.",
-    image: "/coach3.webp",
+    id: "coach-3",
+    name: "Coach Julian Thorne",
+    title: "Neuro-Breathwork & Sleep Specialist",
+    programs: [
+      {
+        id: "prog-3",
+        title: "Executive Deep Sleep & Parasympathetic Breathwork",
+        category: "Breathwork & Sleep",
+        durationDays: 7,
+        dailyCommitment: "15 - 20 Mins / Day",
+        recommendedFor: "Founders & High-Performance Executives",
+      },
+    ],
+  },
+  {
+    id: "coach-4",
+    name: "Coach Elena Rostova",
+    title: "Fascial Release & Posture Director",
+    programs: [
+      {
+        id: "prog-4",
+        title: "30-Day Hot/Cold Thermogenesis & Cellular Vitality",
+        category: "Mobility & Longevity, Strength & Conditioning",
+        durationDays: 30,
+        dailyCommitment: "45 Mins / Day",
+        recommendedFor: "All Levels & Beginners",
+      },
+    ],
   },
 ];
 
@@ -37,123 +78,133 @@ const COACH_FALLBACK_IMAGES = [
   "/coach.webp",
   "/coach2.webp",
   "/coach3.webp",
-  "/coach.webp",
-];
-
-const COACH_FALLBACK_BIOS = [
-  "Guides daily functional movement, postural alignment, and joint longevity protocols across private 35-member cohorts.",
-  "Curates anti-inflammatory whole-food nutrition and sustainable metabolic habits tailored for daily compliance.",
-  "Architects evening parasympathetic recovery, breathwork, and circadian sleep optimization routines.",
+  "/pic.webp",
 ];
 
 export default async function SpecialistsPage() {
   const { sessionUser, coaches } = await getPublicSanctuaryData();
 
   const displayCoaches =
-    coaches && coaches.length > 0
-      ? coaches.map((c, idx) => ({
-          name: c.name,
-          role: c.title || "Specialist Faculty",
-          specialty: c.title || "Movement & Longevity Protocol",
-          bio: COACH_FALLBACK_BIOS[idx % COACH_FALLBACK_BIOS.length],
-          image: COACH_FALLBACK_IMAGES[idx % COACH_FALLBACK_IMAGES.length],
-        }))
-      : DEFAULT_COACH_PROFILES;
+    coaches && coaches.length > 0 ? coaches : DEFAULT_COACH_PROFILES;
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
-      {/* Mobile Full-Screen Image Background */}
-      <div className="fixed inset-0 z-0 lg:hidden pointer-events-none">
-        <Image
-          src="/pic.webp"
-          alt=""
-          fill
-          priority
-          className="object-cover object-center grayscale contrast-[1.08]"
-        />
-        <div className="absolute inset-0 bg-[#f6f6f4]/88 dark:bg-[#0e0e0e]/88 backdrop-blur-[2px]" />
-      </div>
+    <div className="relative min-h-[100dvh] flex flex-col justify-between bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
+      <PublicMobileBackdrop />
 
-      <div className="relative z-10 max-w-5xl w-full mx-auto px-6 sm:px-10 py-6 sm:py-8 flex-1 flex flex-col justify-between space-y-12 sm:space-y-16">
-        {/* TOP: LOGO + TEXT THEME TOGGLE */}
+      <div className="relative z-10 max-w-5xl w-full mx-auto px-5 sm:px-10 py-5 sm:py-8 flex-1 flex flex-col justify-between space-y-6 sm:space-y-10">
+        {/* TOP: LOGO + BORDERLESS THEME ICON */}
         <PublicTopBrand />
 
-        <div className="space-y-12 sm:space-y-16">
+        <div className="space-y-6 sm:space-y-10 my-auto">
           {/* HEADER */}
-          <section className="space-y-4 max-w-3xl">
-            <span className="text-[10px] font-mono uppercase tracking-[0.24em] text-zinc-400 dark:text-zinc-500 block">
-              Specialist Faculty • Multidisciplinary Guidance
+          <section className="space-y-2.5 max-w-3xl">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-400 block">
+              Specialist Faculty • Master Coaches ({displayCoaches.length})
             </span>
-            <h1 className="text-3xl sm:text-5xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.12]">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-snug">
               Guided by Specialists
             </h1>
-            <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Every BMS cohort is led by our multidisciplinary faculty spanning
-              functional biomechanics, anti-inflammatory nutrition, and nervous
-              system recovery.
+            <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              Meet the Master Coaches registered in our Sanctuary directory and
+              inspect the active cohorts they personally lead.
             </p>
           </section>
 
-          {/* SPECIALISTS GRID */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {displayCoaches.map((coach, idx) => (
-              <article
-                key={idx}
-                className="rounded-3xl bg-zinc-200/45 dark:bg-white/[0.04] overflow-hidden flex flex-col justify-between"
-              >
-                <div className="relative aspect-[4/5] w-full bg-zinc-950 overflow-hidden">
-                  <Image
-                    src={coach.image}
-                    alt={coach.name}
-                    fill
-                    priority={idx < 3}
-                    className="object-cover object-top grayscale contrast-[1.08] brightness-[0.85]"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                  <div className="absolute bottom-5 left-5 right-5 text-white space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-300 block">
-                      {coach.role}
-                    </span>
-                    <h2 className="text-xl font-geometric font-medium tracking-tight text-white">
-                      {coach.name}
-                    </h2>
-                  </div>
-                </div>
+          {/* SPECIALISTS GRID (COMPACT ON MOBILE, HIGH-CONTRAST) */}
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+            {displayCoaches.map((coach, idx) => {
+              const portraitSrc =
+                COACH_FALLBACK_IMAGES[idx % COACH_FALLBACK_IMAGES.length];
 
-                <div className="p-6 space-y-2.5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                      Specialty • {coach.specialty}
-                    </span>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      {coach.bio}
-                    </p>
+              return (
+                <article
+                  key={coach.id}
+                  className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white/85 lg:bg-zinc-200/50 dark:bg-zinc-900/85 lg:dark:bg-white/[0.05] flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3.5">
+                    {/* Compact Portrait & Title Row */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-zinc-950 shrink-0">
+                        <Image
+                          src={portraitSrc}
+                          alt={coach.name}
+                          fill
+                          className="object-cover object-top grayscale contrast-[1.08]"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 block">
+                          Master Coach #{idx + 1}
+                        </span>
+                        <h2 className="text-base sm:text-lg font-geometric font-semibold text-zinc-950 dark:text-white truncate">
+                          {coach.name}
+                        </h2>
+                        <p className="text-xs text-zinc-700 dark:text-zinc-300 truncate">
+                          {coach.title}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Assigned Programs from Database */}
+                    <div className="space-y-2 pt-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 block">
+                        Assigned Cohorts ({coach.programs.length}):
+                      </span>
+
+                      {coach.programs.length === 0 ? (
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                          Available for upcoming seasonal cohorts &amp; studio
+                          sessions.
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {coach.programs.map((prog) => (
+                            <li
+                              key={prog.id}
+                              className="p-2.5 sm:p-3 rounded-xl bg-zinc-900/[0.05] dark:bg-white/[0.05] space-y-1"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-snug flex items-start gap-1.5">
+                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                  <span>{prog.title}</span>
+                                </span>
+                                <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 shrink-0">
+                                  {prog.durationDays}d
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 pl-5">
+                                {prog.category}
+                                {prog.dailyCommitment
+                                  ? ` • ${prog.dailyCommitment}`
+                                  : ""}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+
+                  <div className="pt-1 flex items-center justify-end">
+                    <Link
+                      href="/programs"
+                      className="text-xs font-semibold text-zinc-950 dark:text-white hover:underline underline-offset-4 inline-flex items-center gap-1"
+                    >
+                      <span>View Cohort Details</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </section>
 
-          {/* SINGLE BACK TO SIGN IN CTA */}
-          <section className="pt-2 flex flex-wrap items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="h-12 px-7 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>
-                {sessionUser ? "Return to Account" : "Back to Sign In"}
-              </span>
-            </Link>
-
-            <Link
-              href="/concierge"
-              className="h-12 px-7 rounded-full bg-zinc-200/70 hover:bg-zinc-200 dark:bg-white/[0.08] dark:hover:bg-white/[0.14] text-zinc-950 dark:text-white text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 transition"
-            >
-              <span>Private Concierge</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </section>
+          {/* BACK TO SIGN IN & NEXT PAGE BUTTONS */}
+          <PublicPageActions
+            sessionUser={sessionUser}
+            nextHref="/concierge"
+            nextLabel="Next: Concierge"
+          />
         </div>
 
         {/* BOTTOM: SINGLE NAVBAR */}

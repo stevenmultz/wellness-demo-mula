@@ -12,6 +12,7 @@ import {
 import {
   PublicTopBrand,
   PublicBottomNavbar,
+  PublicMobileBackdrop,
 } from "@/components/home/PublicNavbar";
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import {
@@ -76,20 +77,9 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col lg:flex-row bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
-      {/* =================================================================== */}
-      {/* MOBILE FULL-SCREEN IMAGE BACKGROUND (ONLY ON MOBILE < lg)           */}
-      {/* =================================================================== */}
-      <div className="fixed inset-0 z-0 lg:hidden pointer-events-none">
-        <Image
-          src="/pic.webp"
-          alt=""
-          fill
-          priority
-          className="object-cover object-center grayscale contrast-[1.08]"
-        />
-        <div className="absolute inset-0 bg-[#f6f6f4]/85 dark:bg-[#0e0e0e]/85 backdrop-blur-[2px]" />
-      </div>
+    <div className="relative min-h-[100dvh] flex flex-col lg:flex-row bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
+      {/* MOBILE FULL-SCREEN IMAGE BACKGROUND (< lg) */}
+      <PublicMobileBackdrop />
 
       {/* Account Deletion Notice */}
       {deletedNotice && (
@@ -110,14 +100,14 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
       )}
 
       {/* =================================================================== */}
-      {/* LEFT COLUMN: LOGO + THEME TEXT AT TOP, FORM IN CENTER, NAV AT BOTTOM*/}
+      {/* LEFT COLUMN: LOGO + THEME ICON AT TOP, FORM IN CENTER, NAV AT BOTTOM*/}
       {/* =================================================================== */}
-      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-screen flex flex-col justify-between px-6 sm:px-12 lg:px-14 xl:px-16 py-6 sm:py-8">
-        {/* TOP: LOGO + TEXT THEME TOGGLE NEXT TO IT */}
+      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-[100dvh] flex flex-col justify-between px-5 sm:px-12 lg:px-14 xl:px-16 py-5 sm:py-8">
+        {/* TOP: LOGO + BORDERLESS THEME ICON */}
         <PublicTopBrand />
 
-        {/* CENTER: SIGN IN / SIGN UP FORM (UNBOXED, ZERO BORDERS) */}
-        <main className="my-auto py-8 sm:py-10 w-full max-w-md mx-auto lg:mx-0">
+        {/* CENTER: SIGN IN / SIGN UP FORM (BALANCED MOBILE VERTICAL SPACING) */}
+        <main className="my-auto py-4 sm:py-8 w-full max-w-md mx-auto lg:mx-0">
           <div className="animate-in fade-in duration-150">
             {!sessionUser ? (
               <AuthGatewayCard
@@ -127,23 +117,23 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                 contextProgramTitle={selectedProgramTitle}
               />
             ) : (
-              <div className="space-y-6">
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 block">
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-400 block">
                     Active Session • {sessionUser.role}
                   </span>
-                  <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+                  <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
                     Welcome back, {sessionUser.fullName}
                   </h1>
-                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-mono">
+                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-mono">
                     {sessionUser.email}
                   </p>
                 </div>
 
-                <div className="space-y-3 pt-2">
+                <div className="space-y-2.5 pt-1">
                   <Link
                     href="/dashboard"
-                    className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"
+                    className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"
                   >
                     <span>Enter Member Dashboard</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -152,7 +142,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                   {sessionUser.role === "SUPERADMIN" && (
                     <Link
                       href="/admin"
-                      className="w-full h-11 rounded-full bg-zinc-200/70 hover:bg-zinc-200 dark:bg-white/[0.08] dark:hover:bg-white/[0.14] text-zinc-950 dark:text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"
+                      className="w-full h-10 sm:h-11 rounded-full bg-zinc-900/10 hover:bg-zinc-900/15 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-950 dark:text-white text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"
                     >
                       <span>Open Admin Console</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
@@ -163,7 +153,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                     type="button"
                     disabled={signingOut}
                     onClick={handleLogout}
-                    className="w-full py-2 text-xs font-medium text-zinc-400 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
+                    className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>{signingOut ? "Signing out..." : "Sign Out"}</span>

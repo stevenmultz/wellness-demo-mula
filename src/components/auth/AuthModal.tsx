@@ -170,7 +170,9 @@ export function AuthGatewayCard({
     try {
       const result = await wellnessRequestPasswordReset(forgotEmail);
       if (result.success) {
-        setSuccessMsg(result.message || "Password recovery instructions sent.");
+        setSuccessMsg(
+          result.message || "Password recovery instructions sent."
+        );
         const extra = result as { devResetUrl?: string };
         if (extra.devResetUrl) {
           setDevResetUrl(extra.devResetUrl);
@@ -186,15 +188,15 @@ export function AuthGatewayCard({
   };
 
   const inputBaseCls =
-    "w-full px-4 py-3.5 rounded-2xl bg-zinc-200/55 dark:bg-white/[0.06] border-0 text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-zinc-200/90 dark:focus:bg-white/[0.1] transition";
+    "w-full px-3.5 py-2.5 sm:px-4 sm:py-3.5 rounded-xl sm:rounded-2xl bg-white/90 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border-0 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
   const labelBaseCls =
-    "block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5";
+    "block text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1 sm:mb-1.5";
 
   return (
     <div
-      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-6 ${
+      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-4 sm:space-y-5 ${
         isModal
-          ? "rounded-3xl bg-[#f6f6f4] dark:bg-[#141414] p-6 sm:p-8 shadow-2xl"
+          ? "rounded-3xl bg-[#f6f6f4] dark:bg-[#141414] p-5 sm:p-8 shadow-2xl"
           : ""
       }`}
     >
@@ -207,7 +209,7 @@ export function AuthGatewayCard({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-200/60 dark:bg-white/10 text-zinc-500 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition active:scale-95"
+            className="w-8 h-8 rounded-full bg-zinc-200/60 dark:bg-white/10 text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center transition active:scale-95"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />
@@ -217,8 +219,8 @@ export function AuthGatewayCard({
 
       {/* Selected Cohort Context (Unboxed) */}
       {contextProgramTitle && (
-        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="font-mono text-[10px] uppercase tracking-widest">
+        <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+          <span className="font-mono text-[10px] uppercase tracking-widest shrink-0">
             Selected Cohort:
           </span>
           <span className="font-semibold text-zinc-950 dark:text-white truncate">
@@ -229,12 +231,12 @@ export function AuthGatewayCard({
 
       {/* Clean Unboxed Heading & Mode Tabs */}
       {tab !== "forgot" ? (
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
               {tab === "signin" ? "Sign in to BMS" : "Create your account"}
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {tab === "signin"
                 ? "Enter your details to access your daily 00:00 WIB cohort protocol."
                 : "Join private athletic cohorts and track your daily longevity rituals."}
@@ -245,17 +247,17 @@ export function AuthGatewayCard({
           <div
             role="tablist"
             aria-label="Authentication mode"
-            className="inline-flex items-center gap-6 border-b border-zinc-200/70 dark:border-white/10 w-full"
+            className="inline-flex items-center gap-6 border-b border-zinc-300/80 dark:border-white/15 w-full"
           >
             <button
               type="button"
               role="tab"
               aria-selected={tab === "signin"}
               onClick={() => switchTab("signin")}
-              className={`pb-2.5 text-xs font-semibold tracking-wide uppercase transition relative ${
+              className={`pb-2 sm:pb-2.5 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
                 tab === "signin"
                   ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
-                  : "text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
               Sign In
@@ -265,10 +267,10 @@ export function AuthGatewayCard({
               role="tab"
               aria-selected={tab === "signup"}
               onClick={() => switchTab("signup")}
-              className={`pb-2.5 text-xs font-semibold tracking-wide uppercase transition relative ${
+              className={`pb-2 sm:pb-2.5 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
                 tab === "signup"
                   ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
-                  : "text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
               Sign Up
@@ -276,11 +278,11 @@ export function AuthGatewayCard({
           </div>
         </div>
       ) : (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
             Reset password
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
             Enter your registered email address to receive a recovery link.
           </p>
         </div>
@@ -290,7 +292,7 @@ export function AuthGatewayCard({
       {errorMsg && (
         <div
           role="alert"
-          className="py-2.5 px-3.5 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-300 text-xs flex items-start gap-2 leading-relaxed"
+          className="py-2 px-3 rounded-xl bg-red-500/15 text-red-700 dark:text-red-300 text-xs flex items-start gap-2 leading-relaxed"
         >
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
@@ -300,7 +302,7 @@ export function AuthGatewayCard({
       {successMsg && (
         <div
           role="status"
-          className="py-2.5 px-3.5 rounded-2xl bg-zinc-200/70 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 text-xs flex items-start gap-2 leading-relaxed font-mono"
+          className="py-2 px-3 rounded-xl bg-zinc-900/10 dark:bg-white/15 text-zinc-950 dark:text-white text-xs flex items-start gap-2 leading-relaxed font-mono"
         >
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="space-y-1">
@@ -321,7 +323,7 @@ export function AuthGatewayCard({
       {/* TAB 1: SIGN IN (BORDERLESS & UNBOXED)                               */}
       {/* =================================================================== */}
       {tab === "signin" && (
-        <form onSubmit={handleSignIn} className="space-y-4">
+        <form onSubmit={handleSignIn} className="space-y-3 sm:space-y-4">
           <div>
             <label className={labelBaseCls}>Email</label>
             <input
@@ -332,20 +334,20 @@ export function AuthGatewayCard({
               onChange={(e) =>
                 setSignInData({ ...signInData, email: e.target.value })
               }
-              placeholder="name@example.com"
+              placeholder="Enter your email"
               className={inputBaseCls}
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+              <label className="text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300">
                 Password
               </label>
               <button
                 type="button"
                 onClick={() => switchTab("forgot")}
-                className="text-xs text-zinc-400 hover:text-zinc-950 dark:text-zinc-500 dark:hover:text-white transition"
+                className="text-[11px] sm:text-xs text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
               >
                 Forgot password?
               </button>
@@ -360,12 +362,12 @@ export function AuthGatewayCard({
                   setSignInData({ ...signInData, password: e.target.value })
                 }
                 placeholder="Enter your password"
-                className={`${inputBaseCls} pr-11`}
+                className={`${inputBaseCls} pr-10`}
               />
               <button
                 type="button"
                 onClick={() => setPeekPassword(!peekPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
                 aria-label={peekPassword ? "Hide password" : "Show password"}
               >
                 {peekPassword ? (
@@ -377,11 +379,11 @@ export function AuthGatewayCard({
             </div>
           </div>
 
-          <div className="pt-2 space-y-4">
+          <div className="pt-1 sm:pt-2 space-y-3">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -396,7 +398,7 @@ export function AuthGatewayCard({
               )}
             </button>
 
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center">
               Don&apos;t have an account?{" "}
               <button
                 type="button"
@@ -414,7 +416,7 @@ export function AuthGatewayCard({
       {/* TAB 2: SIGN UP (BORDERLESS & UNBOXED)                               */}
       {/* =================================================================== */}
       {tab === "signup" && (
-        <form onSubmit={handleSignUp} className="space-y-3.5">
+        <form onSubmit={handleSignUp} className="space-y-2.5 sm:space-y-3.5">
           <div>
             <label className={labelBaseCls}>Full Name</label>
             <input
@@ -425,12 +427,12 @@ export function AuthGatewayCard({
               onChange={(e) =>
                 setSignUpData({ ...signUpData, fullName: e.target.value })
               }
-              placeholder="Your full name"
+              placeholder="Enter your full name"
               className={inputBaseCls}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             <div>
               <label className={labelBaseCls}>Email</label>
               <input
@@ -441,7 +443,7 @@ export function AuthGatewayCard({
                 onChange={(e) =>
                   setSignUpData({ ...signUpData, email: e.target.value })
                 }
-                placeholder="name@example.com"
+                placeholder="Enter your email"
                 className={inputBaseCls}
               />
             </div>
@@ -449,7 +451,7 @@ export function AuthGatewayCard({
             <div>
               <label className={labelBaseCls}>
                 WhatsApp{" "}
-                <span className="text-zinc-400 font-normal text-[11px]">
+                <span className="text-zinc-500 dark:text-zinc-400 font-normal text-[10px]">
                   (Optional)
                 </span>
               </label>
@@ -460,7 +462,7 @@ export function AuthGatewayCard({
                 onChange={(e) =>
                   setSignUpData({ ...signUpData, phone: e.target.value })
                 }
-                placeholder="+62 812..."
+                placeholder="Enter your WhatsApp number"
                 className={inputBaseCls}
               />
             </div>
@@ -477,13 +479,13 @@ export function AuthGatewayCard({
                 onChange={(e) =>
                   setSignUpData({ ...signUpData, password: e.target.value })
                 }
-                placeholder="Create a password"
-                className={`${inputBaseCls} pr-11`}
+                placeholder="Enter your password"
+                className={`${inputBaseCls} pr-10`}
               />
               <button
                 type="button"
                 onClick={() => setPeekPassword(!peekPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
                 aria-label={peekPassword ? "Hide password" : "Show password"}
               >
                 {peekPassword ? (
@@ -495,9 +497,13 @@ export function AuthGatewayCard({
             </div>
 
             {/* Unboxed Minimal Password Requirement Indicators */}
-            <div className="flex flex-wrap items-center gap-4 pt-2 text-[11px] font-mono">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-1.5 text-[10px] sm:text-[11px] font-mono">
               {[
-                { key: "length", label: "8+ characters", met: passChecks.length },
+                {
+                  key: "length",
+                  label: "8+ characters",
+                  met: passChecks.length,
+                },
                 { key: "upper", label: "1 uppercase", met: passChecks.upper },
                 { key: "number", label: "1 number", met: passChecks.number },
               ].map((req) => (
@@ -506,7 +512,7 @@ export function AuthGatewayCard({
                   className={`inline-flex items-center gap-1 transition ${
                     req.met
                       ? "text-zinc-950 dark:text-white font-semibold"
-                      : "text-zinc-400 dark:text-zinc-500"
+                      : "text-zinc-500 dark:text-zinc-400"
                   }`}
                 >
                   <Check className="w-3 h-3" />
@@ -516,11 +522,11 @@ export function AuthGatewayCard({
             </div>
           </div>
 
-          <div className="pt-2 space-y-4">
+          <div className="pt-1 sm:pt-2 space-y-3">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -535,7 +541,7 @@ export function AuthGatewayCard({
               )}
             </button>
 
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center">
               Already have an account?{" "}
               <button
                 type="button"
@@ -553,7 +559,7 @@ export function AuthGatewayCard({
       {/* TAB 3: FORGOT PASSWORD (BORDERLESS & UNBOXED)                       */}
       {/* =================================================================== */}
       {tab === "forgot" && (
-        <form onSubmit={handleForgotPassword} className="space-y-4">
+        <form onSubmit={handleForgotPassword} className="space-y-3 sm:space-y-4">
           <div>
             <label className={labelBaseCls}>Registered Email</label>
             <input
@@ -562,16 +568,16 @@ export function AuthGatewayCard({
               autoFocus
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
-              placeholder="name@example.com"
+              placeholder="Enter your email"
               className={inputBaseCls}
             />
           </div>
 
-          <div className="pt-1 space-y-3">
+          <div className="pt-1 space-y-2.5">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -589,7 +595,7 @@ export function AuthGatewayCard({
             <button
               type="button"
               onClick={() => switchTab("signin")}
-              className="w-full py-2 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
+              className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Sign In</span>
