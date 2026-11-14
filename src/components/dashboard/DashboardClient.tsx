@@ -22,10 +22,6 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  Bell,
-  Calendar,
-  Compass,
-  User,
 } from "lucide-react";
 
 export interface ProgramDayItem {
@@ -965,7 +961,7 @@ export function DashboardClient({
         />
       )}
 
-      {/* Unified Bottom Floating Dock (4 Menus: My Plan, Explore, Alerts, Profile) */}
+      {/* Unified Bottom Floating Dock (4 Menus: My Plan, Explore, History, Profile) */}
       <nav
         aria-label="Primary"
         style={{ bottom: "calc(0.875rem + env(safe-area-inset-bottom))" }}
@@ -973,30 +969,29 @@ export function DashboardClient({
       >
         {(
           [
-            { key: "my_plan", label: "My Plan", Icon: Calendar },
-            { key: "all_plan", label: "Explore", Icon: Compass },
-            { key: "notifications", label: "Alerts", Icon: Bell },
-            { key: "profile", label: "Profile", Icon: User },
+            { key: "my_plan", label: "My Plan" },
+            { key: "all_plan", label: "Explore" },
+            { key: "notifications", label: "History" },
+            { key: "profile", label: "Profile" },
           ] as const
-        ).map(({ key, label, Icon }) => (
+        ).map(({ key, label }) => (
           <button
             key={key}
             type="button"
             aria-label={label}
-            title={label}
             aria-current={activeTab === key ? "page" : undefined}
             onClick={() => {
               setActiveTab(key);
               setIsOverHero(true);
               window.scrollTo({ top: 0 });
             }}
-            className={`flex-1 h-9 rounded-xl transition flex items-center justify-center ${
+            className={`flex-1 h-9 px-2 rounded-xl transition flex items-center justify-center text-[11px] sm:text-xs font-medium whitespace-nowrap tracking-tight ${
               activeTab === key
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                 : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             }`}
           >
-            <Icon className="w-4 h-4" />
+            <span>{label}</span>
           </button>
         ))}
       </nav>

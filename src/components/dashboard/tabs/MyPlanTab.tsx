@@ -657,15 +657,23 @@ function formatSleepHours(mins: number): string {
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
-function FiveBarMeter({ score }: { score: number }) {
-  const safeScore = Math.max(0, Math.min(5, Math.round(score)));
+function TwentyBarMeter({ percent }: { percent: number }) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  const filledBars = Math.round((safePercent / 100) * 20);
   return (
-    <div className="grid grid-cols-5 gap-1.5" aria-label={`Score ${safeScore} out of 5`}>
-      {[1, 2, 3, 4, 5].map((level) => (
+    <div
+      className="flex items-center gap-[3px] sm:gap-1"
+      role="progressbar"
+      aria-valuenow={safePercent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`${safePercent}%`}
+    >
+      {Array.from({ length: 20 }, (_, i) => i + 1).map((bar) => (
         <div
-          key={level}
-          className={`h-2 rounded-sm transition-all ${
-            level <= safeScore
+          key={bar}
+          className={`flex-1 h-4 sm:h-5 rounded-[2px] transition-all ${
+            bar <= filledBars
               ? "bg-zinc-950 dark:bg-white"
               : "bg-zinc-100 dark:bg-white/10"
           }`}
@@ -687,7 +695,7 @@ function CohortPerformanceCard({
   void _currentDayNumber;
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
 
-  // 1. Sleep Average (1–5 Score, 5 = Optimal >= 7h 30m)
+  // 1. Sleep Average (0–100%, 100% = Optimal >= 7h 30m nightly average)
   const loggedSleeps = sorted
     .map((d) => calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime))
     .filter((mins) => mins > 0);
@@ -697,67 +705,105 @@ function CohortPerformanceCard({
       ? Math.round(loggedSleeps.reduce((acc, m) => acc + m, 0) / loggedSleeps.length)
       : 0;
 
-  const sleepScore =
+  const sleepPct =
     avgSleepMins === 0
       ? 0
-      : avgSleepMins >= 450 // >= 7h 30m
-        ? 5
-        : avgSleepMins >= 405 // 6h 45m - 7h 29m
-          ? 4
-          : avgSleepMins >= 360 // 6h 00m - 6h 44m
-            ? 3
-            : avgSleepMins >= 300 // 5h 00m - 5h 59m
-              ? 2
-              : 1;
+      : Math.min(100, Math.round((avgSleepMins / 450) * 100));
 
-  // 2. Training Sessions Completed vs Total Training Days
+  // 2. Training (starts at 100%, deducts proportionally per skipped/missed training day)
   const trainingDays = sorted.filter((d) => d.dayType === "TRAINING_DAY");
   const trainingTotal = trainingDays.length;
-  const trainingDone = trainingDays.filter((d) => {
+  const trainingMissed = trainingDays.filter((d) => {
     const p = d.userProgress;
-    if (!p) return false;
-    if (p.isCompleted || p.videoWatched) return true;
-    const checks = checkedList(d, undefined);
-    return checks.length > 0;
-  }).length;
-  const trainingScore =
-    trainingTotal > 0 ? Math.round((trainingDone / trainingTotal) * 5) : 0;
-
-  // 3. Meal Guide Followed vs Total Program Days
-  const mealTotal = sorted.length;
-  const mealFollowed = sorted.filter(
-    (d) =>
-      d.userProgress?.mealCompliance === "FULL" ||
-      d.userProgress?.mealCompliance === "YES"
-  ).length;
-  const mealScore =
-    mealTotal > 0 ? Math.round((mealFollowed / mealTotal) * 5) : 0;
-
-  // 4. Energy & Mood Average (1–5 Score from daily reflection)
-  const loggedMoods = sorted
-    .map((d) => d.userProgress?.happinessRate)
-    .filter((rate): rate is number => typeof rate === "number" && rate > 0);
-  const avgMood =
-    loggedMoods.length > 0
-      ? Math.round(loggedMoods.reduce((acc, r) => acc + r, 0) / loggedMoods.length)
-      : 0;
-  const moodScore = Math.max(0, Math.min(5, avgMood));
-
-  // 5. Program Consistency (Active days with logged habits vs Total Program Days)
-  const consistencyTotal = sorted.length;
-  const consistencyDone = sorted.filter((d) => {
-    const p = d.userProgress;
-    if (!p) return false;
-    return Boolean(
-      p.isCompleted ||
-        p.videoWatched ||
-        (p.bedtime && p.wakeTime) ||
-        p.mealCompliance ||
-        p.workoutNotes
+    const isCompleted = Boolean(
+      p &&
+        (p.isCompleted ||
+          p.videoWatched ||
+          (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
+          (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
+          checkedList(d, undefined).length > 0)
     );
+    const explicitlySkipped = Boolean(
+      p && (p.selectedWorkout === "SKIPPED" || p.workoutNotes === "SKIPPED")
+    );
+    return explicitlySkipped || (d.isPast2359 && !isCompleted);
   }).length;
-  const consistencyScore =
-    consistencyTotal > 0 ? Math.round((consistencyDone / consistencyTotal) * 5) : 0;
+  const trainingPct =
+    trainingTotal > 0
+      ? Math.max(0, Math.round(((trainingTotal - trainingMissed) / trainingTotal) * 100))
+      : 100;
+
+  // 3. Meal (starts at 100%, deducts proportionally when skipped, off-track, partial, or missed past 23:59)
+  const mealTotal = sorted.length;
+  const mealPenalty = sorted.reduce((acc, d) => {
+    const mc = d.userProgress?.mealCompliance;
+    if (mc === "SKIPPED" || mc === "OFF_TRACK") return acc + 1;
+    if (mc === "PARTIAL") return acc + 0.5;
+    if (mc === "FULL" || mc === "YES" || mc === "SIMILAR") return acc;
+    return d.isPast2359 ? acc + 1 : acc;
+  }, 0);
+  const mealPct =
+    mealTotal > 0
+      ? Math.max(0, Math.round(((mealTotal - mealPenalty) / mealTotal) * 100))
+      : 100;
+
+  // 4. Energy & Mood (starts at 100%, reflects logged mood ratings 1-5 and deducts when skipped/missed)
+  const moodTotal = sorted.length;
+  const moodPoints = sorted.reduce((acc, d) => {
+    const p = d.userProgress;
+    const isSkipped =
+      p?.dailyReflection === "SKIPPED" ||
+      p?.dailyReflection === "Skipped reflection journal today.";
+    if (isSkipped) return acc;
+    if (typeof p?.happinessRate === "number" && p.happinessRate > 0) {
+      return acc + Math.min(5, p.happinessRate) / 5;
+    }
+    return d.isPast2359 ? acc : acc + 1;
+  }, 0);
+  const moodPct =
+    moodTotal > 0 ? Math.max(0, Math.round((moodPoints / moodTotal) * 100)) : 100;
+
+  // 5. Program Consistency (starts at 100%, deducts proportionally per skipped/missed day)
+  const consistencyTotal = sorted.length;
+  const consistencyMissed = sorted.filter((d) => {
+    const p = d.userProgress;
+    const hasSleep = Boolean(
+      p?.bedtime && p?.wakeTime && p.bedtime !== "SKIPPED" && p.wakeTime !== "SKIPPED"
+    );
+    const hasWorkout = Boolean(
+      p &&
+        (p.isCompleted ||
+          p.videoWatched ||
+          (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
+          (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
+          (p.eventFeedback && p.eventFeedback !== "SKIPPED") ||
+          checkedList(d, undefined).length > 0)
+    );
+    const hasMeal = Boolean(p?.mealCompliance && p.mealCompliance !== "SKIPPED");
+    const hasReflection = Boolean(
+      p?.dailyReflection &&
+        p.dailyReflection !== "SKIPPED" &&
+        p.dailyReflection !== "Skipped reflection journal today."
+    );
+    const hasAnyActivity = hasSleep || hasWorkout || hasMeal || hasReflection;
+    if (hasAnyActivity) return false;
+    const hasExplicitSkip = Boolean(
+      p &&
+        (p.bedtime === "SKIPPED" ||
+          p.wakeTime === "SKIPPED" ||
+          p.selectedWorkout === "SKIPPED" ||
+          p.workoutNotes === "SKIPPED" ||
+          p.eventFeedback === "SKIPPED" ||
+          p.mealCompliance === "SKIPPED" ||
+          p.dailyReflection === "SKIPPED" ||
+          p.dailyReflection === "Skipped reflection journal today.")
+    );
+    return hasExplicitSkip || d.isPast2359;
+  }).length;
+  const consistencyPct =
+    consistencyTotal > 0
+      ? Math.max(0, Math.round(((consistencyTotal - consistencyMissed) / consistencyTotal) * 100))
+      : 100;
 
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
 
@@ -780,101 +826,101 @@ function CohortPerformanceCard({
       <InfoPopupModal
         open={showMetricsInfo}
         title="Performance Metrics"
-        subtitle="Sleep score, training & meal compliance"
+        subtitle="0–100% telemetry across 20 segments"
         onClose={() => setShowMetricsInfo(false)}
       >
         <p className="font-semibold text-zinc-950 dark:text-white">How Metrics Are Calculated:</p>
         <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
-          <li><strong className="text-zinc-900 dark:text-white">Sleep Average:</strong> Graded 1–5 score. Optimal score 5 requires an average of ≥ 7h 30m nightly sleep across all logged dates.</li>
-          <li><strong className="text-zinc-900 dark:text-white">Training:</strong> Number of completed movement sessions vs total scheduled training days.</li>
-          <li><strong className="text-zinc-900 dark:text-white">Meal:</strong> Days you followed the daily nutrition protocol vs total program duration.</li>
-          <li><strong className="text-zinc-900 dark:text-white">Energy &amp; Mood:</strong> Average vitality self-rating from 1 (lowest) to 5 (peak energy).</li>
-          <li><strong className="text-zinc-900 dark:text-white">Program Consistency:</strong> Percentage of days with active check-in activity recorded.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Sleep Average:</strong> Percentage based on nightly sleep duration. Reaches 100% at an optimal average of &ge; 7h 30m.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Training:</strong> Starts at 100% and decreases proportionally for each skipped or missed training day.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Meal:</strong> Starts at 100% and decreases proportionally when meals are marked partial, off-track, or skipped.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Energy &amp; Mood:</strong> Starts at 100% and adjusts proportionally with your daily mood ratings and missed reflections.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Program Consistency:</strong> Starts at 100% and decreases proportionally for each skipped or inactive past program day.</li>
         </ul>
       </InfoPopupModal>
 
       <div className="p-5 space-y-4">
-        {/* 1. SLEEP AVERAGE (1–5 BAR) */}
-        <div className="space-y-1.5">
+        {/* 1. SLEEP AVERAGE */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
               <Moon className="w-3.5 h-3.5 text-zinc-400" />
               <span>Sleep Average</span>
               {avgSleepMins > 0 && (
                 <span className="text-zinc-400 font-normal">
-                  · {formatSleepHours(avgSleepMins)}
+                  &middot; {formatSleepHours(avgSleepMins)}
                 </span>
               )}
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {sleepScore} / 5
+              {sleepPct}%
             </span>
           </div>
-          <FiveBarMeter score={sleepScore} />
+          <TwentyBarMeter percent={sleepPct} />
         </div>
 
         <div className="border-t border-zinc-100 dark:border-white/10" />
 
-        {/* 2. TRAINING COUNT */}
-        <div className="space-y-1.5">
+        {/* 2. TRAINING */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
               <Dumbbell className="w-3.5 h-3.5 text-zinc-400" />
               <span>Training</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {trainingDone} / {trainingTotal}
+              {trainingPct}%
             </span>
           </div>
-          <FiveBarMeter score={trainingScore} />
+          <TwentyBarMeter percent={trainingPct} />
         </div>
 
         <div className="border-t border-zinc-100 dark:border-white/10" />
 
-        {/* 3. MEAL COUNT */}
-        <div className="space-y-1.5">
+        {/* 3. MEAL */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
               <Utensils className="w-3.5 h-3.5 text-zinc-400" />
               <span>Meal</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {mealFollowed} / {mealTotal}
+              {mealPct}%
             </span>
           </div>
-          <FiveBarMeter score={mealScore} />
+          <TwentyBarMeter percent={mealPct} />
         </div>
 
         <div className="border-t border-zinc-100 dark:border-white/10" />
 
         {/* 4. ENERGY & MOOD */}
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
               <Smile className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Energy & Mood</span>
+              <span>Energy &amp; Mood</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {moodScore > 0 ? `${moodScore} / 5` : "—"}
+              {moodPct}%
             </span>
           </div>
-          <FiveBarMeter score={moodScore} />
+          <TwentyBarMeter percent={moodPct} />
         </div>
 
         <div className="border-t border-zinc-100 dark:border-white/10" />
 
         {/* 5. PROGRAM CONSISTENCY */}
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-zinc-400" />
               <span>Program Consistency</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-              {consistencyDone} / {consistencyTotal} Days
+              {consistencyPct}%
             </span>
           </div>
-          <FiveBarMeter score={consistencyScore} />
+          <TwentyBarMeter percent={consistencyPct} />
         </div>
       </div>
     </section>
@@ -1359,7 +1405,7 @@ function ProgramPreparationWidgets({
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
   void _onSwitchWidget;
-  const [activePage, setActivePage] = useState<"meal" | "meetup" | "equipment" | "objective" | "reference" | "terms" | "coach" | null>(null);
+  const [activePage, setActivePage] = useState<"meal" | "meetup" | "overview" | "rules" | "coach" | null>(null);
   const [showGuidesInfo, setShowGuidesInfo] = useState(false);
   const [prepHeaderVisible, setPrepHeaderVisible] = useState(true);
   const prepScrollYRef = useRef(0);
@@ -1491,53 +1537,17 @@ function ProgramPreparationWidgets({
 
         <div className="relative z-10 pt-3 flex items-end justify-between w-full">
           <div>
-            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Meetups & Live</p>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Zoom & calls</p>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Meetups &amp; Live</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Zoom &amp; calls</p>
           </div>
           <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
         </div>
       </button>
 
-      {/* CARD 3: EQUIPMENT */}
+      {/* CARD 3: OVERVIEW (OBJECTIVES, EQUIPMENT & REFERENCES) */}
       <button
         type="button"
-        onClick={() => setActivePage("equipment")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
-      >
-        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/image.webp"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
-        </div>
-
-        <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-            <Dumbbell className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-            {equipmentItems.length} {equipmentItems.length === 1 ? "item" : "items"}
-          </span>
-        </div>
-
-        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
-          <div>
-            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Equipment</p>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Required gear</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
-        </div>
-      </button>
-
-      {/* CARD 4: OBJECTIVES & BLUEPRINT */}
-      <button
-        type="button"
-        onClick={() => setActivePage("objective")}
+        onClick={() => setActivePage("overview")}
         className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
@@ -1563,17 +1573,17 @@ function ProgramPreparationWidgets({
 
         <div className="relative z-10 pt-3 flex items-end justify-between w-full">
           <div>
-            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Objectives</p>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Blueprint & benefits</p>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Overview</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Blueprint, gear &amp; studies</p>
           </div>
           <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
         </div>
       </button>
 
-      {/* CARD 5: CLINICAL REFERENCES */}
+      {/* CARD 4: RULES & GUIDELINES */}
       <button
         type="button"
-        onClick={() => setActivePage("reference")}
+        onClick={() => setActivePage("rules")}
         className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
       >
         <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
@@ -1593,56 +1603,20 @@ function ProgramPreparationWidgets({
             <BookOpen className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-            {validReferences.length} {validReferences.length === 1 ? "source" : "sources"}
+            Code &amp; policy
           </span>
         </div>
 
         <div className="relative z-10 pt-3 flex items-end justify-between w-full">
           <div>
-            <p className="text-xs font-semibold text-zinc-950 dark:text-white">References</p>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Clinical journals</p>
+            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Rules</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Guidelines &amp; conduct</p>
           </div>
           <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
         </div>
       </button>
 
-      {/* CARD 6: TERMS & RULES */}
-      <button
-        type="button"
-        onClick={() => setActivePage("terms")}
-        className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
-      >
-        <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/coach2.webp"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
-        </div>
-
-        <div className="relative z-10 flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-            <BookOpen className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-            Code & Policy
-          </span>
-        </div>
-
-        <div className="relative z-10 pt-3 flex items-end justify-between w-full">
-          <div>
-            <p className="text-xs font-semibold text-zinc-950 dark:text-white">Terms &amp; Rules</p>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Code of conduct & guidelines</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
-        </div>
-      </button>
-
-      {/* CARD 7: COACHES */}
+      {/* CARD 5: COACHES */}
       <button
         type="button"
         onClick={() => setActivePage("coach")}
@@ -1700,17 +1674,15 @@ function ProgramPreparationWidgets({
         <InfoPopupModal
           open={showGuidesInfo}
           title="Program Guides"
-          subtitle="Meal protocol, meetups, gear, blueprint, rules & coaches"
+          subtitle="Meals, sessions, overview, rules & coaches"
           onClose={() => setShowGuidesInfo(false)}
         >
           <p className="font-semibold text-zinc-950 dark:text-white">What Program Guides Cover:</p>
           <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
-            <li><strong className="text-zinc-900 dark:text-white">Meals:</strong> Daily nutrition principles, hydration targets, and dietary guidance for each program day.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Sessions:</strong> Scheduled Zoom clinics, live coaching sessions, and community meetups.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Equipment:</strong> Required mats, weights, bands, or recovery tools needed for training.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Objectives:</strong> Target physiological adaptations, phase breakdown, and cohort goals.</li>
-            <li><strong className="text-zinc-900 dark:text-white">References:</strong> Peer-reviewed scientific literature supporting this curriculum.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Terms &amp; Rules:</strong> Code of conduct, daily logging cutoffs, and safety guidelines.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily nutrition principles, hydration targets, and dietary guidance for each program day.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Meetups &amp; Live:</strong> Scheduled Zoom clinics, live coaching sessions, and community meetups.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Overview:</strong> Program logistics, methodology, outcomes, required gear, and scientific references.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Rules:</strong> Practical guidelines, daily logging cutoffs, and cohort safety standards.</li>
             <li><strong className="text-zinc-900 dark:text-white">Coaches:</strong> Dedicated faculty and clinical specialists guiding this cohort.</li>
           </ul>
         </InfoPopupModal>
@@ -1731,7 +1703,7 @@ function ProgramPreparationWidgets({
             onTouchEnd={(e) => e.stopPropagation()}
             className="fixed inset-0 z-[80] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
           >
-            {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON (TEXT ONLY, NO ICON) */}
+            {/* FLOATING HEADER: BACK BUTTON + COMMUNITY/CONCIERGE BUTTON */}
             <header
               style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
               className={`fixed left-1/2 -translate-x-1/2 z-[90] w-[94%] max-w-xl flex items-center justify-between pointer-events-none transition-all duration-300 ${
@@ -1756,15 +1728,11 @@ function ProgramPreparationWidgets({
                         ? "Meals"
                         : activePage === "meetup"
                           ? "Sessions"
-                          : activePage === "equipment"
-                            ? "Equipment"
-                            : activePage === "objective"
-                              ? "Objectives"
-                              : activePage === "coach"
-                                ? "Coaches"
-                                : activePage === "terms"
-                                  ? "Terms & Rules"
-                                  : "References"
+                          : activePage === "overview"
+                            ? "Program Overview"
+                            : activePage === "rules"
+                              ? "Rules & Guidelines"
+                              : "Coaches"
                     } in program: ${program.title}`
                   )}`
                 }
@@ -1776,7 +1744,7 @@ function ProgramPreparationWidgets({
               </a>
             </header>
 
-            {/* TOP BANNER IMAGE (SPACIOUS, CLEAN OVERLAY) */}
+            {/* TOP BANNER IMAGE */}
             <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-zinc-950 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -1785,95 +1753,69 @@ function ProgramPreparationWidgets({
                     ? "/pic.webp"
                     : activePage === "meetup"
                       ? "/coach.webp"
-                      : activePage === "equipment"
-                        ? "/image.webp"
-                        : activePage === "objective"
-                          ? "/coach3.webp"
-                          : activePage === "coach"
-                            ? "/coach.webp"
-                            : "/coach2.webp"
+                      : activePage === "overview"
+                        ? "/coach3.webp"
+                        : activePage === "coach"
+                          ? "/coach.webp"
+                          : "/coach2.webp"
                 }
                 alt=""
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
-              {/* Title and metadata overlying the image banner, aligned with the sheet content below */}
               <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
-                <div className="max-w-xl mx-auto w-full px-6 sm:px-8 space-y-1.5">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-white/75 font-semibold block">
+                <div className="max-w-xl mx-auto w-full px-6 sm:px-8 space-y-2">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-white/75 block">
                     {activePage === "meal"
                       ? "Nutrition"
                       : activePage === "meetup"
                         ? "Schedule"
-                        : activePage === "equipment"
-                          ? "Gear"
-                          : activePage === "objective"
-                            ? "Blueprint"
-                            : activePage === "coach"
-                              ? "Faculty"
-                              : activePage === "terms"
-                                ? "Policy"
-                                : "Literature"}
+                        : activePage === "overview"
+                          ? "Curriculum"
+                          : activePage === "rules"
+                            ? "Policy"
+                            : "Faculty"}
                   </span>
 
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
+                  <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-md">
                     {activePage === "meal"
                       ? "Meals"
                       : activePage === "meetup"
                         ? "Sessions"
-                        : activePage === "equipment"
-                          ? "Equipment"
-                          : activePage === "objective"
-                            ? "Objectives"
-                            : activePage === "coach"
-                              ? "Coaches"
-                              : activePage === "terms"
-                                ? "Terms & Rules"
-                                : "References"}
+                        : activePage === "overview"
+                          ? "Overview"
+                          : activePage === "rules"
+                            ? "Rules & Guidelines"
+                            : "Coaches"}
                   </h1>
 
-                  <p className="text-xs text-white/75 font-normal">
+                  <p className="text-xs sm:text-sm text-white/75 leading-relaxed">
                     {activePage === "meal"
                       ? "Daily whole-food nutrition and recovery hydration."
                       : activePage === "meetup"
                         ? "Interactive live meetups and workshops."
-                        : activePage === "equipment"
-                          ? "Required training gear checklist."
-                          : activePage === "objective"
-                            ? "Target audience, methodology & expected outcomes."
-                            : activePage === "coach"
-                              ? "Certified longevity practitioners & dedicated cohort mentors."
-                              : activePage === "terms"
-                                ? "Cohort community guidelines, safety policies & daily cadence."
-                                : "Clinical studies & scientific literature citations."}
+                        : activePage === "overview"
+                          ? "Logistics, methodology, required gear, and clinical references."
+                          : activePage === "rules"
+                            ? "Practical guidelines, daily cadence, and safety standards."
+                            : "Certified longevity practitioners and dedicated cohort mentors."}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* CURVED SHEET CONTAINER (AIRY, SPACIOUS, ZERO NESTED BOXES) */}
-            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-9 px-6 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
-              {/* 1. MEAL GUIDE: ALL DAYS DAY 1 TO END */}
+            {/* CURVED SHEET CONTAINER WITH CLEAN PUBLIC-STYLE EDITORIAL TEXT */}
+            <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-10 px-6 sm:px-8 pb-32 max-w-xl mx-auto w-full flex-1">
+              {/* 1. MEAL GUIDE */}
               {activePage === "meal" && (
-                <div className="space-y-7">
-                  {/* Clean Page Overview Banner */}
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                        Daily Nutrition Protocols
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                        {mealDays.length} Days Planned
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Tailored whole-food nutrition and circadian hydration guidelines to fuel functional workouts and cellular recovery.
-                    </p>
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                    <span>Daily Protocols</span>
+                    <span>{mealDays.length} Days</span>
                   </div>
 
-                  {/* Clean Day-by-Day Meal Rows separated by crisp hairlines */}
-                  <div className="divide-y divide-zinc-200/90 dark:divide-white/10">
+                  <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
                     {mealDays.map((d) => {
                       const isToday = d.id === currentDayId;
                       const isPast = !isToday && (d.isPast2359 || (currentDay ? d.dayNumber < currentDay.dayNumber : false));
@@ -1897,17 +1839,16 @@ function ProgramPreparationWidgets({
                       return (
                         <div
                           key={d.id}
-                          className={`py-5 first:pt-2 last:pb-2 space-y-3 transition ${
+                          className={`py-5 sm:py-6 space-y-3 transition ${
                             isToday
                               ? "px-4 sm:px-5 -mx-2 rounded-2xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/15 my-2"
                               : ""
                           }`}
                         >
-                          {/* Header: Day + Date + Today/Logged Badge */}
                           <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider">
                               <span
-                                className={`text-xs font-mono font-bold tracking-wide ${
+                                className={`font-semibold ${
                                   isToday
                                     ? "text-zinc-950 dark:text-white"
                                     : isPast
@@ -1917,37 +1858,36 @@ function ProgramPreparationWidgets({
                               >
                                 Day {d.dayNumber}
                               </span>
-                              <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                              <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                              <span className="text-zinc-500 dark:text-zinc-400">
                                 {formatShortDayDate(d.unlockDate, d.dayNumber)}
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
                               {complianceLabel && (
-                                <span className="h-5 px-2 rounded-full bg-zinc-100 dark:bg-white/10 text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center">
+                                <span className="text-zinc-500 dark:text-zinc-400">
                                   {complianceLabel}
                                 </span>
                               )}
                               {isToday && (
-                                <span className="h-5 px-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center">
+                                <span className="h-5 px-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold inline-flex items-center">
                                   Today
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Meal Items */}
                           {rawLines.length > 0 ? (
                             <ul className="space-y-2">
                               {rawLines.map((line, idx) => (
                                 <li
                                   key={idx}
-                                  className={`text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed ${
+                                  className={`text-xs sm:text-sm flex items-start gap-3 leading-relaxed ${
                                     isPast ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-300"
                                   }`}
                                 >
-                                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-semibold mt-0.5 shrink-0">
+                                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
                                     M{idx + 1}
                                   </span>
                                   <span>{line}</span>
@@ -1955,7 +1895,7 @@ function ProgramPreparationWidgets({
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500">
                               Balanced whole-food nutrition and recovery hydration.
                             </p>
                           )}
@@ -1966,26 +1906,16 @@ function ProgramPreparationWidgets({
                 </div>
               )}
 
-              {/* 2. MEETUPS & LIVE: ONLY MEETUPS / ZOOM SESSIONS */}
+              {/* 2. MEETUPS & LIVE SESSIONS */}
               {activePage === "meetup" && (
-                <div className="space-y-7">
-                  {/* Clean Page Overview Banner */}
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                        Live Cohort Sessions
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                        {meetupDays.length} Sessions
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Interactive live webinars, movement clinics, and onsite cohort gatherings.
-                    </p>
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                    <span>Live Cohort Schedule</span>
+                    <span>{meetupDays.length} {meetupDays.length === 1 ? "Session" : "Sessions"}</span>
                   </div>
 
                   {meetupDays.length > 0 ? (
-                    <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
+                    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
                       {meetupDays.map((d) => {
                         const meetUrl = safeHttpUrl(d.meetupLink);
                         const mapUrl = safeHttpUrl(d.mapLink);
@@ -1995,35 +1925,33 @@ function ProgramPreparationWidgets({
                         return (
                           <div
                             key={d.id}
-                            className={`py-5 transition-all space-y-3 ${
-                              isToday
-                                ? "border-l-2 border-zinc-950 dark:border-white pl-4"
-                                : ""
+                            className={`py-5 sm:py-6 space-y-3 ${
+                              isToday ? "border-l-2 border-zinc-950 dark:border-white pl-4" : ""
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-mono font-bold text-zinc-950 dark:text-white">
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono uppercase tracking-wider">
+                                  <span className="font-semibold text-zinc-950 dark:text-white">
                                     Day {d.dayNumber}
                                   </span>
-                                  <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                                  <span className="text-xs text-zinc-500">
+                                  <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                  <span className="text-zinc-500 dark:text-zinc-400">
                                     {formatShortDayDate(d.unlockDate, d.dayNumber)}
                                   </span>
                                   {isToday && (
-                                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold">
                                       Today
                                     </span>
                                   )}
                                   {isPast && (
-                                    <span className="text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-500 ml-1">
-                                      • Concluded
+                                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                                      &bull; Concluded
                                     </span>
                                   )}
                                 </div>
                                 <h3
-                                  className={`text-sm sm:text-base font-semibold mt-1.5 ${
+                                  className={`text-base font-geometric font-medium leading-snug ${
                                     isPast ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-950 dark:text-white"
                                   }`}
                                 >
@@ -2031,7 +1959,7 @@ function ProgramPreparationWidgets({
                                 </h3>
                               </div>
                               {d.onsiteSchedule && (
-                                <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1.5 shrink-0">
+                                <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5 shrink-0 pt-0.5">
                                   <Clock className="w-3 h-3" />
                                   <span>{d.onsiteSchedule}</span>
                                 </span>
@@ -2049,8 +1977,8 @@ function ProgramPreparationWidgets({
                             )}
 
                             {(d.onsiteVenue || program.venueAddress) && (
-                              <div className="flex items-start gap-2 text-xs sm:text-sm text-zinc-500 pt-0.5">
-                                <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
+                              <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                 <span>{d.onsiteVenue || program.venueAddress}</span>
                               </div>
                             )}
@@ -2062,10 +1990,10 @@ function ProgramPreparationWidgets({
                                     href={meetUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`h-9 px-4 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+                                    className={`h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
                                       isPast
                                         ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
-                                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                                     }`}
                                   >
                                     <Video className="w-3.5 h-3.5" />
@@ -2078,7 +2006,7 @@ function ProgramPreparationWidgets({
                                     href={mapUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-semibold text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
+                                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                                   >
                                     <MapPin className="w-3.5 h-3.5" />
                                     <span>Directions</span>
@@ -2091,103 +2019,53 @@ function ProgramPreparationWidgets({
                       })}
                     </div>
                   ) : (
-                    <div className="py-16 text-center text-xs text-zinc-400">
+                    <div className="py-12 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs text-zinc-500 dark:text-zinc-400">
                       No live sessions scheduled for this program.
                     </div>
                   )}
                 </div>
               )}
 
-              {/* 3. EQUIPMENT: CLEAN GEAR CHECKLIST */}
-              {activePage === "equipment" && (
-                <div className="space-y-7">
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                        Gear Checklist
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                        {equipmentItems.length} items
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Essential training props and mobility gear recommended for daily sessions.
-                    </p>
-                  </div>
-
-                  <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-                    {equipmentItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="py-4 flex items-center gap-3.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-zinc-950 dark:text-white shrink-0" />
-                        <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
-                          {item}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 4. OBJECTIVES & BLUEPRINT: FLAT SHEET SECTIONS */}
-              {activePage === "objective" && (
-                <div className="space-y-7">
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                      Curriculum Blueprint
+              {/* 3. OVERVIEW (MERGED: OBJECTIVES + EQUIPMENT + REFERENCES) */}
+              {activePage === "overview" && (
+                <div className="space-y-10">
+                  {/* Logistics */}
+                  <section className="space-y-3">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
+                      Audience &amp; Logistics
                     </span>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Audience specifications, core methodology, and physiological adaptation targets.
-                    </p>
-                  </div>
+                    <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
+                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Target Audience</dt>
+                        <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                          {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
+                        </dd>
+                      </div>
+                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Daily Commitment</dt>
+                        <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                          {program.dailyCommitment || "20–30 mins/day"}
+                        </dd>
+                      </div>
+                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Intensity Level</dt>
+                        <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                          {formatIntensityBadge(program.difficultyLevel)}
+                        </dd>
+                      </div>
+                      <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Delivery &amp; Location</dt>
+                        <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                          {program.locationType || "Online Studio"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </section>
 
-                  <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-                    {/* Audience & Logistics */}
-                    <div className="py-5 space-y-3">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                        Audience &amp; Logistics
-                      </span>
-                      <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 text-xs sm:text-sm">
-                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Target Audience</dt>
-                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                            {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
-                          </dd>
-                        </div>
-                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Daily Commitment</dt>
-                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                            {program.dailyCommitment || "20–30 mins/day"}
-                          </dd>
-                        </div>
-                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Intensity Level</dt>
-                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                            {formatIntensityBadge(program.difficultyLevel)}
-                          </dd>
-                        </div>
-                        <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                          <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Delivery &amp; Location</dt>
-                          <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                            {program.locationType || "Online Studio"}
-                          </dd>
-                        </div>
-                        {program.equipment && (
-                          <div className="py-2.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                            <dt className="text-zinc-500 font-medium text-xs font-mono uppercase">Gear Needed</dt>
-                            <dd className="font-semibold text-zinc-900 dark:text-white sm:text-right">
-                              {program.equipment}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-                    </div>
-
-                    {/* Methodology */}
-                    <div className="py-4 sm:py-5 space-y-2">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                  {/* Methodology & Target State */}
+                  <section className="space-y-6">
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
                         Methodology &amp; Core Focus
                       </span>
                       <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
@@ -2195,179 +2073,174 @@ function ProgramPreparationWidgets({
                       </p>
                     </div>
 
-                    {/* Target State */}
-                    <div className="py-4 sm:py-5 space-y-2">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
                         Target Physical &amp; Mental State
                       </span>
                       <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                         {program.targetState || "Optimal physical vitality, enhanced postural stability, regulated nervous system tone, and restored metabolic recovery."}
                       </p>
                     </div>
+                  </section>
 
-                    {/* Expected Outcomes */}
-                    <div className="py-4 sm:py-5 space-y-3">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                        Expected Benefits &amp; Outcomes
+                  {/* Expected Outcomes */}
+                  <section className="space-y-3">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
+                      Expected Outcomes
+                    </span>
+                    <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                      {(program.expectedBenefits && program.expectedBenefits.length > 0
+                        ? program.expectedBenefits
+                        : [
+                            "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
+                            "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
+                            "Enhanced joint mobility, core stability, and functional movement mechanics.",
+                            "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
+                          ]
+                      ).map((benefit, i) => (
+                        <li key={i} className="py-3.5 flex items-start gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                          <Check className="w-4 h-4 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  {/* Required Gear (Merged Equipment) */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                      <span>Required Gear</span>
+                      <span>{equipmentItems.length} {equipmentItems.length === 1 ? "Item" : "Items"}</span>
+                    </div>
+                    <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                      {equipmentItems.map((item, idx) => (
+                        <li key={idx} className="py-3.5 flex items-center gap-3">
+                          <CheckCircle2 className="w-4 h-4 text-zinc-950 dark:text-white shrink-0" />
+                          <span className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                            {item}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  {/* Scientific References (Merged References) */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                      <span>Scientific References</span>
+                      <span>{validReferences.length} {validReferences.length === 1 ? "Source" : "Sources"}</span>
+                    </div>
+
+                    {validReferences.length > 0 ? (
+                      <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                        {validReferences.map((ref, idx) => {
+                          const url = safeHttpUrl(ref.url);
+                          return (
+                            <div
+                              key={idx}
+                              className="py-4 flex items-start justify-between gap-4"
+                            >
+                              <div className="min-w-0 space-y-1">
+                                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
+                                  Source {String(idx + 1).padStart(2, "0")}
+                                </span>
+                                <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                                  {ref.title}
+                                </p>
+                              </div>
+                              {url && (
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 text-xs font-medium text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:underline underline-offset-4 pt-1"
+                                >
+                                  <span>Study</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="py-6 border-y border-zinc-200/80 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400">
+                        No clinical references cited for this program.
+                      </p>
+                    )}
+                  </section>
+                </div>
+              )}
+
+              {/* 4. RULES & PRACTICAL GUIDELINES */}
+              {activePage === "rules" && (
+                <div className="space-y-10">
+                  {program.programGuidelines && program.programGuidelines.length > 0 && (
+                    <section className="space-y-3">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
+                        Practical Guidelines
                       </span>
-                      <ul className="space-y-2.5">
-                        {(program.expectedBenefits && program.expectedBenefits.length > 0
-                          ? program.expectedBenefits
-                          : [
-                              "Sustained all-day physical energy and enhanced mental focus without mid-day crashes.",
-                              "Noticeable improvement in deep sleep duration and nighttime recovery scores.",
-                              "Enhanced joint mobility, core stability, and functional movement mechanics.",
-                              "Sustainable whole-food nutrition habits and reduced systemic metabolic strain.",
-                            ]
-                        ).map((benefit, i) => (
-                          <li key={i} className="flex items-start gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                            <Check className="w-4 h-4 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
-                            <span>{benefit}</span>
+                      <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                        {program.programGuidelines.map((g, i) => (
+                          <li key={i} className="py-3.5 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                            {g}
                           </li>
                         ))}
                       </ul>
-                    </div>
-
-                    {/* Practical Guidelines */}
-                    {program.programGuidelines && program.programGuidelines.length > 0 && (
-                      <div className="py-4 sm:py-5 space-y-2">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                          Practical Guidelines
-                        </span>
-                        <ul className="space-y-2 list-disc pl-4 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                          {program.programGuidelines.map((g, i) => (
-                            <li key={i}>{g}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* 5. CLINICAL REFERENCES */}
-              {activePage === "reference" && (
-                <div className="space-y-7">
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                        Scientific Citations
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                        {validReferences.length} sources
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Peer-reviewed clinical studies and research trials supporting this curriculum.
-                    </p>
-                  </div>
-
-                  {validReferences.length > 0 ? (
-                    <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-                      {validReferences.map((ref, idx) => {
-                        const url = safeHttpUrl(ref.url);
-                        return (
-                          <div
-                            key={idx}
-                            className="py-4 sm:py-5 flex items-start justify-between gap-4"
-                          >
-                            <div className="min-w-0 space-y-1">
-                              <span className="text-[10px] font-mono text-zinc-400 font-semibold uppercase tracking-wider">
-                                Source {String(idx + 1).padStart(2, "0")}
-                              </span>
-                              <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white leading-relaxed">
-                                {ref.title}
-                              </p>
-                            </div>
-                            {url && (
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="shrink-0 h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition hover:opacity-90 shadow-2xs"
-                              >
-                                <span>Read Study</span>
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="py-16 text-center text-xs text-zinc-400">
-                      No clinical references cited for this program.
-                    </p>
+                    </section>
                   )}
-                </div>
-              )}
 
-              {/* 6. PROGRAM TERMS & RULES */}
-              {activePage === "terms" && (
-                <div className="space-y-7">
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                  <section className="space-y-3">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
                       Program Code of Conduct
                     </span>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Standards and commitments agreed upon by all enrolled members to maintain safety, focus, and maximum longevity benefits.
-                    </p>
-                  </div>
-
-                  <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-                    {[
-                      {
-                        title: "1. Daily Cadence & 23:59 WIB Cutoff",
-                        desc: "Curriculum tasks unlock at 00:00 WIB and must be logged before 23:59 WIB. Daily consistency anchors neural adaptation. Missed tasks can be marked as skipped without penalizing your habit profile.",
-                      },
-                      {
-                        title: "2. Medical Safety & Intuitive Pacing",
-                        desc: "Listen to biofeedback. Movement drills should never cause sharp pain. Stop immediately and contact your physician if feeling faint or discomfort.",
-                      },
-                      {
-                        title: "3. Cohort Privacy & Respectful Space",
-                        desc: "Everything shared within the cohort (photos, journals, questions) is strictly confidential. Mutual respect and encouragement are mandatory.",
-                      },
-                      {
-                        title: "4. Data Integrity & Truthful Logging",
-                        desc: "Log sleep hours, training reps, and meals accurately. Authentic tracking empowers personalized AI adjustments and honest self-discovery.",
-                      },
-                      {
-                        title: "5. Rest Days & Nervous System Restoration",
-                        desc: "Rest days are as vital as training days. Respect recovery protocols to allow neuromuscular integration and avoid chronic sympathetic overload.",
-                      },
-                    ].map((rule, idx) => (
-                      <div
-                        key={idx}
-                        className="py-4 sm:py-5 space-y-1.5"
-                      >
-                        <h3 className="font-semibold text-zinc-950 dark:text-white text-sm">
-                          {rule.title}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                          {rule.desc}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                    <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
+                      {[
+                        {
+                          title: "1. Daily Cadence & 23:59 WIB Cutoff",
+                          desc: "Curriculum tasks unlock at 00:00 WIB and must be logged before 23:59 WIB. Daily consistency anchors neural adaptation. Missed tasks can be marked as skipped without penalizing your habit profile.",
+                        },
+                        {
+                          title: "2. Medical Safety & Intuitive Pacing",
+                          desc: "Listen to biofeedback. Movement drills should never cause sharp pain. Stop immediately and contact your physician if feeling faint or discomfort.",
+                        },
+                        {
+                          title: "3. Cohort Privacy & Respectful Space",
+                          desc: "Everything shared within the cohort (photos, journals, questions) is strictly confidential. Mutual respect and encouragement are mandatory.",
+                        },
+                        {
+                          title: "4. Data Integrity & Truthful Logging",
+                          desc: "Log sleep hours, training reps, and meals accurately. Authentic tracking empowers personalized AI adjustments and honest self-discovery.",
+                        },
+                        {
+                          title: "5. Rest Days & Nervous System Restoration",
+                          desc: "Rest days are as vital as training days. Respect recovery protocols to allow neuromuscular integration and avoid chronic sympathetic overload.",
+                        },
+                      ].map((rule, idx) => (
+                        <div key={idx} className="py-5 space-y-1.5">
+                          <h3 className="font-geometric font-medium text-zinc-950 dark:text-white text-sm">
+                            {rule.title}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                            {rule.desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               )}
 
-              {/* 7. COACHES & MENTORS */}
+              {/* 5. COACHES & MENTORS (KEEPING AVATAR IMAGES INTACT) */}
               {activePage === "coach" && (
-                <div className="space-y-7">
-                  <div className="pb-5 border-b border-zinc-200/90 dark:border-white/10 space-y-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                      Dedicated Faculty
-                    </span>
-                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Learn with certified longevity practitioners, somatic movement specialists, and clinical nutritionists.
-                    </p>
-                  </div>
+                <div className="space-y-8">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
+                    Dedicated Faculty
+                  </span>
 
-                  <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
+                  <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10">
                     {/* Coach 1: Lead Program Coach */}
-                    <div className="py-5 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+                    <div className="py-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach.webp"
@@ -2376,14 +2249,14 @@ function ProgramPreparationWidgets({
                       />
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
+                          <h3 className="text-sm sm:text-base font-geometric font-medium text-zinc-950 dark:text-white">
                             {program.coachName || "Coach Julian Thorne"}
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
                             Lead Guide
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 font-medium">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
                           {program.coachTitle || "Master Longevity & Movement Specialist"}
                         </p>
                         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
@@ -2393,7 +2266,7 @@ function ProgramPreparationWidgets({
                     </div>
 
                     {/* Coach 2: Clinical Nutritionist */}
-                    <div className="py-5 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+                    <div className="py-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach2.webp"
@@ -2402,14 +2275,14 @@ function ProgramPreparationWidgets({
                       />
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
+                          <h3 className="text-sm sm:text-base font-geometric font-medium text-zinc-950 dark:text-white">
                             Dr. Marcus Vance, ND
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
                             Nutrition
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 font-medium">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
                           Integrative Nutritionist &amp; Metabolic Health Researcher
                         </p>
                         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
@@ -2419,7 +2292,7 @@ function ProgramPreparationWidgets({
                     </div>
 
                     {/* Coach 3: Nervous System & Sleep Specialist */}
-                    <div className="py-5 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+                    <div className="py-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/coach3.webp"
@@ -2428,14 +2301,14 @@ function ProgramPreparationWidgets({
                       />
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white">
+                          <h3 className="text-sm sm:text-base font-geometric font-medium text-zinc-950 dark:text-white">
                             Elena Rostova, MSc
                           </h3>
-                          <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold shrink-0">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 shrink-0">
                             Recovery
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 font-medium">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
                           Circadian Somatics &amp; Autonomic Nervous System Coach
                         </p>
                         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
