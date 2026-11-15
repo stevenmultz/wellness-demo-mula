@@ -1,22 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
-  BookOpen,
-  Calendar,
   Check,
-  CheckCircle2,
   ChevronDown,
-  Clock,
-  Dumbbell,
   ExternalLink,
-  FileText,
   Lock,
   MapPin,
-  ShieldCheck,
-  Sparkles,
   Users,
-  Utensils,
   Video,
 } from "lucide-react";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
@@ -112,6 +104,43 @@ function splitLines(text: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
+function ProgramAccordion({
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full py-3.5 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between gap-3 text-xs sm:text-[13px] text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white transition"
+      >
+        <span className="font-medium text-left truncate">
+          {title}
+          {typeof count === "number" ? ` (${count})` : ""}
+        </span>
+        <span className="inline-flex items-center gap-1 shrink-0 text-xs text-zinc-400">
+          <span>{open ? "Hide" : "Show"}</span>
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </span>
+      </button>
+      {open && <div className="pt-2 pb-3">{children}</div>}
+    </div>
+  );
+}
+
 export function ProgramDetailView({
   program,
   enrollmentStatus,
@@ -173,7 +202,7 @@ export function ProgramDetailView({
       <button
         type="button"
         onClick={onOpenPlan}
-        className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-medium tracking-wide active:scale-95 transition shadow-sm"
       >
         Open Plan
       </button>
@@ -183,7 +212,7 @@ export function ProgramDetailView({
       <button
         type="button"
         onClick={onEnroll}
-        className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide active:scale-95 transition shadow-sm"
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-medium tracking-wide active:scale-95 transition shadow-sm"
       >
         {enrollmentStatus === "PENDING" ? "Complete Payment" : program.price > 0 ? "Enroll Now" : "Join Program"}
       </button>
@@ -194,7 +223,7 @@ export function ProgramDetailView({
         href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Hello Concierge, I would like to join the waitlist for: ${program.title}`)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="px-5 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+        className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition"
       >
         Join Waitlist
       </a>
@@ -256,11 +285,15 @@ export function ProgramDetailView({
     lastScrollYRef.current = currentScrollY;
   };
 
-  return (
-    <div onScroll={handleScroll} className="fixed inset-0 z-[60] bg-[#f3f2ed] dark:bg-[#0e0e0e] overflow-y-auto">
-      {/* ================================================================= */}
-      {/* FLOATING HEADER: CONSISTENT BORDERLESS BACK BUTTON                */}
-      {/* ================================================================= */}
+  const view = (
+    <div
+      onScroll={handleScroll}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[60] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
+    >
+      {/* FLOATING HEADER: CONSISTENT BORDERLESS BACK BUTTON */}
       <header
         style={{ paddingTop: "env(safe-area-inset-top)" }}
         className={`fixed top-0 left-0 right-0 z-[70] w-full pointer-events-none transition-all duration-300 ${
@@ -291,768 +324,516 @@ export function ProgramDetailView({
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto pb-32">
-        {/* ================================================================= */}
-        {/* HERO BANNER IMAGE (CLEAN, AIRY OVERLAY WITH NEGATIVE SPACE)       */}
-        {/* ================================================================= */}
-        <div className="relative h-76 sm:h-88 w-full overflow-hidden bg-zinc-950 shrink-0">
-          {program.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={program.coverImage} alt={program.title} className="w-full h-full object-cover" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/image.webp" alt="" className="w-full h-full object-cover" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
+      {/* TOP HERO BANNER MATCHING GUIDE DETAIL */}
+      <div className="relative h-[340px] sm:h-[390px] w-full overflow-hidden bg-zinc-950 shrink-0">
+        {program.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={program.coverImage} alt={program.title} className="w-full h-full object-cover" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/image.webp" alt="" className="w-full h-full object-cover" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
 
-          {/* Clean title & metadata banner: Status, Title, Coach, Commitment */}
-          <div className="absolute inset-x-0 bottom-12 sm:bottom-14 px-6 sm:px-8 z-0 space-y-2">
-            <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-white/80">
-              <span className="px-3 py-1 rounded-[2px] bg-white text-zinc-950 text-[10px] font-bold shadow-sm">
-                {enrolled ? "Enrolled" : badge}
-              </span>
-            </div>
+        <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
+          <div className="max-w-2xl mx-auto w-full px-6 sm:px-10 space-y-2">
+            <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] font-medium tracking-[0.03em] text-white">
+              {enrolled ? "Enrolled" : badge}
+            </span>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-md">
+            <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-md">
               {program.title}
             </h1>
 
-            <p className="text-xs text-white/85 font-medium flex items-center gap-2 flex-wrap">
-              <span>Coach <strong className="text-white font-semibold">{program.coachName}</strong></span>
-              <span className="text-white/40">•</span>
-              <span className="inline-flex items-center gap-1">
-                <Clock className="w-3 h-3 text-white/70" />
-                <span>{program.dailyCommitment || "20–30 mins/day"} Commitment</span>
-              </span>
+            <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-lg">
+              Coach {program.coachName} · {totalDays} days · {program.dailyCommitment || "20–30 mins/day"}
             </p>
           </div>
         </div>
+      </div>
 
-        {/* ================================================================= */}
-        {/* CURVED SHEET CONTAINER (LEKUKAN DI BANNER IMAGE)                  */}
-        {/* ================================================================= */}
-        <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200/80 dark:border-white/10 bg-[#f3f2ed] dark:bg-[#0e0e0e] shadow-xl pt-6 px-4 sm:px-6 pb-28 space-y-4">
-          {/* Header Action: Curriculum Overview & Expand / Collapse */}
-          <div className="flex items-center justify-between px-1 pb-1">
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-              Program Curriculum
-            </span>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="h-7 px-3 rounded-[2px] border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#121215] text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition inline-flex items-center gap-1 shadow-2xs"
-            >
-              <span>{allExpanded ? "Collapse All" : "Expand All"}</span>
-            </button>
-          </div>
+      {/* CURVED SHEET CONTAINER MATCHING GUIDE DETAIL */}
+      <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-8 sm:pt-10 px-6 sm:px-10 pb-36 max-w-2xl mx-auto w-full flex-1 space-y-4">
+        <div className="flex items-center justify-between pb-1">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Program Overview &amp; Curriculum
+          </span>
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
+          >
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </button>
+        </div>
 
-          {/* ================================================================= */}
-          {/* 1. OVERVIEW & SPECIFICATIONS                                      */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("overview")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <BookOpen className="w-4 h-4" />
+        <div className="space-y-4">
+          {/* 1. PROGRAM OVERVIEW */}
+          <ProgramAccordion
+            title="Program Overview"
+            open={openSections.overview}
+            onToggle={() => toggleSection("overview")}
+          >
+            <div className="space-y-4">
+              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                {program.description}
+              </p>
+
+              <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Intensity</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {difficultyLabel(program.difficultyLevel)}
+                  </dd>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 1
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Program Overview
-                  </h2>
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Commitment</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {program.dailyCommitment || "20–30 mins/day"}
+                  </dd>
                 </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.overview ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openSections.overview && (
-              <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
-                <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
-                  {program.description}
-                </p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-4 pt-3 border-t border-zinc-100 dark:border-white/5 text-xs">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Intensity</span>
-                    <span className="font-semibold text-zinc-900 dark:text-white mt-0.5 block">
-                      {difficultyLabel(program.difficultyLevel)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Commitment</span>
-                    <span className="font-semibold text-zinc-900 dark:text-white mt-0.5 block">
-                      {program.dailyCommitment || "20–30 mins/day"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Format</span>
-                    <span className="font-semibold text-zinc-900 dark:text-white mt-0.5 block">
-                      {formatLabel(program.locationType)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Location</span>
-                    <span className="font-semibold text-zinc-900 dark:text-white mt-0.5 block">
-                      {program.city || (program.locationType === "ONLINE" ? "Global Access" : "Jakarta")}
-                    </span>
-                  </div>
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Format</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {formatLabel(program.locationType)}
+                  </dd>
                 </div>
-
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Location</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {program.city || (program.locationType === "ONLINE" ? "Global Access" : "Jakarta")}
+                  </dd>
+                </div>
                 {program.locationType !== "ONLINE" && program.venueAddress && (
-                  <div className="pt-2 border-t border-zinc-100 dark:border-white/5 text-xs">
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Venue Address</span>
-                    <p className="font-medium text-zinc-800 dark:text-zinc-200 mt-0.5">{program.venueAddress}</p>
+                  <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                    <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Venue</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                      {program.venueAddress}
+                    </dd>
                   </div>
                 )}
-              </div>
-            )}
-          </section>
+              </dl>
+            </div>
+          </ProgramAccordion>
 
-          {/* ================================================================= */}
-          {/* 2. COACH & FACULTY PROFILE                                        */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("coach")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <Users className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 2
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Lead Coach &amp; Mentorship
-                  </h2>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.coach ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openSections.coach && (
-              <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
-                <div className="flex items-start gap-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      program.coachName.toLowerCase().includes("marcus") || program.coachName.toLowerCase().includes("vance")
-                        ? "/coach2.webp"
-                        : program.coachName.toLowerCase().includes("elena")
-                          ? "/coach3.webp"
-                          : "/coach.webp"
-                    }
-                    alt={program.coachName}
-                    className="w-16 h-16 rounded-[2px] object-cover shrink-0 border border-zinc-200 dark:border-white/10 shadow-xs"
-                  />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-zinc-950 dark:text-white">
-                        Coach {program.coachName}
-                      </h3>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold">
-                        Verified Lead Guide
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-500 font-medium">
-                      {program.coachTitle || "Master Movement & Longevity Specialist"}
-                    </p>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
-                      Designs and guides daily somatic training protocols, posture alignment, and neuromuscular conditioning. Reviews participant form and monitors cohort progression.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-zinc-100 dark:border-white/5 flex items-center justify-between gap-3 flex-wrap">
-                  <span className="text-[11px] text-zinc-400 font-mono">
-                    Cohort Support &amp; Form Feedback
-                  </span>
-                  <a
-                    href={`https://wa.me/6281290002026?text=${encodeURIComponent(
-                      `Hello Concierge, I have a question for Coach ${program.coachName} regarding program: ${program.title}`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-semibold text-zinc-900 dark:text-white hover:underline inline-flex items-center gap-1"
-                  >
-                    <span>Ask Coach via Concierge</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ================================================================= */}
-          {/* 3. TIMELINE, DATES & CURRICULUM                                   */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("timeline")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 3
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Timeline & Schedule
-                  </h2>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.timeline ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openSections.timeline && (
-              <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Registration Period</span>
-                    <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
-                      {program.registrationOpenDate ? formatDateWib(program.registrationOpenDate) : "Open"} – {formatDateWib(program.registrationDeadline)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">Program Dates</span>
-                    <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">
-                      {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)} ({totalDays} Days)
-                    </p>
-                  </div>
-                </div>
-
-                {/* Clean Curriculum Stats */}
-                <div className="pt-3 border-t border-zinc-100 dark:border-white/5">
-                  <span className="text-[10px] font-mono uppercase text-zinc-400 block mb-2 font-semibold">
-                    Curriculum Structure
-                  </span>
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="py-2.5 px-2 rounded-[2px] bg-zinc-50 dark:bg-white/5">
-                      <span className="text-base font-bold text-zinc-950 dark:text-white block">{trainingDaysCount}</span>
-                      <span className="text-[10px] font-mono uppercase text-zinc-400">Training Days</span>
-                    </div>
-                    <div className="py-2.5 px-2 rounded-[2px] bg-zinc-50 dark:bg-white/5">
-                      <span className="text-base font-bold text-zinc-950 dark:text-white block">{connectDaysCount}</span>
-                      <span className="text-[10px] font-mono uppercase text-zinc-400">Connect Days</span>
-                    </div>
-                    <div className="py-2.5 px-2 rounded-[2px] bg-zinc-50 dark:bg-white/5">
-                      <span className="text-base font-bold text-zinc-950 dark:text-white block">{restDaysCount}</span>
-                      <span className="text-[10px] font-mono uppercase text-zinc-400">Rest Days</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Target Audience */}
-                <div className="pt-3 border-t border-zinc-100 dark:border-white/5 text-xs">
-                  <span className="text-[10px] font-mono uppercase text-zinc-400 block">Target Audience</span>
-                  <p className="text-zinc-700 dark:text-zinc-300 font-medium mt-0.5">
-                    {program.audience || program.recommendedFor || "All Levels · Mindful Movement & Longevity"}
+          {/* 2. LEAD COACH & MENTORSHIP */}
+          <ProgramAccordion
+            title="Lead Coach & Mentorship"
+            open={openSections.coach}
+            onToggle={() => toggleSection("coach")}
+          >
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    program.coachName.toLowerCase().includes("marcus") || program.coachName.toLowerCase().includes("vance")
+                      ? "/coach2.webp"
+                      : program.coachName.toLowerCase().includes("elena")
+                        ? "/coach3.webp"
+                        : "/coach.webp"
+                  }
+                  alt={program.coachName}
+                  className="w-16 h-16 rounded-2xl object-cover object-top shrink-0 bg-zinc-200 dark:bg-zinc-800"
+                />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <h3 className="text-sm sm:text-base font-geometric font-medium text-zinc-950 dark:text-white">
+                    Coach {program.coachName}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {program.coachTitle || "Master Movement & Longevity Specialist"}
+                  </p>
+                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
+                    Designs and guides daily somatic training protocols, posture alignment, and neuromuscular conditioning.
                   </p>
                 </div>
               </div>
-            )}
-          </section>
 
-          {/* ================================================================= */}
-          {/* 3. SESSIONS: KAPAN SAJA, DIMANA, TANGGAL BERAPA                   */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("sessions")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <Video className="w-4 h-4" />
+              <div className="pt-3 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 flex-wrap text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400">Cohort Support &amp; Form Feedback</span>
+                <a
+                  href={`https://wa.me/6281290002026?text=${encodeURIComponent(
+                    `Hello Concierge, I have a question for Coach ${program.coachName} regarding program: ${program.title}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-zinc-950 dark:text-white hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Ask Coach via Concierge</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          </ProgramAccordion>
+
+          {/* 3. TIMELINE & SCHEDULE */}
+          <ProgramAccordion
+            title="Timeline & Schedule"
+            open={openSections.timeline}
+            onToggle={() => toggleSection("timeline")}
+          >
+            <div className="space-y-4">
+              <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Registration</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {program.registrationOpenDate ? formatDateWib(program.registrationOpenDate) : "Open"} – {formatDateWib(program.registrationDeadline)}
+                  </dd>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 4
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Meetups & Live Sessions
-                  </h2>
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Program Dates</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)} ({totalDays} days)
+                  </dd>
+                </div>
+                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Target Audience</dt>
+                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                    {program.audience || program.recommendedFor || "All Levels · Mindful Longevity"}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="grid grid-cols-3 divide-x divide-zinc-200/80 dark:divide-white/10 text-center py-1">
+                <div>
+                  <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{trainingDaysCount}</span>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Training</span>
+                </div>
+                <div>
+                  <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{connectDaysCount}</span>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Connect</span>
+                </div>
+                <div>
+                  <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{restDaysCount}</span>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Rest</span>
                 </div>
               </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.sessions ? "rotate-180" : ""
-                }`}
-              />
-            </button>
+            </div>
+          </ProgramAccordion>
 
-            {openSections.sessions && (
-              <div className="px-5 pb-5 pt-1 space-y-3 border-t border-zinc-100 dark:border-white/5">
-                {liveSessions.length > 0 ? (
-                  <div className="space-y-3">
-                    {liveSessions.map((session) => {
-                      const sessionDate = new Date(baseTime + (session.dayNumber - 1) * 86400000);
-                      const meetUrl = safeHttpUrl(session.meetupLink);
-                      const mapUrl = safeHttpUrl(session.mapLink);
+          {/* 4. MEETUPS & LIVE SESSIONS */}
+          <ProgramAccordion
+            title="Meetups & Live Sessions"
+            count={liveSessions.length}
+            open={openSections.sessions}
+            onToggle={() => toggleSection("sessions")}
+          >
+            {liveSessions.length > 0 ? (
+              <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                {liveSessions.map((session) => {
+                  const sessionDate = new Date(baseTime + (session.dayNumber - 1) * 86400000);
+                  const meetUrl = safeHttpUrl(session.meetupLink);
+                  const mapUrl = safeHttpUrl(session.mapLink);
 
-                      return (
-                        <article
-                          key={session.dayNumber}
-                          className="rounded-[2px] border border-zinc-200/80 dark:border-white/10 p-4 space-y-2 bg-zinc-50/40 dark:bg-white/[0.02]"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
-                                  Day {session.dayNumber}
-                                </span>
-                                <span className="text-xs font-semibold text-zinc-900 dark:text-white">
-                                  {formatDateWib(sessionDate)}
-                                </span>
-                              </div>
-                              <h3 className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white mt-1">
-                                {session.eventTitle || session.title || "Live Cohort Session"}
-                              </h3>
-                            </div>
-
-                            {session.onsiteSchedule && (
-                              <span className="text-[11px] font-mono px-2 py-0.5 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 shrink-0">
-                                <Clock className="w-3 h-3 text-zinc-400" />
-                                <span>{session.onsiteSchedule}</span>
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="space-y-1 text-xs text-zinc-600 dark:text-zinc-300 pt-1">
-                            <p className="flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                              <span>{session.onsiteVenue || (program.locationType === "ONLINE" ? "Zoom Room" : program.city ? `Studio ${program.city}` : "Online Room")}</span>
-                            </p>
-                            {session.eventHost && (
-                              <p className="flex items-center gap-1.5 text-zinc-500">
-                                <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                                <span>Host: {session.eventHost}</span>
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="pt-2 flex items-center justify-between gap-2">
-                            {enrolled && meetUrl ? (
-                              <a
-                                href={meetUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="h-7 px-3 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1 active:scale-95 transition"
-                              >
-                                <Video className="w-3 h-3" />
-                                <span>Join Session</span>
-                                <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
-                              </a>
-                            ) : (
-                              <span className="text-[10px] font-mono text-zinc-400 inline-flex items-center gap-1">
-                                <Lock className="w-3 h-3" />
-                                <span>Meeting link unlocks upon enrollment</span>
-                              </span>
-                            )}
-
-                            {mapUrl && (
-                              <a
-                                href={mapUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="h-7 px-2.5 rounded-[2px] border border-zinc-200 dark:border-white/15 text-[11px] text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1 active:scale-95 transition"
-                              >
-                                <MapPin className="w-3 h-3" />
-                                <span>Map</span>
-                              </a>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-500 leading-relaxed py-1">
-                    Continuous asynchronous coaching, daily check-ins, and direct feedback are provided throughout the {totalDays} days in the private cohort.
-                  </p>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* ================================================================= */}
-          {/* 4. NUTRITION PROTOCOL                                             */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("meals")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <Utensils className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 5
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Nutrition Protocol
-                  </h2>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.meals ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openSections.meals && (
-              <div className="px-5 pb-5 pt-1 space-y-2.5 border-t border-zinc-100 dark:border-white/5">
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                  {program.days.map((day) => {
-                    const dayDate = new Date(baseTime + (day.dayNumber - 1) * 86400000);
-                    const mealLines = splitLines(day.mealRecommendation);
-
-                    return (
-                      <article
-                        key={day.dayNumber}
-                        className="p-3 rounded-[2px] border border-zinc-200/70 dark:border-white/10 bg-zinc-50/40 dark:bg-white/[0.02] space-y-1 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-200/70 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
-                            Day {day.dayNumber} · {formatDateWib(dayDate)}
+                  return (
+                    <article key={session.dayNumber} className="py-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
+                            Day {session.dayNumber} · {formatDateWib(sessionDate)}
                           </span>
-                          <span className="text-[10px] font-mono uppercase text-zinc-400">
-                            {dayLabel(day.dayType)}
-                          </span>
+                          <h3 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                            {session.eventTitle || session.title || "Live Cohort Session"}
+                          </h3>
                         </div>
 
-                        {mealLines.length > 1 ? (
-                          <ul className="space-y-1 pt-1 text-zinc-700 dark:text-zinc-300">
-                            {mealLines.map((line, idx) => (
-                              <li key={idx} className="flex items-start gap-1.5 leading-relaxed">
-                                <span className="w-1 h-1 rounded-full bg-zinc-400 mt-1.5 shrink-0" />
-                                <span>{line}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : day.mealRecommendation && day.mealRecommendation.trim() ? (
-                          <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed pt-0.5">
-                            {day.mealRecommendation}
-                          </p>
-                        ) : (
-                          <p className="text-zinc-500 pt-0.5">
-                            Whole-food nutritional fuel, high-protein breakfast, and circadian hydration (3L daily).
-                          </p>
+                        {session.onsiteSchedule && (
+                          <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
+                            {session.onsiteSchedule}
+                          </span>
                         )}
-                      </article>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </section>
+                      </div>
 
-          {/* ================================================================= */}
-          {/* 5. REQUIRED EQUIPMENT                                             */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("equipment")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <Dumbbell className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 6
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Required Gear & Equipment
-                  </h2>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.equipment ? "rotate-180" : ""
-                }`}
-              />
-            </button>
+                      <div className="text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
+                        <p className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                          <span>
+                            {session.onsiteVenue ||
+                              (program.locationType === "ONLINE"
+                                ? "Zoom Room"
+                                : program.city
+                                  ? `Studio ${program.city}`
+                                  : "Online Room")}
+                          </span>
+                        </p>
+                        {session.eventHost && (
+                          <p className="text-zinc-500 dark:text-zinc-400">Host: {session.eventHost}</p>
+                        )}
+                      </div>
 
-            {openSections.equipment && (
-              <div className="px-5 pb-5 pt-1 space-y-3 border-t border-zinc-100 dark:border-white/5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {equipmentList.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="py-2.5 px-3 rounded-[2px] bg-zinc-50/50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/5 flex items-center gap-2 text-zinc-800 dark:text-zinc-200"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0" />
-                      <span className="font-medium">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ================================================================= */}
-          {/* 6. METHODOLOGY & SCIENTIFIC BLUEPRINT                             */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("blueprint")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 7
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Methodology & Blueprint
-                  </h2>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.blueprint ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openSections.blueprint && (
-              <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Target State
-                    </span>
-                    <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed mt-1">
-                      {program.targetState || "Establish deep somatic stability, circadian alignment, and elevated metabolic stamina."}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Methodology
-                    </span>
-                    <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed mt-1">
-                      {program.methodology || "Micro-dosed resistance stimulus coupled with restorative parasympathetic nervous system protocols."}
-                    </p>
-                  </div>
-                </div>
-
-                {program.expectedBenefits && program.expectedBenefits.length > 0 && (
-                  <div className="pt-3 border-t border-zinc-100 dark:border-white/5 space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Expected Outcomes
-                    </span>
-                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {program.expectedBenefits.map((benefit, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
-                        >
-                          <Check className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0 mt-0.5" />
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {program.programGuidelines && program.programGuidelines.length > 0 && (
-                  <div className="pt-3 border-t border-zinc-100 dark:border-white/5 space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Program Guidelines
-                    </span>
-                    <ol className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-                      {program.programGuidelines.map((guide, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="font-mono text-[10px] text-zinc-400 mt-0.5">{idx + 1}.</span>
-                          <span>{guide}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {program.scientificReferences && program.scientificReferences.length > 0 && (
-                  <div className="pt-3 border-t border-zinc-100 dark:border-white/5 space-y-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Scientific References
-                    </span>
-                    <ul className="space-y-1.5 text-xs">
-                      {program.scientificReferences.map((ref, idx) => {
-                        const url = safeHttpUrl(ref.url);
-                        return (
-                          <li
-                            key={idx}
-                            className="text-zinc-600 dark:text-zinc-400 flex items-center justify-between gap-2 py-1"
+                      <div className="pt-1 flex items-center justify-between gap-3">
+                        {enrolled && meetUrl ? (
+                          <a
+                            href={meetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-zinc-950 dark:text-white underline inline-flex items-center gap-1"
                           >
-                            <span className="truncate">{ref.title}</span>
-                            {url && (
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[11px] font-mono text-zinc-900 dark:text-white shrink-0 inline-flex items-center gap-1 underline"
-                              >
-                                Read <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
+                            <Video className="w-3.5 h-3.5" />
+                            <span>Join Session</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-zinc-400 inline-flex items-center gap-1">
+                            <Lock className="w-3 h-3" />
+                            <span>Meeting link unlocks after enrollment</span>
+                          </span>
+                        )}
+
+                        {mapUrl && (
+                          <a
+                            href={mapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:underline inline-flex items-center gap-1"
+                          >
+                            <MapPin className="w-3 h-3" />
+                            <span>Map</span>
+                          </a>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Continuous asynchronous coaching, daily check-ins, and direct feedback throughout the {totalDays} days.
+              </p>
+            )}
+          </ProgramAccordion>
+
+          {/* 5. NUTRITION PROTOCOL */}
+          <ProgramAccordion
+            title="Meal Guide"
+            count={program.days.length}
+            open={openSections.meals}
+            onToggle={() => toggleSection("meals")}
+          >
+            <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10 max-h-96 overflow-y-auto pr-1">
+              {program.days.map((day) => {
+                const dayDate = new Date(baseTime + (day.dayNumber - 1) * 86400000);
+                const mealLines = splitLines(day.mealRecommendation);
+
+                return (
+                  <div key={day.dayNumber} className="py-3.5 space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Day {day.dayNumber} · {formatDateWib(dayDate)}
+                      </span>
+                      <span className="text-[11px] text-zinc-400">
+                        {dayLabel(day.dayType)}
+                      </span>
+                    </div>
+
+                    {mealLines.length > 1 ? (
+                      <ul className="space-y-1 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                        {mealLines.map((line, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="w-1 h-1 rounded-full bg-zinc-400 mt-2 shrink-0" />
+                            <span>{line}</span>
                           </li>
-                        );
-                      })}
-                    </ul>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                        {day.mealRecommendation && day.mealRecommendation.trim()
+                          ? day.mealRecommendation
+                          : "Whole-food nutritional fuel, high-protein breakfast, and circadian hydration (3L daily)."}
+                      </p>
+                    )}
                   </div>
+                );
+              })}
+            </div>
+          </ProgramAccordion>
+
+          {/* 6. REQUIRED GEAR & EQUIPMENT */}
+          <ProgramAccordion
+            title="Required Gear"
+            count={equipmentList.length}
+            open={openSections.equipment}
+            onToggle={() => toggleSection("equipment")}
+          >
+            <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
+              {equipmentList.map((item, idx) => (
+                <li key={idx} className="py-3 flex items-center gap-2.5 text-zinc-700 dark:text-zinc-200">
+                  <Check className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </ProgramAccordion>
+
+          {/* 7. METHODOLOGY & OUTCOMES */}
+          <ProgramAccordion
+            title="Methodology & Blueprint"
+            open={openSections.blueprint}
+            onToggle={() => toggleSection("blueprint")}
+          >
+            <div className="space-y-4 text-xs sm:text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                    Target State
+                  </span>
+                  <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                    {program.targetState || "Establish deep somatic stability, circadian alignment, and elevated metabolic stamina."}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                    Methodology
+                  </span>
+                  <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                    {program.methodology || "Micro-dosed resistance stimulus coupled with restorative parasympathetic protocols."}
+                  </p>
+                </div>
+              </div>
+
+              {program.expectedBenefits && program.expectedBenefits.length > 0 && (
+                <div className="pt-3 border-t border-zinc-200/80 dark:border-white/10 space-y-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                    Expected Outcomes
+                  </span>
+                  <ul className="space-y-2">
+                    {program.expectedBenefits.map((benefit, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-zinc-600 dark:text-zinc-300">
+                        <Check className="w-3.5 h-3.5 text-zinc-950 dark:text-white shrink-0 mt-1" />
+                        <span>{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {program.programGuidelines && program.programGuidelines.length > 0 && (
+                <div className="pt-3 border-t border-zinc-200/80 dark:border-white/10 space-y-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                    Program Guidelines
+                  </span>
+                  <ol className="space-y-1.5 text-zinc-600 dark:text-zinc-300">
+                    {program.programGuidelines.map((guide, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="font-mono text-[11px] text-zinc-400 mt-0.5">{idx + 1}.</span>
+                        <span>{guide}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {program.scientificReferences && program.scientificReferences.length > 0 && (
+                <div className="pt-3 border-t border-zinc-200/80 dark:border-white/10 space-y-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                    Scientific References
+                  </span>
+                  <ul className="divide-y divide-zinc-200/60 dark:divide-white/10">
+                    {program.scientificReferences.map((ref, idx) => {
+                      const url = safeHttpUrl(ref.url);
+                      return (
+                        <li key={idx} className="py-2 text-zinc-600 dark:text-zinc-300 flex items-center justify-between gap-2">
+                          <span className="truncate">{ref.title}</span>
+                          {url && (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-medium text-zinc-950 dark:text-white shrink-0 inline-flex items-center gap-1 underline"
+                            >
+                              <span>Read</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </ProgramAccordion>
+
+          {/* 8. TERMS & COMMUNITY */}
+          <ProgramAccordion
+            title="Rules & Terms"
+            open={openSections.terms}
+            onToggle={() => toggleSection("terms")}
+          >
+            <div className="space-y-4 text-xs sm:text-sm">
+              <div className="pb-3 border-b border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Users className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="font-medium text-zinc-950 dark:text-white block">
+                      Cohort Community
+                    </span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 block truncate">
+                      {enrolled && community ? "Direct access to coach chat" : "Unlocked upon enrollment"}
+                    </span>
+                  </div>
+                </div>
+                {enrolled && community ? (
+                  <a
+                    href={community}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-zinc-950 dark:text-white underline inline-flex items-center gap-1 shrink-0"
+                  >
+                    <span>Join</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <span className="text-[11px] text-zinc-400 inline-flex items-center gap-1 shrink-0">
+                    <Lock className="w-3 h-3" />
+                    <span>Members</span>
+                  </span>
                 )}
               </div>
-            )}
-          </section>
 
-          {/* ================================================================= */}
-          {/* 7. TERMS & CONDITIONS                                             */}
-          {/* ================================================================= */}
-          <section className="rounded-[2px] border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121215] overflow-hidden shadow-sm transition-all duration-200">
-            <button
-              type="button"
-              onClick={() => toggleSection("terms")}
-              className="w-full p-4 sm:p-5 flex items-center justify-between text-left group hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[2px] bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                    Module 8
-                  </span>
-                  <h2 className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                    Terms & Guidelines
-                  </h2>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                  openSections.terms ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {openSections.terms && (
-              <div className="px-5 pb-5 pt-1 space-y-4 border-t border-zinc-100 dark:border-white/5">
-                {/* Community Access Card */}
-                <div className="py-3 px-3.5 rounded-[2px] bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-[2px] bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
-                      <Users className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-                        Cohort Community
-                      </span>
-                      <span className="text-[11px] text-zinc-500 block truncate">
-                        {enrolled && community ? "Direct access to coach chat" : "Unlocked upon enrollment"}
-                      </span>
-                    </div>
-                  </div>
-                  {enrolled && community ? (
-                    <a
-                      href={community}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-7 px-3 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 active:scale-95 transition"
-                    >
-                      <span>Join</span>
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  ) : (
-                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-[2px] bg-zinc-200/70 dark:bg-white/10 text-zinc-500 inline-flex items-center gap-1 shrink-0">
-                      <Lock className="w-2.5 h-2.5" /> Members
-                    </span>
-                  )}
-                </div>
-
-                {/* Terms List */}
-                <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
-                  <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-white pb-1">
-                    <FileText className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Cohort Guidelines</span>
-                  </div>
-                  {program.termsChapters && program.termsChapters.length > 0 ? (
-                    program.termsChapters.map((ch, idx) => (
-                      <div key={idx} className="space-y-1 pt-1">
-                        <p className="font-semibold text-zinc-900 dark:text-white">{ch.chapter}</p>
+              <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                {program.termsChapters && program.termsChapters.length > 0 ? (
+                  <div className="divide-y divide-zinc-200/80 dark:divide-white/10">
+                    {program.termsChapters.map((ch, idx) => (
+                      <div key={idx} className="py-3 space-y-1.5">
+                        <p className="font-medium text-zinc-950 dark:text-white">{ch.chapter}</p>
                         <ul className="space-y-1 pl-4 list-disc">
                           {ch.clauses.map((item, i) => (
                             <li key={i}>{item}</li>
                           ))}
                         </ul>
                       </div>
-                    ))
-                  ) : program.termsList && program.termsList.length > 0 ? (
-                    <ul className="space-y-1 pl-4 list-disc">
-                      {program.termsList.map((term, idx) => (
-                        <li key={idx}>{term}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <ul className="space-y-1 pl-4 list-disc text-zinc-500">
-                      <li>Daily task logs reset automatically at 00:00 WIB (UTC+7).</li>
-                      <li>Consult a physician prior to commencing high-intensity physical routines.</li>
-                      <li>Cohort registrations are non-transferable once the start date commences.</li>
-                    </ul>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : program.termsList && program.termsList.length > 0 ? (
+                  <ul className="space-y-1.5 pl-4 list-disc">
+                    {program.termsList.map((term, idx) => (
+                      <li key={idx}>{term}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="space-y-1.5 pl-4 list-disc text-zinc-500 dark:text-zinc-400">
+                    <li>Daily task logs reset automatically at 00:00 WIB (UTC+7).</li>
+                    <li>Consult a physician prior to commencing high-intensity physical routines.</li>
+                    <li>Cohort registrations are non-transferable once the start date commences.</li>
+                  </ul>
+                )}
               </div>
-            )}
-          </section>
+            </div>
+          </ProgramAccordion>
         </div>
       </div>
 
-      {/* FLOATING STICKY BOTTOM DOCK WIDGET */}
+      {/* FLOATING STICKY BOTTOM DOCK */}
       <div className="fixed bottom-3 sm:bottom-4 inset-x-0 z-[61] px-4 pointer-events-none">
-        <div className="max-w-xl mx-auto rounded-[2px] border border-zinc-200/80 dark:border-white/15 bg-white/95 dark:bg-[#121215]/95 backdrop-blur-2xl shadow-2xl p-3.5 sm:px-5 flex items-center justify-between gap-3 pointer-events-auto">
+        <div className="max-w-xl mx-auto rounded-2xl border border-zinc-200/80 dark:border-white/15 bg-white/95 dark:bg-[#121215]/95 backdrop-blur-2xl shadow-xl p-3.5 sm:px-5 flex items-center justify-between gap-3 pointer-events-auto">
           <div className="min-w-0">
-            <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate">
+            <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
               {enrolled ? "Active Member" : badge} · {seatsLeft} slots left
             </p>
             <div className="flex items-baseline gap-2">
-              <p className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
+              <p className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white">
                 {program.price > 0 ? formatIdr(program.price) : "Free"}
               </p>
               {discountPct > 0 && !enrolled && (
@@ -1065,4 +846,6 @@ export function ProgramDetailView({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(view, document.body) : null;
 }

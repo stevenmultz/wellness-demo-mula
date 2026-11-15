@@ -197,7 +197,7 @@ function TimeInputField({
   return (
     <div className="space-y-4 min-w-0">
       <div
-        className="w-full h-14 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0"
+        className="w-full max-w-[220px] h-13 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-2.5 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0"
         role="group"
         aria-label={label}
       >
@@ -268,7 +268,7 @@ function TimeInputField({
         <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
           Quick Presets
         </span>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 max-w-[300px]">
           {presets.map((t) => (
             <button
               key={t}
@@ -1322,7 +1322,7 @@ function TaskForm({
           e.preventDefault();
           void handlePrimaryAction();
         }}
-        className="space-y-7 pt-5 min-w-0"
+        className="flex-1 flex flex-col justify-between gap-7 pt-5 min-w-0"
       >
         <div className="space-y-6 min-w-0">
           {/* SLEEP 1: WAKE TIME */}

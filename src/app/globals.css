@@ -194,7 +194,7 @@ body {
 /* ========================================================================= */
 /* MEMBER DASHBOARD UNBOXED & BORDERLESS SYSTEM                              */
 /* ========================================================================= */
-.member-dashboard-unboxed *,
+.member-dashboard-unboxed *:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
 .member-dashboard-unboxed *::before,
 .member-dashboard-unboxed *::after {
   border-width: 0 !important;
@@ -202,42 +202,42 @@ body {
 }
 
 /* Remove widget box backgrounds and card shadows in Member Dashboard */
-.member-dashboard-unboxed section:not(.w-screen),
-.member-dashboard-unboxed article,
-.member-dashboard-unboxed fieldset,
-.member-dashboard-unboxed dl,
-.member-dashboard-unboxed li {
+.member-dashboard-unboxed section:not(.w-screen):not(.profile-detail-scope *),
+.member-dashboard-unboxed article:not(.profile-detail-scope *),
+.member-dashboard-unboxed fieldset:not(.profile-detail-scope *),
+.member-dashboard-unboxed dl:not(.profile-detail-scope *),
+.member-dashboard-unboxed li:not(.profile-detail-scope *) {
   background-color: transparent !important;
   box-shadow: none !important;
 }
 
-.member-dashboard-unboxed div[class*="rounded-3xl"],
-.member-dashboard-unboxed div[class*="rounded-2xl"],
-.member-dashboard-unboxed div[class*="rounded-xl"],
-.member-dashboard-unboxed div[class*="rounded-[2px]"] {
+.member-dashboard-unboxed div[class*="rounded-3xl"]:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="rounded-2xl"]:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="rounded-xl"]:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="rounded-[2px]"]:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *) {
   box-shadow: none !important;
 }
 
-.member-dashboard-unboxed div.bg-white:not([role="switch"] *),
-.member-dashboard-unboxed div.bg-zinc-50:not([role="switch"] *),
-.member-dashboard-unboxed div[class*="dark:bg-[#121215]"]:not([role="switch"] *),
-.member-dashboard-unboxed div[class*="dark:bg-[#141414]"]:not([role="switch"] *),
-.member-dashboard-unboxed div[class*="dark:bg-[#161616]"]:not([role="switch"] *),
-.member-dashboard-unboxed div[class*="dark:bg-[#181818]"]:not([role="switch"] *) {
+.member-dashboard-unboxed div.bg-white:not([role="switch"] *):not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div.bg-zinc-50:not([role="switch"] *):not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="dark:bg-[#121215]"]:not([role="switch"] *):not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="dark:bg-[#141414]"]:not([role="switch"] *):not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="dark:bg-[#161616]"]:not([role="switch"] *):not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed div[class*="dark:bg-[#181818]"]:not([role="switch"] *):not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *) {
   background-color: transparent !important;
 }
 
 /* Ensure form inputs & textareas inside Member Dashboard have a clean borderless tonal fill */
-.member-dashboard-unboxed input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="search"]),
-.member-dashboard-unboxed textarea,
-.member-dashboard-unboxed select {
+.member-dashboard-unboxed input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="search"]):not(.profile-detail-scope *),
+.member-dashboard-unboxed textarea:not(.profile-detail-scope *),
+.member-dashboard-unboxed select:not(.profile-detail-scope *) {
   background-color: rgba(228, 228, 231, 0.55) !important;
   border-radius: 14px;
 }
 
-.dark .member-dashboard-unboxed input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="search"]),
-.dark .member-dashboard-unboxed textarea,
-.dark .member-dashboard-unboxed select {
+.dark .member-dashboard-unboxed input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="search"]):not(.profile-detail-scope *),
+.dark .member-dashboard-unboxed textarea:not(.profile-detail-scope *),
+.dark .member-dashboard-unboxed select:not(.profile-detail-scope *) {
   background-color: rgba(255, 255, 255, 0.06) !important;
 }
 

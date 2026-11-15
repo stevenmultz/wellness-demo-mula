@@ -9,16 +9,12 @@ import {
   Check,
   ChevronRight,
   Download,
-  KeyRound,
   LifeBuoy,
   Loader2,
   Lock,
   LogOut,
   Mail,
-  MapPin,
-  Phone,
   RotateCcw,
-  Shield,
   ShieldCheck,
   Smartphone,
   Trash2,
@@ -82,9 +78,10 @@ type View =
   | "account";
 
 const inputCls =
-  "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+  "w-full h-11 sm:h-12 min-w-0 max-w-full box-border px-3.5 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition";
 
-const labelSpanCls = "block text-[11px] font-geometric font-medium text-zinc-600 dark:text-zinc-300 mb-1.5";
+const labelSpanCls =
+  "block text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold mb-1.5";
 
 function filled(value: unknown) {
   if (value === null || value === undefined) return false;
@@ -363,21 +360,16 @@ export function ProfileTab({
     <>
       <FloatingHeader visible={headerVisible} transparent={!view && mode === "intro"}>
         {view ? (
-          <div className="flex items-center gap-2.5 w-full min-w-0">
-            <HeaderBackButton
-              onClick={() => {
-                setView(null);
-                setMsg(null);
-              }}
-            />
-            <span className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white truncate">
-              {TITLES[view]}
-            </span>
-          </div>
+          <HeaderBackButton
+            onClick={() => {
+              setView(null);
+              setMsg(null);
+            }}
+          />
         ) : mode === "intro" ? (
           <BrandWordmark light />
         ) : (
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between w-full">
             <HeaderBackButton
               onClick={() => setMode("intro")}
               ariaLabel="Back to Profile overview"
@@ -416,7 +408,7 @@ export function ProfileTab({
                   Profile &amp; Settings
                 </h1>
                 <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
-                  Manage your personal details, emergency contacts, security credentials, and account preferences.
+                  Manage your personal details, security credentials, and account preferences.
                 </p>
               </div>
 
@@ -438,9 +430,9 @@ export function ProfileTab({
       )}
 
       {!view && mode === "menu" && (
-        <div className="space-y-6 max-w-2xl w-full mx-auto pt-2">
+        <div className="profile-detail-scope space-y-6 max-w-2xl w-full mx-auto pt-2 pb-10">
           {/* Top Profile Image Banner */}
-          <section className="overflow-hidden rounded-3xl bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-sm relative">
+          <section className="overflow-hidden rounded-3xl bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-sm relative">
             <div className="relative aspect-[16/8] sm:aspect-[21/9] min-h-[180px] sm:min-h-[210px] w-full flex items-end">
               {/* Background Cover Image */}
               <div className="absolute inset-0 z-0">
@@ -519,9 +511,9 @@ export function ProfileTab({
 
           {/* Settings Menus */}
           {menu.map((group) => (
-            <section key={group.title} className="space-y-2.5">
+            <section key={group.title} className="space-y-2">
               <div className="px-1 flex items-center justify-between">
-                <h2 className="text-[11px] font-medium tracking-[0.04em] text-zinc-400">
+                <h2 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
                   {group.title}
                 </h2>
                 {group.pct !== null && (
@@ -530,7 +522,7 @@ export function ProfileTab({
                   </span>
                 )}
               </div>
-              <div className="rounded-3xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
+              <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
                 {group.items.map(([id, label, desc]) => (
                   <button
                     key={id}
@@ -539,7 +531,7 @@ export function ProfileTab({
                       setMsg(null);
                       setView(id);
                     }}
-                    className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition group"
+                    className="w-full px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between gap-4 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition group"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-geometric font-medium text-zinc-950 dark:text-white group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition">
@@ -557,22 +549,27 @@ export function ProfileTab({
       )}
 
       {view && (
-        <div className="max-w-xl w-full mx-auto space-y-5 pt-2">
+        <div className="profile-detail-scope max-w-xl w-full mx-auto space-y-6 pt-2 pb-12">
+          {/* Clean Editorial Page Heading (matches DailyCheckIn & Guide Detail) */}
+          <div className="space-y-1.5 pb-4 border-b border-zinc-200/80 dark:border-white/10">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+              Account Settings
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+              {TITLES[view]}
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              {SUBTITLES[view]}
+            </p>
+          </div>
+
           <Banner msg={msg} />
 
-          <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-5 sm:p-7 space-y-6">
-            {/* Clean Section Header */}
-            <div className="pb-4 border-b border-zinc-100 dark:border-white/10 space-y-1">
-              <h2 className="text-lg font-geometric font-medium text-zinc-950 dark:text-white">
-                {TITLES[view]}
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">{SUBTITLES[view]}</p>
-            </div>
-
+          <div className="space-y-6">
             {/* 1. BASIC INFORMATION */}
             {view === "basic" && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+              <div className="space-y-5">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center shrink-0">
                       {avatarUrl ? (
@@ -583,15 +580,15 @@ export function ProfileTab({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">Profile Picture</p>
-                      <p className="text-[11px] text-zinc-500">JPEG, PNG, or WebP</p>
+                      <p className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">Profile Picture</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">JPEG, PNG, or WebP</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     disabled={avatarBusy}
                     onClick={() => fileRef.current?.click()}
-                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
+                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
                   >
                     {avatarBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                     <span>Upload</span>
@@ -605,55 +602,57 @@ export function ProfileTab({
                   />
                 </div>
 
-                <label className="block min-w-0">
-                  <span className={labelSpanCls}>Full Name</span>
-                  <input
-                    placeholder="Enter your full name"
-                    value={form.fullName}
-                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    className={inputCls}
-                  />
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="space-y-4">
                   <label className="block min-w-0">
-                    <span className={labelSpanCls}>Date of Birth</span>
+                    <span className={labelSpanCls}>Full Name</span>
                     <input
-                      type="date"
-                      value={form.dateOfBirth}
-                      onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                      placeholder="Enter your full name"
+                      value={form.fullName}
+                      onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                       className={inputCls}
                     />
                   </label>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="block min-w-0">
+                      <span className={labelSpanCls}>Date of Birth</span>
+                      <input
+                        type="date"
+                        value={form.dateOfBirth}
+                        onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+
+                    <label className="block min-w-0">
+                      <span className={labelSpanCls}>Gender</span>
+                      <select
+                        value={form.gender}
+                        onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                        className={inputCls}
+                      >
+                        <option value="">Select your gender</option>
+                        {GENDER_OPTIONS.map((g) => (
+                          <option key={g} value={g}>
+                            {g}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
                   <label className="block min-w-0">
-                    <span className={labelSpanCls}>Gender</span>
-                    <select
-                      value={form.gender}
-                      onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                    <span className={labelSpanCls}>Occupation</span>
+                    <input
+                      placeholder="e.g. Software Engineer, Designer, Entrepreneur"
+                      value={form.occupation}
+                      onChange={(e) => setForm({ ...form, occupation: e.target.value })}
                       className={inputCls}
-                    >
-                      <option value="">Select your gender</option>
-                      {GENDER_OPTIONS.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
                 </div>
 
-                <label className="block min-w-0">
-                  <span className={labelSpanCls}>Occupation</span>
-                  <input
-                    placeholder="e.g. Software Engineer, Designer, Entrepreneur"
-                    value={form.occupation}
-                    onChange={(e) => setForm({ ...form, occupation: e.target.value })}
-                    className={inputCls}
-                  />
-                </label>
-
-                <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                <div className="pt-4 border-t border-zinc-200/80 dark:border-white/10 flex justify-end">
                   <Save busy={saving} onClick={saveProfile} />
                 </div>
               </div>
@@ -661,65 +660,67 @@ export function ProfileTab({
 
             {/* 2. CONTACT DETAILS */}
             {view === "contact" && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
+              <div className="space-y-5">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <Mail className="w-4 h-4 text-zinc-500 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[11px] text-zinc-500">Registered Email</p>
-                      <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white truncate">{user.email}</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Registered Email</p>
+                      <p className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white truncate">{user.email}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-zinc-200/80 text-zinc-900 dark:bg-white/10 dark:text-zinc-200 text-[10px] font-mono">
+                  <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-800 dark:bg-white/10 dark:text-zinc-200 text-[10px] font-mono">
                     Verified
                   </span>
                 </div>
 
-                <label className="block min-w-0">
-                  <span className={labelSpanCls}>Phone Number</span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="+62 812-3456-7890"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className={inputCls}
-                  />
-                </label>
-
-                <label className="block min-w-0">
-                  <span className={labelSpanCls}>Street Address</span>
-                  <input
-                    placeholder="e.g. Jl. Senopati No. 12"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    className={inputCls}
-                  />
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="space-y-4">
                   <label className="block min-w-0">
-                    <span className={labelSpanCls}>City</span>
+                    <span className={labelSpanCls}>Phone Number</span>
                     <input
-                      placeholder="Jakarta Selatan"
-                      value={form.city}
-                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      type="tel"
+                      inputMode="tel"
+                      placeholder="+62 812-3456-7890"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
                       className={inputCls}
                     />
                   </label>
 
                   <label className="block min-w-0">
-                    <span className={labelSpanCls}>Province / State</span>
+                    <span className={labelSpanCls}>Street Address</span>
                     <input
-                      placeholder="DKI Jakarta"
-                      value={form.province}
-                      onChange={(e) => setForm({ ...form, province: e.target.value })}
+                      placeholder="e.g. Jl. Senopati No. 12"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
                       className={inputCls}
                     />
                   </label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="block min-w-0">
+                      <span className={labelSpanCls}>City</span>
+                      <input
+                        placeholder="Jakarta Selatan"
+                        value={form.city}
+                        onChange={(e) => setForm({ ...form, city: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+
+                    <label className="block min-w-0">
+                      <span className={labelSpanCls}>Province / State</span>
+                      <input
+                        placeholder="DKI Jakarta"
+                        value={form.province}
+                        onChange={(e) => setForm({ ...form, province: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+                  </div>
                 </div>
 
-                <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                <div className="pt-4 border-t border-zinc-200/80 dark:border-white/10 flex justify-end">
                   <Save busy={saving} onClick={saveProfile} />
                 </div>
               </div>
@@ -727,34 +728,32 @@ export function ProfileTab({
 
             {/* 3. EMERGENCY CONTACT */}
             {view === "emergency" && (
-              <div className="space-y-4">
-                <p className="text-xs text-zinc-500">
-                  Provide an emergency contact for escalations during in-person events or urgent health inquiries.
-                </p>
+              <div className="space-y-5">
+                <div className="space-y-4">
+                  <label className="block min-w-0">
+                    <span className={labelSpanCls}>Emergency Contact Name</span>
+                    <input
+                      placeholder="e.g. Jane Doe (Spouse)"
+                      value={form.emergencyContactName}
+                      onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })}
+                      className={inputCls}
+                    />
+                  </label>
 
-                <label className="block min-w-0">
-                  <span className={labelSpanCls}>Emergency Contact Name</span>
-                  <input
-                    placeholder="e.g. Jane Doe (Spouse)"
-                    value={form.emergencyContactName}
-                    onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })}
-                    className={inputCls}
-                  />
-                </label>
+                  <label className="block min-w-0">
+                    <span className={labelSpanCls}>Emergency Contact Phone</span>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      placeholder="+62 811-2233-4455"
+                      value={form.emergencyContactPhone}
+                      onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })}
+                      className={inputCls}
+                    />
+                  </label>
+                </div>
 
-                <label className="block min-w-0">
-                  <span className={labelSpanCls}>Emergency Contact Phone</span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="+62 811-2233-4455"
-                    value={form.emergencyContactPhone}
-                    onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })}
-                    className={inputCls}
-                  />
-                </label>
-
-                <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                <div className="pt-4 border-t border-zinc-200/80 dark:border-white/10 flex justify-end">
                   <Save busy={saving} onClick={saveProfile} />
                 </div>
               </div>
@@ -762,7 +761,7 @@ export function ProfileTab({
 
             {/* 4. LOGIN & SECURITY */}
             {view === "security" && (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <form
                   className="space-y-4"
                   onSubmit={async (e) => {
@@ -795,7 +794,7 @@ export function ProfileTab({
                     />
                   </label>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <label className="block min-w-0">
                       <span className={labelSpanCls}>New Password</span>
                       <input
@@ -819,11 +818,11 @@ export function ProfileTab({
                     </label>
                   </div>
 
-                  <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex justify-end">
+                  <div className="pt-4 border-t border-zinc-200/80 dark:border-white/10 flex justify-end">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
+                      className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium disabled:opacity-50 inline-flex items-center gap-2 active:scale-95 transition"
                     >
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
                       <span>Update Password</span>
@@ -831,12 +830,12 @@ export function ProfileTab({
                   </div>
                 </form>
 
-                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-2">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2">
                   <div className="flex items-center gap-2 text-xs font-geometric font-medium text-zinc-950 dark:text-white">
-                    <ShieldCheck className="w-4 h-4 text-zinc-900 dark:text-zinc-200" />
-                    <span>Session & Credential Security</span>
+                    <ShieldCheck className="w-4 h-4 text-zinc-700 dark:text-zinc-200" />
+                    <span>Session &amp; Credential Security</span>
                   </div>
-                  <p className="text-[11px] text-zinc-500 leading-relaxed">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                     Your session is protected with end-to-end encrypted HTTP cookies and JSON Web Tokens. Passwords are salted and hashed using industry-standard bcrypt protocols.
                   </p>
                 </div>
@@ -849,62 +848,64 @@ export function ProfileTab({
             {/* 6. PRIVACY & DATA EXPORT */}
             {view === "privacy" && (
               <div className="space-y-4">
-                <dl className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] divide-y divide-zinc-200/60 dark:divide-white/10 text-xs overflow-hidden">
-                  <div className="px-4 py-3 flex items-center justify-between gap-3">
-                    <dt className="text-zinc-500">Registered Email</dt>
-                    <dd className="font-medium text-zinc-900 dark:text-white truncate">{user.email}</dd>
+                <dl className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] divide-y divide-zinc-200/70 dark:divide-white/10 text-xs overflow-hidden">
+                  <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+                    <dt className="text-zinc-500 dark:text-zinc-400">Registered Email</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white truncate">{user.email}</dd>
                   </div>
-                  <div className="px-4 py-3 flex items-center justify-between gap-3">
-                    <dt className="text-zinc-500">Account Status</dt>
-                    <dd className="inline-flex items-center gap-1.5 font-medium capitalize text-zinc-900 dark:text-zinc-100">
+                  <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+                    <dt className="text-zinc-500 dark:text-zinc-400">Account Status</dt>
+                    <dd className="inline-flex items-center gap-1.5 font-medium capitalize text-zinc-950 dark:text-zinc-100">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>{user.status.toLowerCase()}</span>
                     </dd>
                   </div>
-                  <div className="px-4 py-3 flex items-center justify-between gap-3">
-                    <dt className="text-zinc-500">Member Since</dt>
-                    <dd className="font-medium text-zinc-900 dark:text-white">
+                  <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+                    <dt className="text-zinc-500 dark:text-zinc-400">Member Since</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white">
                       {formatDateWib(user.createdAt)}
                     </dd>
                   </div>
                 </dl>
 
-                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
-                  <div>
-                    <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
-                      Export Wellness Account Data
-                    </h3>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
-                      Download a complete machine-readable JSON archive of your personal profile, contacts, and account metadata.
-                    </p>
+                <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
+                  <div className="p-4 space-y-3">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                        Export Wellness Account Data
+                      </h3>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                        Download a complete machine-readable JSON archive of your personal profile, contacts, and account metadata.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleExportData}
+                      className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 text-xs font-geometric font-medium text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Data (.json)</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleExportData}
-                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-geometric font-medium text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Data (.json)</span>
-                  </button>
-                </div>
 
-                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-3">
-                  <div>
-                    <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
-                      Local Storage & Cache Manager
-                    </h3>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
-                      Clear temporary offline cached images and sessions to free local storage on this device.
-                    </p>
+                  <div className="p-4 space-y-3">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                        Local Storage &amp; Cache Manager
+                      </h3>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                        Clear temporary offline cached images and sessions to free local storage on this device.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearCache}
+                      className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 text-xs font-geometric font-medium text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Clear Local Cache</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleClearCache}
-                    className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-white dark:bg-zinc-900 text-xs font-geometric font-medium text-zinc-900 dark:text-white inline-flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-white/10 active:scale-95 transition"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Clear Local Cache</span>
-                  </button>
                 </div>
               </div>
             )}
@@ -912,31 +913,30 @@ export function ProfileTab({
             {/* 7. ACCOUNT MANAGEMENT & SUPPORT */}
             {view === "account" && (
               <div className="space-y-4">
-                {/* Concierge Support Card */}
-                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 space-y-2.5">
+                <div className="p-4 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] space-y-2.5">
                   <div className="flex items-center gap-2">
                     <LifeBuoy className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
-                    <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
-                      Concierge & Technical Support
+                    <h3 className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                      Concierge &amp; Technical Support
                     </h3>
                   </div>
-                  <p className="text-[11px] text-zinc-500 leading-relaxed">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                     Have questions regarding your cohort schedule, exercises, or account access? Our concierge team is standing by to help.
                   </p>
                   <a
                     href="mailto:support@wellness.com?subject=Wellness%20Account%20Inquiry"
-                    className="inline-flex items-center gap-2 text-xs font-geometric font-medium text-zinc-900 dark:text-white underline hover:opacity-80"
+                    className="inline-flex items-center gap-1.5 text-xs font-geometric font-medium text-zinc-950 dark:text-white underline hover:opacity-80"
                   >
                     <span>Contact Concierge Desk</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </a>
                 </div>
 
-                <div className="pt-2 space-y-2.5">
+                <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="w-full px-5 py-3.5 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-xs sm:text-sm font-geometric font-medium text-zinc-900 dark:text-white flex items-center justify-between transition"
+                    className="w-full px-4 sm:px-5 py-4 hover:bg-zinc-50 dark:hover:bg-white/[0.03] text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <LogOut className="w-4 h-4 text-zinc-500" />
@@ -948,7 +948,7 @@ export function ProfileTab({
                   <button
                     type="button"
                     onClick={onDeleteAccount}
-                    className="w-full px-5 py-3.5 rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/40 text-xs sm:text-sm font-geometric font-medium text-red-600 dark:text-red-400 flex items-center justify-between transition"
+                    className="w-full px-4 sm:px-5 py-4 hover:bg-red-50/60 dark:hover:bg-red-950/20 text-xs sm:text-sm font-geometric font-medium text-red-600 dark:text-red-400 flex items-center justify-between transition"
                   >
                     <span className="inline-flex items-center gap-2.5">
                       <Trash2 className="w-4 h-4" />
@@ -972,7 +972,7 @@ function Save({ busy, onClick }: { busy: boolean; onClick: () => void }) {
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition shadow-sm"
+      className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
     >
       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
       <span>Save Changes</span>
@@ -997,16 +997,16 @@ function NotificationPrefs() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
       {/* Push Notifications Toggle */}
-      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
             <Bell className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Push Notifications</p>
-            <p className="text-[11px] text-zinc-500">Instant device alerts for daily tasks</p>
+            <p className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">Push Notifications</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Instant device alerts for daily tasks</p>
           </div>
         </div>
         <button
@@ -1028,14 +1028,14 @@ function NotificationPrefs() {
       </div>
 
       {/* Routine Reminders */}
-      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Smartphone className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Daily Task Reminders</p>
-            <p className="text-[11px] text-zinc-500">Morning cue for training and check-in</p>
+            <p className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">Daily Task Reminders</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Morning cue for training and check-in</p>
           </div>
         </div>
         <button
@@ -1056,14 +1056,14 @@ function NotificationPrefs() {
       </div>
 
       {/* Cohort Community Announcements */}
-      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Users className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Cohort & Meetup Alerts</p>
-            <p className="text-[11px] text-zinc-500">Broadcasts for scheduled connects</p>
+            <p className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">Cohort &amp; Meetup Alerts</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Broadcasts for scheduled connects</p>
           </div>
         </div>
         <button
@@ -1084,14 +1084,14 @@ function NotificationPrefs() {
       </div>
 
       {/* Weekly Progress Digest */}
-      <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
             <Mail className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-geometric font-medium text-zinc-900 dark:text-white">Weekly Performance Digest</p>
-            <p className="text-[11px] text-zinc-500">Summary of completion rates and streak</p>
+            <p className="text-xs sm:text-sm font-geometric font-medium text-zinc-950 dark:text-white">Weekly Performance Digest</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Summary of completion rates and streak</p>
           </div>
         </div>
         <button

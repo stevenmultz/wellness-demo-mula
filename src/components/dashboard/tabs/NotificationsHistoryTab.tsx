@@ -176,42 +176,10 @@ export function NotificationsHistoryTab({
         {mode === "intro" ? (
           <BrandWordmark light />
         ) : (
-          <div className="w-full flex items-center gap-2">
-            <HeaderBackButton
-              onClick={() => setMode("intro")}
-              ariaLabel="Back to Activity overview"
-            />
-            <div className="flex-1 flex p-1 rounded-full bg-zinc-100 dark:bg-white/10">
-              <button
-                type="button"
-                onClick={() => setSection("notifications")}
-                className={`flex-1 py-1.5 rounded-full text-xs font-geometric font-medium transition ${
-                  section === "notifications"
-                    ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                }`}
-              >
-                <span>Notifications</span>
-                {unreadCount > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSection("history")}
-                className={`flex-1 py-1.5 rounded-full text-xs font-geometric font-medium transition ${
-                  section === "history"
-                    ? "bg-white dark:bg-zinc-950 shadow-sm text-zinc-950 dark:text-white"
-                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                }`}
-              >
-                History
-              </button>
-            </div>
-          </div>
+          <HeaderBackButton
+            onClick={() => setMode("intro")}
+            ariaLabel="Back to Activity overview"
+          />
         )}
       </FloatingHeader>
 
@@ -283,8 +251,64 @@ export function NotificationsHistoryTab({
           </div>
         </div>
       ) : (
-        <div className="space-y-8 max-w-2xl w-full mx-auto pt-2">
+        <div className="space-y-6 max-w-2xl w-full mx-auto pt-2">
           <PullToRefreshBanner pullDistance={pullDistance} refreshing={refreshing} />
+
+          {/* SUB-TAB BAR CONSISTENT WITH MY PLAN */}
+          <div className="space-y-3">
+            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+              Activity
+            </h1>
+
+            <div
+              role="tablist"
+              aria-label="Activity sections"
+              className="rounded-xl p-1 bg-zinc-200/80 dark:bg-white/10 grid grid-cols-2 gap-1"
+            >
+              {(
+                [
+                  { key: "notifications" as const, label: "Notifications", count: unreadCount },
+                  {
+                    key: "history" as const,
+                    label: "History",
+                    count:
+                      history.status === "ready"
+                        ? completedPrograms.length + history.data.payments.length
+                        : 0,
+                  },
+                ]
+              ).map(({ key, label, count }) => {
+                const active = section === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setSection(key)}
+                    className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                      active
+                        ? "bg-white text-zinc-950 dark:bg-white dark:text-zinc-950 shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-950 dark:text-white/75 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <span>{label}</span>
+                    {count > 0 && (
+                      <span
+                        className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                          active
+                            ? "bg-zinc-950/15 text-zinc-950 font-bold"
+                            : "bg-zinc-950/10 text-zinc-700 dark:bg-white/20 dark:text-white font-semibold"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
       {/* ================================================================= */}
       {/* 1. SUB-TAB: NOTIFICATIONS                                         */}
