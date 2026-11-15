@@ -1384,51 +1384,47 @@ function ProgramReportPageView({
           onTouchEnd={(e) => e.stopPropagation()}
           className="fixed inset-0 z-[85] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto animate-in fade-in duration-150"
         >
+          {/* CLEAN SINGLE-ACTION STICKY HEADER (Back button only, matching Profile & DailyCheckIn) */}
           <header
-            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-            className="sticky top-0 z-10 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/10"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+            className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
           >
-            <div className="max-w-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-              <HeaderBackButton onClick={onClose} />
-              <div className="min-w-0 text-right">
-                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                  Plan Support &amp; Options
-                </p>
-                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
-                  {programTitle || "Cohort Assistance Desk"}
-                </p>
-              </div>
+            <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center">
+              <HeaderBackButton onClick={onClose} ariaLabel="Back to My Plan" />
             </div>
           </header>
 
-          <main className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24">
+          <main
+            className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-7"
+            style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
+          >
             {submittedDone ? (
-              <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-6 sm:p-8 text-center space-y-5 shadow-xs mt-4">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-7 h-7" />
+              <div className="rounded-3xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] p-7 sm:p-9 text-center space-y-6 mt-4">
+                <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 text-zinc-950 dark:text-white flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-lg font-bold text-zinc-950 dark:text-white">
-                    {activeTab === "quit" ? "Withdrawal Under Review" : "Report Under Investigation"}
+                  <h2 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+                    {activeTab === "quit" ? "Withdrawal Under Review" : "Report Received"}
                   </h2>
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm mx-auto">
                     {activeTab === "quit"
-                      ? "Your withdrawal request has been received. Our concierge support will review your curriculum status and reach out to you within 24 hours to assist you."
-                      : "Thank you for bringing this to our attention. Our team has logged your report and is reviewing the issue."}
+                      ? "Your withdrawal request has been received. Our concierge support will review your plan status and reach out within 24 hours."
+                      : "Thank you for sharing this with us. Our team has logged your report and is reviewing the issue."}
                   </p>
                 </div>
-                <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+                <div className="pt-1 flex flex-col sm:flex-row gap-2.5 justify-center">
                   <button
                     type="button"
                     onClick={() => setSubmittedDone(false)}
-                    className="h-10 px-5 rounded-full border border-zinc-300 dark:border-white/15 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition"
+                    className="h-11 px-5 rounded-2xl border border-zinc-200 dark:border-white/15 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/5 transition"
                   >
                     Submit Another
                   </button>
                   <button
                     type="button"
                     onClick={onClose}
-                    className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition"
+                    className="h-11 px-6 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs sm:text-sm font-medium active:scale-[0.98] transition"
                   >
                     Back to My Plan
                   </button>
@@ -1436,46 +1432,57 @@ function ProgramReportPageView({
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="space-y-1">
-                  <h1 className="text-xl font-bold tracking-tight text-zinc-950 dark:text-white">
+                <div className="space-y-2 pb-5 border-b border-zinc-200/80 dark:border-white/10">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block truncate">
+                    {programTitle || "Plan Support"}
+                  </span>
+                  <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.15]">
                     How can we help you?
                   </h1>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Submit a technical or curriculum report, or request a withdrawal from {programTitle || "this plan"}.
+                  <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Submit a technical or curriculum report, or request a withdrawal from this plan.
                   </p>
                 </div>
 
-                <div className="p-1 rounded-xl bg-zinc-200/70 dark:bg-white/5 grid grid-cols-2 gap-1 text-xs font-semibold">
+                <div
+                  role="tablist"
+                  aria-label="Support request type"
+                  className="rounded-xl p-1 bg-zinc-200/80 dark:bg-white/10 grid grid-cols-2 gap-1 text-xs font-semibold"
+                >
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === "issue"}
                     onClick={() => setActiveTab("issue")}
-                    className={`py-2 px-3 rounded-lg transition ${
+                    className={`h-9 px-3 rounded-lg transition ${
                       activeTab === "issue"
-                        ? "bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs"
-                        : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                        ? "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white shadow-xs"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
                     }`}
                   >
                     Report an Issue
                   </button>
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === "quit"}
                     onClick={() => setActiveTab("quit")}
-                    className={`py-2 px-3 rounded-lg transition ${
+                    className={`h-9 px-3 rounded-lg transition ${
                       activeTab === "quit"
                         ? "bg-red-600 text-white shadow-xs"
-                        : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                     }`}
                   >
                     Quit Plan
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
                       {activeTab === "quit" ? "Reason for Withdrawing" : "Issue Category"}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {(activeTab === "quit" ? quitOptions : issueOptions).map((opt) => {
                         const isSelected = activeTab === "quit" ? quitReason === opt : issueType === opt;
                         return (
@@ -1483,12 +1490,12 @@ function ProgramReportPageView({
                             key={opt}
                             type="button"
                             onClick={() => (activeTab === "quit" ? setQuitReason(opt) : setIssueType(opt))}
-                            className={`text-left px-3.5 py-2.5 rounded-xl text-xs font-medium transition border ${
+                            className={`text-left px-4 py-3.5 rounded-2xl text-xs sm:text-sm font-medium transition border ${
                               isSelected
                                 ? activeTab === "quit"
-                                  ? "bg-red-600 text-white border-transparent shadow-xs"
-                                  : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-xs"
-                                : "bg-white dark:bg-[#141414] border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400"
+                                  ? "bg-red-600 text-white border-red-600 shadow-xs"
+                                  : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-zinc-950 dark:border-white shadow-xs"
+                                : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/15 text-zinc-800 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-white/25"
                             }`}
                           >
                             {opt}
@@ -1498,11 +1505,15 @@ function ProgramReportPageView({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                      {activeTab === "quit" ? "Additional Context (Optional)" : "Details / Description"}
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="plan-report-details"
+                      className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block"
+                    >
+                      {activeTab === "quit" ? "Additional Context (Optional)" : "Details & Description"}
                     </label>
                     <textarea
+                      id="plan-report-details"
                       rows={4}
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
@@ -1511,7 +1522,7 @@ function ProgramReportPageView({
                           ? "Let us know how we can assist or why you need to leave..."
                           : "Describe the issue clearly (e.g., coach concern, broken video player, or exercise guidance)..."
                       }
-                      className="w-full text-base sm:text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-3.5 text-zinc-950 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-white resize-none"
+                      className="w-full text-base sm:text-sm rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] p-4 text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition resize-none"
                       required={activeTab === "issue"}
                     />
                   </div>
@@ -1519,7 +1530,7 @@ function ProgramReportPageView({
                   {activeTab === "quit" && (
                     <div className="border-l-2 border-zinc-300 dark:border-white/25 pl-3.5 py-1 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
                       <p className="font-semibold text-zinc-900 dark:text-white">Need a temporary pause instead?</p>
-                      <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                         You can pause your schedule and resume when your routine clears up without losing your logged history.
                       </p>
                     </div>
@@ -1528,7 +1539,7 @@ function ProgramReportPageView({
                   <button
                     type="submit"
                     disabled={isSubmitting || (activeTab === "issue" && !note.trim())}
-                    className={`w-full h-11 rounded-2xl text-xs font-semibold disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
+                    className={`w-full h-12 rounded-2xl text-sm font-medium disabled:opacity-40 transition active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 ${
                       activeTab === "quit"
                         ? "bg-red-600 text-white hover:bg-red-700"
                         : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90"
