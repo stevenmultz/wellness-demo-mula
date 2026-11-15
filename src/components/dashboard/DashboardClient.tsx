@@ -987,8 +987,6 @@ export function DashboardClient({
     (activeTab === "all_plan" && exploreView === "intro") ||
     (activeTab === "notifications" && historyView === "intro") ||
     (activeTab === "profile" && profileViewMode === "intro");
-  const isIndexPage =
-    isFullBleedFirstPage || (activeTab === "my_plan" && myPlanView === "index");
 
   return (
     <div className="member-dashboard-unboxed min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
@@ -1017,7 +1015,7 @@ export function DashboardClient({
         />
       )}
 
-      {/* Bottom Navigation: fixed uniform geometry; border box only on active index tab button */}
+      {/* Bottom Navigation: fixed uniform geometry across all tabs & detail pages; border box strictly on active tab button */}
       <nav
         aria-label="Primary"
         style={{
@@ -1026,7 +1024,7 @@ export function DashboardClient({
         className={`dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 ${
           isFullBleedFirstPage
             ? "bg-transparent"
-            : "bg-[#f6f6f4]/90 dark:bg-[#0e0e0e]/90 backdrop-blur-md"
+            : "bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
         }`}
       >
         <div className="max-w-md mx-auto px-4">
@@ -1042,15 +1040,11 @@ export function DashboardClient({
               const active = activeTab === key;
               const btnStateClass = isFullBleedFirstPage
                 ? active
-                  ? "border-white/45 bg-white/15 backdrop-blur-md text-white font-semibold"
+                  ? "border-white/50 bg-white/20 text-white font-semibold"
                   : "border-transparent bg-transparent text-white/75 hover:text-white font-medium"
-                : isIndexPage
-                  ? active
-                    ? "border-zinc-300 dark:border-white/25 bg-white dark:bg-white/15 text-zinc-950 dark:text-white font-semibold shadow-xs"
-                    : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium"
-                  : active
-                    ? "border-transparent bg-transparent text-zinc-950 dark:text-white font-semibold"
-                    : "border-transparent bg-transparent text-zinc-400 hover:text-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-200 font-medium";
+                : active
+                  ? "border-zinc-300 dark:border-white/25 bg-white dark:bg-white/15 text-zinc-950 dark:text-white font-semibold shadow-xs"
+                  : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium";
 
               return (
                 <button
@@ -1369,6 +1363,7 @@ export function DashboardClient({
         onSuccess={(progId) => {
           setQrisInvoice(null);
           setSelectedProgId(progId);
+          setMyPlanView("detail");
           setActiveTab("my_plan");
           router.refresh();
         }}
@@ -1394,6 +1389,7 @@ export function DashboardClient({
           onClose={() => setDetailedProgram(null)}
           onOpenPlan={() => {
             setSelectedProgId(detailedProgram.id);
+            setMyPlanView("detail");
             setActiveTab("my_plan");
             setDetailedProgram(null);
             window.scrollTo({ top: 0 });

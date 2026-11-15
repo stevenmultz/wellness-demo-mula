@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -175,6 +175,12 @@ export function ProfileTab({
   const [internalMode, setInternalMode] = useState<"intro" | "menu">("intro");
   const mode = viewMode ?? internalMode;
   const [view, setView] = useState<View | null>(null);
+  useEffect(() => {
+    if (viewMode === "intro") {
+      setView(null);
+      setMsg(null);
+    }
+  }, [viewMode]);
   const setMode = (next: "intro" | "menu") => {
     setInternalMode(next);
     onChangeViewMode?.(next);
