@@ -195,86 +195,94 @@ function TimeInputField({
   const minStr = validMatch ? validMatch[2] : "";
 
   return (
-    <div className="space-y-4 min-w-0">
-      <div
-        className="w-full max-w-[220px] h-13 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-2.5 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0"
-        role="group"
-        aria-label={label}
-      >
-        <div className="relative h-full flex items-center justify-center min-w-0">
-          <select
-            id={`${idPrefix}-hour`}
-            aria-label={`${label} hour`}
-            value={hourStr}
-            onChange={(e) => {
-              const nextHour = e.target.value;
-              if (!nextHour) {
-                onChange("");
-                return;
-              }
-              onChange(`${nextHour}:${minStr || "00"}`);
-            }}
-            className={`w-full h-full min-w-0 appearance-none bg-transparent border-0 text-center text-xl font-mono font-bold tabular-nums outline-none cursor-pointer pr-4 ${
-              hourStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
-            }`}
-          >
-            <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
-              HH
-            </option>
-            {HOURS_24.map((h) => (
-              <option key={h} value={h} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
-                {h}
+    <div className="space-y-5 min-w-0">
+      <div className="grid grid-cols-2 gap-3 min-w-0" role="group" aria-label={label}>
+        <label
+          htmlFor={`${idPrefix}-hour`}
+          className="relative block rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 px-4 py-3 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0 cursor-pointer"
+        >
+          <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+            Hour
+          </span>
+          <div className="relative flex items-center">
+            <select
+              id={`${idPrefix}-hour`}
+              aria-label={`${label} hour`}
+              value={hourStr}
+              onChange={(e) => {
+                const nextHour = e.target.value;
+                if (!nextHour) {
+                  onChange("");
+                  return;
+                }
+                onChange(`${nextHour}:${minStr || "00"}`);
+              }}
+              className={`w-full min-w-0 appearance-none bg-transparent border-0 text-base sm:text-lg font-medium tabular-nums outline-none cursor-pointer pr-6 ${
+                hourStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
+              }`}
+            >
+              <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
+                Select
               </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none absolute right-2" />
-        </div>
+              {HOURS_24.map((h) => (
+                <option key={h} value={h} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
+                  {h}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-zinc-400 dark:text-zinc-500 pointer-events-none absolute right-0" />
+          </div>
+        </label>
 
-        <span className="text-xl font-mono font-bold text-zinc-400 dark:text-zinc-500 select-none px-1">
-          :
-        </span>
-
-        <div className="relative h-full flex items-center justify-center min-w-0">
-          <select
-            id={`${idPrefix}-minute`}
-            aria-label={`${label} minute`}
-            value={minStr}
-            onChange={(e) => {
-              const nextMin = e.target.value;
-              if (!nextMin) {
-                onChange("");
-                return;
-              }
-              onChange(`${hourStr || pad2(defaultHour)}:${nextMin}`);
-            }}
-            className={`w-full h-full min-w-0 appearance-none bg-transparent border-0 text-center text-xl font-mono font-bold tabular-nums outline-none cursor-pointer pr-4 ${
-              minStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
-            }`}
-          >
-            <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
-              MM
-            </option>
-            {MINUTES_60.map((m) => (
-              <option key={m} value={m} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
-                {m}
+        <label
+          htmlFor={`${idPrefix}-minute`}
+          className="relative block rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 px-4 py-3 focus-within:border-zinc-950 dark:focus-within:border-white transition min-w-0 cursor-pointer"
+        >
+          <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+            Minute
+          </span>
+          <div className="relative flex items-center">
+            <select
+              id={`${idPrefix}-minute`}
+              aria-label={`${label} minute`}
+              value={minStr}
+              onChange={(e) => {
+                const nextMin = e.target.value;
+                if (!nextMin) {
+                  onChange("");
+                  return;
+                }
+                onChange(`${hourStr || pad2(defaultHour)}:${nextMin}`);
+              }}
+              className={`w-full min-w-0 appearance-none bg-transparent border-0 text-base sm:text-lg font-medium tabular-nums outline-none cursor-pointer pr-6 ${
+                minStr ? "text-zinc-950 dark:text-white" : "text-zinc-400 dark:text-zinc-500"
+              }`}
+            >
+              <option value="" className="bg-white dark:bg-[#141414] text-zinc-500">
+                Select
               </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none absolute right-2" />
-        </div>
+              {MINUTES_60.map((m) => (
+                <option key={m} value={m} className="bg-white dark:bg-[#141414] text-zinc-950 dark:text-white">
+                  {m}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-zinc-400 dark:text-zinc-500 pointer-events-none absolute right-0" />
+          </div>
+        </label>
       </div>
 
-      <div className="space-y-2">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+      <div className="space-y-2.5">
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
           Quick Presets
         </span>
-        <div className="grid grid-cols-3 gap-2 max-w-[300px]">
+        <div className="grid grid-cols-3 gap-2.5">
           {presets.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => onChange(t)}
-              className={`h-11 rounded-xl text-xs sm:text-sm font-mono font-medium transition active:scale-95 ${
+              className={`h-11 rounded-xl text-xs sm:text-sm font-medium tabular-nums transition active:scale-95 ${
                 value === t
                   ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                   : "bg-white dark:bg-[#141414] text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/15 hover:border-zinc-300 dark:hover:border-white/25"
@@ -285,6 +293,48 @@ function TimeInputField({
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StepHeader({
+  eyebrow,
+  rightLabel,
+  title,
+  subtitle,
+  quote,
+}: {
+  eyebrow: string;
+  rightLabel?: string;
+  title: string;
+  subtitle?: string | null;
+  quote?: string | null;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          {eyebrow}
+        </span>
+        {rightLabel && (
+          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
+            {rightLabel}
+          </span>
+        )}
+      </div>
+      <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.15]">
+        {title}
+      </h1>
+      {quote && (
+        <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-200 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
+          {quote}
+        </p>
+      )}
+      {subtitle && (
+        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }
@@ -1103,14 +1153,10 @@ function TaskForm({
         >
 
           <div className="space-y-6">
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                Day {day.dayNumber} · History Record
-              </span>
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                {taskTitle}
-              </h1>
-            </div>
+            <StepHeader
+              eyebrow={`Day ${day.dayNumber} · History Record`}
+              title={taskTitle}
+            />
 
             {!isTaskDone && isPast ? (
               <div className="py-10 px-5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-center space-y-2">
@@ -1125,21 +1171,21 @@ function TaskForm({
               {step === 0 && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Wake Time</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Wake Time</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{wake || "—"}</dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Bedtime</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Bedtime</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{bed || "—"}</dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Total Sleep</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Total Sleep</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {totalSleepMins > 0 ? formatDuration(totalSleepMins) : "—"}
                     </dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Morning Feeling</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Morning Feeling</dt>
                     <dd className="font-medium text-zinc-950 dark:text-white text-right">{sleepFeeling || "—"}</dd>
                   </div>
                 </>
@@ -1149,18 +1195,18 @@ function TaskForm({
                 <>
                   {activeWorkout && (
                     <div className="py-4 flex items-center justify-between gap-4">
-                      <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Focus</dt>
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Focus</dt>
                       <dd className="font-semibold text-zinc-950 dark:text-white text-right">{activeWorkout}</dd>
                     </div>
                   )}
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Movements</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Movements</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {checkedCount} / {movements.length || checkedCount} Done
                     </dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Post-Session Mood</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Post-Session Mood</dt>
                     <dd className="font-medium text-zinc-950 dark:text-white text-right">{trainingFeeling || "—"}</dd>
                   </div>
                 </>
@@ -1169,13 +1215,13 @@ function TaskForm({
               {step === 1 && isRest && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Recovery Items</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Recovery Items</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {checkedCount} / {movements.length} Checked
                     </dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Body Condition</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Body Condition</dt>
                     <dd className="font-medium text-zinc-950 dark:text-white text-right">{trainingFeeling || "—"}</dd>
                   </div>
                 </>
@@ -1184,14 +1230,14 @@ function TaskForm({
               {step === 1 && isConnect && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Attendance</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Attendance</dt>
                     <dd className="font-semibold text-zinc-950 dark:text-white text-right">
                       {connectAttendance === "attend" ? "Attended" : connectAttendance === "cannot_attend" ? "Could Not Attend" : "—"}
                     </dd>
                   </div>
                   {connectRating > 0 && (
                     <div className="py-4 flex items-center justify-between gap-4">
-                      <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Experience</dt>
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Experience</dt>
                       <dd className="font-mono font-semibold text-zinc-950 dark:text-white">{connectRating} / 5 Stars</dd>
                     </div>
                   )}
@@ -1201,7 +1247,7 @@ function TaskForm({
               {step === 2 && (
                 <>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Meals Eaten</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Meals Eaten</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {mealDraft.mealsCount > 0 ? `${mealDraft.mealsCount} ${mealDraft.mealsCount === 1 ? "Time" : "Times"}` : "—"}
                     </dd>
@@ -1209,7 +1255,7 @@ function TaskForm({
                   {mealDraft.mealEntries.length > 0 ? (
                     mealDraft.mealEntries.map((entry, idx) => (
                       <div key={idx} className="py-4 flex items-center justify-between gap-4">
-                        <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Meal {idx + 1}</dt>
+                        <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Meal {idx + 1}</dt>
                         <dd className="font-medium text-zinc-950 dark:text-white text-right">
                           {entry.status === "followed"
                             ? "Followed Plan"
@@ -1221,7 +1267,7 @@ function TaskForm({
                     ))
                   ) : (
                     <div className="py-4 flex items-center justify-between gap-4">
-                      <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Meal Plan Status</dt>
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Meal Plan Status</dt>
                       <dd className="font-semibold text-zinc-950 dark:text-white text-right">
                         {mealDraft.specialOption === "similar"
                           ? "Similar Portion & Nutrition"
@@ -1232,7 +1278,7 @@ function TaskForm({
                     </div>
                   )}
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Post-Meal Mood</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Post-Meal Mood</dt>
                     <dd className="font-medium text-zinc-950 dark:text-white text-right">{mealDraft.mealFeeling || "—"}</dd>
                   </div>
                 </>
@@ -1241,11 +1287,11 @@ function TaskForm({
               {step === 3 && (
                 <>
                   <div className="py-4 space-y-1.5">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Journal Reflection</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Journal Reflection</dt>
                     <dd className="text-sm text-zinc-900 dark:text-zinc-100 leading-relaxed">{review || "—"}</dd>
                   </div>
                   <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400">Mood &amp; Energy</dt>
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mood &amp; Energy</dt>
                     <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
                       {score > 0 ? `${FACES.find((f) => f.score === score)?.label || score} (${score}/5)` : "—"}
                     </dd>
@@ -1263,7 +1309,7 @@ function TaskForm({
               className="py-1.5 text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Program Dashboard</span>
+              <span>Back to Plan Dashboard</span>
             </button>
           </div>
         </div>
@@ -1284,14 +1330,14 @@ function TaskForm({
             ariaLabel={isFirstSubStep ? "Back to dashboard" : "Previous question"}
           />
 
-          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold truncate max-w-[60%]">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-[60%]">
             {taskTitle} · {safeSubIndex + 1} / {subSteps.length}
           </span>
         </div>
       </header>
 
       <div
-        className="w-full max-w-xl mx-auto flex-1 flex flex-col px-4 sm:px-6 pt-5 sm:pt-7"
+        className="w-full max-w-xl mx-auto flex-1 flex flex-col px-4 sm:px-6 pt-6 sm:pt-8"
         style={{
           paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))",
         }}
@@ -1322,23 +1368,17 @@ function TaskForm({
           e.preventDefault();
           void handlePrimaryAction();
         }}
-        className="flex-1 flex flex-col justify-between gap-7 pt-5 min-w-0"
+        className="flex-1 flex flex-col justify-between gap-8 pt-6 min-w-0"
       >
         <div className="space-y-6 min-w-0">
           {/* SLEEP 1: WAKE TIME */}
           {currentSubStep === "wake" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Sleep Routine
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  What time did you wake up today?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  {day.sleepRecommendation || "Select or enter the exact time you woke up this morning."}
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`Day ${day.dayNumber} · Sleep Routine`}
+                title="What time did you wake up today?"
+                subtitle={day.sleepRecommendation || "Select or enter the exact time you woke up this morning."}
+              />
 
               <TimeInputField
                 idPrefix="wake-time"
@@ -1356,18 +1396,12 @@ function TaskForm({
 
           {/* SLEEP 2: BEDTIME */}
           {currentSubStep === "bed" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Woke up at {wake}
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  What time did you go to sleep last night?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Used to calculate total circadian recovery duration.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`Woke up at ${wake}`}
+                title="What time did you go to sleep last night?"
+                subtitle="Used to calculate total circadian recovery duration."
+              />
 
               <TimeInputField
                 idPrefix="bed-time"
@@ -1401,20 +1435,14 @@ function TaskForm({
 
           {/* SLEEP 3: POST-SLEEP MOOD */}
           {currentSubStep === "sleep_mood" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  {bed} → {wake} · {formatDuration(totalSleepMins)}
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How do you feel after waking up?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Select the condition that best describes your morning energy.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`${bed} → ${wake} · ${formatDuration(totalSleepMins)}`}
+                title="How do you feel after waking up?"
+                subtitle="Select the condition that best describes your morning energy."
+              />
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-3">
                 {SLEEP_FEELINGS.map((item) => {
                   const active = sleepFeeling === item.label;
                   return (
@@ -1446,18 +1474,12 @@ function TaskForm({
 
           {/* TRAINING 1: WORKOUT OPTION */}
           {currentSubStep === "training_option" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Training Focus
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Choose today&apos;s training option
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Select the variation that fits your readiness level today.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`Day ${day.dayNumber} · Training Focus`}
+                title="Choose today's training option"
+                subtitle="Select the variation that fits your readiness level today."
+              />
 
               <div className="grid grid-cols-1 gap-3">
                 {groups.map((g, idx) => {
@@ -1514,18 +1536,12 @@ function TaskForm({
 
           {/* TRAINING 2: GUIDED VIDEO */}
           {currentSubStep === "training_video" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  {activeWorkout || `Day ${day.dayNumber} Training`}
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Watch the guided session
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Review form cues and pacing before logging your movements.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={activeWorkout || `Day ${day.dayNumber} Training`}
+                title="Watch the guided session"
+                subtitle="Review form cues and pacing before logging your movements."
+              />
 
               {activeVideo && (() => {
                 const safeVideoUrl = safeHttpUrl(activeVideo.url);
@@ -1578,20 +1594,12 @@ function TaskForm({
 
           {/* TRAINING 3: MOVEMENT CHECKLIST & REPS */}
           {currentSubStep === "training_movements" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
-                    {activeWorkout || "Movement Checklist"}
-                  </span>
-                  <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                    {checkedCount} / {movements.length} Done
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Log your completed movements
-                </h1>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={activeWorkout || "Movement Checklist"}
+                rightLabel={`${checkedCount} / ${movements.length} Done`}
+                title="Log your completed movements"
+              />
 
               {movements.length > 0 ? (
                 <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
@@ -1696,18 +1704,12 @@ function TaskForm({
 
           {/* TRAINING 4: PROGRESS PHOTO */}
           {currentSubStep === "training_photos" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Session Verification
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Upload a progress photo
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Add a before or after session photo (max 5 MB each).
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow="Session Verification"
+                title="Upload a progress photo"
+                subtitle="Add a before or after session photo (max 5 MB each)."
+              />
 
               <div className="grid grid-cols-2 gap-3 min-w-0">
                 {(["before", "after"] as const).map((type) => (
@@ -1752,20 +1754,14 @@ function TaskForm({
 
           {/* TRAINING 5: POST-TRAINING MOOD */}
           {currentSubStep === "training_mood" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  {activeWorkout || "Post-Session Check"}
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How do you feel after training?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Capture how your body responded to today&apos;s session.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={activeWorkout || "Post-Session Check"}
+                title="How do you feel after training?"
+                subtitle="Capture how your body responded to today's session."
+              />
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-3">
                 {TRAINING_FEELINGS.map((item) => {
                   const active = trainingFeeling === item.label;
                   return (
@@ -1797,18 +1793,12 @@ function TaskForm({
 
           {/* REST 1: RECOVERY CHECKLIST */}
           {currentSubStep === "rest_checklist" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Active Recovery
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Complete your recovery protocol
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Focus on parasympathetic down-regulation, hydration, and light mobility.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`Day ${day.dayNumber} · Active Recovery`}
+                title="Complete your recovery protocol"
+                subtitle="Focus on parasympathetic down-regulation, hydration, and light mobility."
+              />
 
               <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
                 {restLines.map((line, idx) => {
@@ -1841,20 +1831,14 @@ function TaskForm({
 
           {/* REST 2: POST-REST MOOD */}
           {currentSubStep === "rest_mood" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Recovery Check
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How does your body feel today?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Select how recovered and energized your body feels on this rest day.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`Day ${day.dayNumber} · Recovery Check`}
+                title="How does your body feel today?"
+                subtitle="Select how recovered and energized your body feels on this rest day."
+              />
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-3">
                 {REST_FEELINGS.map((item) => {
                   const active = trainingFeeling === item.label;
                   return (
@@ -1886,20 +1870,12 @@ function TaskForm({
 
           {/* CONNECT 1: ATTENDANCE & LOGISTICS */}
           {currentSubStep === "connect_attendance" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  {day.onsiteSchedule || "Live Community Session"}
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  Will you attend {day.eventTitle || "this session"}?
-                </h1>
-                {day.eventDetails && (
-                  <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    {day.eventDetails}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={day.onsiteSchedule || "Live Community Session"}
+                title={`Will you attend ${day.eventTitle || "this session"}?`}
+                subtitle={day.eventDetails}
+              />
 
               {(safeHttpUrl(day.meetupLink) || day.onsiteVenue) && (
                 <div className="py-4 border-t border-b border-zinc-200/90 dark:border-white/10 space-y-2.5 text-xs">
@@ -1975,18 +1951,12 @@ function TaskForm({
 
           {/* CONNECT 2: SESSION RATING */}
           {currentSubStep === "connect_rating" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Session Feedback
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How would you rate today&apos;s session?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Rate your overall takeaway and experience from 1 to 5 stars.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow="Session Feedback"
+                title="How would you rate today's session?"
+                subtitle="Rate your overall takeaway and experience from 1 to 5 stars."
+              />
 
               <div className="grid grid-cols-5 gap-2 sm:gap-2.5 pt-1 min-w-0">
                 {[1, 2, 3, 4, 5].map((star) => {
@@ -2014,7 +1984,7 @@ function TaskForm({
                         }`}
                       />
                       <span
-                        className={`text-[11px] font-mono font-medium ${
+                        className={`text-[11px] font-medium tabular-nums ${
                           filled ? "text-zinc-950 dark:text-white font-semibold" : "text-zinc-600 dark:text-zinc-400"
                         }`}
                       >
@@ -2029,18 +1999,12 @@ function TaskForm({
 
           {/* MEAL 1: NUMBER OF MEALS EATEN TODAY (1 / 2 / 3) */}
           {currentSubStep === "meal_count" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  Day {day.dayNumber} · Daily Intake Frequency
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How many meals did you eat today?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Select your meal count first — you will review each meal next.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`Day ${day.dayNumber} · Daily Intake Frequency`}
+                title="How many meals did you eat today?"
+                subtitle="Select your meal count first — you will review each meal next."
+              />
 
               <div className="grid grid-cols-3 gap-3 pt-1">
                 {([1, 2, 3] as const).map((count) => {
@@ -2063,15 +2027,15 @@ function TaskForm({
                           : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
                       }`}
                     >
-                      <span className="block text-2xl font-mono font-bold tabular-nums leading-none">
+                      <span className="block text-2xl font-geometric font-medium tabular-nums leading-none">
                         {count}
                       </span>
                       <span
-                        className={`block text-[11px] font-mono uppercase tracking-wider mt-2 ${
+                        className={`block text-xs font-medium mt-2 ${
                           active ? "text-white/80 dark:text-zinc-950/80" : "text-zinc-500 dark:text-zinc-400"
                         }`}
                       >
-                        {count === 1 ? "Time" : "Times"}
+                        {count === 1 ? "Meal" : "Meals"}
                       </span>
                     </button>
                   );
@@ -2120,22 +2084,14 @@ function TaskForm({
               };
 
               return (
-                <div className="space-y-5 min-w-0">
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                      Meal {slotIndex + 1} of {totalMeals} · Daily Plan Check
-                    </span>
-                    <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                      Did Meal {slotIndex + 1} follow today&apos;s meal plan?
-                    </h1>
-                    {cleanDefaultRec && (
-                      <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        Suggested: {cleanDefaultRec}
-                      </p>
-                    )}
-                  </div>
+                <div className="space-y-6 min-w-0">
+                  <StepHeader
+                    eyebrow={`Meal ${slotIndex + 1} of ${totalMeals} · Daily Plan Check`}
+                    title={`Did Meal ${slotIndex + 1} follow today's meal plan?`}
+                    subtitle={cleanDefaultRec ? `Suggested: ${cleanDefaultRec}` : null}
+                  />
 
-                  <div className="grid grid-cols-1 gap-2.5">
+                  <div className="grid grid-cols-1 gap-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -2171,8 +2127,8 @@ function TaskForm({
                     </button>
 
                     {entry?.status === "followed" && recommendedMeals.length > 1 && (
-                      <div className="p-3 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/[0.03] space-y-2">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
+                      <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/[0.03] space-y-2">
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
                           Matched Menu Option
                         </span>
                         <div className="grid grid-cols-1 gap-1.5">
@@ -2264,20 +2220,14 @@ function TaskForm({
 
           {/* MEAL FINAL: POST-MEAL MOOD (ALWAYS LAST) */}
           {currentSubStep === "meal_mood" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  {mealDraft.mealsCount} {mealDraft.mealsCount === 1 ? "Meal" : "Meals"} Logged
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How do you feel after your meals?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Note your post-meal digestion and sustained energy state.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow={`${mealDraft.mealsCount} ${mealDraft.mealsCount === 1 ? "Meal" : "Meals"} Logged`}
+                title="How do you feel after your meals?"
+                subtitle="Note your post-meal digestion and sustained energy state."
+              />
 
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-3">
                 {MEAL_FEELINGS.map((item) => {
                   const active = mealDraft.mealFeeling === item.label;
                   return (
@@ -2311,23 +2261,13 @@ function TaskForm({
           {currentSubStep === "reflection_journal" && (() => {
             const preferNotAnswer = review === REFLECTION_DECLINED;
             return (
-              <div className="space-y-5 min-w-0">
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                    Day {day.dayNumber} · Daily Reflection
-                  </span>
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                    Reflect on your day
-                  </h1>
-                  {day.dailyAssessment && (
-                    <p className="text-xs sm:text-[13px] text-zinc-700 dark:text-zinc-200 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
-                      {day.dailyAssessment}
-                    </p>
-                  )}
-                  <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    Write freely in your own words — log today&apos;s journal, vent about anything on your mind, or capture whatever stood out today.
-                  </p>
-                </div>
+              <div className="space-y-6 min-w-0">
+                <StepHeader
+                  eyebrow={`Day ${day.dayNumber} · Daily Reflection`}
+                  title="Reflect on your day"
+                  quote={day.dailyAssessment}
+                  subtitle="Write freely in your own words — log today's journal, vent about anything on your mind, or capture whatever stood out today."
+                />
 
                 <textarea
                   value={preferNotAnswer ? "" : review}
@@ -2375,18 +2315,12 @@ function TaskForm({
 
           {/* REFLECTION 2: DAILY ENERGY & MOOD RATING (ALWAYS LAST) */}
           {currentSubStep === "reflection_mood" && (
-            <div className="space-y-5 min-w-0">
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-                  End of Day Check-In
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug">
-                  How is your overall mood &amp; energy today?
-                </h1>
-                <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Select your overall rating to wrap up today&apos;s reflection.
-                </p>
-              </div>
+            <div className="space-y-6 min-w-0">
+              <StepHeader
+                eyebrow="End of Day Check-In"
+                title="How is your overall mood & energy today?"
+                subtitle="Select your overall rating to wrap up today's reflection."
+              />
 
               <div className="grid grid-cols-5 gap-2 sm:gap-2.5 pt-1 min-w-0" role="radiogroup" aria-label="Satisfaction Rating">
                 {FACES.map(({ score: n, Icon, label }) => {
@@ -2409,7 +2343,7 @@ function TaskForm({
                       }`}
                     >
                       <Icon className="w-6 h-6" strokeWidth={1.75} />
-                      <span className="text-[11px] font-mono font-medium truncate max-w-full">{label}</span>
+                      <span className="text-[11px] font-medium truncate max-w-full">{label}</span>
                     </button>
                   );
                 })}

@@ -188,6 +188,30 @@ export interface HealthProfileData {
   eatingPatterns?: string | null;
 }
 
+function isCohortEnded(startDate?: string | Date | null, endDate?: string | Date | null, dayCount?: number) {
+  const n = new Date();
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    return n.getTime() > end.getTime();
+  }
+  if (startDate && dayCount) {
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + dayCount);
+    end.setHours(23, 59, 59, 999);
+    return n.getTime() > end.getTime();
+  }
+  return false;
+}
+
+function isCohortUpcoming(startDate?: string | Date | null) {
+  if (!startDate) return false;
+  const n = new Date();
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  return n.getTime() < start.getTime();
+}
+
 interface DashboardProps {
   user: UserProfile;
   myPrograms: EnrollmentItem[];
@@ -204,13 +228,20 @@ export function DashboardClient({
   initialHealthProfile,
 }: DashboardProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">("my_plan");
+  const hasInitialActivePlan = myPrograms.some(
+    (e) => e.status === "ACTIVE" && !isCohortEnded(e.startDate, e.endDate, e.dayCount)
+  );
+  const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">(
+    hasInitialActivePlan ? "my_plan" : "all_plan"
+  );
   const [myPlanView, setMyPlanView] = useState<"index" | "detail">("index");
   const [exploreView, setExploreView] = useState<"intro" | "catalog" | "coaches">("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
-  const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({ my_plan: true });
+  const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({
+    [hasInitialActivePlan ? "my_plan" : "all_plan"]: true,
+  });
 
   useEffect(() => {
     setVisitedTabs((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
@@ -240,30 +271,6 @@ export function DashboardClient({
   // Filter ONLY programs the user has enrolled in
   const enrolledProgramIds = new Set(myPrograms.map((e) => e.programId));
   const myEnrolledPrograms = allPrograms.filter((p) => enrolledProgramIds.has(p.id));
-
-  const isCohortEnded = (startDate?: string | Date | null, endDate?: string | Date | null, dayCount?: number) => {
-    const n = new Date();
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      return n.getTime() > end.getTime();
-    }
-    if (startDate && dayCount) {
-      const end = new Date(startDate);
-      end.setDate(end.getDate() + dayCount);
-      end.setHours(23, 59, 59, 999);
-      return n.getTime() > end.getTime();
-    }
-    return false;
-  };
-
-  const isCohortUpcoming = (startDate?: string | Date | null) => {
-    if (!startDate) return false;
-    const n = new Date();
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    return n.getTime() < start.getTime();
-  };
 
   const allActiveEnrollments = myPrograms.filter((e) => e.status === "ACTIVE");
   const ongoingOrUpcomingEnrollment = allActiveEnrollments.find(
@@ -827,7 +834,7 @@ export function DashboardClient({
       if (publicBadge && publicBadge !== "Open Registration") {
         setActionNotice({
           type: "error",
-          text: `Registration is not open for this program (Status: ${publicBadge}).`,
+          text: `Registration is not open for this plan (Status: ${publicBadge}).`,
         });
         setTimeout(() => setActionNotice(null), 4000);
         return;
@@ -980,6 +987,8 @@ export function DashboardClient({
     (activeTab === "all_plan" && exploreView === "intro") ||
     (activeTab === "notifications" && historyView === "intro") ||
     (activeTab === "profile" && profileViewMode === "intro");
+  const isIndexPage =
+    isFullBleedFirstPage || (activeTab === "my_plan" && myPlanView === "index");
 
   return (
     <div className="member-dashboard-unboxed min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
@@ -1008,28 +1017,20 @@ export function DashboardClient({
         />
       )}
 
-      {/* Bottom Navigation (Box & Border on index pages only; seamless on subpages) */}
+      {/* Bottom Navigation: fixed uniform geometry; border box only on active index tab button */}
       <nav
         aria-label="Primary"
         style={{
-          paddingBottom: isFullBleedFirstPage
-            ? "max(0.65rem, env(safe-area-inset-bottom))"
-            : "env(safe-area-inset-bottom)",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
         className={`dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 ${
           isFullBleedFirstPage
-            ? "pt-1.5 bg-transparent"
+            ? "bg-transparent"
             : "bg-[#f6f6f4]/90 dark:bg-[#0e0e0e]/90 backdrop-blur-md"
         }`}
       >
         <div className="max-w-md mx-auto px-4">
-          <div
-            className={
-              isFullBleedFirstPage
-                ? "rounded-2xl border border-white/25 bg-black/45 backdrop-blur-md p-1 flex items-center gap-1 transition-colors duration-200"
-                : "h-14 flex items-center justify-around gap-1"
-            }
-          >
+          <div className="h-14 flex items-center gap-1.5">
             {(
               [
                 { key: "my_plan", label: "My Plan" },
@@ -1039,6 +1040,18 @@ export function DashboardClient({
               ] as const
             ).map(({ key, label }) => {
               const active = activeTab === key;
+              const btnStateClass = isFullBleedFirstPage
+                ? active
+                  ? "border-white/45 bg-white/15 backdrop-blur-md text-white font-semibold"
+                  : "border-transparent bg-transparent text-white/75 hover:text-white font-medium"
+                : isIndexPage
+                  ? active
+                    ? "border-zinc-300 dark:border-white/25 bg-white dark:bg-white/15 text-zinc-950 dark:text-white font-semibold shadow-xs"
+                    : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium"
+                  : active
+                    ? "border-transparent bg-transparent text-zinc-950 dark:text-white font-semibold"
+                    : "border-transparent bg-transparent text-zinc-400 hover:text-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-200 font-medium";
+
               return (
                 <button
                   key={key}
@@ -1059,19 +1072,7 @@ export function DashboardClient({
                     setIsOverHero(true);
                     window.scrollTo({ top: 0 });
                   }}
-                  className={
-                    isFullBleedFirstPage
-                      ? `flex-1 h-9 px-2 rounded-xl border flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${
-                          active
-                            ? "border-white/40 bg-white/20 text-white font-semibold"
-                            : "border-transparent text-white/70 hover:text-white hover:bg-white/10 font-medium"
-                        }`
-                      : `flex-1 h-11 px-2 flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${
-                          active
-                            ? "text-zinc-950 dark:text-white font-semibold"
-                            : "text-zinc-400 hover:text-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-200 font-medium"
-                        }`
-                  }
+                  className={`flex-1 h-10 px-2 rounded-xl border flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${btnStateClass}`}
                 >
                   <span>{label}</span>
                   {key === "my_plan" && activeEnrollments.length > 0 && (

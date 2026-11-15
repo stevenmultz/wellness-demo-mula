@@ -178,7 +178,7 @@ export function NotificationsHistoryTab({
         ) : (
           <HeaderBackButton
             onClick={() => setMode("intro")}
-            ariaLabel="Back to Activity overview"
+            ariaLabel="Back to Alerts overview"
           />
         )}
       </FloatingHeader>
@@ -209,14 +209,14 @@ export function NotificationsHistoryTab({
                 <div className="flex items-center gap-2.5">
                   <span className="w-5 h-px bg-white/50" />
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
-                    Activity
+                    Alerts
                   </span>
                 </div>
                 <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
                   Notifications &amp; History
                 </h1>
                 <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
-                  Stay updated with cohort alerts, session reminders, completed programs, and billing records.
+                  Stay updated with cohort alerts, session reminders, completed plans, and billing records.
                 </p>
               </section>
 
@@ -257,12 +257,12 @@ export function NotificationsHistoryTab({
           {/* SUB-TAB BAR CONSISTENT WITH MY PLAN */}
           <div className="space-y-3">
             <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              Activity
+              Alerts
             </h1>
 
             <div
               role="tablist"
-              aria-label="Activity sections"
+              aria-label="Alerts sections"
               className="rounded-xl p-1 bg-zinc-200/80 dark:bg-white/10 grid grid-cols-2 gap-1"
             >
               {(
@@ -379,7 +379,7 @@ export function NotificationsHistoryTab({
             {notifs.status === "ready" && allNotifications.length === 0 && (
               <EmptyState
                 title="No notifications yet"
-                description="Program updates, habit reminders, and payment receipts will appear here."
+                description="Plan updates, habit reminders, and payment receipts will appear here."
               />
             )}
 
@@ -517,7 +517,7 @@ export function NotificationsHistoryTab({
                     </div>
 
                     <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      Total Billed · {p.isFree ? "Free Program" : formatIdr(p.amount)}
+                      Total Billed · {p.isFree ? "Free Plan" : formatIdr(p.amount)}
                       {p.reference ? ` · Ref: ${p.reference}` : ""}
                     </p>
 
@@ -534,7 +534,7 @@ export function NotificationsHistoryTab({
           {history.status === "ready" && completedPrograms.length === 0 && history.data.payments.length === 0 && (
             <EmptyState
               title="No history yet"
-              description="Completed programs and payment receipts will be recorded here."
+              description="Completed plans and payment receipts will be recorded here."
             />
           )}
         </section>

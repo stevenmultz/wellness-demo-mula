@@ -265,8 +265,8 @@ export function MyPlanIndex({
           </h1>
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm">
             {plans.length > 0
-              ? "Here are the active programs you're currently enrolled in. Select a plan below to open today's session."
-              : "You have no active plans right now. Explore available programs to get started."}
+              ? "Here are the active plans you're currently enrolled in. Select a plan below to open today's session."
+              : "You have no active plans right now. Explore available plans to get started."}
           </p>
         </div>
 
@@ -433,7 +433,7 @@ export function MyPlanIndex({
       ) : (
         <EmptyState
           title="No active plans"
-          description="Explore available programs to start a cohort or review your completed journeys in History."
+          description="Explore available plans to start a cohort or review your completed journeys in History."
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               <button
@@ -441,7 +441,7 @@ export function MyPlanIndex({
                 onClick={onExplore}
                 className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-medium uppercase tracking-wider inline-flex items-center gap-1.5"
               >
-                <Compass className="w-3.5 h-3.5" /> Explore Plan
+                <Compass className="w-3.5 h-3.5" /> Explore Plans
               </button>
               {completedCount > 0 && (
                 <button
@@ -707,7 +707,7 @@ export function MyPlanOverview({
   const destinationCommunityUrl =
     communityUrl ||
     `https://wa.me/6281290002026?text=${encodeURIComponent(
-      `Hello Concierge, I would like to join the community group for: ${program?.title || "Program"}`
+      `Hello Concierge, I would like to join the community group for: ${program?.title || "Plan"}`
     )}`;
 
   const handleConfirmCommunityProceed = () => {
@@ -775,7 +775,7 @@ export function MyPlanOverview({
             <div className="space-y-3">
               <div>
                 <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
-                  {program?.title || "No active program"}
+                  {program?.title || "No active plan"}
                 </h2>
                 {program && (
                   <p className="mt-1 text-xs text-white/80 truncate">
@@ -857,8 +857,8 @@ export function MyPlanOverview({
         <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
           {!program ? (
             <EmptyState
-              title="No active program"
-              description="You do not have an active cohort right now. Explore available plans or view your completed programs in History."
+              title="No active plan"
+              description="You do not have an active cohort right now. Explore available plans or view your completed plans in History."
               action={
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
@@ -866,7 +866,7 @@ export function MyPlanOverview({
                     onClick={onExplore}
                     className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
                   >
-                    <Compass className="w-3.5 h-3.5" /> Explore Plan
+                    <Compass className="w-3.5 h-3.5" /> Explore Plans
                   </button>
                   {onViewHistory && (
                     <button
@@ -1200,7 +1200,7 @@ function CohortPerformanceCard({
           <li><strong className="text-zinc-900 dark:text-white">Training:</strong> Starts at 100% and decreases proportionally for each skipped or missed training day.</li>
           <li><strong className="text-zinc-900 dark:text-white">Meal:</strong> Starts at 100% and decreases proportionally when meals are marked partial, off-track, or skipped.</li>
           <li><strong className="text-zinc-900 dark:text-white">Energy &amp; Mood:</strong> Starts at 100% and adjusts proportionally with your daily mood ratings and missed reflections.</li>
-          <li><strong className="text-zinc-900 dark:text-white">Program Consistency:</strong> Starts at 100% and decreases proportionally for each skipped or inactive past program day.</li>
+          <li><strong className="text-zinc-900 dark:text-white">Plan Consistency:</strong> Starts at 100% and decreases proportionally for each skipped or inactive past plan day.</li>
         </ul>
       </InfoPopupModal>
 
@@ -1279,7 +1279,7 @@ function CohortPerformanceCard({
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Program Consistency</span>
+              <span>Plan Consistency</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
               {consistencyPct}%
@@ -1341,14 +1341,14 @@ function ProgramReportPageView({
     "Curriculum or Exercise Difficulty",
     "Audio or Sound Playback Error",
     "Payment / Access Inquiries",
-    "Other Program Issue",
+    "Other Plan Issue",
   ];
 
   const quitOptions = [
     "Schedule / Time Conflict",
     "Injury or Medical Reason",
     "Curriculum Intensity Not a Good Fit",
-    "Switching to Another Program",
+    "Switching to Another Plan",
     "Personal / Other Reason",
   ];
 
@@ -1361,7 +1361,7 @@ function ProgramReportPageView({
         const existing = JSON.parse(localStorage.getItem(key) || "[]");
         existing.push({
           id: `${activeTab}_${Date.now()}`,
-          programTitle: programTitle || "Cohort Program",
+          programTitle: programTitle || "Cohort Plan",
           type: activeTab === "quit" ? quitReason : issueType,
           note: note.trim(),
           submittedAt: new Date().toISOString(),
@@ -1392,7 +1392,7 @@ function ProgramReportPageView({
               <HeaderBackButton onClick={onClose} />
               <div className="min-w-0 text-right">
                 <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                  Program Support &amp; Options
+                  Plan Support &amp; Options
                 </p>
                 <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
                   {programTitle || "Cohort Assistance Desk"}
@@ -1441,7 +1441,7 @@ function ProgramReportPageView({
                     How can we help you?
                   </h1>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Submit a technical or curriculum report, or request a withdrawal from {programTitle || "this program"}.
+                    Submit a technical or curriculum report, or request a withdrawal from {programTitle || "this plan"}.
                   </p>
                 </div>
 
@@ -1466,7 +1466,7 @@ function ProgramReportPageView({
                         : "text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
                     }`}
                   >
-                    Quit Program
+                    Quit Plan
                   </button>
                 </div>
 
@@ -2113,11 +2113,11 @@ function ProgramPreparationWidgets({
       <section className="w-full space-y-4">
         <div className="w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Program Guides</h2>
+            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Plan Guides</h2>
             <button
               type="button"
               onClick={() => setShowGuidesInfo(true)}
-              aria-label="Program guides overview"
+              aria-label="Plan guides overview"
               className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
             >
               <Info className="w-3.5 h-3.5" />
@@ -2127,15 +2127,15 @@ function ProgramPreparationWidgets({
 
         <InfoPopupModal
           open={showGuidesInfo}
-          title="Program Guides"
+          title="Plan Guides"
           subtitle="Meals, sessions, overview, rules & coaches"
           onClose={() => setShowGuidesInfo(false)}
         >
-          <p className="font-semibold text-zinc-950 dark:text-white">What Program Guides Cover:</p>
+          <p className="font-semibold text-zinc-950 dark:text-white">What Plan Guides Cover:</p>
           <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
-            <li><strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily nutrition principles, hydration targets, and dietary guidance for each program day.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily nutrition principles, hydration targets, and dietary guidance for each plan day.</li>
             <li><strong className="text-zinc-900 dark:text-white">Meetups &amp; Live:</strong> Scheduled Zoom clinics, live coaching sessions, and community meetups.</li>
-            <li><strong className="text-zinc-900 dark:text-white">Overview:</strong> Program logistics, methodology, outcomes, required gear, and scientific references.</li>
+            <li><strong className="text-zinc-900 dark:text-white">Overview:</strong> Plan logistics, methodology, outcomes, required gear, and scientific references.</li>
             <li><strong className="text-zinc-900 dark:text-white">Rules:</strong> Practical guidelines, daily logging cutoffs, and cohort safety standards.</li>
             <li><strong className="text-zinc-900 dark:text-white">Coaches:</strong> Dedicated faculty and clinical specialists guiding this cohort.</li>
           </ul>
@@ -2216,7 +2216,7 @@ function ProgramPreparationWidgets({
                           ? "Commitment, methodology, gear, and clinical references."
                           : activePage === "rules"
                             ? "Daily cadence, medical safety, and cohort conduct."
-                            : `${coachesList.length} specialists guiding this program.`}
+                            : `${coachesList.length} specialists guiding this plan.`}
                   </p>
                 </div>
               </div>
@@ -2284,7 +2284,7 @@ function ProgramPreparationWidgets({
                     </>
                   ) : (
                     <div className="py-12 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                      No live sessions scheduled for this program.
+                      No live sessions scheduled for this plan.
                     </div>
                   )}
                 </div>
@@ -2425,7 +2425,7 @@ function ProgramPreparationWidgets({
                       </div>
                     ) : (
                       <p className="py-5 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                        No clinical references cited for this program.
+                        No clinical references cited for this plan.
                       </p>
                     )}
                   </GuideAccordion>

@@ -307,14 +307,14 @@ export function ExplorePlanTab({
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/explore/programs?${params.toString()}`, { signal, cache: "no-store" });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load programs.");
+      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load plans.");
       setState({ status: "ready", programs: json.programs as ExploreProgram[] });
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       setState((prev) =>
         prev.status === "ready"
           ? prev
-          : { status: "error", message: err instanceof Error ? err.message : "Failed to load programs." }
+          : { status: "error", message: err instanceof Error ? err.message : "Failed to load plans." }
       );
     } finally {
       if (!signal.aborted) setRefreshing(false);
@@ -457,8 +457,8 @@ export function ExplorePlanTab({
                 inputMode="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search program or keyword..."
-                aria-label="Search program or keyword..."
+                placeholder="Search plan or keyword..."
+                aria-label="Search plan or keyword..."
                 maxLength={100}
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
               />
@@ -518,14 +518,14 @@ export function ExplorePlanTab({
                 <div className="flex items-center gap-2.5">
                   <span className="w-5 h-px bg-white/50" />
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
-                    Curated Programs
+                    Curated Plans
                   </span>
                 </div>
                 <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
-                  Explore All Programs
+                  Explore All Plans
                 </h1>
                 <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
-                  Structured movement, whole-food nutrition, and circadian recovery programs led by certified longevity practitioners.
+                  Structured movement, whole-food nutrition, and circadian recovery plans led by certified longevity practitioners.
                 </p>
               </div>
 
@@ -540,7 +540,7 @@ export function ExplorePlanTab({
                   }}
                   className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>Browse All Programs</span>
+                  <span>Browse All Plans</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
 
@@ -583,7 +583,7 @@ export function ExplorePlanTab({
 
               <div className="space-y-1">
                 <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                  Program Faculty &amp; Coaches
+                  Plan Faculty &amp; Coaches
                 </h1>
               </div>
 
@@ -634,7 +634,7 @@ export function ExplorePlanTab({
                               {name}
                             </h2>
                             <span className="text-[10px] font-mono text-white/75 block">
-                              {count} {count === 1 ? "Program" : "Programs"}
+                              {count} {count === 1 ? "Plan" : "Plans"}
                             </span>
                           </div>
                         </button>
@@ -708,9 +708,9 @@ export function ExplorePlanTab({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
-                {catalog.length === 0 && <p className="text-xs text-zinc-500">No programs loaded yet, so there are no options to filter.</p>}
+                {catalog.length === 0 && <p className="text-xs text-zinc-500">No plans loaded yet, so there are no options to filter.</p>}
                 <ChipGroup
-                  label="Program format"
+                  label="Plan format"
                   options={supported.format.map((o) => o.label)}
                   selected={draft.format.map((id) => FORMAT_OPTIONS.find((o) => o.id === id)?.label || id)}
                   onToggle={(label) => {
@@ -719,8 +719,8 @@ export function ExplorePlanTab({
                   }}
                 />
                 <ChipGroup label="Intensity level" options={supported.intensity} selected={draft.intensity} onToggle={(v) => toggle("intensity", v)} />
-                <ChipGroup label="Program category" options={supported.category} selected={draft.category} onToggle={(v) => toggle("category", v)} />
-                <ChipGroup label="Program duration" options={supported.duration} selected={draft.duration} onToggle={(v) => toggle("duration", v)} />
+                <ChipGroup label="Plan category" options={supported.category} selected={draft.category} onToggle={(v) => toggle("category", v)} />
+                <ChipGroup label="Plan duration" options={supported.duration} selected={draft.duration} onToggle={(v) => toggle("duration", v)} />
                 {supported.price && (
                   <ChipGroup
                     label="Price"
@@ -843,15 +843,15 @@ export function ExplorePlanTab({
           </div>
         )}
 
-        {state.status === "loading" && <LoadingState label="Loading programs..." />}
+        {state.status === "loading" && <LoadingState label="Loading plans..." />}
         {state.status === "error" && <ErrorState message={state.message} onRetry={() => setReloadKey((k) => k + 1)} />}
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
-            title={debouncedSearch || activeCount || selectedCoach ? "No programs match" : "No programs available yet"}
+            title={debouncedSearch || activeCount || selectedCoach ? "No plans match" : "No plans available yet"}
             description={
               debouncedSearch || activeCount || selectedCoach
                 ? "Try another coach, search term, or clear filters."
-                : "New programs will show up here when they are published."
+                : "New plans will show up here when they are published."
             }
             action={
               activeCount || debouncedSearch || selectedCoach ? (
@@ -1059,7 +1059,7 @@ export function ExplorePlanTab({
               })}
             </ul>
             {pages > 1 && (
-              <nav aria-label="Program pages" className="flex items-center justify-center gap-1.5 pt-2">
+              <nav aria-label="Plan pages" className="flex items-center justify-center gap-1.5 pt-2">
                 <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
                   <ChevronLeft className="w-3.5 h-3.5" /> Previous
                 </button>
