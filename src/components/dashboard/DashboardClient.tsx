@@ -1008,29 +1008,33 @@ export function DashboardClient({
         />
       )}
 
-      {/* Bottom Navigation (My Plan, Explore, History, Profile) */}
+      {/* Bottom Navigation (Box & Border on index pages only; seamless on subpages) */}
       <nav
         aria-label="Primary"
-        style={{ paddingBottom: "max(0.65rem, env(safe-area-inset-bottom))" }}
-        className={`dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 pt-1.5 font-geometric transition-colors duration-200 ${
+        style={{
+          paddingBottom: isFullBleedFirstPage
+            ? "max(0.65rem, env(safe-area-inset-bottom))"
+            : "env(safe-area-inset-bottom)",
+        }}
+        className={`dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 ${
           isFullBleedFirstPage
-            ? "bg-transparent"
+            ? "pt-1.5 bg-transparent"
             : "bg-[#f6f6f4]/90 dark:bg-[#0e0e0e]/90 backdrop-blur-md"
         }`}
       >
         <div className="max-w-md mx-auto px-4">
           <div
-            className={`rounded-2xl border p-1 flex items-center gap-1 transition-colors duration-200 ${
+            className={
               isFullBleedFirstPage
-                ? "border-white/25 bg-black/45 backdrop-blur-md"
-                : "border-zinc-200/90 dark:border-white/15 bg-white/90 dark:bg-[#141414]/90 backdrop-blur-md"
-            }`}
+                ? "rounded-2xl border border-white/25 bg-black/45 backdrop-blur-md p-1 flex items-center gap-1 transition-colors duration-200"
+                : "h-14 flex items-center justify-around gap-1"
+            }
           >
             {(
               [
                 { key: "my_plan", label: "My Plan" },
                 { key: "all_plan", label: "Explore" },
-                { key: "notifications", label: "History" },
+                { key: "notifications", label: "Alerts" },
                 { key: "profile", label: "Profile" },
               ] as const
             ).map(({ key, label }) => {
@@ -1055,15 +1059,19 @@ export function DashboardClient({
                     setIsOverHero(true);
                     window.scrollTo({ top: 0 });
                   }}
-                  className={`flex-1 h-9 px-2 rounded-xl border flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${
+                  className={
                     isFullBleedFirstPage
-                      ? active
-                        ? "border-white/40 bg-white/20 text-white font-semibold"
-                        : "border-transparent text-white/70 hover:text-white hover:bg-white/10 font-medium"
-                      : active
-                        ? "border-zinc-300 dark:border-white/25 bg-zinc-100 dark:bg-white/15 text-zinc-950 dark:text-white font-semibold"
-                        : "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100/70 dark:hover:bg-white/5 font-medium"
-                  }`}
+                      ? `flex-1 h-9 px-2 rounded-xl border flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${
+                          active
+                            ? "border-white/40 bg-white/20 text-white font-semibold"
+                            : "border-transparent text-white/70 hover:text-white hover:bg-white/10 font-medium"
+                        }`
+                      : `flex-1 h-11 px-2 flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${
+                          active
+                            ? "text-zinc-950 dark:text-white font-semibold"
+                            : "text-zinc-400 hover:text-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-200 font-medium"
+                        }`
+                  }
                 >
                   <span>{label}</span>
                   {key === "my_plan" && activeEnrollments.length > 0 && (

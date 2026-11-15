@@ -369,13 +369,10 @@ export function ProfileTab({
         ) : mode === "intro" ? (
           <BrandWordmark light />
         ) : (
-          <div className="flex items-center justify-between w-full">
-            <HeaderBackButton
-              onClick={() => setMode("intro")}
-              ariaLabel="Back to Profile overview"
-            />
-            <BrandWordmark />
-          </div>
+          <HeaderBackButton
+            onClick={() => setMode("intro")}
+            ariaLabel="Back to Profile overview"
+          />
         )}
       </FloatingHeader>
 

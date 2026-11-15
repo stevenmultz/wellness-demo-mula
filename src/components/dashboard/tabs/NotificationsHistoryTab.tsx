@@ -316,7 +316,7 @@ export function NotificationsHistoryTab({
       {section === "notifications" && (
         <section className="space-y-6">
           {/* PUSH NOTIFICATION TOGGLE */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 flex items-center justify-between gap-4">
+          <div className="profile-detail-scope rounded-2xl border border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] p-4 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Bell className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
@@ -384,7 +384,7 @@ export function NotificationsHistoryTab({
             )}
 
             {allNotifications.length > 0 && (
-              <div className="space-y-3">
+              <div className="profile-detail-scope space-y-3">
                 {allNotifications.map((n) => (
                   <button
                     key={n.id}
@@ -392,7 +392,7 @@ export function NotificationsHistoryTab({
                     onClick={() => markRead(n)}
                     className={`w-full text-left rounded-2xl border p-4 space-y-2 transition ${
                       n.isRead
-                        ? "border-zinc-200/80 dark:border-white/10 bg-white/70 dark:bg-[#141414]/60 opacity-80"
+                        ? "border-zinc-200/90 dark:border-white/10 bg-white/80 dark:bg-[#141414]/80 opacity-85"
                         : "border-zinc-300 dark:border-white/25 bg-white dark:bg-[#181818]"
                     }`}
                   >
@@ -453,11 +453,11 @@ export function NotificationsHistoryTab({
                 </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="profile-detail-scope space-y-3">
                 {completedPrograms.map((cp) => (
                   <article
                     key={`completed-${cp.programId}`}
-                    className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-2"
+                    className="rounded-2xl border border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] p-4 space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-xs font-geometric font-medium truncate text-zinc-950 dark:text-white min-w-0">
@@ -499,7 +499,7 @@ export function NotificationsHistoryTab({
                 {history.data.payments.map((p) => (
                   <article
                     key={`payment-${p.enrollmentId}`}
-                    className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#141414] p-4 space-y-2"
+                    className="rounded-2xl border border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] p-4 space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-xs font-geometric font-medium truncate text-zinc-950 dark:text-white min-w-0">
