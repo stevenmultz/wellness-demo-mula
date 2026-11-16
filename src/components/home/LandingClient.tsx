@@ -15,6 +15,7 @@ import {
   PublicMobileBackdrop,
 } from "@/components/home/PublicNavbar";
 import { wellnessSignOut } from "@/wellness/actions/auth";
+import { BRAND } from "@/wellness/brand";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -174,7 +175,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
       <div className="hidden lg:block lg:w-[52%] xl:w-[56%] relative min-h-screen overflow-hidden bg-zinc-950">
         <Image
           src="/pic.webp"
-          alt="BMS Sanctuary"
+          alt={BRAND.fullName}
           fill
           priority
           className="object-cover object-center grayscale contrast-[1.08] brightness-[0.82] transition-all duration-700"

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 export function PwaSplashDismiss() {
   useEffect(() => {
-    const splash = document.getElementById("bms-pwa-splash");
+    const splash = document.getElementById("zera-pwa-splash");
     if (!splash) return;
 
     let dismissed = false;
@@ -22,7 +22,7 @@ export function PwaSplashDismiss() {
     };
 
     const checkReady = () => {
-      const stillLoading = document.querySelector('[data-bms-loading="true"]');
+      const stillLoading = document.querySelector('[data-zera-loading="true"]');
       if (!stillLoading) {
         fadeOut();
         return true;

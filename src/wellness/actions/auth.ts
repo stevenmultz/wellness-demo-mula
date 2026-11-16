@@ -2,6 +2,7 @@
 
 import crypto from "crypto";
 import { prisma } from "../db";
+import { BRAND } from "../brand";
 import { hashPassword, verifyPassword } from "../security/password";
 import {
   createSessionToken,
@@ -98,7 +99,7 @@ export async function wellnessSignUp(
 
     return {
       success: true,
-      message: "Account created! Welcome to BMS Sanctuary.",
+      message: `Account created! Welcome to ${BRAND.fullName}.`,
       data: {
         id: newUser.id,
         email: newUser.email,
@@ -276,7 +277,7 @@ export async function wellnessRequestPasswordReset(
 
     await sendTransactionalEmail({
       to: email,
-      subject: "BMS Sanctuary — Password Reset Request",
+      subject: `${BRAND.fullName} — Password Reset Request`,
       html: `<p>Click the link below to reset your password (valid for 15 minutes):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
       text: `Reset Link (valid for 15 minutes): ${resetUrl}`,
     });

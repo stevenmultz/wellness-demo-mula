@@ -1,5 +1,5 @@
-import { BmsLogoLoading } from "@/components/common/BmsLogoLoading";
+import { ZeraLogoLoading } from "@/components/common/ZeraLogoLoading";
 
 export default function Loading() {
-  return <BmsLogoLoading />;
+  return <ZeraLogoLoading />;
 }

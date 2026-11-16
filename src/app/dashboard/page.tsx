@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
-import { BmsLogoLoading } from "@/components/common/BmsLogoLoading";
+import { ZeraLogoLoading } from "@/components/common/ZeraLogoLoading";
 import {
   safeJsonParse,
   parseTermsList,
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<BmsLogoLoading />}>
+    <Suspense fallback={<ZeraLogoLoading />}>
       <DashboardContent />
     </Suspense>
   );

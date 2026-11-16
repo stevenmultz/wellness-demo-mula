@@ -671,7 +671,7 @@ async function main() {
       maxQuota: 20,
       locationType: "ONSITE",
       city: "Jakarta Selatan",
-      venueAddress: "BMS Sanctuary Studio, Senopati",
+      venueAddress: "ZERA + Sanctuary Studio, Senopati",
       virtualFallbackAvailable: false,
       startDate: prog4Start,
       endDate: prog4End,

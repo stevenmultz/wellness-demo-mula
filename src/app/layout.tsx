@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuraBackground } from "@/components/ui/AuraBackground";
 import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
 import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
+import { BRAND } from "@/wellness/brand";
 
 const urbanist = Urbanist({
   subsets: ["latin"],
@@ -20,13 +21,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "+ BMS — Minimalist Longevity & Movement Sanctuary",
+  title: BRAND.title,
   description: "Curated daily physical vitality protocols, anti-inflammatory nutrition, and mindful habit tracking.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "+ BMS",
+    title: BRAND.name,
   },
 };
 
@@ -63,7 +64,7 @@ export default function RootLayout({
               html.dark, html.dark body {
                 background-color: #0e0e0e;
               }
-              #bms-pwa-splash {
+              #zera-pwa-splash {
                 position: fixed;
                 inset: 0;
                 width: 100%;
@@ -78,7 +79,7 @@ export default function RootLayout({
                 overflow: hidden;
                 transition: opacity 0.25s ease-out;
               }
-              #bms-pwa-splash .bms-splash-bg {
+              #zera-pwa-splash .zera-splash-bg {
                 position: absolute;
                 inset: 0;
                 width: 100%;
@@ -88,13 +89,13 @@ export default function RootLayout({
                 opacity: 1;
                 pointer-events: none;
               }
-              #bms-pwa-splash .bms-splash-scrim {
+              #zera-pwa-splash .zera-splash-scrim {
                 position: absolute;
                 inset: 0;
                 background: rgba(0, 0, 0, 0.28);
                 pointer-events: none;
               }
-              #bms-pwa-splash .bms-splash-brand {
+              #zera-pwa-splash .zera-splash-brand {
                 position: relative;
                 z-index: 10;
                 display: flex;
@@ -102,7 +103,7 @@ export default function RootLayout({
                 justify-content: center;
                 font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
               }
-              #bms-pwa-splash .bms-splash-title {
+              #zera-pwa-splash .zera-splash-title {
                 display: flex;
                 align-items: center;
                 gap: 6px;
@@ -120,21 +121,23 @@ export default function RootLayout({
       <body
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-clip antialiased`}
       >
-        <div id="bms-pwa-splash" aria-hidden="true">
+        <div id="zera-pwa-splash" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/image.webp"
             alt=""
             decoding="sync"
             fetchPriority="high"
-            className="bms-splash-bg"
+            className="zera-splash-bg"
           />
-          <div className="bms-splash-scrim" />
-          <div className="bms-splash-brand">
-            <div className="bms-splash-title">
-              <span style={{ fontWeight: 300, fontSize: "1.25rem", lineHeight: 1, color: "#ffffff" }}>+</span>
+          <div className="zera-splash-scrim" />
+          <div className="zera-splash-brand">
+            <div className="zera-splash-title">
               <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "#ffffff" }}>
-                BMS
+                {BRAND.wordmarkPrimary}
+              </span>
+              <span style={{ fontWeight: 300, fontSize: "1.25rem", lineHeight: 1, color: "#ffffff" }}>
+                {BRAND.wordmarkAccent}
               </span>
             </div>
           </div>

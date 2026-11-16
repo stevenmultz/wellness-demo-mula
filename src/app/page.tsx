@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import { getWellnessSession } from "@/wellness/security/session";
 import { LandingClient } from "@/components/home/LandingClient";
-import { BmsLogoLoading } from "@/components/common/BmsLogoLoading";
+import { ZeraLogoLoading } from "@/components/common/ZeraLogoLoading";
 
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<BmsLogoLoading />}>
+    <Suspense fallback={<ZeraLogoLoading />}>
       <HomeContent />
     </Suspense>
   );

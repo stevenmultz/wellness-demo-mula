@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { safeHttpUrl, safeMediaUrl } from "@/wellness/utils/url-safety";
 import {
   wellnessAdminSaveProgramDay,
@@ -4017,9 +4018,8 @@ export function AdminClient({
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <Link href="/" className="group inline-block">
-                  <h1 className="flex items-center gap-1.5 font-mono font-light text-base text-zinc-900 dark:text-white leading-none">
-                    <span>+</span>
-                    <span className="font-geometric font-light text-xs tracking-[0.28em] uppercase">BMS</span>
+                  <h1>
+                    <BrandLogo size="sm" />
                   </h1>
                 </Link>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate font-normal">

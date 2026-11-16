@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
 import { sendWebPushNotification, VAPID_PUBLIC_KEY } from "@/wellness/integrations/web-push";
+import { BRAND } from "@/wellness/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
           auth: saved.auth,
         },
         {
-          title: "+ BMS • Web Push Activated",
+          title: `${BRAND.name} • Web Push Activated`,
           body: "Your device is now synced with automated circadian cadence dispatches.",
           url: "/dashboard",
         }

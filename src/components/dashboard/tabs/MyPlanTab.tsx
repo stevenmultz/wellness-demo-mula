@@ -2,6 +2,8 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { BrandLogo } from "@/components/common/BrandLogo";
+import { BRAND } from "@/wellness/brand";
 import {
   AlertCircle,
   BarChart3,
@@ -368,8 +370,8 @@ export function MyPlanIndex({
                             className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs font-mono tracking-wide text-zinc-400">
-                            + BMS
+                          <div className="w-full h-full flex items-center justify-center">
+                            <BrandLogo size="sm" tone="light" className="opacity-70" />
                           </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/15" />
@@ -394,7 +396,7 @@ export function MyPlanIndex({
                               {p.title}
                             </h2>
                             <p className="text-xs text-white/80 truncate">
-                              Coach {p.coachName || "BMS Faculty"}
+                              Coach {p.coachName || BRAND.facultyFallback}
                             </p>
                           </div>
 
@@ -968,7 +970,7 @@ export function MyPlanOverview({
                   You are about to navigate to an external messaging service (such as WhatsApp or Telegram).
                 </p>
                 <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/70 dark:border-white/10 text-left text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Please note that interactions, discussions, and activities occurring outside the BMS Wellness platform take place independently and are not the responsibility or liability of BMS Wellness.
+                  Please note that interactions, discussions, and activities occurring outside the {BRAND.name} platform take place independently and are not the responsibility or liability of {BRAND.name}.
                 </div>
               </div>
 

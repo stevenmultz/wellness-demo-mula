@@ -18,7 +18,7 @@ async function handleCronDispatch(req: NextRequest) {
     const authHeader = req.headers.get("authorization");
     const secretQuery = searchParams.get("secret");
     const isProd = process.env.NODE_ENV === "production";
-    const cronSecret = process.env.CRON_SECRET || (isProd ? "" : "bms_sanctuary_cron_secure_key_2026");
+    const cronSecret = process.env.CRON_SECRET || (isProd ? "" : "zera_sanctuary_cron_secure_key_2026");
 
     let bodyJson: {
       simulateTime?: string;

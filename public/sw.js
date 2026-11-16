@@ -1,5 +1,5 @@
-// BMS Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Single Loading Pipeline)
-const CACHE_NAME = "bms-wellness-pwa-v9";
+// ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Single Loading Pipeline)
+const CACHE_NAME = "zera-wellness-pwa-v10";
 
 const STATIC_ASSETS = [
   "/",
@@ -113,7 +113,7 @@ self.addEventListener("fetch", (event) => {
 // Web Push Notification Listener
 self.addEventListener("push", (event) => {
   let data = {
-    title: "BMS Sanctuary",
+    title: "ZERA + Sanctuary",
     body: "Waktunya melanjutkan rutinitas mindful wellness hari ini.",
   };
   try {

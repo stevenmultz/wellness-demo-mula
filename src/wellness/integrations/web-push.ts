@@ -1,8 +1,9 @@
 import webpush from "web-push";
+import { BRAND } from "../brand";
 
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@bms.id";
+export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${BRAND.supportEmail}`;
 
 // Initialize VAPID details once
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
@@ -53,7 +54,7 @@ export async function sendWebPushNotification(
     icon: payload.icon || "/favicon.svg",
     badge: payload.badge || "/favicon.svg",
     url: payload.url || "/dashboard",
-    tag: payload.tag || "bms-cadence",
+    tag: payload.tag || BRAND.notificationTagPrefix,
     data: payload.data || {},
   });
 

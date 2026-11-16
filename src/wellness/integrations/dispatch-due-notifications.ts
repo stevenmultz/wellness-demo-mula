@@ -2,6 +2,7 @@ import { prisma } from "@/wellness/db";
 import { sendWebPushNotification } from "@/wellness/integrations/web-push";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { safeJsonParse } from "@/wellness/utils/json";
+import { BRAND } from "@/wellness/brand";
 import {
   buildCadenceDedupeKey,
   getDueSlots,
@@ -147,7 +148,7 @@ export async function dispatchDueNotifications(options: {
               title: prog.title,
               body: message,
               url: "/dashboard",
-              tag: `bms-cadence-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
+              tag: `${BRAND.notificationTagPrefix}-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
             });
             if (sendRes.success) {
               sentSuccess++;

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { BrandLogo } from "@/components/common/BrandLogo";
+import { BRAND } from "@/wellness/brand";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -83,19 +85,14 @@ function ResetPasswordForm() {
 
   return (
     <div className="w-full max-w-md space-y-5">
-      <div className="flex items-center gap-2">
-        <span className="font-mono font-light text-xl leading-none">+</span>
-        <span className="font-geometric font-semibold text-xs tracking-[0.28em] uppercase">
-          BMS
-        </span>
-      </div>
+      <BrandLogo size="md" />
 
       <div className="space-y-1">
         <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
           Set new password
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
-          Choose a new password for your BMS Sanctuary account.
+          Choose a new password for your {BRAND.fullName} account.
         </p>
       </div>
 

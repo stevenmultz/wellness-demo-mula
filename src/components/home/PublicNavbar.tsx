@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { BrandLogo } from "@/components/common/BrandLogo";
+import { BRAND } from "@/wellness/brand";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const PUBLIC_NAV_LINKS = [
@@ -36,22 +38,17 @@ export function PublicMobileBackdrop() {
 }
 
 /**
- * Top bar: + BMS logo on top-left and text-only theme toggle ("Dark" / "Light") on top-right.
+ * Top bar: ZERA + logo on top-left and text-only theme toggle ("Dark" / "Light") on top-right.
  */
 export function PublicTopBrand() {
   return (
     <header className="w-full flex items-center justify-between shrink-0">
       <Link
         href="/"
-        className="flex items-center gap-1.5 text-left group shrink-0"
-        title="BMS Sanctuary"
+        className="flex items-center text-left group shrink-0"
+        title={BRAND.fullName}
       >
-        <span className="font-mono font-light text-lg sm:text-xl text-zinc-950 dark:text-white leading-none">
-          +
-        </span>
-        <span className="font-geometric font-semibold text-xs tracking-[0.28em] text-zinc-950 dark:text-white uppercase">
-          BMS
-        </span>
+        <BrandLogo size="md" />
       </Link>
 
       <ThemeToggle />
@@ -151,7 +148,7 @@ export function PublicBottomNavbar() {
       </div>
 
       <span className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-        © 2026 + BMS
+        {BRAND.copyright}
       </span>
     </nav>
   );

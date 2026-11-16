@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPublicSanctuaryData } from "@/wellness/public-data";
+import { BRAND } from "@/wellness/brand";
 import {
   PublicPageShell,
   PublicPageActions,
@@ -82,7 +83,7 @@ export default async function ProgramsPage() {
                   </h2>
 
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    {prog.coachName || "BMS Coach"} &bull; Rp{" "}
+                    {prog.coachName || BRAND.coachFallback} &bull; Rp{" "}
                     {prog.price.toLocaleString("id-ID")}
                   </p>
                 </div>

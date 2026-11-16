@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/common/BrandLogo";
+import { BRAND } from "@/wellness/brand";
 import {
   wellnessSignIn,
   wellnessSignUp,
@@ -221,9 +223,7 @@ export function AuthGatewayCard({
       {/* Modal Close Button (Only when rendered as popup) */}
       {isModal && onClose && (
         <div className="flex items-center justify-between">
-          <span className="text-xs font-geometric font-semibold tracking-[0.24em] uppercase text-zinc-950 dark:text-white">
-            + BMS
-          </span>
+          <BrandLogo size="sm" />
           <button
             type="button"
             onClick={onClose}
@@ -252,7 +252,7 @@ export function AuthGatewayCard({
         <div className="space-y-2.5 sm:space-y-3.5">
           <div className="space-y-1">
             <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              {tab === "signin" ? "Sign in to BMS" : "Create your account"}
+              {tab === "signin" ? `Sign in to ${BRAND.name}` : "Create your account"}
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {tab === "signin"

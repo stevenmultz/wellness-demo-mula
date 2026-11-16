@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BRAND } from "@/wellness/brand";
 import {
   ArrowRight,
   Bell,
@@ -301,7 +302,7 @@ export function ProfileTab({
         createdAt: user.createdAt,
       },
       exportedAt: new Date().toISOString(),
-      platform: "BMS Wellness PWA",
+      platform: BRAND.platform,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

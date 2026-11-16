@@ -54,7 +54,7 @@ async function main() {
       maxQuota: 35,
       locationType: "HYBRID",
       city: "Jakarta Selatan",
-      venueAddress: "BMS Studio Senopati, Jl. Suryo No. 28",
+      venueAddress: "ZERA + Studio Senopati, Jl. Suryo No. 28",
       startDate: addDays(now, 5), // Starts in 5 days
       endDate: addDays(now, 26),
       registrationDeadline: addDays(now, 4),
@@ -105,7 +105,7 @@ async function main() {
       maxQuota: 40,
       locationType: "HYBRID",
       city: "Jakarta Pusat",
-      venueAddress: "BMS Studio Menteng, Jl. Teuku Umar No. 12",
+      venueAddress: "ZERA + Studio Menteng, Jl. Teuku Umar No. 12",
       startDate: addDays(now, -3), // Started 3 days ago -> ACTIVE
       endDate: addDays(now, 18),
       registrationDeadline: addDays(now, -4),
@@ -154,7 +154,7 @@ async function main() {
       maxQuota: 25,
       locationType: "ONSITE",
       city: "Jakarta Selatan",
-      venueAddress: "BMS Studio SCBD, Lot 8",
+      venueAddress: "ZERA + Studio SCBD, Lot 8",
       startDate: addDays(now, -7), // Started 7 days ago -> ACTIVE
       endDate: addDays(now, 14),
       registrationDeadline: addDays(now, -8),
