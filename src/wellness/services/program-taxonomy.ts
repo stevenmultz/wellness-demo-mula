@@ -9,6 +9,43 @@ import {
   parseTermsList,
 } from "../utils/json";
 
+export const PROGRAM_TAXONOMY_INCLUDE = {
+  categories: { include: { category: { select: { id: true, name: true } } } },
+  coaches: { include: { coach: { select: { id: true, name: true, title: true } } } },
+  audiences: { include: { audience: { select: { id: true, name: true } } } },
+  equipments: { include: { equipment: { select: { id: true, name: true } } } },
+  dailyCommitmentRef: { select: { id: true, name: true } },
+  organization: { select: { id: true, name: true, logoPath: true, isVerified: true } },
+} as const;
+
+export interface ProgramWithTaxonomyRelations {
+  categories?: Array<{ category: { name: string } }>;
+  coaches?: Array<{ coach: { name: string; title: string } }>;
+  audiences?: Array<{ audience: { name: string } }>;
+  equipments?: Array<{ equipment: { name: string } }>;
+  dailyCommitmentRef?: { name: string } | null;
+  organization?: { name: string; logoPath: string | null; isVerified: boolean } | null;
+}
+
+export function serializeProgramTaxonomy(program: ProgramWithTaxonomyRelations) {
+  const categoryNames = (program.categories ?? []).map((c) => c.category.name).filter(Boolean);
+  const coachList = (program.coaches ?? []).map((c) => c.coach).filter(Boolean);
+  const audienceNames = (program.audiences ?? []).map((a) => a.audience.name).filter(Boolean);
+  const equipmentNames = (program.equipments ?? []).map((e) => e.equipment.name).filter(Boolean);
+
+  return {
+    category: categoryNames.join(", ") || "Pilates",
+    coachName: coachList.map((c) => c.name).join(", ") || "Head Wellness Coach",
+    coachTitle: coachList[0]?.title ?? null,
+    recommendedFor: audienceNames.join(", ") || "All Levels",
+    equipment: equipmentNames.length > 0 ? equipmentNames.join(", ") : null,
+    dailyCommitment: program.dailyCommitmentRef?.name ?? null,
+    organizationName: program.organization?.name ?? null,
+    organizationLogoPath: program.organization?.logoPath ?? null,
+    organizationVerified: program.organization?.isVerified ?? false,
+  };
+}
+
 export function splitCsvValues(raw?: string | null): string[] {
   if (!raw) return [];
   return raw
@@ -20,7 +57,7 @@ export function splitCsvValues(raw?: string | null): string[] {
 /**
  * Synchronizes 3NF relational pivot tables (`ProgramCategory`, `ProgramCoach`,
  * `ProgramAudience`, `ProgramEquipment`, `dailyCommitmentId`) inside an active
- * Prisma transaction so relational integrity stays in sync with CSV caches.
+ * Prisma transaction (single source of truth in PostgreSQL).
  */
 export async function syncProgramTaxonomyRelations(
   tx: Prisma.TransactionClient,
@@ -104,19 +141,19 @@ export function revalidateWellnessRoutes() {
 export function hydrateProgramJsonFields<
   T extends {
     customTerms: string | null;
-    expectedBenefits: string | null;
-    scientificReferences: string | null;
-    programGuidelines: string | null;
+    expectedBenefitsJson: unknown;
+    scientificReferencesJson: unknown;
+    programGuidelinesJson: unknown;
   },
 >(program: T) {
   return {
     ...program,
     termsList: parseTermsList(program.customTerms),
-    expectedBenefits: parseStringList(program.expectedBenefits, DEFAULT_PROGRAM_BENEFITS),
+    expectedBenefits: parseStringList(program.expectedBenefitsJson, DEFAULT_PROGRAM_BENEFITS),
     scientificReferences: parseReferencesList(
-      program.scientificReferences,
+      program.scientificReferencesJson,
       DEFAULT_PROGRAM_REFERENCES
     ),
-    programGuidelines: parseStringList(program.programGuidelines, DEFAULT_PROGRAM_GUIDELINES),
+    programGuidelines: parseStringList(program.programGuidelinesJson, DEFAULT_PROGRAM_GUIDELINES),
   };
 }

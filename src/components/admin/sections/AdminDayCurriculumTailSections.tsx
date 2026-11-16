@@ -363,7 +363,7 @@ export function AdminDayCurriculumTailSections({
         </button>
       )}
       <span className="text-[11px] text-zinc-400 hidden sm:inline">
-        Changes save directly to program schedule in the SQLite database.
+        Changes save directly to program schedule in the database.
       </span>
     </div>
 

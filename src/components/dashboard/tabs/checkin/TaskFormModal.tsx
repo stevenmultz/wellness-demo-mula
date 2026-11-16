@@ -8,7 +8,6 @@ import { HeaderBackButton } from "../shared";
 import {
   REFLECTION_DECLINED,
   TIME_24H_RE,
-  compressImageFile,
   matchesScopedMovement,
   parseLines,
   readMealDraft,
@@ -73,11 +72,6 @@ export function TaskForm({
       ),
     [progress?.workoutNotes, progress?.eventFeedback]
   );
-  const [photos, setPhotos] = useState({
-    before: progress?.photoBeforeUrl || "",
-    after: progress?.photoAfterUrl || "",
-  });
-  const [photoBusy, setPhotoBusy] = useState<"before" | "after" | null>(null);
 
   const [trainingFeeling, setTrainingFeeling] = useState<string>(() => {
     const raw = progress?.workoutNotes || "";
@@ -204,7 +198,7 @@ export function TaskForm({
       if (groups.length > 0) list.push("training_option");
       if (videos.length > 0) list.push("training_video");
       if (movements.length > 0 || groups.length > 0) list.push("training_movements");
-      list.push("training_photos", "training_mood");
+      list.push("training_mood");
       return list;
     }
     if (step === 2) {
@@ -353,34 +347,6 @@ export function TaskForm({
     }
   };
 
-  const pickPhoto = async (type: "before" | "after", file: File) => {
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Photo exceeds maximum allowed size of 5 MB.");
-      return;
-    }
-    setPhotoBusy(type);
-    setError(null);
-    try {
-      const dataUrl = await compressImageFile(file);
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, type }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success || !json.url) {
-        throw new Error(json?.message || "Upload failed.");
-      }
-      const ok = (await props.onUploadPhoto(type, json.url, day.id)) !== false;
-      if (!ok) throw new Error("Could not save the photo.");
-      setPhotos((p) => ({ ...p, [type]: json.url as string }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
-    } finally {
-      setPhotoBusy(null);
-    }
-  };
-
   const validateSubStep = (id: SubStepId): string | null => {
     switch (id) {
       case "wake":
@@ -404,10 +370,6 @@ export function TaskForm({
           return `Please complete all exercises (${movements.length - checkedCount} remaining).`;
         }
         return null;
-      case "training_photos":
-        return photos.before || photos.after
-          ? null
-          : "Please upload at least one session photo (Before or After).";
       case "training_mood":
         return trainingFeeling ? null : "Please select how you feel after training.";
       case "rest_checklist":
@@ -529,7 +491,7 @@ export function TaskForm({
   };
 
   const handlePrimaryAction = async () => {
-    if (locked || busy || photoBusy !== null) return;
+    if (locked || busy) return;
     const err = validateSubStep(currentSubStep);
     if (err) {
       setError(err);
@@ -703,9 +665,6 @@ export function TaskForm({
                 onToggleMovement={toggle}
                 onClickWorkoutOption={(opt) => void handleClickWorkoutOption(opt)}
                 onOpenVideo={() => void props.onOpenVideo(day.id)}
-                photos={photos}
-                photoBusy={photoBusy}
-                onPickPhoto={(type, file) => void pickPhoto(type, file)}
                 trainingFeeling={trainingFeeling}
                 onSelectTrainingFeeling={(label) => {
                   setTrainingFeeling(label);
@@ -767,7 +726,7 @@ export function TaskForm({
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={busy || photoBusy !== null}
+                disabled={busy}
                 className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40"
               >
                 {busy ? (

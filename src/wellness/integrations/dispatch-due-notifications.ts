@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/wellness/db";
 import { sendWebPushNotification } from "@/wellness/integrations/web-push";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
@@ -13,10 +14,8 @@ import {
   type DueSlot,
 } from "@/wellness/utils/notification-schedule";
 
-/** Max simultaneous outbound push requests per dispatched notification (bounded fan-out). */
 const PUSH_SEND_CONCURRENCY = 10;
 
-/** Runs `worker` over `items` with at most `limit` in flight; never rejects on worker errors. */
 async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;
@@ -57,9 +56,56 @@ export interface DispatchSummary {
   dispatchedDetails: DispatchDetail[];
 }
 
+export interface RetentionCleanupSummary {
+  expiredEnrollments: number;
+  expiredTransactions: number;
+  purgedTokens: number;
+  purgedRateBuckets: number;
+  purgedOldNotifications: number;
+}
+
 /**
- * Sends admin-configured day notifications that are due in the WIB window.
- * `createdAt` is the scheduled minute, and the body is the admin message.
+ * Expires overdue PENDING invoices and cleans up expired tokens / rate-limit buckets / stale read notifications.
+ */
+export async function runDatabaseRetentionCleanup(nowUtc = new Date()): Promise<RetentionCleanupSummary> {
+  const ninetyDaysAgo = new Date(nowUtc.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(nowUtc.getTime() - 24 * 60 * 60 * 1000);
+
+  const [expiredEnr, expiredTx, delReset, delVerify, delBuckets, delOldNotif] =
+    await prisma.$transaction([
+      prisma.programEnrollment.updateMany({
+        where: { status: "PENDING", invoiceExpiresAt: { lt: nowUtc } },
+        data: { status: "EXPIRED" },
+      }),
+      prisma.paymentTransaction.updateMany({
+        where: { status: "PENDING", expiresAt: { lt: nowUtc } },
+        data: { status: "EXPIRE" },
+      }),
+      prisma.userPasswordResetToken.deleteMany({
+        where: { OR: [{ expiresAt: { lt: oneDayAgo } }, { isUsed: true, createdAt: { lt: oneDayAgo } }] },
+      }),
+      prisma.userEmailVerificationToken.deleteMany({
+        where: { OR: [{ expiresAt: { lt: oneDayAgo } }, { usedAt: { lt: oneDayAgo } }] },
+      }),
+      prisma.rateLimitBucket.deleteMany({
+        where: { expiresAt: { lt: nowUtc } },
+      }),
+      prisma.userNotification.deleteMany({
+        where: { readAt: { lt: ninetyDaysAgo } },
+      }),
+    ]);
+
+  return {
+    expiredEnrollments: expiredEnr.count,
+    expiredTransactions: expiredTx.count,
+    purgedTokens: delReset.count + delVerify.count,
+    purgedRateBuckets: delBuckets.count,
+    purgedOldNotifications: delOldNotif.count,
+  };
+}
+
+/**
+ * Sends admin-configured day notifications due in the WIB window with batched DB reads/writes.
  */
 export async function dispatchDueNotifications(options: {
   nowUtc?: Date;
@@ -80,10 +126,8 @@ export async function dispatchDueNotifications(options: {
   const programs = await prisma.program.findMany({
     take: 200,
     where: {
-      OR: [
-        { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE"] } },
-        { isPublished: true },
-      ],
+      status: "PUBLISHED",
+      deletedAt: null,
       ...(scopedUserId
         ? {
             enrollments: {
@@ -95,15 +139,15 @@ export async function dispatchDueNotifications(options: {
     select: {
       id: true,
       title: true,
-      startDate: true,
+      startAt: true,
       days: {
         where: {
-          dayNotifications: { not: null },
+          dayNotificationsJson: { not: Prisma.DbNull },
         },
         select: {
           id: true,
           dayNumber: true,
-          dayNotifications: true,
+          dayNotificationsJson: true,
         },
         orderBy: { dayNumber: "asc" },
       },
@@ -124,24 +168,21 @@ export async function dispatchDueNotifications(options: {
     },
   });
 
-  const dispatchResults: DispatchDetail[] = [];
-  const deadEndpoints: string[] = [];
-  let totalDispatched = 0;
+  // 1. Collect candidate dispatches across ALL programs first to eliminate N+1 DB lookups
+  const candidates: Array<{
+    prog: (typeof programs)[number];
+    day: (typeof programs)[number]["days"][number];
+    slot: DueSlot;
+    index: number;
+    item: DayNotificationItem;
+    dedupeKey: string;
+  }> = [];
 
   for (const prog of programs) {
     if (prog.enrollments.length === 0 || prog.days.length === 0) continue;
 
-    // Collect all due items across this program's days/slots first, then batch-check existing dedupeKeys once!
-    const pendingItems: Array<{
-      day: (typeof prog.days)[number];
-      slot: DueSlot;
-      index: number;
-      item: DayNotificationItem;
-      dedupeKey: string;
-    }> = [];
-
     for (const day of prog.days) {
-      const notifications = safeJsonParse<DayNotificationItem[]>(day.dayNotifications, []);
+      const notifications = safeJsonParse<DayNotificationItem[]>(day.dayNotificationsJson, []);
       if (!Array.isArray(notifications) || notifications.length === 0) continue;
 
       for (const slot of slots) {
@@ -149,10 +190,11 @@ export async function dispatchDueNotifications(options: {
           ? notifications
               .map((item, index) => ({ item, index }))
               .filter(({ item }) => item?.message?.trim() && normalizeWibTime(item.time) === slot.time)
-          : selectDueNotifications({ dayNumber: day.dayNumber, dayNotifications: notifications }, prog.startDate, slot);
+          : selectDueNotifications({ dayNumber: day.dayNumber, dayNotifications: notifications }, prog.startAt, slot);
 
         for (const { index, item } of due) {
-          pendingItems.push({
+          candidates.push({
+            prog,
             day,
             slot,
             index,
@@ -162,46 +204,84 @@ export async function dispatchDueNotifications(options: {
         }
       }
     }
+  }
 
-    if (pendingItems.length === 0) continue;
+  if (candidates.length === 0) {
+    return {
+      timestampUTC: nowUtc.toISOString(),
+      currentTimeWIB: nowSlot.time,
+      currentDateWIB: nowSlot.dateKey,
+      windowWIB: slots.map((s) => s.time),
+      simulated: !!simulateTime,
+      totalProgramsChecked: programs.length,
+      notificationsTriggered: 0,
+      totalDispatched: 0,
+      deadSubscriptionsPurged: 0,
+      dispatchedDetails: [],
+    };
+  }
 
-    const enrolledUserIds = prog.enrollments.map((e) => e.userId);
-    const allDedupeKeys = Array.from(new Set(pendingItems.map((p) => p.dedupeKey)));
-    const alreadyRows = await prisma.userNotification.findMany({
-      where: { dedupeKey: { in: allDedupeKeys }, userId: { in: enrolledUserIds } },
-      select: { userId: true, dedupeKey: true },
-    });
-    const alreadyByKey = new Map<string, Set<string>>();
-    for (const row of alreadyRows) {
-      if (!row.dedupeKey) continue;
-      let set = alreadyByKey.get(row.dedupeKey);
-      if (!set) {
-        set = new Set<string>();
-        alreadyByKey.set(row.dedupeKey, set);
-      }
-      set.add(row.userId);
+  // 2. Single batched query to find already-sent notifications across all users & dedupeKeys
+  const allUserIds = Array.from(
+    new Set(candidates.flatMap((c) => c.prog.enrollments.map((e) => e.userId)))
+  );
+  const allDedupeKeys = Array.from(new Set(candidates.map((c) => c.dedupeKey)));
+
+  const alreadyRows = await prisma.userNotification.findMany({
+    where: { dedupeKey: { in: allDedupeKeys }, userId: { in: allUserIds } },
+    select: { userId: true, dedupeKey: true },
+  });
+
+  const alreadyByKey = new Map<string, Set<string>>();
+  for (const row of alreadyRows) {
+    if (!row.dedupeKey) continue;
+    let set = alreadyByKey.get(row.dedupeKey);
+    if (!set) {
+      set = new Set<string>();
+      alreadyByKey.set(row.dedupeKey, set);
     }
+    set.add(row.userId);
+  }
 
-    for (const { day, slot, index, item, dedupeKey } of pendingItems) {
-      const alreadySet = alreadyByKey.get(dedupeKey) ?? new Set<string>();
-      const recipients = prog.enrollments.filter((e) => !alreadySet.has(e.userId));
-      if (recipients.length === 0) continue;
+  // 3. Batch-insert all missing notifications in ONE createMany({ skipDuplicates: true }) call
+  const notificationsToInsert: Parameters<typeof createUserNotifications>[0] = [];
+  const candidateTargets: Array<{
+    cand: (typeof candidates)[number];
+    recipients: (typeof programs)[number]["enrollments"];
+    alreadyCount: number;
+  }> = [];
 
+  for (const cand of candidates) {
+    const alreadySet = alreadyByKey.get(cand.dedupeKey) ?? new Set<string>();
+    const recipients = cand.prog.enrollments.filter((e) => !alreadySet.has(e.userId));
+    if (recipients.length === 0) continue;
+
+    const message = cand.item.message.trim();
+    candidateTargets.push({ cand, recipients, alreadyCount: alreadySet.size });
+    for (const enrollment of recipients) {
+      notificationsToInsert.push({
+        userId: enrollment.userId,
+        type: "TASK" as const,
+        title: cand.prog.title,
+        body: message,
+        url: "/dashboard",
+        dedupeKey: cand.dedupeKey,
+        createdAt: cand.slot.instant,
+      });
+    }
+  }
+
+  const insertedTotal =
+    notificationsToInsert.length > 0 ? await createUserNotifications(notificationsToInsert) : 0;
+
+  const dispatchResults: DispatchDetail[] = [];
+  const deadEndpoints: string[] = [];
+  let totalDispatched = 0;
+
+  if (insertedTotal > 0) {
+    for (const { cand, recipients, alreadyCount } of candidateTargets) {
+      const { prog, day, slot, index, item } = cand;
       const message = item.message.trim();
-      const createdCount = await createUserNotifications(
-        recipients.map((enrollment) => ({
-          userId: enrollment.userId,
-          type: "TASK" as const,
-          title: prog.title,
-          body: message,
-          url: "/dashboard",
-          dedupeKey,
-          createdAt: slot.instant,
-        }))
-      );
-
-      // Atomic idempotency check: If 0 rows were inserted (due to duplicate key in concurrent execution), skip push dispatch!
-      if (createdCount === 0) continue;
 
       const subscribers = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
       for (const enrollment of recipients) {
@@ -224,6 +304,7 @@ export async function dispatchDueNotifications(options: {
           tag: `${BRAND.notificationTagPrefix}-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
         })
       );
+
       for (let s = 0; s < subList.length; s++) {
         const sub = subList[s];
         const sendRes = sendResults[s];
@@ -245,7 +326,7 @@ export async function dispatchDueNotifications(options: {
         scheduledDate: slot.dateKey,
         message,
         recipientsCount: recipients.length,
-        skippedAlreadySent: alreadySet.size,
+        skippedAlreadySent: alreadyCount,
         sentSuccess,
         sentFailed,
         ...(errors.length > 0 ? { errors } : {}),
@@ -255,7 +336,7 @@ export async function dispatchDueNotifications(options: {
 
   let deadCleanedCount = 0;
   if (deadEndpoints.length > 0) {
-    const cleanRes = await prisma.pushSubscription.deleteMany({
+    const cleanRes = await prisma.userPushSubscription.deleteMany({
       where: { endpoint: { in: Array.from(new Set(deadEndpoints)) } },
     });
     deadCleanedCount = cleanRes.count;

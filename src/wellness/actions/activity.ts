@@ -145,7 +145,7 @@ export async function wellnessGetHistory(): Promise<WellnessActionResult<History
         event: "ACTIVATED",
         label: "Membership activated",
         date: e.paidAt.toISOString(),
-        detail: e.validUntil ? `Valid until ${e.validUntil.toISOString()}` : null,
+        detail: e.validUntilAt ? `Valid until ${e.validUntilAt.toISOString()}` : null,
       });
     }
     if (e.status === "EXPIRED" || e.status === "CANCELLED") {

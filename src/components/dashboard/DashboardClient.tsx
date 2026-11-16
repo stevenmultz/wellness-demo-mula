@@ -20,7 +20,6 @@ import { DeleteAccountModal } from "./DeleteAccountModal";
 import { useDashboardProgress } from "./useDashboardProgress";
 import type {
   EnrollmentItem,
-  HealthProfileData,
   ProgramDayItem,
   ProgramItem,
   UserProfile,
@@ -32,7 +31,6 @@ import {
 
 export type {
   EnrollmentItem,
-  HealthProfileData,
   ProgramDayItem,
   ProgramItem,
   UserProfile,
@@ -65,7 +63,6 @@ interface DashboardProps {
   myPrograms: EnrollmentItem[];
   allPrograms: ProgramItem[];
   dailyPlans: ProgramDailyPlan[];
-  initialHealthProfile?: HealthProfileData | null;
   initialBodyMetricLogs?: BodyMetricPoint[];
 }
 
@@ -74,7 +71,6 @@ export function DashboardClient({
   myPrograms,
   allPrograms,
   dailyPlans,
-  initialHealthProfile,
   initialBodyMetricLogs = [],
 }: DashboardProps) {
   const router = useRouter();
@@ -160,30 +156,6 @@ export function DashboardClient({
   const [qrisInvoice, setQrisInvoice] = useState<QrisInvoiceData | null>(null);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
-  // Health & Body Baseline Profile State (passed to ProfileTab)
-  const [healthProfile] = useState<HealthProfileData>(() => ({
-    photoFrontUrl: initialHealthProfile?.photoFrontUrl || null,
-    photoSideUrl: initialHealthProfile?.photoSideUrl || null,
-    photoBackUrl: initialHealthProfile?.photoBackUrl || null,
-    weightKg: initialHealthProfile?.weightKg ?? null,
-    heightCm: initialHealthProfile?.heightCm ?? null,
-    waistCm: initialHealthProfile?.waistCm ?? null,
-    chestCm: initialHealthProfile?.chestCm ?? null,
-    hipsCm: initialHealthProfile?.hipsCm ?? null,
-    dietType: initialHealthProfile?.dietType || "Omnivore",
-    foodAllergies: initialHealthProfile?.foodAllergies || "",
-    injuriesOrConditions: initialHealthProfile?.injuriesOrConditions || "",
-    primaryGoal: initialHealthProfile?.primaryGoal || "",
-    currentMood: initialHealthProfile?.currentMood || "",
-    energyLevel: initialHealthProfile?.energyLevel ?? 7,
-    routineConfidence: initialHealthProfile?.routineConfidence ?? 3,
-    workoutFrequency: initialHealthProfile?.workoutFrequency || "3 - 4 days / week",
-    averageBedtime: initialHealthProfile?.averageBedtime || "22:30",
-    averageWakeTime: initialHealthProfile?.averageWakeTime || "06:30",
-    sleepQualityNotes: initialHealthProfile?.sleepQualityNotes || "",
-    eatingPatterns: initialHealthProfile?.eatingPatterns || "",
-  }));
-
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // Program Detail Explanation Modal
@@ -212,7 +184,6 @@ export function DashboardClient({
     handleToggleChecklist,
     handleSaveSleep,
     handleSelectWorkout,
-    handleUploadPhoto,
     handleSaveWorkoutNotes,
     handleSaveEventFeedback,
     handleSaveMeal,
@@ -238,8 +209,6 @@ export function DashboardClient({
         p.checklistCompleted ||
         p.eventFeedback ||
         p.workoutNotes ||
-        p.photoBeforeUrl ||
-        p.photoAfterUrl ||
         p.isCompleted
       );
     })
@@ -616,7 +585,6 @@ export function DashboardClient({
                 const prog = allPrograms.find((p) => p.id === overviewEnrollment?.programId);
                 if (prog) setDetailedProgram(prog);
               }}
-              onUploadPhoto={handleUploadPhoto}
               onSaveWorkoutNotes={handleSaveWorkoutNotes}
               historyDays={historyDays}
               allProgramDays={(currentProgram?.days || []).map(overlayDay)}
@@ -735,7 +703,6 @@ export function DashboardClient({
           <div className={activeTab === "profile" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "profile"}>
             <ProfileTab
               user={user}
-              health={healthProfile}
               bodyMetricLogs={bodyMetricLogs}
               headerVisible={isHeaderVisible}
               viewMode={profileViewMode}

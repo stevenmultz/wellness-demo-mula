@@ -6,9 +6,11 @@ import { prisma, lockProgramRow } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { hashPassword } from "../security/password";
 import { createUserNotifications } from "../integrations/user-notifications";
-import { AdminUpdateCustomerProfileSchema } from "../validators/auth";
+import { deleteStorageObjects } from "../integrations/supabase-storage";
+import { recordAuditLog } from "../integrations/audit-log";
+import { AdminUpdateCustomerProfileSchema, calculateAgeFromDob } from "../validators/auth";
 import { cleanupUserUploadedFiles } from "../utils/image-processor";
-import { WellnessActionResult } from "./auth";
+import type { WellnessActionResult } from "./auth";
 
 function revalidateAdminRoutes() {
   try {
@@ -19,21 +21,21 @@ function revalidateAdminRoutes() {
   }
 }
 
-/**
- * Superadmin: Retrieve directory of all users and their cohort enrollments.
- */
 export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, offset = 0) {
   await requireSuperadmin();
 
-  const whereClause = searchQuery
-    ? {
-        OR: [
-          { email: { contains: searchQuery } },
-          { fullName: { contains: searchQuery } },
-          { phone: { contains: searchQuery } },
-        ],
-      }
-    : {};
+  const whereClause = {
+    deletedAt: null,
+    ...(searchQuery
+      ? {
+          OR: [
+            { email: { contains: searchQuery, mode: "insensitive" as const } },
+            { fullName: { contains: searchQuery, mode: "insensitive" as const } },
+            { phone: { contains: searchQuery } },
+          ],
+        }
+      : {}),
+  };
 
   const users = await prisma.user.findMany({
     where: whereClause,
@@ -44,18 +46,18 @@ export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, o
       email: true,
       fullName: true,
       phone: true,
-      age: true,
+      birthDate: true,
+      avatarPath: true,
       role: true,
       status: true,
       createdAt: true,
-      healthProfile: true,
       enrollments: {
         select: {
           id: true,
           status: true,
           paymentReference: true,
           paidAt: true,
-          validUntil: true,
+          validUntilAt: true,
           program: {
             select: {
               id: true,
@@ -69,13 +71,16 @@ export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, o
     orderBy: { createdAt: "desc" },
   });
 
-  return users;
+  return users.map((u) => ({
+    ...u,
+    age: u.birthDate ? calculateAgeFromDob(u.birthDate) : null,
+    enrollments: u.enrollments.map((e) => ({
+      ...e,
+      validUntil: e.validUntilAt,
+    })),
+  }));
 }
 
-/**
- * Superadmin: Update User Role (USER <-> COACH / PARTNER_ADMIN).
- * Protected against accidental self-demotion and keeps SUPERADMIN exclusive.
- */
 export async function wellnessAdminUpdateUserRole(
   targetUserId: string,
   newRole: "USER" | "COACH" | "PARTNER_ADMIN" | "SUPERADMIN",
@@ -99,13 +104,17 @@ export async function wellnessAdminUpdateUserRole(
 
   try {
     const updatedUser = await prisma.$transaction(async (tx) => {
-      const targetUser = await tx.user.findUnique({ where: { id: targetUserId } });
+      const targetUser = await tx.user.findFirst({
+        where: { id: targetUserId, deletedAt: null },
+      });
       if (!targetUser) {
         throw new Error("User not found.");
       }
 
       if (targetUser.role === "SUPERADMIN") {
-        const superadminCount = await tx.user.count({ where: { role: "SUPERADMIN" } });
+        const superadminCount = await tx.user.count({
+          where: { role: "SUPERADMIN", deletedAt: null },
+        });
         if (superadminCount <= 1) {
           throw new Error("Cannot demote the last remaining Superadmin on the platform.");
         }
@@ -145,7 +154,7 @@ export async function wellnessAdminUpdateUserRole(
         }
       }
 
-      return tx.user.update({
+      const updated = await tx.user.update({
         where: { id: targetUserId },
         data: {
           role: newRole,
@@ -162,6 +171,19 @@ export async function wellnessAdminUpdateUserRole(
           coachProfileId: true,
         },
       });
+
+      await recordAuditLog(
+        {
+          actorUserId: currentAdmin.userId,
+          action: "ADMIN_UPDATE_USER_ROLE",
+          entityType: "User",
+          entityId: targetUserId,
+          metadata: { fromRole: targetUser.role, toRole: newRole, nextOrgId, nextCoachId },
+        },
+        tx
+      );
+
+      return updated;
     });
 
     revalidateAdminRoutes();
@@ -178,10 +200,6 @@ export async function wellnessAdminUpdateUserRole(
   }
 }
 
-/**
- * Superadmin: Update Account Status (ACTIVE <-> SUSPENDED).
- * Automatically increments tokenVersion to immediately revoke active sessions.
- */
 export async function wellnessAdminUpdateUserStatus(
   targetUserId: string,
   newStatus: "ACTIVE" | "SUSPENDED"
@@ -195,21 +213,36 @@ export async function wellnessAdminUpdateUserStatus(
     };
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: targetUserId },
+  const targetUser = await prisma.user.findFirst({
+    where: { id: targetUserId, deletedAt: null },
     select: { id: true },
   });
   if (!targetUser) {
     return { success: false, message: "User not found." };
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: targetUserId },
-    data: {
-      status: newStatus,
-      tokenVersion: { increment: 1 },
-    },
-    select: { id: true, email: true, fullName: true, status: true },
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const row = await tx.user.update({
+      where: { id: targetUserId },
+      data: {
+        status: newStatus,
+        tokenVersion: { increment: 1 },
+      },
+      select: { id: true, email: true, fullName: true, status: true },
+    });
+
+    await recordAuditLog(
+      {
+        actorUserId: currentAdmin.userId,
+        action: "ADMIN_UPDATE_USER_STATUS",
+        entityType: "User",
+        entityId: targetUserId,
+        metadata: { status: newStatus },
+      },
+      tx
+    );
+
+    return row;
   });
 
   revalidateAdminRoutes();
@@ -220,13 +253,10 @@ export async function wellnessAdminUpdateUserStatus(
   };
 }
 
-/**
- * Superadmin: Manual Payment Verification & Cohort Activation.
- */
 export async function wellnessAdminApprovePayment(
   enrollmentId: string
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  const currentAdmin = await requireSuperadmin();
 
   const enrollment = await prisma.programEnrollment.findUnique({
     where: { id: enrollmentId },
@@ -244,7 +274,7 @@ export async function wellnessAdminApprovePayment(
   try {
     const updated = await prisma.$transaction(async (tx) => {
       await lockProgramRow(tx, enrollment.programId);
-      // Verify cohort quota atomically before activating
+
       const activeCount = await tx.programEnrollment.count({
         where: {
           programId: enrollment.programId,
@@ -259,21 +289,47 @@ export async function wellnessAdminApprovePayment(
       }
 
       const paidAt = new Date();
-      const validUntil =
-        enrollment.program.endDate && enrollment.program.endDate > paidAt
-          ? enrollment.program.endDate
+      const validUntilAt =
+        enrollment.program.endAt > paidAt
+          ? enrollment.program.endAt
           : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-      return await tx.programEnrollment.update({
+      if (enrollment.paymentReference) {
+        await tx.paymentTransaction.updateMany({
+          where: { orderId: enrollment.paymentReference, status: "PENDING" },
+          data: { status: "MANUAL_APPROVED", settledAt: paidAt },
+        });
+      }
+
+      const saved = await tx.programEnrollment.update({
         where: { id: enrollmentId },
         data: {
           status: "ACTIVE",
           paidAt,
-          validUntil,
+          validUntilAt,
+          approvedById: currentAdmin.userId,
+          approvedAt: paidAt,
           termsAgreedAt: enrollment.termsAgreedAt ?? paidAt,
           termsAgreedVersion: enrollment.termsAgreedVersion ?? "v1.0",
         },
       });
+
+      await recordAuditLog(
+        {
+          actorUserId: currentAdmin.userId,
+          action: "ADMIN_MANUAL_APPROVE_PAYMENT",
+          entityType: "ProgramEnrollment",
+          entityId: enrollmentId,
+          metadata: {
+            programId: enrollment.programId,
+            targetUserId: enrollment.userId,
+            paymentReference: enrollment.paymentReference,
+          },
+        },
+        tx
+      );
+
+      return saved;
     });
 
     await createUserNotifications([
@@ -302,7 +358,7 @@ export async function wellnessAdminApprovePayment(
 }
 
 /**
- * Superadmin: Permanently Delete User Account.
+ * Superadmin: Soft-Delete & Anonymize User Account (preserves immutable financial records).
  */
 export async function wellnessAdminDeleteUser(
   targetUserId: string
@@ -318,9 +374,9 @@ export async function wellnessAdminDeleteUser(
 
   try {
     const deletedTarget = await prisma.$transaction(async (tx) => {
-      const targetUser = await tx.user.findUnique({
-        where: { id: targetUserId },
-        select: { id: true, fullName: true, email: true, role: true },
+      const targetUser = await tx.user.findFirst({
+        where: { id: targetUserId, deletedAt: null },
+        select: { id: true, fullName: true, email: true, role: true, avatarPath: true },
       });
 
       if (!targetUser) {
@@ -329,24 +385,56 @@ export async function wellnessAdminDeleteUser(
 
       if (targetUser.role === "SUPERADMIN") {
         const superadminCount = await tx.user.count({
-          where: { role: "SUPERADMIN" },
+          where: { role: "SUPERADMIN", deletedAt: null },
         });
         if (superadminCount <= 1) {
           throw new Error("Cannot delete the last remaining Superadmin on the platform.");
         }
       }
 
-      await tx.user.delete({
+      const now = new Date();
+      await tx.user.update({
         where: { id: targetUserId },
+        data: {
+          deletedAt: now,
+          deletedById: currentAdmin.userId,
+          status: "SUSPENDED",
+          email: `deleted_${targetUserId}_${now.getTime()}@deleted.invalid`,
+          fullName: "Deleted User",
+          phone: null,
+          address: null,
+          emergencyContactName: null,
+          emergencyContactPhone: null,
+          avatarPath: null,
+          passwordHash: null,
+          tokenVersion: { increment: 1 },
+        },
       });
+      await tx.userIdentity.deleteMany({ where: { userId: targetUserId } });
+      await tx.userPushSubscription.deleteMany({ where: { userId: targetUserId } });
+      await tx.userPasswordResetToken.deleteMany({ where: { userId: targetUserId } });
+      await tx.userEmailVerificationToken.deleteMany({ where: { userId: targetUserId } });
+
+      await recordAuditLog(
+        {
+          actorUserId: currentAdmin.userId,
+          action: "ADMIN_DELETE_USER",
+          entityType: "User",
+          entityId: targetUserId,
+          metadata: { formerEmail: targetUser.email },
+        },
+        tx
+      );
+
       return targetUser;
     });
 
+    await deleteStorageObjects([deletedTarget.avatarPath]);
     await cleanupUserUploadedFiles(targetUserId);
     revalidateAdminRoutes();
     return {
       success: true,
-      message: `Account ${deletedTarget.fullName} (${deletedTarget.email}) has been permanently deleted.`,
+      message: `Account ${deletedTarget.fullName} (${deletedTarget.email}) has been deleted.`,
     };
   } catch (err) {
     return {
@@ -356,16 +444,13 @@ export async function wellnessAdminDeleteUser(
   }
 }
 
-/**
- * Superadmin: Force Reset User Password (Generates Temporary Password).
- */
 export async function wellnessAdminResetUserPassword(
   targetUserId: string
 ): Promise<WellnessActionResult<{ temporaryPassword: string }>> {
-  await requireSuperadmin();
+  const currentAdmin = await requireSuperadmin();
 
-  const user = await prisma.user.findUnique({
-    where: { id: targetUserId },
+  const user = await prisma.user.findFirst({
+    where: { id: targetUserId, deletedAt: null },
   });
 
   if (!user) {
@@ -375,13 +460,23 @@ export async function wellnessAdminResetUserPassword(
   const tempPassword = `Temp${crypto.randomBytes(3).toString("hex").toUpperCase()}9!`;
   const passwordHash = await hashPassword(tempPassword);
 
-  await prisma.user.update({
-    where: { id: targetUserId },
-    data: {
-      passwordHash,
-      tokenVersion: { increment: 1 },
-    },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 },
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actorUserId: currentAdmin.userId,
+        action: "ADMIN_RESET_USER_PASSWORD",
+        entityType: "User",
+        entityId: targetUserId,
+      },
+    }),
+  ]);
 
   return {
     success: true,
@@ -390,9 +485,6 @@ export async function wellnessAdminResetUserPassword(
   };
 }
 
-/**
- * Superadmin: Update Customer Health, Emergency, and Coaching Adaptation Profile
- */
 export async function wellnessAdminUpdateCustomerProfile(
   userId: string,
   input: {
@@ -401,16 +493,8 @@ export async function wellnessAdminUpdateCustomerProfile(
     address?: string | null;
     occupation?: string | null;
     gender?: string | null;
-    age?: number | null;
     emergencyContactName?: string | null;
     emergencyContactPhone?: string | null;
-    dietType?: string | null;
-    heightCm?: number | null;
-    weightKg?: number | null;
-    injuriesOrConditions?: string | null;
-    foodAllergies?: string | null;
-    primaryGoal?: string | null;
-    coachNotes?: string | null;
   }
 ): Promise<WellnessActionResult> {
   await requireSuperadmin();
@@ -427,84 +511,43 @@ export async function wellnessAdminUpdateCustomerProfile(
   const data = parsed.data;
 
   try {
-    const target = await prisma.user.findUnique({
-      where: { id: data.userId },
+    const target = await prisma.user.findFirst({
+      where: { id: data.userId, deletedAt: null },
       select: { id: true },
     });
     if (!target) {
       return { success: false, message: "Customer user record not found." };
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: data.userId },
-        data: {
-          city: data.city !== undefined ? (data.city?.trim() || null) : undefined,
-          province: data.province !== undefined ? (data.province?.trim() || null) : undefined,
-          address: data.address !== undefined ? (data.address?.trim() || null) : undefined,
-          occupation: data.occupation !== undefined ? (data.occupation?.trim() || null) : undefined,
-          gender: data.gender !== undefined ? (data.gender?.trim() || null) : undefined,
-          age: data.age !== undefined ? data.age : undefined,
-          emergencyContactName:
-            data.emergencyContactName !== undefined
-              ? (data.emergencyContactName?.trim() || null)
-              : undefined,
-          emergencyContactPhone:
-            data.emergencyContactPhone !== undefined
-              ? (data.emergencyContactPhone?.trim() || null)
-              : undefined,
-        },
-      });
-
-      await tx.customerHealthProfile.upsert({
-        where: { userId: data.userId },
-        create: {
-          userId: data.userId,
-          age: data.age !== undefined ? data.age : null,
-          dietType: data.dietType?.trim() || null,
-          heightCm: data.heightCm !== undefined ? data.heightCm : null,
-          weightKg: data.weightKg !== undefined ? data.weightKg : null,
-          injuriesOrConditions: data.injuriesOrConditions?.trim() || null,
-          foodAllergies: data.foodAllergies?.trim() || null,
-          primaryGoal: data.primaryGoal?.trim() || null,
-          coachNotes: data.coachNotes?.trim() || null,
-        },
-        update: {
-          age: data.age !== undefined ? data.age : undefined,
-          dietType:
-            data.dietType !== undefined ? (data.dietType?.trim() || null) : undefined,
-          heightCm: data.heightCm !== undefined ? data.heightCm : undefined,
-          weightKg: data.weightKg !== undefined ? data.weightKg : undefined,
-          injuriesOrConditions:
-            data.injuriesOrConditions !== undefined
-              ? (data.injuriesOrConditions?.trim() || null)
-              : undefined,
-          foodAllergies:
-            data.foodAllergies !== undefined
-              ? (data.foodAllergies?.trim() || null)
-              : undefined,
-          primaryGoal:
-            data.primaryGoal !== undefined
-              ? (data.primaryGoal?.trim() || null)
-              : undefined,
-          coachNotes:
-            data.coachNotes !== undefined
-              ? (data.coachNotes?.trim() || null)
-              : undefined,
-        },
-      });
+    await prisma.user.update({
+      where: { id: data.userId },
+      data: {
+        city: data.city !== undefined ? (data.city?.trim() || null) : undefined,
+        province: data.province !== undefined ? (data.province?.trim() || null) : undefined,
+        address: data.address !== undefined ? (data.address?.trim() || null) : undefined,
+        occupation: data.occupation !== undefined ? (data.occupation?.trim() || null) : undefined,
+        gender: data.gender !== undefined ? (data.gender?.trim() || null) : undefined,
+        emergencyContactName:
+          data.emergencyContactName !== undefined
+            ? (data.emergencyContactName?.trim() || null)
+            : undefined,
+        emergencyContactPhone:
+          data.emergencyContactPhone !== undefined
+            ? (data.emergencyContactPhone?.trim() || null)
+            : undefined,
+      },
     });
 
     revalidateAdminRoutes();
     return {
       success: true,
-      message: "Customer profile and coaching notes saved successfully.",
+      message: "Customer profile saved successfully.",
     };
   } catch (error: unknown) {
     console.error("[Admin Update Customer Profile Error]:", error);
     return {
       success: false,
-      message: "Failed to save customer profile and coaching notes.",
+      message: "Failed to save customer profile.",
     };
   }
 }

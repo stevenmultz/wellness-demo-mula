@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import {
-  Camera,
   Check,
   ExternalLink,
-  Loader2,
   MapPin,
   Minus,
   Play,
@@ -37,9 +35,6 @@ interface ActivityStepProps {
   onToggleMovement: (name: string, defaultReps?: number) => void;
   onClickWorkoutOption: (optionName: string) => void;
   onOpenVideo: () => void;
-  photos: { before: string; after: string };
-  photoBusy: "before" | "after" | null;
-  onPickPhoto: (type: "before" | "after", file: File) => void;
   trainingFeeling: string;
   onSelectTrainingFeeling: (label: string) => void;
   restLines: string[];
@@ -66,9 +61,6 @@ export function ActivityStepView({
   onToggleMovement,
   onClickWorkoutOption,
   onOpenVideo,
-  photos,
-  photoBusy,
-  onPickPhoto,
   trainingFeeling,
   onSelectTrainingFeeling,
   restLines,
@@ -313,56 +305,6 @@ export function ActivityStepView({
             No individual movements configured for this session. Proceed to the next step.
           </p>
         )}
-      </div>
-    );
-  }
-
-  if (currentSubStep === "training_photos") {
-    return (
-      <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow="Session Verification"
-          title="Upload a progress photo"
-          subtitle="Add a before or after session photo (max 5 MB each)."
-        />
-        <div className="grid grid-cols-2 gap-3 min-w-0">
-          {(["before", "after"] as const).map((type) => (
-            <label key={type} className="block cursor-pointer min-w-0">
-              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block mb-2">
-                {type === "before" ? "Before Session" : "After Session"}
-              </span>
-              <span className="relative flex h-40 items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 overflow-hidden bg-white dark:bg-[#141414] hover:border-zinc-400 dark:hover:border-white/30 transition">
-                {photos[type] ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photos[type]} alt="" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/75 text-white text-[11px] font-medium">
-                      Change
-                    </span>
-                  </>
-                ) : photoBusy === type ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-zinc-500 dark:text-zinc-400" />
-                ) : (
-                  <span className="inline-flex flex-col items-center gap-2 text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                    <Camera className="w-5 h-5" />
-                    <span>Upload</span>
-                  </span>
-                )}
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={photoBusy !== null}
-                className="sr-only"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (file) onPickPhoto(type, file);
-                }}
-              />
-            </label>
-          ))}
-        </div>
       </div>
     );
   }

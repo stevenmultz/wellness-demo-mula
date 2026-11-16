@@ -23,14 +23,16 @@ export interface LocalizedFieldMap {
  */
 export function resolveLocalizedField(
   primaryValue: string | null | undefined,
-  translationsJson: string | null | undefined,
+  translationsJson: unknown,
   locale: Locale,
   field: string
 ): string {
   const base = primaryValue ?? "";
   if (!translationsJson) return base;
   try {
-    const parsed = JSON.parse(translationsJson) as LocalizedFieldMap;
+    const parsed = (
+      typeof translationsJson === "string" ? JSON.parse(translationsJson) : translationsJson
+    ) as LocalizedFieldMap;
     const translated = parsed?.[locale]?.[field];
     if (typeof translated === "string" && translated.trim().length > 0) {
       return translated;

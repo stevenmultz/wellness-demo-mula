@@ -15,7 +15,6 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { safeMediaUrl } from "@/wellness/utils/url-safety";
 import { formatDate } from "../adminUtils";
 import { PaginationBar } from "../AdminFormPickers";
 import type { AdminUserItem } from "../adminTypes";
@@ -38,7 +37,7 @@ interface AdminCustomersListProps {
   userActionLoading: string | null;
   openCustomerDetail: (
     u: AdminUserItem,
-    tab?: "overview" | "responses" | "health" | "medical" | "lifestyle" | "notes"
+    tab?: "overview" | "responses" | "profile" | "notes"
   ) => void;
   handleResetPassword: (user: AdminUserItem) => void;
   handleToggleUserStatus: (user: AdminUserItem) => void;
@@ -192,13 +191,8 @@ export function AdminCustomersList({
                 "/image.webp",
               ];
               const fallbackCover = defaultCustomerCovers[idx % defaultCustomerCovers.length];
-              const coverSrc =
-                safeMediaUrl(m.healthProfile?.photoFrontUrl) &&
-                !m.healthProfile!.photoFrontUrl!.includes("sample-")
-                  ? safeMediaUrl(m.healthProfile?.photoFrontUrl)!
-                  : fallbackCover;
-
-              const customerAge = m.age || m.healthProfile?.age;
+              const coverSrc = fallbackCover;
+              const customerAge = m.age;
 
               return (
                 <div

@@ -8,8 +8,20 @@ import {
   normalizeProgramStatus,
   resolvePublicBadge,
 } from "@/wellness/utils/timeline";
+import {
+  PROGRAM_TAXONOMY_INCLUDE,
+  serializeProgramTaxonomy,
+} from "@/wellness/services/program-taxonomy";
 
 export const dynamic = "force-dynamic";
+
+function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("sb://")) {
+    return `/api/media/signed?path=${encodeURIComponent(pathOrUrl)}`;
+  }
+  return pathOrUrl;
+}
 
 interface ExploreProgramItem {
   id: string;
@@ -43,10 +55,8 @@ interface ExploreProgramItem {
   restDaysTotal: number;
 }
 
-const PUBLISHED_STATUSES = ["PUBLISH", "PUBLISHED", "ACTIVE"];
-
 /**
- * GET /api/explore/programs?q=&comingSoon=1&openRegistration=1&sort=date|price&dir=asc|desc
+ * GET /api/explore/programs?q=&comingSoon=1&openRegistration=1&sort=date|price&dir=asc|desc&page=1&limit=50
  * Only published programs are ever returned (business rule); search, filters and sorting are
  * applied server-side on real data so they can be combined freely.
  */
@@ -63,20 +73,24 @@ export async function GET(req: NextRequest) {
     const wantOpen = sp.get("openRegistration") === "1";
     const sort = sp.get("sort") === "price" ? "price" : "date";
     const dir = sp.get("dir") === "desc" ? "desc" : "asc";
+    const page = Math.max(1, Number.parseInt(sp.get("page") || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(sp.get("limit") || "50", 10) || 50));
 
     const locale = getServerLocale(session.preferredLocale);
     const [programs, enrollments] = await Promise.all([
       prisma.program.findMany({
-        take: 100, // Enforce maximum upper boundary to prevent unbounded query memory spikes
+        take: 100,
         where: {
-          status: { in: PUBLISHED_STATUSES },
+          status: "PUBLISHED",
+          deletedAt: null,
           ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
         },
         include: {
+          ...PROGRAM_TAXONOMY_INCLUDE,
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
-          organization: { select: { name: true, logoUrl: true, isVerified: true } },
           days: { select: { dayType: true } },
         },
+        orderBy: sort === "price" ? { price: dir } : { startAt: dir },
       }),
       prisma.programEnrollment.findMany({
         where: { userId: session.userId },
@@ -96,13 +110,14 @@ export async function GET(req: NextRequest) {
       // PENDING stays visible so an unpaid invoice can still be completed.
       .filter((p) => !alreadyFollowed.has((enrollmentByProgram.get(p.id) || "").toUpperCase()))
       .map((p) => {
+        const tax = serializeProgramTaxonomy(p);
         const badge =
           resolvePublicBadge({
             status: p.status,
-            registrationOpenDate: p.registrationOpenDate,
-            registrationDeadline: p.registrationDeadline,
-            startDate: p.startDate,
-            endDate: p.endDate,
+            registrationOpenDate: p.registrationOpenAt,
+            registrationDeadline: p.registrationDeadlineAt,
+            startDate: p.startAt,
+            endDate: p.endAt,
             maxQuota: p.maxQuota,
             enrolledCount: p._count.enrollments,
             now,
@@ -127,16 +142,16 @@ export async function GET(req: NextRequest) {
 
         return {
           id: p.id,
-          title: resolveLocalizedField(p.title, p.translations, locale, "title"),
-          coverImage: p.coverImage,
-          coachName: p.coachName,
-          organizationName: p.organization?.name || p.organizationCache || null,
-          organizationLogo: p.organization?.logoUrl || null,
-          organizationVerified: p.organization?.isVerified ?? false,
+          title: resolveLocalizedField(p.title, p.translationsJson, locale, "title"),
+          coverImage: toClientMediaUrl(p.coverImagePath),
+          coachName: tax.coachName,
+          organizationName: tax.organizationName || null,
+          organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
+          organizationVerified: tax.organizationVerified ?? false,
           language: p.language || "id",
-          startDate: p.startDate.toISOString(),
-          endDate: p.endDate.toISOString(),
-          registrationDeadline: p.registrationDeadline.toISOString(),
+          startDate: p.startAt.toISOString(),
+          endDate: p.endAt.toISOString(),
+          registrationDeadline: p.registrationDeadlineAt.toISOString(),
           price: p.price,
           actualPrice: effectiveActualPrice,
           discountPercentage: effectiveDiscount,
@@ -149,9 +164,9 @@ export async function GET(req: NextRequest) {
           canEnroll: getPublicBadgeMeta(badge as Parameters<typeof getPublicBadgeMeta>[0]).canEnroll,
           enrollmentStatus,
           difficultyLevel: p.difficultyLevel,
-          category: p.category,
-          recommendedFor: p.recommendedFor,
-          dailyCommitment: p.dailyCommitment,
+          category: tax.category,
+          recommendedFor: tax.recommendedFor,
+          dailyCommitment: tax.dailyCommitment || null,
           trainingDaysTotal,
           connectDaysTotal,
           restDaysTotal,
@@ -173,7 +188,6 @@ export async function GET(req: NextRequest) {
           ? a.price - b.price
           : new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
       if (primary !== 0) return primary * factor;
-      // Stable, deterministic tie-breakers so ordering is consistent between requests
       return (
         new Date(a.startDate).getTime() - new Date(b.startDate).getTime() ||
         a.title.localeCompare(b.title) ||
@@ -181,8 +195,21 @@ export async function GET(req: NextRequest) {
       );
     });
 
+    const total = items.length;
+    const offset = (page - 1) * limit;
+    const pagedItems = items.slice(offset, offset + limit);
+
     return NextResponse.json(
-      { success: true, programs: items },
+      {
+        success: true,
+        programs: pagedItems,
+        pagination: {
+          page,
+          limit,
+          total,
+          hasMore: offset + pagedItems.length < total,
+        },
+      },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } }
     );
   } catch (error) {

@@ -48,13 +48,13 @@ async function main() {
   console.log("\n4. Testing Unpublished ('OPEN' / 'DRAFT') Program Filtering...");
   const publicPrograms = await prisma.program.findMany({
     where: {
-      OR: [{ status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE"] } }, { isPublished: true }],
+      status: "PUBLISHED",
+      deletedAt: null,
     },
-    select: { id: true, status: true, isPublished: true },
+    select: { id: true, status: true },
   });
   for (const p of publicPrograms) {
-    const isUnpublishedReview = (p.status === "OPEN" || p.status === "DRAFT") && !p.isPublished;
-    assert.equal(isUnpublishedReview, false, `Program ${p.id} should not leak if unpublished`);
+    assert.equal(p.status, "PUBLISHED", `Program ${p.id} should only be PUBLISHED`);
   }
   console.log(`   ✅ Verified ${publicPrograms.length} public programs; 0 unpublished DRAFT/OPEN leaks.`);
 

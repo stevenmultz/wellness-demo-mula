@@ -13,22 +13,19 @@ export function useProgramSubmissions() {
   const [submissionStats, setSubmissionStats] = useState<{
     totalSubmissions: number;
     completedSubmissions: number;
-    photoSubmissions: number;
     uniqueMembers: number;
   }>({
     totalSubmissions: 0,
     completedSubmissions: 0,
-    photoSubmissions: 0,
     uniqueMembers: 0,
   });
   const [submissionDayFilter, setSubmissionDayFilter] = useState<number | "ALL">("ALL");
   const [submissionMemberFilter, setSubmissionMemberFilter] = useState<string>("ALL");
-  const [submissionPhotosOnly, setSubmissionPhotosOnly] = useState<boolean>(false);
   const [submissionSearch, setSubmissionSearch] = useState<string>("");
 
   const loadProgramSubmissions = async (
     progId: string,
-    filters?: { dayNumber?: number; userId?: string; hasPhotosOnly?: boolean }
+    filters?: { dayNumber?: number; userId?: string }
   ) => {
     if (!progId) return;
     setSubmissionsLoading(true);
@@ -56,9 +53,6 @@ export function useProgramSubmissions() {
       if (submissionMemberFilter !== "ALL" && sub.userId !== submissionMemberFilter) {
         return false;
       }
-      if (submissionPhotosOnly && !sub.photoBeforeUrl && !sub.photoAfterUrl) {
-        return false;
-      }
       if (submissionSearch.trim()) {
         const query = submissionSearch.toLowerCase();
         const matchesName = sub.userName.toLowerCase().includes(query);
@@ -82,7 +76,6 @@ export function useProgramSubmissions() {
     programSubmissions,
     submissionDayFilter,
     submissionMemberFilter,
-    submissionPhotosOnly,
     submissionSearch,
   ]);
 
@@ -95,8 +88,6 @@ export function useProgramSubmissions() {
     setSubmissionDayFilter,
     submissionMemberFilter,
     setSubmissionMemberFilter,
-    submissionPhotosOnly,
-    setSubmissionPhotosOnly,
     submissionSearch,
     setSubmissionSearch,
     loadProgramSubmissions,

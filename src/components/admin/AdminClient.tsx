@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MasterDataPayload } from "@/wellness/actions/master";
 import { wellnessSignOut } from "@/wellness/actions/auth";
+import { wellnessAdminUpdateSupportRequest } from "@/wellness/actions/support";
 import {
   calculateProgramMemoryFootprint,
   type ProgramDatabaseStatus,
@@ -12,13 +13,12 @@ import {
   DIFFICULTY_LEVELS,
   getDefaultNotificationsForType,
   type AdminClientProps,
-  type AdminCustomerHealthProfile,
   type AdminFeedbackMessage,
   type AdminInitialRoute,
-  type AdminLightboxData,
   type AdminMenuKey,
   type AdminProgram,
   type AdminProgramDay,
+  type AdminSupportRequestItem,
   type AdminUserItem,
   type DayNotificationState,
 } from "./adminTypes";
@@ -64,7 +64,7 @@ export {
   type DayNotificationState,
   type AdminProgramDay,
   type AdminProgram,
-  type AdminCustomerHealthProfile,
+  type AdminSupportRequestItem,
   type AdminUserItem,
   type AdminInitialRoute,
   type AdminClientProps,
@@ -78,6 +78,7 @@ export function AdminClient({
   initialUsers,
   initialPrograms,
   initialMasterData,
+  initialSupportRequests = [],
   currentAdminId,
   currentAdminRole = "SUPERADMIN",
   currentAdminOrgId = null,
@@ -93,6 +94,10 @@ export function AdminClient({
   );
   const [users, setUsers] = useState<AdminUserItem[]>(initialUsers);
   const [programs, setPrograms] = useState<AdminProgram[]>(initialPrograms);
+  const [supportRequests, setSupportRequests] = useState<AdminSupportRequestItem[]>(
+    initialSupportRequests
+  );
+  const [resolvingSupportId, setResolvingSupportId] = useState<string | null>(null);
   const [masterData, setMasterData] = useState<MasterDataPayload>(
     initialMasterData || {
       coaches: [],
@@ -104,7 +109,6 @@ export function AdminClient({
     }
   );
   const [feedback, setFeedback] = useState<AdminFeedbackMessage | null>(null);
-  const [lightboxData, setLightboxData] = useState<AdminLightboxData | null>(null);
 
   const [isCreatingProgram, setIsCreatingProgram] = useState(
     Boolean(initialRoute?.isCreating)
@@ -583,12 +587,9 @@ export function AdminClient({
                 setSubmissionDayFilter={submissionsActions.setSubmissionDayFilter}
                 submissionMemberFilter={submissionsActions.submissionMemberFilter}
                 setSubmissionMemberFilter={submissionsActions.setSubmissionMemberFilter}
-                submissionPhotosOnly={submissionsActions.submissionPhotosOnly}
-                setSubmissionPhotosOnly={submissionsActions.setSubmissionPhotosOnly}
                 submissionSearch={submissionsActions.submissionSearch}
                 setSubmissionSearch={submissionsActions.setSubmissionSearch}
                 loadProgramSubmissions={submissionsActions.loadProgramSubmissions}
-                setLightboxData={setLightboxData}
               />
             )}
           </AdminProgramDetailView>
@@ -599,7 +600,6 @@ export function AdminClient({
             u={customerActions.inspectingUserHealth}
             currentAdminId={currentAdminId}
             masterData={masterData}
-            customerDietType={customerActions.customerDietType}
             setUsers={setUsers}
             setInspectingUserHealth={customerActions.setInspectingUserHealth}
             setFeedback={setFeedback}
@@ -612,28 +612,16 @@ export function AdminClient({
             handleResetPassword={customerActions.handleResetPassword}
             handleToggleUserStatus={customerActions.handleToggleUserStatus}
             handleDeleteUser={customerActions.handleDeleteUser}
-            customerWeight={customerActions.customerWeight}
-            customerHeight={customerActions.customerHeight}
-            customerInjuries={customerActions.customerInjuries}
-            customerAllergies={customerActions.customerAllergies}
-            customerProfileSuccess={customerActions.customerProfileSuccess}
-            customerCoachNotes={customerActions.customerCoachNotes}
-            setCustomerCoachNotes={customerActions.setCustomerCoachNotes}
-            savingCustomerProfile={customerActions.savingCustomerProfile}
-            handleSaveCustomerProfile={customerActions.handleSaveCustomerProfile}
             selectedCustomerProgramId={customerActions.selectedCustomerProgramId}
             setSelectedCustomerProgramId={customerActions.setSelectedCustomerProgramId}
             customerResponseStatusFilter={customerActions.customerResponseStatusFilter}
             setCustomerResponseStatusFilter={
               customerActions.setCustomerResponseStatusFilter
             }
-            customerResponsePhotosOnly={customerActions.customerResponsePhotosOnly}
-            setCustomerResponsePhotosOnly={customerActions.setCustomerResponsePhotosOnly}
             customerResponseSearch={customerActions.customerResponseSearch}
             setCustomerResponseSearch={customerActions.setCustomerResponseSearch}
             expandedResponseIds={customerActions.expandedResponseIds}
             setExpandedResponseIds={customerActions.setExpandedResponseIds}
-            setLightboxData={setLightboxData}
           />
         )}
 
@@ -674,6 +662,28 @@ export function AdminClient({
             qrisPageSize={QRIS_PAGE_SIZE}
             approvingId={customerActions.approvingId}
             handleApprovePayment={customerActions.handleApprovePayment}
+            supportRequests={supportRequests}
+            resolvingSupportId={resolvingSupportId}
+            onResolveSupportRequest={async (id, status) => {
+              setResolvingSupportId(id);
+              try {
+                const res = await wellnessAdminUpdateSupportRequest({ id, status });
+                if (res.success) {
+                  setSupportRequests((prev) =>
+                    prev.map((item) =>
+                      item.id === id
+                        ? { ...item, status, resolvedAt: new Date().toISOString() }
+                        : item
+                    )
+                  );
+                  setFeedback({ type: "success", text: res.message || "Support request updated." });
+                } else {
+                  setFeedback({ type: "error", text: res.message || "Failed to update support request." });
+                }
+              } finally {
+                setResolvingSupportId(null);
+              }
+            }}
           />
         )}
       </main>
@@ -686,8 +696,6 @@ export function AdminClient({
         setProgramDetailTab={setProgramDetailTab}
         handleSelectDay={dayActions.handleSelectDay}
         handleTogglePublish={programActions.handleTogglePublish}
-        lightboxData={lightboxData}
-        setLightboxData={setLightboxData}
       />
     </div>
   );

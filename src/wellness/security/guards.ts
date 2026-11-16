@@ -78,11 +78,11 @@ export function buildProgramScopeWhere(session: {
   coachProfileName?: string | null;
 }) {
   if (session.role === "SUPERADMIN") {
-    return {};
+    return { deletedAt: null };
   }
 
   if (session.role === "PARTNER_ADMIN" && session.organizationId) {
-    return { organizationId: session.organizationId };
+    return { deletedAt: null, organizationId: session.organizationId };
   }
 
   if (session.role === "COACH" && (session.coachProfileId || session.coachProfileName)) {
@@ -92,17 +92,12 @@ export function buildProgramScopeWhere(session: {
     }
     if (session.coachProfileName && session.coachProfileName.trim()) {
       const name = session.coachProfileName.trim();
-      orClauses.push(
-        { coachName: { equals: name, mode: "insensitive" } },
-        { coachName: { startsWith: `${name},`, mode: "insensitive" } },
-        { coachName: { endsWith: `, ${name}`, mode: "insensitive" } },
-        { coachName: { endsWith: `,${name}`, mode: "insensitive" } },
-        { coachName: { contains: `, ${name},`, mode: "insensitive" } },
-        { coachName: { contains: `,${name},`, mode: "insensitive" } }
-      );
+      orClauses.push({
+        coaches: { some: { coach: { name: { equals: name, mode: "insensitive" } } } },
+      });
     }
     if (orClauses.length > 0) {
-      return { OR: orClauses };
+      return { deletedAt: null, OR: orClauses };
     }
   }
 
@@ -122,18 +117,17 @@ export async function requireProgramAccess(
     return activeSession;
   }
 
-  const program = await prisma.program.findUnique({
-    where: { id: programId },
+  const program = await prisma.program.findFirst({
+    where: { id: programId, deletedAt: null },
     select: {
       id: true,
       organizationId: true,
-      coachName: true,
-      coaches: activeSession.coachProfileId
-        ? {
-            where: { coachId: activeSession.coachProfileId },
-            select: { coachId: true },
-          }
-        : false,
+      coaches: {
+        select: {
+          coachId: true,
+          coach: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -149,12 +143,13 @@ export async function requireProgramAccess(
   }
 
   if (activeSession.role === "COACH") {
-    const hasPivotLink = Array.isArray(program.coaches) && program.coaches.length > 0;
-    const hasExactNameMatch = matchesCoachNameToken(
-      program.coachName,
-      activeSession.coachProfileName
+    const hasPivotLink = program.coaches.some(
+      (c) =>
+        (activeSession.coachProfileId && c.coachId === activeSession.coachProfileId) ||
+        (activeSession.coachProfileName &&
+          c.coach.name.trim().toLowerCase() === activeSession.coachProfileName.trim().toLowerCase())
     );
-    if (!hasPivotLink && !hasExactNameMatch) {
+    if (!hasPivotLink) {
       throw new WellnessForbiddenError("You do not have access to this program.");
     }
     return activeSession;

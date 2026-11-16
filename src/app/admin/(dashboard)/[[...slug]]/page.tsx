@@ -16,6 +16,29 @@ import {
   DEFAULT_METHODOLOGY,
 } from "@/wellness/utils/json";
 import { wellnessGetMasterData } from "@/wellness/actions/master";
+import {
+  PROGRAM_TAXONOMY_INCLUDE,
+  serializeProgramTaxonomy,
+} from "@/wellness/services/program-taxonomy";
+import { calculateAgeFromDob } from "@/wellness/validators/auth";
+
+function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("sb://")) {
+    return `/api/media/signed?path=${encodeURIComponent(pathOrUrl)}`;
+  }
+  return pathOrUrl;
+}
+
+function toJsonString(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "string") return val;
+  try {
+    return JSON.stringify(val);
+  } catch {
+    return null;
+  }
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -85,23 +108,26 @@ export default async function AdminPage({
     programsData,
     enrollmentStats,
     masterDataResult,
+    supportRequestsRaw,
   ] = await Promise.all([
     prisma.user.findMany({
-      where:
-        session.role === "SUPERADMIN"
+      where: {
+        deletedAt: null,
+        ...(session.role === "SUPERADMIN"
           ? {}
           : {
               enrollments: {
                 some: { program: programScopeWhere },
               },
-            },
+            }),
+      },
       take: 200,
       select: {
         id: true,
         email: true,
         fullName: true,
         phone: true,
-        age: true,
+        birthDate: true,
         gender: true,
         occupation: true,
         address: true,
@@ -114,7 +140,6 @@ export default async function AdminPage({
         organizationId: true,
         coachProfileId: true,
         createdAt: true,
-        healthProfile: true,
         enrollments: {
           where:
             session.role === "SUPERADMIN"
@@ -126,7 +151,7 @@ export default async function AdminPage({
             attendanceMode: true,
             paymentReference: true,
             paidAt: true,
-            validUntil: true,
+            validUntilAt: true,
             termsAgreedAt: true,
             program: {
               select: {
@@ -145,12 +170,13 @@ export default async function AdminPage({
       orderBy: { createdAt: "desc" },
     }),
     prisma.program.findMany({
-      where: programScopeWhere,
+      where: {
+        deletedAt: null,
+        ...programScopeWhere,
+      },
       take: 200,
       include: {
-        organization: {
-          select: { id: true, name: true, logoUrl: true },
-        },
+        ...PROGRAM_TAXONOMY_INCLUDE,
         days: {
           orderBy: { dayNumber: "asc" },
           include: {
@@ -158,7 +184,7 @@ export default async function AdminPage({
               orderBy: { sortOrder: "asc" },
             },
             _count: {
-              select: { progress: true },
+              select: { progresses: true },
             },
           },
         },
@@ -171,6 +197,18 @@ export default async function AdminPage({
       _count: { id: true },
     }),
     wellnessGetMasterData(),
+    prisma.cohortSupportRequest.findMany({
+      where:
+        session.role === "SUPERADMIN"
+          ? {}
+          : { program: programScopeWhere },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, phone: true } },
+        program: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
   ]);
 
   // Build O(1) subscriber count lookup map from SQL group-by
@@ -186,90 +224,93 @@ export default async function AdminPage({
     }
   }
 
-  const programs = programsData.map((p) => ({
-    id: p.id,
-    title: p.title,
-    slug: p.slug,
-    description: p.description,
-    coverImage: p.coverImage || null,
-    difficultyLevel: p.difficultyLevel || "INTERMEDIATE",
-    category: p.category || "Pilates",
-    equipment: p.equipment || null,
-    dailyCommitment: p.dailyCommitment || null,
-    recommendedFor: p.recommendedFor,
-    coachName: p.coachName,
-    coachTitle: p.coachTitle || null,
-    organizationId: p.organizationId || null,
-    organizationCache: p.organization?.name || p.organizationCache || null,
-    language: p.language || "id",
-    translations: p.translations || null,
-    durationDays: p.durationDays,
-    actualPrice: p.actualPrice,
-    discountPercentage: p.discountPercentage,
-    price: p.price,
-    maxQuota: p.maxQuota,
-    locationType: p.locationType,
-    city: p.city,
-    venueAddress: p.venueAddress,
-    virtualFallbackAvailable: p.virtualFallbackAvailable,
-    termsType: ((p.termsType as "STANDARD" | "CUSTOM") || "CUSTOM"),
-    customTerms: p.customTerms || null,
-    termsList: parseTermsList(p.customTerms),
-    targetState: p.targetState || DEFAULT_TARGET_STATE,
-    methodology: p.methodology || DEFAULT_METHODOLOGY,
-    expectedBenefits: parseStringList(p.expectedBenefits, DEFAULT_PROGRAM_BENEFITS),
-    scientificReferences: parseReferencesList(p.scientificReferences, DEFAULT_PROGRAM_REFERENCES),
-    programGuidelines: parseStringList(p.programGuidelines, DEFAULT_PROGRAM_GUIDELINES),
-    communityLink: p.communityLink,
-    startDate: p.startDate,
-    endDate: p.endDate,
-    registrationOpenDate: p.registrationOpenDate,
-    registrationDeadline: p.registrationDeadline,
-    status: ((p.status as "NOT_SHOW" | "COMING_SOON" | "ACTIVE" | "DRAFT" | "PUBLISHED") || (p.isPublished ? "PUBLISHED" : "DRAFT")),
-    isPublished: p.isPublished,
-    dayCount: p.days.length,
-    activeSubscribers: statsMap[p.id]?.active || 0,
-    pendingSubscribers: statsMap[p.id]?.pending || 0,
-    submissionCount: p.days.reduce((acc, d) => acc + (d._count?.progress || 0), 0),
-    days: p.days.map((d) => ({
-      id: d.id,
-      dayNumber: d.dayNumber,
-      title: d.title,
-      dayType: d.dayType,
-      responseCount: d._count?.progress || 0,
-      workoutOptions: safeJsonParse<string[]>(d.workoutOptions, []),
-      sleepRecommendation: d.sleepRecommendation,
-      dayNotifications: safeJsonParse<Array<{ time: string; message: string; label?: string }>>(d.dayNotifications, []),
-      videoUrl: d.videoUrl,
-      videoChecklist: safeJsonParse<string[]>(d.videoChecklist, []),
-      mealRecommendation: d.mealRecommendation,
-      dailyAssessment: d.dailyAssessment,
-      pendingReminder: d.pendingReminder,
-      completedReminder: d.completedReminder,
-      meetupLink: d.meetupLink,
-      mapLink: d.mapLink,
-      onsiteVenue: d.onsiteVenue,
-      onsiteSchedule: d.onsiteSchedule,
-      eventTitle: d.eventTitle,
-      eventHost: d.eventHost,
-      eventDetails: d.eventDetails,
-      restInstructions: d.restInstructions,
-      coachName: d.coachName,
-      recommendedFor: d.recommendedFor,
-      translations: d.translations || null,
-      customTasks: d.customTasks.map((ct) => ({
-        id: ct.id,
-        programDayId: ct.programDayId,
-        sortOrder: ct.sortOrder,
-        taskType: ct.taskType as any,
-        title: ct.title,
-        instructions: ct.instructions,
-        isRequired: ct.isRequired,
-        fields: parseCustomTaskFields(ct.fieldsSchema),
-        translations: ct.translations || null,
+  const programs = programsData.map((p) => {
+    const tax = serializeProgramTaxonomy(p);
+    return {
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      description: p.description,
+      coverImage: toClientMediaUrl(p.coverImagePath),
+      difficultyLevel: p.difficultyLevel || "INTERMEDIATE",
+      category: tax.category || "Pilates",
+      equipment: tax.equipment || null,
+      dailyCommitment: tax.dailyCommitment || null,
+      recommendedFor: tax.recommendedFor,
+      coachName: tax.coachName,
+      coachTitle: tax.coachTitle || null,
+      organizationId: p.organizationId || null,
+      organizationCache: tax.organizationName || null,
+      language: p.language || "id",
+      translations: toJsonString(p.translationsJson),
+      durationDays: p.durationDays,
+      actualPrice: p.actualPrice,
+      discountPercentage: p.discountPercentage,
+      price: p.price,
+      maxQuota: p.maxQuota,
+      locationType: p.locationType,
+      city: p.city,
+      venueAddress: p.venueAddress,
+      virtualFallbackAvailable: p.isVirtualFallbackAvailable,
+      termsType: ((p.termsType as "STANDARD" | "CUSTOM") || "CUSTOM"),
+      customTerms: p.customTerms || null,
+      termsList: parseTermsList(p.customTerms),
+      targetState: p.targetState || DEFAULT_TARGET_STATE,
+      methodology: p.methodology || DEFAULT_METHODOLOGY,
+      expectedBenefits: parseStringList(p.expectedBenefitsJson, DEFAULT_PROGRAM_BENEFITS),
+      scientificReferences: parseReferencesList(p.scientificReferencesJson, DEFAULT_PROGRAM_REFERENCES),
+      programGuidelines: parseStringList(p.programGuidelinesJson, DEFAULT_PROGRAM_GUIDELINES),
+      communityLink: p.communityLink,
+      startDate: p.startAt,
+      endDate: p.endAt,
+      registrationOpenDate: p.registrationOpenAt,
+      registrationDeadline: p.registrationDeadlineAt,
+      status: p.status,
+      isPublished: p.status === "PUBLISHED",
+      dayCount: p.days.length,
+      activeSubscribers: statsMap[p.id]?.active || 0,
+      pendingSubscribers: statsMap[p.id]?.pending || 0,
+      submissionCount: p.days.reduce((acc, d) => acc + (d._count?.progresses || 0), 0),
+      days: p.days.map((d) => ({
+        id: d.id,
+        dayNumber: d.dayNumber,
+        title: d.title,
+        dayType: d.dayType,
+        responseCount: d._count?.progresses || 0,
+        workoutOptions: safeJsonParse<string[]>(d.workoutOptionsJson, []),
+        sleepRecommendation: d.sleepRecommendation,
+        dayNotifications: safeJsonParse<Array<{ time: string; message: string; label?: string }>>(d.dayNotificationsJson, []),
+        videoUrl: d.videoUrl,
+        videoChecklist: safeJsonParse<string[]>(d.videoChecklistJson, []),
+        mealRecommendation: d.mealRecommendation,
+        dailyAssessment: d.dailyAssessment,
+        pendingReminder: d.pendingReminder,
+        completedReminder: d.completedReminder,
+        meetupLink: d.meetupLink,
+        mapLink: d.mapLink,
+        onsiteVenue: d.onsiteVenue,
+        onsiteSchedule: d.onsiteSchedule,
+        eventTitle: d.eventTitle,
+        eventHost: d.eventHost,
+        eventDetails: d.eventDetails,
+        restInstructions: d.restInstructions,
+        coachName: d.coachName,
+        recommendedFor: d.recommendedFor,
+        translations: toJsonString(d.translationsJson),
+        customTasks: d.customTasks.map((ct) => ({
+          id: ct.id,
+          programDayId: ct.programDayId,
+          sortOrder: ct.sortOrder,
+          taskType: ct.taskType as any,
+          title: ct.title,
+          instructions: ct.instructions,
+          isRequired: ct.isRequired,
+          fields: parseCustomTaskFields(ct.fieldsSchemaJson),
+          translations: toJsonString(ct.translationsJson),
+        })),
       })),
-    })),
-  }));
+    };
+  });
 
   // 4. Resolve specific program if URL is /admin/programs/[programIdOrSlug]
   let resolvedProgramId: string | null = null;
@@ -292,8 +333,6 @@ export default async function AdminPage({
     isCompleted: boolean;
     checklistCompleted: string | null;
     selectedWorkout: string | null;
-    photoBeforeUrl: string | null;
-    photoAfterUrl: string | null;
     workoutNotes: string | null;
     eventFeedback: string | null;
     mealCompliance: string | null;
@@ -326,7 +365,7 @@ export default async function AdminPage({
       redirect("/admin/customers");
     }
     resolvedCustomerId = matchedCustomer.id;
-    inspectedDayProgress = await prisma.programDayProgress.findMany({
+    const rawProgress = await prisma.programDayProgress.findMany({
       where: {
         userId: matchedCustomer.id,
         ...(session.role === "SUPERADMIN"
@@ -336,12 +375,10 @@ export default async function AdminPage({
       take: 200,
       select: {
         id: true,
-        videoWatched: true,
+        isVideoWatched: true,
         isCompleted: true,
-        checklistCompleted: true,
+        checklistCompletedJson: true,
         selectedWorkout: true,
-        photoBeforeUrl: true,
-        photoAfterUrl: true,
         workoutNotes: true,
         eventFeedback: true,
         mealCompliance: true,
@@ -372,11 +409,44 @@ export default async function AdminPage({
       },
       orderBy: { completedAt: "desc" },
     });
+    inspectedDayProgress = rawProgress.map((dp) => ({
+      ...dp,
+      videoWatched: dp.isVideoWatched,
+      checklistCompleted: toJsonString(dp.checklistCompletedJson),
+    }));
   }
 
-  const users = usersRaw.map((u) =>
-    u.id === resolvedCustomerId ? { ...u, dayProgress: inspectedDayProgress } : u
-  );
+  const users = usersRaw.map((u) => {
+    const baseUser = {
+      ...u,
+      age: u.birthDate ? calculateAgeFromDob(u.birthDate) : null,
+      enrollments: u.enrollments.map((e) => ({
+        ...e,
+        validUntil: e.validUntilAt,
+      })),
+    };
+    return u.id === resolvedCustomerId
+      ? { ...baseUser, dayProgress: inspectedDayProgress }
+      : baseUser;
+  });
+
+  const supportRequests = supportRequestsRaw.map((sr) => ({
+    id: sr.id,
+    userId: sr.userId,
+    userFullName: sr.user.fullName,
+    userEmail: sr.user.email,
+    userPhone: sr.user.phone,
+    programId: sr.programId,
+    programTitle: sr.program.title,
+    enrollmentId: sr.enrollmentId,
+    requestType: sr.requestType,
+    reasonCode: sr.reasonCode,
+    note: sr.note,
+    status: sr.status,
+    adminNote: sr.adminNote,
+    resolvedAt: sr.resolvedAt ? sr.resolvedAt.toISOString() : null,
+    createdAt: sr.createdAt.toISOString(),
+  }));
 
   const rawTab = searchParams?.tab?.toLowerCase();
   const programDetailTab: "info" | "schedule" | "responses" =
@@ -385,9 +455,6 @@ export default async function AdminPage({
   const validCustomerTabs = [
     "overview",
     "responses",
-    "health",
-    "medical",
-    "lifestyle",
     "notes",
   ] as const;
   const customerTab = validCustomerTabs.includes(
@@ -421,6 +488,7 @@ export default async function AdminPage({
       initialUsers={users}
       initialPrograms={programs}
       initialMasterData={masterDataResult.data}
+      initialSupportRequests={supportRequests}
       currentAdminId={session.userId}
       currentAdminRole={session.role}
       currentAdminOrgId={session.organizationId}

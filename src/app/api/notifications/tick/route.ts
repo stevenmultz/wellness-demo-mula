@@ -1,23 +1,18 @@
 import { NextResponse } from "next/server";
 import { getWellnessSession } from "@/wellness/security/session";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
-import { checkRateLimit } from "@/wellness/security/rate-limit";
+import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { RATE_LIMITS } from "@/wellness/config";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Member sessions call this about once a minute. The server clock (WIB) decides what is due,
- * so Hobby's once-a-day Vercel cron is not the only sender. Time cannot be supplied by the client.
- */
 export async function POST() {
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
   }
 
-  // Rate limit: max 4 tick requests per minute per authenticated user
-  const rl = checkRateLimit(`tick:${session.userId}`, RATE_LIMITS.notificationsTick);
+  const rl = await checkDistributedRateLimit(`tick:${session.userId}`, RATE_LIMITS.notificationsTick);
 
   if (!rl.allowed) {
     return NextResponse.json(

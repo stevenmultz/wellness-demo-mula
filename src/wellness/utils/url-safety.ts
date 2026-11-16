@@ -3,7 +3,9 @@
  * and other unsafe URI schemes in validated payloads and UI href/src attributes.
  */
 
-const SAFE_UPLOAD_PATH_RE = /^\/(?:uploads|api\/media)\/(?!.*\.\.)[A-Za-z0-9._\-\/]+$/;
+const SAFE_UPLOAD_PATH_RE = /^\/(?:uploads|api\/media)\/(?!.*\.\.)[A-Za-z0-9._\-\/?=&%:+]+$/;
+const SAFE_STATIC_WEBP_PATH_RE = /^\/[A-Za-z0-9._-]+\.(?:webp|png|jpg|jpeg|svg)$/i;
+const SAFE_SUPABASE_STORAGE_URI_RE = /^sb:\/\/[a-z0-9-]+\/(?!.*\.\.)[A-Za-z0-9._\-\/]+$/;
 const SAFE_DATA_IMAGE_RE = /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i;
 
 /**
@@ -28,6 +30,8 @@ export function safeMediaUrl(url: string | null | undefined): string | null {
   const trimmed = url.trim();
   if (!trimmed) return null;
   if (SAFE_UPLOAD_PATH_RE.test(trimmed)) return trimmed;
+  if (SAFE_STATIC_WEBP_PATH_RE.test(trimmed)) return trimmed;
+  if (SAFE_SUPABASE_STORAGE_URI_RE.test(trimmed)) return trimmed;
   if (SAFE_DATA_IMAGE_RE.test(trimmed)) return trimmed;
   return safeHttpUrl(trimmed);
 }

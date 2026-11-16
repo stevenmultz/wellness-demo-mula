@@ -125,7 +125,6 @@ export function MyPlanOverview({
   onSaveReflection,
   onSaveAttendance,
   onSaveWorkoutNotes,
-  onUploadPhoto,
   onCompleteDay,
   bodyMetricLogs = [],
   onCustomTaskSubmitted,
@@ -149,7 +148,6 @@ export function MyPlanOverview({
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => Promise<void | boolean>;
   onSaveAttendance: (notes: string, dayId: string) => Promise<void | boolean>;
   onSaveWorkoutNotes: (notes: string, dayId: string) => Promise<void | boolean>;
-  onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => Promise<void | boolean>;
   onCompleteDay: (dayId: string) => Promise<void | boolean>;
   bodyMetricLogs?: BodyMetricPoint[];
   onCustomTaskSubmitted?: (
@@ -387,7 +385,6 @@ export function MyPlanOverview({
                       onSaveSleep={onSaveSleep}
                       onSaveAttendance={onSaveAttendance}
                       onSaveWorkoutNotes={onSaveWorkoutNotes}
-                      onUploadPhoto={onUploadPhoto}
                       onSaveMeal={onSaveMeal}
                       onSaveReflection={onSaveReflection}
                       onCompleteDay={onCompleteDay}
@@ -467,6 +464,7 @@ export function MyPlanOverview({
 
       {showReportModal && (
         <ProgramReportPageView
+          programId={program?.id}
           programTitle={program?.title}
           communityLink={program?.communityLink}
           onClose={() => setShowReportModal(false)}

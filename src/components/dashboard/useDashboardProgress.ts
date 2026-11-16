@@ -23,8 +23,6 @@ export function useDashboardProgress({
   const [dayVideoWatched, setDayVideoWatched] = useState<Record<string, boolean>>({});
   const [dayAssessments, setDayAssessments] = useState<Record<string, string>>({});
   const [dayWorkouts, setDayWorkouts] = useState<Record<string, string>>({});
-  const [dayPhotosBefore, setDayPhotosBefore] = useState<Record<string, string>>({});
-  const [dayPhotosAfter, setDayPhotosAfter] = useState<Record<string, string>>({});
   const [dayMealCompliance, setDayMealCompliance] = useState<Record<string, string>>({});
   const [dayMealNotes, setDayMealNotes] = useState<Record<string, string>>({});
   const [dayWorkoutNotes, setDayWorkoutNotes] = useState<Record<string, string>>({});
@@ -71,8 +69,6 @@ export function useDashboardProgress({
       happinessRate: dayHappiness[day.id] ?? day.userProgress?.happinessRate,
       bedtime: dayBedtimes[day.id] ?? day.userProgress?.bedtime,
       wakeTime: dayWakeTimes[day.id] ?? day.userProgress?.wakeTime,
-      photoBeforeUrl: dayPhotosBefore[day.id] ?? day.userProgress?.photoBeforeUrl,
-      photoAfterUrl: dayPhotosAfter[day.id] ?? day.userProgress?.photoAfterUrl,
       workoutNotes: dayWorkoutNotes[day.id] ?? day.userProgress?.workoutNotes,
       selectedWorkout: dayWorkouts[day.id] ?? day.userProgress?.selectedWorkout,
       assessmentResponse: dayAssessments[day.id] ?? day.userProgress?.assessmentResponse,
@@ -164,10 +160,6 @@ export function useDashboardProgress({
       isCompleted,
       selectedWorkout:
         dayWorkouts[targetDay.id] || targetDay.userProgress?.selectedWorkout || undefined,
-      photoBeforeUrl:
-        dayPhotosBefore[targetDay.id] || targetDay.userProgress?.photoBeforeUrl || undefined,
-      photoAfterUrl:
-        dayPhotosAfter[targetDay.id] || targetDay.userProgress?.photoAfterUrl || undefined,
       mealCompliance:
         dayMealCompliance[targetDay.id] ||
         targetDay.userProgress?.mealCompliance ||
@@ -352,48 +344,6 @@ export function useDashboardProgress({
     return true;
   };
 
-  const handleUploadPhoto = async (
-    type: "before" | "after",
-    base64OrUrl: string,
-    dayId?: string
-  ): Promise<boolean> => {
-    const targetDay = resolveTargetDay(dayId);
-    if (!targetDay) return false;
-    if (type === "before") {
-      setDayPhotosBefore((prev) => ({ ...prev, [targetDay.id]: base64OrUrl }));
-    } else {
-      setDayPhotosAfter((prev) => ({ ...prev, [targetDay.id]: base64OrUrl }));
-    }
-
-    const res = await wellnessUserSubmitDayProgress({
-      programDayId: targetDay.id,
-      isCompleted: !!targetDay.userProgress?.isCompleted,
-      checklistCompleted: getCheckedItems(targetDay),
-      videoWatched: getVideoWatched(targetDay),
-      photoBeforeUrl: type === "before" ? base64OrUrl : undefined,
-      photoAfterUrl: type === "after" ? base64OrUrl : undefined,
-    });
-
-    if (!res.success) {
-      setActionNotice(
-        { type: "error", text: res.message || "Failed to upload progress photo." },
-        4000
-      );
-      return false;
-    }
-    setActionNotice(
-      {
-        type: "success",
-        text:
-          type === "before"
-            ? "Before photo uploaded successfully."
-            : "After photo uploaded successfully.",
-      },
-      3000
-    );
-    return true;
-  };
-
   const handleSaveWorkoutNotes = async (notes: string, dayId?: string): Promise<boolean> => {
     const targetDay = resolveTargetDay(dayId);
     if (!targetDay) return false;
@@ -535,7 +485,6 @@ export function useDashboardProgress({
     handleToggleChecklist,
     handleSaveSleep,
     handleSelectWorkout,
-    handleUploadPhoto,
     handleSaveWorkoutNotes,
     handleSaveEventFeedback,
     handleSaveMeal,

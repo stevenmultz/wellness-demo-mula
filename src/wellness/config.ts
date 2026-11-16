@@ -9,10 +9,12 @@
 import { BRAND } from "./brand";
 
 export const SESSION_COOKIE_NAME = "wellness_session";
+export const GOOGLE_OAUTH_COOKIE = "wellness_google_oauth";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 export const SESSION_EXPIRATION_CLAIM = "7d";
 
 export const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
+export const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 export const QRIS_INVOICE_TTL_MS = 15 * 60 * 1000;
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -116,5 +118,45 @@ export function getVapidConfig(): {
     publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
     privateKey: process.env.VAPID_PRIVATE_KEY || "",
     subject: process.env.VAPID_SUBJECT || `mailto:${BRAND.supportEmail}`,
+  };
+}
+
+export function getSupabaseConfig(): {
+  url: string;
+  serviceRoleKey: string;
+} {
+  return {
+    url: (process.env.SUPABASE_URL || "").replace(/\/+$/, ""),
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  };
+}
+
+export function getGoogleOAuthConfig(): {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+} {
+  const appUrl = getAppUrl();
+  return {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || `${appUrl}/api/auth/google/callback`,
+  };
+}
+
+export function getMidtransConfig(): {
+  serverKey: string;
+  clientKey: string;
+  isProduction: boolean;
+  apiBaseUrl: string;
+} {
+  const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
+  return {
+    serverKey: process.env.MIDTRANS_SERVER_KEY || "",
+    clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
+    isProduction,
+    apiBaseUrl: isProduction
+      ? "https://api.midtrans.com"
+      : "https://api.sandbox.midtrans.com",
   };
 }

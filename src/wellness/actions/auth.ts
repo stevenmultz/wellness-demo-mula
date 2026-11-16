@@ -17,8 +17,13 @@ import {
   ResetPasswordSchema,
 } from "../validators/auth";
 import { sendTransactionalEmail } from "../integrations/email-service";
-import { checkRateLimit, resetRateLimit } from "../security/rate-limit";
+import { recordAuditLog } from "../integrations/audit-log";
 import {
+  checkDistributedRateLimit,
+  resetDistributedRateLimit,
+} from "../security/rate-limit";
+import {
+  EMAIL_VERIFICATION_TTL_MS,
   getAppUrl,
   isProductionEnv,
   PASSWORD_RESET_TTL_MS,
@@ -36,18 +41,15 @@ function getClientIpKey(): string {
     const realIp = h.get("x-real-ip")?.trim();
     if (realIp) return realIp.slice(0, 64);
   } catch {
-    // Outside Next.js request context (e.g. unit tests)
+    // Outside Next.js request context
   }
   return "unknown";
 }
 
-/** Reset tokens are stored as SHA-256 digests so a database leak cannot be replayed. */
-function hashResetToken(token: string): string {
+function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-// Valid bcrypt hash of a random value, compared against when the account does not exist
-// so response time does not reveal which emails are registered.
 const DUMMY_PASSWORD_HASH = "$2a$12$NwraF30b7JtZAOkOowU0BeV33h.hq1PxXvyFm0ZJ.dc0ibqkVg.kW";
 
 export interface WellnessActionResult<T = unknown> {
@@ -56,11 +58,45 @@ export interface WellnessActionResult<T = unknown> {
   data?: T;
   errors?: Record<string, string[]>;
   devResetUrl?: string;
+  devVerifyUrl?: string;
+  requiresVerification?: boolean;
+}
+
+async function issueEmailVerificationForUser(user: {
+  id: string;
+  email: string;
+  fullName: string;
+}): Promise<{ verifyUrl: string; delivered: boolean }> {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.userEmailVerificationToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    await tx.userEmailVerificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(rawToken),
+        expiresAt,
+      },
+    });
+  });
+
+  const verifyUrl = `${getAppUrl()}/verify-email?token=${rawToken}`;
+  const emailRes = await sendTransactionalEmail({
+    to: user.email,
+    subject: `${BRAND.fullName} — Verify your email address`,
+    html: `<p>Hi ${user.fullName},</p><p>Please verify your email address to activate your account (valid for 24 hours):</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    text: `Verify your email (valid 24 hours): ${verifyUrl}`,
+  });
+
+  return { verifyUrl, delivered: emailRes.delivered };
 }
 
 /**
- * Register a new member account.
- * Automatically assigns role = USER and status = ACTIVE.
+ * Register a new member account with mandatory email verification.
  */
 export async function wellnessSignUp(
   rawInput: unknown
@@ -78,9 +114,8 @@ export async function wellnessSignUp(
     const { fullName, email, phone, password } = validation.data;
     const ip = getClientIpKey();
 
-    // Dual rate limiting: per-IP burst cap + per-email cap
-    const ipRl = checkRateLimit(`signup-ip:${ip}`, RATE_LIMITS.signupIp);
-    const emailRl = checkRateLimit(`signup:${email}`, RATE_LIMITS.signupEmail);
+    const ipRl = await checkDistributedRateLimit(`signup-ip:${ip}`, RATE_LIMITS.signupIp);
+    const emailRl = await checkDistributedRateLimit(`signup:${email}`, RATE_LIMITS.signupEmail);
     if (!ipRl.allowed || !emailRl.allowed) {
       return {
         success: false,
@@ -88,8 +123,8 @@ export async function wellnessSignUp(
       };
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
     });
 
     if (existingUser) {
@@ -107,6 +142,7 @@ export async function wellnessSignUp(
         email,
         phone: phone || null,
         passwordHash,
+        emailVerifiedAt: null,
         role: "USER",
         status: "ACTIVE",
         tokenVersion: 0,
@@ -116,21 +152,16 @@ export async function wellnessSignUp(
         email: true,
         fullName: true,
         role: true,
-        tokenVersion: true,
       },
     });
 
-    const token = await createSessionToken({
-      userId: newUser.id,
-      email: newUser.email,
-      role: newUser.role,
-      tokenVersion: newUser.tokenVersion,
-    });
-    await setSessionCookie(token);
+    const { verifyUrl } = await issueEmailVerificationForUser(newUser);
 
     return {
       success: true,
-      message: `Account created! Welcome to ${BRAND.fullName}.`,
+      requiresVerification: true,
+      message: "Account created! Please check your email inbox and click the verification link before signing in.",
+      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
       data: {
         id: newUser.id,
         email: newUser.email,
@@ -148,7 +179,148 @@ export async function wellnessSignUp(
 }
 
 /**
- * Member / Superadmin Sign In.
+ * Verify email token atomically and start authenticated session.
+ */
+export async function wellnessVerifyEmailToken(
+  rawToken: string
+): Promise<WellnessActionResult<{ email: string; role: string }>> {
+  const token = (rawToken || "").trim();
+  if (!token) {
+    return { success: false, message: "Verification token is missing." };
+  }
+
+  try {
+    const tokenRecord = await prisma.userEmailVerificationToken.findUnique({
+      where: { tokenHash: hashToken(token) },
+      include: {
+        user: {
+          select: { id: true, email: true, role: true, status: true, deletedAt: true, tokenVersion: true },
+        },
+      },
+    });
+
+    if (
+      !tokenRecord ||
+      tokenRecord.usedAt !== null ||
+      new Date() > tokenRecord.expiresAt ||
+      tokenRecord.user.deletedAt !== null
+    ) {
+      return {
+        success: false,
+        message: "This verification link is invalid or has expired. Please request a new one.",
+      };
+    }
+
+    const verifiedUser = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const claim = await tx.userEmailVerificationToken.updateMany({
+        where: { id: tokenRecord.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (claim.count !== 1) return null;
+
+      const updated = await tx.user.update({
+        where: { id: tokenRecord.userId },
+        data: { emailVerifiedAt: now },
+        select: { id: true, email: true, role: true, status: true, tokenVersion: true },
+      });
+
+      await recordAuditLog(
+        {
+          actorUserId: updated.id,
+          action: "EMAIL_VERIFIED",
+          entityType: "User",
+          entityId: updated.id,
+        },
+        tx
+      );
+
+      return updated;
+    });
+
+    if (!verifiedUser) {
+      return {
+        success: false,
+        message: "This verification link has already been used or expired.",
+      };
+    }
+
+    if (verifiedUser.status === "ACTIVE") {
+      const sessionJwt = await createSessionToken({
+        userId: verifiedUser.id,
+        email: verifiedUser.email,
+        role: verifiedUser.role,
+        tokenVersion: verifiedUser.tokenVersion,
+      });
+      await setSessionCookie(sessionJwt);
+    }
+
+    return {
+      success: true,
+      message: "Email verified successfully! Your account is now active.",
+      data: { email: verifiedUser.email, role: verifiedUser.role },
+    };
+  } catch (error) {
+    console.error("[wellnessVerifyEmailToken Error]:", error);
+    return {
+      success: false,
+      message: "Failed to verify email address. Please try again.",
+    };
+  }
+}
+
+/**
+ * Resend verification link for unverified accounts (generic response prevents enumeration).
+ */
+export async function wellnessResendVerificationEmail(
+  rawEmail: string
+): Promise<WellnessActionResult> {
+  try {
+    const parsed = ForgotPasswordSchema.safeParse({ email: rawEmail });
+    if (!parsed.success) {
+      return { success: false, message: "Please provide a valid email address." };
+    }
+
+    const { email } = parsed.data;
+    const ip = getClientIpKey();
+    const ipRl = await checkDistributedRateLimit(`verify-ip:${ip}`, RATE_LIMITS.pwdResetIp);
+    const emailRl = await checkDistributedRateLimit(`verify:${email}`, RATE_LIMITS.pwdResetEmail);
+    if (!ipRl.allowed || !emailRl.allowed) {
+      return {
+        success: false,
+        message: "Too many verification email requests. Please wait 15 minutes.",
+      };
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
+      select: { id: true, email: true, fullName: true, emailVerifiedAt: true, status: true },
+    });
+
+    const genericMsg =
+      "If your account exists and is unverified, a new verification link has been sent to your email.";
+
+    if (!user || user.emailVerifiedAt || user.status !== "ACTIVE") {
+      return { success: true, message: genericMsg };
+    }
+
+    const { verifyUrl } = await issueEmailVerificationForUser(user);
+    return {
+      success: true,
+      message: genericMsg,
+      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
+    };
+  } catch (error) {
+    console.error("[wellnessResendVerificationEmail Error]:", error);
+    return {
+      success: false,
+      message: "Failed to resend verification email. Please try again.",
+    };
+  }
+}
+
+/**
+ * Member / Superadmin Sign In (enforces verified email).
  */
 export async function wellnessSignIn(
   rawInput: unknown
@@ -167,9 +339,8 @@ export async function wellnessSignIn(
     const ip = getClientIpKey();
     const accountBucket = `signin:${ip}:${email}`;
 
-    // Rate limiting: per-IP spray guard + per-(ip, email) credential brute-force guard
-    const ipRl = checkRateLimit(`signin-ip:${ip}`, RATE_LIMITS.signinIp);
-    const rl = checkRateLimit(accountBucket, RATE_LIMITS.signinAccount);
+    const ipRl = await checkDistributedRateLimit(`signin-ip:${ip}`, RATE_LIMITS.signinIp);
+    const rl = await checkDistributedRateLimit(accountBucket, RATE_LIMITS.signinAccount);
     if (!ipRl.allowed || !rl.allowed) {
       return {
         success: false,
@@ -177,8 +348,8 @@ export async function wellnessSignIn(
       };
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
     });
 
     if (!user) {
@@ -186,6 +357,14 @@ export async function wellnessSignIn(
       return {
         success: false,
         message: "Invalid email or password.",
+      };
+    }
+
+    if (!user.passwordHash) {
+      await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
+      return {
+        success: false,
+        message: "This account uses Google Sign-In. Please sign in with Google or use Forgot Password to set a password.",
       };
     }
 
@@ -197,12 +376,20 @@ export async function wellnessSignIn(
       };
     }
 
-    resetRateLimit(accountBucket);
+    await resetDistributedRateLimit(accountBucket);
 
     if (user.status !== "ACTIVE") {
       return {
         success: false,
         message: "Your account is currently suspended. Please contact the Wellness Administrator.",
+      };
+    }
+
+    if (!user.emailVerifiedAt) {
+      return {
+        success: false,
+        requiresVerification: true,
+        message: "Please verify your email address before signing in. Check your inbox or request a new verification link.",
       };
     }
 
@@ -246,7 +433,7 @@ export async function wellnessSignOut(): Promise<WellnessActionResult> {
 }
 
 /**
- * Request Password Reset link (256-bit random token valid for 15 minutes).
+ * Request Password Reset link (transactional token rotation).
  */
 export async function wellnessRequestPasswordReset(
   rawInput: unknown
@@ -264,9 +451,8 @@ export async function wellnessRequestPasswordReset(
     const { email } = validation.data;
     const ip = getClientIpKey();
 
-    // Rate limiting: per-IP + per-email password reset protection
-    const ipRl = checkRateLimit(`pwdreset-ip:${ip}`, RATE_LIMITS.pwdResetIp);
-    const rl = checkRateLimit(`pwdreset:${email}`, RATE_LIMITS.pwdResetEmail);
+    const ipRl = await checkDistributedRateLimit(`pwdreset-ip:${ip}`, RATE_LIMITS.pwdResetIp);
+    const rl = await checkDistributedRateLimit(`pwdreset:${email}`, RATE_LIMITS.pwdResetEmail);
     if (!ipRl.allowed || !rl.allowed) {
       return {
         success: false,
@@ -274,8 +460,8 @@ export async function wellnessRequestPasswordReset(
       };
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
     });
 
     const genericSuccessMessage =
@@ -288,21 +474,23 @@ export async function wellnessRequestPasswordReset(
       };
     }
 
-    await prisma.passwordResetToken.updateMany({
-      where: { userId: user.id, used: false },
-      data: { used: true },
-    });
-
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
 
-    await prisma.passwordResetToken.create({
-      data: {
-        token: hashResetToken(token),
-        userId: user.id,
-        expiresAt,
-        used: false,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.userPasswordResetToken.updateMany({
+        where: { userId: user.id, isUsed: false },
+        data: { isUsed: true },
+      });
+
+      await tx.userPasswordResetToken.create({
+        data: {
+          tokenHash: hashToken(token),
+          userId: user.id,
+          expiresAt,
+          isUsed: false,
+        },
+      });
     });
 
     const appUrl = getAppUrl();
@@ -351,12 +539,12 @@ export async function wellnessConfirmPasswordReset(
 
     const { token, newPassword } = validation.data;
 
-    const resetRecord = await prisma.passwordResetToken.findUnique({
-      where: { token: hashResetToken(token) },
-      select: { id: true, userId: true, used: true, expiresAt: true },
+    const resetRecord = await prisma.userPasswordResetToken.findUnique({
+      where: { tokenHash: hashToken(token) },
+      select: { id: true, userId: true, isUsed: true, expiresAt: true },
     });
 
-    if (!resetRecord || resetRecord.used || new Date() > resetRecord.expiresAt) {
+    if (!resetRecord || resetRecord.isUsed || new Date() > resetRecord.expiresAt) {
       return {
         success: false,
         message: "This password reset link is invalid or has expired. Please request a new one.",
@@ -365,11 +553,10 @@ export async function wellnessConfirmPasswordReset(
 
     const newPasswordHash = await hashPassword(newPassword);
 
-    // Atomically consume the token: only one concurrent request can flip used false -> true.
     const consumed = await prisma.$transaction(async (tx) => {
-      const claim = await tx.passwordResetToken.updateMany({
-        where: { id: resetRecord.id, used: false, expiresAt: { gt: new Date() } },
-        data: { used: true },
+      const claim = await tx.userPasswordResetToken.updateMany({
+        where: { id: resetRecord.id, isUsed: false, expiresAt: { gt: new Date() } },
+        data: { isUsed: true },
       });
       if (claim.count !== 1) return false;
       await tx.user.update({

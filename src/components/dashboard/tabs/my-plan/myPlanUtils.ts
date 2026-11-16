@@ -38,8 +38,6 @@ export interface PlanDay {
     bedtime?: string | null;
     wakeTime?: string | null;
     assessmentResponse?: string | null;
-    photoBeforeUrl?: string | null;
-    photoAfterUrl?: string | null;
     workoutNotes?: string | null;
   } | null;
 }

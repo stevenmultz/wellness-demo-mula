@@ -36,8 +36,6 @@ export interface ProgramDayItem {
     isCompleted: boolean;
     checklistCompleted: string | null;
     selectedWorkout?: string | null;
-    photoBeforeUrl?: string | null;
-    photoAfterUrl?: string | null;
     workoutNotes?: string | null;
     eventFeedback?: string | null;
     mealCompliance?: string | null;
@@ -126,6 +124,7 @@ export interface EnrollmentItem {
   invoiceExpiresAt: Date | string | null;
   paidAt: Date | string | null;
   validUntil: Date | string | null;
+  qrStringOrUrl?: string | null;
   termsList?: string[];
 }
 
@@ -147,30 +146,6 @@ export interface UserProfile {
   role: string;
   status: string;
   createdAt: Date | string;
-}
-
-export interface HealthProfileData {
-  id?: string;
-  photoFrontUrl?: string | null;
-  photoSideUrl?: string | null;
-  photoBackUrl?: string | null;
-  weightKg?: number | null;
-  heightCm?: number | null;
-  waistCm?: number | null;
-  chestCm?: number | null;
-  hipsCm?: number | null;
-  dietType?: string | null;
-  foodAllergies?: string | null;
-  injuriesOrConditions?: string | null;
-  primaryGoal?: string | null;
-  currentMood?: string | null;
-  energyLevel?: number | null;
-  routineConfidence?: number | null;
-  workoutFrequency?: string | null;
-  averageBedtime?: string | null;
-  averageWakeTime?: string | null;
-  sleepQualityNotes?: string | null;
-  eatingPatterns?: string | null;
 }
 
 export type ActionNotice = { type: "success" | "error"; text: string };

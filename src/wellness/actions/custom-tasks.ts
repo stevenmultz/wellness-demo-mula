@@ -1,6 +1,8 @@
 "use server";
 
+import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import { type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
 import { requireAuth, requireProgramAccess } from "../security/guards";
@@ -22,8 +24,7 @@ const SubmitCustomTaskSchema = z.object({
 
 /**
  * Member: Submit or update a custom daily task (e.g. Body Measurement, Benchmark, Coach Form).
- * For MEASUREMENT tasks, automatically records a time-series snapshot in `UserBodyMetricLog`
- * and updates the user's latest `CustomerHealthProfile` fields.
+ * For MEASUREMENT tasks, atomically upserts into `user_body_metric_logs` via partial unique index.
  */
 export async function wellnessUserSubmitCustomTask(
   rawInput: unknown
@@ -70,7 +71,7 @@ export async function wellnessUserSubmitCustomTask(
   }
 
   const { isCalendarUnlocked, isPast2359 } = getProgramDayWibWindow(
-    customTask.programDay.program.startDate,
+    customTask.programDay.program.startAt,
     customTask.programDay.dayNumber
   );
 
@@ -108,8 +109,7 @@ export async function wellnessUserSubmitCustomTask(
     };
   }
 
-  // Validate & sanitize all fields by schema type, bounds, and URL safety
-  const fields = parseCustomTaskFields(customTask.fieldsSchema);
+  const fields = parseCustomTaskFields(customTask.fieldsSchemaJson);
   const sanitizedResult = sanitizeCustomTaskSubmission(fields, values);
   if (!sanitizedResult.ok) {
     return {
@@ -117,7 +117,7 @@ export async function wellnessUserSubmitCustomTask(
       message: sanitizedResult.message,
     };
   }
-  const sanitizedValues = sanitizedResult.values;
+  const sanitizedValues = sanitizedResult.values as Prisma.InputJsonValue;
 
   const result = await prisma.$transaction(async (tx) => {
     const submission = await tx.programDayCustomSubmission.upsert({
@@ -131,78 +131,43 @@ export async function wellnessUserSubmitCustomTask(
         userId: session.userId,
         programDayId,
         customTaskId,
-        valuesJson: JSON.stringify(sanitizedValues),
+        valuesJson: sanitizedValues,
       },
       update: {
-        valuesJson: JSON.stringify(sanitizedValues),
+        valuesJson: sanitizedValues,
       },
     });
 
-    // If MEASUREMENT task, sync time-series body metric snapshot & baseline profile
     if (customTask.taskType === "MEASUREMENT") {
-      const metrics = extractBodyMetricsFromValues(sanitizedValues);
+      const metrics = extractBodyMetricsFromValues(sanitizedResult.values);
       if (metrics) {
-        const existingMetric = await tx.userBodyMetricLog.findFirst({
-          where: {
-            userId: session.userId,
-            programDayId,
-            source: "CUSTOM_TASK",
-          },
-        });
-
-        if (existingMetric) {
-          await tx.userBodyMetricLog.update({
-            where: { id: existingMetric.id },
-            data: {
-              weightKg: metrics.weightKg ?? existingMetric.weightKg,
-              heightCm: metrics.heightCm ?? existingMetric.heightCm,
-              waistCm: metrics.waistCm ?? existingMetric.waistCm,
-              chestCm: metrics.chestCm ?? existingMetric.chestCm,
-              hipsCm: metrics.hipsCm ?? existingMetric.hipsCm,
-              bodyFatPct: metrics.bodyFatPct ?? existingMetric.bodyFatPct,
-              restingHr: metrics.restingHr ?? existingMetric.restingHr,
-              notes: metrics.notes ?? existingMetric.notes,
-              recordedAt: new Date(),
-            },
-          });
-        } else {
-          await tx.userBodyMetricLog.create({
-            data: {
-              userId: session.userId,
-              programId: customTask.programDay.programId,
-              programDayId,
-              source: "CUSTOM_TASK",
-              weightKg: metrics.weightKg ?? null,
-              heightCm: metrics.heightCm ?? null,
-              waistCm: metrics.waistCm ?? null,
-              chestCm: metrics.chestCm ?? null,
-              hipsCm: metrics.hipsCm ?? null,
-              bodyFatPct: metrics.bodyFatPct ?? null,
-              restingHr: metrics.restingHr ?? null,
-              notes: metrics.notes ?? null,
-            },
-          });
-        }
-
-        // Sync latest snapshot into CustomerHealthProfile
-        await tx.customerHealthProfile.upsert({
-          where: { userId: session.userId },
-          create: {
-            userId: session.userId,
-            weightKg: metrics.weightKg ?? null,
-            heightCm: metrics.heightCm ?? null,
-            waistCm: metrics.waistCm ?? null,
-            chestCm: metrics.chestCm ?? null,
-            hipsCm: metrics.hipsCm ?? null,
-          },
-          update: {
-            ...(metrics.weightKg !== undefined ? { weightKg: metrics.weightKg } : {}),
-            ...(metrics.heightCm !== undefined ? { heightCm: metrics.heightCm } : {}),
-            ...(metrics.waistCm !== undefined ? { waistCm: metrics.waistCm } : {}),
-            ...(metrics.chestCm !== undefined ? { chestCm: metrics.chestCm } : {}),
-            ...(metrics.hipsCm !== undefined ? { hipsCm: metrics.hipsCm } : {}),
-          },
-        });
+        const logId = `bm_${crypto.randomBytes(10).toString("hex")}`;
+        const now = new Date();
+        // Atomic upsert backed by partial unique index `user_body_metric_logs_custom_task_day_uidx`
+        await tx.$executeRaw`
+          INSERT INTO "user_body_metric_logs" (
+            "id", "user_id", "program_id", "program_day_id", "source",
+            "weight_kg", "height_cm", "waist_cm", "chest_cm", "hips_cm",
+            "body_fat_pct", "resting_hr", "notes", "recorded_at"
+          )
+          VALUES (
+            ${logId}, ${session.userId}, ${customTask.programDay.programId}, ${programDayId}, 'CUSTOM_TASK'::"BodyMetricSource",
+            ${metrics.weightKg ?? null}, ${metrics.heightCm ?? null}, ${metrics.waistCm ?? null}, ${metrics.chestCm ?? null}, ${metrics.hipsCm ?? null},
+            ${metrics.bodyFatPct ?? null}, ${metrics.restingHr ?? null}, ${metrics.notes ?? null}, ${now}
+          )
+          ON CONFLICT ("user_id", "program_day_id", "source")
+          WHERE "program_day_id" IS NOT NULL AND "source" = 'CUSTOM_TASK'
+          DO UPDATE SET
+            "weight_kg" = COALESCE(EXCLUDED."weight_kg", "user_body_metric_logs"."weight_kg"),
+            "height_cm" = COALESCE(EXCLUDED."height_cm", "user_body_metric_logs"."height_cm"),
+            "waist_cm" = COALESCE(EXCLUDED."waist_cm", "user_body_metric_logs"."waist_cm"),
+            "chest_cm" = COALESCE(EXCLUDED."chest_cm", "user_body_metric_logs"."chest_cm"),
+            "hips_cm" = COALESCE(EXCLUDED."hips_cm", "user_body_metric_logs"."hips_cm"),
+            "body_fat_pct" = COALESCE(EXCLUDED."body_fat_pct", "user_body_metric_logs"."body_fat_pct"),
+            "resting_hr" = COALESCE(EXCLUDED."resting_hr", "user_body_metric_logs"."resting_hr"),
+            "notes" = COALESCE(EXCLUDED."notes", "user_body_metric_logs"."notes"),
+            "recorded_at" = EXCLUDED."recorded_at"
+        `;
       }
     }
 
@@ -229,9 +194,6 @@ export async function wellnessUserSubmitCustomTask(
   };
 }
 
-/**
- * Member: Retrieve chronological body metric logs for progress visualization.
- */
 export async function wellnessUserGetBodyMetricHistory() {
   const session = await requireAuth();
   const logsDesc = await prisma.userBodyMetricLog.findMany({
@@ -258,9 +220,6 @@ export async function wellnessUserGetBodyMetricHistory() {
   }));
 }
 
-/**
- * Admin / Coach / Partner: Save custom tasks attached to a specific ProgramDay.
- */
 export async function wellnessAdminSaveDayCustomTasks(
   programId: string,
   programDayId: string,
@@ -298,14 +257,26 @@ export async function wellnessAdminSaveDayCustomTasks(
 
     for (let idx = 0; idx < tasks.length; idx++) {
       const task = tasks[idx];
+      let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
+      if (task.translations) {
+        try {
+          parsedTranslations =
+            typeof task.translations === "string"
+              ? (JSON.parse(task.translations) as Prisma.InputJsonValue)
+              : (task.translations as Prisma.InputJsonValue);
+        } catch {
+          parsedTranslations = undefined;
+        }
+      }
+
       const payload = {
         sortOrder: idx,
         taskType: task.taskType,
         title: task.title.trim(),
         instructions: task.instructions?.trim() || null,
         isRequired: task.isRequired ?? true,
-        fieldsSchema: JSON.stringify(task.fields),
-        translations: task.translations || null,
+        fieldsSchemaJson: task.fields as unknown as Prisma.InputJsonValue,
+        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
       };
 
       if (task.id) {
@@ -349,8 +320,8 @@ export async function wellnessAdminSaveDayCustomTasks(
       title: t.title,
       instructions: t.instructions,
       isRequired: t.isRequired,
-      fields: parseCustomTaskFields(t.fieldsSchema),
-      translations: t.translations,
+      fields: parseCustomTaskFields(t.fieldsSchemaJson),
+      translations: t.translationsJson ? JSON.stringify(t.translationsJson) : null,
     })),
   };
 }

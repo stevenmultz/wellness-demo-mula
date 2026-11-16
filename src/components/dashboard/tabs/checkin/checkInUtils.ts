@@ -40,7 +40,6 @@ export interface DailyCheckInProps {
   ) => SaveResult;
   onSaveAttendance: (notes: string, dayId: string) => SaveResult;
   onSaveWorkoutNotes: (notes: string, dayId: string) => SaveResult;
-  onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
@@ -163,7 +162,6 @@ export type SubStepId =
   | "training_option"
   | "training_video"
   | "training_movements"
-  | "training_photos"
   | "training_mood"
   | "rest_checklist"
   | "rest_mood"

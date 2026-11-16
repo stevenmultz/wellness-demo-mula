@@ -1,4 +1,5 @@
-import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
+import { prisma, lockProgramRow } from "../db";
 import { requireProgramAccess } from "../security/guards";
 import { parseCustomTaskFields } from "../utils/custom-tasks";
 import { SaveSingleDaySchema, validateProgramDay } from "../validators/program";
@@ -24,8 +25,8 @@ export async function saveProgramDayService(
   const d = validation.data;
   await requireProgramAccess(d.programId);
 
-  const parentProgram = await prisma.program.findUnique({
-    where: { id: d.programId },
+  const parentProgram = await prisma.program.findFirst({
+    where: { id: d.programId, deletedAt: null },
     select: { id: true, durationDays: true },
   });
   if (!parentProgram) {
@@ -58,14 +59,26 @@ export async function saveProgramDayService(
     };
   }
 
+  let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
+  if (d.translations) {
+    try {
+      parsedTranslations =
+        typeof d.translations === "string"
+          ? (JSON.parse(d.translations) as Prisma.InputJsonValue)
+          : (d.translations as Prisma.InputJsonValue);
+    } catch {
+      parsedTranslations = undefined;
+    }
+  }
+
   const sharedDayFields = {
     title: d.title.trim(),
     dayType: d.dayType,
-    workoutOptions: JSON.stringify(d.workoutOptions || []),
+    workoutOptionsJson: (d.workoutOptions || []) as Prisma.InputJsonValue,
     sleepRecommendation: d.sleepRecommendation?.trim() || null,
-    dayNotifications: JSON.stringify(d.dayNotifications || []),
+    dayNotificationsJson: (d.dayNotifications || []) as Prisma.InputJsonValue,
     videoUrl: d.videoUrl?.trim() || null,
-    videoChecklist: JSON.stringify(d.videoChecklist || []),
+    videoChecklistJson: (d.videoChecklist || []) as Prisma.InputJsonValue,
     mealRecommendation: d.mealRecommendation?.trim() || null,
     dailyAssessment: d.dailyAssessment?.trim() || null,
     pendingReminder:
@@ -98,11 +111,12 @@ export async function saveProgramDayService(
         programId: d.programId,
         dayNumber: d.dayNumber,
         ...sharedDayFields,
-        translations: d.translations || null,
+        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
       },
       update: {
         ...sharedDayFields,
-        translations: d.translations !== undefined ? d.translations || null : undefined,
+        version: { increment: 1 },
+        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
       },
     });
 
@@ -118,14 +132,25 @@ export async function saveProgramDayService(
       });
       for (let idx = 0; idx < d.customTasks.length; idx++) {
         const ct = d.customTasks[idx];
+        let ctTranslations: Prisma.InputJsonValue | undefined = undefined;
+        if (ct.translations) {
+          try {
+            ctTranslations =
+              typeof ct.translations === "string"
+                ? (JSON.parse(ct.translations) as Prisma.InputJsonValue)
+                : (ct.translations as Prisma.InputJsonValue);
+          } catch {
+            ctTranslations = undefined;
+          }
+        }
         const ctData = {
           sortOrder: idx,
           taskType: ct.taskType,
           title: ct.title.trim(),
           instructions: ct.instructions?.trim() || null,
           isRequired: ct.isRequired ?? true,
-          fieldsSchema: JSON.stringify(ct.fields),
-          translations: ct.translations || null,
+          fieldsSchemaJson: ct.fields as unknown as Prisma.InputJsonValue,
+          ...(ctTranslations !== undefined ? { translationsJson: ctTranslations } : {}),
         };
         if (ct.id) {
           const upd = await tx.programDayCustomTask.updateMany({
@@ -158,9 +183,9 @@ export async function saveProgramDayService(
     message: `Day ${savedDay.dayNumber} ("${savedDay.title}") saved.`,
     data: {
       ...savedDay,
-      workoutOptions: safeJsonParse<string[]>(savedDay.workoutOptions, []),
-      videoChecklist: safeJsonParse<string[]>(savedDay.videoChecklist, []),
-      dayNotifications: safeJsonParse<unknown[]>(savedDay.dayNotifications, []),
+      workoutOptions: safeJsonParse<string[]>(savedDay.workoutOptionsJson, []),
+      videoChecklist: safeJsonParse<string[]>(savedDay.videoChecklistJson, []),
+      dayNotifications: safeJsonParse<unknown[]>(savedDay.dayNotificationsJson, []),
       customTasks: savedDay.customTasks.map((ct) => ({
         id: ct.id,
         programDayId: ct.programDayId,
@@ -169,8 +194,8 @@ export async function saveProgramDayService(
         title: ct.title,
         instructions: ct.instructions,
         isRequired: ct.isRequired,
-        fields: parseCustomTaskFields(ct.fieldsSchema),
-        translations: ct.translations,
+        fields: parseCustomTaskFields(ct.fieldsSchemaJson),
+        translations: ct.translationsJson ? JSON.stringify(ct.translationsJson) : null,
       })),
     },
   };
@@ -182,36 +207,47 @@ export async function deleteProgramDayService(
 ): Promise<WellnessActionResult> {
   await requireProgramAccess(programId);
 
-  const existingDay = await prisma.programDay.findUnique({
-    where: {
-      programId_dayNumber: {
-        programId,
-        dayNumber,
+  const result = await prisma.$transaction(async (tx) => {
+    await lockProgramRow(tx, programId);
+
+    const existingDay = await tx.programDay.findUnique({
+      where: {
+        programId_dayNumber: {
+          programId,
+          dayNumber,
+        },
       },
-    },
+    });
+
+    if (!existingDay) {
+      return {
+        success: false as const,
+        message: `Day ${dayNumber} has not been saved yet.`,
+      };
+    }
+
+    const activeEnrollments = await tx.programEnrollment.count({
+      where: { programId, status: "ACTIVE" },
+    });
+    if (activeEnrollments > 0) {
+      return {
+        success: false as const,
+        message: `Cannot clear Day ${dayNumber}: ${activeEnrollments} active participant(s) are currently enrolled.`,
+      };
+    }
+
+    await tx.programDay.delete({ where: { id: existingDay.id } });
+    await tx.program.update({
+      where: { id: programId },
+      data: { status: "DRAFT", version: { increment: 1 } },
+    });
+
+    return {
+      success: true as const,
+      message: `Day ${dayNumber} cleared. Program status set to Draft until all days are filled.`,
+    };
   });
 
-  if (!existingDay) {
-    return {
-      success: false,
-      message: `Day ${dayNumber} has not been saved yet.`,
-    };
-  }
-
-  await prisma.$transaction([
-    prisma.programDay.delete({
-      where: { id: existingDay.id },
-    }),
-    prisma.program.update({
-      where: { id: programId },
-      data: { isPublished: false },
-    }),
-  ]);
-
-  revalidateWellnessRoutes();
-
-  return {
-    success: true,
-    message: `Day ${dayNumber} cleared. Program status set to Draft until all days are filled.`,
-  };
+  if (result.success) revalidateWellnessRoutes();
+  return result;
 }

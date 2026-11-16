@@ -173,7 +173,7 @@ interface BuildBreadcrumbsArgs {
   programDetailTab: "info" | "schedule" | "responses";
   masterTab: MasterDirectoryTabKey;
   inspectingUserHealth: AdminUserItem | null;
-  customerModalTab: "overview" | "responses" | "health" | "medical" | "lifestyle" | "notes";
+  customerModalTab: "overview" | "responses" | "profile" | "notes";
   onGoRoot: () => void;
   onGoPrograms: () => void;
   onSelectScheduleTab: () => void;
@@ -263,9 +263,7 @@ export function buildAdminBreadcrumbs({
       if (customerModalTab !== "overview") {
         const tabLabels: Record<string, string> = {
           responses: "Daily Responses",
-          health: "Health & Medical",
-          medical: "Health & Medical",
-          lifestyle: "Health & Medical",
+          profile: "Personal Profile",
           notes: "Coach Notes",
         };
         items.push({

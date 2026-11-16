@@ -339,18 +339,6 @@ export const SubmitDayProgressSchema = z.object({
   isCompleted: z.boolean(),
   checklistCompleted: z.array(z.string().max(300)).max(100).default([]),
   selectedWorkout: z.string().max(150).optional().or(z.literal("")),
-  photoBeforeUrl: z
-    .string()
-    .max(2_000_000)
-    .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
-    .optional()
-    .or(z.literal("")),
-  photoAfterUrl: z
-    .string()
-    .max(2_000_000)
-    .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
-    .optional()
-    .or(z.literal("")),
   workoutNotes: z.string().max(4000).optional().or(z.literal("")),
   eventFeedback: z.string().max(4000).optional().or(z.literal("")),
   mealCompliance: z.string().max(50).optional().or(z.literal("")),

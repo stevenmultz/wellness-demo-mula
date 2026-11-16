@@ -7,16 +7,11 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Ban,
-  Check,
-  CheckCircle2,
-  FileText,
   KeyRound,
   Layers,
-  Loader2,
   Mail,
   MapPin,
   MessageCircle,
-  Save,
   Smartphone,
   Trash2,
 } from "lucide-react";
@@ -24,19 +19,17 @@ import { wellnessAdminUpdateUserRole } from "@/wellness/actions/admin";
 import type { MasterDataPayload } from "@/wellness/actions/master";
 import type {
   AdminFeedbackMessage,
-  AdminLightboxData,
   AdminUserItem,
 } from "../adminTypes";
 import { AdminCustomerProgramsTab } from "./AdminCustomerProgramsTab";
 import { AdminCustomerProfileTab } from "./AdminCustomerProfileTab";
 
-type CustomerTabKey = "overview" | "responses" | "health" | "medical" | "lifestyle" | "notes";
+type CustomerTabKey = "overview" | "responses" | "profile" | "notes";
 
 interface AdminCustomerDetailViewProps {
   u: AdminUserItem;
   currentAdminId: string;
   masterData: MasterDataPayload;
-  customerDietType: string;
   setUsers: Dispatch<SetStateAction<AdminUserItem[]>>;
   setInspectingUserHealth: Dispatch<SetStateAction<AdminUserItem | null>>;
   setFeedback: (fb: AdminFeedbackMessage | null) => void;
@@ -49,33 +42,20 @@ interface AdminCustomerDetailViewProps {
   handleResetPassword: (user: AdminUserItem) => void;
   handleToggleUserStatus: (user: AdminUserItem) => void;
   handleDeleteUser: (user: AdminUserItem) => void;
-  customerWeight: string | number;
-  customerHeight: string | number;
-  customerInjuries: string;
-  customerAllergies: string;
-  customerProfileSuccess: string | null;
-  customerCoachNotes: string;
-  setCustomerCoachNotes: (val: string) => void;
-  savingCustomerProfile: boolean;
-  handleSaveCustomerProfile: () => Promise<void>;
   selectedCustomerProgramId: string | null;
   setSelectedCustomerProgramId: (id: string | null) => void;
   customerResponseStatusFilter: "ALL" | "COMPLETED" | "PENDING";
   setCustomerResponseStatusFilter: (val: "ALL" | "COMPLETED" | "PENDING") => void;
-  customerResponsePhotosOnly: boolean;
-  setCustomerResponsePhotosOnly: Dispatch<SetStateAction<boolean>>;
   customerResponseSearch: string;
   setCustomerResponseSearch: (val: string) => void;
   expandedResponseIds: Record<string, boolean>;
   setExpandedResponseIds: Dispatch<SetStateAction<Record<string, boolean>>>;
-  setLightboxData: (val: AdminLightboxData | null) => void;
 }
 
 export function AdminCustomerDetailView({
   u,
   currentAdminId,
   masterData,
-  customerDietType,
   setUsers,
   setInspectingUserHealth,
   setFeedback,
@@ -88,73 +68,30 @@ export function AdminCustomerDetailView({
   handleResetPassword,
   handleToggleUserStatus,
   handleDeleteUser,
-  customerWeight,
-  customerHeight,
-  customerInjuries,
-  customerAllergies,
-  customerProfileSuccess,
-  customerCoachNotes,
-  setCustomerCoachNotes,
-  savingCustomerProfile,
-  handleSaveCustomerProfile,
   selectedCustomerProgramId,
   setSelectedCustomerProgramId,
   customerResponseStatusFilter,
   setCustomerResponseStatusFilter,
-  customerResponsePhotosOnly,
-  setCustomerResponsePhotosOnly,
   customerResponseSearch,
   setCustomerResponseSearch,
   expandedResponseIds,
   setExpandedResponseIds,
-  setLightboxData,
 }: AdminCustomerDetailViewProps) {
   const router = useRouter();
-  const profile = u.healthProfile;
-const enrollments = u.enrollments || [];
-const dayProgress = u.dayProgress || [];
-const completedDaysCount = dayProgress.filter((p) => p.isCompleted).length;
+  const enrollments = u.enrollments || [];
+  const dayProgress = u.dayProgress || [];
+  const completedDaysCount = dayProgress.filter((p) => p.isCompleted).length;
 
-// Compute BMI live based on input or saved profile
-const activeWeight = customerWeight ? Number(customerWeight) : profile?.weightKg;
-const activeHeight = customerHeight ? Number(customerHeight) : profile?.heightCm;
-const heightM = activeHeight && activeHeight > 0 ? activeHeight / 100 : null;
-const bmiValue =
-  activeWeight && heightM && heightM > 0
-    ? (activeWeight / (heightM * heightM)).toFixed(1)
-    : null;
-const bmiCategory = bmiValue
-  ? Number(bmiValue) < 18.5
-    ? "Underweight"
-    : Number(bmiValue) < 25
-    ? "Normal"
-    : Number(bmiValue) < 30
-    ? "Overweight"
-    : "Obese"
-  : null;
+  const cleanPhone = u.phone ? u.phone.replace(/[^0-9]/g, "") : "";
+  const waNumber = cleanPhone.startsWith("08")
+    ? "62" + cleanPhone.slice(1)
+    : cleanPhone.startsWith("62")
+    ? cleanPhone
+    : cleanPhone;
+  const waUrl = waNumber ? `https://wa.me/${waNumber}` : null;
 
-const cleanPhone = u.phone ? u.phone.replace(/[^0-9]/g, "") : "";
-const waNumber = cleanPhone.startsWith("08")
-  ? "62" + cleanPhone.slice(1)
-  : cleanPhone.startsWith("62")
-  ? cleanPhone
-  : cleanPhone;
-const waUrl = waNumber ? `https://wa.me/${waNumber}` : null;
-
-const hasSafetyAlert = Boolean(
-  customerInjuries.trim() ||
-  customerAllergies.trim() ||
-  profile?.injuriesOrConditions?.trim() ||
-  profile?.foodAllergies?.trim()
-);
-
-// 3 Core Pillars: "overview" (Programs & Responses), "health" (Personal & Health), "notes" (Coach Notes)
-const activeCustomerTab =
-  customerModalTab === "responses"
-    ? "overview"
-    : customerModalTab === "medical" || customerModalTab === "lifestyle"
-    ? "health"
-    : customerModalTab;
+  const activeCustomerTab =
+    customerModalTab === "responses" ? "overview" : customerModalTab === "profile" ? "profile" : "overview";
 
 // Selected program for drill-down responses
 const selectedEnrollment = selectedCustomerProgramId
@@ -450,33 +387,26 @@ return (
 
         <div className="p-3 rounded-xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10">
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            Body &amp; Diet
+            Location
           </span>
-          <p className="text-sm font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
-            {activeWeight ? `${activeWeight}kg` : "—"}{" "}
-            <span className="text-xs font-normal text-zinc-500 font-sans">
-              • {customerDietType || profile?.dietType || "Standard Diet"}
-            </span>
+          <p className="text-sm font-bold text-zinc-900 dark:text-white mt-0.5 truncate">
+            {u.city || "—"}
           </p>
         </div>
 
         <div className="p-3 rounded-xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10">
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            Safety &amp; Health
+            Account Status
           </span>
-          <p
-            className={`text-sm font-bold mt-0.5 ${
-              hasSafetyAlert ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-400"
-            }`}
-          >
-            {hasSafetyAlert ? "Precaution Flagged" : "Cleared"}
+          <p className="text-sm font-bold text-zinc-900 dark:text-white mt-0.5">
+            {u.status}
           </p>
         </div>
       </div>
     </div>
 
-    {/* 3 Simplified Navigation Option Cards */}
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+    {/* Simplified Navigation Option Cards */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
       {/* 1. PROGRAMS (Enrolled & Daily Responses Drill-Down) */}
       <button
         type="button"
@@ -508,12 +438,12 @@ return (
         </div>
       </button>
 
-      {/* 2. PERSONAL & HEALTH PROFILE */}
+      {/* 2. PERSONAL PROFILE */}
       <button
         type="button"
-        onClick={() => switchCustomerTab("health")}
+        onClick={() => switchCustomerTab("profile")}
         className={`p-3.5 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between gap-2.5 group ${
-          activeCustomerTab === "health"
+          activeCustomerTab === "profile"
             ? "bg-white dark:bg-zinc-900 border-zinc-900 dark:border-white shadow-xs ring-1 ring-zinc-900/10 dark:ring-white/10"
             : "bg-white/70 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900/90 border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-400"
         }`}
@@ -521,50 +451,19 @@ return (
         <div className="flex items-center gap-2.5">
           <div
             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-              activeCustomerTab === "health"
+              activeCustomerTab === "profile"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
                 : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
             }`}
           >
-            <Activity className={`w-4 h-4 ${hasSafetyAlert ? "text-zinc-500" : ""}`} />
+            <Activity className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <span className="text-xs font-bold text-zinc-900 dark:text-white block font-geometric truncate">
-              Personal &amp; Health
+              Personal Profile
             </span>
             <span className="text-[10px] text-zinc-400 block font-mono truncate">
-              {hasSafetyAlert ? "Precaution flagged" : "Bio, diet & habits"}
-            </span>
-          </div>
-        </div>
-      </button>
-
-      {/* 3. COACH NOTES */}
-      <button
-        type="button"
-        onClick={() => switchCustomerTab("notes")}
-        className={`p-3.5 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between gap-2.5 group ${
-          activeCustomerTab === "notes"
-            ? "bg-white dark:bg-zinc-900 border-zinc-900 dark:border-white shadow-xs ring-1 ring-zinc-900/10 dark:ring-white/10"
-            : "bg-white/70 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900/90 border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-400"
-        }`}
-      >
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-              activeCustomerTab === "notes"
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
-                : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-xs font-bold text-zinc-900 dark:text-white block font-geometric truncate">
-              Coach Notes
-            </span>
-            <span className="text-[10px] text-zinc-400 block font-mono truncate">
-              {customerCoachNotes.trim() ? "Notes recorded" : "Private log"}
+              Contact, address &amp; emergency info
             </span>
           </div>
         </div>
@@ -573,86 +472,22 @@ return (
 
     {/* Sub-view Content Container */}
     <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-5 sm:p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-5">
-      {customerProfileSuccess && (
-        <div className="p-3 rounded-xl bg-zinc-500/10 border border-zinc-500/20 text-zinc-600 dark:text-zinc-400 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{customerProfileSuccess}</span>
-        </div>
+      {activeCustomerTab === "overview" && (
+        <AdminCustomerProgramsTab
+          u={u}
+          selectedCustomerProgramId={selectedCustomerProgramId}
+          setSelectedCustomerProgramId={setSelectedCustomerProgramId}
+          customerResponseStatusFilter={customerResponseStatusFilter}
+          setCustomerResponseStatusFilter={setCustomerResponseStatusFilter}
+          customerResponseSearch={customerResponseSearch}
+          setCustomerResponseSearch={setCustomerResponseSearch}
+          expandedResponseIds={expandedResponseIds}
+          setExpandedResponseIds={setExpandedResponseIds}
+        />
       )}
 
-        {activeCustomerTab === "overview" && (
-          <AdminCustomerProgramsTab
-            u={u}
-            selectedCustomerProgramId={selectedCustomerProgramId}
-            setSelectedCustomerProgramId={setSelectedCustomerProgramId}
-            customerResponseStatusFilter={customerResponseStatusFilter}
-            setCustomerResponseStatusFilter={setCustomerResponseStatusFilter}
-            customerResponsePhotosOnly={customerResponsePhotosOnly}
-            setCustomerResponsePhotosOnly={setCustomerResponsePhotosOnly}
-            customerResponseSearch={customerResponseSearch}
-            setCustomerResponseSearch={setCustomerResponseSearch}
-            expandedResponseIds={expandedResponseIds}
-            setExpandedResponseIds={setExpandedResponseIds}
-            setLightboxData={setLightboxData}
-          />
-        )}
-
-        {activeCustomerTab === "health" && (
-          <AdminCustomerProfileTab
-            u={u}
-            profile={profile}
-            activeWeight={activeWeight}
-            activeHeight={activeHeight}
-            bmiValue={bmiValue}
-            bmiCategory={bmiCategory}
-          />
-        )}
-
-{activeCustomerTab === "notes" && (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1.5">
-        <FileText className="w-3.5 h-3.5 text-zinc-500" />
-        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-white font-mono">
-          Confidential Coach Notes
-        </h4>
-      </div>
-      <span className="text-[10px] font-mono text-zinc-400">
-        Staff &amp; Coach only
-      </span>
-    </div>
-
-    <textarea
-      rows={6}
-      value={customerCoachNotes}
-      onChange={(e) => setCustomerCoachNotes(e.target.value)}
-      placeholder="Enter confidential coach notes"
-      className="w-full p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white"
-    />
-
-    <div className="flex justify-end">
-      <button
-        type="button"
-        onClick={handleSaveCustomerProfile}
-        disabled={savingCustomerProfile}
-        className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition"
-      >
-        {savingCustomerProfile ? (
-          <>
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Saving Notes...</span>
-          </>
-        ) : (
-          <>
-            <Save className="w-3.5 h-3.5" />
-            <span>Save Coach Notes</span>
-          </>
-        )}
-      </button>
+      {activeCustomerTab === "profile" && <AdminCustomerProfileTab u={u} />}
     </div>
   </div>
-)}
-      </div>
-    </div>
   );
 }

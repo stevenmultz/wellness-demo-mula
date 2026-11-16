@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2 } from "lucide-react";
+import { wellnessSubmitCohortSupportRequest } from "@/wellness/actions/support";
 import { HeaderBackButton } from "../shared";
 
 const ISSUE_OPTIONS = [
@@ -24,10 +25,12 @@ const QUIT_OPTIONS = [
 ];
 
 export function ProgramReportPageView({
+  programId,
   programTitle,
   communityLink: _communityLink,
   onClose,
 }: {
+  programId?: string;
   programTitle?: string;
   communityLink?: string | null;
   onClose: () => void;
@@ -39,6 +42,7 @@ export function ProgramReportPageView({
   const [note, setNote] = useState("");
   const [submittedDone, setSubmittedDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -53,29 +57,32 @@ export function ProgramReportPageView({
     };
   }, [onClose]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+    if (!programId) {
+      setSubmitError("Missing active cohort program ID.");
+      return;
+    }
     setIsSubmitting(true);
-    setTimeout(() => {
-      try {
-        const key =
-          activeTab === "quit" ? "wellness_quit_requests" : "wellness_reported_issues";
-        const existing = JSON.parse(localStorage.getItem(key) || "[]");
-        existing.push({
-          id: `${activeTab}_${Date.now()}`,
-          programTitle: programTitle || "Cohort Plan",
-          type: activeTab === "quit" ? quitReason : issueType,
-          note: note.trim(),
-          submittedAt: new Date().toISOString(),
-        });
-        localStorage.setItem(key, JSON.stringify(existing));
-      } catch {
-        // Safe fallback
+    try {
+      const res = await wellnessSubmitCohortSupportRequest({
+        programId,
+        requestType: activeTab === "quit" ? "QUIT_COHORT" : "REPORT_ISSUE",
+        reasonCode: activeTab === "quit" ? quitReason : issueType,
+        note: note.trim(),
+      });
+      if (res.success) {
+        setSubmittedDone(true);
+        setNote("");
+      } else {
+        setSubmitError(res.message || "Could not submit your request. Please try again.");
       }
+    } catch {
+      setSubmitError("Connection error while submitting your request.");
+    } finally {
       setIsSubmitting(false);
-      setSubmittedDone(true);
-      setNote("");
-    }, 350);
+    }
   };
 
   if (typeof document === "undefined") return null;
@@ -242,6 +249,12 @@ export function ProgramReportPageView({
                   <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                     You can pause your schedule and resume when your routine clears up without losing your logged history.
                   </p>
+                </div>
+              )}
+
+              {submitError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-300">
+                  {submitError}
                 </div>
               )}
 

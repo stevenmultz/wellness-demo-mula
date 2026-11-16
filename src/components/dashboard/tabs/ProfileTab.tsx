@@ -15,7 +15,7 @@ import {
 import { wellnessUpdateProfile } from "@/wellness/actions/account";
 import { calculateAgeFromDob } from "@/wellness/validators/auth";
 import { BrandWordmark, FloatingHeader, HeaderBackButton } from "./shared";
-import type { HealthProfileData, UserProfile } from "../types";
+import type { UserProfile } from "../types";
 import {
   Banner,
   ProfileSectionView,
@@ -25,7 +25,6 @@ import {
 } from "./profile/ProfileSectionForms";
 
 export type ProfileUser = UserProfile;
-export type { HealthProfileData };
 
 function filled(value: unknown) {
   if (value === null || value === undefined) return false;
@@ -63,7 +62,6 @@ function resizeToAvatar(file: File, size = 384): Promise<string> {
 
 export function ProfileTab({
   user,
-  health: _health,
   bodyMetricLogs = [],
   headerVisible,
   viewMode,
@@ -72,7 +70,6 @@ export function ProfileTab({
   onDeleteAccount,
 }: {
   user: ProfileUser;
-  health?: HealthProfileData | null;
   bodyMetricLogs?: BodyMetricPoint[];
   headerVisible: boolean;
   viewMode?: "intro" | "menu";
@@ -80,7 +77,6 @@ export function ProfileTab({
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
-  void _health;
   const router = useRouter();
   const { t } = useLocale();
   const [internalMode, setInternalMode] = useState<"intro" | "menu">("intro");

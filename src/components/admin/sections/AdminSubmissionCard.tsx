@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Camera,
   Check,
   CheckCircle2,
   Dumbbell,
@@ -13,20 +12,16 @@ import {
   Users,
   Utensils,
   Video,
-  ZoomIn,
 } from "lucide-react";
 import type { ProgramSubmissionItem } from "@/wellness/actions/program";
 import { safeMediaUrl } from "@/wellness/utils/url-safety";
-import type { AdminLightboxData } from "../adminTypes";
 
 interface AdminSubmissionCardProps {
   sub: ProgramSubmissionItem;
-  setLightboxData: (val: AdminLightboxData | null) => void;
 }
 
 export function AdminSubmissionCard({
   sub,
-  setLightboxData,
 }: AdminSubmissionCardProps) {
   const dateFormatted = sub.completedAt
     ? new Date(sub.completedAt).toLocaleDateString("en-US", {
@@ -91,109 +86,6 @@ export function AdminSubmissionCard({
           )}
         </div>
       </div>
-
-      {/* Before & After Photo Comparison Showcase */}
-      {(sub.photoBeforeUrl || sub.photoAfterUrl) && (
-        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/60 dark:border-white/10 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Progress Photo Comparison</span>
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setLightboxData({
-                  beforeUrl: sub.photoBeforeUrl,
-                  afterUrl: sub.photoAfterUrl,
-                  title: sub.dayTitle,
-                  memberName: sub.userName,
-                  dayNumber: sub.dayNumber,
-                  dateStr: dateFormatted,
-                })
-              }
-              className="text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 font-medium transition"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-              <span>Compare Full Size</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Before Photo */}
-            <div
-              onClick={() =>
-                setLightboxData({
-                  beforeUrl: sub.photoBeforeUrl,
-                  afterUrl: sub.photoAfterUrl,
-                  title: sub.dayTitle,
-                  memberName: sub.userName,
-                  dayNumber: sub.dayNumber,
-                  dateStr: dateFormatted,
-                })
-              }
-              className="cursor-pointer group relative aspect-4/3 rounded-xl overflow-hidden bg-zinc-200/50 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center"
-            >
-              {safeMediaUrl(sub.photoBeforeUrl) ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={safeMediaUrl(sub.photoBeforeUrl)!}
-                    alt="Before"
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <ZoomIn className="w-5 h-5 text-white" />
-                  </div>
-                </>
-              ) : (
-                <span className="text-xs text-zinc-400">No before photo</span>
-              )}
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] uppercase font-bold bg-zinc-900/80 text-white backdrop-blur-xs">
-                Before
-              </span>
-            </div>
-
-            {/* After Photo */}
-            <div
-              onClick={() =>
-                setLightboxData({
-                  beforeUrl: sub.photoBeforeUrl,
-                  afterUrl: sub.photoAfterUrl,
-                  title: sub.dayTitle,
-                  memberName: sub.userName,
-                  dayNumber: sub.dayNumber,
-                  dateStr: dateFormatted,
-                })
-              }
-              className="cursor-pointer group relative aspect-4/3 rounded-xl overflow-hidden bg-zinc-200/50 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center"
-            >
-              {safeMediaUrl(sub.photoAfterUrl) ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={safeMediaUrl(sub.photoAfterUrl)!}
-                    alt="After"
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <ZoomIn className="w-5 h-5 text-white" />
-                  </div>
-                </>
-              ) : (
-                <span className="text-xs text-zinc-400">No after photo</span>
-              )}
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] uppercase font-bold bg-zinc-900/80 text-white backdrop-blur-xs">
-                After
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Daily Reflection & Notes */}
       {(sub.dailyReflection || sub.workoutNotes || sub.eventFeedback || sub.assessmentResponse) && (

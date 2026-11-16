@@ -1,7 +1,10 @@
 import assert from "assert";
+import crypto from "crypto";
 import { safeHttpUrl, safeMediaUrl, isSafePhotoUrl } from "../src/wellness/utils/url-safety";
 import { extractYouTubeId, normalizeVideoEmbed } from "../src/wellness/integrations/video-provider";
-import { HealthProfileSchema, AdminUpdateCustomerProfileSchema } from "../src/wellness/validators/auth";
+import { AdminUpdateCustomerProfileSchema, calculateAgeFromDob } from "../src/wellness/validators/auth";
+import { verifyMidtransWebhookSignature } from "../src/wellness/integrations/payment-gateway";
+import { formatStorageUri, parseStorageUri } from "../src/wellness/integrations/supabase-storage";
 import {
   CreateProgramSchema,
   CustomTaskFieldInputSchema,
@@ -40,10 +43,14 @@ async function runAuditUnitTests() {
   );
   assert.strictEqual(safeMediaUrl("data:image/svg+xml;base64,PHN2Zz4="), null);
   assert.strictEqual(safeMediaUrl("javascript:alert(1)"), null);
+  assert.strictEqual(safeMediaUrl("sb://avatars/user1/avatar.webp"), "sb://avatars/user1/avatar.webp");
+  assert.strictEqual(safeMediaUrl("/api/media/signed?path=sb%3A%2F%2Favatars%2Fuser1%2Favatar.webp"), "/api/media/signed?path=sb%3A%2F%2Favatars%2Fuser1%2Favatar.webp");
   assert.strictEqual(isSafePhotoUrl(""), true);
   assert.strictEqual(isSafePhotoUrl(null), true);
   assert.strictEqual(isSafePhotoUrl("javascript:alert(1)"), false);
-  console.log("  [PASS] 1. URL safety helpers block XSS & traversal while allowing uploads/images");
+  assert.deepStrictEqual(parseStorageUri("sb://avatars/u1/file.webp"), { bucket: "avatars", objectPath: "u1/file.webp" });
+  assert.strictEqual(formatStorageUri("workout-media", "u1/day1/pic.webp"), "sb://workout-media/u1/day1/pic.webp");
+  console.log("  [PASS] 1. URL & Supabase storage URI helpers enforce safety and traversal guards");
 
   // 2. Video Provider Hostname & Protocol Hardening
   assert.strictEqual(extractYouTubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
@@ -62,34 +69,49 @@ async function runAuditUnitTests() {
   assert.strictEqual(validStream.provider, "CLOUDFLARE_STREAM");
   console.log("  [PASS] 2. Video provider rejects spoofed hostnames and javascript: URLs");
 
-  // 3. Zod Validators Enforce Safe Photo URLs
-  const invalidHealth = HealthProfileSchema.safeParse({
-    photoFrontUrl: "javascript:alert(1)",
-  });
-  assert.strictEqual(invalidHealth.success, false);
-
-  const validHealth = HealthProfileSchema.safeParse({
-    photoFrontUrl: "/uploads/workouts/front.webp",
-    photoSideUrl: "data:image/jpeg;base64,/9j/4AAQ",
-    photoBackUrl: null,
-  });
-  assert.strictEqual(validHealth.success, true);
-
+  // 3. Zod Validators + Computed Age + Midtrans SHA512 Webhook Signature
   const invalidProgress = SubmitDayProgressSchema.safeParse({
     programDayId: "day-1",
     isCompleted: true,
-    photoBeforeUrl: "javascript:alert(1)",
+    happinessRate: 99,
   });
   assert.strictEqual(invalidProgress.success, false);
 
   const validProgress = SubmitDayProgressSchema.safeParse({
     programDayId: "day-1",
     isCompleted: true,
-    photoBeforeUrl: "/uploads/workouts/before.webp",
-    photoAfterUrl: "",
+    checklistCompleted: ["[Hot Pilates] Roll-ups"],
   });
   assert.strictEqual(validProgress.success, true);
-  console.log("  [PASS] 3. Zod photo URL validators reject javascript: and accept valid uploads");
+
+  assert.strictEqual(calculateAgeFromDob(new Date("1995-01-01T00:00:00Z"))! >= 30, true);
+
+  const testServerKey = "SB-Mid-server-TESTKEY";
+  const expectedSig = crypto
+    .createHash("sha512")
+    .update(`QRIS-ORDER-1200250000.00${testServerKey}`)
+    .digest("hex");
+  assert.strictEqual(
+    verifyMidtransWebhookSignature({
+      orderId: "QRIS-ORDER-1",
+      statusCode: "200",
+      grossAmount: "250000.00",
+      serverKey: testServerKey,
+      signatureKey: expectedSig,
+    }),
+    true
+  );
+  assert.strictEqual(
+    verifyMidtransWebhookSignature({
+      orderId: "QRIS-ORDER-1",
+      statusCode: "200",
+      grossAmount: "1000.00",
+      serverKey: testServerKey,
+      signatureKey: expectedSig,
+    }),
+    false
+  );
+  console.log("  [PASS] 3. Progress schema, derived DOB age, and Midtrans SHA512 webhook verification pass");
 
   // 4. WIB Timezone & Sleep Calculation
   const day1 = getProgramDayWibWindow("2026-06-01T00:00:00.000Z", 1, new Date("2026-06-01T00:00:00.000Z"));
@@ -104,18 +126,15 @@ async function runAuditUnitTests() {
   // 5. Admin Customer Profile Update Schema
   const invalidAdminProfile = AdminUpdateCustomerProfileSchema.safeParse({
     userId: "",
-    age: 500,
-    weightKg: -5,
+    phone: "1",
   });
   assert.strictEqual(invalidAdminProfile.success, false);
 
   const validAdminProfile = AdminUpdateCustomerProfileSchema.safeParse({
     userId: "user_123",
     city: "Jakarta",
-    age: 32,
-    heightCm: 172,
-    weightKg: 68,
-    coachNotes: "Focus on core stability",
+    gender: "Female",
+    dateOfBirth: "1994-05-12",
   });
   assert.strictEqual(validAdminProfile.success, true);
   console.log("  [PASS] 5. AdminUpdateCustomerProfileSchema rejects invalid ranges and accepts valid payloads");

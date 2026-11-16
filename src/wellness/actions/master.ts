@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireAdminAccess, requireSuperadmin } from "../security/guards";
 import { isSafePhotoUrl, safeHttpUrl, safeMediaUrl } from "../utils/url-safety";
-import { WellnessActionResult } from "./auth";
+import { recordAuditLog } from "../integrations/audit-log";
+import type { WellnessActionResult } from "./auth";
 
 function revalidateAdminMasterRoutes() {
   try {
@@ -14,27 +15,6 @@ function revalidateAdminMasterRoutes() {
   } catch {
     // Ignore outside request context
   }
-}
-
-function replaceCsvToken(
-  csvValue: string | null | undefined,
-  oldToken: string,
-  newToken: string
-): string | null {
-  if (!csvValue) return null;
-  const parts = csvValue
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  let changed = false;
-  const updated = parts.map((part) => {
-    if (part === oldToken) {
-      changed = true;
-      return newToken;
-    }
-    return part;
-  });
-  return changed ? Array.from(new Set(updated)).join(", ") : null;
 }
 
 export interface MasterOrganizationItem {
@@ -62,7 +42,7 @@ export async function wellnessGetMasterData(): Promise<{
 }> {
   try {
     await requireAdminAccess();
-    let [coaches, targetAudiences, categories, equipment, dailyCommitments, organizations] =
+    const [coaches, targetAudiences, categories, equipment, dailyCommitments, organizations] =
       await Promise.all([
         prisma.masterCoach.findMany({ orderBy: { name: "asc" } }),
         prisma.masterTargetAudience.findMany({ orderBy: { name: "asc" } }),
@@ -72,7 +52,6 @@ export async function wellnessGetMasterData(): Promise<{
         prisma.masterOrganization.findMany({ orderBy: { name: "asc" } }),
       ]);
 
-    // Provide fallback defaults in memory if tables are unseeded (pure read, no database mutation side-effects)
     const effectiveCoaches =
       coaches.length > 0
         ? coaches
@@ -135,7 +114,15 @@ export async function wellnessGetMasterData(): Promise<{
         categories: effectiveCategories,
         equipment: effectiveEquipment,
         dailyCommitments: effectiveCommitments,
-        organizations,
+        organizations: organizations.map((o) => ({
+          id: o.id,
+          name: o.name,
+          slug: o.slug,
+          tagline: o.tagline,
+          logoUrl: o.logoPath,
+          websiteUrl: o.websiteUrl,
+          isVerified: o.isVerified,
+        })),
       },
     };
   } catch (error) {
@@ -169,10 +156,7 @@ export async function wellnessCreateMasterCoach(input: {
     return { success: false, message: "Coach title must be at least 2 characters." };
   }
 
-  const coach = await prisma.masterCoach.create({
-    data: { name, title },
-  });
-
+  const coach = await prisma.masterCoach.create({ data: { name, title } });
   revalidateAdminMasterRoutes();
   return { success: true, message: `Coach "${coach.name}" added.`, data: coach };
 }
@@ -180,14 +164,17 @@ export async function wellnessCreateMasterCoach(input: {
 export async function wellnessDeleteMasterCoach(id: string): Promise<WellnessActionResult> {
   await requireSuperadmin();
   try {
-    const usedCount = await prisma.programCoach.count({ where: { coachId: id } });
-    if (usedCount > 0) {
-      return {
-        success: false,
-        message: `Cannot delete this Coach because they are currently assigned to ${usedCount} program(s).`,
-      };
-    }
-    await prisma.masterCoach.delete({ where: { id } });
+    const res = await prisma.$transaction(async (tx) => {
+      const usedCount = await tx.programCoach.count({ where: { coachId: id } });
+      if (usedCount > 0) {
+        return {
+          blocked: `Cannot delete this Coach because they are currently assigned to ${usedCount} program(s).`,
+        };
+      }
+      await tx.masterCoach.delete({ where: { id } });
+      return { blocked: null };
+    });
+    if (res.blocked) return { success: false, message: res.blocked };
     revalidateAdminMasterRoutes();
     return { success: true, message: "Coach deleted." };
   } catch {
@@ -203,7 +190,7 @@ export async function wellnessUpdateMasterCoach(input: {
   name: string;
   title: string;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  const admin = await requireSuperadmin();
   const name = input.name?.trim();
   const title = input.title?.trim();
 
@@ -225,54 +212,23 @@ export async function wellnessUpdateMasterCoach(input: {
       data: { name, title },
     });
 
-    if (oldCoach.name !== name || oldCoach.title !== title) {
-      const affectedPrograms = await tx.program.findMany({
-        where: {
-          OR: [
-            { coachName: { contains: oldCoach.name } },
-            { coachCache: { contains: oldCoach.name } },
-          ],
-        },
-        select: { id: true, coachName: true, coachTitle: true, coachCache: true },
+    if (oldCoach.name !== name) {
+      await tx.programDay.updateMany({
+        where: { coachName: oldCoach.name },
+        data: { coachName: name },
       });
-
-      for (const prog of affectedPrograms) {
-        const nextCoachName =
-          prog.coachName === oldCoach.name
-            ? name
-            : replaceCsvToken(prog.coachName, oldCoach.name, name) ?? prog.coachName;
-        const nextCoachCache =
-          prog.coachCache === oldCoach.name
-            ? name
-            : replaceCsvToken(prog.coachCache, oldCoach.name, name) ?? prog.coachCache;
-        const nextCoachTitle =
-          prog.coachName === oldCoach.name || prog.coachTitle === oldCoach.title
-            ? title
-            : prog.coachTitle;
-
-        if (
-          nextCoachName !== prog.coachName ||
-          nextCoachCache !== prog.coachCache ||
-          nextCoachTitle !== prog.coachTitle
-        ) {
-          await tx.program.update({
-            where: { id: prog.id },
-            data: {
-              coachName: nextCoachName,
-              coachTitle: nextCoachTitle,
-              coachCache: nextCoachCache,
-            },
-          });
-        }
-      }
-
-      if (oldCoach.name !== name) {
-        await tx.programDay.updateMany({
-          where: { coachName: oldCoach.name },
-          data: { coachName: name },
-        });
-      }
     }
+
+    await recordAuditLog(
+      {
+        actorUserId: admin.userId,
+        action: "MASTER_COACH_UPDATED",
+        entityType: "MasterCoach",
+        entityId: input.id,
+        metadata: { oldName: oldCoach.name, newName: name },
+      },
+      tx
+    );
 
     return updatedCoach;
   });
@@ -281,8 +237,6 @@ export async function wellnessUpdateMasterCoach(input: {
   return { success: true, message: `Coach "${coach.name}" updated.`, data: coach };
 }
 
-type CsvFieldKey = "recommendedFor" | "category" | "equipment";
-type CacheFieldKey = "audienceCache" | "categoryCache" | "equipmentCache";
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 async function createMasterTaxonomyItem(
@@ -308,20 +262,13 @@ async function createMasterTaxonomyItem(
 }
 
 async function deleteMasterTaxonomyItem(
-  countUsage: () => Promise<number>,
-  deleteById: () => Promise<unknown>,
+  runTx: (tx: TxClient) => Promise<{ blocked: string | null }>,
   labels: { titleCase: string; removedMsg: string }
 ): Promise<WellnessActionResult> {
   await requireSuperadmin();
   try {
-    const usedCount = await countUsage();
-    if (usedCount > 0) {
-      return {
-        success: false,
-        message: `Cannot delete this ${labels.titleCase} because it is used by ${usedCount} program(s).`,
-      };
-    }
-    await deleteById();
+    const res = await prisma.$transaction(runTx);
+    if (res.blocked) return { success: false, message: res.blocked };
     revalidateAdminMasterRoutes();
     return { success: true, message: labels.removedMsg };
   } catch {
@@ -330,83 +277,6 @@ async function deleteMasterTaxonomyItem(
       message: `Cannot delete this ${labels.titleCase} because it is linked to an existing program.`,
     };
   }
-}
-
-async function updateMasterCsvTaxonomyItem(
-  input: { id: string; name: string },
-  cfg: {
-    findById: (id: string) => Promise<{ id: string; name: string } | null>;
-    updateName: (tx: TxClient, id: string, name: string) => Promise<{ id: string; name: string }>;
-    csvField: CsvFieldKey;
-    cacheField: CacheFieldKey;
-    syncProgramDays?: boolean;
-    minLengthMsg: string;
-    notFoundMsg: string;
-    updatedPrefix: string;
-  }
-): Promise<WellnessActionResult> {
-  await requireSuperadmin();
-  const name = input.name?.trim();
-  if (!name || name.length < 2) {
-    return { success: false, message: cfg.minLengthMsg };
-  }
-
-  const oldItem = await cfg.findById(input.id);
-  if (!oldItem) {
-    return { success: false, message: cfg.notFoundMsg };
-  }
-
-  const item = await prisma.$transaction(async (tx) => {
-    const updatedItem = await cfg.updateName(tx, input.id, name);
-
-    if (oldItem.name !== name) {
-      const affectedPrograms = await tx.program.findMany({
-        where: {
-          OR: [
-            { [cfg.csvField]: { contains: oldItem.name } },
-            { [cfg.cacheField]: { contains: oldItem.name } },
-          ],
-        },
-        select: {
-          id: true,
-          recommendedFor: true,
-          audienceCache: true,
-          category: true,
-          categoryCache: true,
-          equipment: true,
-          equipmentCache: true,
-        },
-      });
-
-      for (const prog of affectedPrograms) {
-        const curCsv = prog[cfg.csvField];
-        const curCache = prog[cfg.cacheField];
-        const nextCsv =
-          curCsv === oldItem.name ? name : replaceCsvToken(curCsv, oldItem.name, name) ?? curCsv;
-        const nextCache =
-          curCache === oldItem.name ? name : replaceCsvToken(curCache, oldItem.name, name) ?? curCache;
-
-        if (nextCsv !== curCsv || nextCache !== curCache) {
-          await tx.program.update({
-            where: { id: prog.id },
-            data: { [cfg.csvField]: nextCsv, [cfg.cacheField]: nextCache },
-          });
-        }
-      }
-
-      if (cfg.syncProgramDays) {
-        await tx.programDay.updateMany({
-          where: { recommendedFor: oldItem.name },
-          data: { recommendedFor: name },
-        });
-      }
-    }
-
-    return updatedItem;
-  });
-
-  revalidateAdminMasterRoutes();
-  return { success: true, message: `${cfg.updatedPrefix} "${item.name}" updated.`, data: item };
 }
 
 export async function wellnessCreateMasterTargetAudience(nameInput: string): Promise<WellnessActionResult> {
@@ -426,8 +296,14 @@ export async function wellnessCreateMasterTargetAudience(nameInput: string): Pro
 
 export async function wellnessDeleteMasterTargetAudience(id: string): Promise<WellnessActionResult> {
   return deleteMasterTaxonomyItem(
-    () => prisma.programAudience.count({ where: { audienceId: id } }),
-    () => prisma.masterTargetAudience.delete({ where: { id } }),
+    async (tx) => {
+      const usedCount = await tx.programAudience.count({ where: { audienceId: id } });
+      if (usedCount > 0) {
+        return { blocked: `Cannot delete this Target Audience because it is used by ${usedCount} program(s).` };
+      }
+      await tx.masterTargetAudience.delete({ where: { id } });
+      return { blocked: null };
+    },
     { titleCase: "Target Audience", removedMsg: "Target audience removed." }
   );
 }
@@ -436,16 +312,27 @@ export async function wellnessUpdateMasterTargetAudience(input: {
   id: string;
   name: string;
 }): Promise<WellnessActionResult> {
-  return updateMasterCsvTaxonomyItem(input, {
-    findById: (id) => prisma.masterTargetAudience.findUnique({ where: { id } }),
-    updateName: (tx, id, name) => tx.masterTargetAudience.update({ where: { id }, data: { name } }),
-    csvField: "recommendedFor",
-    cacheField: "audienceCache",
-    syncProgramDays: true,
-    minLengthMsg: "Target audience must be at least 2 characters.",
-    notFoundMsg: "Target audience not found.",
-    updatedPrefix: "Target audience",
+  await requireSuperadmin();
+  const name = input.name?.trim();
+  if (!name || name.length < 2) {
+    return { success: false, message: "Target audience must be at least 2 characters." };
+  }
+  const oldItem = await prisma.masterTargetAudience.findUnique({ where: { id: input.id } });
+  if (!oldItem) return { success: false, message: "Target audience not found." };
+
+  const item = await prisma.$transaction(async (tx) => {
+    const updated = await tx.masterTargetAudience.update({ where: { id: input.id }, data: { name } });
+    if (oldItem.name !== name) {
+      await tx.programDay.updateMany({
+        where: { recommendedFor: oldItem.name },
+        data: { recommendedFor: name },
+      });
+    }
+    return updated;
   });
+
+  revalidateAdminMasterRoutes();
+  return { success: true, message: `Target audience "${item.name}" updated.`, data: item };
 }
 
 export async function wellnessCreateMasterCategory(nameInput: string): Promise<WellnessActionResult> {
@@ -465,8 +352,14 @@ export async function wellnessCreateMasterCategory(nameInput: string): Promise<W
 
 export async function wellnessDeleteMasterCategory(id: string): Promise<WellnessActionResult> {
   return deleteMasterTaxonomyItem(
-    () => prisma.programCategory.count({ where: { categoryId: id } }),
-    () => prisma.masterCategory.delete({ where: { id } }),
+    async (tx) => {
+      const usedCount = await tx.programCategory.count({ where: { categoryId: id } });
+      if (usedCount > 0) {
+        return { blocked: `Cannot delete this Category because it is used by ${usedCount} program(s).` };
+      }
+      await tx.masterCategory.delete({ where: { id } });
+      return { blocked: null };
+    },
     { titleCase: "Category", removedMsg: "Category removed." }
   );
 }
@@ -475,20 +368,18 @@ export async function wellnessUpdateMasterCategory(input: {
   id: string;
   name: string;
 }): Promise<WellnessActionResult> {
-  return updateMasterCsvTaxonomyItem(input, {
-    findById: (id) => prisma.masterCategory.findUnique({ where: { id } }),
-    updateName: (tx, id, name) => tx.masterCategory.update({ where: { id }, data: { name } }),
-    csvField: "category",
-    cacheField: "categoryCache",
-    minLengthMsg: "Category name must be at least 2 characters.",
-    notFoundMsg: "Category not found.",
-    updatedPrefix: "Category",
-  });
-}
+  await requireSuperadmin();
+  const name = input.name?.trim();
+  if (!name || name.length < 2) {
+    return { success: false, message: "Category name must be at least 2 characters." };
+  }
+  const existing = await prisma.masterCategory.findUnique({ where: { id: input.id } });
+  if (!existing) return { success: false, message: "Category not found." };
 
-// ============================================================================
-// MASTER EQUIPMENT CRUD
-// ============================================================================
+  const item = await prisma.masterCategory.update({ where: { id: input.id }, data: { name } });
+  revalidateAdminMasterRoutes();
+  return { success: true, message: `Category "${item.name}" updated.`, data: item };
+}
 
 export async function wellnessCreateMasterEquipment(nameInput: string): Promise<WellnessActionResult> {
   return createMasterTaxonomyItem(
@@ -507,8 +398,14 @@ export async function wellnessCreateMasterEquipment(nameInput: string): Promise<
 
 export async function wellnessDeleteMasterEquipment(id: string): Promise<WellnessActionResult> {
   return deleteMasterTaxonomyItem(
-    () => prisma.programEquipment.count({ where: { equipmentId: id } }),
-    () => prisma.masterEquipment.delete({ where: { id } }),
+    async (tx) => {
+      const usedCount = await tx.programEquipment.count({ where: { equipmentId: id } });
+      if (usedCount > 0) {
+        return { blocked: `Cannot delete this Equipment because it is used by ${usedCount} program(s).` };
+      }
+      await tx.masterEquipment.delete({ where: { id } });
+      return { blocked: null };
+    },
     { titleCase: "Equipment", removedMsg: "Equipment removed." }
   );
 }
@@ -517,20 +414,18 @@ export async function wellnessUpdateMasterEquipment(input: {
   id: string;
   name: string;
 }): Promise<WellnessActionResult> {
-  return updateMasterCsvTaxonomyItem(input, {
-    findById: (id) => prisma.masterEquipment.findUnique({ where: { id } }),
-    updateName: (tx, id, name) => tx.masterEquipment.update({ where: { id }, data: { name } }),
-    csvField: "equipment",
-    cacheField: "equipmentCache",
-    minLengthMsg: "Equipment name must be at least 2 characters.",
-    notFoundMsg: "Equipment not found.",
-    updatedPrefix: "Equipment",
-  });
-}
+  await requireSuperadmin();
+  const name = input.name?.trim();
+  if (!name || name.length < 2) {
+    return { success: false, message: "Equipment name must be at least 2 characters." };
+  }
+  const existing = await prisma.masterEquipment.findUnique({ where: { id: input.id } });
+  if (!existing) return { success: false, message: "Equipment not found." };
 
-// ============================================================================
-// MASTER DAILY COMMITMENT CRUD
-// ============================================================================
+  const item = await prisma.masterEquipment.update({ where: { id: input.id }, data: { name } });
+  revalidateAdminMasterRoutes();
+  return { success: true, message: `Equipment "${item.name}" updated.`, data: item };
+}
 
 export async function wellnessCreateMasterDailyCommitment(nameInput: string): Promise<WellnessActionResult> {
   return createMasterTaxonomyItem(
@@ -549,8 +444,14 @@ export async function wellnessCreateMasterDailyCommitment(nameInput: string): Pr
 
 export async function wellnessDeleteMasterDailyCommitment(id: string): Promise<WellnessActionResult> {
   return deleteMasterTaxonomyItem(
-    () => prisma.program.count({ where: { dailyCommitmentId: id } }),
-    () => prisma.masterDailyCommitment.delete({ where: { id } }),
+    async (tx) => {
+      const usedCount = await tx.program.count({ where: { dailyCommitmentId: id, deletedAt: null } });
+      if (usedCount > 0) {
+        return { blocked: `Cannot delete this Daily Commitment because it is used by ${usedCount} program(s).` };
+      }
+      await tx.masterDailyCommitment.delete({ where: { id } });
+      return { blocked: null };
+    },
     { titleCase: "Daily Commitment", removedMsg: "Daily commitment removed." }
   );
 }
@@ -564,28 +465,10 @@ export async function wellnessUpdateMasterDailyCommitment(input: {
   if (!name || name.length < 2) {
     return { success: false, message: "Time commitment must be at least 2 characters." };
   }
+  const existing = await prisma.masterDailyCommitment.findUnique({ where: { id: input.id } });
+  if (!existing) return { success: false, message: "Daily commitment not found." };
 
-  const oldItem = await prisma.masterDailyCommitment.findUnique({ where: { id: input.id } });
-  if (!oldItem) {
-    return { success: false, message: "Daily commitment not found." };
-  }
-
-  const item = await prisma.$transaction(async (tx) => {
-    const updatedItem = await tx.masterDailyCommitment.update({
-      where: { id: input.id },
-      data: { name },
-    });
-
-    if (oldItem.name !== name) {
-      await tx.program.updateMany({
-        where: { dailyCommitment: oldItem.name },
-        data: { dailyCommitment: name, commitmentCache: name },
-      });
-    }
-
-    return updatedItem;
-  });
-
+  const item = await prisma.masterDailyCommitment.update({ where: { id: input.id }, data: { name } });
   revalidateAdminMasterRoutes();
   return { success: true, message: `Daily commitment "${item.name}" updated.`, data: item };
 }
@@ -631,13 +514,17 @@ export async function wellnessCreateMasterOrganization(input: {
         name,
         slug,
         tagline: input.tagline?.trim().slice(0, 300) || null,
-        logoUrl: rawLogo ? safeMediaUrl(rawLogo) : null,
+        logoPath: rawLogo ? safeMediaUrl(rawLogo) : null,
         websiteUrl: safeWebsite,
         isVerified: input.isVerified ?? true,
       },
     });
     revalidateAdminMasterRoutes();
-    return { success: true, message: `Community / Brand "${org.name}" added.`, data: org };
+    return {
+      success: true,
+      message: `Community / Brand "${org.name}" added.`,
+      data: { ...org, logoUrl: org.logoPath },
+    };
   } catch (error) {
     console.error("Failed to create master organization:", error);
     return { success: false, message: "Failed to add Community / Brand." };
@@ -670,35 +557,29 @@ export async function wellnessUpdateMasterOrganization(input: {
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      const org = await tx.masterOrganization.update({
-        where: { id: input.id },
-        data: {
-          name,
-          tagline: input.tagline !== undefined ? (input.tagline?.trim().slice(0, 300) || null) : oldItem.tagline,
-          logoUrl:
-            input.logoUrl !== undefined
-              ? (input.logoUrl?.trim() ? safeMediaUrl(input.logoUrl) : null)
-              : oldItem.logoUrl,
-          websiteUrl:
-            input.websiteUrl !== undefined
-              ? (input.websiteUrl?.trim() ? safeHttpUrl(input.websiteUrl) : null)
-              : oldItem.websiteUrl,
-          isVerified: input.isVerified !== undefined ? input.isVerified : oldItem.isVerified,
-        },
-      });
-
-      if (oldItem.name !== name) {
-        await tx.program.updateMany({
-          where: { organizationId: org.id },
-          data: { organizationCache: name },
-        });
-      }
-      return org;
+    const org = await prisma.masterOrganization.update({
+      where: { id: input.id },
+      data: {
+        name,
+        tagline: input.tagline !== undefined ? (input.tagline?.trim().slice(0, 300) || null) : oldItem.tagline,
+        logoPath:
+          input.logoUrl !== undefined
+            ? (input.logoUrl?.trim() ? safeMediaUrl(input.logoUrl) : null)
+            : oldItem.logoPath,
+        websiteUrl:
+          input.websiteUrl !== undefined
+            ? (input.websiteUrl?.trim() ? safeHttpUrl(input.websiteUrl) : null)
+            : oldItem.websiteUrl,
+        isVerified: input.isVerified !== undefined ? input.isVerified : oldItem.isVerified,
+      },
     });
 
     revalidateAdminMasterRoutes();
-    return { success: true, message: `Community / Brand "${updated.name}" updated.`, data: updated };
+    return {
+      success: true,
+      message: `Community / Brand "${org.name}" updated.`,
+      data: { ...org, logoUrl: org.logoPath },
+    };
   } catch (error) {
     console.error("Failed to update master organization:", error);
     return { success: false, message: "Failed to update Community / Brand." };
@@ -710,14 +591,17 @@ export async function wellnessDeleteMasterOrganization(
 ): Promise<WellnessActionResult> {
   await requireSuperadmin();
   try {
-    const usedCount = await prisma.program.count({ where: { organizationId: id } });
-    if (usedCount > 0) {
-      return {
-        success: false,
-        message: `Cannot delete this Community / Brand because it is linked to ${usedCount} program(s).`,
-      };
-    }
-    await prisma.masterOrganization.delete({ where: { id } });
+    const res = await prisma.$transaction(async (tx) => {
+      const usedCount = await tx.program.count({ where: { organizationId: id, deletedAt: null } });
+      if (usedCount > 0) {
+        return {
+          blocked: `Cannot delete this Community / Brand because it is linked to ${usedCount} program(s).`,
+        };
+      }
+      await tx.masterOrganization.delete({ where: { id } });
+      return { blocked: null };
+    });
+    if (res.blocked) return { success: false, message: res.blocked };
     revalidateAdminMasterRoutes();
     return { success: true, message: "Community / Brand deleted." };
   } catch {

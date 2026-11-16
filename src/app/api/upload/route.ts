@@ -1,14 +1,13 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getWellnessSession } from "@/wellness/security/session";
-import path from "path";
-import fs from "fs/promises";
-import crypto from "crypto";
-import { checkRateLimit } from "@/wellness/security/rate-limit";
+import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
+import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
 import {
-  detectImageMime,
-  getPrivateWorkoutUploadDir,
-  processAndOptimizeImage,
-} from "@/wellness/utils/image-processor";
+  isSupabaseStorageConfigured,
+  STORAGE_BUCKETS,
+  uploadPrivateStorageObject,
+} from "@/wellness/integrations/supabase-storage";
 import {
   MAX_UPLOAD_BODY_BYTES,
   MAX_UPLOAD_BYTES,
@@ -17,12 +16,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TYPES = new Set(["before", "after", "front", "side", "back", "profile", "custom"]);
+const ALLOWED_TYPES = new Set(["profile", "custom"]);
 
 /**
- * Authenticated photo upload endpoint.
+ * Authenticated photo upload endpoint backed by private Supabase Storage.
  * Validates magic bytes, decodes & re-encodes via Sharp (stripping EXIF/GPS metadata and
- * compressing to WebP <= 1280px), and stores outside public/ behind /api/media/workouts/.
+ * compressing to WebP <= 1280px), and returns a signed-proxy path.
  */
 export async function POST(request: NextRequest) {
   const session = await getWellnessSession();
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const rl = checkRateLimit(`upload:${session.userId}`, RATE_LIMITS.upload);
+  const rl = await checkDistributedRateLimit(`upload:${session.userId}`, RATE_LIMITS.upload);
   if (!rl.allowed) {
     return NextResponse.json(
       { success: false, message: "Too many uploads. Please wait a moment." },
@@ -38,7 +37,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Reject oversized bodies before buffering/parsing them.
+  if (!isSupabaseStorageConfigured()) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      },
+      { status: 503 }
+    );
+  }
+
   const declaredLength = Number(request.headers.get("content-length"));
   if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_UPLOAD_BODY_BYTES) {
     return NextResponse.json(
@@ -66,7 +74,6 @@ export async function POST(request: NextRequest) {
     const base64Data = match[1];
     const rawBuffer = Buffer.from(base64Data, "base64");
 
-    // Limit upload payload to 5MB
     if (rawBuffer.length === 0 || rawBuffer.length > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
         { success: false, message: "File exceeds 5MB size limit or is empty" },
@@ -74,7 +81,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify true magic byte image signature (never trust client-declared MIME)
     if (!detectImageMime(rawBuffer)) {
       return NextResponse.json(
         { success: false, message: "Uploaded file content is not a valid JPEG, PNG, or WebP image." },
@@ -82,7 +88,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Full decode, EXIF/GPS metadata strip, resize & WebP compression
     let optimized: { buffer: Buffer; mime: "image/webp"; ext: "webp" };
     try {
       optimized = await processAndOptimizeImage(rawBuffer, {
@@ -98,29 +103,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadDir = getPrivateWorkoutUploadDir();
-    const uniqueId = crypto.randomBytes(12).toString("hex");
-    const safeType = type && ALLOWED_TYPES.has(type) ? type : "photo";
+    const safeType = type && ALLOWED_TYPES.has(type) ? type : "custom";
     const safeUserId = session.userId.replace(/[^A-Za-z0-9_-]/g, "");
-    const filename = `${safeUserId}-${safeType}-${Date.now()}-${uniqueId}.${optimized.ext}`;
-    const filePath = path.join(uploadDir, filename);
+    const uniqueId = crypto.randomBytes(12).toString("hex");
+    const objectPath = `${safeUserId}/${safeType}-${Date.now()}-${uniqueId}.${optimized.ext}`;
 
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      await fs.writeFile(filePath, optimized.buffer);
-      return NextResponse.json({
-        success: true,
-        url: `/api/media/workouts/${filename}`,
-      });
-    } catch {
-      // In serverless / read-only filesystem environments (e.g. Vercel Lambda),
-      // return the compact, EXIF-stripped WebP data URL so uploads remain functional
-      const fallbackDataUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
-      return NextResponse.json({
-        success: true,
-        url: fallbackDataUrl,
-      });
-    }
+    const { storageUri, signedUrl } = await uploadPrivateStorageObject({
+      bucket: STORAGE_BUCKETS.WORKOUT_MEDIA,
+      objectPath,
+      buffer: optimized.buffer,
+      contentType: optimized.mime,
+    });
+
+    return NextResponse.json({
+      success: true,
+      storagePath: storageUri,
+      previewUrl: signedUrl,
+      url: `/api/media/signed?path=${encodeURIComponent(storageUri)}`,
+    });
   } catch (error) {
     console.error("[Upload API Error]:", error);
     return NextResponse.json(

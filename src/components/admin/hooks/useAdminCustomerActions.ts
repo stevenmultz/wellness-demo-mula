@@ -6,18 +6,16 @@ import {
   wellnessAdminApprovePayment,
   wellnessAdminDeleteUser,
   wellnessAdminResetUserPassword,
-  wellnessAdminUpdateCustomerProfile,
   wellnessAdminUpdateUserStatus,
 } from "@/wellness/actions/admin";
 import type {
-  AdminCustomerHealthProfile,
   AdminFeedbackMessage,
   AdminInitialRoute,
   AdminProgram,
   AdminUserItem,
 } from "../adminTypes";
 
-type CustomerTabKey = "overview" | "responses" | "health" | "medical" | "lifestyle" | "notes";
+type CustomerTabKey = "overview" | "responses" | "profile" | "notes";
 
 interface UseAdminCustomerActionsArgs {
   initialUsers: AdminUserItem[];
@@ -51,32 +49,11 @@ export function useAdminCustomerActions({
   const [customerResponseStatusFilter, setCustomerResponseStatusFilter] = useState<
     "ALL" | "COMPLETED" | "PENDING"
   >("ALL");
-  const [customerResponsePhotosOnly, setCustomerResponsePhotosOnly] = useState(false);
   const [customerResponseSearch, setCustomerResponseSearch] = useState("");
   const [expandedResponseIds, setExpandedResponseIds] = useState<Record<string, boolean>>({});
-  const [customerCoachNotes, setCustomerCoachNotes] = useState(
-    initialCustomer?.healthProfile?.coachNotes || ""
-  );
-  const [customerDietType, setCustomerDietType] = useState(
-    initialCustomer?.healthProfile?.dietType || ""
-  );
-  const [customerHeight, setCustomerHeight] = useState<string | number>(
-    initialCustomer?.healthProfile?.heightCm ?? ""
-  );
-  const [customerWeight, setCustomerWeight] = useState<string | number>(
-    initialCustomer?.healthProfile?.weightKg ?? ""
-  );
   const [selectedCustomerProgramId, setSelectedCustomerProgramId] = useState<string | null>(
     null
   );
-  const [customerInjuries, setCustomerInjuries] = useState(
-    initialCustomer?.healthProfile?.injuriesOrConditions || ""
-  );
-  const [customerAllergies, setCustomerAllergies] = useState(
-    initialCustomer?.healthProfile?.foodAllergies || ""
-  );
-  const [savingCustomerProfile, setSavingCustomerProfile] = useState(false);
-  const [customerProfileSuccess, setCustomerProfileSuccess] = useState<string | null>(null);
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -87,85 +64,21 @@ export function useAdminCustomerActions({
     setInspectingUserHealth(u);
     setCustomerModalTab(tab);
     setCustomerResponseStatusFilter("ALL");
-    setCustomerResponsePhotosOnly(false);
     setCustomerResponseSearch("");
     setExpandedResponseIds({});
-    setCustomerCoachNotes(u.healthProfile?.coachNotes || "");
-    setCustomerDietType(u.healthProfile?.dietType || "");
-    setCustomerHeight(u.healthProfile?.heightCm ?? "");
-    setCustomerWeight(u.healthProfile?.weightKg ?? "");
     setSelectedCustomerProgramId(null);
-    setCustomerInjuries(u.healthProfile?.injuriesOrConditions || "");
-    setCustomerAllergies(u.healthProfile?.foodAllergies || "");
-    setCustomerProfileSuccess(null);
     router.push(`/admin/customers/${u.id}?tab=${tab}`);
   };
 
   const closeCustomerDetail = () => {
     setInspectingUserHealth(null);
-    setCustomerProfileSuccess(null);
     router.push("/admin/customers");
   };
 
   const switchCustomerTab = (tab: CustomerTabKey) => {
     setCustomerModalTab(tab);
-    setCustomerProfileSuccess(null);
     if (inspectingUserHealth) {
       router.push(`/admin/customers/${inspectingUserHealth.id}?tab=${tab}`);
-    }
-  };
-
-  const handleSaveCustomerProfile = async () => {
-    if (!inspectingUserHealth) return;
-    setSavingCustomerProfile(true);
-    setCustomerProfileSuccess(null);
-    try {
-      const res = await wellnessAdminUpdateCustomerProfile(inspectingUserHealth.id, {
-        coachNotes: customerCoachNotes,
-      });
-
-      if (res.success) {
-        setCustomerProfileSuccess("Coach notes saved successfully.");
-        setUsers((prev) =>
-          prev.map((u) => {
-            if (u.id !== inspectingUserHealth.id) return u;
-            const updatedProfile: AdminCustomerHealthProfile = {
-              ...(u.healthProfile || {
-                id: `hp-${u.id}`,
-                photoFrontUrl: null,
-                photoSideUrl: null,
-                photoBackUrl: null,
-                weightKg: null,
-                heightCm: null,
-                waistCm: null,
-                chestCm: null,
-                hipsCm: null,
-                currentMood: null,
-                energyLevel: null,
-                routineConfidence: null,
-                workoutFrequency: null,
-                averageBedtime: null,
-                averageWakeTime: null,
-                sleepQualityNotes: null,
-                eatingPatterns: null,
-              }),
-              coachNotes: customerCoachNotes,
-            };
-            const updatedUser: AdminUserItem = {
-              ...u,
-              healthProfile: updatedProfile,
-            };
-            setInspectingUserHealth(updatedUser);
-            return updatedUser;
-          })
-        );
-      } else {
-        setFeedback({ type: "error", text: res.message || "Failed to save coach notes." });
-      }
-    } catch {
-      setFeedback({ type: "error", text: "Network error saving coach notes." });
-    } finally {
-      setSavingCustomerProfile(false);
     }
   };
 
@@ -284,30 +197,18 @@ export function useAdminCustomerActions({
     customerModalTab,
     customerResponseStatusFilter,
     setCustomerResponseStatusFilter,
-    customerResponsePhotosOnly,
-    setCustomerResponsePhotosOnly,
     customerResponseSearch,
     setCustomerResponseSearch,
     expandedResponseIds,
     setExpandedResponseIds,
-    customerCoachNotes,
-    setCustomerCoachNotes,
-    customerDietType,
-    customerHeight,
-    customerWeight,
     selectedCustomerProgramId,
     setSelectedCustomerProgramId,
-    customerInjuries,
-    customerAllergies,
-    savingCustomerProfile,
-    customerProfileSuccess,
     userActionLoading,
     setUserActionLoading,
     approvingId,
     openCustomerDetail,
     closeCustomerDetail,
     switchCustomerTab,
-    handleSaveCustomerProfile,
     handleApprovePayment,
     handleDeleteUser,
     handleToggleUserStatus,

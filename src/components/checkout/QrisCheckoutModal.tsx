@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { wellnessConfirmQrisPayment, wellnessEnrollProgram } from "@/wellness/actions/account";
 import { BRAND } from "@/wellness/brand";
+import { safeHttpUrl } from "@/wellness/utils/url-safety";
 import {
   X,
   QrCode,
@@ -24,6 +25,7 @@ export interface QrisInvoiceData {
   status: string;
   attendanceMode?: string;
   paymentReference: string | null;
+  qrStringOrUrl?: string | null;
   invoiceExpiresAt: Date | string | null;
   locationType?: string | null;
   venueAddress?: string | null;
@@ -267,43 +269,52 @@ export function QrisCheckoutModal({
 
           {/* QRIS Visual Matrix */}
           <div className="relative mx-auto w-44 h-44 rounded-[2px] bg-white p-3.5 flex flex-col items-center justify-center border border-zinc-200 shadow-sm">
-            <svg
-              viewBox="0 0 100 100"
-              className={`w-full h-full text-zinc-950 ${isExpired ? "opacity-20 blur-[2px]" : ""}`}
-              fill="currentColor"
-            >
-              <path d="M5,5 h28 v28 h-28 z M10,10 v18 h18 v-18 z M14,14 h10 v10 h-10 z" />
-              <path d="M67,5 h28 v28 h-28 z M72,10 v18 h18 v-18 z M76,14 h10 v10 h-10 z" />
-              <path d="M5,67 h28 v28 h-28 z M10,72 v18 h18 v-18 z M14,76 h10 v10 h-10 z" />
-              <rect x="38" y="8" width="6" height="6" />
-              <rect x="48" y="8" width="12" height="6" />
-              <rect x="38" y="18" width="10" height="6" />
-              <rect x="54" y="18" width="6" height="12" />
-              <rect x="38" y="28" width="12" height="6" />
-              <rect x="8" y="38" width="12" height="6" />
-              <rect x="26" y="38" width="18" height="6" />
-              <rect x="50" y="38" width="12" height="6" />
-              <rect x="68" y="38" width="10" height="6" />
-              <rect x="84" y="38" width="10" height="6" />
-              <rect x="8" y="48" width="6" height="12" />
-              <rect x="20" y="48" width="12" height="6" />
-              <rect x="38" y="44" width="24" height="12" />
-              <rect x="68" y="48" width="12" height="6" />
-              <rect x="86" y="48" width="8" height="12" />
-              <rect x="20" y="58" width="14" height="6" />
-              <rect x="68" y="58" width="14" height="6" />
-              <rect x="38" y="62" width="10" height="10" />
-              <rect x="54" y="64" width="8" height="8" />
-              <rect x="38" y="76" width="16" height="6" />
-              <rect x="60" y="76" width="12" height="6" />
-              <rect x="78" y="70" width="16" height="12" />
-              <rect x="38" y="86" width="8" height="8" />
-              <rect x="52" y="86" width="18" height="8" />
-              <rect x="76" y="86" width="18" height="8" />
-            </svg>
+            {safeHttpUrl(currentInvoice.qrStringOrUrl) ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={safeHttpUrl(currentInvoice.qrStringOrUrl)!}
+                alt="QRIS Payment Code"
+                className={`w-full h-full object-contain ${isExpired ? "opacity-20 blur-[2px]" : ""}`}
+              />
+            ) : (
+              <svg
+                viewBox="0 0 100 100"
+                className={`w-full h-full text-zinc-950 ${isExpired ? "opacity-20 blur-[2px]" : ""}`}
+                fill="currentColor"
+              >
+                <path d="M5,5 h28 v28 h-28 z M10,10 v18 h18 v-18 z M14,14 h10 v10 h-10 z" />
+                <path d="M67,5 h28 v28 h-28 z M72,10 v18 h18 v-18 z M76,14 h10 v10 h-10 z" />
+                <path d="M5,67 h28 v28 h-28 z M10,72 v18 h18 v-18 z M14,76 h10 v10 h-10 z" />
+                <rect x="38" y="8" width="6" height="6" />
+                <rect x="48" y="8" width="12" height="6" />
+                <rect x="38" y="18" width="10" height="6" />
+                <rect x="54" y="18" width="6" height="12" />
+                <rect x="38" y="28" width="12" height="6" />
+                <rect x="8" y="38" width="12" height="6" />
+                <rect x="26" y="38" width="18" height="6" />
+                <rect x="50" y="38" width="12" height="6" />
+                <rect x="68" y="38" width="10" height="6" />
+                <rect x="84" y="38" width="10" height="6" />
+                <rect x="8" y="48" width="6" height="12" />
+                <rect x="20" y="48" width="12" height="6" />
+                <rect x="38" y="44" width="24" height="12" />
+                <rect x="68" y="48" width="12" height="6" />
+                <rect x="86" y="48" width="8" height="12" />
+                <rect x="20" y="58" width="14" height="6" />
+                <rect x="68" y="58" width="14" height="6" />
+                <rect x="38" y="62" width="10" height="10" />
+                <rect x="54" y="64" width="8" height="8" />
+                <rect x="38" y="76" width="16" height="6" />
+                <rect x="60" y="76" width="12" height="6" />
+                <rect x="78" y="70" width="16" height="12" />
+                <rect x="38" y="86" width="8" height="8" />
+                <rect x="52" y="86" width="18" height="8" />
+                <rect x="76" y="86" width="18" height="8" />
+              </svg>
+            )}
 
             <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
-              QRIS Instant Payment
+              {currentInvoice.qrStringOrUrl ? "Midtrans QRIS Payment" : "QRIS Instant Payment"}
             </span>
 
             {isExpired && (

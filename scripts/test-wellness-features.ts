@@ -70,8 +70,6 @@ async function runFeatureTests() {
     },
     update: {
       selectedWorkout: "Hot Pilates",
-      photoBeforeUrl: "/test.jpg",
-      photoAfterUrl: "/pic.jpg",
       mealCompliance: "FULL",
       mealNotes: "Salad quinoa dan salmon kukus",
       dailyReflection: "Dear Diary: Hari ini energi saya meningkat drastis setelah hot pilates.",
@@ -84,8 +82,6 @@ async function runFeatureTests() {
       userId: user.id,
       programDayId: day.id,
       selectedWorkout: "Hot Pilates",
-      photoBeforeUrl: "/test.jpg",
-      photoAfterUrl: "/pic.jpg",
       mealCompliance: "FULL",
       mealNotes: "Salad quinoa dan salmon kukus",
       dailyReflection: "Dear Diary: Hari ini energi saya meningkat drastis setelah hot pilates.",

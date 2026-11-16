@@ -130,11 +130,11 @@ async function main() {
   for (const p of programs) {
     const res = resolveProgramStatus({
       status: p.status,
-      isPublished: p.isPublished,
-      registrationOpenDate: p.registrationOpenDate,
-      registrationDeadline: p.registrationDeadline,
-      startDate: p.startDate,
-      endDate: p.endDate,
+      isPublished: p.status === "PUBLISHED",
+      registrationOpenDate: p.registrationOpenAt,
+      registrationDeadline: p.registrationDeadlineAt,
+      startDate: p.startAt,
+      endDate: p.endAt,
       maxQuota: p.maxQuota,
       enrolledCount: p._count.enrollments,
     });

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { requireAuth, requireProgramAccess } from "../security/guards";
 import { parseCustomSubmissionValues } from "../utils/custom-tasks";
@@ -19,8 +20,6 @@ export interface ProgramSubmissionItem {
   videoWatched: boolean;
   checklistCompleted: string[];
   selectedWorkout: string | null;
-  photoBeforeUrl: string | null;
-  photoAfterUrl: string | null;
   workoutNotes: string | null;
   eventFeedback: string | null;
   mealCompliance: string | null;
@@ -47,7 +46,6 @@ export interface ProgramSubmissionsPayload {
   stats: {
     totalSubmissions: number;
     completedSubmissions: number;
-    photoSubmissions: number;
     uniqueMembers: number;
   };
 }
@@ -72,8 +70,6 @@ export async function submitDayProgressService(
     isCompleted,
     checklistCompleted,
     selectedWorkout,
-    photoBeforeUrl,
-    photoAfterUrl,
     workoutNotes,
     eventFeedback,
     mealCompliance,
@@ -108,167 +104,174 @@ export async function submitDayProgressService(
     return {
       success: false,
       message:
-        "Access denied. Active QRIS-verified enrollment is required to log daily curriculum progress.",
+        "Access denied. Active enrollment is required to log daily curriculum progress.",
     };
   }
 
   const { isCalendarUnlocked, isPast2359 } = getProgramDayWibWindow(
-    programDay.program.startDate,
+    programDay.program.startAt,
     programDay.dayNumber
   );
 
   if (!isCalendarUnlocked) {
     return {
       success: false,
-      message: `Day ${programDay.dayNumber} is locked until 00:00 WIB on its scheduled calendar date.`,
+      message: `Access denied. Day ${programDay.dayNumber} unlocks on its scheduled date at 00:00 WIB.`,
     };
   }
 
-  // Existing answers stay editable after 23:59 WIB. A day with no saved row stays closed.
-  const existingProgress = await prisma.programDayProgress.findUnique({
-    where: {
-      userId_programDayId: {
-        userId: session.userId,
-        programDayId,
-      },
-    },
-  });
-
-  if (isPast2359 && !existingProgress) {
-    return {
-      success: false,
-      message: `The 23:59 WIB cutoff for Day ${programDay.dayNumber} has passed. Past days are read-only.`,
-    };
-  }
-
-  const nextVideoWatched =
-    videoWatched !== undefined
-      ? videoWatched
-      : existingProgress?.videoWatched ?? false;
-
-  const finalBedtime = bedtime !== undefined ? bedtime : existingProgress?.bedtime || null;
-  const finalWakeTime = wakeTime !== undefined ? wakeTime : existingProgress?.wakeTime || null;
-  let finalSleepMinutes = sleepDurationMinutes;
-  if (finalSleepMinutes === undefined && finalBedtime && finalWakeTime) {
-    const calc = calculateSleepDuration(finalBedtime, finalWakeTime);
-    finalSleepMinutes = calc ? calc.totalMinutes : null;
-  }
-
-  let verifiedCompleted = isCompleted;
-  if (programDay.dayType === "TRAINING_DAY") {
-    const rawChecklist: string[] = safeJsonParse<string[]>(programDay.videoChecklist, []);
-    const groups = parseWorkoutOptionGroups(
-      safeJsonParse<string[]>(programDay.workoutOptions, []),
-      rawChecklist
-    );
-
-    const activeOptName =
-      selectedWorkout ||
-      existingProgress?.selectedWorkout ||
-      groups[0]?.optionName ||
-      "Workout";
-
-    const activeGroup =
-      groups.find(
-        (g) => g.optionName.trim().toLowerCase() === activeOptName.trim().toLowerCase()
-      ) || groups[0];
-
-    if (activeGroup && activeGroup.movements.length > 0) {
-      const checkedKeys = new Set(
-        checklistCompleted.map((item) =>
-          (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
-        )
-      );
-
-      const allActiveMovementsDone = activeGroup.movements.every((m) => {
-        const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
-        const plainKey = m.name.trim().toLowerCase();
-        return checkedKeys.has(scopedKey) || checkedKeys.has(plainKey);
-      });
-
-      if (!allActiveMovementsDone) {
-        verifiedCompleted = false;
-      }
-    } else if (rawChecklist.length > 0) {
-      const allTasksChecked = rawChecklist.every((t) => checklistCompleted.includes(t));
-      if (!allTasksChecked) {
-        verifiedCompleted = false;
-      }
-    }
-  }
-
-  if (verifiedCompleted) {
-    const requiredCustomTasks = await prisma.programDayCustomTask.findMany({
-      where: { programDayId, isRequired: true },
-      select: { id: true },
-    });
-    if (requiredCustomTasks.length > 0) {
-      const submittedCount = await prisma.programDayCustomSubmission.count({
+  let progress;
+  try {
+    progress = await prisma.$transaction(async (tx) => {
+      const existingProgress = await tx.programDayProgress.findUnique({
         where: {
-          userId: session.userId,
-          customTaskId: { in: requiredCustomTasks.map((t) => t.id) },
+          userId_programDayId: {
+            userId: session.userId,
+            programDayId,
+          },
         },
       });
-      if (submittedCount < requiredCustomTasks.length) {
+
+    if (isPast2359 && !existingProgress) {
+      throw new Error(
+        `Day ${programDay.dayNumber} submission window closed at 23:59 WIB. Missed days are recorded as skipped.`
+      );
+    }
+
+    const finalBedtime = bedtime !== undefined ? bedtime || null : existingProgress?.bedtime ?? null;
+    const finalWakeTime =
+      wakeTime !== undefined ? wakeTime || null : existingProgress?.wakeTime ?? null;
+    const computedSleep =
+      finalBedtime && finalWakeTime ? calculateSleepDuration(finalBedtime, finalWakeTime) : null;
+    const finalSleepMinutes =
+      sleepDurationMinutes !== undefined
+        ? sleepDurationMinutes
+        : computedSleep?.totalMinutes ?? existingProgress?.sleepDurationMinutes ?? null;
+
+    const nextVideoWatched =
+      videoWatched !== undefined ? videoWatched : existingProgress?.isVideoWatched ?? false;
+    const targetChecklist = safeJsonParse<string[]>(programDay.videoChecklistJson, []);
+
+    let verifiedCompleted = isCompleted;
+    if (verifiedCompleted) {
+      if (programDay.dayType === "TRAINING_DAY" && programDay.videoUrl && !nextVideoWatched) {
         verifiedCompleted = false;
       }
+
+      if (targetChecklist.length > 0) {
+        const groups = parseWorkoutOptionGroups(
+          safeJsonParse<string[]>(programDay.workoutOptionsJson, []),
+          targetChecklist
+        );
+        const activeOption =
+          (selectedWorkout !== undefined ? selectedWorkout : existingProgress?.selectedWorkout) ||
+          groups[0]?.optionName ||
+          "Workout";
+
+        const activeGroup =
+          groups.find(
+            (g) => g.optionName.trim().toLowerCase() === activeOption.trim().toLowerCase()
+          ) || groups[0];
+
+        if (activeGroup && activeGroup.movements.length > 0 && programDay.dayType === "TRAINING_DAY") {
+          const checkedSet = new Set(
+            checklistCompleted.map((item) =>
+              (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
+            )
+          );
+          const allMovementsDone = activeGroup.movements.every((m) => {
+            const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
+            const plainKey = m.name.trim().toLowerCase();
+            return checkedSet.has(scopedKey) || checkedSet.has(plainKey);
+          });
+          if (!allMovementsDone) verifiedCompleted = false;
+        } else {
+          const allChecklistDone = targetChecklist.every((item) => checklistCompleted.includes(item));
+          if (!allChecklistDone) verifiedCompleted = false;
+        }
+      }
+
+      const requiredCustomTasks = await tx.programDayCustomTask.findMany({
+        where: { programDayId, isRequired: true },
+        select: { id: true },
+      });
+      if (requiredCustomTasks.length > 0) {
+        const submittedCount = await tx.programDayCustomSubmission.count({
+          where: {
+            userId: session.userId,
+            programDayId,
+            customTaskId: { in: requiredCustomTasks.map((t) => t.id) },
+          },
+        });
+        if (submittedCount < requiredCustomTasks.length) {
+          verifiedCompleted = false;
+        }
+      }
     }
-  }
 
-  const payloadData = {
-    videoWatched: nextVideoWatched,
-    isCompleted: verifiedCompleted,
-    checklistCompleted: JSON.stringify(checklistCompleted),
-    selectedWorkout:
-      selectedWorkout !== undefined
-        ? selectedWorkout || null
-        : existingProgress?.selectedWorkout,
-    photoBeforeUrl:
-      photoBeforeUrl !== undefined ? photoBeforeUrl || null : existingProgress?.photoBeforeUrl,
-    photoAfterUrl:
-      photoAfterUrl !== undefined ? photoAfterUrl || null : existingProgress?.photoAfterUrl,
-    workoutNotes:
-      workoutNotes !== undefined ? workoutNotes || null : existingProgress?.workoutNotes,
-    eventFeedback:
-      eventFeedback !== undefined ? eventFeedback || null : existingProgress?.eventFeedback,
-    mealCompliance:
-      mealCompliance !== undefined ? mealCompliance || null : existingProgress?.mealCompliance,
-    mealNotes: mealNotes !== undefined ? mealNotes || null : existingProgress?.mealNotes,
-    dailyReflection:
-      dailyReflection !== undefined
-        ? dailyReflection || null
-        : existingProgress?.dailyReflection,
-    happinessRate:
-      happinessRate !== undefined ? happinessRate : existingProgress?.happinessRate,
-    bedtime: finalBedtime,
-    wakeTime: finalWakeTime,
-    sleepDurationMinutes: finalSleepMinutes,
-    assessmentResponse:
-      assessmentResponse !== undefined
-        ? assessmentResponse || null
-        : existingProgress?.assessmentResponse,
-    completedAt: verifiedCompleted ? existingProgress?.completedAt ?? new Date() : null,
-  };
+    const payloadData = {
+      isVideoWatched: nextVideoWatched,
+      isCompleted: verifiedCompleted,
+      checklistCompletedJson: checklistCompleted as Prisma.InputJsonValue,
+      selectedWorkout:
+        selectedWorkout !== undefined
+          ? selectedWorkout || null
+          : existingProgress?.selectedWorkout ?? null,
+      workoutNotes:
+        workoutNotes !== undefined ? workoutNotes || null : existingProgress?.workoutNotes ?? null,
+      eventFeedback:
+        eventFeedback !== undefined ? eventFeedback || null : existingProgress?.eventFeedback ?? null,
+      mealCompliance:
+        mealCompliance !== undefined ? mealCompliance || null : existingProgress?.mealCompliance ?? null,
+      mealNotes: mealNotes !== undefined ? mealNotes || null : existingProgress?.mealNotes ?? null,
+      dailyReflection:
+        dailyReflection !== undefined
+          ? dailyReflection || null
+          : existingProgress?.dailyReflection ?? null,
+      happinessRate:
+        happinessRate !== undefined ? happinessRate : existingProgress?.happinessRate ?? null,
+      bedtime: finalBedtime,
+      wakeTime: finalWakeTime,
+      sleepDurationMinutes: finalSleepMinutes,
+      assessmentResponse:
+        assessmentResponse !== undefined
+          ? assessmentResponse || null
+          : existingProgress?.assessmentResponse ?? null,
+      completedAt: verifiedCompleted ? existingProgress?.completedAt ?? new Date() : null,
+    };
 
-  const progress = existingProgress
-    ? await prisma.programDayProgress.update({
-        where: { id: existingProgress.id },
-        data: payloadData,
-      })
-    : await prisma.programDayProgress.create({
-        data: {
+      return tx.programDayProgress.upsert({
+        where: {
+          userId_programDayId: {
+            userId: session.userId,
+            programDayId,
+          },
+        },
+        create: {
           userId: session.userId,
           programDayId,
           ...payloadData,
         },
+        update: payloadData,
       });
+    });
+  } catch (err: unknown) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to save daily progress.",
+    };
+  }
 
   return {
     success: true,
-    message: verifiedCompleted
+    message: progress.isCompleted
       ? programDay.completedReminder || "Day marked as completed! Excellent job."
       : "Daily progress saved.",
-    data: progress,
+    data: {
+      ...progress,
+      videoWatched: progress.isVideoWatched,
+      checklistCompleted: safeJsonParse<string[]>(progress.checklistCompletedJson, []),
+    },
   };
 }
 
@@ -277,7 +280,6 @@ export async function getProgramSubmissionsService(
   filters?: {
     dayNumber?: number;
     userId?: string;
-    hasPhotosOnly?: boolean;
     limit?: number;
   }
 ): Promise<WellnessActionResult<ProgramSubmissionsPayload>> {
@@ -293,9 +295,6 @@ export async function getProgramSubmissionsService(
       : {};
   const userFilter =
     filters?.userId && filters.userId !== "ALL" ? { userId: filters.userId } : {};
-  const photoFilter = filters?.hasPhotosOnly
-    ? { OR: [{ photoBeforeUrl: { not: null } }, { photoAfterUrl: { not: null } }] }
-    : {};
 
   const limit = filters?.limit ? Math.min(500, Math.max(1, filters.limit)) : 200;
 
@@ -304,7 +303,6 @@ export async function getProgramSubmissionsService(
       where: {
         programDay: { programId, ...dayNumberFilter },
         ...userFilter,
-        ...photoFilter,
       },
       take: limit,
       include: {
@@ -342,12 +340,10 @@ export async function getProgramSubmissionsService(
 
   const uniqueUserIds = new Set<string>();
   let completedCount = 0;
-  let photoCount = 0;
 
   const submissions: ProgramSubmissionItem[] = rawRecords.map((r) => {
     uniqueUserIds.add(r.userId);
     if (r.isCompleted) completedCount++;
-    if (r.photoBeforeUrl || r.photoAfterUrl) photoCount++;
 
     return {
       id: r.id,
@@ -359,11 +355,9 @@ export async function getProgramSubmissionsService(
       dayTitle: r.programDay.title,
       dayType: r.programDay.dayType,
       isCompleted: r.isCompleted,
-      videoWatched: r.videoWatched,
-      checklistCompleted: safeJsonParse<string[]>(r.checklistCompleted, []),
+      videoWatched: r.isVideoWatched,
+      checklistCompleted: safeJsonParse<string[]>(r.checklistCompletedJson, []),
       selectedWorkout: r.selectedWorkout,
-      photoBeforeUrl: r.photoBeforeUrl,
-      photoAfterUrl: r.photoAfterUrl,
       workoutNotes: r.workoutNotes,
       eventFeedback: r.eventFeedback,
       mealCompliance: r.mealCompliance,
@@ -388,7 +382,6 @@ export async function getProgramSubmissionsService(
       stats: {
         totalSubmissions: submissions.length,
         completedSubmissions: completedCount,
-        photoSubmissions: photoCount,
         uniqueMembers: uniqueUserIds.size,
       },
     },

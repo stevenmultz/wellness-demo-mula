@@ -1,10 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-function createDayList(totalDays: number, titlePrefix: string) {
-  const days = [];
+function createDayList(totalDays: number, titlePrefix: string): Prisma.ProgramDayCreateWithoutProgramInput[] {
+  const days: Prisma.ProgramDayCreateWithoutProgramInput[] = [];
   for (let i = 1; i <= totalDays; i++) {
     const isRest = i % 7 === 4;
     const isMeetup = i % 7 === 0;
@@ -25,7 +25,7 @@ function createDayList(totalDays: number, titlePrefix: string) {
           "Rest Day Protocol: Recovery is where physiological adaptation occurs. Log your rest checklist before 23:59.",
         completedReminder:
           "Rest day logged. Your nervous system is primed for the next movement block.",
-        dayNotifications: JSON.stringify([
+        dayNotificationsJson: [
           {
             time: "08:00",
             label: "Pagi • Active Restoration",
@@ -36,7 +36,7 @@ function createDayList(totalDays: number, titlePrefix: string) {
             label: "Malam • Recovery Diary & Sleep",
             message: "Tuliskan Dear Diary harian Anda & matikan layar 60 menit sebelum tidur.",
           },
-        ]),
+        ],
       });
     } else if (isMeetup) {
       days.push({
@@ -55,7 +55,7 @@ function createDayList(totalDays: number, titlePrefix: string) {
           "Live Session Today: Review venue details and arrive 15 minutes before start.",
         completedReminder:
           "Thank you for attending the community circle! Connect with peers in the WhatsApp group.",
-        dayNotifications: JSON.stringify([
+        dayNotificationsJson: [
           {
             time: "08:30",
             label: "Pagi • Live Studio / Zoom Circle",
@@ -71,27 +71,27 @@ function createDayList(totalDays: number, titlePrefix: string) {
             label: "Malam • Dear Diary & Sleep",
             message: "Catat evaluasi hari ini di Dear Diary & catat target jam tidur sebelum cutoff 23:59.",
           },
-        ]),
+        ],
       });
     } else {
       days.push({
         dayNumber: i,
         title: `Day ${i}: ${titlePrefix} (Part ${i})`,
         dayType: "TRAINING_DAY",
-        workoutOptions: JSON.stringify([
+        workoutOptionsJson: [
           "Hot Pilates",
           "Strength & Conditioning",
           "Yoga & Mobility Flow",
           "Outdoor Running / Walk",
           "Mat Pilates Core",
-        ]),
+        ],
         sleepRecommendation: "Target 8 Jam • Tidur sebelum 22:30 WIB",
         videoUrl: "https://www.youtube.com/watch?v=sTANio_2E0Q",
-        videoChecklist: JSON.stringify([
+        videoChecklistJson: [
           "5 min diaphragmatic breathing & posture check",
           "15 min guided mobility & core sequence",
           "5 min gentle fascial cooldown",
-        ]),
+        ],
         mealRecommendation:
           "Breakfast: Rolled oats with chia seeds, wild berries, and Ceylon cinnamon.\nLunch: Grilled organic chicken breast with quinoa and avocado salad.\nDinner: Steamed wild salmon with asparagus and sweet potato.",
         dailyAssessment:
@@ -100,11 +100,11 @@ function createDayList(totalDays: number, titlePrefix: string) {
           "Daily Curriculum Unlocked: Dedicate 25 focused minutes to your body before 23:59 tonight.",
         completedReminder:
           "Training day logged and verified. Your posture and core resilience are improving.",
-        dayNotifications: JSON.stringify([
+        dayNotificationsJson: [
           {
             time: "07:00",
             label: "Pagi • Movement Ritual",
-            message: "Modul hari ini telah dibuka. Luangkan 25 menit sesi latihan & upload foto before-after.",
+            message: "Modul hari ini telah dibuka. Luangkan 25 menit sesi latihan & catat checklist gerakan Anda.",
           },
           {
             time: "12:30",
@@ -116,11 +116,16 @@ function createDayList(totalDays: number, titlePrefix: string) {
             label: "Malam • Dear Diary & Cutoff",
             message: "Tuliskan Dear Diary harian, beri rating kebahagiaan, dan catat target tidur sebelum 23:59.",
           },
-        ]),
+        ],
       });
     }
   }
   return days;
+}
+
+function birthDateYearsAgo(years: number): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear() - years, 5, 15));
 }
 
 async function main() {
@@ -128,11 +133,21 @@ async function main() {
   console.log("🌱 STARTING DATABASE RESET & SEEDING (WELLNESS PLATFORM)");
   console.log("==========================================================");
 
-  // 1. Wipe all existing data in strict foreign-key order
+  // 1. Wipe all existing data in strict foreign-key order (Restrict tables first)
   console.log("🧹 Wiping existing database records...");
+  await prisma.auditLog.deleteMany();
+  await prisma.rateLimitBucket.deleteMany();
+  await prisma.cohortSupportRequest.deleteMany();
+  await prisma.paymentTransaction.deleteMany();
+  await prisma.programDayCustomSubmission.deleteMany();
+  await prisma.programDayCustomTask.deleteMany();
   await prisma.programDayProgress.deleteMany();
-  await prisma.pushSubscription.deleteMany();
-  await prisma.passwordResetToken.deleteMany();
+  await prisma.userBodyMetricLog.deleteMany();
+  await prisma.userNotification.deleteMany();
+  await prisma.userPushSubscription.deleteMany();
+  await prisma.userEmailVerificationToken.deleteMany();
+  await prisma.userPasswordResetToken.deleteMany();
+  await prisma.userIdentity.deleteMany();
   await prisma.programEnrollment.deleteMany();
   await prisma.programCategory.deleteMany();
   await prisma.programCoach.deleteMany();
@@ -143,6 +158,7 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.masterCategory.deleteMany();
   await prisma.masterCoach.deleteMany();
+  await prisma.masterOrganization.deleteMany();
   await prisma.masterTargetAudience.deleteMany();
   await prisma.masterEquipment.deleteMany();
   await prisma.masterDailyCommitment.deleteMany();
@@ -173,6 +189,16 @@ async function main() {
     data: { name: "Coach Elena Rostova", title: "Fascial Release & Posture Director" },
   });
 
+  const orgZera = await prisma.masterOrganization.create({
+    data: {
+      name: "ZERA Sanctuary",
+      slug: "zera-sanctuary",
+      tagline: "Integrated Longevity & Mindful Movement",
+      logoPath: "/image.webp",
+      isVerified: true,
+    },
+  });
+
   const audDesk = await prisma.masterTargetAudience.create({ data: { name: "Desk Professionals & Sedentary Workers" } });
   const audFounders = await prisma.masterTargetAudience.create({ data: { name: "Founders & High-Performance Executives" } });
   const audAll = await prisma.masterTargetAudience.create({ data: { name: "All Levels & Beginners" } });
@@ -187,13 +213,15 @@ async function main() {
 
   console.log("✅ Master data successfully seeded.");
 
-  // 4. Seed Users
+  // 4. Seed Users (All verified for testing)
   console.log("👤 Seeding Users...");
-  const superadmin = await prisma.user.create({
+  const verifiedNow = new Date();
+  await prisma.user.create({
     data: {
       email: "superadmin@wellness.test",
+      emailVerifiedAt: verifiedNow,
       fullName: "Super Administrator Wellness",
-      age: 32,
+      birthDate: birthDateYearsAgo(32),
       phone: "+6281234567890",
       passwordHash: superadminPassword,
       role: "SUPERADMIN",
@@ -205,173 +233,109 @@ async function main() {
   const userBudi = await prisma.user.create({
     data: {
       email: "budi@wellness.test",
+      emailVerifiedAt: verifiedNow,
       fullName: "Budi Santoso",
-      age: 28,
+      birthDate: birthDateYearsAgo(28),
       phone: "+6289876543210",
+      avatarPath: "/coach.webp",
       passwordHash: userPassword,
       role: "USER",
       status: "ACTIVE",
       tokenVersion: 0,
-      healthProfile: {
-        create: {
-          photoFrontUrl: "/coach.webp",
-          photoSideUrl: "/coach2.webp",
-          photoBackUrl: "/coach3.webp",
-          age: 28,
-          weightKg: 72.5,
-          heightCm: 178,
-          waistCm: 81,
-          chestCm: 98,
-          hipsCm: 99,
-          currentMood: "Energetic & Focused",
-          energyLevel: 8,
-          routineConfidence: 4,
-          workoutFrequency: "4 - 5 days / week",
-          averageBedtime: "22:30",
-          averageWakeTime: "06:00",
-          sleepQualityNotes: "Deep, uninterrupted 7.5 hours sleep",
-          eatingPatterns: "High protein, whole foods, caloric balance",
-        },
-      },
     },
   });
 
   const userSiti = await prisma.user.create({
     data: {
       email: "siti@wellness.test",
+      emailVerifiedAt: verifiedNow,
       fullName: "Siti Rahmawati",
-      age: 26,
+      birthDate: birthDateYearsAgo(26),
       phone: "+6281112223334",
+      avatarPath: "/coach2.webp",
       passwordHash: userPassword,
       role: "USER",
       status: "ACTIVE",
       tokenVersion: 0,
-      healthProfile: {
-        create: {
-          photoFrontUrl: "/coach2.webp",
-          photoSideUrl: "/coach3.webp",
-          photoBackUrl: "/coach.webp",
-          age: 26,
-          weightKg: 54.0,
-          heightCm: 164,
-          waistCm: 68,
-          chestCm: 85,
-          hipsCm: 92,
-          currentMood: "Calm & Mindful",
-          energyLevel: 7,
-          routineConfidence: 5,
-          workoutFrequency: "3 - 4 days / week",
-          averageBedtime: "22:00",
-          averageWakeTime: "06:30",
-          sleepQualityNotes: "Consistent 8 hours, waking light and refreshed",
-          eatingPatterns: "Plant-forward Mediterranean, intuitive eating",
-        },
-      },
     },
   });
 
   const userDewi = await prisma.user.create({
     data: {
       email: "dewi@wellness.test",
+      emailVerifiedAt: verifiedNow,
       fullName: "Dewi Lestari",
-      age: 31,
+      birthDate: birthDateYearsAgo(31),
       phone: "+6285556667778",
+      avatarPath: "/coach3.webp",
       passwordHash: userPassword,
       role: "USER",
       status: "ACTIVE",
       tokenVersion: 0,
-      healthProfile: {
-        create: {
-          photoFrontUrl: "/coach3.webp",
-          photoSideUrl: "/pic.webp",
-          photoBackUrl: "/test.webp",
-          age: 31,
-          weightKg: 58.5,
-          heightCm: 168,
-          waistCm: 70,
-          chestCm: 88,
-          hipsCm: 94,
-          currentMood: "Resilient & Restoring",
-          energyLevel: 9,
-          routineConfidence: 4,
-          workoutFrequency: "5 days / week",
-          averageBedtime: "23:00",
-          averageWakeTime: "06:30",
-          sleepQualityNotes: "Sound sleep, minimal waking",
-          eatingPatterns: "Balanced macros, hydration priority",
-        },
-      },
     },
   });
 
   const additionalSeedMembers = [
-    { fullName: "Reza Pratama", email: "reza.pratama@wellness.test", phone: "+6281298761001", age: 29, cover: "/coach.webp", weightKg: 74, heightCm: 180, mood: "Focused & Energized" },
-    { fullName: "Nadia Safitri", email: "nadia.safitri@wellness.test", phone: "+6281312345602", age: 25, cover: "/coach2.webp", weightKg: 52, heightCm: 162, mood: "Balanced & Calm" },
-    { fullName: "Dimas Anggara", email: "dimas.anggara@wellness.test", phone: "+6281723456703", age: 34, cover: "/coach3.webp", weightKg: 78, heightCm: 176, mood: "High Stamina" },
-    { fullName: "Maya Indah", email: "maya.indah@wellness.test", phone: "+6281834567804", age: 27, cover: "/pic.webp", weightKg: 55, heightCm: 165, mood: "Relaxed & Restored" },
-    { fullName: "Ari Wibowo", email: "ari.wibowo@wellness.test", phone: "+6281945678905", age: 38, cover: "/test.webp", weightKg: 82, heightCm: 179, mood: "Steady & Consistent" },
-    { fullName: "Gita Gutawa", email: "gita.gutawa@wellness.test", phone: "+6282156789006", age: 24, cover: "/image.webp", weightKg: 49, heightCm: 160, mood: "Optimistic & Joyful" },
-    { fullName: "Kevin Sanjaya", email: "kevin.sanjaya@wellness.test", phone: "+6282267890107", age: 28, cover: "/coach.webp", weightKg: 70, heightCm: 173, mood: "Agile & Motivated" },
-    { fullName: "Rina Nose", email: "rina.nose@wellness.test", phone: "+6282378901208", age: 33, cover: "/coach2.webp", weightKg: 56, heightCm: 163, mood: "Grounded & Light" },
-    { fullName: "Fajar Alfian", email: "fajar.alfian@wellness.test", phone: "+6285289012309", age: 30, cover: "/coach3.webp", weightKg: 73, heightCm: 177, mood: "Resilient & Driven" },
-    { fullName: "Amanda Manopo", email: "amanda.manopo@wellness.test", phone: "+6285390123410", age: 26, cover: "/pic.webp", weightKg: 53, heightCm: 166, mood: "Vibrant & Mindful" },
-    { fullName: "Rizky Febian", email: "rizky.febian@wellness.test", phone: "+6285601234511", age: 27, cover: "/test.webp", weightKg: 69, heightCm: 175, mood: "Harmonious & Fresh" },
-    { fullName: "Chelsea Islan", email: "chelsea.islan@wellness.test", phone: "+6285712345612", age: 29, cover: "/image.webp", weightKg: 54, heightCm: 167, mood: "Peaceful & Strong" },
+    { fullName: "Reza Pratama", email: "reza.pratama@wellness.test", phone: "+6281298761001", age: 29, cover: "/coach.webp", weightKg: 74, heightCm: 180 },
+    { fullName: "Nadia Safitri", email: "nadia.safitri@wellness.test", phone: "+6281312345602", age: 25, cover: "/coach2.webp", weightKg: 52, heightCm: 162 },
+    { fullName: "Dimas Anggara", email: "dimas.anggara@wellness.test", phone: "+6281723456703", age: 34, cover: "/coach3.webp", weightKg: 78, heightCm: 176 },
+    { fullName: "Maya Indah", email: "maya.indah@wellness.test", phone: "+6281834567804", age: 27, cover: "/pic.webp", weightKg: 55, heightCm: 165 },
+    { fullName: "Ari Wibowo", email: "ari.wibowo@wellness.test", phone: "+6281945678905", age: 38, cover: "/test.webp", weightKg: 82, heightCm: 179 },
+    { fullName: "Gita Gutawa", email: "gita.gutawa@wellness.test", phone: "+6282156789006", age: 24, cover: "/image.webp", weightKg: 49, heightCm: 160 },
+    { fullName: "Kevin Sanjaya", email: "kevin.sanjaya@wellness.test", phone: "+6282267890107", age: 28, cover: "/coach.webp", weightKg: 70, heightCm: 173 },
+    { fullName: "Rina Nose", email: "rina.nose@wellness.test", phone: "+6282378901208", age: 33, cover: "/coach2.webp", weightKg: 56, heightCm: 163 },
+    { fullName: "Fajar Alfian", email: "fajar.alfian@wellness.test", phone: "+6285289012309", age: 30, cover: "/coach3.webp", weightKg: 73, heightCm: 177 },
+    { fullName: "Amanda Manopo", email: "amanda.manopo@wellness.test", phone: "+6285390123410", age: 26, cover: "/pic.webp", weightKg: 53, heightCm: 166 },
+    { fullName: "Rizky Febian", email: "rizky.febian@wellness.test", phone: "+6285601234511", age: 27, cover: "/test.webp", weightKg: 69, heightCm: 175 },
+    { fullName: "Chelsea Islan", email: "chelsea.islan@wellness.test", phone: "+6285712345612", age: 29, cover: "/image.webp", weightKg: 54, heightCm: 167 },
   ];
 
   for (let idx = 0; idx < additionalSeedMembers.length; idx++) {
     const cust = additionalSeedMembers[idx];
-    await prisma.user.create({
+    const u = await prisma.user.create({
       data: {
         email: cust.email,
+        emailVerifiedAt: verifiedNow,
         fullName: cust.fullName,
         phone: cust.phone,
-        age: cust.age,
+        birthDate: birthDateYearsAgo(cust.age),
+        avatarPath: cust.cover,
         passwordHash: userPassword,
         role: "USER",
         status: "ACTIVE",
         tokenVersion: 0,
         createdAt: new Date(Date.now() - (idx + 1) * 3600 * 1000 * 24),
-        healthProfile: {
-          create: {
-            photoFrontUrl: cust.cover,
-            photoSideUrl: "/coach2.webp",
-            photoBackUrl: "/coach3.webp",
-            age: cust.age,
-            weightKg: cust.weightKg,
-            heightCm: cust.heightCm,
-            waistCm: Math.round(cust.weightKg * 1.1),
-            chestCm: Math.round(cust.heightCm * 0.55),
-            hipsCm: Math.round(cust.weightKg * 1.3),
-            currentMood: cust.mood,
-            energyLevel: 8,
-            routineConfidence: 4,
-            workoutFrequency: "3 - 5 days / week",
-            averageBedtime: "22:30",
-            averageWakeTime: "06:30",
-            sleepQualityNotes: "Restful and deep sleep",
-            eatingPatterns: "Whole foods, balanced nutrients",
-          },
-        },
+      },
+    });
+    await prisma.userBodyMetricLog.create({
+      data: {
+        userId: u.id,
+        source: "SELF",
+        weightKg: cust.weightKg,
+        heightCm: cust.heightCm,
       },
     });
   }
 
-  console.log("✅ Users seeded (1 Superadmin, 15 Members with Health Profiles).");
+  // Body metric baseline logs for Budi, Siti, Dewi
+  await prisma.userBodyMetricLog.createMany({
+    data: [
+      { userId: userBudi.id, source: "SELF", weightKg: 72.5, heightCm: 178, waistCm: 81, chestCm: 98, hipsCm: 99 },
+      { userId: userSiti.id, source: "SELF", weightKg: 54.0, heightCm: 164, waistCm: 68, chestCm: 85, hipsCm: 92 },
+      { userId: userDewi.id, source: "SELF", weightKg: 58.5, heightCm: 168, waistCm: 70, chestCm: 88, hipsCm: 94 },
+    ],
+  });
 
-  // Normalized anchor date: today at 00:00:00
+  console.log("✅ Users & Body Metric Logs seeded (1 Superadmin, 15 Verified Members).");
+
   const now = new Date();
   const today00 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const oneDayMs = 24 * 60 * 60 * 1000;
 
-  // 5. Seed Programs Covering ALL 5 Database Statuses & ALL 6 Dynamic Badges
-  console.log("🏋️ Seeding Programs across Lifecycle & Dynamic Badges...");
+  console.log("🏋️ Seeding 9 Programs across Normalized Statuses & Full 3NF Pivots...");
 
-  // --------------------------------------------------------------------------
-  // PROGRAM 1: DB "PUBLISH" -> Dynamic Badge "On going"
-  // (Started 3 days ago, ends in 18 days. Day 1 & Day 2 completed by Budi, Day 3 is today)
-  // --------------------------------------------------------------------------
-  const prog1Start = new Date(today00.getTime() - 2 * oneDayMs); // 2 days ago = Day 1 was 2 days ago, Day 2 yesterday, Day 3 today
+  // 1. PUBLISHED -> On going
+  const prog1Start = new Date(today00.getTime() - 2 * oneDayMs);
   const prog1End = new Date(prog1Start.getTime() + 21 * oneDayMs);
   const prog1RegClose = new Date(prog1Start.getTime() - 3 * oneDayMs);
   const prog1RegOpen = new Date(prog1Start.getTime() - 14 * oneDayMs);
@@ -382,13 +346,7 @@ async function main() {
       slug: "holistic-movement-spinal-longevity",
       description:
         "Structured progressive cohort regimen focusing on thoracic mobility, pelvic stability, core bracing, and anti-inflammatory restorative habits.",
-      category: "Pilates, Mobility & Longevity",
-      equipment: "Yoga Mat, Resistance Bands",
-      dailyCommitment: "25 - 30 Mins / Day",
-      recommendedFor: "Desk Professionals & Sedentary Workers",
-      coachName: coachSarah.name,
-      coachTitle: coachSarah.title,
-      coverImage: "/test.webp",
+      coverImagePath: "/test.webp",
       durationDays: 21,
       actualPrice: 450000,
       discountPercentage: 20,
@@ -397,57 +355,57 @@ async function main() {
       locationType: "HYBRID",
       city: "Jakarta Selatan",
       venueAddress: "The Sanctuary Wellness Pavilion, Senopati",
-      virtualFallbackAvailable: true,
+      isVirtualFallbackAvailable: true,
       communityLink: "https://chat.whatsapp.com/wellness-spinal-longevity",
-      startDate: prog1Start,
-      endDate: prog1End,
-      registrationOpenDate: prog1RegOpen,
-      registrationDeadline: prog1RegClose,
-      status: "PUBLISH",
-      isPublished: true,
+      startAt: prog1Start,
+      endAt: prog1End,
+      registrationOpenAt: prog1RegOpen,
+      registrationDeadlineAt: prog1RegClose,
+      status: "PUBLISHED",
       dailyCommitmentId: commit30.id,
-      days: {
-        create: createDayList(21, "Spinal Alignment & Deep Core"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(21, "Spinal Alignment & Deep Core") },
+      categories: { create: [{ categoryId: catPilates.id }, { categoryId: catMobility.id }] },
+      coaches: { create: [{ coachId: coachSarah.id }] },
+      audiences: { create: [{ audienceId: audDesk.id }] },
+      equipments: { create: [{ equipmentId: eqMat.id }, { equipmentId: eqBands.id }] },
     },
     include: { days: true },
   });
 
-  // Pivot taxonomy links for Program 1
-  await prisma.programCategory.createMany({
-    data: [
-      { programId: prog1.id, categoryId: catPilates.id },
-      { programId: prog1.id, categoryId: catMobility.id },
-    ],
-  });
-  await prisma.programCoach.create({ data: { programId: prog1.id, coachId: coachSarah.id } });
-  await prisma.programAudience.create({ data: { programId: prog1.id, audienceId: audDesk.id } });
-  await prisma.programEquipment.create({ data: { programId: prog1.id, equipmentId: eqMat.id } });
-
-  // Enroll Budi as ACTIVE participant in Program 1
-  await prisma.programEnrollment.create({
+  const enrollBudi1 = await prisma.programEnrollment.create({
     data: {
       userId: userBudi.id,
       programId: prog1.id,
       status: "ACTIVE",
       paymentReference: "QRIS-WLS-10001",
       paidAt: new Date(prog1Start.getTime() - 2 * oneDayMs),
-      validUntil: prog1End,
+      validUntilAt: prog1End,
+      termsAgreedAt: new Date(prog1Start.getTime() - 2 * oneDayMs),
+    },
+  });
+  await prisma.paymentTransaction.create({
+    data: {
+      enrollmentId: enrollBudi1.id,
+      userId: userBudi.id,
+      programId: prog1.id,
+      orderId: "QRIS-WLS-10001",
+      provider: "SEED",
+      grossAmount: prog1.price,
+      status: "SETTLEMENT",
+      settledAt: enrollBudi1.paidAt,
     },
   });
 
-  // Seed Day 1 completion for Budi
   const p1Day1 = prog1.days.find((d) => d.dayNumber === 1);
   if (p1Day1) {
     await prisma.programDayProgress.create({
       data: {
         userId: userBudi.id,
         programDayId: p1Day1.id,
-        videoWatched: true,
+        isVideoWatched: true,
         isCompleted: true,
         selectedWorkout: "Hot Pilates",
-        photoBeforeUrl: "/test.webp",
-        photoAfterUrl: "/pic.webp",
         mealCompliance: "FULL",
         mealNotes: "Santap siang salad quinoa dan salmon kukus sesuai rekomendasi.",
         dailyReflection: "Punggung bawah terasa jauh lebih nyaman setelah latihan hari pertama.",
@@ -455,28 +413,25 @@ async function main() {
         bedtime: "22:30",
         wakeTime: "06:15",
         sleepDurationMinutes: 465,
-        checklistCompleted: JSON.stringify([
+        checklistCompletedJson: [
           "5 min diaphragmatic breathing & posture check",
           "15 min guided mobility & core sequence",
           "5 min gentle fascial cooldown",
-        ]),
+        ],
         completedAt: new Date(prog1Start.getTime() + 10 * 3600 * 1000),
       },
     });
   }
 
-  // Seed Day 2 completion for Budi
   const p1Day2 = prog1.days.find((d) => d.dayNumber === 2);
   if (p1Day2) {
     await prisma.programDayProgress.create({
       data: {
         userId: userBudi.id,
         programDayId: p1Day2.id,
-        videoWatched: true,
+        isVideoWatched: true,
         isCompleted: true,
         selectedWorkout: "Strength & Conditioning",
-        photoBeforeUrl: "/test.webp",
-        photoAfterUrl: "/pic.webp",
         mealCompliance: "FULL",
         mealNotes: "Sarapan oatmeal chia seeds dan ayam panggang.",
         dailyReflection: "Kestabilan panggul dan core bracing terasa semakin solid.",
@@ -484,20 +439,17 @@ async function main() {
         bedtime: "22:45",
         wakeTime: "06:30",
         sleepDurationMinutes: 465,
-        checklistCompleted: JSON.stringify([
+        checklistCompletedJson: [
           "5 min diaphragmatic breathing & posture check",
           "15 min guided mobility & core sequence",
           "5 min gentle fascial cooldown",
-        ]),
+        ],
         completedAt: new Date(prog1Start.getTime() + 34 * 3600 * 1000),
       },
     });
   }
 
-  // --------------------------------------------------------------------------
-  // PROGRAM 2: DB "PUBLISH" -> Dynamic Badge "Open Registration"
-  // (Reg opens 5 days ago, reg deadline in 7 days, starts in 10 days. Siti enrolled)
-  // --------------------------------------------------------------------------
+  // 2. PUBLISHED -> Open Registration
   const prog2RegOpen = new Date(today00.getTime() - 5 * oneDayMs);
   const prog2RegDeadline = new Date(today00.getTime() + 7 * oneDayMs);
   const prog2Start = new Date(today00.getTime() + 10 * oneDayMs);
@@ -509,66 +461,78 @@ async function main() {
       slug: "anti-inflammatory-nutrition-gut-reset",
       description:
         "Evidence-based whole-food nutritional protocols to balance gut microbiome, eliminate systemic bloating, and stabilize afternoon energy.",
-      category: "Nutrition & Gut Health",
-      equipment: "No Equipment (Bodyweight)",
-      dailyCommitment: "15 - 20 Mins / Day",
-      recommendedFor: "All Levels & Beginners",
-      coachName: coachMarcus.name,
-      coachTitle: coachMarcus.title,
-      coverImage: "/pic.webp",
+      coverImagePath: "/pic.webp",
       durationDays: 14,
       actualPrice: 350000,
       discountPercentage: 15,
       price: 297500,
       maxQuota: 25,
       locationType: "ONLINE",
-      virtualFallbackAvailable: true,
+      isVirtualFallbackAvailable: true,
       communityLink: "https://chat.whatsapp.com/wellness-nutrition-gut-reset",
-      startDate: prog2Start,
-      endDate: prog2End,
-      registrationOpenDate: prog2RegOpen,
-      registrationDeadline: prog2RegDeadline,
-      status: "PUBLISH",
-      isPublished: true,
+      startAt: prog2Start,
+      endAt: prog2End,
+      registrationOpenAt: prog2RegOpen,
+      registrationDeadlineAt: prog2RegDeadline,
+      status: "PUBLISHED",
       dailyCommitmentId: commit15.id,
-      days: {
-        create: createDayList(14, "Pantry Audit & Microbial Nourishment"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(14, "Pantry Audit & Microbial Nourishment") },
+      categories: { create: [{ categoryId: catNutrition.id }] },
+      coaches: { create: [{ coachId: coachMarcus.id }] },
+      audiences: { create: [{ audienceId: audAll.id }] },
+      equipments: { create: [{ equipmentId: eqNone.id }] },
     },
   });
 
-  await prisma.programCategory.create({ data: { programId: prog2.id, categoryId: catNutrition.id } });
-  await prisma.programCoach.create({ data: { programId: prog2.id, coachId: coachMarcus.id } });
-  await prisma.programAudience.create({ data: { programId: prog2.id, audienceId: audAll.id } });
-  await prisma.programEquipment.create({ data: { programId: prog2.id, equipmentId: eqNone.id } });
-
-  // Enroll Siti as ACTIVE in Program 2
-  await prisma.programEnrollment.create({
+  const enrollSiti2 = await prisma.programEnrollment.create({
     data: {
       userId: userSiti.id,
       programId: prog2.id,
       status: "ACTIVE",
       paymentReference: "QRIS-WLS-20002",
       paidAt: new Date(today00.getTime() - 2 * oneDayMs),
-      validUntil: prog2End,
+      validUntilAt: prog2End,
+      termsAgreedAt: new Date(today00.getTime() - 2 * oneDayMs),
+    },
+  });
+  await prisma.paymentTransaction.create({
+    data: {
+      enrollmentId: enrollSiti2.id,
+      userId: userSiti.id,
+      programId: prog2.id,
+      orderId: "QRIS-WLS-20002",
+      provider: "SEED",
+      grossAmount: prog2.price,
+      status: "SETTLEMENT",
+      settledAt: enrollSiti2.paidAt,
     },
   });
 
-  // Enroll Dewi as PENDING (15-min countdown QRIS invoice)
-  await prisma.programEnrollment.create({
+  const enrollDewi2 = await prisma.programEnrollment.create({
     data: {
       userId: userDewi.id,
       programId: prog2.id,
       status: "PENDING",
       paymentReference: "QRIS-WLS-20003",
       invoiceExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      termsAgreedAt: new Date(),
+    },
+  });
+  await prisma.paymentTransaction.create({
+    data: {
+      enrollmentId: enrollDewi2.id,
+      userId: userDewi.id,
+      programId: prog2.id,
+      orderId: "QRIS-WLS-20003",
+      provider: "SEED",
+      grossAmount: prog2.price,
+      status: "PENDING",
+      expiresAt: enrollDewi2.invoiceExpiresAt,
     },
   });
 
-  // --------------------------------------------------------------------------
-  // PROGRAM 3: DB "PUBLISH" -> Dynamic Badge "Full"
-  // (Reg open, maxQuota = 3, and exactly 3 members enrolled before deadline!)
-  // --------------------------------------------------------------------------
+  // 3. PUBLISHED -> Full
   const prog3RegOpen = new Date(today00.getTime() - 7 * oneDayMs);
   const prog3RegDeadline = new Date(today00.getTime() + 5 * oneDayMs);
   const prog3Start = new Date(today00.getTime() + 8 * oneDayMs);
@@ -580,72 +544,62 @@ async function main() {
       slug: "executive-deep-sleep-parasympathetic-breathwork",
       description:
         "Intimate executive protocol strictly capped to preserve private coach feedback: circadian alignment, guided CO2 tolerance, and nervous system down-regulation.",
-      category: "Breathwork & Sleep",
-      equipment: "No Equipment (Bodyweight)",
-      dailyCommitment: "15 - 20 Mins / Day",
-      recommendedFor: "Founders & High-Performance Executives",
-      coachName: coachJulian.name,
-      coachTitle: coachJulian.title,
-      coverImage: "/image.webp",
+      coverImagePath: "/image.webp",
       durationDays: 7,
       actualPrice: 500000,
       discountPercentage: 0,
       price: 500000,
-      maxQuota: 3, // Capped at 3 to demonstrate FULL badge!
+      maxQuota: 3,
       locationType: "ONLINE",
-      virtualFallbackAvailable: true,
+      isVirtualFallbackAvailable: true,
       communityLink: "https://chat.whatsapp.com/wellness-deep-sleep",
-      startDate: prog3Start,
-      endDate: prog3End,
-      registrationOpenDate: prog3RegOpen,
-      registrationDeadline: prog3RegDeadline,
-      status: "PUBLISH",
-      isPublished: true,
+      startAt: prog3Start,
+      endAt: prog3End,
+      registrationOpenAt: prog3RegOpen,
+      registrationDeadlineAt: prog3RegDeadline,
+      status: "PUBLISHED",
       dailyCommitmentId: commit15.id,
-      days: {
-        create: createDayList(7, "Parasympathetic Respiration & Light Hygiene"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(7, "Parasympathetic Respiration & Light Hygiene") },
+      categories: { create: [{ categoryId: catBreathwork.id }] },
+      coaches: { create: [{ coachId: coachJulian.id }] },
+      audiences: { create: [{ audienceId: audFounders.id }] },
+      equipments: { create: [{ equipmentId: eqNone.id }] },
     },
   });
 
-  await prisma.programCategory.create({ data: { programId: prog3.id, categoryId: catBreathwork.id } });
-  await prisma.programCoach.create({ data: { programId: prog3.id, coachId: coachJulian.id } });
-  await prisma.programAudience.create({ data: { programId: prog3.id, audienceId: audFounders.id } });
+  for (const item of [
+    { userId: userBudi.id, ref: "QRIS-WLS-30001", offsetDays: 3 },
+    { userId: userSiti.id, ref: "QRIS-WLS-30002", offsetDays: 2 },
+    { userId: userDewi.id, ref: "QRIS-WLS-30003", offsetDays: 1 },
+  ]) {
+    const paidAt = new Date(today00.getTime() - item.offsetDays * oneDayMs);
+    const enr = await prisma.programEnrollment.create({
+      data: {
+        userId: item.userId,
+        programId: prog3.id,
+        status: "ACTIVE",
+        paymentReference: item.ref,
+        paidAt,
+        validUntilAt: prog3End,
+        termsAgreedAt: paidAt,
+      },
+    });
+    await prisma.paymentTransaction.create({
+      data: {
+        enrollmentId: enr.id,
+        userId: item.userId,
+        programId: prog3.id,
+        orderId: item.ref,
+        provider: "SEED",
+        grossAmount: prog3.price,
+        status: "SETTLEMENT",
+        settledAt: paidAt,
+      },
+    });
+  }
 
-  // Fill all 3 seats: Budi, Siti, Dewi
-  await prisma.programEnrollment.createMany({
-    data: [
-      {
-        userId: userBudi.id,
-        programId: prog3.id,
-        status: "ACTIVE",
-        paymentReference: "QRIS-WLS-30001",
-        paidAt: new Date(today00.getTime() - 3 * oneDayMs),
-        validUntil: prog3End,
-      },
-      {
-        userId: userSiti.id,
-        programId: prog3.id,
-        status: "ACTIVE",
-        paymentReference: "QRIS-WLS-30002",
-        paidAt: new Date(today00.getTime() - 2 * oneDayMs),
-        validUntil: prog3End,
-      },
-      {
-        userId: userDewi.id,
-        programId: prog3.id,
-        status: "ACTIVE",
-        paymentReference: "QRIS-WLS-30003",
-        paidAt: new Date(today00.getTime() - 1 * oneDayMs),
-        validUntil: prog3End,
-      },
-    ],
-  });
-
-  // --------------------------------------------------------------------------
-  // PROGRAM 4: DB "PUBLISH" -> Dynamic Badge "Coming Soon"
-  // (Reg opens in 10 days, deadline in 20 days, starts in 25 days)
-  // --------------------------------------------------------------------------
+  // 4. PUBLISHED -> Coming Soon
   const prog4RegOpen = new Date(today00.getTime() + 10 * oneDayMs);
   const prog4RegDeadline = new Date(today00.getTime() + 20 * oneDayMs);
   const prog4Start = new Date(today00.getTime() + 25 * oneDayMs);
@@ -657,13 +611,7 @@ async function main() {
       slug: "hot-cold-thermogenesis-cellular-vitality",
       description:
         "Comprehensive cellular mitochondrial rejuvenation: contrast therapy, brown adipose activation, and advanced longevity biomarkers.",
-      category: "Mobility & Longevity, Strength & Conditioning",
-      equipment: "Yoga Mat",
-      dailyCommitment: "45 Mins / Day",
-      recommendedFor: "All Levels & Beginners",
-      coachName: coachElena.name,
-      coachTitle: coachElena.title,
-      coverImage: "/coach2.webp",
+      coverImagePath: "/coach2.webp",
       durationDays: 30,
       actualPrice: 750000,
       discountPercentage: 10,
@@ -672,32 +620,23 @@ async function main() {
       locationType: "ONSITE",
       city: "Jakarta Selatan",
       venueAddress: "ZERA + Sanctuary Studio, Senopati",
-      virtualFallbackAvailable: false,
-      startDate: prog4Start,
-      endDate: prog4End,
-      registrationOpenDate: prog4RegOpen,
-      registrationDeadline: prog4RegDeadline,
-      status: "PUBLISH",
-      isPublished: true,
+      isVirtualFallbackAvailable: false,
+      startAt: prog4Start,
+      endAt: prog4End,
+      registrationOpenAt: prog4RegOpen,
+      registrationDeadlineAt: prog4RegDeadline,
+      status: "PUBLISHED",
       dailyCommitmentId: commit45.id,
-      days: {
-        create: createDayList(30, "Thermal Shock & Cellular Longevity"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(30, "Thermal Shock & Cellular Longevity") },
+      categories: { create: [{ categoryId: catMobility.id }, { categoryId: catStrength.id }] },
+      coaches: { create: [{ coachId: coachElena.id }] },
+      audiences: { create: [{ audienceId: audAll.id }] },
+      equipments: { create: [{ equipmentId: eqMat.id }] },
     },
   });
 
-  await prisma.programCategory.createMany({
-    data: [
-      { programId: prog4.id, categoryId: catMobility.id },
-      { programId: prog4.id, categoryId: catStrength.id },
-    ],
-  });
-  await prisma.programCoach.create({ data: { programId: prog4.id, coachId: coachElena.id } });
-
-  // --------------------------------------------------------------------------
-  // PROGRAM 5: DB "PUBLISH" -> Dynamic Badge "Close Registration"
-  // (Reg opened 14 days ago, closed yesterday, batch starts in 2 days)
-  // --------------------------------------------------------------------------
+  // 5. PUBLISHED -> Close Registration
   const prog5RegOpen = new Date(today00.getTime() - 14 * oneDayMs);
   const prog5RegDeadline = new Date(today00.getTime() - 1 * oneDayMs);
   const prog5Start = new Date(today00.getTime() + 2 * oneDayMs);
@@ -709,13 +648,7 @@ async function main() {
       slug: "mindful-reformer-pelvic-core-intensive",
       description:
         "High-precision rehabilitation and athletic reformer sequences for postpartum recovery and lower-back decompressive resilience.",
-      category: "Pilates",
-      equipment: "Yoga Mat, Resistance Bands",
-      dailyCommitment: "25 - 30 Mins / Day",
-      recommendedFor: "Desk Professionals & Sedentary Workers",
-      coachName: coachSarah.name,
-      coachTitle: coachSarah.title,
-      coverImage: "/coach.webp",
+      coverImagePath: "/coach.webp",
       durationDays: 7,
       actualPrice: 400000,
       discountPercentage: 0,
@@ -724,28 +657,24 @@ async function main() {
       locationType: "HYBRID",
       city: "Jakarta Selatan",
       venueAddress: "The Sanctuary Wellness Pavilion, Senopati",
-      virtualFallbackAvailable: true,
+      isVirtualFallbackAvailable: true,
       communityLink: "https://chat.whatsapp.com/wellness-reformer-intensive",
-      startDate: prog5Start,
-      endDate: prog5End,
-      registrationOpenDate: prog5RegOpen,
-      registrationDeadline: prog5RegDeadline,
-      status: "PUBLISH",
-      isPublished: true,
+      startAt: prog5Start,
+      endAt: prog5End,
+      registrationOpenAt: prog5RegOpen,
+      registrationDeadlineAt: prog5RegDeadline,
+      status: "PUBLISHED",
       dailyCommitmentId: commit30.id,
-      days: {
-        create: createDayList(7, "Reformer Precision & Pelvic Alignment"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(7, "Reformer Precision & Pelvic Alignment") },
+      categories: { create: [{ categoryId: catPilates.id }] },
+      coaches: { create: [{ coachId: coachSarah.id }] },
+      audiences: { create: [{ audienceId: audDesk.id }] },
+      equipments: { create: [{ equipmentId: eqMat.id }, { equipmentId: eqBands.id }] },
     },
   });
 
-  await prisma.programCategory.create({ data: { programId: prog5.id, categoryId: catPilates.id } });
-  await prisma.programCoach.create({ data: { programId: prog5.id, coachId: coachSarah.id } });
-
-  // --------------------------------------------------------------------------
-  // PROGRAM 6: DB "DONE" -> Concluded Cohort
-  // (Started 40 days ago, concluded 19 days ago)
-  // --------------------------------------------------------------------------
+  // 6. DONE
   const prog6Start = new Date(today00.getTime() - 40 * oneDayMs);
   const prog6End = new Date(today00.getTime() - 19 * oneDayMs);
   const prog6RegDeadline = new Date(today00.getTime() - 42 * oneDayMs);
@@ -756,35 +685,28 @@ async function main() {
       slug: "summer-posture-awakening-batch-1",
       description:
         "The inaugural cohort that helped 35 executives eliminate chronic lower back tightness through progressive myofascial decompressive routines.",
-      category: "Pilates, Mobility & Longevity",
-      equipment: "Yoga Mat",
-      dailyCommitment: "25 - 30 Mins / Day",
-      recommendedFor: "Desk Professionals & Sedentary Workers",
-      coachName: coachSarah.name,
-      coachTitle: coachSarah.title,
-      coverImage: "/test.webp",
+      coverImagePath: "/test.webp",
       durationDays: 21,
+      actualPrice: 350000,
+      discountPercentage: 0,
       price: 350000,
       maxQuota: 35,
       locationType: "ONLINE",
-      startDate: prog6Start,
-      endDate: prog6End,
-      registrationDeadline: prog6RegDeadline,
+      startAt: prog6Start,
+      endAt: prog6End,
+      registrationDeadlineAt: prog6RegDeadline,
       status: "DONE",
-      isPublished: false,
       dailyCommitmentId: commit30.id,
-      days: {
-        create: createDayList(21, "Posture Foundation & Myofascial Flow"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(21, "Posture Foundation & Myofascial Flow") },
+      categories: { create: [{ categoryId: catPilates.id }, { categoryId: catMobility.id }] },
+      coaches: { create: [{ coachId: coachSarah.id }] },
+      audiences: { create: [{ audienceId: audDesk.id }] },
+      equipments: { create: [{ equipmentId: eqMat.id }] },
     },
   });
 
-  await prisma.programCategory.create({ data: { programId: prog6.id, categoryId: catPilates.id } });
-
-  // --------------------------------------------------------------------------
-  // PROGRAM 7: DB "OPEN" -> 100% Header & 100% Days Ready to Broadcast!
-  // (Curriculum 100% filled, admin can one-click publish)
-  // --------------------------------------------------------------------------
+  // 7. OPEN (100% ready to publish)
   const prog7Start = new Date(today00.getTime() + 30 * oneDayMs);
   const prog7End = new Date(prog7Start.getTime() + 21 * oneDayMs);
   const prog7RegDeadline = new Date(today00.getTime() + 28 * oneDayMs);
@@ -795,62 +717,45 @@ async function main() {
       slug: "hormonal-health-circadian-mastery",
       description:
         "Curriculum fully authored and complete: cortisol optimization, insulin sensitivity protocols, and chronobiology movement scheduling.",
-      category: "Nutrition & Gut Health, Breathwork & Sleep",
-      equipment: "No Equipment (Bodyweight)",
-      dailyCommitment: "25 - 30 Mins / Day",
-      recommendedFor: "Founders & High-Performance Executives",
-      coachName: coachMarcus.name,
-      coachTitle: coachMarcus.title,
-      coverImage: "/pic.webp",
+      coverImagePath: "/pic.webp",
       durationDays: 21,
       actualPrice: 450000,
       discountPercentage: 10,
       price: 405000,
       maxQuota: 30,
       locationType: "ONLINE",
-      virtualFallbackAvailable: true,
-      startDate: prog7Start,
-      endDate: prog7End,
-      registrationDeadline: prog7RegDeadline,
+      isVirtualFallbackAvailable: true,
+      startAt: prog7Start,
+      endAt: prog7End,
+      registrationDeadlineAt: prog7RegDeadline,
       status: "OPEN",
-      isPublished: false,
       dailyCommitmentId: commit30.id,
-      days: {
-        create: createDayList(21, "Endocrine Balance & Melatonin Timing"),
-      },
+      organizationId: orgZera.id,
+      days: { create: createDayList(21, "Endocrine Balance & Melatonin Timing") },
+      categories: { create: [{ categoryId: catNutrition.id }, { categoryId: catBreathwork.id }] },
+      coaches: { create: [{ coachId: coachMarcus.id }] },
+      audiences: { create: [{ audienceId: audFounders.id }] },
+      equipments: { create: [{ equipmentId: eqNone.id }] },
     },
   });
 
-  await prisma.programCategory.createMany({
-    data: [
-      { programId: prog7.id, categoryId: catNutrition.id },
-      { programId: prog7.id, categoryId: catBreathwork.id },
-    ],
-  });
-
-  // --------------------------------------------------------------------------
-  // PROGRAM 8: DB "DRAFT" -> Concept In Progress
-  // (Duration is 14 days, but only Day 1 & Day 2 drafted)
-  // --------------------------------------------------------------------------
+  // 8. DRAFT (full 3NF pivots too!)
   const prog8 = await prisma.program.create({
     data: {
       title: "Biohacking & Intermittent Fasting Fundamentals",
       slug: "biohacking-intermittent-fasting-fundamentals",
       description:
         "Concept draft in development: exploration of cellular autophagy windows and ketone elevation strategies.",
-      category: "Nutrition & Gut Health",
-      equipment: "No Equipment (Bodyweight)",
-      dailyCommitment: "15 - 20 Mins / Day",
-      recommendedFor: "All Levels & Beginners",
-      coachName: coachMarcus.name,
-      coachTitle: coachMarcus.title,
-      coverImage: "/image.webp",
+      coverImagePath: "/image.webp",
       durationDays: 14,
+      actualPrice: 250000,
+      discountPercentage: 0,
       price: 250000,
       maxQuota: 25,
       locationType: "ONLINE",
       status: "DRAFT",
-      isPublished: false,
+      dailyCommitmentId: commit15.id,
+      organizationId: orgZera.id,
       days: {
         create: [
           {
@@ -858,7 +763,7 @@ async function main() {
             title: "Day 1: Baseline Metabolic Markers & Ketone Overview",
             dayType: "TRAINING_DAY",
             videoUrl: "https://www.youtube.com/watch?v=sTANio_2E0Q",
-            videoChecklist: JSON.stringify(["Check fasting glucose", "10-min breathwork"]),
+            videoChecklistJson: ["Check fasting glucose", "10-min breathwork"],
           },
           {
             dayNumber: 2,
@@ -868,56 +773,42 @@ async function main() {
           },
         ],
       },
+      categories: { create: [{ categoryId: catNutrition.id }] },
+      coaches: { create: [{ coachId: coachMarcus.id }] },
+      audiences: { create: [{ audienceId: audAll.id }] },
+      equipments: { create: [{ equipmentId: eqNone.id }] },
     },
   });
 
-  // --------------------------------------------------------------------------
-  // PROGRAM 9: DB "ARCHIVE" -> Legacy Cohort Hidden from Catalog
-  // --------------------------------------------------------------------------
+  // 9. ARCHIVED (full 3NF pivots too!)
   const prog9 = await prisma.program.create({
     data: {
       title: "Legacy High-Intensity Core Bootcamp 2024",
       slug: "legacy-high-intensity-core-bootcamp-2024",
       description: "Archived legacy program from previous season. Preserved for historical database records.",
-      category: "Strength & Conditioning",
-      equipment: "Resistance Bands",
-      dailyCommitment: "45 Mins / Day",
-      recommendedFor: "All Levels & Beginners",
-      coachName: coachElena.name,
-      coachTitle: coachElena.title,
-      coverImage: "/coach.webp",
+      coverImagePath: "/coach.webp",
       durationDays: 14,
+      actualPrice: 300000,
+      discountPercentage: 0,
       price: 300000,
       maxQuota: 20,
       locationType: "ONLINE",
-      status: "ARCHIVE",
-      isPublished: false,
-      days: {
-        create: createDayList(14, "Legacy High-Intensity Core"),
-      },
+      status: "ARCHIVED",
+      dailyCommitmentId: commit45.id,
+      organizationId: orgZera.id,
+      days: { create: createDayList(14, "Legacy High-Intensity Core") },
+      categories: { create: [{ categoryId: catStrength.id }] },
+      coaches: { create: [{ coachId: coachElena.id }] },
+      audiences: { create: [{ audienceId: audAll.id }] },
+      equipments: { create: [{ equipmentId: eqBands.id }] },
     },
   });
 
-  console.log("==========================================================");
   console.log("🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY!");
-  console.log("==========================================================");
-  console.log("Seeded 9 Programs across all 5 Authoritative DB Statuses:");
-  console.log("  1. [PUBLISH -> 'On going']           : " + prog1.title);
-  console.log("  2. [PUBLISH -> 'Open Registration']  : " + prog2.title);
-  console.log("  3. [PUBLISH -> 'Full']               : " + prog3.title);
-  console.log("  4. [PUBLISH -> 'Coming Soon']        : " + prog4.title);
-  console.log("  5. [PUBLISH -> 'Close Registration'] : " + prog5.title);
-  console.log("  6. [DONE]                            : " + prog6.title);
-  console.log("  7. [OPEN] (Ready to Publish)         : " + prog7.title);
-  console.log("  8. [DRAFT] (Curriculum Incomplete)   : " + prog8.title);
-  console.log("  9. [ARCHIVE] (Archived & Hidden)     : " + prog9.title);
-  console.log("----------------------------------------------------------");
-  console.log("Default Credentials:");
-  console.log("  Superadmin : superadmin@wellness.test / SuperAdmin123!");
-  console.log("  Member     : budi@wellness.test       / UserBudi123!");
-  console.log("  Member     : siti@wellness.test       / UserBudi123!");
-  console.log("  Member     : dewi@wellness.test       / UserBudi123!");
-  console.log("==========================================================");
+  console.log("  Seeded 9 Programs:", [prog1.slug, prog2.slug, prog3.slug, prog4.slug, prog5.slug, prog6.slug, prog7.slug, prog8.slug, prog9.slug].join(", "));
+  console.log("  Default Credentials (all pre-verified):");
+  console.log("    Superadmin : superadmin@wellness.test / SuperAdmin123!");
+  console.log("    Member     : budi@wellness.test       / UserBudi123!");
 }
 
 main()

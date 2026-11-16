@@ -58,7 +58,7 @@ export function getDefaultNotificationsForType(dayType: string): DayNotification
       time: "07:00",
       label: "Morning • Movement Ritual",
       message:
-        "Today's movement sequence is live. Dedicate 25 minutes for practice and capture your before/after check-in.",
+        "Today's movement sequence is live. Dedicate 25 minutes for practice and complete your daily check-in.",
     },
     {
       time: "12:30",
@@ -152,34 +152,6 @@ export interface AdminProgram {
   days: AdminProgramDay[];
 }
 
-export interface AdminCustomerHealthProfile {
-  id: string;
-  photoFrontUrl: string | null;
-  photoSideUrl: string | null;
-  photoBackUrl: string | null;
-  age?: number | null;
-  weightKg: number | null;
-  heightCm: number | null;
-  waistCm: number | null;
-  chestCm: number | null;
-  hipsCm: number | null;
-  currentMood: string | null;
-  energyLevel: number | null;
-  routineConfidence: number | null;
-  workoutFrequency: string | null;
-  averageBedtime: string | null;
-  averageWakeTime: string | null;
-  sleepQualityNotes: string | null;
-  eatingPatterns: string | null;
-  dietType?: string | null;
-  injuriesOrConditions?: string | null;
-  foodAllergies?: string | null;
-  primaryGoal?: string | null;
-  coachNotes?: string | null;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
-}
-
 export interface AdminUserItem {
   id: string;
   email: string;
@@ -198,7 +170,6 @@ export interface AdminUserItem {
   organizationId?: string | null;
   coachProfileId?: string | null;
   createdAt: Date | string;
-  healthProfile?: AdminCustomerHealthProfile | null;
   enrollments: {
     id: string;
     status: string;
@@ -223,8 +194,6 @@ export interface AdminUserItem {
     isCompleted: boolean;
     checklistCompleted: string | null;
     selectedWorkout?: string | null;
-    photoBeforeUrl?: string | null;
-    photoAfterUrl?: string | null;
     workoutNotes?: string | null;
     eventFeedback?: string | null;
     mealCompliance?: string | null;
@@ -265,13 +234,32 @@ export interface AdminInitialRoute {
     | "equipment"
     | "commitments";
   customerId?: string | null;
-  customerTab?: "overview" | "responses" | "health" | "medical" | "lifestyle" | "notes";
+  customerTab?: "overview" | "responses" | "profile" | "notes";
+}
+
+export interface AdminSupportRequestItem {
+  id: string;
+  userId: string;
+  userFullName: string;
+  userEmail: string;
+  userPhone: string | null;
+  programId: string;
+  programTitle: string;
+  enrollmentId: string | null;
+  requestType: "QUIT_COHORT" | "REPORT_ISSUE";
+  reasonCode: string;
+  note: string;
+  status: "OPEN" | "IN_REVIEW" | "RESOLVED" | "REJECTED";
+  adminNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
 }
 
 export interface AdminClientProps {
   initialUsers: AdminUserItem[];
   initialPrograms: AdminProgram[];
   initialMasterData: MasterDataPayload;
+  initialSupportRequests?: AdminSupportRequestItem[];
   currentAdminId: string;
   currentAdminRole?: string;
   currentAdminOrgId?: string | null;
@@ -323,15 +311,6 @@ export interface AdminPublishModalState {
   mode: "ERROR" | "CONFIRM";
   missingDays?: number[];
   errorList?: string[];
-}
-
-export interface AdminLightboxData {
-  beforeUrl?: string | null;
-  afterUrl?: string | null;
-  title: string;
-  memberName: string;
-  dayNumber: number;
-  dateStr?: string | null;
 }
 
 export interface ProgramHeaderFormState {

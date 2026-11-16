@@ -1,8 +1,15 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
-import { checkRateLimit } from "@/wellness/security/rate-limit";
+import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
+import {
+  deleteStorageObjects,
+  isSupabaseStorageConfigured,
+  STORAGE_BUCKETS,
+  uploadPrivateStorageObject,
+} from "@/wellness/integrations/supabase-storage";
 import {
   MAX_AVATAR_BODY_BYTES,
   MAX_AVATAR_BYTES,
@@ -13,9 +20,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/profile/avatar  { dataUrl }
- * The target user is always the session user. The file type is verified from magic bytes,
- * decoded & re-encoded via Sharp (stripping EXIF/GPS metadata, resizing to 384x384 WebP),
- * and stored as a compact normalized data URL in users.avatar_url.
+ * Verifies magic bytes, resizes to 384x384 WebP (stripping EXIF/GPS), uploads to
+ * private Supabase Storage `avatars` bucket, and stores the object path in users.avatar_path.
  */
 export async function POST(req: NextRequest) {
   const session = await getWellnessSession();
@@ -23,11 +29,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const rl = checkRateLimit(`avatar:${session.userId}`, RATE_LIMITS.avatar);
+  const rl = await checkDistributedRateLimit(`avatar:${session.userId}`, RATE_LIMITS.avatar);
   if (!rl.allowed) {
     return NextResponse.json(
       { success: false, message: "Too many attempts. Please wait a moment." },
       { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
+  if (!isSupabaseStorageConfigured()) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      },
+      { status: 503 }
     );
   }
 
@@ -80,10 +96,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const avatarUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
-    await prisma.user.update({ where: { id: session.userId }, data: { avatarUrl } });
+    const safeUserId = session.userId.replace(/[^A-Za-z0-9_-]/g, "");
+    const objectPath = `${safeUserId}/avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${optimized.ext}`;
+    const oldAvatarPath = session.avatarPath;
 
-    return NextResponse.json({ success: true, avatarUrl });
+    const { storageUri, signedUrl } = await uploadPrivateStorageObject({
+      bucket: STORAGE_BUCKETS.AVATARS,
+      objectPath,
+      buffer: optimized.buffer,
+      contentType: optimized.mime,
+    });
+
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { avatarPath: storageUri },
+    });
+
+    if (oldAvatarPath) {
+      await deleteStorageObjects([oldAvatarPath]);
+    }
+
+    return NextResponse.json({
+      success: true,
+      avatarPath: storageUri,
+      avatarUrl: signedUrl || `/api/media/signed?path=${encodeURIComponent(storageUri)}`,
+    });
   } catch (error) {
     console.error("[Avatar Upload Error]:", error);
     return NextResponse.json(
@@ -100,7 +137,11 @@ export async function DELETE() {
   }
 
   try {
-    await prisma.user.update({ where: { id: session.userId }, data: { avatarUrl: null } });
+    const oldAvatarPath = session.avatarPath;
+    await prisma.user.update({ where: { id: session.userId }, data: { avatarPath: null } });
+    if (oldAvatarPath) {
+      await deleteStorageObjects([oldAvatarPath]);
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[Avatar Delete Error]:", error);

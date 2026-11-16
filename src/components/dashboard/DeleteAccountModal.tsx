@@ -53,7 +53,7 @@ export function DeleteAccountModal({
           Delete Your Account
         </h3>
         <p className="text-xs text-zinc-600 dark:text-zinc-400">
-          Please enter your password to confirm permanent account deletion.
+          Please enter your password to confirm permanent account deletion (leave blank if you signed in exclusively with Google).
         </p>
 
         {deleteError && (
@@ -66,8 +66,7 @@ export function DeleteAccountModal({
           <div className="relative">
             <input
               type={peekDeletePass ? "text" : "password"}
-              required
-              placeholder="Enter your password"
+              placeholder="Enter your password (if set)"
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
               className="w-full pl-4 pr-10 py-2.5 rounded-xl glass-input text-sm"

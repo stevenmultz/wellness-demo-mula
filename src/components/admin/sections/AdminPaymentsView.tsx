@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Loader2, Search } from "lucide-react";
 import { PaginationBar } from "../AdminFormPickers";
-import type { AdminPendingEnrollmentItem } from "../adminTypes";
+import type { AdminPendingEnrollmentItem, AdminSupportRequestItem } from "../adminTypes";
 
 interface AdminPaymentsViewProps {
   qrisSearch: string;
@@ -16,6 +16,12 @@ interface AdminPaymentsViewProps {
   qrisPageSize: number;
   approvingId: string | null;
   handleApprovePayment: (enrollmentId: string) => void;
+  supportRequests?: AdminSupportRequestItem[];
+  resolvingSupportId?: string | null;
+  onResolveSupportRequest?: (
+    id: string,
+    status: "IN_REVIEW" | "RESOLVED" | "REJECTED"
+  ) => void;
 }
 
 export function AdminPaymentsView({
@@ -30,6 +36,9 @@ export function AdminPaymentsView({
   qrisPageSize: QRIS_PAGE_SIZE,
   approvingId,
   handleApprovePayment,
+  supportRequests = [],
+  resolvingSupportId = null,
+  onResolveSupportRequest,
 }: AdminPaymentsViewProps) {
   const pendingEnrollments = { length: pendingEnrollmentsCount };
   const filteredQris = { length: filteredQrisCount };
@@ -132,6 +141,76 @@ export function AdminPaymentsView({
           onPageChange={setQrisPage}
           itemLabel="payments"
         />
+      </div>
+
+      {/* Cohort Support & Withdrawal Requests */}
+      <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+            Cohort Support &amp; Withdrawal Requests ({supportRequests.length})
+          </h2>
+        </div>
+
+        {supportRequests.length === 0 ? (
+          <div className="p-10 text-center space-y-1">
+            <p className="text-xs font-semibold text-zinc-900 dark:text-white">
+              No support requests
+            </p>
+            <p className="text-xs text-zinc-400">
+              Member issue reports and withdrawal requests appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-zinc-100 dark:divide-white/5">
+            {supportRequests.map((req) => (
+              <div
+                key={req.id}
+                className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
+                      {req.requestType === "QUIT_COHORT" ? "Withdraw" : "Issue"}
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-white">
+                      {req.userFullName} ({req.userEmail})
+                    </span>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
+                      {req.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300">
+                    <strong>{req.programTitle}</strong> • {req.reasonCode}
+                  </p>
+                  {req.note && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{req.note}</p>
+                  )}
+                </div>
+
+                {onResolveSupportRequest && req.status !== "RESOLVED" && req.status !== "REJECTED" && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={resolvingSupportId === req.id}
+                      onClick={() => onResolveSupportRequest(req.id, "RESOLVED")}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium hover:opacity-90 disabled:opacity-50 transition"
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resolvingSupportId === req.id}
+                      onClick={() => onResolveSupportRequest(req.id, "REJECTED")}
+                      className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/15 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-50 transition"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

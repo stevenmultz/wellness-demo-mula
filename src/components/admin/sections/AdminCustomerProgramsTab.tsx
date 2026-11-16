@@ -3,7 +3,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import {
   ArrowLeft,
-  Camera,
   Check,
   Layers,
   MapPin,
@@ -11,7 +10,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import type { AdminLightboxData, AdminUserItem } from "../adminTypes";
+import type { AdminUserItem } from "../adminTypes";
 import { AdminCustomerResponseItem } from "./AdminCustomerResponseItem";
 
 interface AdminCustomerProgramsTabProps {
@@ -20,13 +19,10 @@ interface AdminCustomerProgramsTabProps {
   setSelectedCustomerProgramId: (id: string | null) => void;
   customerResponseStatusFilter: "ALL" | "COMPLETED" | "PENDING";
   setCustomerResponseStatusFilter: (val: "ALL" | "COMPLETED" | "PENDING") => void;
-  customerResponsePhotosOnly: boolean;
-  setCustomerResponsePhotosOnly: Dispatch<SetStateAction<boolean>>;
   customerResponseSearch: string;
   setCustomerResponseSearch: (val: string) => void;
   expandedResponseIds: Record<string, boolean>;
   setExpandedResponseIds: Dispatch<SetStateAction<Record<string, boolean>>>;
-  setLightboxData: (val: AdminLightboxData | null) => void;
 }
 
 export function AdminCustomerProgramsTab({
@@ -35,13 +31,10 @@ export function AdminCustomerProgramsTab({
   setSelectedCustomerProgramId,
   customerResponseStatusFilter,
   setCustomerResponseStatusFilter,
-  customerResponsePhotosOnly,
-  setCustomerResponsePhotosOnly,
   customerResponseSearch,
   setCustomerResponseSearch,
   expandedResponseIds,
   setExpandedResponseIds,
-  setLightboxData,
 }: AdminCustomerProgramsTabProps) {
   const enrollments = u.enrollments || [];
   const dayProgress = u.dayProgress || [];
@@ -174,7 +167,6 @@ const programResponses = dayProgress.filter(
 const filteredResponses = programResponses.filter((p) => {
   if (customerResponseStatusFilter === "COMPLETED" && !p.isCompleted) return false;
   if (customerResponseStatusFilter === "PENDING" && p.isCompleted) return false;
-  if (customerResponsePhotosOnly && !p.photoBeforeUrl && !p.photoAfterUrl) return false;
   if (customerResponseSearch.trim()) {
     const q = customerResponseSearch.toLowerCase();
     const dayTitle = (p.programDay?.title || "").toLowerCase();
@@ -256,19 +248,6 @@ return (
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setCustomerResponsePhotosOnly(!customerResponsePhotosOnly)}
-          className={`px-2.5 py-1 rounded-xl text-xs font-medium transition flex items-center gap-1.5 border ${
-            customerResponsePhotosOnly
-              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-xs"
-              : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          }`}
-        >
-          <Camera className="w-3.5 h-3.5" />
-          <span>Photos Only</span>
-        </button>
       </div>
 
       <div className="flex items-center gap-2 flex-1 max-w-sm justify-end">
@@ -323,10 +302,8 @@ return (
             <AdminCustomerResponseItem
               key={sub.id}
               sub={sub}
-              memberName={u.fullName}
               expandedResponseIds={expandedResponseIds}
               setExpandedResponseIds={setExpandedResponseIds}
-              setLightboxData={setLightboxData}
             />
           ))}
         </div>

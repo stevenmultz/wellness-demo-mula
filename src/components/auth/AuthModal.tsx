@@ -8,6 +8,7 @@ import {
   wellnessSignIn,
   wellnessSignUp,
   wellnessRequestPasswordReset,
+  wellnessResendVerificationEmail,
 } from "@/wellness/actions/auth";
 import {
   X,
@@ -18,6 +19,7 @@ import {
   ArrowLeft,
   AlertCircle,
   CheckCircle2,
+  Mail,
 } from "lucide-react";
 
 export type AuthTabMode = "signin" | "signup" | "forgot";
@@ -45,6 +47,9 @@ export function AuthGatewayCard({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
+  const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
+  const [isResendingVerify, setIsResendingVerify] = useState(false);
 
   const [signInData, setSignInData] = useState({ email: "", password: "" });
   const [signUpData, setSignUpData] = useState({
@@ -58,10 +63,27 @@ export function AuthGatewayCard({
   const { t } = useLocale();
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const authError = new URLSearchParams(window.location.search).get("authError");
+    if (!authError) return;
+    const map: Record<string, string> = {
+      google_not_configured: "Google Sign-In is not configured on this environment yet.",
+      google_oauth_cancelled: "Google Sign-In was cancelled.",
+      google_state_invalid: "Google Sign-In session expired. Please try again.",
+      google_token_exchange_failed: "Could not complete Google Sign-In. Please try again.",
+      google_email_unverified: "Your Google account email is not verified by Google.",
+      account_suspended: "This account is suspended. Please contact support.",
+    };
+    setErrorMsg(map[authError] || "Google Sign-In failed. Please try again.");
+  }, []);
+
+  useEffect(() => {
     if (activeTabOverride) {
       setErrorMsg(null);
       setSuccessMsg(null);
       setDevResetUrl(null);
+      setDevVerifyUrl(null);
+      setPendingVerificationEmail(null);
       setTab(activeTabOverride);
     }
   }, [activeTabOverride]);
@@ -70,12 +92,34 @@ export function AuthGatewayCard({
     setErrorMsg(null);
     setSuccessMsg(null);
     setDevResetUrl(null);
+    setDevVerifyUrl(null);
   };
 
   const switchTab = (newTab: AuthTabMode) => {
     resetStatus();
+    setPendingVerificationEmail(null);
     setTab(newTab);
     onTabChange?.(newTab);
+  };
+
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail) return;
+    setIsResendingVerify(true);
+    setErrorMsg(null);
+    try {
+      const res = await wellnessResendVerificationEmail(pendingVerificationEmail);
+      if (res.success) {
+        setSuccessMsg(res.message || "Verification email sent.");
+        const extra = res as { devVerifyUrl?: string };
+        if (extra.devVerifyUrl) setDevVerifyUrl(extra.devVerifyUrl);
+      } else {
+        setErrorMsg(res.message || "Could not resend verification email.");
+      }
+    } catch {
+      setErrorMsg("Could not resend verification email. Please try again.");
+    } finally {
+      setIsResendingVerify(false);
+    }
   };
 
   const validatePassword = (pass: string) => {
@@ -115,6 +159,10 @@ export function AuthGatewayCard({
           router.refresh();
         }, 300);
       } else {
+        const extra = result as { requiresVerification?: boolean };
+        if (extra.requiresVerification) {
+          setPendingVerificationEmail(signInData.email.trim().toLowerCase());
+        }
         if (result.errors) {
           const detail = Object.values(result.errors).flat().join(". ");
           setErrorMsg(detail || result.message || "Invalid credentials.");
@@ -132,6 +180,7 @@ export function AuthGatewayCard({
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     resetStatus();
+    setPendingVerificationEmail(null);
 
     if (signUpData.fullName.trim().length < 3) {
       setErrorMsg("Full name must be at least 3 characters.");
@@ -156,13 +205,22 @@ export function AuthGatewayCard({
 
     try {
       const result = await wellnessSignUp(signUpData);
-      if (result.success && result.data) {
-        setSuccessMsg("Account created! Entering Sanctuary...");
-        setTimeout(() => {
-          onClose?.();
-          router.push("/dashboard");
-          router.refresh();
-        }, 400);
+      const extra = result as { requiresVerification?: boolean; devVerifyUrl?: string };
+      if (result.success) {
+        if (extra.requiresVerification) {
+          setPendingVerificationEmail(signUpData.email.trim().toLowerCase());
+          if (extra.devVerifyUrl) setDevVerifyUrl(extra.devVerifyUrl);
+          setSuccessMsg(
+            result.message || "Account created! Please check your email to verify your address before signing in."
+          );
+        } else if (result.data) {
+          setSuccessMsg("Account created! Entering Sanctuary...");
+          setTimeout(() => {
+            onClose?.();
+            router.push("/dashboard");
+            router.refresh();
+          }, 400);
+        }
       } else {
         if (result.errors) {
           const detail = Object.values(result.errors).flat().join(". ");
@@ -327,6 +385,14 @@ export function AuthGatewayCard({
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p>{successMsg}</p>
+            {devVerifyUrl && (
+              <a
+                href={devVerifyUrl}
+                className="underline font-semibold text-zinc-950 dark:text-white block"
+              >
+                Verify email now (Dev link) &rarr;
+              </a>
+            )}
             {devResetUrl && (
               <a
                 href={devResetUrl}
@@ -336,6 +402,23 @@ export function AuthGatewayCard({
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {pendingVerificationEmail && (
+        <div className="py-2 px-3 rounded-xl bg-zinc-200/70 dark:bg-white/10 text-xs flex items-center justify-between gap-2">
+          <span className="text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Didn&apos;t receive the link?</span>
+          </span>
+          <button
+            type="button"
+            disabled={isResendingVerify}
+            onClick={handleResendVerification}
+            className="font-semibold underline text-zinc-950 dark:text-white hover:opacity-80 shrink-0 disabled:opacity-50"
+          >
+            {isResendingVerify ? "Sending..." : "Resend verification"}
+          </button>
         </div>
       )}
 
@@ -418,6 +501,39 @@ export function AuthGatewayCard({
               )}
             </button>
           </div>
+
+          <div className="relative py-1 flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+              or
+            </span>
+            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
+          </div>
+
+          <a
+            href="/api/auth/google"
+            className="w-full h-10 sm:h-11 rounded-full border border-zinc-300 dark:border-white/20 bg-white/80 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] text-zinc-900 dark:text-white text-[11px] sm:text-xs font-medium flex items-center justify-center gap-2 transition active:scale-[0.99]"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+              />
+            </svg>
+            <span>Continue with Google</span>
+          </a>
         </form>
       )}
 
@@ -521,6 +637,39 @@ export function AuthGatewayCard({
               )}
             </button>
           </div>
+
+          <div className="relative py-1 flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+              or
+            </span>
+            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
+          </div>
+
+          <a
+            href="/api/auth/google"
+            className="w-full h-10 sm:h-11 rounded-full border border-zinc-300 dark:border-white/20 bg-white/80 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] text-zinc-900 dark:text-white text-[11px] sm:text-xs font-medium flex items-center justify-center gap-2 transition active:scale-[0.99]"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+              />
+            </svg>
+            <span>Sign Up with Google</span>
+          </a>
         </form>
       )}
 

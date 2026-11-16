@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const endpoint = new URL(req.url).searchParams.get("endpoint");
     let subscribed = false;
     if (endpoint) {
-      const found = await prisma.pushSubscription.findFirst({
+      const found = await prisma.userPushSubscription.findFirst({
         where: { endpoint, userId: session.userId },
         select: { id: true },
       });
@@ -91,8 +91,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Ownership check: prevent cross-account push subscription hijacking
-    const existing = await prisma.pushSubscription.findUnique({
+    const existing = await prisma.userPushSubscription.findUnique({
       where: { endpoint },
       select: { userId: true },
     });
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert subscription for current user
-    const saved = await prisma.pushSubscription.upsert({
+    const saved = await prisma.userPushSubscription.upsert({
       where: { endpoint },
       update: {
         userId: session.userId,
@@ -162,7 +161,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Valid endpoint required." }, { status: 400 });
     }
 
-    await prisma.pushSubscription.deleteMany({
+    await prisma.userPushSubscription.deleteMany({
       where: {
         endpoint,
         userId: session.userId,

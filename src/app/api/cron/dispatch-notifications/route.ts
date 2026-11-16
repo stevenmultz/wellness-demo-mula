@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
+import {
+  dispatchDueNotifications,
+  runDatabaseRetentionCleanup,
+} from "@/wellness/integrations/dispatch-due-notifications";
 import { normalizeWibTime } from "@/wellness/utils/notification-schedule";
 import {
   getCronSecret,
@@ -82,12 +85,18 @@ async function handleCronDispatch(req: NextRequest) {
     const lookback =
       Number.isFinite(lookbackParam) && lookbackParam >= 1 ? Math.min(lookbackParam, 120) : DEFAULT_LOOKBACK_MINUTES;
 
-    const summary = await dispatchDueNotifications({
-      lookbackMinutes: lookback,
-      simulateTime,
-    });
+    const [summary, retentionCleanup] = await Promise.all([
+      dispatchDueNotifications({
+        lookbackMinutes: lookback,
+        simulateTime,
+      }),
+      runDatabaseRetentionCleanup().catch((err) => {
+        console.warn("[Cron Retention Cleanup Warning]:", err);
+        return null;
+      }),
+    ]);
 
-    return NextResponse.json({ success: true, ...summary });
+    return NextResponse.json({ success: true, ...summary, retentionCleanup });
   } catch (error: unknown) {
     console.error("[Cron Dispatch Error]:", error);
     return NextResponse.json({ success: false, error: "Server error during cron dispatch" }, { status: 500 });

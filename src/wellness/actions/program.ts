@@ -74,7 +74,6 @@ export async function wellnessAdminGetProgramSubmissions(
   filters?: {
     dayNumber?: number;
     userId?: string;
-    hasPhotosOnly?: boolean;
     limit?: number;
   }
 ): Promise<WellnessActionResult<ProgramSubmissionsPayload>> {

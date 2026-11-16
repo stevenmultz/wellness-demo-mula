@@ -1,6 +1,7 @@
-import { type Program, type ProgramDay } from "@prisma/client";
-import { prisma } from "../db";
+import { Prisma, type Program, type ProgramDay } from "@prisma/client";
+import { prisma, lockProgramRow } from "../db";
 import { requireAdminAccess, requireProgramAccess } from "../security/guards";
+import { recordAuditLog } from "../integrations/audit-log";
 import {
   CreateProgramSchema,
   UpdateProgramMetaSchema,
@@ -10,37 +11,66 @@ import {
 import {
   safeJsonParse,
   serializeTermsList,
-  serializeStringList,
-  serializeReferencesList,
+  toStringArrayJson,
   DEFAULT_PROGRAM_BENEFITS,
   DEFAULT_PROGRAM_GUIDELINES,
   DEFAULT_PROGRAM_REFERENCES,
   DEFAULT_TARGET_STATE,
   DEFAULT_METHODOLOGY,
 } from "../utils/json";
-import { normalizeProgramStatus } from "../utils/timeline";
+import { normalizeProgramStatus, toPrismaProgramStatus } from "../utils/timeline";
 import {
   hydrateProgramJsonFields,
+  PROGRAM_TAXONOMY_INCLUDE,
   revalidateWellnessRoutes,
+  serializeProgramTaxonomy,
   syncProgramTaxonomyRelations,
+  type ProgramWithTaxonomyRelations,
 } from "./program-taxonomy";
 import type { WellnessActionResult } from "../actions/auth";
 
-function getIncompleteHeaderMessage(program: Program): string | null {
+function toClientProgramPayload<
+  T extends Program & ProgramWithTaxonomyRelations & { days?: ProgramDay[] },
+>(program: T) {
+  const tax = serializeProgramTaxonomy(program);
+  const hydrated = hydrateProgramJsonFields(program);
+  return {
+    ...hydrated,
+    ...tax,
+    coverImage: program.coverImagePath,
+    virtualFallbackAvailable: program.isVirtualFallbackAvailable,
+    startDate: program.startAt,
+    endDate: program.endAt,
+    registrationOpenDate: program.registrationOpenAt,
+    registrationDeadline: program.registrationDeadlineAt,
+    isPublished: program.status === "PUBLISHED",
+    status:
+      program.status === "PUBLISHED"
+        ? "PUBLISH"
+        : program.status === "ARCHIVED"
+          ? "ARCHIVE"
+          : program.status,
+  };
+}
+
+function getIncompleteHeaderMessage(
+  program: Program & ProgramWithTaxonomyRelations
+): string | null {
+  const tax = serializeProgramTaxonomy(program);
   const headerCheck = isProgramHeaderComplete({
     title: program.title,
     description: program.description,
     difficultyLevel: program.difficultyLevel,
     targetState: program.targetState,
     methodology: program.methodology,
-    expectedBenefits: safeJsonParse<string[]>(program.expectedBenefits, []),
-    category: program.category,
-    dailyCommitment: program.dailyCommitment,
-    coachName: program.coachName,
-    recommendedFor: program.recommendedFor,
-    startDate: program.startDate,
-    endDate: program.endDate,
-    registrationDeadline: program.registrationDeadline,
+    expectedBenefits: safeJsonParse<string[]>(program.expectedBenefitsJson, []),
+    category: tax.category,
+    dailyCommitment: tax.dailyCommitment,
+    coachName: tax.coachName,
+    recommendedFor: tax.recommendedFor,
+    startDate: program.startAt,
+    endDate: program.endAt,
+    registrationDeadline: program.registrationDeadlineAt,
     locationType: program.locationType,
     city: program.city,
     venueAddress: program.venueAddress,
@@ -50,9 +80,7 @@ function getIncompleteHeaderMessage(program: Program): string | null {
     customTerms: program.customTerms,
   });
 
-  if (headerCheck.isComplete) {
-    return null;
-  }
+  if (headerCheck.isComplete) return null;
 
   const missingSummary = headerCheck.missingSections
     .map((s) => `Point ${s.point}: ${s.title}`)
@@ -64,13 +92,20 @@ function getIncompleteDaysPreview(durationDays: number, days: ProgramDay[]): str
   const missingDays: number[] = [];
   for (let i = 1; i <= durationDays; i++) {
     const dayRecord = days.find((d) => d.dayNumber === i);
-    if (!isProgramDayComplete(dayRecord)) {
+    if (
+      !isProgramDayComplete(
+        dayRecord
+          ? {
+              ...dayRecord,
+              videoChecklist: safeJsonParse<string[]>(dayRecord.videoChecklistJson, []),
+            }
+          : null
+      )
+    ) {
       missingDays.push(i);
     }
   }
-  if (missingDays.length === 0) {
-    return null;
-  }
+  if (missingDays.length === 0) return null;
   return missingDays.length > 6
     ? `Day ${missingDays.slice(0, 6).join(", Day ")} (+${missingDays.length - 6} more)`
     : `Day ${missingDays.join(", Day ")}`;
@@ -100,9 +135,7 @@ export async function createProgramService(
     dailyCommitment,
     recommendedFor,
     coachName,
-    coachTitle,
     organizationId,
-    organizationCache,
     language,
     translations,
     durationDays,
@@ -128,7 +161,7 @@ export async function createProgramService(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const slug = `${baseSlug}-${randomSuffix}`;
+  const slug = `${baseSlug || "program"}-${randomSuffix}`;
 
   const now = new Date();
   const resolvedDuration = durationDays || 21;
@@ -149,10 +182,10 @@ export async function createProgramService(
     : new Date(startD.getTime() - 24 * 60 * 60 * 1000);
   const regOpen = registrationOpenDate ? new Date(registrationOpenDate) : now;
 
-  const resolvedActualPrice =
-    actualPrice !== undefined ? Number(actualPrice) : Number(price) || 0;
-  const resolvedDiscount =
-    discountPercentage !== undefined ? Number(discountPercentage) : 0;
+  const resolvedActualPrice = Math.round(
+    actualPrice !== undefined ? Number(actualPrice) : Number(price) || 0
+  );
+  const resolvedDiscount = Math.round(discountPercentage !== undefined ? Number(discountPercentage) : 0);
   const resolvedFinalPrice = Math.max(
     0,
     Math.round(resolvedActualPrice * (1 - resolvedDiscount / 100))
@@ -162,18 +195,30 @@ export async function createProgramService(
     validation.data.termsList,
     validation.data.customTerms
   );
-  const serializedBenefits = serializeStringList(
+  const benefitsJson = toStringArrayJson(
     validation.data.expectedBenefits,
     DEFAULT_PROGRAM_BENEFITS
-  );
-  const serializedReferences = serializeReferencesList(
-    validation.data.scientificReferences,
-    DEFAULT_PROGRAM_REFERENCES
-  );
-  const serializedGuidelines = serializeStringList(
+  ) as Prisma.InputJsonValue;
+  const refsList = validation.data.scientificReferences?.filter((r) => r.title.trim()) ?? [];
+  const referencesJson = (
+    refsList.length > 0 ? refsList : DEFAULT_PROGRAM_REFERENCES
+  ) as unknown as Prisma.InputJsonValue;
+  const guidelinesJson = toStringArrayJson(
     validation.data.programGuidelines,
     DEFAULT_PROGRAM_GUIDELINES
-  );
+  ) as Prisma.InputJsonValue;
+
+  let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
+  if (translations) {
+    try {
+      parsedTranslations =
+        typeof translations === "string"
+          ? (JSON.parse(translations) as Prisma.InputJsonValue)
+          : (translations as Prisma.InputJsonValue);
+    } catch {
+      parsedTranslations = undefined;
+    }
+  }
 
   const effectiveOrganizationId =
     session.role === "PARTNER_ADMIN" && session.organizationId
@@ -183,14 +228,14 @@ export async function createProgramService(
   const matchedOrg = effectiveOrganizationId
     ? await prisma.masterOrganization.findUnique({
         where: { id: effectiveOrganizationId },
-        select: { id: true, name: true },
+        select: { id: true },
       })
     : null;
 
   const effectiveCoachName =
     session.role === "COACH" && session.coachProfileName
       ? session.coachProfileName
-      : (coachName || "TBA").trim();
+      : (coachName || "").trim();
 
   const newProgram = await prisma.$transaction(async (tx) => {
     const created = await tx.program.create({
@@ -200,21 +245,14 @@ export async function createProgramService(
         description: description.trim(),
         targetState: validation.data.targetState?.trim() || DEFAULT_TARGET_STATE,
         methodology: validation.data.methodology?.trim() || DEFAULT_METHODOLOGY,
-        expectedBenefits: serializedBenefits,
-        scientificReferences: serializedReferences,
-        programGuidelines: serializedGuidelines,
-        coverImage: coverImage?.trim() || null,
+        expectedBenefitsJson: benefitsJson,
+        scientificReferencesJson: referencesJson,
+        programGuidelinesJson: guidelinesJson,
+        coverImagePath: coverImage?.trim() || null,
         difficultyLevel: difficultyLevel || "INTERMEDIATE",
-        category: category?.trim() || "Pilates",
-        equipment: equipment?.trim() || null,
-        dailyCommitment: dailyCommitment?.trim() || null,
-        recommendedFor: recommendedFor?.trim() || "All Levels",
-        coachName: effectiveCoachName,
-        coachTitle: coachTitle?.trim() || null,
         organizationId: matchedOrg?.id || null,
-        organizationCache: matchedOrg?.name || organizationCache?.trim() || null,
         language: language || "id",
-        translations: translations || null,
+        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
         durationDays: finalDuration,
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
@@ -224,21 +262,14 @@ export async function createProgramService(
         locationType: locationType || "ONLINE",
         city: city?.trim() || null,
         venueAddress: venueAddress?.trim() || null,
-        virtualFallbackAvailable: virtualFallbackAvailable ?? true,
+        isVirtualFallbackAvailable: virtualFallbackAvailable ?? true,
         termsType: "CUSTOM",
         customTerms: serializedTerms,
-        categoryCache: category?.trim() || null,
-        coachCache: coachName?.trim() || null,
-        equipmentCache: equipment?.trim() || null,
-        audienceCache: recommendedFor?.trim() || null,
-        commitmentCache: dailyCommitment?.trim() || null,
-        startDate: startD,
-        endDate: endD,
-        registrationOpenDate: regOpen,
-        registrationDeadline: regDeadline,
-        // Enforce Dual-Gate validation: newly created programs never bypass publish checks
-        status: normalizeProgramStatus(status) === "ARCHIVE" ? "ARCHIVE" : "DRAFT",
-        isPublished: false,
+        startAt: startD,
+        endAt: endD,
+        registrationOpenAt: regOpen,
+        registrationDeadlineAt: regDeadline,
+        status: normalizeProgramStatus(status) === "ARCHIVE" ? "ARCHIVED" : "DRAFT",
         days:
           days && days.length > 0
             ? {
@@ -246,11 +277,11 @@ export async function createProgramService(
                   dayNumber: d.dayNumber,
                   title: d.title,
                   dayType: d.dayType,
-                  workoutOptions: JSON.stringify(d.workoutOptions || []),
+                  workoutOptionsJson: (d.workoutOptions || []) as Prisma.InputJsonValue,
                   sleepRecommendation: d.sleepRecommendation || null,
-                  dayNotifications: JSON.stringify(d.dayNotifications || []),
+                  dayNotificationsJson: (d.dayNotifications || []) as Prisma.InputJsonValue,
                   videoUrl: d.videoUrl || null,
-                  videoChecklist: JSON.stringify(d.videoChecklist || []),
+                  videoChecklistJson: (d.videoChecklist || []) as Prisma.InputJsonValue,
                   mealRecommendation: d.mealRecommendation || null,
                   dailyAssessment: d.dailyAssessment || null,
                   pendingReminder:
@@ -269,22 +300,23 @@ export async function createProgramService(
               }
             : undefined,
       },
-      include: {
-        days: {
-          orderBy: { dayNumber: "asc" },
-        },
-      },
     });
 
     await syncProgramTaxonomyRelations(tx, created.id, {
-      category,
+      category: category?.trim() || "Pilates",
       coachName: effectiveCoachName,
-      recommendedFor,
-      equipment,
-      dailyCommitment,
+      recommendedFor: recommendedFor?.trim() || "All Levels",
+      equipment: equipment?.trim() || null,
+      dailyCommitment: dailyCommitment?.trim() || null,
     });
 
-    return created;
+    return tx.program.findUniqueOrThrow({
+      where: { id: created.id },
+      include: {
+        ...PROGRAM_TAXONOMY_INCLUDE,
+        days: { orderBy: { dayNumber: "asc" } },
+      },
+    });
   });
 
   revalidateWellnessRoutes();
@@ -292,7 +324,7 @@ export async function createProgramService(
   return {
     success: true,
     message: `Draft program "${newProgram.title}" created (${newProgram.durationDays}-Day target). Now fill each day to unlock final launch.`,
-    data: hydrateProgramJsonFields(newProgram),
+    data: toClientProgramPayload(newProgram),
   };
 }
 
@@ -314,19 +346,19 @@ export async function updateProgramMetaService(
   const input = validation.data;
   const session = await requireProgramAccess(input.programId);
 
-  const existingProgram = await prisma.program.findUnique({
-    where: { id: input.programId },
-    include: { days: true },
+  const existingProgram = await prisma.program.findFirst({
+    where: { id: input.programId, deletedAt: null },
+    include: {
+      ...PROGRAM_TAXONOMY_INCLUDE,
+      days: true,
+    },
   });
 
   if (!existingProgram) {
     return { success: false, message: "Program not found." };
   }
 
-  if (
-    existingProgram.isPublished ||
-    normalizeProgramStatus(existingProgram.status) === "PUBLISH"
-  ) {
+  if (existingProgram.status === "PUBLISHED") {
     return {
       success: false,
       message:
@@ -342,14 +374,14 @@ export async function updateProgramMetaService(
     };
   }
 
-  const resolvedActualPrice =
-    input.actualPrice !== undefined
-      ? Number(input.actualPrice)
-      : existingProgram.actualPrice;
-  const resolvedDiscount =
+  const resolvedActualPrice = Math.round(
+    input.actualPrice !== undefined ? Number(input.actualPrice) : existingProgram.actualPrice
+  );
+  const resolvedDiscount = Math.round(
     input.discountPercentage !== undefined
       ? Number(input.discountPercentage)
-      : existingProgram.discountPercentage;
+      : existingProgram.discountPercentage
+  );
   const resolvedFinalPrice = Math.max(
     0,
     Math.round(resolvedActualPrice * (1 - resolvedDiscount / 100))
@@ -357,28 +389,46 @@ export async function updateProgramMetaService(
 
   const serializedTerms =
     input.termsList !== undefined || input.customTerms !== undefined
-      ? serializeTermsList(
-          input.termsList,
-          input.customTerms ?? existingProgram.customTerms
-        )
+      ? serializeTermsList(input.termsList, input.customTerms ?? existingProgram.customTerms)
       : existingProgram.customTerms;
 
-  const serializedBenefits =
+  const benefitsJson =
     input.expectedBenefits !== undefined
-      ? serializeStringList(input.expectedBenefits, DEFAULT_PROGRAM_BENEFITS)
-      : existingProgram.expectedBenefits;
+      ? (toStringArrayJson(input.expectedBenefits, DEFAULT_PROGRAM_BENEFITS) as Prisma.InputJsonValue)
+      : undefined;
 
-  const serializedReferences =
+  const referencesJson =
     input.scientificReferences !== undefined
-      ? serializeReferencesList(input.scientificReferences, DEFAULT_PROGRAM_REFERENCES)
-      : existingProgram.scientificReferences;
+      ? ((input.scientificReferences.filter((r) => r.title.trim()).length > 0
+          ? input.scientificReferences.filter((r) => r.title.trim())
+          : DEFAULT_PROGRAM_REFERENCES) as unknown as Prisma.InputJsonValue)
+      : undefined;
 
-  const serializedGuidelines =
+  const guidelinesJson =
     input.programGuidelines !== undefined
-      ? serializeStringList(input.programGuidelines, DEFAULT_PROGRAM_GUIDELINES)
-      : existingProgram.programGuidelines;
+      ? (toStringArrayJson(
+          input.programGuidelines,
+          DEFAULT_PROGRAM_GUIDELINES
+        ) as Prisma.InputJsonValue)
+      : undefined;
+
+  let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
+  if (input.translations !== undefined && input.translations) {
+    try {
+      parsedTranslations =
+        typeof input.translations === "string"
+          ? (JSON.parse(input.translations) as Prisma.InputJsonValue)
+          : (input.translations as Prisma.InputJsonValue);
+    } catch {
+      parsedTranslations = undefined;
+    }
+  }
+
+  const existingTax = serializeProgramTaxonomy(existingProgram);
 
   const updated = await prisma.$transaction(async (tx) => {
+    await lockProgramRow(tx, input.programId);
+
     const resolvedDuration = input.durationDays || existingProgram.durationDays || 21;
     if (resolvedDuration < existingProgram.durationDays) {
       await tx.programDay.deleteMany({
@@ -389,17 +439,17 @@ export async function updateProgramMetaService(
       });
     }
 
-    const startD = input.startDate ? new Date(input.startDate) : existingProgram.startDate;
-    const endD = input.endDate ? new Date(input.endDate) : existingProgram.endDate;
+    const startD = input.startDate ? new Date(input.startDate) : existingProgram.startAt;
+    const endD = input.endDate ? new Date(input.endDate) : existingProgram.endAt;
     const regDeadline = input.registrationDeadline
       ? new Date(input.registrationDeadline)
-      : existingProgram.registrationDeadline;
+      : existingProgram.registrationDeadlineAt;
     const regOpen =
       input.registrationOpenDate !== undefined
         ? input.registrationOpenDate
           ? new Date(input.registrationOpenDate)
           : null
-        : existingProgram.registrationOpenDate;
+        : existingProgram.registrationOpenAt;
 
     const requestedOrgId =
       session.role === "PARTNER_ADMIN" && session.organizationId
@@ -411,16 +461,16 @@ export async function updateProgramMetaService(
     const orgRecord = requestedOrgId
       ? await tx.masterOrganization.findUnique({
           where: { id: requestedOrgId },
-          select: { id: true, name: true },
+          select: { id: true },
         })
       : null;
 
     const requestedCoachName =
       session.role === "COACH" && session.coachProfileName
-        ? existingProgram.coachName || session.coachProfileName
-        : (input.coachName || existingProgram.coachName || "TBA").trim();
+        ? existingTax.coachName || session.coachProfileName
+        : (input.coachName ?? existingTax.coachName).trim();
 
-    const prog = await tx.program.update({
+    await tx.program.update({
       where: { id: input.programId },
       data: {
         title: input.title.trim(),
@@ -437,33 +487,15 @@ export async function updateProgramMetaService(
           input.methodology !== undefined
             ? input.methodology.trim() || null
             : existingProgram.methodology,
-        expectedBenefits: serializedBenefits,
-        scientificReferences: serializedReferences,
-        programGuidelines: serializedGuidelines,
-        coverImage: input.coverImage?.trim() || null,
+        ...(benefitsJson !== undefined ? { expectedBenefitsJson: benefitsJson } : {}),
+        ...(referencesJson !== undefined ? { scientificReferencesJson: referencesJson } : {}),
+        ...(guidelinesJson !== undefined ? { programGuidelinesJson: guidelinesJson } : {}),
+        coverImagePath: input.coverImage?.trim() || null,
         difficultyLevel:
           input.difficultyLevel || existingProgram.difficultyLevel || "INTERMEDIATE",
-        category: input.category?.trim() || existingProgram.category || "Pilates",
-        equipment: input.equipment?.trim() || null,
-        dailyCommitment: input.dailyCommitment?.trim() || null,
-        recommendedFor: (
-          input.recommendedFor ||
-          existingProgram.recommendedFor ||
-          "All Levels"
-        ).trim(),
-        coachName: requestedCoachName,
-        coachTitle: input.coachTitle?.trim() || null,
         organizationId: orgRecord?.id || null,
-        organizationCache:
-          orgRecord?.name ||
-          (input.organizationCache !== undefined
-            ? input.organizationCache?.trim() || null
-            : existingProgram.organizationCache),
         language: input.language || existingProgram.language || "id",
-        translations:
-          input.translations !== undefined
-            ? input.translations || null
-            : existingProgram.translations,
+        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
         durationDays: resolvedDuration,
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
@@ -473,31 +505,34 @@ export async function updateProgramMetaService(
         locationType: input.locationType || "ONLINE",
         city: input.city?.trim() || null,
         venueAddress: input.venueAddress?.trim() || null,
-        virtualFallbackAvailable: input.virtualFallbackAvailable ?? true,
+        isVirtualFallbackAvailable: input.virtualFallbackAvailable ?? true,
         termsType: "CUSTOM",
         customTerms: serializedTerms,
-        categoryCache: input.category?.trim() || existingProgram.categoryCache,
-        coachCache: input.coachName?.trim() || existingProgram.coachCache,
-        equipmentCache: input.equipment?.trim() || existingProgram.equipmentCache,
-        audienceCache: input.recommendedFor?.trim() || existingProgram.audienceCache,
-        commitmentCache: input.dailyCommitment?.trim() || existingProgram.commitmentCache,
-        startDate: startD,
-        endDate: endD,
-        registrationOpenDate: regOpen,
-        registrationDeadline: regDeadline,
-        status: input.status ?? existingProgram.status,
+        startAt: startD,
+        endAt: endD,
+        registrationOpenAt: regOpen,
+        registrationDeadlineAt: regDeadline,
+        status: input.status ? toPrismaProgramStatus(input.status) : existingProgram.status,
+        version: { increment: 1 },
       },
     });
 
-    await syncProgramTaxonomyRelations(tx, prog.id, {
-      category: prog.category,
-      coachName: prog.coachName,
-      recommendedFor: prog.recommendedFor,
-      equipment: prog.equipment,
-      dailyCommitment: prog.dailyCommitment,
+    await syncProgramTaxonomyRelations(tx, input.programId, {
+      category: input.category !== undefined ? input.category : existingTax.category,
+      coachName: requestedCoachName,
+      recommendedFor:
+        input.recommendedFor !== undefined ? input.recommendedFor : existingTax.recommendedFor,
+      equipment: input.equipment !== undefined ? input.equipment : existingTax.equipment,
+      dailyCommitment:
+        input.dailyCommitment !== undefined
+          ? input.dailyCommitment
+          : existingTax.dailyCommitment,
     });
 
-    return prog;
+    return tx.program.findUniqueOrThrow({
+      where: { id: input.programId },
+      include: PROGRAM_TAXONOMY_INCLUDE,
+    });
   });
 
   revalidateWellnessRoutes();
@@ -505,7 +540,7 @@ export async function updateProgramMetaService(
   return {
     success: true,
     message: `Base info updated for "${updated.title}".`,
-    data: hydrateProgramJsonFields(updated),
+    data: toClientProgramPayload(updated),
   };
 }
 
@@ -513,174 +548,249 @@ export async function setProgramStatusService(
   programId: string,
   rawStatus: string
 ): Promise<WellnessActionResult<{ status: string; isPublished: boolean }>> {
-  await requireProgramAccess(programId);
+  const admin = await requireProgramAccess(programId);
 
-  const program = await prisma.program.findUnique({
-    where: { id: programId },
-    include: { days: { orderBy: { dayNumber: "asc" } } },
-  });
+  const targetPrismaStatus = toPrismaProgramStatus(rawStatus);
+  const normStatus = normalizeProgramStatus(rawStatus);
 
-  if (!program) {
-    return { success: false, message: "Program not found." };
-  }
+  const result = await prisma.$transaction(async (tx) => {
+    await lockProgramRow(tx, programId);
 
-  const targetStatus = normalizeProgramStatus(rawStatus);
-
-  if (targetStatus === "PUBLISH") {
-    const headerMsg = getIncompleteHeaderMessage(program);
-    if (headerMsg) {
-      return { success: false, message: headerMsg };
-    }
-  }
-
-  if (targetStatus === "REVIEW" || targetStatus === "OPEN" || targetStatus === "PUBLISH") {
-    const previewMissing = getIncompleteDaysPreview(program.durationDays, program.days);
-    if (previewMissing) {
-      return {
-        success: false,
-        message: `Cannot change status to ${targetStatus}! All ${program.durationDays} curriculum days must be completed first. Incomplete: ${previewMissing}.`,
-      };
-    }
-  }
-
-  const isCurrentlyPublished =
-    program.status === "PUBLISH" ||
-    program.status === "PUBLISHED" ||
-    program.status === "ACTIVE" ||
-    program.isPublished;
-
-  if (isCurrentlyPublished && targetStatus !== "PUBLISH") {
-    const activeEnrollments = await prisma.programEnrollment.count({
-      where: { programId, status: "ACTIVE" },
+    const program = await tx.program.findFirst({
+      where: { id: programId, deletedAt: null },
+      include: {
+        ...PROGRAM_TAXONOMY_INCLUDE,
+        days: { orderBy: { dayNumber: "asc" } },
+      },
     });
 
-    if (activeEnrollments > 0) {
-      return {
-        success: false,
-        message: `Cannot update status: There are ${activeEnrollments} active participant(s) enrolled in this cohort. Use the official Unpublish action once no active participants remain.`,
-      };
+    if (!program) {
+      return { success: false as const, message: "Program not found." };
     }
-  }
 
-  const updated = await prisma.program.update({
-    where: { id: programId },
-    data: { status: targetStatus, isPublished: targetStatus === "PUBLISH" },
+    if (targetPrismaStatus === "PUBLISHED") {
+      const headerMsg = getIncompleteHeaderMessage(program);
+      if (headerMsg) return { success: false as const, message: headerMsg };
+    }
+
+    if (targetPrismaStatus === "OPEN" || targetPrismaStatus === "PUBLISHED") {
+      const previewMissing = getIncompleteDaysPreview(program.durationDays, program.days);
+      if (previewMissing) {
+        return {
+          success: false as const,
+          message: `Cannot change status to ${targetPrismaStatus}! All ${program.durationDays} curriculum days must be completed first. Incomplete: ${previewMissing}.`,
+        };
+      }
+    }
+
+    if (program.status === "PUBLISHED" && targetPrismaStatus !== "PUBLISHED") {
+      const activeEnrollments = await tx.programEnrollment.count({
+        where: { programId, status: "ACTIVE" },
+      });
+      if (activeEnrollments > 0) {
+        return {
+          success: false as const,
+          message: `Cannot update status: There are ${activeEnrollments} active participant(s) enrolled in this cohort. Use the official Unpublish action once no active participants remain.`,
+        };
+      }
+    }
+
+    const updated = await tx.program.update({
+      where: { id: programId },
+      data: { status: targetPrismaStatus, version: { increment: 1 } },
+    });
+
+    await recordAuditLog(
+      {
+        actorUserId: admin.userId,
+        action: "PROGRAM_STATUS_CHANGED",
+        entityType: "Program",
+        entityId: programId,
+        metadata: { from: program.status, to: targetPrismaStatus },
+      },
+      tx
+    );
+
+    const labelMap: Record<string, string> = {
+      DRAFT: "Draft (Pengisian Awal)",
+      OPEN: "Open (Siap Publish)",
+      PUBLISHED: "Publish (Disiarkan ke Publik)",
+      DONE: "Done (Selesai)",
+      ARCHIVED: "Archive (Diarsipkan)",
+    };
+
+    const clientStatus =
+      updated.status === "PUBLISHED"
+        ? "PUBLISH"
+        : updated.status === "ARCHIVED"
+          ? "ARCHIVE"
+          : updated.status;
+
+    return {
+      success: true as const,
+      message: `Status program "${updated.title}" diubah menjadi: ${labelMap[updated.status] || normStatus}.`,
+      data: { status: clientStatus, isPublished: updated.status === "PUBLISHED" },
+    };
   });
 
-  revalidateWellnessRoutes();
-
-  const labelMap: Record<string, string> = {
-    DRAFT: "Draft (Pengisian Awal)",
-    OPEN: "Open (Siap Publish)",
-    PUBLISH: "Publish (Disiarkan ke Publik)",
-    DONE: "Done (Selesai)",
-    ARCHIVE: "Archive (Diarsipkan)",
-  };
-
-  return {
-    success: true,
-    message: `Status program "${updated.title}" diubah menjadi: ${labelMap[targetStatus] || targetStatus}.`,
-    data: { status: updated.status, isPublished: updated.isPublished },
-  };
+  if (result.success) revalidateWellnessRoutes();
+  return result;
 }
 
 export async function togglePublishProgramService(
   programId: string,
   publish: boolean
 ): Promise<WellnessActionResult<{ isPublished: boolean; status: string }>> {
-  await requireProgramAccess(programId);
+  const admin = await requireProgramAccess(programId);
 
-  const program = await prisma.program.findUnique({
-    where: { id: programId },
-    include: { days: { orderBy: { dayNumber: "asc" } } },
-  });
+  const result = await prisma.$transaction(async (tx) => {
+    await lockProgramRow(tx, programId);
 
-  if (!program) {
-    return { success: false, message: "Program not found." };
-  }
+    const program = await tx.program.findFirst({
+      where: { id: programId, deletedAt: null },
+      include: {
+        ...PROGRAM_TAXONOMY_INCLUDE,
+        days: { orderBy: { dayNumber: "asc" } },
+      },
+    });
 
-  if (publish) {
-    const headerMsg = getIncompleteHeaderMessage(program);
-    if (headerMsg) {
-      return { success: false, message: headerMsg };
+    if (!program) {
+      return { success: false as const, message: "Program not found." };
     }
 
-    const previewMissing = getIncompleteDaysPreview(program.durationDays, program.days);
-    if (previewMissing) {
+    if (publish) {
+      const headerMsg = getIncompleteHeaderMessage(program);
+      if (headerMsg) return { success: false as const, message: headerMsg };
+
+      const previewMissing = getIncompleteDaysPreview(program.durationDays, program.days);
+      if (previewMissing) {
+        return {
+          success: false as const,
+          message: `Cannot publish yet! All ${program.durationDays} curriculum days must be completed first. Incomplete: ${previewMissing}.`,
+        };
+      }
+
+      const updated = await tx.program.update({
+        where: { id: programId },
+        data: { status: "PUBLISHED", version: { increment: 1 } },
+      });
+
+      await recordAuditLog(
+        {
+          actorUserId: admin.userId,
+          action: "PROGRAM_PUBLISHED",
+          entityType: "Program",
+          entityId: programId,
+        },
+        tx
+      );
+
       return {
-        success: false,
-        message: `Cannot publish yet! All ${program.durationDays} curriculum days must be completed first. Incomplete: ${previewMissing}.`,
+        success: true as const,
+        message: `Cohort "${updated.title}" is now PUBLISHED and live! Core settings are locked to preserve integrity.`,
+        data: { isPublished: true, status: "PUBLISH" },
       };
     }
 
-    const updated = await prisma.program.update({
-      where: { id: programId },
-      data: { isPublished: true, status: "PUBLISH" },
+    const activeEnrollments = await tx.programEnrollment.count({
+      where: { programId, status: "ACTIVE" },
     });
 
-    revalidateWellnessRoutes();
+    if (activeEnrollments > 0) {
+      return {
+        success: false as const,
+        message: `Cannot unpublish: ${activeEnrollments} active member(s) are currently enrolled in this cohort. Unpublishing would break their live curriculum access.`,
+      };
+    }
+
+    const updated = await tx.program.update({
+      where: { id: programId },
+      data: { status: "OPEN", version: { increment: 1 } },
+    });
+
+    await recordAuditLog(
+      {
+        actorUserId: admin.userId,
+        action: "PROGRAM_UNPUBLISHED",
+        entityType: "Program",
+        entityId: programId,
+      },
+      tx
+    );
 
     return {
-      success: true,
-      message: `Cohort "${updated.title}" is now PUBLISHED and live! Core settings are locked to preserve integrity.`,
-      data: { isPublished: updated.isPublished, status: updated.status },
+      success: true as const,
+      message: `Cohort "${updated.title}" has been unpublished and returned to Review status.`,
+      data: { isPublished: false, status: "REVIEW" },
     };
-  }
-
-  const activeEnrollments = await prisma.programEnrollment.count({
-    where: { programId, status: "ACTIVE" },
   });
 
-  if (activeEnrollments > 0) {
-    return {
-      success: false,
-      message: `Cannot unpublish: ${activeEnrollments} active member(s) are currently enrolled in this cohort. Unpublishing would break their live curriculum access.`,
-    };
-  }
-
-  const updated = await prisma.program.update({
-    where: { id: programId },
-    data: { isPublished: false, status: "REVIEW" },
-  });
-
-  revalidateWellnessRoutes();
-
-  return {
-    success: true,
-    message: `Cohort "${updated.title}" has been unpublished and returned to Review status.`,
-    data: { isPublished: updated.isPublished, status: updated.status },
-  };
+  if (result.success) revalidateWellnessRoutes();
+  return result;
 }
 
 export async function deleteProgramService(
   programId: string
 ): Promise<WellnessActionResult> {
-  await requireProgramAccess(programId);
+  const admin = await requireProgramAccess(programId);
 
-  const existing = await prisma.program.findUnique({
-    where: { id: programId },
-  });
+  const result = await prisma.$transaction(async (tx) => {
+    await lockProgramRow(tx, programId);
 
-  if (!existing) {
-    return { success: false, message: "Program not found." };
-  }
+    const existing = await tx.program.findFirst({
+      where: { id: programId, deletedAt: null },
+      select: { id: true, title: true, slug: true },
+    });
 
-  const activeEnrollments = await prisma.programEnrollment.count({
-    where: { programId, status: "ACTIVE" },
-  });
+    if (!existing) {
+      return { success: false as const, message: "Program not found." };
+    }
 
-  if (activeEnrollments > 0) {
+    const activeEnrollments = await tx.programEnrollment.count({
+      where: { programId, status: "ACTIVE" },
+    });
+
+    if (activeEnrollments > 0) {
+      return {
+        success: false as const,
+        message: `Cannot delete program: ${activeEnrollments} active member(s) are currently enrolled. Cancel or refund enrollments first.`,
+      };
+    }
+
+    const anyEnrollments = await tx.programEnrollment.count({ where: { programId } });
+    if (anyEnrollments > 0) {
+      // Soft-delete when historical enrollments/transactions exist (onDelete: Restrict)
+      const now = new Date();
+      await tx.program.update({
+        where: { id: programId },
+        data: {
+          deletedAt: now,
+          deletedById: admin.userId,
+          status: "ARCHIVED",
+          slug: `deleted_${programId}_${now.getTime()}`,
+        },
+      });
+    } else {
+      await tx.program.delete({ where: { id: programId } });
+    }
+
+    await recordAuditLog(
+      {
+        actorUserId: admin.userId,
+        action: "PROGRAM_DELETED",
+        entityType: "Program",
+        entityId: programId,
+        metadata: { title: existing.title, softDeleted: anyEnrollments > 0 },
+      },
+      tx
+    );
+
     return {
-      success: false,
-      message: `Cannot delete program: ${activeEnrollments} active member(s) are currently enrolled. Cancel or refund enrollments first.`,
+      success: true as const,
+      message: `Program "${existing.title}" deleted.`,
     };
-  }
+  });
 
-  await prisma.program.delete({ where: { id: programId } });
-  revalidateWellnessRoutes();
-
-  return {
-    success: true,
-    message: `Program "${existing.title}" deleted permanently.`,
-  };
+  if (result.success) revalidateWellnessRoutes();
+  return result;
 }

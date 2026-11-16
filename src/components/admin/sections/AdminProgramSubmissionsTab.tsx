@@ -1,9 +1,7 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
 import {
   AlertCircle,
-  Camera,
   CheckCircle2,
   Loader2,
   MessageSquareQuote,
@@ -13,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import type { ProgramSubmissionItem } from "@/wellness/actions/program";
-import type { AdminLightboxData, AdminProgram } from "../adminTypes";
+import type { AdminProgram } from "../adminTypes";
 import { AdminSubmissionCard } from "./AdminSubmissionCard";
 
 interface AdminProgramSubmissionsTabProps {
@@ -25,19 +23,15 @@ interface AdminProgramSubmissionsTabProps {
   submissionStats: {
     totalSubmissions: number;
     completedSubmissions: number;
-    photoSubmissions: number;
     uniqueMembers: number;
   };
   submissionDayFilter: number | "ALL";
   setSubmissionDayFilter: (val: number | "ALL") => void;
   submissionMemberFilter: string;
   setSubmissionMemberFilter: (val: string) => void;
-  submissionPhotosOnly: boolean;
-  setSubmissionPhotosOnly: Dispatch<SetStateAction<boolean>>;
   submissionSearch: string;
   setSubmissionSearch: (val: string) => void;
   loadProgramSubmissions: (progId: string) => void;
-  setLightboxData: (val: AdminLightboxData | null) => void;
 }
 
 export function AdminProgramSubmissionsTab({
@@ -51,17 +45,14 @@ export function AdminProgramSubmissionsTab({
   setSubmissionDayFilter,
   submissionMemberFilter,
   setSubmissionMemberFilter,
-  submissionPhotosOnly,
-  setSubmissionPhotosOnly,
   submissionSearch,
   setSubmissionSearch,
   loadProgramSubmissions,
-  setLightboxData,
 }: AdminProgramSubmissionsTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Stats Overview (4 Cards) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
             <span className="text-xs font-medium">Total Responses</span>
@@ -82,17 +73,6 @@ export function AdminProgramSubmissionsTab({
             {submissionStats.completedSubmissions}
           </div>
           <p className="text-[11px] text-zinc-500">Fully validated routines</p>
-        </div>
-
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span className="text-xs font-medium">Photo Logs</span>
-            <Camera className="w-4 h-4 text-zinc-500" />
-          </div>
-          <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white font-mono">
-            {submissionStats.photoSubmissions}
-          </div>
-          <p className="text-[11px] text-zinc-500">Before &amp; After photo submissions</p>
         </div>
 
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-1">
@@ -151,19 +131,6 @@ export function AdminProgramSubmissionsTab({
               </select>
             </div>
 
-            {/* Photos Only Toggle */}
-            <button
-              type="button"
-              onClick={() => setSubmissionPhotosOnly((p) => !p)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 border ${
-                submissionPhotosOnly
-                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-xs"
-                  : "bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/10 hover:bg-zinc-100"
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span>Photos Only</span>
-            </button>
           </div>
 
           {/* Search & Refresh */}
@@ -201,7 +168,7 @@ export function AdminProgramSubmissionsTab({
         </div>
 
         {/* Active Filters Summary */}
-        {(submissionDayFilter !== "ALL" || submissionMemberFilter !== "ALL" || submissionPhotosOnly || submissionSearch) && (
+        {(submissionDayFilter !== "ALL" || submissionMemberFilter !== "ALL" || submissionSearch) && (
           <div className="pt-2 border-t border-zinc-100 dark:border-white/5 flex items-center justify-between text-xs text-zinc-500">
             <span>
               Showing <strong>{filteredSubmissions.length}</strong> of {programSubmissions.length} response(s)
@@ -211,7 +178,6 @@ export function AdminProgramSubmissionsTab({
               onClick={() => {
                 setSubmissionDayFilter("ALL");
                 setSubmissionMemberFilter("ALL");
-                setSubmissionPhotosOnly(false);
                 setSubmissionSearch("");
               }}
               className="text-zinc-700 dark:text-zinc-300 hover:underline text-[11px]"
@@ -288,7 +254,6 @@ export function AdminProgramSubmissionsTab({
             <AdminSubmissionCard
               key={sub.id}
               sub={sub}
-              setLightboxData={setLightboxData}
             />
           ))}
         </div>

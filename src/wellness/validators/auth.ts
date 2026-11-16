@@ -1,16 +1,9 @@
 import { z } from "zod";
-import { isSafePhotoUrl } from "../utils/url-safety";
 
 /** bcrypt silently ignores bytes beyond 72, so longer passwords are rejected rather than truncated. */
 const MAX_PASSWORD_BYTES = 72;
 const withinPasswordByteLimit = (v: string) => new TextEncoder().encode(v).length <= MAX_PASSWORD_BYTES;
 const PASSWORD_TOO_LONG = "Password is too long (maximum 72 bytes)";
-
-const SafePhotoUrlField = z
-  .string()
-  .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
-  .nullable()
-  .optional();
 
 export const SignUpSchema = z.object({
   fullName: z
@@ -72,9 +65,10 @@ export const ResetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
-/** Whole years between a YYYY-MM-DD birth date and `now` (UTC calendar math, DOB has no time zone). */
-export function calculateAgeFromDob(dob: string, now: Date = new Date()): number {
-  const [y, m, d] = dob.split("-").map(Number);
+/** Whole years between a YYYY-MM-DD birth date (or Date) and `now` (UTC calendar math). */
+export function calculateAgeFromDob(dob: string | Date, now: Date = new Date()): number {
+  const iso = dob instanceof Date ? dob.toISOString().slice(0, 10) : dob;
+  const [y, m, d] = iso.split("-").map(Number);
   let age = now.getUTCFullYear() - y;
   const hadBirthday =
     now.getUTCMonth() + 1 > m || (now.getUTCMonth() + 1 === m && now.getUTCDate() >= d);
@@ -109,7 +103,6 @@ export const UpdateProfileSchema = z.object({
     .max(18, "Phone number cannot exceed 18 digits")
     .optional()
     .or(z.literal("")),
-  age: z.number().int().min(10).max(120).nullable().optional(),
   dateOfBirth: z.union([DateOfBirthSchema, z.literal("")]).nullable().optional(),
   gender: z
     .union([z.enum(GENDER_OPTIONS), z.literal("")])
@@ -147,32 +140,10 @@ export const ChangePasswordSchema = z
 
 export const DeleteAccountSchema = z.object({
   password: z
-    .string({ required_error: "Password is required for security verification" })
-    .min(1, "Password is required"),
-});
-
-export const HealthProfileSchema = z.object({
-  photoFrontUrl: SafePhotoUrlField,
-  photoSideUrl: SafePhotoUrlField,
-  photoBackUrl: SafePhotoUrlField,
-  age: z.number().int().min(10).max(120).nullable().optional(),
-  weightKg: z.number().min(20).max(300).nullable().optional(),
-  heightCm: z.number().min(50).max(250).nullable().optional(),
-  dietType: z.string().max(50).nullable().optional(),
-  foodAllergies: z.string().max(500).nullable().optional(),
-  injuriesOrConditions: z.string().max(1000).nullable().optional(),
-  primaryGoal: z.string().max(500).nullable().optional(),
-  waistCm: z.number().min(30).max(200).nullable().optional(),
-  chestCm: z.number().min(30).max(200).nullable().optional(),
-  hipsCm: z.number().min(30).max(200).nullable().optional(),
-  currentMood: z.string().max(50).nullable().optional(),
-  energyLevel: z.number().int().min(1).max(10).nullable().optional(),
-  routineConfidence: z.number().int().min(1).max(5).nullable().optional(),
-  workoutFrequency: z.string().max(50).nullable().optional(),
-  averageBedtime: z.string().max(20).nullable().optional(),
-  averageWakeTime: z.string().max(20).nullable().optional(),
-  sleepQualityNotes: z.string().max(500).nullable().optional(),
-  eatingPatterns: z.string().max(500).nullable().optional(),
+    .string()
+    .min(1, "Password is required")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const AdminUpdateCustomerProfileSchema = z.object({
@@ -182,15 +153,6 @@ export const AdminUpdateCustomerProfileSchema = z.object({
   address: z.string().max(255).nullable().optional(),
   occupation: z.string().max(100).nullable().optional(),
   gender: z.string().max(50).nullable().optional(),
-  age: z.number().int().min(10).max(120).nullable().optional(),
   emergencyContactName: z.string().max(100).nullable().optional(),
   emergencyContactPhone: z.string().max(30).nullable().optional(),
-  dietType: z.string().max(50).nullable().optional(),
-  heightCm: z.number().min(50).max(260).nullable().optional(),
-  weightKg: z.number().min(20).max(350).nullable().optional(),
-  injuriesOrConditions: z.string().max(1000).nullable().optional(),
-  foodAllergies: z.string().max(500).nullable().optional(),
-  primaryGoal: z.string().max(500).nullable().optional(),
-  coachNotes: z.string().max(2000).nullable().optional(),
 });
-

@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { prisma } from "../db";
+import { calculateAgeFromDob } from "../validators/auth";
 import {
   getJwtSecretKey,
   isProductionEnv,
@@ -93,11 +94,12 @@ export function isAdminRole(role?: string | null): boolean {
 export const getWellnessSession = safeCache(async (): Promise<{
   userId: string;
   email: string;
+  emailVerifiedAt: Date | null;
   fullName: string;
   phone: string | null;
   age: number | null;
   dateOfBirth: Date | null;
-  avatarUrl: string | null;
+  avatarPath: string | null;
   gender: string | null;
   occupation: string | null;
   address: string | null;
@@ -122,17 +124,17 @@ export const getWellnessSession = safeCache(async (): Promise<{
     const payload = await verifySessionToken(token);
     if (!payload || !payload.userId) return null;
 
-    // Verifikasi real-time dengan database (Cek status akun & tokenVersion + profil lengkap dalam 1 query)
+    // Lightweight real-time verification (excludes large/signed media resolution from every request)
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: {
         id: true,
         email: true,
+        emailVerifiedAt: true,
         fullName: true,
         phone: true,
-        age: true,
-        dateOfBirth: true,
-        avatarUrl: true,
+        birthDate: true,
+        avatarPath: true,
         gender: true,
         occupation: true,
         address: true,
@@ -142,6 +144,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
         emergencyContactPhone: true,
         role: true,
         status: true,
+        deletedAt: true,
         preferredLocale: true,
         organizationId: true,
         coachProfileId: true,
@@ -152,18 +155,19 @@ export const getWellnessSession = safeCache(async (): Promise<{
       },
     });
 
-    if (!user) return null;
+    if (!user || user.deletedAt !== null) return null;
     if (user.status !== "ACTIVE") return null;
-    if (user.tokenVersion !== payload.tokenVersion) return null; // Sesi telah direvoke!
+    if (user.tokenVersion !== payload.tokenVersion) return null;
 
     return {
       userId: user.id,
       email: user.email,
+      emailVerifiedAt: user.emailVerifiedAt,
       fullName: user.fullName,
       phone: user.phone,
-      age: user.age,
-      dateOfBirth: user.dateOfBirth,
-      avatarUrl: user.avatarUrl,
+      age: user.birthDate ? calculateAgeFromDob(user.birthDate) : null,
+      dateOfBirth: user.birthDate,
+      avatarPath: user.avatarPath,
       gender: user.gender,
       occupation: user.occupation,
       address: user.address,

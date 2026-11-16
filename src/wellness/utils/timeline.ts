@@ -41,6 +41,18 @@ export type PublicProgramBadge =
   | "On going"
   | "End";
 
+export type PrismaProgramStatusValue = "DRAFT" | "OPEN" | "PUBLISHED" | "DONE" | "ARCHIVED";
+
+export function toPrismaProgramStatus(rawStatus?: string | null): PrismaProgramStatusValue {
+  if (!rawStatus) return "DRAFT";
+  const s = rawStatus.toUpperCase().trim();
+  if (s === "PUBLISH" || s === "PUBLISHED" || s === "ACTIVE") return "PUBLISHED";
+  if (s === "OPEN" || s === "REVIEW" || s === "READY" || s === "IN_REVIEW") return "OPEN";
+  if (s === "DONE" || s === "FINISHED") return "DONE";
+  if (s === "ARCHIVE" || s === "ARCHIVED" || s === "NOT_SHOW") return "ARCHIVED";
+  return "DRAFT";
+}
+
 export function normalizeProgramStatus(rawStatus?: string | null): ProgramDatabaseStatus {
   if (!rawStatus) return "DRAFT";
   const s = rawStatus.toUpperCase().trim();

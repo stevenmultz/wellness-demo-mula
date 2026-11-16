@@ -1,8 +1,11 @@
 /**
  * Safe JSON parser with fallback to prevent unhandled 500 crashes
  */
-export function safeJsonParse<T>(val: string | null | undefined, fallback: T): T {
-  if (!val || typeof val !== "string") return fallback;
+export function safeJsonParse<T>(val: unknown, fallback: T): T {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val !== "string") {
+    return val as T;
+  }
   const trimmed = val.trim();
   if (!trimmed) return fallback;
   try {
@@ -94,7 +97,13 @@ export const DEFAULT_PROGRAM_TERMS_CHAPTERS: ProgramTermChapter[] = [
 /**
  * Parse a JSON string array or newline-separated string into a clean string array.
  */
-export function parseStringList(raw?: string | null, fallback: string[] = []): string[] {
+export function parseStringList(raw?: unknown, fallback: string[] = []): string[] {
+  if (Array.isArray(raw)) {
+    const cleaned = raw
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item.length > 0);
+    return cleaned.length > 0 ? cleaned : [...fallback];
+  }
   if (!raw || typeof raw !== "string") {
     return [...fallback];
   }
@@ -125,25 +134,45 @@ export function parseStringList(raw?: string | null, fallback: string[] = []): s
   return lines.length > 0 ? lines : [...fallback];
 }
 
-export function serializeStringList(items?: string[] | null, fallback: string[] = []): string {
+export function toStringArrayJson(items?: string[] | null, fallback: string[] = []): string[] {
   if (Array.isArray(items)) {
     const cleaned = items
       .map((t) => (typeof t === "string" ? t.trim() : ""))
       .filter((t) => t.length > 0);
     if (cleaned.length > 0) {
-      return JSON.stringify(cleaned);
+      return cleaned;
     }
   }
-  return JSON.stringify(fallback);
+  return [...fallback];
+}
+
+export function serializeStringList(items?: string[] | null, fallback: string[] = []): string {
+  return JSON.stringify(toStringArrayJson(items, fallback));
 }
 
 /**
- * Parse scientific references from JSON string into ProgramReferenceItem[].
+ * Parse scientific references from JSON string or JsonValue into ProgramReferenceItem[].
  */
 export function parseReferencesList(
-  raw?: string | null,
+  raw?: unknown,
   fallback: ProgramReferenceItem[] = DEFAULT_PROGRAM_REFERENCES
 ): ProgramReferenceItem[] {
+  if (Array.isArray(raw)) {
+    const cleaned: ProgramReferenceItem[] = raw
+      .map((item) => {
+        if (typeof item === "string") return { title: item.trim(), url: "" };
+        if (item && typeof item === "object" && typeof (item as { title?: unknown }).title === "string") {
+          const obj = item as { title: string; url?: unknown };
+          return {
+            title: obj.title.trim(),
+            url: typeof obj.url === "string" ? obj.url.trim() : "",
+          };
+        }
+        return { title: "", url: "" };
+      })
+      .filter((item) => item.title.length > 0);
+    if (cleaned.length > 0) return cleaned;
+  }
   if (!raw || typeof raw !== "string") {
     return fallback.map((r) => ({ ...r }));
   }

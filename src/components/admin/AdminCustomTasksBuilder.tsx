@@ -33,7 +33,12 @@ export function normalizeCustomTaskDrafts(
     instructions: t.instructions || "",
     isRequired: t.isRequired ?? true,
     fields: Array.isArray(t.fields) ? t.fields : [],
-    translations: t.translations || null,
+    translations:
+      typeof t.translations === "string"
+        ? t.translations
+        : t.translations
+        ? JSON.stringify(t.translations)
+        : null,
   }));
 }
 

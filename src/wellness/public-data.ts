@@ -3,6 +3,18 @@ import { prisma } from "@/wellness/db";
 import { parseTermsList, safeJsonParse } from "@/wellness/utils/json";
 import { getServerLocale } from "@/wellness/i18n/server";
 import { resolveLocalizedField } from "@/wellness/i18n/types";
+import {
+  PROGRAM_TAXONOMY_INCLUDE,
+  serializeProgramTaxonomy,
+} from "@/wellness/services/program-taxonomy";
+
+function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("sb://")) {
+    return `/api/media/signed?path=${encodeURIComponent(pathOrUrl)}`;
+  }
+  return pathOrUrl;
+}
 
 export interface PublicSessionUser {
   userId: string;
@@ -108,40 +120,29 @@ export async function getPublicSanctuaryData(): Promise<{
       .findMany({
         take: 100,
         where: {
-          OR: [
-            { status: "PUBLISH" },
-            { status: "PUBLISHED" },
-            { isPublished: true },
-          ],
-          NOT: {
-            status: { in: ["DRAFT", "ARCHIVE"] },
-          },
+          status: "PUBLISHED",
+          deletedAt: null,
         },
         include: {
+          ...PROGRAM_TAXONOMY_INCLUDE,
           _count: {
             select: {
               days: true,
               enrollments: { where: { status: "ACTIVE" } },
             },
           },
-          organization: {
-            select: { name: true, logoUrl: true, isVerified: true },
-          },
-          dailyCommitmentRef: {
-            select: { name: true },
-          },
           days: {
             select: {
               dayNumber: true,
               dayType: true,
-              workoutOptions: true,
-              videoChecklist: true,
+              workoutOptionsJson: true,
+              videoChecklistJson: true,
               mealRecommendation: true,
               sleepRecommendation: true,
               restInstructions: true,
               onsiteVenue: true,
               onsiteSchedule: true,
-              dayNotifications: true,
+              dayNotificationsJson: true,
             },
             orderBy: { dayNumber: "asc" },
           },
@@ -167,12 +168,10 @@ export async function getPublicSanctuaryData(): Promise<{
                 select: {
                   id: true,
                   title: true,
-                  category: true,
                   durationDays: true,
-                  dailyCommitment: true,
-                  recommendedFor: true,
                   status: true,
-                  isPublished: true,
+                  deletedAt: true,
+                  ...PROGRAM_TAXONOMY_INCLUDE,
                 },
               },
             },
@@ -206,23 +205,24 @@ export async function getPublicSanctuaryData(): Promise<{
       (d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY"
     ).length;
 
+    const tax = serializeProgramTaxonomy(p);
+
     return {
       id: p.id,
-      title: resolveLocalizedField(p.title, p.translations, locale, "title"),
+      title: resolveLocalizedField(p.title, p.translationsJson, locale, "title"),
       slug: p.slug,
-      description: resolveLocalizedField(p.description, p.translations, locale, "description"),
-      coverImage: p.coverImage || null,
+      description: resolveLocalizedField(p.description, p.translationsJson, locale, "description"),
+      coverImage: toClientMediaUrl(p.coverImagePath),
       difficultyLevel: p.difficultyLevel || "ALL LEVELS",
-      category: p.category || "Pilates",
-      equipment: p.equipment || "Yoga Mat",
-      dailyCommitment:
-        p.dailyCommitmentRef?.name || p.dailyCommitment || "25 - 30 Mins / Day",
-      recommendedFor: p.recommendedFor || "All Levels",
-      coachName: p.coachName,
-      coachTitle: p.coachTitle,
-      organizationName: p.organization?.name || p.organizationCache || null,
-      organizationLogo: p.organization?.logoUrl || null,
-      organizationVerified: p.organization?.isVerified ?? false,
+      category: tax.category || "Pilates",
+      equipment: tax.equipment || "Yoga Mat",
+      dailyCommitment: tax.dailyCommitment || "25 - 30 Mins / Day",
+      recommendedFor: tax.recommendedFor || "All Levels",
+      coachName: tax.coachName,
+      coachTitle: tax.coachTitle,
+      organizationName: tax.organizationName || null,
+      organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
+      organizationVerified: tax.organizationVerified ?? false,
       language: p.language || "id",
       durationDays: p.durationDays,
       trainingDays,
@@ -235,16 +235,16 @@ export async function getPublicSanctuaryData(): Promise<{
       locationType: p.locationType,
       city: p.city || "Jakarta Selatan",
       venueAddress: p.venueAddress,
-      virtualFallbackAvailable: p.virtualFallbackAvailable,
+      virtualFallbackAvailable: p.isVirtualFallbackAvailable,
       communityLink: p.communityLink,
       enrolledCount: p._count.enrollments,
       isUserEnrolled: userActiveProgramIds.has(p.id),
       status: p.status,
-      isPublished: p.isPublished,
-      startDate: p.startDate,
-      endDate: p.endDate,
-      registrationOpenDate: p.registrationOpenDate,
-      registrationDeadline: p.registrationDeadline,
+      isPublished: p.status === "PUBLISHED",
+      startDate: p.startAt,
+      endDate: p.endAt,
+      registrationOpenDate: p.registrationOpenAt,
+      registrationDeadline: p.registrationDeadlineAt,
       dayCount: p._count.days || p.durationDays,
       termsList: parseTermsList(p.customTerms),
     };
@@ -273,7 +273,7 @@ export async function getPublicSanctuaryData(): Promise<{
   }
 
   const parsedWorkouts = safeJsonParse<string[]>(
-    sampleTrainingDay?.workoutOptions,
+    sampleTrainingDay?.workoutOptionsJson,
     [
       "Hot Pilates",
       "Strength & Conditioning",
@@ -284,7 +284,7 @@ export async function getPublicSanctuaryData(): Promise<{
   );
 
   const parsedChecklist = safeJsonParse<string[]>(
-    sampleTrainingDay?.videoChecklist,
+    sampleTrainingDay?.videoChecklistJson,
     [
       "5 min diaphragmatic breathing & posture check",
       "15 min guided mobility & core sequence",
@@ -294,12 +294,12 @@ export async function getPublicSanctuaryData(): Promise<{
 
   const parsedNotifications = safeJsonParse<
     Array<{ time: string; label: string; message: string }>
-  >(sampleTrainingDay?.dayNotifications, [
+  >(sampleTrainingDay?.dayNotificationsJson, [
     {
       time: "07:00",
       label: "Pagi • Movement Ritual",
       message:
-        "Modul hari ini telah dibuka. Luangkan 25 menit sesi latihan & upload foto before-after.",
+        "Modul hari ini telah dibuka. Luangkan 25 menit sesi latihan & catat checklist aktivitas harianmu.",
     },
     {
       time: "12:30",
@@ -340,37 +340,19 @@ export async function getPublicSanctuaryData(): Promise<{
   const coaches: PublicCoachItem[] = masterCoaches.map((c) => {
     const linkedFromPivot = c.programs
       .map((pc) => pc.program)
-      .filter(
-        (prog) =>
-          prog.status === "PUBLISH" ||
-          prog.status === "PUBLISHED" ||
-          prog.isPublished
-      );
+      .filter((prog) => prog.status === "PUBLISHED" && !prog.deletedAt);
 
-    const linkedByName = formattedPrograms.filter(
-      (fp) =>
-        fp.coachName?.toLowerCase() === c.name.toLowerCase() &&
-        !linkedFromPivot.some((lp) => lp.id === fp.id)
-    );
-
-    const mergedPrograms = [
-      ...linkedFromPivot.map((lp) => ({
+    const mergedPrograms = linkedFromPivot.map((lp) => {
+      const lpTax = serializeProgramTaxonomy(lp);
+      return {
         id: lp.id,
         title: lp.title,
-        category: lp.category,
+        category: lpTax.category || "Pilates",
         durationDays: lp.durationDays,
-        dailyCommitment: lp.dailyCommitment,
-        recommendedFor: lp.recommendedFor,
-      })),
-      ...linkedByName.map((fp) => ({
-        id: fp.id,
-        title: fp.title,
-        category: fp.category || "Pilates",
-        durationDays: fp.durationDays,
-        dailyCommitment: fp.dailyCommitment,
-        recommendedFor: fp.recommendedFor,
-      })),
-    ];
+        dailyCommitment: lpTax.dailyCommitment || null,
+        recommendedFor: lpTax.recommendedFor || null,
+      };
+    });
 
     return {
       id: c.id,

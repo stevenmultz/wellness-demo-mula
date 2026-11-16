@@ -136,7 +136,7 @@ export interface ProgramDayCustomTaskDTO {
   instructions: string | null;
   isRequired: boolean;
   fields: CustomTaskField[];
-  translations?: string | null;
+  translations?: unknown;
   submission?: {
     id: string;
     values: Record<string, unknown>;
@@ -429,10 +429,10 @@ export const CUSTOM_TASK_PRESETS: CustomTaskPreset[] = [
   },
 ];
 
-export function parseCustomTaskFields(raw: string | null | undefined): CustomTaskField[] {
+export function parseCustomTaskFields(raw: unknown): CustomTaskField[] {
   if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
       (f): f is CustomTaskField =>
@@ -444,11 +444,11 @@ export function parseCustomTaskFields(raw: string | null | undefined): CustomTas
 }
 
 export function parseCustomSubmissionValues(
-  raw: string | null | undefined
+  raw: unknown
 ): Record<string, unknown> {
   if (!raw) return {};
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : {};

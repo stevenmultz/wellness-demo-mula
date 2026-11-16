@@ -1,8 +1,7 @@
 "use client";
 
-import { AlertCircle, ArrowRight, Globe, Loader2, Lock, ShieldAlert, ShieldCheck, X } from "lucide-react";
-import { safeMediaUrl } from "@/wellness/utils/url-safety";
-import type { AdminLightboxData, AdminProgram, AdminPublishModalState } from "../adminTypes";
+import { AlertCircle, ArrowRight, Globe, Loader2, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
+import type { AdminProgram, AdminPublishModalState } from "../adminTypes";
 
 interface AdminModalsProps {
   publishModal: AdminPublishModalState | null;
@@ -12,8 +11,6 @@ interface AdminModalsProps {
   setProgramDetailTab: (tab: "info" | "schedule" | "responses") => void;
   handleSelectDay: (prog: AdminProgram, dayNum: number) => void;
   handleTogglePublish: (prog: AdminProgram, forceState?: boolean) => void;
-  lightboxData: AdminLightboxData | null;
-  setLightboxData: (val: AdminLightboxData | null) => void;
 }
 
 export function AdminModals({
@@ -24,8 +21,6 @@ export function AdminModals({
   setProgramDetailTab,
   handleSelectDay,
   handleTogglePublish,
-  lightboxData,
-  setLightboxData,
 }: AdminModalsProps) {
   return (
     <>
@@ -177,97 +172,6 @@ export function AdminModals({
               </div>
             </div>
           )}
-        </div>
-      </div>
-    )}
-
-    {/* ================================================================= */}
-    {/* LIGHTBOX / FULL-SIZE PHOTO COMPARISON MODAL                       */}
-    {/* ================================================================= */}
-    {lightboxData && (
-      <div
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
-        onClick={() => setLightboxData(null)}
-      >
-        <div
-          className="bg-white dark:bg-zinc-950 rounded-2xl max-w-4xl w-full border border-zinc-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Modal Header */}
-          <div className="p-4 sm:p-5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <span>Progress Photo Comparison</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 font-normal text-zinc-600 dark:text-zinc-400">
-                  Day {lightboxData.dayNumber}
-                </span>
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Member: <strong className="text-zinc-700 dark:text-zinc-300">{lightboxData.memberName}</strong>
-                {lightboxData.dateStr && ` • ${lightboxData.dateStr}`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLightboxData(null)}
-              className="p-2 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 transition"
-              title="Close modal"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Modal Images Grid */}
-          <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 overflow-y-auto">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 block">
-                Before Photo
-              </span>
-              <div className="aspect-4/3 rounded-xl overflow-hidden bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center justify-center">
-                {safeMediaUrl(lightboxData.beforeUrl) ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={safeMediaUrl(lightboxData.beforeUrl)!}
-                    alt="Before"
-                    decoding="async"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <span className="text-xs text-zinc-400">No before photo recorded</span>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 block">
-                After Photo
-              </span>
-              <div className="aspect-4/3 rounded-xl overflow-hidden bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 flex items-center justify-center">
-                {safeMediaUrl(lightboxData.afterUrl) ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={safeMediaUrl(lightboxData.afterUrl)!}
-                    alt="After"
-                    decoding="async"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <span className="text-xs text-zinc-400">No after photo recorded</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Modal Footer */}
-          <div className="p-4 border-t border-zinc-100 dark:border-white/10 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setLightboxData(null)}
-              className="px-4 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
-            >
-              Close Preview
-            </button>
-          </div>
         </div>
       </div>
     )}
