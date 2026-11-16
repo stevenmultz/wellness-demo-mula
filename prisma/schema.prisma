@@ -65,6 +65,7 @@ model PasswordResetToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("password_reset_tokens")
 }
 
@@ -365,6 +366,7 @@ model ProgramDayCustomSubmission {
 
   @@unique([userId, customTaskId])
   @@index([userId, programDayId])
+  @@index([programDayId])
   @@index([customTaskId])
   @@map("program_day_custom_submissions")
 }
@@ -389,6 +391,7 @@ model UserBodyMetricLog {
 
   @@index([userId, recordedAt])
   @@index([userId, programId])
+  @@index([userId, programDayId, source])
   @@map("user_body_metric_logs")
 }
 

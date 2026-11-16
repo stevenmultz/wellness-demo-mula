@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Calendar,
@@ -29,211 +28,22 @@ import {
   formatIdr,
   usePullToRefresh,
 } from "./shared";
-
-interface ExploreProgram {
-  id: string;
-  title: string;
-  coverImage: string | null;
-  coachName: string;
-  organizationName?: string | null;
-  organizationLogo?: string | null;
-  organizationVerified?: boolean;
-  language?: string;
-  startDate: string;
-  endDate: string;
-  registrationDeadline: string;
-  price: number;
-  actualPrice?: number;
-  discountPercentage?: number;
-  durationDays: number;
-  locationType: string;
-  city: string | null;
-  maxQuota?: number;
-  seatsLeft: number;
-  badge: string;
-  canEnroll: boolean;
-  enrollmentStatus: "ACTIVE" | "PENDING" | null;
-  difficultyLevel: string;
-  category: string;
-  recommendedFor: string;
-  dailyCommitment: string | null;
-  trainingDaysTotal?: number;
-  connectDaysTotal?: number;
-  restDaysTotal?: number;
-}
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; programs: ExploreProgram[] };
-
-const PAGE_SIZE = 8;
-
-const FORMAT_OPTIONS = [
-  { id: "ONLINE", label: "Full Online" },
-  { id: "HYBRID", label: "Hybrid (Online + Onsite)" },
-  { id: "ONSITE", label: "Full Onsite" },
-] as const;
-
-const INTENSITY_OPTIONS = ["Low", "Moderate", "High", "Very High"] as const;
-const CATEGORY_OPTIONS = ["Fitness", "Nutrition", "Mental Wellness", "Lifestyle", "Personal Development"] as const;
-const DURATION_OPTIONS = ["7 Days", "14 Days", "30 Days", "60 Days", "90 Days", "Custom Duration"] as const;
-const PRICE_BANDS = [
-  { id: "free", label: "Free" },
-  { id: "u100", label: "Under Rp100.000" },
-  { id: "100-300", label: "Rp100.000 – 300.000" },
-  { id: "300-500", label: "Rp300.000 – 500.000" },
-  { id: "500+", label: "Rp500.000+" },
-] as const;
-const EXPERIENCE_OPTIONS = ["Beginner", "Intermediate", "Advanced", "All Levels"] as const;
-const SCHEDULE_OPTIONS = ["Flexible Schedule", "Fixed Schedule"] as const;
-
-type Filters = {
-  format: string[];
-  intensity: string[];
-  category: string[];
-  duration: string[];
-  price: string[];
-  experience: string[];
-  schedule: string[];
-};
-
-const EMPTY: Filters = {
-  format: [],
-  intensity: [],
-  category: [],
-  duration: [],
-  price: [],
-  experience: [],
-  schedule: [],
-};
-
-function priceBand(amount: number): string {
-  if (amount <= 0) return "free";
-  if (amount < 100000) return "u100";
-  if (amount < 300000) return "100-300";
-  if (amount < 500000) return "300-500";
-  return "500+";
-}
-
-function intensityOf(level: string): (typeof INTENSITY_OPTIONS)[number] {
-  const value = (level || "").toUpperCase();
-  if (value.includes("HIGH")) return "Very High";
-  if (value === "ADVANCED") return "High";
-  if (value === "INTERMEDIATE") return "High";
-  if (value === "MODERATE") return "Moderate";
-  return "Low";
-}
-
-function experienceOf(program: ExploreProgram): string[] {
-  const tags: string[] = [];
-  const level = (program.difficultyLevel || "").toUpperCase();
-  const text = `${program.recommendedFor || ""} ${program.difficultyLevel || ""}`.toLowerCase();
-  if (text.includes("all level")) tags.push("All Levels");
-  if (level === "BEGINNER" || text.includes("beginner")) tags.push("Beginner");
-  if (level === "MODERATE" || level === "INTERMEDIATE" || text.includes("intermediate")) tags.push("Intermediate");
-  if (level === "ADVANCED" || level.includes("HIGH") || text.includes("advanced")) tags.push("Advanced");
-  return tags;
-}
-
-function categoriesOf(program: ExploreProgram): string[] {
-  const raw = (program.category || "").toLowerCase();
-  const hits: string[] = [];
-  if (/fit|pilates|workout|strength|hiit|mobility|cardio/.test(raw)) hits.push("Fitness");
-  if (/nutri|meal|diet|food/.test(raw)) hits.push("Nutrition");
-  if (/mental|mind|meditat|stress/.test(raw)) hits.push("Mental Wellness");
-  if (/lifestyle|habit|longevity|sleep/.test(raw)) hits.push("Lifestyle");
-  if (/personal|develop|growth|career/.test(raw)) hits.push("Personal Development");
-  return hits;
-}
-
-function durationOf(days: number): string {
-  if (days === 7) return "7 Days";
-  if (days === 14) return "14 Days";
-  if (days === 30) return "30 Days";
-  if (days === 60) return "60 Days";
-  if (days === 90) return "90 Days";
-  return "Custom Duration";
-}
-
-function scheduleOf(program: ExploreProgram): string | null {
-  const text = `${program.dailyCommitment || ""} ${program.recommendedFor || ""}`.toLowerCase();
-  if (text.includes("flex")) return "Flexible Schedule";
-  if (text.includes("fixed")) return "Fixed Schedule";
-  return null;
-}
-
-function countActive(f: Filters): number {
-  return (
-    f.format.length +
-    f.intensity.length +
-    f.category.length +
-    f.duration.length +
-    f.price.length +
-    f.experience.length +
-    f.schedule.length
-  );
-}
-
-function matches(program: ExploreProgram, f: Filters): boolean {
-  if (f.format.length && !f.format.includes(program.locationType)) return false;
-  if (f.intensity.length && !f.intensity.includes(intensityOf(program.difficultyLevel))) return false;
-  if (f.category.length && !categoriesOf(program).some((c) => f.category.includes(c))) return false;
-  if (f.duration.length && !f.duration.includes(durationOf(program.durationDays))) return false;
-  if (f.experience.length && !experienceOf(program).some((e) => f.experience.includes(e))) return false;
-  if (f.schedule.length) {
-    const s = scheduleOf(program);
-    if (!s || !f.schedule.includes(s)) return false;
-  }
-  if (f.price.length && !f.price.includes(priceBand(program.price))) return false;
-  return true;
-}
-
-function ChipGroup({
-  label,
-  options,
-  selected,
-  onToggle,
-}: {
-  label: string;
-  options: readonly string[];
-  selected: string[];
-  onToggle: (value: string) => void;
-}) {
-  if (options.length === 0) return null;
-  return (
-    <fieldset className="space-y-2 rounded-[2px] border border-zinc-200 dark:border-white/10 p-3">
-      <legend className="px-1 text-[11px] font-semibold text-zinc-950 dark:text-white">{label}</legend>
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => {
-          const on = selected.includes(opt);
-          return (
-            <button
-              key={opt}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onToggle(opt)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border transition active:scale-95 ${
-                on
-                  ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950"
-                  : "border-zinc-300 dark:border-white/15 text-zinc-700 dark:text-zinc-200"
-              }`}
-            >
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
-function coachAvatarFor(name: string): string {
-  const n = (name || "").toLowerCase();
-  if (n.includes("marcus") || n.includes("vance") || n.includes("nutri") || n.includes("dr.")) return "/coach2.webp";
-  if (n.includes("elena") || n.includes("rostova") || n.includes("sleep") || n.includes("somatics")) return "/coach3.webp";
-  return "/coach.webp";
-}
+import {
+  coachAvatarFor,
+  computeSupportedFilterOptions,
+  countActive,
+  EMPTY,
+  FORMAT_OPTIONS,
+  intensityOf,
+  matches,
+  PAGE_SIZE,
+  PRICE_BANDS,
+  type ExploreProgram,
+  type Filters,
+  type LoadState,
+} from "./explore/exploreFilters";
+import { ExploreFilterDialog } from "./explore/ExploreFilterDialog";
+import { ExploreCoachesView } from "./explore/ExploreCoachesView";
 
 export function ExplorePlanTab({
   headerVisible,
@@ -342,23 +152,7 @@ export function ExplorePlanTab({
   });
 
   const catalog = useMemo(() => (state.status === "ready" ? state.programs : []), [state]);
-  const supported = useMemo(() => {
-    const formats = new Set(catalog.map((p) => p.locationType));
-    const intensities = new Set(catalog.map((p) => intensityOf(p.difficultyLevel)));
-    const categories = new Set(catalog.flatMap(categoriesOf));
-    const durations = new Set(catalog.map((p) => durationOf(p.durationDays)));
-    const experiences = new Set(catalog.flatMap(experienceOf));
-    const schedules = new Set(catalog.map(scheduleOf).filter(Boolean) as string[]);
-    return {
-      format: FORMAT_OPTIONS.filter((o) => formats.has(o.id)),
-      intensity: INTENSITY_OPTIONS.filter((o) => intensities.has(o)),
-      category: CATEGORY_OPTIONS.filter((o) => categories.has(o)),
-      duration: DURATION_OPTIONS.filter((o) => durations.has(o)),
-      experience: EXPERIENCE_OPTIONS.filter((o) => experiences.has(o)),
-      schedule: SCHEDULE_OPTIONS.filter((o) => schedules.has(o)),
-      price: catalog.some((p) => p.price <= 0) || catalog.some((p) => p.price > 0),
-    };
-  }, [catalog]);
+  const supported = useMemo(() => computeSupportedFilterOptions(catalog), [catalog]);
 
   const availableCoaches = useMemo(() => {
     const map = new Map<string, string>();
@@ -565,209 +359,48 @@ export function ExplorePlanTab({
           </div>
         </div>
       ) : mode === "coaches" ? (
-        (() => {
-          const query = coachSearch.trim().toLowerCase();
-          const filteredCoaches = query
-            ? availableCoaches.filter((c) => c.name.toLowerCase().includes(query))
-            : availableCoaches;
-          const COACH_PAGE_SIZE = 8;
-          const coachPages = Math.max(1, Math.ceil(filteredCoaches.length / COACH_PAGE_SIZE));
-          const safeCoachPage = Math.min(coachPage, coachPages);
-          const paginatedCoaches = filteredCoaches.slice(
-            (safeCoachPage - 1) * COACH_PAGE_SIZE,
-            safeCoachPage * COACH_PAGE_SIZE
-          );
-
-          return (
-            <div className="space-y-6 max-w-3xl mx-auto pt-2">
-              <PullToRefreshBanner
-                pullDistance={pullDistance}
-                refreshing={refreshing && state.status === "ready"}
-              />
-
-              <div className="space-y-1">
-                <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                  Plan Faculty &amp; Coaches
-                </h1>
-              </div>
-
-              {filteredCoaches.length === 0 ? (
-                <EmptyState
-                  title="No coaches found"
-                  description="No coaches match that name right now."
-                  action={
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCoachSearch("");
-                        setCoachPage(1);
-                      }}
-                      className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold"
-                    >
-                      Clear Search
-                    </button>
-                  }
-                />
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {paginatedCoaches.map(({ name, avatar }) => {
-                      const count = catalog.filter(
-                        (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
-                      ).length;
-                      return (
-                        <button
-                          key={name}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCoach(name);
-                            setPage(1);
-                            setMode("catalog");
-                          }}
-                          className="group relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-zinc-900 text-left transition active:scale-[0.99]"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={avatar}
-                            alt={name}
-                            className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
-                          <div className="absolute bottom-3 left-3 right-3 space-y-0.5">
-                            <h2 className="text-xs sm:text-sm font-geometric font-medium text-white leading-snug line-clamp-1">
-                              {name}
-                            </h2>
-                            <span className="text-[10px] font-mono text-white/75 block">
-                              {count} {count === 1 ? "Plan" : "Plans"}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {coachPages > 1 && (
-                    <nav aria-label="Coach pages" className="flex items-center justify-center gap-1.5 pt-2">
-                      <button
-                        type="button"
-                        disabled={safeCoachPage === 1}
-                        onClick={() => setCoachPage(safeCoachPage - 1)}
-                        className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                      </button>
-                      {Array.from({ length: coachPages }, (_, i) => i + 1).map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          aria-current={n === safeCoachPage ? "page" : undefined}
-                          onClick={() => setCoachPage(n)}
-                          className={`w-9 h-9 rounded-full text-xs font-semibold ${
-                            n === safeCoachPage
-                              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                              : "border border-zinc-200 dark:border-white/15"
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        disabled={safeCoachPage === coachPages}
-                        onClick={() => setCoachPage(safeCoachPage + 1)}
-                        className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
-                      >
-                        Next <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </nav>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })()
+        <ExploreCoachesView
+          availableCoaches={availableCoaches}
+          catalog={catalog}
+          coachSearch={coachSearch}
+          onResetSearch={() => {
+            setCoachSearch("");
+            setCoachPage(1);
+          }}
+          coachPage={coachPage}
+          onChangeCoachPage={setCoachPage}
+          onSelectCoach={(name) => {
+            setSelectedCoach(name);
+            setPage(1);
+            setMode("catalog");
+          }}
+          pullDistance={pullDistance}
+          refreshing={refreshing}
+          loadStatus={state.status}
+        />
       ) : (
         <>
 
-      {filtersOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center" role="dialog" aria-modal="true" aria-label="Filters">
-            <style>{`
-              @keyframes fx-fade { from { opacity: 0 } to { opacity: 1 } }
-              @keyframes fx-sheet { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
-              .fx-fade { animation: fx-fade .2s ease-out both }
-              .fx-sheet { animation: fx-sheet .26s cubic-bezier(.2,.8,.2,1) both }
-              @media (prefers-reduced-motion: reduce) { .fx-fade, .fx-sheet { animation: none } }
-            `}</style>
-            <button type="button" aria-label="Close filters" className="fx-fade absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} />
-            <div className="fx-sheet relative w-full md:max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl md:rounded-[2px] bg-white dark:bg-[#121215] border border-zinc-200 dark:border-white/15 shadow-2xl font-sans">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <div>
-                  <p className="text-sm font-semibold text-zinc-950 dark:text-white">Filters</p>
-                  <p className="text-[11px] text-zinc-500">{countActive(draft) > 0 ? `${countActive(draft)} selected` : "Choose what you want to see"}</p>
-                </div>
-                <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close" className="w-9 h-9 rounded-[2px] hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
-                {catalog.length === 0 && <p className="text-xs text-zinc-500">No plans loaded yet, so there are no options to filter.</p>}
-                <ChipGroup
-                  label="Plan format"
-                  options={supported.format.map((o) => o.label)}
-                  selected={draft.format.map((id) => FORMAT_OPTIONS.find((o) => o.id === id)?.label || id)}
-                  onToggle={(label) => {
-                    const id = FORMAT_OPTIONS.find((o) => o.label === label)?.id;
-                    if (id) toggle("format", id);
-                  }}
-                />
-                <ChipGroup label="Intensity level" options={supported.intensity} selected={draft.intensity} onToggle={(v) => toggle("intensity", v)} />
-                <ChipGroup label="Plan category" options={supported.category} selected={draft.category} onToggle={(v) => toggle("category", v)} />
-                <ChipGroup label="Plan duration" options={supported.duration} selected={draft.duration} onToggle={(v) => toggle("duration", v)} />
-                {supported.price && (
-                  <ChipGroup
-                    label="Price"
-                    options={PRICE_BANDS.filter((b) => catalog.some((p) => priceBand(p.price) === b.id)).map((b) => b.label)}
-                    selected={draft.price.map((id) => PRICE_BANDS.find((b) => b.id === id)?.label || id)}
-                    onToggle={(label) => {
-                      const id = PRICE_BANDS.find((b) => b.label === label)?.id;
-                      if (id) toggle("price", id);
-                    }}
-                  />
-                )}
-                <ChipGroup label="Experience level" options={supported.experience} selected={draft.experience} onToggle={(v) => toggle("experience", v)} />
-                <ChipGroup label="Schedule" options={supported.schedule} selected={draft.schedule} onToggle={(v) => toggle("schedule", v)} />
-              </div>
-              <div className="flex items-center gap-3 px-5 py-4 border-t border-zinc-100 dark:border-white/10">
-                <button
-                  type="button"
-                  disabled={countActive(draft) === 0 && countActive(applied) === 0}
-                  onClick={() => {
-                    setDraft(EMPTY);
-                    setApplied(EMPTY);
-                    setPage(1);
-                  }}
-                  className="px-4 py-2.5 rounded-[2px] border border-zinc-300 dark:border-white/20 text-xs font-semibold disabled:opacity-40 active:scale-95 transition"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setApplied(draft);
-                    setPage(1);
-                    setFiltersOpen(false);
-                  }}
-                  className="flex-1 px-4 py-2.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold uppercase tracking-wider active:scale-95 transition"
-                >
-                  Apply · {catalog.filter((p) => matches(p, draft)).length} result{catalog.filter((p) => matches(p, draft)).length === 1 ? "" : "s"}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      <ExploreFilterDialog
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        catalog={catalog}
+        supported={supported}
+        draft={draft}
+        setDraft={setDraft}
+        applied={applied}
+        onToggle={toggle}
+        onReset={() => {
+          setDraft(EMPTY);
+          setApplied(EMPTY);
+          setPage(1);
+        }}
+        onApply={() => {
+          setApplied(draft);
+          setPage(1);
+          setFiltersOpen(false);
+        }}
+      />
 
       <div className="space-y-4">
         <PullToRefreshBanner

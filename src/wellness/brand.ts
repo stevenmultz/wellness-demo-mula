@@ -24,4 +24,10 @@ export const BRAND = {
   copyright: "© 2026 ZERA +",
   /** Web Push notification tag prefix */
   notificationTagPrefix: "zera-cadence",
+  /** Concierge WhatsApp phone number (E.164 digits without `+`) */
+  conciergeWhatsApp: process.env.NEXT_PUBLIC_CONCIERGE_WHATSAPP || "6281290002026",
 } as const;
+
+export function buildConciergeWhatsAppUrl(message: string): string {
+  return `https://wa.me/${BRAND.conciergeWhatsApp}?text=${encodeURIComponent(message)}`;
+}

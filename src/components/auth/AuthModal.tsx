@@ -102,11 +102,12 @@ export function AuthGatewayCard({
           const searchParams = new URLSearchParams(window.location.search);
           const target = searchParams.get("target");
 
-          if (target === "admin" && result.data?.role === "SUPERADMIN") {
+          const isStaffRole = ["SUPERADMIN", "COACH", "PARTNER_ADMIN"].includes(result.data?.role || "");
+          if (target === "admin" && isStaffRole) {
             router.push("/admin");
           } else if (target === "dashboard") {
             router.push("/dashboard");
-          } else if (result.data?.role === "SUPERADMIN") {
+          } else if (isStaffRole) {
             router.push("/admin");
           } else {
             router.push("/dashboard");

@@ -2,11 +2,14 @@
  * TRANSACTIONAL EMAIL INTEGRATION TEMPLATE (RESEND / NODEMAILER / SENDGRID)
  * -------------------------------------------------------------------------
  * Central adapter for sending password reset links and cohort enrollment receipts.
- * Currently logs to server console in development.
- * To enable third-party email in production:
- * 1. Add RESEND_API_KEY or SMTP credentials in .env
- * 2. Uncomment the provider block below.
+ * Enforces explicit request timeouts and bounded retry with jitter on transient 5xx/429 failures.
  */
+
+import {
+  EMAIL_MAX_ATTEMPTS,
+  EMAIL_REQUEST_TIMEOUT_MS,
+  getEmailConfig,
+} from "../config";
 
 export interface SendEmailPayload {
   to: string;
@@ -18,36 +21,50 @@ export interface SendEmailPayload {
 export async function sendTransactionalEmail(
   payload: SendEmailPayload
 ): Promise<{ delivered: boolean; provider: string }> {
-  const provider = process.env.EMAIL_PROVIDER || "CONSOLE_DEV";
+  const { provider, resendApiKey, from } = getEmailConfig();
 
-  if (provider === "RESEND" && process.env.RESEND_API_KEY) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "Wellness Sanctuary <no-reply@wellness.id>",
-          to: [payload.to],
-          subject: payload.subject,
-          html: payload.html,
-          ...(payload.text ? { text: payload.text } : {}),
-        }),
-      });
+  if (provider === "RESEND" && resendApiKey) {
+    for (let attempt = 1; attempt <= EMAIL_MAX_ATTEMPTS; attempt++) {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from,
+            to: [payload.to],
+            subject: payload.subject,
+            html: payload.html,
+            ...(payload.text ? { text: payload.text } : {}),
+          }),
+          signal: AbortSignal.timeout(EMAIL_REQUEST_TIMEOUT_MS),
+        });
 
-      if (!res.ok) {
+        if (res.ok) {
+          return { delivered: true, provider: "RESEND" };
+        }
+
         const errorText = await res.text().catch(() => "");
+        const retryable = res.status === 429 || res.status >= 500;
         console.error(`[Email Adapter Error - Resend]: HTTP ${res.status}: ${errorText}`);
-        return { delivered: false, provider: "RESEND" };
+
+        if (!retryable || attempt >= EMAIL_MAX_ATTEMPTS) {
+          return { delivered: false, provider: "RESEND" };
+        }
+      } catch (err) {
+        console.error(`[Email Adapter Error - Resend Exception attempt ${attempt}]:`, err);
+        if (attempt >= EMAIL_MAX_ATTEMPTS) {
+          return { delivered: false, provider: "RESEND" };
+        }
       }
 
-      return { delivered: true, provider: "RESEND" };
-    } catch (err) {
-      console.error("[Email Adapter Error - Resend Exception]:", err);
-      return { delivered: false, provider: "RESEND" };
+      // Bounded backoff with jitter before retry
+      const jitterMs = 200 + Math.floor(Math.random() * 250);
+      await new Promise((r) => setTimeout(r, jitterMs));
     }
+    return { delivered: false, provider: "RESEND" };
   }
 
   console.log(`\n======================================================`);

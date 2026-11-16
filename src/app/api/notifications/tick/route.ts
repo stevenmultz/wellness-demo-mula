@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getWellnessSession } from "@/wellness/security/session";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
 import { checkRateLimit } from "@/wellness/security/rate-limit";
+import { RATE_LIMITS } from "@/wellness/config";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,7 @@ export async function POST() {
   }
 
   // Rate limit: max 4 tick requests per minute per authenticated user
-  const rl = checkRateLimit(`tick:${session.userId}`, {
-    windowMs: 60 * 1000,
-    maxRequests: 4,
-  });
+  const rl = checkRateLimit(`tick:${session.userId}`, RATE_LIMITS.notificationsTick);
 
   if (!rl.allowed) {
     return NextResponse.json(
@@ -33,7 +31,19 @@ export async function POST() {
       lookbackMinutes: 2,
       userId: session.userId,
     });
-    return NextResponse.json({ success: true, ...summary });
+    return NextResponse.json({
+      success: true,
+      currentTimeWIB: summary.currentTimeWIB,
+      notificationsTriggered: summary.notificationsTriggered,
+      dispatchedDetails: summary.dispatchedDetails.map((d) => ({
+        programId: d.programId,
+        programTitle: d.programTitle,
+        dayNumber: d.dayNumber,
+        scheduledTime: d.scheduledTime,
+        scheduledDate: d.scheduledDate,
+        message: d.message,
+      })),
+    });
   } catch (error: unknown) {
     console.error("[Notification Tick Error]:", error);
     return NextResponse.json({ success: false, message: "Failed to dispatch notifications." }, { status: 500 });

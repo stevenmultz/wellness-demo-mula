@@ -113,6 +113,7 @@ export function CustomTaskSection({
   const [activeTask, setActiveTask] = useState<ProgramDayCustomTaskDTO | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingPhotoKey, setUploadingPhotoKey] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!customTasks || customTasks.length === 0) return null;
@@ -365,13 +366,37 @@ export function CustomTaskSection({
                           )}
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={uploadingPhotoKey === field.key}
                             className="sr-only"
                             onChange={async (ev) => {
                               const file = ev.target.files?.[0];
                               if (!file) return;
-                              const compressed = await compressPhoto(file);
-                              handleFieldChange(field.key, compressed);
+                              if (file.size > 5 * 1024 * 1024) {
+                                setErrorMsg("Photo exceeds maximum allowed size of 5 MB.");
+                                return;
+                              }
+                              setUploadingPhotoKey(field.key);
+                              setErrorMsg(null);
+                              try {
+                                const compressed = await compressPhoto(file);
+                                const uploadRes = await fetch("/api/upload", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ dataUrl: compressed, type: "custom" }),
+                                });
+                                const uploadJson = await uploadRes.json().catch(() => null);
+                                if (!uploadRes.ok || !uploadJson?.success || !uploadJson.url) {
+                                  throw new Error(uploadJson?.message || "Failed to upload photo.");
+                                }
+                                handleFieldChange(field.key, uploadJson.url);
+                              } catch (err) {
+                                setErrorMsg(
+                                  err instanceof Error ? err.message : "Could not process selected photo."
+                                );
+                              } finally {
+                                setUploadingPhotoKey(null);
+                              }
                             }}
                           />
                         </label>
@@ -455,11 +480,19 @@ export function CustomTaskSection({
                   </button>
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || uploadingPhotoKey !== null}
                     className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 active:scale-95 transition"
                   >
-                    {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>{saving ? t.common.saving : t.dashboard.submitCustomTask}</span>
+                    {(saving || uploadingPhotoKey !== null) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>
+                      {uploadingPhotoKey !== null
+                        ? locale === "id"
+                          ? "Mengunggah foto..."
+                          : "Uploading photo..."
+                        : saving
+                          ? t.common.saving
+                          : t.dashboard.submitCustomTask}
+                    </span>
                   </button>
                 </div>
               </form>

@@ -41,3 +41,6 @@ next-env.d.ts
 # agent scratch
 scratch/
 
+# private runtime media storage
+/storage/
+

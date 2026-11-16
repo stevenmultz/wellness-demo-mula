@@ -39,27 +39,9 @@ export async function createUserNotifications(items: UserNotificationInput[]): P
       uniqueItems.push(item);
     }
 
-    // Filter out any dedupeKeys already stored in the database (compatible with both SQLite and PostgreSQL)
-    const keyedItems = uniqueItems.filter((i) => Boolean(i.dedupeKey));
-    let existingSet = new Set<string>();
-    if (keyedItems.length > 0) {
-      const existing = await prisma.userNotification.findMany({
-        where: {
-          userId: { in: Array.from(new Set(keyedItems.map((i) => i.userId))) },
-          dedupeKey: { in: Array.from(new Set(keyedItems.map((i) => i.dedupeKey!))) },
-        },
-        select: { userId: true, dedupeKey: true },
-      });
-      existingSet = new Set(existing.map((e) => `${e.userId}::${e.dedupeKey}`));
-    }
-
-    const toInsert = uniqueItems.filter(
-      (i) => !i.dedupeKey || !existingSet.has(`${i.userId}::${i.dedupeKey}`)
-    );
-    if (toInsert.length === 0) return 0;
-
+    // Atomic idempotency on PostgreSQL @@unique([userId, dedupeKey]) without an extra pre-read round-trip
     const res = await prisma.userNotification.createMany({
-      data: toInsert.map((i) => ({
+      data: uniqueItems.map((i) => ({
         userId: i.userId,
         type: i.type,
         title: i.title.slice(0, 160),
@@ -68,6 +50,7 @@ export async function createUserNotifications(items: UserNotificationInput[]): P
         dedupeKey: i.dedupeKey ?? null,
         ...(i.createdAt ? { createdAt: i.createdAt } : {}),
       })),
+      skipDuplicates: true,
     });
     return res.count;
   } catch (err) {

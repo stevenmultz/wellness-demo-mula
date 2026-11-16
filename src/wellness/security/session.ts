@@ -2,15 +2,13 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { prisma } from "../db";
-
-const COOKIE_NAME = "wellness_session";
-const rawSecret = process.env.JWT_SECRET;
-if (!rawSecret && process.env.NODE_ENV === "production") {
-  throw new Error("FATAL SECURITY CONFIGURATION: JWT_SECRET environment variable must be configured in production.");
-}
-const SECRET_KEY = new TextEncoder().encode(
-  rawSecret || "wellness_platform_dev_only_jwt_secret_do_not_use_in_prod"
-);
+import {
+  getJwtSecretKey,
+  isProductionEnv,
+  SESSION_COOKIE_NAME,
+  SESSION_EXPIRATION_CLAIM,
+  SESSION_MAX_AGE_SECONDS,
+} from "../config";
 
 export interface SessionPayload {
   userId: string;
@@ -27,8 +25,8 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(SECRET_KEY);
+    .setExpirationTime(SESSION_EXPIRATION_CLAIM)
+    .sign(getJwtSecretKey());
 }
 
 /**
@@ -36,7 +34,7 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
  */
 export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY, { algorithms: ["HS256"] });
+    const { payload } = await jwtVerify(token, getJwtSecretKey(), { algorithms: ["HS256"] });
     return payload as unknown as SessionPayload;
   } catch {
     return null;
@@ -48,12 +46,12 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
  */
 export async function setSessionCookie(token: string) {
   const cookieStore = cookies();
-  cookieStore.set(COOKIE_NAME, token, {
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProductionEnv(),
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 hari
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 }
 
@@ -63,13 +61,13 @@ export async function setSessionCookie(token: string) {
 export async function clearSessionCookie() {
   const cookieStore = cookies();
   try {
-    cookieStore.delete(COOKIE_NAME);
+    cookieStore.delete(SESSION_COOKIE_NAME);
   } catch {
     // Abaikan jika tidak didukung di runtime tertentu
   }
-  cookieStore.set(COOKIE_NAME, "", {
+  cookieStore.set(SESSION_COOKIE_NAME, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProductionEnv(),
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -118,7 +116,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
 } | null> => {
   try {
     const cookieStore = cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
     if (!token) return null;
 
     const payload = await verifySessionToken(token);

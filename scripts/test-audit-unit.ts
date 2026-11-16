@@ -2,8 +2,22 @@ import assert from "assert";
 import { safeHttpUrl, safeMediaUrl, isSafePhotoUrl } from "../src/wellness/utils/url-safety";
 import { extractYouTubeId, normalizeVideoEmbed } from "../src/wellness/integrations/video-provider";
 import { HealthProfileSchema, AdminUpdateCustomerProfileSchema } from "../src/wellness/validators/auth";
-import { SubmitDayProgressSchema } from "../src/wellness/validators/program";
+import {
+  CreateProgramSchema,
+  CustomTaskFieldInputSchema,
+  ProgramDayInputSchema,
+  SubmitDayProgressSchema,
+} from "../src/wellness/validators/program";
+import { sanitizeCustomTaskSubmission } from "../src/wellness/utils/custom-tasks";
 import { getProgramDayWibWindow, calculateSleepDuration } from "../src/wellness/utils/timezone";
+import { BRAND, buildConciergeWhatsAppUrl } from "../src/wellness/brand";
+import {
+  SESSION_COOKIE_NAME,
+  MAX_UPLOAD_BYTES,
+  MAX_AVATAR_BYTES,
+  getAppUrl,
+  getPaymentProvider,
+} from "../src/wellness/config";
 
 async function runAuditUnitTests() {
   console.log("=== AUDIT REMEDIATION & PURE LOGIC UNIT TESTS ===\n");
@@ -17,7 +31,9 @@ async function runAuditUnitTests() {
   assert.strictEqual(safeHttpUrl("/relative/path"), null);
 
   assert.strictEqual(safeMediaUrl("/uploads/workouts/123-abc.webp"), "/uploads/workouts/123-abc.webp");
+  assert.strictEqual(safeMediaUrl("/api/media/workouts/u1-before-123-abc.webp"), "/api/media/workouts/u1-before-123-abc.webp");
   assert.strictEqual(safeMediaUrl("/uploads/../etc/passwd"), null);
+  assert.strictEqual(safeMediaUrl("/api/media/../etc/passwd"), null);
   assert.strictEqual(
     safeMediaUrl("data:image/png;base64,iVBORw0KGgo="),
     "data:image/png;base64,iVBORw0KGgo="
@@ -103,6 +119,84 @@ async function runAuditUnitTests() {
   });
   assert.strictEqual(validAdminProfile.success, true);
   console.log("  [PASS] 5. AdminUpdateCustomerProfileSchema rejects invalid ranges and accepts valid payloads");
+
+  // 6. Program & Custom Task Schema Hardening (URL safety, prototype keys, bounds)
+  assert.strictEqual(
+    CreateProgramSchema.safeParse({
+      title: "Test Cohort",
+      coverImage: "javascript:alert(1)",
+    }).success,
+    false
+  );
+  assert.strictEqual(
+    CreateProgramSchema.safeParse({
+      title: "Test Cohort",
+      communityLink: "javascript:alert(1)",
+    }).success,
+    false
+  );
+  assert.strictEqual(
+    ProgramDayInputSchema.safeParse({
+      dayNumber: 1,
+      title: "Day 1",
+      dayType: "TRAINING_DAY",
+      videoUrl: "javascript:alert(1)",
+      meetupLink: "https://meet.google.com/abc",
+    }).success,
+    false
+  );
+  assert.strictEqual(
+    CustomTaskFieldInputSchema.safeParse({
+      key: "__proto__",
+      label: "Proto",
+      type: "text",
+    }).success,
+    false
+  );
+  assert.strictEqual(
+    SubmitDayProgressSchema.safeParse({
+      programDayId: "day-1",
+      isCompleted: true,
+      sleepDurationMinutes: 2000,
+    }).success,
+    false
+  );
+
+  // 7. Custom Task Submission Field Sanitization
+  const badPhotoTask = sanitizeCustomTaskSubmission(
+    [{ key: "photoUrl", label: "Photo", type: "photo", required: true }],
+    { photoUrl: "javascript:alert(1)" }
+  );
+  assert.strictEqual(badPhotoTask.ok, false);
+
+  const outOfRangeNum = sanitizeCustomTaskSubmission(
+    [{ key: "weightKg", label: "Weight", type: "number", min: 20, max: 300, required: true }],
+    { weightKg: 999 }
+  );
+  assert.strictEqual(outOfRangeNum.ok, false);
+
+  const validCustom = sanitizeCustomTaskSubmission(
+    [
+      { key: "weightKg", label: "Weight", type: "number", min: 20, max: 300, required: true },
+      { key: "photoUrl", label: "Photo", type: "photo", required: false },
+    ],
+    { weightKg: "65.5", photoUrl: "/api/media/workouts/u1-custom-1-ab.webp", __proto__: { admin: true } }
+  );
+  assert.strictEqual(validCustom.ok, true);
+  if (validCustom.ok) {
+    assert.strictEqual(validCustom.values.weightKg, 65.5);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(validCustom.values, "__proto__"), false);
+  }
+  console.log("  [PASS] 6. Program & custom task validators + sanitization enforce bounds, URL safety, and prototype safety");
+
+  // 8. Centralized Config & Brand URL Helpers
+  assert.strictEqual(SESSION_COOKIE_NAME, "wellness_session");
+  assert.ok(MAX_UPLOAD_BYTES > MAX_AVATAR_BYTES);
+  assert.ok(getAppUrl().startsWith("http"));
+  assert.ok(["INTERNAL_SIMULATION", "MIDTRANS", "XENDIT"].includes(getPaymentProvider()));
+  const waHref = buildConciergeWhatsAppUrl("Hello ZERA +");
+  assert.ok(waHref.startsWith(`https://wa.me/${BRAND.conciergeWhatsApp}?text=Hello%20ZERA`));
+  console.log("  [PASS] 7. Centralized config and concierge WhatsApp URL helper verified");
 
   console.log("\n=== ALL AUDIT UNIT TESTS PASSED ===");
 }

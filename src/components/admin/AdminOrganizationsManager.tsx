@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Building2, CheckCircle2, Edit2, Plus, Trash2, X } from "lucide-react";
+import { safeMediaUrl } from "@/wellness/utils/url-safety";
 import {
   wellnessCreateMasterOrganization,
   wellnessDeleteMasterOrganization,
@@ -141,10 +142,10 @@ export function AdminOrganizationsManager({
             >
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-                  {org.logoUrl ? (
+                  {safeMediaUrl(org.logoUrl) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={org.logoUrl}
+                      src={safeMediaUrl(org.logoUrl)!}
                       alt={org.name}
                       className="w-full h-full object-cover"
                     />

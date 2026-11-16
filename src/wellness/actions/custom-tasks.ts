@@ -9,6 +9,7 @@ import {
   extractBodyMetricsFromValues,
   parseCustomTaskFields,
   parseCustomSubmissionValues,
+  sanitizeCustomTaskSubmission,
 } from "../utils/custom-tasks";
 import { ProgramDayCustomTaskInputSchema } from "../validators/program";
 import type { WellnessActionResult } from "./auth";
@@ -107,43 +108,16 @@ export async function wellnessUserSubmitCustomTask(
     };
   }
 
-  // Validate required fields from schema
+  // Validate & sanitize all fields by schema type, bounds, and URL safety
   const fields = parseCustomTaskFields(customTask.fieldsSchema);
-  for (const field of fields) {
-    if (!field.required) continue;
-    const rawVal = values[field.key];
-    if (field.type === "boolean") {
-      if (rawVal !== true) {
-        return {
-          success: false,
-          message: `Please complete "${field.label}" before saving.`,
-        };
-      }
-    } else if (
-      rawVal === undefined ||
-      rawVal === null ||
-      (typeof rawVal === "string" && rawVal.trim() === "")
-    ) {
-      return {
-        success: false,
-        message: `"${field.label}" is required.`,
-      };
-    }
+  const sanitizedResult = sanitizeCustomTaskSubmission(fields, values);
+  if (!sanitizedResult.ok) {
+    return {
+      success: false,
+      message: sanitizedResult.message,
+    };
   }
-
-  const sanitizedValues: Record<string, unknown> = {};
-  for (const field of fields) {
-    if (values[field.key] !== undefined) {
-      if (field.type === "number" || field.type === "rating") {
-        const n = Number(values[field.key]);
-        if (Number.isFinite(n)) {
-          sanitizedValues[field.key] = n;
-        }
-      } else {
-        sanitizedValues[field.key] = values[field.key];
-      }
-    }
-  }
+  const sanitizedValues = sanitizedResult.values;
 
   const result = await prisma.$transaction(async (tx) => {
     const submission = await tx.programDayCustomSubmission.upsert({
@@ -260,11 +234,12 @@ export async function wellnessUserSubmitCustomTask(
  */
 export async function wellnessUserGetBodyMetricHistory() {
   const session = await requireAuth();
-  const logs = await prisma.userBodyMetricLog.findMany({
+  const logsDesc = await prisma.userBodyMetricLog.findMany({
     where: { userId: session.userId },
-    orderBy: { recordedAt: "asc" },
+    orderBy: { recordedAt: "desc" },
     take: 100,
   });
+  const logs = logsDesc.reverse();
 
   return logs.map((l) => ({
     id: l.id,

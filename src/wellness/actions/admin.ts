@@ -7,6 +7,7 @@ import { requireSuperadmin } from "../security/guards";
 import { hashPassword } from "../security/password";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { AdminUpdateCustomerProfileSchema } from "../validators/auth";
+import { cleanupUserUploadedFiles } from "../utils/image-processor";
 import { WellnessActionResult } from "./auth";
 
 function revalidateAdminRoutes() {
@@ -96,55 +97,85 @@ export async function wellnessAdminUpdateUserRole(
     };
   }
 
-  const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-  if (!targetUser) {
-    return { success: false, message: "User not found." };
-  }
+  try {
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const targetUser = await tx.user.findUnique({ where: { id: targetUserId } });
+      if (!targetUser) {
+        throw new Error("User not found.");
+      }
 
-  if (targetUser.role === "SUPERADMIN") {
-    const superadminCount = await prisma.user.count({ where: { role: "SUPERADMIN" } });
-    if (superadminCount <= 1) {
-      return {
-        success: false,
-        message: "Cannot demote the last remaining Superadmin on the platform.",
-      };
-    }
-  }
+      if (targetUser.role === "SUPERADMIN") {
+        const superadminCount = await tx.user.count({ where: { role: "SUPERADMIN" } });
+        if (superadminCount <= 1) {
+          throw new Error("Cannot demote the last remaining Superadmin on the platform.");
+        }
+      }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: targetUserId },
-    data: {
-      role: newRole,
-      organizationId:
+      const nextOrgId =
         newRole === "PARTNER_ADMIN"
           ? scope?.organizationId ?? targetUser.organizationId
           : newRole === "USER"
             ? null
-            : targetUser.organizationId,
-      coachProfileId:
+            : targetUser.organizationId;
+
+      const nextCoachId =
         newRole === "COACH"
           ? scope?.coachProfileId ?? targetUser.coachProfileId
           : newRole === "USER"
             ? null
-            : targetUser.coachProfileId,
-      tokenVersion: { increment: 1 },
-    },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      role: true,
-      organizationId: true,
-      coachProfileId: true,
-    },
-  });
+            : targetUser.coachProfileId;
 
-  revalidateAdminRoutes();
-  return {
-    success: true,
-    message: `Role for ${updatedUser.fullName} updated to ${newRole}.`,
-    data: updatedUser,
-  };
+      if (nextOrgId) {
+        const orgExists = await tx.masterOrganization.findUnique({
+          where: { id: nextOrgId },
+          select: { id: true },
+        });
+        if (!orgExists) {
+          throw new Error("Selected organization does not exist.");
+        }
+      }
+
+      if (nextCoachId) {
+        const coachExists = await tx.masterCoach.findUnique({
+          where: { id: nextCoachId },
+          select: { id: true },
+        });
+        if (!coachExists) {
+          throw new Error("Selected coach profile does not exist.");
+        }
+      }
+
+      return tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          role: newRole,
+          organizationId: nextOrgId,
+          coachProfileId: nextCoachId,
+          tokenVersion: { increment: 1 },
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          organizationId: true,
+          coachProfileId: true,
+        },
+      });
+    });
+
+    revalidateAdminRoutes();
+    return {
+      success: true,
+      message: `Role for ${updatedUser.fullName} updated to ${newRole}.`,
+      data: updatedUser,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to update user role.",
+    };
+  }
 }
 
 /**
@@ -162,6 +193,14 @@ export async function wellnessAdminUpdateUserStatus(
       success: false,
       message: "You cannot suspend your own Superadmin account.",
     };
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true },
+  });
+  if (!targetUser) {
+    return { success: false, message: "User not found." };
   }
 
   const updatedUser = await prisma.user.update({
@@ -277,35 +316,44 @@ export async function wellnessAdminDeleteUser(
     };
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: targetUserId },
-  });
+  try {
+    const deletedTarget = await prisma.$transaction(async (tx) => {
+      const targetUser = await tx.user.findUnique({
+        where: { id: targetUserId },
+        select: { id: true, fullName: true, email: true, role: true },
+      });
 
-  if (!targetUser) {
-    return { success: false, message: "User not found." };
-  }
+      if (!targetUser) {
+        throw new Error("User not found.");
+      }
 
-  if (targetUser.role === "SUPERADMIN") {
-    const superadminCount = await prisma.user.count({
-      where: { role: "SUPERADMIN" },
+      if (targetUser.role === "SUPERADMIN") {
+        const superadminCount = await tx.user.count({
+          where: { role: "SUPERADMIN" },
+        });
+        if (superadminCount <= 1) {
+          throw new Error("Cannot delete the last remaining Superadmin on the platform.");
+        }
+      }
+
+      await tx.user.delete({
+        where: { id: targetUserId },
+      });
+      return targetUser;
     });
-    if (superadminCount <= 1) {
-      return {
-        success: false,
-        message: "Cannot delete the last remaining Superadmin on the platform.",
-      };
-    }
+
+    await cleanupUserUploadedFiles(targetUserId);
+    revalidateAdminRoutes();
+    return {
+      success: true,
+      message: `Account ${deletedTarget.fullName} (${deletedTarget.email}) has been permanently deleted.`,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to delete user account.",
+    };
   }
-
-  await prisma.user.delete({
-    where: { id: targetUserId },
-  });
-
-  revalidateAdminRoutes();
-  return {
-    success: true,
-    message: `Account ${targetUser.fullName} (${targetUser.email}) has been permanently deleted.`,
-  };
 }
 
 /**

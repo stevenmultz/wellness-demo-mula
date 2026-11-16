@@ -146,6 +146,7 @@ export default async function AdminPage({
     }),
     prisma.program.findMany({
       where: programScopeWhere,
+      take: 200,
       include: {
         organization: {
           select: { id: true, name: true, logoUrl: true },
@@ -166,6 +167,7 @@ export default async function AdminPage({
     }),
     prisma.programEnrollment.groupBy({
       by: ["programId", "status"],
+      where: session.role === "SUPERADMIN" ? undefined : { program: programScopeWhere },
       _count: { id: true },
     }),
     wellnessGetMasterData(),
@@ -325,7 +327,13 @@ export default async function AdminPage({
     }
     resolvedCustomerId = matchedCustomer.id;
     inspectedDayProgress = await prisma.programDayProgress.findMany({
-      where: { userId: matchedCustomer.id },
+      where: {
+        userId: matchedCustomer.id,
+        ...(session.role === "SUPERADMIN"
+          ? {}
+          : { programDay: { program: programScopeWhere } }),
+      },
+      take: 200,
       select: {
         id: true,
         videoWatched: true,

@@ -1,11 +1,15 @@
 /**
- * Zero-dependency in-memory sliding-window rate limiter for sensitive endpoints
- * (Sign-In, Password Reset, Registration, Cron/Notification ticks).
+ * Bounded in-memory sliding-window rate limiter for sensitive endpoints
+ * (Sign-In, Password Reset, Registration, Uploads, Cron/Notification ticks).
+ * Caps total tracked keys to prevent unbounded memory growth under spray attacks.
  */
 
 interface RateLimitEntry {
   timestamps: number[];
 }
+
+const MAX_RATE_LIMIT_KEYS = 10_000;
+const STALE_WINDOW_MS = 15 * 60 * 1000;
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
@@ -14,7 +18,7 @@ if (typeof setInterval !== "undefined") {
   setInterval(() => {
     const now = Date.now();
     rateLimitStore.forEach((entry: RateLimitEntry, key: string) => {
-      entry.timestamps = entry.timestamps.filter((t: number) => now - t < 15 * 60 * 1000);
+      entry.timestamps = entry.timestamps.filter((t: number) => now - t < STALE_WINDOW_MS);
       if (entry.timestamps.length === 0) {
         rateLimitStore.delete(key);
       }
@@ -32,10 +36,25 @@ export function checkRateLimit(
   options: RateLimitOptions
 ): { allowed: boolean; remaining: number; resetMs: number } {
   const now = Date.now();
-  const entry = rateLimitStore.get(identifier) || { timestamps: [] };
+  const existing = rateLimitStore.get(identifier);
+
+  // Evict oldest entry when capacity is reached to keep memory strictly bounded
+  if (!existing && rateLimitStore.size >= MAX_RATE_LIMIT_KEYS) {
+    const oldestKey = rateLimitStore.keys().next().value;
+    if (oldestKey !== undefined) {
+      rateLimitStore.delete(oldestKey);
+    }
+  }
+
+  const entry = existing || { timestamps: [] };
 
   // Filter timestamps within the current sliding window
   entry.timestamps = entry.timestamps.filter((t: number) => now - t < options.windowMs);
+
+  // Re-insert so Map iteration order approximates LRU
+  if (existing) {
+    rateLimitStore.delete(identifier);
+  }
 
   if (entry.timestamps.length >= options.maxRequests) {
     const oldest = entry.timestamps[0];
@@ -52,4 +71,14 @@ export function checkRateLimit(
     remaining: options.maxRequests - entry.timestamps.length,
     resetMs: options.windowMs,
   };
+}
+
+/** Clear a rate-limit bucket (e.g. per-account credential counter after successful sign-in). */
+export function resetRateLimit(identifier: string): void {
+  rateLimitStore.delete(identifier);
+}
+
+/** Exposed for unit testing of capacity bounds. */
+export function getRateLimitStoreSize(): number {
+  return rateLimitStore.size;
 }

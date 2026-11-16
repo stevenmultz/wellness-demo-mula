@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-
-const rawSecret = process.env.JWT_SECRET;
-if (!rawSecret && process.env.NODE_ENV === "production") {
-  throw new Error("FATAL SECURITY CONFIGURATION: JWT_SECRET environment variable must be configured in production.");
-}
-const SECRET_KEY = new TextEncoder().encode(
-  rawSecret || "wellness_platform_dev_only_jwt_secret_do_not_use_in_prod"
-);
+import { getJwtSecretKey, SESSION_COOKIE_NAME } from "./wellness/config";
 
 interface TokenPayload {
   userId: string;
@@ -19,7 +12,8 @@ interface TokenPayload {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get("wellness_session")?.value;
+  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const secretKey = getJwtSecretKey();
 
   // 1. Proteksi Interface Admin: /admin/*
   if (pathname.startsWith("/admin")) {
@@ -45,7 +39,7 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      const { payload } = await jwtVerify(sessionCookie, SECRET_KEY, { algorithms: ["HS256"] });
+      const { payload } = await jwtVerify(sessionCookie, secretKey, { algorithms: ["HS256"] });
       const tokenData = payload as unknown as TokenPayload;
 
       const ALLOWED_ADMIN_ROLES = new Set(["SUPERADMIN", "COACH", "PARTNER_ADMIN"]);
@@ -65,7 +59,7 @@ export async function middleware(request: NextRequest) {
     } catch {
       // Token tidak valid atau kedaluwarsa
       const response = NextResponse.redirect(new URL("/?auth=signin&target=admin", request.url));
-      response.cookies.delete("wellness_session");
+      response.cookies.delete(SESSION_COOKIE_NAME);
       return response;
     }
   }
@@ -77,7 +71,12 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      await jwtVerify(sessionCookie, SECRET_KEY, { algorithms: ["HS256"] });
+      await jwtVerify(sessionCookie, secretKey, { algorithms: ["HS256"] });
+      const response = NextResponse.next();
+      response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+      response.headers.set("X-Frame-Options", "DENY");
+      response.headers.set("X-Content-Type-Options", "nosniff");
+      return response;
     } catch {
       const response = NextResponse.redirect(new URL("/?auth=signin", request.url));
       response.cookies.delete("wellness_session");

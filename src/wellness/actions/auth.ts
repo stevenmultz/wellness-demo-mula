@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "crypto";
+import { headers } from "next/headers";
 import { prisma } from "../db";
 import { BRAND } from "../brand";
 import { hashPassword, verifyPassword } from "../security/password";
@@ -16,7 +17,29 @@ import {
   ResetPasswordSchema,
 } from "../validators/auth";
 import { sendTransactionalEmail } from "../integrations/email-service";
-import { checkRateLimit } from "../security/rate-limit";
+import { checkRateLimit, resetRateLimit } from "../security/rate-limit";
+import {
+  getAppUrl,
+  isProductionEnv,
+  PASSWORD_RESET_TTL_MS,
+  RATE_LIMITS,
+} from "../config";
+
+function getClientIpKey(): string {
+  try {
+    const h = headers();
+    const xff = h.get("x-forwarded-for");
+    if (xff) {
+      const first = xff.split(",")[0]?.trim();
+      if (first) return first.slice(0, 64);
+    }
+    const realIp = h.get("x-real-ip")?.trim();
+    if (realIp) return realIp.slice(0, 64);
+  } catch {
+    // Outside Next.js request context (e.g. unit tests)
+  }
+  return "unknown";
+}
 
 /** Reset tokens are stored as SHA-256 digests so a database leak cannot be replayed. */
 function hashResetToken(token: string): string {
@@ -53,13 +76,12 @@ export async function wellnessSignUp(
     }
 
     const { fullName, email, phone, password } = validation.data;
+    const ip = getClientIpKey();
 
-    // Rate limiting: max 5 registration attempts per 15 minutes per email
-    const rl = checkRateLimit(`signup:${email}`, {
-      windowMs: 15 * 60 * 1000,
-      maxRequests: 5,
-    });
-    if (!rl.allowed) {
+    // Dual rate limiting: per-IP burst cap + per-email cap
+    const ipRl = checkRateLimit(`signup-ip:${ip}`, RATE_LIMITS.signupIp);
+    const emailRl = checkRateLimit(`signup:${email}`, RATE_LIMITS.signupEmail);
+    if (!ipRl.allowed || !emailRl.allowed) {
       return {
         success: false,
         message: "Too many registration attempts. Please try again in a few minutes.",
@@ -142,13 +164,13 @@ export async function wellnessSignIn(
     }
 
     const { email, password } = validation.data;
+    const ip = getClientIpKey();
+    const accountBucket = `signin:${ip}:${email}`;
 
-    // Rate limiting: max 5 failed attempts per 15 minutes per email
-    const rl = checkRateLimit(`signin:${email}`, {
-      windowMs: 15 * 60 * 1000,
-      maxRequests: 5,
-    });
-    if (!rl.allowed) {
+    // Rate limiting: per-IP spray guard + per-(ip, email) credential brute-force guard
+    const ipRl = checkRateLimit(`signin-ip:${ip}`, RATE_LIMITS.signinIp);
+    const rl = checkRateLimit(accountBucket, RATE_LIMITS.signinAccount);
+    if (!ipRl.allowed || !rl.allowed) {
       return {
         success: false,
         message: "Too many sign-in attempts. Please try again after 15 minutes.",
@@ -174,6 +196,8 @@ export async function wellnessSignIn(
         message: "Invalid email or password.",
       };
     }
+
+    resetRateLimit(accountBucket);
 
     if (user.status !== "ACTIVE") {
       return {
@@ -238,13 +262,12 @@ export async function wellnessRequestPasswordReset(
     }
 
     const { email } = validation.data;
+    const ip = getClientIpKey();
 
-    // Rate limiting: max 3 password reset requests per 15 minutes per email
-    const rl = checkRateLimit(`pwdreset:${email}`, {
-      windowMs: 15 * 60 * 1000,
-      maxRequests: 3,
-    });
-    if (!rl.allowed) {
+    // Rate limiting: per-IP + per-email password reset protection
+    const ipRl = checkRateLimit(`pwdreset-ip:${ip}`, RATE_LIMITS.pwdResetIp);
+    const rl = checkRateLimit(`pwdreset:${email}`, RATE_LIMITS.pwdResetEmail);
+    if (!ipRl.allowed || !rl.allowed) {
       return {
         success: false,
         message: "Too many password reset attempts. Please wait 15 minutes before requesting again.",
@@ -271,7 +294,7 @@ export async function wellnessRequestPasswordReset(
     });
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
 
     await prisma.passwordResetToken.create({
       data: {
@@ -282,20 +305,24 @@ export async function wellnessRequestPasswordReset(
       },
     });
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = getAppUrl();
     const resetUrl = `${appUrl}/reset-password?token=${token}`;
 
-    await sendTransactionalEmail({
+    const emailRes = await sendTransactionalEmail({
       to: email,
       subject: `${BRAND.fullName} — Password Reset Request`,
       html: `<p>Click the link below to reset your password (valid for 15 minutes):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
       text: `Reset Link (valid for 15 minutes): ${resetUrl}`,
     });
 
+    if (!emailRes.delivered) {
+      console.error(`[wellnessRequestPasswordReset] Failed to deliver email via ${emailRes.provider} for userId=${user.id}`);
+    }
+
     return {
       success: true,
       message: genericSuccessMessage,
-      devResetUrl: process.env.NODE_ENV !== "production" ? resetUrl : undefined,
+      devResetUrl: !isProductionEnv() ? resetUrl : undefined,
     };
   } catch (error) {
     console.error("[wellnessRequestPasswordReset Error]:", error);

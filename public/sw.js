@@ -1,8 +1,7 @@
 // ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Single Loading Pipeline)
-const CACHE_NAME = "zera-wellness-pwa-v11";
+const CACHE_NAME = "zera-wellness-pwa-v12";
 
 const STATIC_ASSETS = [
-  "/",
   "/offline.html",
   "/manifest.json",
   "/favicon.svg",
@@ -40,9 +39,10 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET, API routes, and Next.js server actions
+  // Skip non-GET, API routes, service worker script, and Next.js server actions
   if (
     request.method !== "GET" ||
+    url.pathname === "/sw.js" ||
     url.pathname.startsWith("/api/") ||
     request.headers.has("next-action")
   ) {

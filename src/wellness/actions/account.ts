@@ -11,6 +11,8 @@ import { createQrisInvoiceAdapter } from "../integrations/payment-gateway";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { isRegistrationClosedInWib } from "../utils/timezone";
 import { normalizeProgramStatus, resolvePublicBadge } from "../utils/timeline";
+import { cleanupUserUploadedFiles } from "../utils/image-processor";
+import { isPaymentSimulationAllowed } from "../config";
 import { WellnessActionResult } from "./auth";
 
 /**
@@ -413,6 +415,18 @@ export async function wellnessEnrollProgram(
     try {
       const enrollment = await prisma.$transaction(async (tx) => {
         await lockProgramRow(tx, program.id);
+        const txExisting = await tx.programEnrollment.findUnique({
+          where: {
+            userId_programId: {
+              userId: session.userId,
+              programId: program.id,
+            },
+          },
+        });
+        if (txExisting && txExisting.status === "ACTIVE") {
+          throw new Error("You are already an active member of this cohort batch.");
+        }
+
         const liveActiveCount = await tx.programEnrollment.count({
           where: { programId: program.id, status: "ACTIVE" },
         });
@@ -423,12 +437,15 @@ export async function wellnessEnrollProgram(
           );
         }
 
-        if (existingEnrollment) {
+        if (txExisting) {
           return await tx.programEnrollment.update({
-            where: { id: existingEnrollment.id },
+            where: { id: txExisting.id },
             data: {
               status: "ACTIVE",
               attendanceMode,
+              paymentReference:
+                txExisting.paymentReference ||
+                `FREE-${crypto.randomBytes(6).toString("hex").toUpperCase()}`,
               paidAt,
               validUntil,
               termsAgreedAt: new Date(),
@@ -500,6 +517,18 @@ export async function wellnessEnrollProgram(
   try {
     const { enrollment, isRefresh } = await prisma.$transaction(async (tx) => {
       await lockProgramRow(tx, program.id);
+      const txExisting = await tx.programEnrollment.findUnique({
+        where: {
+          userId_programId: {
+            userId: session.userId,
+            programId: program.id,
+          },
+        },
+      });
+      if (txExisting && txExisting.status === "ACTIVE") {
+        throw new Error("You are already an active member of this cohort batch.");
+      }
+
       const txNow = new Date();
       const liveHoldCount = await tx.programEnrollment.count({
         where: {
@@ -521,22 +550,22 @@ export async function wellnessEnrollProgram(
         );
       }
 
-      if (existingEnrollment) {
+      if (txExisting) {
         const isStillValid =
-          existingEnrollment.status === "PENDING" &&
-          existingEnrollment.invoiceExpiresAt &&
-          txNow < new Date(existingEnrollment.invoiceExpiresAt);
+          txExisting.status === "PENDING" &&
+          txExisting.invoiceExpiresAt &&
+          txNow < new Date(txExisting.invoiceExpiresAt);
 
         const refreshed = await tx.programEnrollment.update({
-          where: { id: existingEnrollment.id },
+          where: { id: txExisting.id },
           data: {
             status: "PENDING",
             attendanceMode,
             paymentReference: isStillValid
-              ? existingEnrollment.paymentReference || gatewayInvoice.paymentReference
+              ? txExisting.paymentReference || gatewayInvoice.paymentReference
               : gatewayInvoice.paymentReference,
             invoiceExpiresAt: isStillValid
-              ? existingEnrollment.invoiceExpiresAt
+              ? txExisting.invoiceExpiresAt
               : gatewayInvoice.invoiceExpiresAt,
           },
         });
@@ -626,13 +655,16 @@ export async function wellnessConfirmQrisPayment(
     return { success: true, message: "Payment already verified." };
   }
 
+  if (enrollment.status !== "PENDING") {
+    return {
+      success: false,
+      message: "This invoice is no longer payable. Please start a new checkout.",
+    };
+  }
+
   // Guard against self-activation in production:
   // Direct client payment self-confirmation is ONLY permitted in development or when explicitly enabled
-  const isSimulationAllowed =
-    process.env.ALLOW_PAYMENT_SIMULATION === "true" ||
-    process.env.NODE_ENV === "development";
-
-  if (!isSimulationAllowed) {
+  if (!isPaymentSimulationAllowed()) {
     return {
       success: false,
       message:
@@ -770,22 +802,35 @@ export async function wellnessDeleteAccount(
     };
   }
 
-  if (user.role === "SUPERADMIN") {
-    const superadminCount = await prisma.user.count({
-      where: { role: "SUPERADMIN" },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.user.findUnique({
+        where: { id: session.userId },
+        select: { role: true },
+      });
+      if (!current) {
+        throw new Error("User not found.");
+      }
+      if (current.role === "SUPERADMIN") {
+        const superadminCount = await tx.user.count({
+          where: { role: "SUPERADMIN" },
+        });
+        if (superadminCount <= 1) {
+          throw new Error("Cannot delete the sole Superadmin account on the platform.");
+        }
+      }
+      await tx.user.delete({
+        where: { id: session.userId },
+      });
     });
-    if (superadminCount <= 1) {
-      return {
-        success: false,
-        message: "Cannot delete the sole Superadmin account on the platform.",
-      };
-    }
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to delete account.",
+    };
   }
 
-  await prisma.user.delete({
-    where: { id: session.userId },
-  });
-
+  await cleanupUserUploadedFiles(session.userId);
   await clearSessionCookie();
 
   return {

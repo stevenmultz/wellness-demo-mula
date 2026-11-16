@@ -2,34 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
 import { checkRateLimit } from "@/wellness/security/rate-limit";
+import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
+import {
+  MAX_AVATAR_BODY_BYTES,
+  MAX_AVATAR_BYTES,
+  RATE_LIMITS,
+} from "@/wellness/config";
 
 export const dynamic = "force-dynamic";
 
-const MAX_AVATAR_BYTES = 400 * 1024; // client resizes to 384px JPEG, so real files are far smaller
-
-const MAX_AVATAR_BODY_BYTES = Math.ceil((MAX_AVATAR_BYTES * 4) / 3) + 1024;
-const AVATAR_RATE_LIMIT = { windowMs: 60 * 1000, maxRequests: 10 };
-
-function detectImageMime(buf: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
-  if (buf.length < 12) return null;
-  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
-  if (
-    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
-    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-  if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") {
-    return "image/webp";
-  }
-  return null;
-}
-
 /**
  * POST /api/profile/avatar  { dataUrl }
- * The target user is always the session user. The file type is verified from its magic bytes
- * (the client-declared MIME type is never trusted), size is capped, and the image is stored
- * as a normalized data URL in users.avatar_url (no filesystem write, no user-controlled path).
+ * The target user is always the session user. The file type is verified from magic bytes,
+ * decoded & re-encoded via Sharp (stripping EXIF/GPS metadata, resizing to 384x384 WebP),
+ * and stored as a compact normalized data URL in users.avatar_url.
  */
 export async function POST(req: NextRequest) {
   const session = await getWellnessSession();
@@ -37,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const rl = checkRateLimit(`avatar:${session.userId}`, AVATAR_RATE_LIMIT);
+  const rl = checkRateLimit(`avatar:${session.userId}`, RATE_LIMITS.avatar);
   if (!rl.allowed) {
     return NextResponse.json(
       { success: false, message: "Too many attempts. Please wait a moment." },
@@ -72,15 +58,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const mime = detectImageMime(buffer);
-    if (!mime) {
+    if (!detectImageMime(buffer)) {
       return NextResponse.json(
         { success: false, message: "File content is not a valid JPEG, PNG, or WebP image." },
         { status: 400 }
       );
     }
 
-    const avatarUrl = `data:${mime};base64,${buffer.toString("base64")}`;
+    let optimized: { buffer: Buffer; mime: "image/webp"; ext: "webp" };
+    try {
+      optimized = await processAndOptimizeImage(buffer, {
+        maxWidth: 384,
+        maxHeight: 384,
+        fit: "cover",
+        quality: 80,
+      });
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "File content could not be decoded as a valid image." },
+        { status: 400 }
+      );
+    }
+
+    const avatarUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
     await prisma.user.update({ where: { id: session.userId }, data: { avatarUrl } });
 
     return NextResponse.json({ success: true, avatarUrl });

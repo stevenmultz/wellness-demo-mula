@@ -1,3 +1,102 @@
+import { isSafePhotoUrl } from "./url-safety";
+
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+export function sanitizeCustomTaskSubmission(
+  fields: CustomTaskField[],
+  rawValues: Record<string, unknown>
+): { ok: true; values: Record<string, unknown> } | { ok: false; message: string } {
+  const sanitizedValues: Record<string, unknown> = Object.create(null);
+
+  for (const field of fields) {
+    if (FORBIDDEN_KEYS.has(field.key)) {
+      continue;
+    }
+
+    const rawVal = Object.prototype.hasOwnProperty.call(rawValues, field.key)
+      ? rawValues[field.key]
+      : undefined;
+
+    if (field.required) {
+      if (field.type === "boolean") {
+        if (rawVal !== true) {
+          return { ok: false, message: `Please complete "${field.label}" before saving.` };
+        }
+      } else if (
+        rawVal === undefined ||
+        rawVal === null ||
+        (typeof rawVal === "string" && rawVal.trim() === "")
+      ) {
+        return { ok: false, message: `"${field.label}" is required.` };
+      }
+    }
+
+    if (rawVal === undefined || rawVal === null || rawVal === "") {
+      continue;
+    }
+
+    switch (field.type) {
+      case "number":
+      case "rating": {
+        const n = typeof rawVal === "number" ? rawVal : Number(rawVal);
+        if (!Number.isFinite(n)) {
+          return { ok: false, message: `"${field.label}" must be a valid number.` };
+        }
+        if (field.min !== undefined && n < field.min) {
+          return { ok: false, message: `"${field.label}" must be at least ${field.min}.` };
+        }
+        if (field.max !== undefined && n > field.max) {
+          return { ok: false, message: `"${field.label}" cannot exceed ${field.max}.` };
+        }
+        sanitizedValues[field.key] = n;
+        break;
+      }
+      case "boolean": {
+        if (typeof rawVal !== "boolean") {
+          return { ok: false, message: `"${field.label}" must be true or false.` };
+        }
+        sanitizedValues[field.key] = rawVal;
+        break;
+      }
+      case "select": {
+        if (typeof rawVal !== "string") {
+          return { ok: false, message: `Invalid selection for "${field.label}".` };
+        }
+        const trimmed = rawVal.trim();
+        if (field.options && field.options.length > 0 && !field.options.includes(trimmed)) {
+          return { ok: false, message: `Invalid option selected for "${field.label}".` };
+        }
+        sanitizedValues[field.key] = trimmed.slice(0, 200);
+        break;
+      }
+      case "photo": {
+        if (typeof rawVal !== "string" || !isSafePhotoUrl(rawVal) || rawVal.length > 2_000_000) {
+          return { ok: false, message: `Invalid photo URL for "${field.label}".` };
+        }
+        sanitizedValues[field.key] = rawVal.trim();
+        break;
+      }
+      case "textarea": {
+        if (typeof rawVal !== "string") {
+          return { ok: false, message: `"${field.label}" must be text.` };
+        }
+        sanitizedValues[field.key] = rawVal.trim().slice(0, 4000);
+        break;
+      }
+      case "text":
+      default: {
+        if (typeof rawVal !== "string") {
+          return { ok: false, message: `"${field.label}" must be text.` };
+        }
+        sanitizedValues[field.key] = rawVal.trim().slice(0, 500);
+        break;
+      }
+    }
+  }
+
+  return { ok: true, values: { ...sanitizedValues } };
+}
+
 export type CustomTaskType =
   | "MEASUREMENT"
   | "BENCHMARK"

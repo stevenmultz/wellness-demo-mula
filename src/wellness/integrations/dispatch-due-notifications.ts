@@ -78,6 +78,7 @@ export async function dispatchDueNotifications(options: {
     : getDueSlots(nowUtc, lookback);
 
   const programs = await prisma.program.findMany({
+    take: 200,
     where: {
       OR: [
         { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE"] } },
@@ -91,8 +92,21 @@ export async function dispatchDueNotifications(options: {
           }
         : {}),
     },
-    include: {
-      days: { orderBy: { dayNumber: "asc" } },
+    select: {
+      id: true,
+      title: true,
+      startDate: true,
+      days: {
+        where: {
+          dayNotifications: { not: null },
+        },
+        select: {
+          id: true,
+          dayNumber: true,
+          dayNotifications: true,
+        },
+        orderBy: { dayNumber: "asc" },
+      },
       enrollments: {
         where: {
           status: "ACTIVE",
@@ -115,7 +129,16 @@ export async function dispatchDueNotifications(options: {
   let totalDispatched = 0;
 
   for (const prog of programs) {
-    if (prog.enrollments.length === 0) continue;
+    if (prog.enrollments.length === 0 || prog.days.length === 0) continue;
+
+    // Collect all due items across this program's days/slots first, then batch-check existing dedupeKeys once!
+    const pendingItems: Array<{
+      day: (typeof prog.days)[number];
+      slot: DueSlot;
+      index: number;
+      item: DayNotificationItem;
+      dedupeKey: string;
+    }> = [];
 
     for (const day of prog.days) {
       const notifications = safeJsonParse<DayNotificationItem[]>(day.dayNotifications, []);
@@ -129,81 +152,104 @@ export async function dispatchDueNotifications(options: {
           : selectDueNotifications({ dayNumber: day.dayNumber, dayNotifications: notifications }, prog.startDate, slot);
 
         for (const { index, item } of due) {
-          const dedupeKey = buildCadenceDedupeKey(day.id, slot, index);
-          const enrolledUserIds = prog.enrollments.map((e) => e.userId);
-          const already = await prisma.userNotification.findMany({
-            where: { dedupeKey, userId: { in: enrolledUserIds } },
-            select: { userId: true },
-          });
-          const alreadySet = new Set(already.map((a) => a.userId));
-          const recipients = prog.enrollments.filter((e) => !alreadySet.has(e.userId));
-          if (recipients.length === 0) continue;
-
-          const message = item.message.trim();
-          const createdCount = await createUserNotifications(
-            recipients.map((enrollment) => ({
-              userId: enrollment.userId,
-              type: "TASK" as const,
-              title: prog.title,
-              body: message,
-              url: "/dashboard",
-              dedupeKey,
-              createdAt: slot.instant,
-            }))
-          );
-
-          // Atomic idempotency check: If 0 rows were inserted (due to duplicate key in concurrent execution), skip push dispatch!
-          if (createdCount === 0) continue;
-
-          const subscribers = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
-          for (const enrollment of recipients) {
-            for (const sub of enrollment.user?.pushSubscriptions || []) {
-              if (sub.endpoint && sub.p256dh && sub.auth) {
-                subscribers.set(sub.endpoint, { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
-              }
-            }
-          }
-
-          let sentSuccess = 0;
-          let sentFailed = 0;
-          const errors: string[] = [];
-          const subList = Array.from(subscribers.values());
-          const sendResults = await mapWithConcurrency(subList, PUSH_SEND_CONCURRENCY, (sub) =>
-            sendWebPushNotification(sub, {
-              title: prog.title,
-              body: message,
-              url: "/dashboard",
-              tag: `${BRAND.notificationTagPrefix}-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
-            })
-          );
-          for (let s = 0; s < subList.length; s++) {
-            const sub = subList[s];
-            const sendRes = sendResults[s];
-            if (sendRes.success) {
-              sentSuccess++;
-              totalDispatched++;
-            } else {
-              sentFailed++;
-              if (sendRes.error) errors.push(sendRes.error);
-              if (sendRes.isGone) deadEndpoints.push(sub.endpoint);
-            }
-          }
-
-          dispatchResults.push({
-            programId: prog.id,
-            programTitle: prog.title,
-            dayNumber: day.dayNumber,
-            scheduledTime: slot.time,
-            scheduledDate: slot.dateKey,
-            message,
-            recipientsCount: recipients.length,
-            skippedAlreadySent: alreadySet.size,
-            sentSuccess,
-            sentFailed,
-            ...(errors.length > 0 ? { errors } : {}),
+          pendingItems.push({
+            day,
+            slot,
+            index,
+            item,
+            dedupeKey: buildCadenceDedupeKey(day.id, slot, index),
           });
         }
       }
+    }
+
+    if (pendingItems.length === 0) continue;
+
+    const enrolledUserIds = prog.enrollments.map((e) => e.userId);
+    const allDedupeKeys = Array.from(new Set(pendingItems.map((p) => p.dedupeKey)));
+    const alreadyRows = await prisma.userNotification.findMany({
+      where: { dedupeKey: { in: allDedupeKeys }, userId: { in: enrolledUserIds } },
+      select: { userId: true, dedupeKey: true },
+    });
+    const alreadyByKey = new Map<string, Set<string>>();
+    for (const row of alreadyRows) {
+      if (!row.dedupeKey) continue;
+      let set = alreadyByKey.get(row.dedupeKey);
+      if (!set) {
+        set = new Set<string>();
+        alreadyByKey.set(row.dedupeKey, set);
+      }
+      set.add(row.userId);
+    }
+
+    for (const { day, slot, index, item, dedupeKey } of pendingItems) {
+      const alreadySet = alreadyByKey.get(dedupeKey) ?? new Set<string>();
+      const recipients = prog.enrollments.filter((e) => !alreadySet.has(e.userId));
+      if (recipients.length === 0) continue;
+
+      const message = item.message.trim();
+      const createdCount = await createUserNotifications(
+        recipients.map((enrollment) => ({
+          userId: enrollment.userId,
+          type: "TASK" as const,
+          title: prog.title,
+          body: message,
+          url: "/dashboard",
+          dedupeKey,
+          createdAt: slot.instant,
+        }))
+      );
+
+      // Atomic idempotency check: If 0 rows were inserted (due to duplicate key in concurrent execution), skip push dispatch!
+      if (createdCount === 0) continue;
+
+      const subscribers = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
+      for (const enrollment of recipients) {
+        for (const sub of enrollment.user?.pushSubscriptions || []) {
+          if (sub.endpoint && sub.p256dh && sub.auth) {
+            subscribers.set(sub.endpoint, { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
+          }
+        }
+      }
+
+      let sentSuccess = 0;
+      let sentFailed = 0;
+      const errors: string[] = [];
+      const subList = Array.from(subscribers.values());
+      const sendResults = await mapWithConcurrency(subList, PUSH_SEND_CONCURRENCY, (sub) =>
+        sendWebPushNotification(sub, {
+          title: prog.title,
+          body: message,
+          url: "/dashboard",
+          tag: `${BRAND.notificationTagPrefix}-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
+        })
+      );
+      for (let s = 0; s < subList.length; s++) {
+        const sub = subList[s];
+        const sendRes = sendResults[s];
+        if (sendRes.success) {
+          sentSuccess++;
+          totalDispatched++;
+        } else {
+          sentFailed++;
+          if (sendRes.error) errors.push(sendRes.error);
+          if (sendRes.isGone) deadEndpoints.push(sub.endpoint);
+        }
+      }
+
+      dispatchResults.push({
+        programId: prog.id,
+        programTitle: prog.title,
+        dayNumber: day.dayNumber,
+        scheduledTime: slot.time,
+        scheduledDate: slot.dateKey,
+        message,
+        recipientsCount: recipients.length,
+        skippedAlreadySent: alreadySet.size,
+        sentSuccess,
+        sentFailed,
+        ...(errors.length > 0 ? { errors } : {}),
+      });
     }
   }
 

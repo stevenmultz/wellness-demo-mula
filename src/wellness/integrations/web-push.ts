@@ -1,12 +1,11 @@
 import webpush from "web-push";
 import { BRAND } from "../brand";
+import { getVapidConfig, PUSH_REQUEST_TIMEOUT_MS } from "../config";
 
-/** Abort a push request that the provider leaves hanging so one slow endpoint cannot stall dispatch. */
-const PUSH_REQUEST_TIMEOUT_MS = 10_000;
+const { publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY, subject: VAPID_SUBJECT } =
+  getVapidConfig();
 
-export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${BRAND.supportEmail}`;
+export { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT };
 
 // Initialize VAPID details once
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {

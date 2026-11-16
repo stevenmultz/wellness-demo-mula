@@ -106,6 +106,7 @@ export async function getPublicSanctuaryData(): Promise<{
   ] = await Promise.all([
     prisma.program
       .findMany({
+        take: 100,
         where: {
           OR: [
             { status: "PUBLISH" },
@@ -158,6 +159,7 @@ export async function getPublicSanctuaryData(): Promise<{
       : Promise.resolve([]),
     prisma.masterCoach
       .findMany({
+        take: 100,
         include: {
           programs: {
             include: {

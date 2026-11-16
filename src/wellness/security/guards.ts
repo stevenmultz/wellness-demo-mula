@@ -49,10 +49,27 @@ export async function requireAdminAccess() {
 }
 
 /**
+ * Exact case-insensitive token check against a comma-separated coachName string.
+ * Prevents substring matches (e.g. "Ana" matching "Anastasia").
+ */
+export function matchesCoachNameToken(
+  coachNameCsv: string | null | undefined,
+  targetCoachName: string | null | undefined
+): boolean {
+  if (!coachNameCsv || !targetCoachName) return false;
+  const normalizedTarget = targetCoachName.trim().toLowerCase();
+  if (!normalizedTarget) return false;
+  return coachNameCsv
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .some((part) => part === normalizedTarget);
+}
+
+/**
  * Returns a Prisma `ProgramWhereInput` scoped to the caller's role:
  * - SUPERADMIN sees all programs.
  * - PARTNER_ADMIN sees programs belonging to their linked `organizationId`.
- * - COACH sees programs linked to their `coachProfileId` or matching `coachProfileName`.
+ * - COACH sees programs linked to their `coachProfileId` or exact CSV token match on `coachName`.
  */
 export function buildProgramScopeWhere(session: {
   role: string;
@@ -73,10 +90,20 @@ export function buildProgramScopeWhere(session: {
     if (session.coachProfileId) {
       orClauses.push({ coaches: { some: { coachId: session.coachProfileId } } });
     }
-    if (session.coachProfileName) {
-      orClauses.push({ coachName: { contains: session.coachProfileName, mode: "insensitive" } });
+    if (session.coachProfileName && session.coachProfileName.trim()) {
+      const name = session.coachProfileName.trim();
+      orClauses.push(
+        { coachName: { equals: name, mode: "insensitive" } },
+        { coachName: { startsWith: `${name},`, mode: "insensitive" } },
+        { coachName: { endsWith: `, ${name}`, mode: "insensitive" } },
+        { coachName: { endsWith: `,${name}`, mode: "insensitive" } },
+        { coachName: { contains: `, ${name},`, mode: "insensitive" } },
+        { coachName: { contains: `,${name},`, mode: "insensitive" } }
+      );
     }
-    return { OR: orClauses };
+    if (orClauses.length > 0) {
+      return { OR: orClauses };
+    }
   }
 
   // Fail-closed: unassigned scoped roles cannot access arbitrary programs
@@ -95,15 +122,43 @@ export async function requireProgramAccess(
     return activeSession;
   }
 
-  const count = await prisma.program.count({
-    where: {
-      AND: [{ id: programId }, buildProgramScopeWhere(activeSession)],
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    select: {
+      id: true,
+      organizationId: true,
+      coachName: true,
+      coaches: activeSession.coachProfileId
+        ? {
+            where: { coachId: activeSession.coachProfileId },
+            select: { coachId: true },
+          }
+        : false,
     },
   });
 
-  if (count === 0) {
+  if (!program) {
     throw new WellnessForbiddenError("You do not have access to this program.");
   }
 
-  return activeSession;
+  if (activeSession.role === "PARTNER_ADMIN") {
+    if (!activeSession.organizationId || program.organizationId !== activeSession.organizationId) {
+      throw new WellnessForbiddenError("You do not have access to this program.");
+    }
+    return activeSession;
+  }
+
+  if (activeSession.role === "COACH") {
+    const hasPivotLink = Array.isArray(program.coaches) && program.coaches.length > 0;
+    const hasExactNameMatch = matchesCoachNameToken(
+      program.coachName,
+      activeSession.coachProfileName
+    );
+    if (!hasPivotLink && !hasExactNameMatch) {
+      throw new WellnessForbiddenError("You do not have access to this program.");
+    }
+    return activeSession;
+  }
+
+  throw new WellnessForbiddenError("You do not have access to this program.");
 }

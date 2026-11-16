@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
 import { normalizeWibTime } from "@/wellness/utils/notification-schedule";
+import {
+  getCronSecret,
+  isProductionEnv,
+  MAX_CRON_BODY_BYTES,
+} from "@/wellness/config";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +22,9 @@ async function handleCronDispatch(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const authHeader = req.headers.get("authorization");
     const secretQuery = searchParams.get("secret");
-    const isProd = process.env.NODE_ENV === "production";
+    const isProd = isProductionEnv();
     // No built-in fallback secret: CRON_SECRET must be configured explicitly in every environment.
-    const cronSecret = process.env.CRON_SECRET || "";
+    const cronSecret = getCronSecret();
 
     let bodyJson: {
       simulateTime?: string;
@@ -27,15 +32,26 @@ async function handleCronDispatch(req: NextRequest) {
       lookbackMinutes?: number;
     } = {};
 
+    const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
     if (req.method === "POST") {
+      const contentLength = Number(req.headers.get("content-length") || "0");
+      if (contentLength > MAX_CRON_BODY_BYTES) {
+        return NextResponse.json(
+          { success: false, message: "Request payload too large." },
+          { status: 413 }
+        );
+      }
       try {
-        bodyJson = await req.json();
+        const rawText = await req.text();
+        if (rawText.length <= MAX_CRON_BODY_BYTES && rawText.trim().length > 0) {
+          bodyJson = JSON.parse(rawText);
+        }
       } catch {
-        // empty body
+        // empty or invalid JSON body
       }
     }
 
-    const bearerSecret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     // In production, reject secrets passed in URL query parameters to prevent log leakage
     const providedSecret =
       bearerSecret || bodyJson.secret || (isProd ? null : secretQuery);

@@ -1,25 +1,59 @@
 import { z } from "zod";
 import { parseTermsChapters } from "@/wellness/utils/json";
-import { isSafePhotoUrl } from "@/wellness/utils/url-safety";
+import { isSafeOptionalHttpUrl, isSafePhotoUrl, safeHttpUrl } from "@/wellness/utils/url-safety";
+
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const SAFE_FIELD_KEY_RE = /^[A-Za-z0-9_-]{1,60}$/;
+
+function isValidOptionalDate(val: string | Date | null | undefined): boolean {
+  if (val === undefined || val === null || val === "") return true;
+  const d = val instanceof Date ? val : new Date(val);
+  return !Number.isNaN(d.getTime());
+}
+
+function isSafeDayVideoUrl(raw: string | null | undefined): boolean {
+  if (!raw || !raw.trim()) return true;
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!Array.isArray(parsed)) return false;
+      return parsed.every((item) => {
+        if (typeof item === "string") return !item.trim() || safeHttpUrl(item) !== null;
+        if (item && typeof item === "object") {
+          const u = (item as { url?: unknown }).url;
+          return typeof u === "string" && (!u.trim() || safeHttpUrl(u) !== null);
+        }
+        return false;
+      });
+    } catch {
+      return false;
+    }
+  }
+  return trimmed.split(/\r?\n/).every((line) => !line.trim() || safeHttpUrl(line) !== null);
+}
 
 export const DayNotificationInputSchema = z.object({
-  time: z.string().min(1, "Waktu notifikasi wajib diisi"), // e.g. "07:00"
-  message: z.string().min(1, "Pesan notifikasi wajib diisi"),
-  label: z.string().optional().or(z.literal("")),
+  time: z.string().min(1, "Waktu notifikasi wajib diisi").max(20), // e.g. "07:00"
+  message: z.string().min(1, "Pesan notifikasi wajib diisi").max(1000),
+  label: z.string().max(120).optional().or(z.literal("")),
 });
 
 export const CustomTaskFieldInputSchema = z.object({
-  key: z.string().min(1).max(60),
+  key: z
+    .string()
+    .regex(SAFE_FIELD_KEY_RE, "Field key must be 1-60 alphanumeric, underscore, or hyphen characters")
+    .refine((k) => !FORBIDDEN_KEYS.has(k), "Reserved key name is not permitted"),
   label: z.string().min(1).max(120),
   labelId: z.string().max(120).optional(),
   type: z.enum(["number", "text", "textarea", "boolean", "select", "rating", "photo"]),
   unit: z.string().max(24).optional(),
   placeholder: z.string().max(160).optional(),
   required: z.boolean().optional(),
-  options: z.array(z.string()).optional(),
-  min: z.number().optional(),
-  max: z.number().optional(),
-  step: z.number().optional(),
+  options: z.array(z.string().max(120)).max(50).optional(),
+  min: z.number().finite().optional(),
+  max: z.number().finite().optional(),
+  step: z.number().positive().finite().optional(),
 });
 
 export const ProgramDayCustomTaskInputSchema = z.object({
@@ -34,35 +68,55 @@ export const ProgramDayCustomTaskInputSchema = z.object({
 });
 
 export const ProgramDayInputSchema = z.object({
-  dayNumber: z.number().int().positive(),
+  dayNumber: z.number().int().min(1).max(90),
   title: z.string().min(2, "Day title is required (min. 2 characters)").max(120),
   dayType: z.enum(["TRAINING_DAY", "REST_DAY", "CONNECTION_DAY", "MEETUP_DAY"]),
-  workoutOptions: z.array(z.string()).optional().default([]),
-  sleepRecommendation: z.string().optional().or(z.literal("")),
-  dayNotifications: z.array(DayNotificationInputSchema).optional().default([]),
-  videoUrl: z.string().optional().or(z.literal("")),
-  videoChecklist: z.array(z.string()).default([]),
-  mealRecommendation: z.string().optional().or(z.literal("")),
-  dailyAssessment: z.string().optional().or(z.literal("")),
-  pendingReminder: z.string().optional().or(z.literal("")),
-  completedReminder: z.string().optional().or(z.literal("")),
-  meetupLink: z.string().optional().or(z.literal("")),
-  mapLink: z.string().optional().or(z.literal("")),
-  onsiteVenue: z.string().optional().or(z.literal("")),
-  onsiteSchedule: z.string().optional().or(z.literal("")),
-  eventTitle: z.string().optional().or(z.literal("")),
-  eventHost: z.string().optional().or(z.literal("")),
-  eventDetails: z.string().optional().or(z.literal("")),
-  restInstructions: z.string().optional().or(z.literal("")),
-  coachName: z.string().optional().or(z.literal("")),
-  recommendedFor: z.string().optional().or(z.literal("")),
-  translations: z.string().optional().nullable(),
-  customTasks: z.array(ProgramDayCustomTaskInputSchema).optional(),
+  workoutOptions: z.array(z.string().max(120)).max(20).optional().default([]),
+  sleepRecommendation: z.string().max(500).optional().or(z.literal("")),
+  dayNotifications: z.array(DayNotificationInputSchema).max(20).optional().default([]),
+  videoUrl: z
+    .string()
+    .max(4000)
+    .refine(isSafeDayVideoUrl, "Video URL must be a valid http(s) URL")
+    .optional()
+    .or(z.literal("")),
+  videoChecklist: z.array(z.string().max(300)).max(50).default([]),
+  mealRecommendation: z.string().max(4000).optional().or(z.literal("")),
+  dailyAssessment: z.string().max(1000).optional().or(z.literal("")),
+  pendingReminder: z.string().max(500).optional().or(z.literal("")),
+  completedReminder: z.string().max(500).optional().or(z.literal("")),
+  meetupLink: z
+    .string()
+    .max(2000)
+    .refine(isSafeOptionalHttpUrl, "Meetup link must be a valid http(s) URL")
+    .optional()
+    .or(z.literal("")),
+  mapLink: z
+    .string()
+    .max(2000)
+    .refine(isSafeOptionalHttpUrl, "Map link must be a valid http(s) URL")
+    .optional()
+    .or(z.literal("")),
+  onsiteVenue: z.string().max(300).optional().or(z.literal("")),
+  onsiteSchedule: z.string().max(200).optional().or(z.literal("")),
+  eventTitle: z.string().max(200).optional().or(z.literal("")),
+  eventHost: z.string().max(120).optional().or(z.literal("")),
+  eventDetails: z.string().max(2000).optional().or(z.literal("")),
+  restInstructions: z.string().max(2000).optional().or(z.literal("")),
+  coachName: z.string().max(200).optional().or(z.literal("")),
+  recommendedFor: z.string().max(300).optional().or(z.literal("")),
+  translations: z.string().max(20000).optional().nullable(),
+  customTasks: z.array(ProgramDayCustomTaskInputSchema).max(20).optional(),
 });
 
 export const ProgramReferenceInputSchema = z.object({
-  title: z.string(),
-  url: z.string().optional().or(z.literal("")),
+  title: z.string().max(500),
+  url: z
+    .string()
+    .max(2000)
+    .refine(isSafeOptionalHttpUrl, "Reference URL must be a valid http(s) URL")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const SaveSingleDaySchema = ProgramDayInputSchema.extend({
@@ -81,7 +135,12 @@ export const CreateProgramSchema = z
     expectedBenefits: z.array(z.string()).optional(),
     scientificReferences: z.array(ProgramReferenceInputSchema).optional(),
     programGuidelines: z.array(z.string()).optional(),
-    coverImage: z.string().optional().or(z.literal("")),
+    coverImage: z
+      .string()
+      .max(2_000_000)
+      .refine((val) => isSafePhotoUrl(val), "Invalid cover image URL format")
+      .optional()
+      .or(z.literal("")),
     difficultyLevel: z
       .enum(["BEGINNER", "MODERATE", "INTERMEDIATE", "ADVANCED", "HIGH_INTENSITY"])
       .default("INTERMEDIATE"),
@@ -109,7 +168,12 @@ export const CreateProgramSchema = z
     discountPercentage: z.number().int().min(0).max(100).default(0),
     price: z.number().min(0, "Price must be 0 or higher").default(0),
     maxQuota: z.number().int().min(1, "Quota must be at least 1 participant").default(35),
-    communityLink: z.string().optional().or(z.literal("")),
+    communityLink: z
+      .string()
+      .max(2000)
+      .refine(isSafeOptionalHttpUrl, "Community link must be a valid http(s) URL")
+      .optional()
+      .or(z.literal("")),
     locationType: z.enum(["ONLINE", "ONSITE", "HYBRID"]).default("ONLINE"),
     city: z.string().optional().or(z.literal("")),
     venueAddress: z.string().optional().or(z.literal("")),
@@ -117,10 +181,23 @@ export const CreateProgramSchema = z
     termsType: z.enum(["STANDARD", "CUSTOM"]).default("CUSTOM").optional(),
     customTerms: z.string().optional().or(z.literal("")),
     termsList: z.array(z.string()).optional(),
-    startDate: z.union([z.string(), z.date()]).optional(),
-    endDate: z.union([z.string(), z.date()]).optional(),
-    registrationOpenDate: z.union([z.string(), z.date()]).optional().nullable(),
-    registrationDeadline: z.union([z.string(), z.date()]).optional(),
+    startDate: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid start date")
+      .optional(),
+    endDate: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid end date")
+      .optional(),
+    registrationOpenDate: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid registration open date")
+      .optional()
+      .nullable(),
+    registrationDeadline: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid registration deadline")
+      .optional(),
     status: z
       .enum([
         "DRAFT",
@@ -164,7 +241,12 @@ export const UpdateProgramMetaSchema = z
     expectedBenefits: z.array(z.string()).optional(),
     scientificReferences: z.array(ProgramReferenceInputSchema).optional(),
     programGuidelines: z.array(z.string()).optional(),
-    coverImage: z.string().optional().or(z.literal("")),
+    coverImage: z
+      .string()
+      .max(2_000_000)
+      .refine((val) => isSafePhotoUrl(val), "Invalid cover image URL format")
+      .optional()
+      .or(z.literal("")),
     difficultyLevel: z
       .enum(["BEGINNER", "MODERATE", "INTERMEDIATE", "ADVANCED", "HIGH_INTENSITY"])
       .default("INTERMEDIATE"),
@@ -193,7 +275,12 @@ export const UpdateProgramMetaSchema = z
     discountPercentage: z.number().int().min(0).max(100).default(0),
     price: z.number().min(0, "Price must be 0 or higher").default(0),
     maxQuota: z.number().int().min(1, "Quota must be at least 1 participant").default(35),
-    communityLink: z.string().optional().or(z.literal("")),
+    communityLink: z
+      .string()
+      .max(2000)
+      .refine(isSafeOptionalHttpUrl, "Community link must be a valid http(s) URL")
+      .optional()
+      .or(z.literal("")),
     locationType: z.enum(["ONLINE", "ONSITE", "HYBRID"]).default("ONLINE"),
     city: z.string().optional().or(z.literal("")),
     venueAddress: z.string().optional().or(z.literal("")),
@@ -201,10 +288,23 @@ export const UpdateProgramMetaSchema = z
     termsType: z.enum(["STANDARD", "CUSTOM"]).default("CUSTOM").optional(),
     customTerms: z.string().optional().or(z.literal("")),
     termsList: z.array(z.string()).optional(),
-    startDate: z.union([z.string(), z.date()]).optional(),
-    endDate: z.union([z.string(), z.date()]).optional(),
-    registrationOpenDate: z.union([z.string(), z.date()]).optional().nullable(),
-    registrationDeadline: z.union([z.string(), z.date()]).optional(),
+    startDate: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid start date")
+      .optional(),
+    endDate: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid end date")
+      .optional(),
+    registrationOpenDate: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid registration open date")
+      .optional()
+      .nullable(),
+    registrationDeadline: z
+      .union([z.string(), z.date()])
+      .refine(isValidOptionalDate, "Invalid registration deadline")
+      .optional(),
     status: z
       .enum([
         "DRAFT",
@@ -234,31 +334,33 @@ export const UpdateProgramMetaSchema = z
   );
 
 export const SubmitDayProgressSchema = z.object({
-  programDayId: z.string().min(1, "Program day ID is required"),
+  programDayId: z.string().min(1, "Program day ID is required").max(128),
   videoWatched: z.boolean().optional(),
   isCompleted: z.boolean(),
-  checklistCompleted: z.array(z.string()).default([]),
-  selectedWorkout: z.string().optional().or(z.literal("")),
+  checklistCompleted: z.array(z.string().max(300)).max(100).default([]),
+  selectedWorkout: z.string().max(150).optional().or(z.literal("")),
   photoBeforeUrl: z
     .string()
+    .max(2_000_000)
     .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
     .optional()
     .or(z.literal("")),
   photoAfterUrl: z
     .string()
+    .max(2_000_000)
     .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
     .optional()
     .or(z.literal("")),
-  workoutNotes: z.string().optional().or(z.literal("")),
-  eventFeedback: z.string().optional().or(z.literal("")),
-  mealCompliance: z.string().optional().or(z.literal("")),
-  mealNotes: z.string().optional().or(z.literal("")),
-  dailyReflection: z.string().optional().or(z.literal("")),
+  workoutNotes: z.string().max(4000).optional().or(z.literal("")),
+  eventFeedback: z.string().max(4000).optional().or(z.literal("")),
+  mealCompliance: z.string().max(50).optional().or(z.literal("")),
+  mealNotes: z.string().max(4000).optional().or(z.literal("")),
+  dailyReflection: z.string().max(4000).optional().or(z.literal("")),
   happinessRate: z.number().int().min(1).max(5).optional().nullable(),
-  bedtime: z.string().optional().or(z.literal("")),
-  wakeTime: z.string().optional().or(z.literal("")),
-  sleepDurationMinutes: z.number().int().optional().nullable(),
-  assessmentResponse: z.string().optional().or(z.literal("")),
+  bedtime: z.string().max(20).optional().or(z.literal("")),
+  wakeTime: z.string().max(20).optional().or(z.literal("")),
+  sleepDurationMinutes: z.number().int().min(0).max(1440).optional().nullable(),
+  assessmentResponse: z.string().max(4000).optional().or(z.literal("")),
 });
 
 export interface ProgramDayCheckResult {

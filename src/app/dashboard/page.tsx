@@ -56,6 +56,7 @@ async function DashboardContent() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.program.findMany({
+      take: 100,
       where: {
         OR: [
           { status: { in: ["PUBLISH", "PUBLISHED", "ACTIVE", "COMING_SOON"] } },
@@ -95,11 +96,13 @@ async function DashboardContent() {
     prisma.customerHealthProfile.findUnique({
       where: { userId: session.userId },
     }),
-    prisma.userBodyMetricLog.findMany({
-      where: { userId: session.userId },
-      orderBy: { recordedAt: "asc" },
-      take: 100,
-    }),
+    prisma.userBodyMetricLog
+      .findMany({
+        where: { userId: session.userId },
+        orderBy: { recordedAt: "desc" },
+        take: 100,
+      })
+      .then((rows) => rows.reverse()),
   ]);
 
   const userActiveProgramIds = new Set(

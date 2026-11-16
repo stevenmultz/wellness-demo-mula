@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
         take: 100, // Enforce maximum upper boundary to prevent unbounded query memory spikes
         where: {
           status: { in: PUBLISHED_STATUSES },
-          ...(q ? { title: { contains: q } } : {}),
+          ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
         },
         include: {
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
@@ -181,7 +181,10 @@ export async function GET(req: NextRequest) {
       );
     });
 
-    return NextResponse.json({ success: true, programs: items });
+    return NextResponse.json(
+      { success: true, programs: items },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+    );
   } catch (error) {
     console.error("[Explore Programs Error]:", error);
     return NextResponse.json(

@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import crypto from "crypto";
-import { checkRateLimit } from "../src/wellness/security/rate-limit";
+import sharp from "sharp";
+import {
+  checkRateLimit,
+  getRateLimitStoreSize,
+  resetRateLimit,
+} from "../src/wellness/security/rate-limit";
+import {
+  buildProgramScopeWhere,
+  matchesCoachNameToken,
+} from "../src/wellness/security/guards";
+import {
+  detectImageMime,
+  processAndOptimizeImage,
+} from "../src/wellness/utils/image-processor";
 
 async function runSecurityRemediationTests() {
   console.log("\n========================================================");
@@ -118,6 +131,62 @@ async function runSecurityRemediationTests() {
   assert.equal(detectImageMime(maliciousExecutable), null);
   assert.equal(detectImageMime(phpScript), null);
   console.log("   ✅ Image magic byte validation: Verified genuine headers, rejected spoofed payloads.");
+
+  // 5. Test Sharp Full Decode, Re-encoding & EXIF Metadata Stripping
+  console.log("\n5. Testing Sharp Image Optimization & EXIF Stripping...");
+  const jpegWithExif = await sharp({
+    create: { width: 64, height: 64, channels: 3, background: { r: 20, g: 20, b: 20 } },
+  })
+    .withMetadata({ exif: { IFD0: { ImageDescription: "SENSITIVE_GPS_TAG" } } })
+    .jpeg()
+    .toBuffer();
+
+  const optimized = await processAndOptimizeImage(jpegWithExif, {
+    maxWidth: 1280,
+    maxHeight: 1280,
+    fit: "inside",
+    quality: 78,
+  });
+  assert.equal(optimized.mime, "image/webp");
+  assert.equal(detectImageMime(optimized.buffer), "image/webp");
+  const outMeta = await sharp(optimized.buffer).metadata();
+  assert.equal(outMeta.exif, undefined, "EXIF metadata must be stripped");
+  await assert.rejects(
+    processAndOptimizeImage(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), {
+      maxWidth: 384,
+      maxHeight: 384,
+      fit: "cover",
+    })
+  );
+  console.log("   ✅ Sharp stripped EXIF metadata, re-encoded to WebP, and rejected spoofed JPEG.");
+
+  // 6. Test Coach Scope Exact Token Isolation (Anti-IDOR)
+  console.log("\n6. Testing Coach Scope Exact Token Isolation...");
+  assert.equal(matchesCoachNameToken("Anastasia", "Ana"), false);
+  assert.equal(matchesCoachNameToken("Diana", "Ana"), false);
+  assert.equal(matchesCoachNameToken("Ana", "ana"), true);
+  assert.equal(matchesCoachNameToken("Marcus Vance, Ana", "Ana"), true);
+  assert.equal(matchesCoachNameToken("Ana, Elena Rostova", "Ana"), true);
+  const scopeWhere = buildProgramScopeWhere({
+    role: "COACH",
+    coachProfileName: "Ana",
+  });
+  assert.ok(Array.isArray((scopeWhere as { OR?: unknown[] }).OR));
+  const serializedScope = JSON.stringify(scopeWhere);
+  assert.equal(serializedScope.includes('{"contains":"Ana"'), false);
+  console.log("   ✅ Coach scope enforces exact token matching (substring IDOR blocked).");
+
+  // 7. Test Rate Limiter Reset & Bounded Capacity
+  console.log("\n7. Testing Rate Limiter Reset & Capacity Cap...");
+  resetRateLimit(testId);
+  const afterReset = checkRateLimit(testId, opts);
+  assert.equal(afterReset.allowed, true);
+  assert.equal(afterReset.remaining, 2);
+  for (let i = 0; i < 10_050; i++) {
+    checkRateLimit(`cap-test-${i}`, { windowMs: 60_000, maxRequests: 5 });
+  }
+  assert.ok(getRateLimitStoreSize() <= 10_000, `Expected <= 10000 keys, got ${getRateLimitStoreSize()}`);
+  console.log(`   ✅ Rate limiter store bounded at ${getRateLimitStoreSize()} entries.`);
 
   console.log("\n========================================================");
   console.log("🎉 ALL ZERO-TRUST SECURITY REMEDIATIONS VERIFIED 100%!");

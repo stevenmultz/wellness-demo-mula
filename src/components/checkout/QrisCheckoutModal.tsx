@@ -120,7 +120,7 @@ export function QrisCheckoutModal({
     setIsProcessing(true);
     setErrorMsg(null);
     try {
-      const res = await wellnessConfirmQrisPayment(currentInvoice.id);
+      const res = await wellnessConfirmQrisPayment(currentInvoice.id, agreedToTerms);
       if (res.success) {
         setPaidSuccess(true);
         setTimeout(() => {

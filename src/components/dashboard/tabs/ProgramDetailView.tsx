@@ -12,6 +12,7 @@ import {
   Video,
 } from "lucide-react";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
+import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import type { ProgramTermChapter } from "@/wellness/utils/json";
 import { HeaderBackButton, formatDateWib, formatIdr, safeHttpUrl } from "./shared";
 
@@ -223,7 +224,7 @@ export function ProgramDetailView({
   } else if (badge === "Coming Soon") {
     action = (
       <a
-        href={`https://wa.me/6281290002026?text=${encodeURIComponent(`Hello Concierge, I would like to join the waitlist for: ${program.title}`)}`}
+        href={buildConciergeWhatsAppUrl(`Hello Concierge, I would like to join the waitlist for: ${program.title}`)}
         target="_blank"
         rel="noopener noreferrer"
         className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-medium tracking-wide inline-flex items-center gap-1.5 shadow-sm active:scale-95 transition"
@@ -269,9 +270,7 @@ export function ProgramDetailView({
 
   const conciergeUrl =
     community ||
-    `https://wa.me/6281290002026?text=${encodeURIComponent(
-      `Hello Concierge, I would like to inquire about plan: ${program.title}`
-    )}`;
+    buildConciergeWhatsAppUrl(`Hello Concierge, I would like to inquire about plan: ${program.title}`);
 
   const [headerVisible, setHeaderVisible] = useState(true);
   const [overHero, setOverHero] = useState(true);
@@ -463,9 +462,9 @@ export function ProgramDetailView({
               <div className="pt-3 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 flex-wrap text-xs">
                 <span className="text-zinc-500 dark:text-zinc-400">Cohort Support &amp; Form Feedback</span>
                 <a
-                  href={`https://wa.me/6281290002026?text=${encodeURIComponent(
+                  href={buildConciergeWhatsAppUrl(
                     `Hello Concierge, I have a question for Coach ${program.coachName} regarding plan: ${program.title}`
-                  )}`}
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-zinc-950 dark:text-white hover:underline inline-flex items-center gap-1"

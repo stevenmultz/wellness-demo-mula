@@ -9,6 +9,11 @@
  */
 
 import crypto from "crypto";
+import {
+  getPaymentProvider,
+  QRIS_INVOICE_TTL_MS,
+  type PaymentProviderMode,
+} from "../config";
 
 export interface QrisGatewayInvoiceRequest {
   enrollmentId: string;
@@ -22,19 +27,16 @@ export interface QrisGatewayInvoiceResponse {
   paymentReference: string;
   qrStringOrUrl?: string;
   invoiceExpiresAt: Date;
-  providerMode: "INTERNAL_SIMULATION" | "MIDTRANS" | "XENDIT";
+  providerMode: PaymentProviderMode;
 }
 
 export async function createQrisInvoiceAdapter(
   req: QrisGatewayInvoiceRequest
 ): Promise<QrisGatewayInvoiceResponse> {
-  const provider = (process.env.PAYMENT_PROVIDER || "INTERNAL_SIMULATION") as
-    | "INTERNAL_SIMULATION"
-    | "MIDTRANS"
-    | "XENDIT";
+  const provider = getPaymentProvider();
 
   // 15-minute validity window (SOW 5.2)
-  const invoiceExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const invoiceExpiresAt = new Date(Date.now() + QRIS_INVOICE_TTL_MS);
   const randomSuffix = crypto.randomBytes(3).toString("hex").toUpperCase();
   const paymentReference = `QRIS-${Date.now().toString().slice(-5)}-${randomSuffix}`;
 

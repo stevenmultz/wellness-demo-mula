@@ -1,35 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWellnessSession } from "@/wellness/security/session";
 import path from "path";
-import fs from "fs";
+import fs from "fs/promises";
 import crypto from "crypto";
 import { checkRateLimit } from "@/wellness/security/rate-limit";
+import {
+  detectImageMime,
+  getPrivateWorkoutUploadDir,
+  processAndOptimizeImage,
+} from "@/wellness/utils/image-processor";
+import {
+  MAX_UPLOAD_BODY_BYTES,
+  MAX_UPLOAD_BYTES,
+  RATE_LIMITS,
+} from "@/wellness/config";
 
 export const dynamic = "force-dynamic";
 
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-// base64 inflates by 4/3; allow a little JSON envelope overhead on top.
-const MAX_UPLOAD_BODY_BYTES = Math.ceil((MAX_UPLOAD_BYTES * 4) / 3) + 1024;
-const UPLOAD_RATE_LIMIT = { windowMs: 60 * 1000, maxRequests: 20 };
-
-function detectImageMime(buf: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
-  if (buf.length < 12) return null;
-  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
-  if (
-    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
-    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-  if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") {
-    return "image/webp";
-  }
-  return null;
-}
+const ALLOWED_TYPES = new Set(["before", "after", "front", "side", "back", "profile", "custom"]);
 
 /**
- * Clean local and cloud-ready photo upload endpoint.
- * Validates magic bytes, checks file size, and saves workout check-in photos.
+ * Authenticated photo upload endpoint.
+ * Validates magic bytes, decodes & re-encodes via Sharp (stripping EXIF/GPS metadata and
+ * compressing to WebP <= 1280px), and stores outside public/ behind /api/media/workouts/.
  */
 export async function POST(request: NextRequest) {
   const session = await getWellnessSession();
@@ -37,7 +30,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const rl = checkRateLimit(`upload:${session.userId}`, UPLOAD_RATE_LIMIT);
+  const rl = checkRateLimit(`upload:${session.userId}`, RATE_LIMITS.upload);
   if (!rl.allowed) {
     return NextResponse.json(
       { success: false, message: "Too many uploads. Please wait a moment." },
@@ -48,7 +41,10 @@ export async function POST(request: NextRequest) {
   // Reject oversized bodies before buffering/parsing them.
   const declaredLength = Number(request.headers.get("content-length"));
   if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_UPLOAD_BODY_BYTES) {
-    return NextResponse.json({ success: false, message: "Upload is too large or has no declared size." }, { status: 413 });
+    return NextResponse.json(
+      { success: false, message: "Upload is too large or has no declared size." },
+      { status: 413 }
+    );
   }
 
   try {
@@ -59,47 +55,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Missing image data" }, { status: 400 });
     }
 
-    const match = dataUrl.match(/^data:image\/(?:jpeg|jpg|png|webp);base64,(.+)$/i);
+    const match = dataUrl.match(/^data:image\/(?:jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/i);
     if (!match) {
-      return NextResponse.json({ success: false, message: "Invalid image format. Only JPEG, PNG, and WebP are allowed." }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Invalid image format. Only JPEG, PNG, and WebP are allowed." },
+        { status: 400 }
+      );
     }
 
     const base64Data = match[1];
-    const buffer = Buffer.from(base64Data, "base64");
+    const rawBuffer = Buffer.from(base64Data, "base64");
 
     // Limit upload payload to 5MB
-    if (buffer.length === 0 || buffer.length > MAX_UPLOAD_BYTES) {
-      return NextResponse.json({ success: false, message: "File exceeds 5MB size limit or is empty" }, { status: 400 });
+    if (rawBuffer.length === 0 || rawBuffer.length > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { success: false, message: "File exceeds 5MB size limit or is empty" },
+        { status: 400 }
+      );
     }
 
     // Verify true magic byte image signature (never trust client-declared MIME)
-    const verifiedMime = detectImageMime(buffer);
-    if (!verifiedMime) {
-      return NextResponse.json({ success: false, message: "Uploaded file content is not a valid JPEG, PNG, or WebP image." }, { status: 400 });
+    if (!detectImageMime(rawBuffer)) {
+      return NextResponse.json(
+        { success: false, message: "Uploaded file content is not a valid JPEG, PNG, or WebP image." },
+        { status: 400 }
+      );
     }
 
-    const ext = verifiedMime === "image/jpeg" ? "jpg" : verifiedMime === "image/png" ? "png" : "webp";
+    // Full decode, EXIF/GPS metadata strip, resize & WebP compression
+    let optimized: { buffer: Buffer; mime: "image/webp"; ext: "webp" };
+    try {
+      optimized = await processAndOptimizeImage(rawBuffer, {
+        maxWidth: 1280,
+        maxHeight: 1280,
+        fit: "inside",
+        quality: 78,
+      });
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Uploaded file could not be decoded as a valid image." },
+        { status: 400 }
+      );
+    }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "workouts");
+    const uploadDir = getPrivateWorkoutUploadDir();
     const uniqueId = crypto.randomBytes(12).toString("hex");
-    const allowedTypes = ["before", "after", "front", "side", "back", "profile"];
-    const safeType = allowedTypes.includes(type || "") ? type : "photo";
-    const filename = `${session.userId}-${safeType}-${Date.now()}-${uniqueId}.${ext}`;
+    const safeType = type && ALLOWED_TYPES.has(type) ? type : "photo";
+    const safeUserId = session.userId.replace(/[^A-Za-z0-9_-]/g, "");
+    const filename = `${safeUserId}-${safeType}-${Date.now()}-${uniqueId}.${optimized.ext}`;
     const filePath = path.join(uploadDir, filename);
 
     try {
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      fs.writeFileSync(filePath, buffer);
+      await fs.mkdir(uploadDir, { recursive: true });
+      await fs.writeFile(filePath, optimized.buffer);
       return NextResponse.json({
         success: true,
-        url: `/uploads/workouts/${filename}`,
+        url: `/api/media/workouts/${filename}`,
       });
     } catch {
       // In serverless / read-only filesystem environments (e.g. Vercel Lambda),
-      // return a normalized data URL so uploads remain functional without crashing
-      const fallbackDataUrl = `data:${verifiedMime};base64,${buffer.toString("base64")}`;
+      // return the compact, EXIF-stripped WebP data URL so uploads remain functional
+      const fallbackDataUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
       return NextResponse.json({
         success: true,
         url: fallbackDataUrl,
