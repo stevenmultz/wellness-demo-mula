@@ -12,26 +12,30 @@ export interface BrandLogoProps {
   style?: CSSProperties;
 }
 
-const SIZE_CLASSES: Record<NonNullable<BrandLogoProps["size"]>, { text: string; accent: string; gap: string }> = {
+const SIZE_CLASSES: Record<
+  NonNullable<BrandLogoProps["size"]>,
+  { text: string; accent: string; gap: string }
+> = {
   sm: {
-    text: "font-semibold text-xs tracking-[0.24em]",
-    accent: "font-light text-base leading-none",
+    text: "font-semibold text-xs tracking-[0.24em] leading-none",
+    accent: "font-extralight text-[11px] leading-none",
     gap: "gap-1",
   },
   md: {
-    text: "font-semibold text-sm tracking-[0.22em]",
-    accent: "font-mono font-light text-lg leading-none",
+    text: "font-semibold text-sm tracking-[0.26em] leading-none",
+    accent: "font-extralight text-xs leading-none",
     gap: "gap-1.5",
   },
   lg: {
-    text: "font-semibold text-base tracking-[0.28em]",
-    accent: "font-mono font-light text-xl leading-none",
-    gap: "gap-2",
+    text: "font-semibold text-base tracking-[0.28em] leading-none",
+    accent: "font-extralight text-sm leading-none",
+    gap: "gap-1.5",
   },
 };
 
 /**
  * Single unified brand logo component used across Public Navbar, Dashboard, Admin, Modals, and Loading states.
+ * Uses Urbanist (--font-geometric) uniformly for both the wordmark and the thin minimal "+" accent.
  */
 export function BrandLogo({
   size = "md",
@@ -41,9 +45,7 @@ export function BrandLogo({
 }: BrandLogoProps) {
   const preset = SIZE_CLASSES[size];
   const toneClass =
-    tone === "light"
-      ? "text-white"
-      : "text-zinc-950 dark:text-white";
+    tone === "light" ? "text-white" : "text-zinc-950 dark:text-white";
 
   return (
     <span

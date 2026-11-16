@@ -133,10 +133,10 @@ export default function RootLayout({
           <div className="zera-splash-scrim" />
           <div className="zera-splash-brand">
             <div className="zera-splash-title">
-              <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "#ffffff" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.26em", textTransform: "uppercase", lineHeight: 1, color: "#ffffff" }}>
                 {BRAND.wordmarkPrimary}
               </span>
-              <span style={{ fontWeight: 300, fontSize: "1.25rem", lineHeight: 1, color: "#ffffff" }}>
+              <span style={{ fontWeight: 200, fontSize: "0.75rem", lineHeight: 1, color: "#ffffff" }}>
                 {BRAND.wordmarkAccent}
               </span>
             </div>
