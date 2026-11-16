@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
-import { prisma } from "../db";
+import { prisma, lockProgramRow } from "../db";
 import { requireAuth } from "../security/guards";
 import { hashPassword, verifyPassword } from "../security/password";
 import { createSessionToken, setSessionCookie, clearSessionCookie } from "../security/session";
@@ -161,15 +161,38 @@ export async function wellnessUpdateHealthProfile(
 
   const data = validation.data;
 
-  const updatedProfile = await prisma.customerHealthProfile.upsert({
-    where: { userId: session.userId },
-    create: {
-      userId: session.userId,
-      ...data,
-    },
-    update: {
-      ...data,
-    },
+  const updatedProfile = await prisma.$transaction(async (tx) => {
+    const profile = await tx.customerHealthProfile.upsert({
+      where: { userId: session.userId },
+      create: {
+        userId: session.userId,
+        ...data,
+      },
+      update: {
+        ...data,
+      },
+    });
+
+    if (
+      data.weightKg !== undefined ||
+      data.waistCm !== undefined ||
+      data.chestCm !== undefined ||
+      data.hipsCm !== undefined
+    ) {
+      await tx.userBodyMetricLog.create({
+        data: {
+          userId: session.userId,
+          source: "HEALTH_PROFILE",
+          weightKg: data.weightKg ?? profile.weightKg ?? null,
+          heightCm: data.heightCm ?? profile.heightCm ?? null,
+          waistCm: data.waistCm ?? profile.waistCm ?? null,
+          chestCm: data.chestCm ?? profile.chestCm ?? null,
+          hipsCm: data.hipsCm ?? profile.hipsCm ?? null,
+        },
+      });
+    }
+
+    return profile;
   });
 
   try {
@@ -389,6 +412,7 @@ export async function wellnessEnrollProgram(
 
     try {
       const enrollment = await prisma.$transaction(async (tx) => {
+        await lockProgramRow(tx, program.id);
         const liveActiveCount = await tx.programEnrollment.count({
           where: { programId: program.id, status: "ACTIVE" },
         });
@@ -475,6 +499,7 @@ export async function wellnessEnrollProgram(
 
   try {
     const { enrollment, isRefresh } = await prisma.$transaction(async (tx) => {
+      await lockProgramRow(tx, program.id);
       const txNow = new Date();
       const liveHoldCount = await tx.programEnrollment.count({
         where: {
@@ -641,6 +666,14 @@ export async function wellnessConfirmQrisPayment(
   // Atomic quota verification and activation within transaction to prevent race-condition overselling
   try {
     const updated = await prisma.$transaction(async (tx) => {
+      await lockProgramRow(tx, enrollment.programId);
+      const current = await tx.programEnrollment.findUnique({
+        where: { id: enrollment.id },
+        select: { status: true },
+      });
+      if (!current || current.status !== "PENDING") {
+        throw new Error("This invoice is no longer payable. Please start a new checkout.");
+      }
       const activeCount = await tx.programEnrollment.count({
         where: {
           programId: enrollment.programId,

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BRAND } from "@/wellness/brand";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
+import { LocaleToggle } from "@/components/common/LocaleToggle";
+import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
 import {
   ArrowRight,
   Bell,
@@ -157,6 +160,7 @@ const SUBTITLES: Record<View, string> = {
 export function ProfileTab({
   user,
   health: _health,
+  bodyMetricLogs = [],
   headerVisible,
   viewMode,
   onChangeViewMode,
@@ -165,6 +169,7 @@ export function ProfileTab({
 }: {
   user: ProfileUser;
   health?: HealthProfileData | null;
+  bodyMetricLogs?: BodyMetricPoint[];
   headerVisible: boolean;
   viewMode?: "intro" | "menu";
   onChangeViewMode?: (next: "intro" | "menu") => void;
@@ -173,6 +178,7 @@ export function ProfileTab({
 }) {
   void _health;
   const router = useRouter();
+  const { t } = useLocale();
   const [internalMode, setInternalMode] = useState<"intro" | "menu">("intro");
   const mode = viewMode ?? internalMode;
   const [view, setView] = useState<View | null>(null);
@@ -512,6 +518,33 @@ export function ProfileTab({
               </div>
             </div>
           </section>
+
+          {/* App Language Switcher */}
+          <section className="space-y-2">
+            <div className="px-1">
+              <h2 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
+                {t.profile.languageTitle}
+              </h2>
+            </div>
+            <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                  {t.common.languageLabel}
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  {t.profile.languageDesc}
+                </p>
+              </div>
+              <LocaleToggle className="shrink-0" />
+            </div>
+          </section>
+
+          {/* Body Metric History Summary */}
+          {bodyMetricLogs.length > 0 && (
+            <section className="space-y-2">
+              <BodyProgressWidget logs={bodyMetricLogs} />
+            </section>
+          )}
 
           {/* Settings Menus */}
           {menu.map((group) => (

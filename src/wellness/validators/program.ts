@@ -8,6 +8,31 @@ export const DayNotificationInputSchema = z.object({
   label: z.string().optional().or(z.literal("")),
 });
 
+export const CustomTaskFieldInputSchema = z.object({
+  key: z.string().min(1).max(60),
+  label: z.string().min(1).max(120),
+  labelId: z.string().max(120).optional(),
+  type: z.enum(["number", "text", "textarea", "boolean", "select", "rating", "photo"]),
+  unit: z.string().max(24).optional(),
+  placeholder: z.string().max(160).optional(),
+  required: z.boolean().optional(),
+  options: z.array(z.string()).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
+});
+
+export const ProgramDayCustomTaskInputSchema = z.object({
+  id: z.string().optional(),
+  sortOrder: z.number().int().min(0).optional().default(0),
+  taskType: z.enum(["MEASUREMENT", "BENCHMARK", "FORM", "CHECKLIST", "MEDIA_UPLOAD"]),
+  title: z.string().min(2, "Custom task title must be at least 2 characters").max(120),
+  instructions: z.string().max(1000).optional().nullable().or(z.literal("")),
+  isRequired: z.boolean().optional().default(true),
+  fields: z.array(CustomTaskFieldInputSchema).min(1, "At least 1 field is required"),
+  translations: z.string().optional().nullable(),
+});
+
 export const ProgramDayInputSchema = z.object({
   dayNumber: z.number().int().positive(),
   title: z.string().min(2, "Day title is required (min. 2 characters)").max(120),
@@ -31,6 +56,8 @@ export const ProgramDayInputSchema = z.object({
   restInstructions: z.string().optional().or(z.literal("")),
   coachName: z.string().optional().or(z.literal("")),
   recommendedFor: z.string().optional().or(z.literal("")),
+  translations: z.string().optional().nullable(),
+  customTasks: z.array(ProgramDayCustomTaskInputSchema).optional(),
 });
 
 export const ProgramReferenceInputSchema = z.object({
@@ -68,6 +95,10 @@ export const CreateProgramSchema = z
       .optional(),
     coachName: z.string().max(300).default("TBA").optional(),
     coachTitle: z.string().optional().or(z.literal("")),
+    organizationId: z.string().optional().nullable().or(z.literal("")),
+    organizationCache: z.string().max(120).optional().nullable().or(z.literal("")),
+    language: z.enum(["id", "en", "bilingual"]).optional().default("id"),
+    translations: z.string().optional().nullable(),
     durationDays: z
       .number()
       .int()
@@ -153,6 +184,10 @@ export const UpdateProgramMetaSchema = z
       .optional()
       .or(z.literal("")),
     coachTitle: z.string().optional().or(z.literal("")),
+    organizationId: z.string().optional().nullable().or(z.literal("")),
+    organizationCache: z.string().max(120).optional().nullable().or(z.literal("")),
+    language: z.enum(["id", "en", "bilingual"]).optional().default("id"),
+    translations: z.string().optional().nullable(),
     durationDays: z.number().int().min(1).max(90).default(21),
     actualPrice: z.number().min(0, "Actual price must be 0 or higher").default(0),
     discountPercentage: z.number().int().min(0).max(100).default(0),

@@ -13,6 +13,23 @@ import {
   type DueSlot,
 } from "@/wellness/utils/notification-schedule";
 
+/** Max simultaneous outbound push requests per dispatched notification (bounded fan-out). */
+const PUSH_SEND_CONCURRENCY = 10;
+
+/** Runs `worker` over `items` with at most `limit` in flight; never rejects on worker errors. */
+async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await worker(items[i]);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 export interface DispatchDetail {
   programId: string;
   programTitle: string;
@@ -81,7 +98,14 @@ export async function dispatchDueNotifications(options: {
           status: "ACTIVE",
           ...(scopedUserId ? { userId: scopedUserId } : {}),
         },
-        include: { user: { include: { pushSubscriptions: true } } },
+        select: {
+          userId: true,
+          user: {
+            select: {
+              pushSubscriptions: { select: { endpoint: true, p256dh: true, auth: true } },
+            },
+          },
+        },
       },
     },
   });
@@ -143,13 +167,18 @@ export async function dispatchDueNotifications(options: {
           let sentSuccess = 0;
           let sentFailed = 0;
           const errors: string[] = [];
-          for (const sub of Array.from(subscribers.values())) {
-            const sendRes = await sendWebPushNotification(sub, {
+          const subList = Array.from(subscribers.values());
+          const sendResults = await mapWithConcurrency(subList, PUSH_SEND_CONCURRENCY, (sub) =>
+            sendWebPushNotification(sub, {
               title: prog.title,
               body: message,
               url: "/dashboard",
               tag: `${BRAND.notificationTagPrefix}-${day.id}-${slot.dateKey}-${slot.time}-${index}`,
-            });
+            })
+          );
+          for (let s = 0; s < subList.length; s++) {
+            const sub = subList[s];
+            const sendRes = sendResults[s];
             if (sendRes.success) {
               sentSuccess++;
               totalDispatched++;

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { isSafePhotoUrl } from "../utils/url-safety";
 
+/** bcrypt silently ignores bytes beyond 72, so longer passwords are rejected rather than truncated. */
+const MAX_PASSWORD_BYTES = 72;
+const withinPasswordByteLimit = (v: string) => new TextEncoder().encode(v).length <= MAX_PASSWORD_BYTES;
+const PASSWORD_TOO_LONG = "Password is too long (maximum 72 bytes)";
+
 const SafePhotoUrlField = z
   .string()
   .refine((val) => isSafePhotoUrl(val), "Invalid photo URL format")
@@ -28,7 +33,8 @@ export const SignUpSchema = z.object({
     .string({ required_error: "Password is required" })
     .min(8, "Password must be at least 8 characters")
     .regex(/[A-Z]/, "Password must contain at least 1 uppercase letter")
-    .regex(/[0-9]/, "Password must contain at least 1 number"),
+    .regex(/[0-9]/, "Password must contain at least 1 number")
+    .refine(withinPasswordByteLimit, PASSWORD_TOO_LONG),
 });
 
 export const SignInSchema = z.object({
@@ -57,7 +63,8 @@ export const ResetPasswordSchema = z
       .string({ required_error: "New password is required" })
       .min(8, "New password must be at least 8 characters")
       .regex(/[A-Z]/, "New password must contain at least 1 uppercase letter")
-      .regex(/[0-9]/, "New password must contain at least 1 number"),
+      .regex(/[0-9]/, "New password must contain at least 1 number")
+      .refine(withinPasswordByteLimit, PASSWORD_TOO_LONG),
     confirmPassword: z.string({ required_error: "Password confirmation is required" }),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -125,7 +132,8 @@ export const ChangePasswordSchema = z
       .string({ required_error: "New password is required" })
       .min(8, "New password must be at least 8 characters")
       .regex(/[A-Z]/, "New password must contain at least 1 uppercase letter")
-      .regex(/[0-9]/, "New password must contain at least 1 number"),
+      .regex(/[0-9]/, "New password must contain at least 1 number")
+      .refine(withinPasswordByteLimit, PASSWORD_TOO_LONG),
     confirmPassword: z.string({ required_error: "Password confirmation is required" }),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {

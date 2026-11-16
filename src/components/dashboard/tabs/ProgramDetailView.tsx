@@ -42,6 +42,9 @@ export interface DetailProgram {
   equipment?: string | null;
   coachName: string;
   coachTitle?: string | null;
+  organizationName?: string | null;
+  organizationLogo?: string | null;
+  organizationVerified?: boolean;
   category?: string;
   difficultyLevel?: string;
   dailyCommitment?: string | null;
@@ -337,15 +340,23 @@ export function ProgramDetailView({
 
         <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
           <div className="max-w-2xl mx-auto w-full px-6 sm:px-10 space-y-2">
-            <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] font-medium tracking-[0.03em] text-white">
-              {enrolled ? "Enrolled" : badge}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] font-medium tracking-[0.03em] text-white">
+                {enrolled ? "Enrolled" : badge}
+              </span>
+              {program.organizationName && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-wider text-white/95">
+                  {program.organizationName}
+                </span>
+              )}
+            </div>
 
             <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-md">
               {program.title}
             </h1>
 
             <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-lg">
+              {program.organizationName ? `${program.organizationName} · ` : ""}
               Coach {program.coachName} · {totalDays} days · {program.dailyCommitment || "20–30 mins/day"}
             </p>
           </div>

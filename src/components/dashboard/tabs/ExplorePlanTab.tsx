@@ -35,6 +35,10 @@ interface ExploreProgram {
   title: string;
   coverImage: string | null;
   coachName: string;
+  organizationName?: string | null;
+  organizationLogo?: string | null;
+  organizationVerified?: boolean;
+  language?: string;
   startDate: string;
   endDate: string;
   registrationDeadline: string;
@@ -932,6 +936,11 @@ export function ExplorePlanTab({
                     <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
+                          {p.organizationName && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-0.5">
+                              {p.organizationName}
+                            </span>
+                          )}
                           <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
                             {p.title}
                           </h3>

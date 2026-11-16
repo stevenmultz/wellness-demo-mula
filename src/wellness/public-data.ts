@@ -1,6 +1,8 @@
 import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { parseTermsList, safeJsonParse } from "@/wellness/utils/json";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { resolveLocalizedField } from "@/wellness/i18n/types";
 
 export interface PublicSessionUser {
   userId: string;
@@ -22,6 +24,10 @@ export interface PublicProgramItem {
   recommendedFor?: string | null;
   coachName?: string | null;
   coachTitle?: string | null;
+  organizationName?: string | null;
+  organizationLogo?: string | null;
+  organizationVerified?: boolean;
+  language?: string | null;
   durationDays: number;
   trainingDays: number;
   restDays: number;
@@ -87,6 +93,7 @@ export async function getPublicSanctuaryData(): Promise<{
   curriculumSample: PublicCurriculumSample;
 }> {
   const sessionUser = await getWellnessSession();
+  const locale = getServerLocale(sessionUser?.preferredLocale);
 
   const [
     programs,
@@ -115,6 +122,9 @@ export async function getPublicSanctuaryData(): Promise<{
               days: true,
               enrollments: { where: { status: "ACTIVE" } },
             },
+          },
+          organization: {
+            select: { name: true, logoUrl: true, isVerified: true },
           },
           dailyCommitmentRef: {
             select: { name: true },
@@ -196,9 +206,9 @@ export async function getPublicSanctuaryData(): Promise<{
 
     return {
       id: p.id,
-      title: p.title,
+      title: resolveLocalizedField(p.title, p.translations, locale, "title"),
       slug: p.slug,
-      description: p.description,
+      description: resolveLocalizedField(p.description, p.translations, locale, "description"),
       coverImage: p.coverImage || null,
       difficultyLevel: p.difficultyLevel || "ALL LEVELS",
       category: p.category || "Pilates",
@@ -208,6 +218,10 @@ export async function getPublicSanctuaryData(): Promise<{
       recommendedFor: p.recommendedFor || "All Levels",
       coachName: p.coachName,
       coachTitle: p.coachTitle,
+      organizationName: p.organization?.name || p.organizationCache || null,
+      organizationLogo: p.organization?.logoUrl || null,
+      organizationVerified: p.organization?.isVerified ?? false,
+      language: p.language || "id",
       durationDays: p.durationDays,
       trainingDays,
       restDays,

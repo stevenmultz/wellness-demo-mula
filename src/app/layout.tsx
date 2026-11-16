@@ -7,6 +7,8 @@ import { AuraBackground } from "@/components/ui/AuraBackground";
 import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
 import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
 import { BRAND } from "@/wellness/brand";
+import { LocaleProvider } from "@/wellness/i18n/LocaleContext";
+import { getServerLocale } from "@/wellness/i18n/server";
 
 const urbanist = Urbanist({
   subsets: ["latin"],
@@ -46,8 +48,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const locale = getServerLocale();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
@@ -143,12 +147,14 @@ export default function RootLayout({
           </div>
         </div>
         <ThemeProvider>
-          <PwaSplashDismiss />
-          <ServiceWorkerRegister />
-          <SmoothScroll>
-            <AuraBackground />
-            <div className="relative z-10">{children}</div>
-          </SmoothScroll>
+          <LocaleProvider initialLocale={locale}>
+            <PwaSplashDismiss />
+            <ServiceWorkerRegister />
+            <SmoothScroll>
+              <AuraBackground />
+              <div className="relative z-10">{children}</div>
+            </SmoothScroll>
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

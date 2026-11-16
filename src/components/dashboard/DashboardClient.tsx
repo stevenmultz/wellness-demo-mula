@@ -12,6 +12,10 @@ import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { parseWorkoutOptionGroups, ProgramTermChapter } from "@/wellness/utils/json";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
+import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
+import type { BodyMetricPoint } from "./tabs/BodyProgressWidget";
 import { evaluateDayTaskState, MyPlanHeader, MyPlanIndex, MyPlanOverview } from "./tabs/MyPlanTab";
 import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
@@ -52,6 +56,7 @@ export interface ProgramDayItem {
   coachName?: string | null;
   recommendedFor?: string | null;
   dayNotifications?: Array<{ time: string; message: string; label?: string }>;
+  customTasks?: ProgramDayCustomTaskDTO[];
   userProgress?: {
     id: string;
     videoWatched: boolean;
@@ -82,6 +87,10 @@ export interface ProgramItem {
   recommendedFor?: string;
   coachName: string;
   coachTitle?: string | null;
+  organizationName?: string | null;
+  organizationLogo?: string | null;
+  organizationVerified?: boolean;
+  language?: string;
   category?: string;
   difficultyLevel?: string;
   dailyCommitment?: string | null;
@@ -124,6 +133,9 @@ export interface EnrollmentItem {
   description: string;
   coverImage?: string | null;
   coachName: string;
+  organizationName?: string | null;
+  organizationLogo?: string | null;
+  organizationVerified?: boolean;
   price: number;
   maxQuota: number;
   locationType?: string;
@@ -218,6 +230,7 @@ interface DashboardProps {
   allPrograms: ProgramItem[];
   dailyPlans: ProgramDailyPlan[];
   initialHealthProfile?: HealthProfileData | null;
+  initialBodyMetricLogs?: BodyMetricPoint[];
 }
 
 export function DashboardClient({
@@ -226,8 +239,10 @@ export function DashboardClient({
   allPrograms,
   dailyPlans,
   initialHealthProfile,
+  initialBodyMetricLogs = [],
 }: DashboardProps) {
   const router = useRouter();
+  const { t } = useLocale();
   const hasInitialActivePlan = myPrograms.some(
     (e) => e.status === "ACTIVE" && !isCohortEnded(e.startDate, e.endDate, e.dayCount)
   );
@@ -293,6 +308,10 @@ export function DashboardClient({
   const [dayHappiness, setDayHappiness] = useState<Record<string, number>>({});
   const [dayBedtimes, setDayBedtimes] = useState<Record<string, string>>({});
   const [dayWakeTimes, setDayWakeTimes] = useState<Record<string, string>>({});
+  const [customSubmissionsByTaskId, setCustomSubmissionsByTaskId] = useState<
+    Record<string, NonNullable<ProgramDayCustomTaskDTO["submission"]>>
+  >({});
+  const [bodyMetricLogs, setBodyMetricLogs] = useState<BodyMetricPoint[]>(initialBodyMetricLogs);
   const [actionNotice, setActionNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [qrisInvoice, setQrisInvoice] = useState<QrisInvoiceData | null>(null);
@@ -347,6 +366,10 @@ export function DashboardClient({
   const calendarDay = currentDay;
   const overlayDay = (day: ProgramDayItem): ProgramDayItem => ({
     ...day,
+    customTasks: (day.customTasks || []).map((ct) => ({
+      ...ct,
+      submission: customSubmissionsByTaskId[ct.id] ?? ct.submission ?? null,
+    })),
     userProgress: {
       ...(day.userProgress || {
         id: "",
@@ -962,6 +985,7 @@ export function DashboardClient({
       programId: e.programId,
       title: e.title,
       coachName: e.coachName || fullProg?.coachName || "",
+      organizationName: e.organizationName || fullProg?.organizationName || null,
       coverImage: fullProg?.coverImage || e.coverImage || null,
       dayCount: e.dayCount,
       startDate: e.startDate,
@@ -1031,10 +1055,10 @@ export function DashboardClient({
           <div className="h-14 flex items-center gap-1.5">
             {(
               [
-                { key: "my_plan", label: "My Plan" },
-                { key: "all_plan", label: "Explore" },
-                { key: "notifications", label: "Alerts" },
-                { key: "profile", label: "Profile" },
+                { key: "my_plan", label: t.nav.myPlan },
+                { key: "all_plan", label: t.nav.explore },
+                { key: "notifications", label: t.nav.activity },
+                { key: "profile", label: t.nav.profile },
               ] as const
             ).map(({ key, label }) => {
               const active = activeTab === key;
@@ -1150,9 +1174,12 @@ export function DashboardClient({
               program={
                 overviewEnrollment && currentProgram
                   ? {
+                      id: currentProgram.id,
                       title: currentProgram.title,
                       coachName: currentProgram.coachName,
                       coachTitle: currentProgram.coachTitle,
+                      organizationName: currentProgram.organizationName,
+                      organizationLogo: currentProgram.organizationLogo,
                       category: currentProgram.category,
                       difficultyLevel: currentProgram.difficultyLevel,
                       description: currentProgram.description,
@@ -1223,6 +1250,40 @@ export function DashboardClient({
               onSaveReflection={handleSaveReflection}
               onSaveAttendance={handleSaveEventFeedback}
               onCompleteDay={handleCompleteProgramDay}
+              bodyMetricLogs={bodyMetricLogs}
+              onCustomTaskSubmitted={(dayId, customTaskId, submission) => {
+                setCustomSubmissionsByTaskId((prev) => ({
+                  ...prev,
+                  [customTaskId]: submission,
+                }));
+                const metrics = extractBodyMetricsFromValues(submission.values);
+                if (metrics && currentProgram) {
+                  setBodyMetricLogs((prev) => {
+                    const idx = prev.findIndex(
+                      (m) => m.programDayId === dayId && m.source === "CUSTOM_TASK"
+                    );
+                    const nextPoint: BodyMetricPoint = {
+                      id: idx >= 0 ? prev[idx].id : `local-${dayId}`,
+                      programId: currentProgram.id,
+                      programDayId: dayId,
+                      source: "CUSTOM_TASK",
+                      weightKg: metrics.weightKg ?? null,
+                      heightCm: metrics.heightCm ?? null,
+                      waistCm: metrics.waistCm ?? null,
+                      chestCm: metrics.chestCm ?? null,
+                      hipsCm: metrics.hipsCm ?? null,
+                      bodyFatPct: metrics.bodyFatPct ?? null,
+                      restingHr: metrics.restingHr ?? null,
+                      notes: metrics.notes ?? null,
+                      recordedAt: submission.updatedAt || new Date().toISOString(),
+                    };
+                    if (idx >= 0) {
+                      return prev.map((m, i) => (i === idx ? nextPoint : m));
+                    }
+                    return [...prev, nextPoint];
+                  });
+                }
+              }}
             />
           )}
         </div>
@@ -1284,6 +1345,7 @@ export function DashboardClient({
             <ProfileTab
               user={user}
               health={healthProfile}
+              bodyMetricLogs={bodyMetricLogs}
               headerVisible={isHeaderVisible}
               viewMode={profileViewMode}
               onChangeViewMode={setProfileViewMode}

@@ -31,8 +31,10 @@ import {
   X,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
+import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { DailyCheckIn } from "./DailyCheckIn";
+import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
 import { BrandWordmark, EmptyState, FloatingHeader, HeaderBackButton, InfoPopupModal, safeHttpUrl } from "./shared";
 
 export interface PlanDay {
@@ -58,6 +60,7 @@ export interface PlanDay {
   dailyAssessment?: string | null;
   eventHost?: string | null;
   coachName?: string | null;
+  customTasks?: ProgramDayCustomTaskDTO[];
   userProgress?: {
     videoWatched: boolean;
     isCompleted: boolean;
@@ -154,6 +157,7 @@ export interface MyPlanIndexItem {
   programId: string;
   title: string;
   coachName: string;
+  organizationName?: string | null;
   coverImage?: string | null;
   dayCount: number;
   startDate: Date | string;
@@ -396,6 +400,7 @@ export function MyPlanIndex({
                               {p.title}
                             </h2>
                             <p className="text-xs text-white/80 truncate">
+                              {p.organizationName ? `${p.organizationName} • ` : ""}
                               Coach {p.coachName || BRAND.facultyFallback}
                             </p>
                           </div>
@@ -463,9 +468,12 @@ export function MyPlanIndex({
 }
 
 export interface PlanProgramInfo {
+  id?: string;
   title: string;
   coachName: string;
   coachTitle?: string | null;
+  organizationName?: string | null;
+  organizationLogo?: string | null;
   category?: string | null;
   difficultyLevel?: string | null;
   description?: string | null;
@@ -644,7 +652,12 @@ export function evaluateDayTaskState(day: PlanDay | null | undefined, checklist?
     !!progress?.mealCompliance && progress.mealCompliance !== "SKIPPED",
     !!progress?.dailyReflection && progress.dailyReflection !== "SKIPPED",
   ];
-  const pendingTasksCount = day ? initialDone.filter((done) => !done).length : 0;
+  const pendingCustomTasks = (day?.customTasks || []).filter(
+    (ct) => ct.isRequired && !ct.submission
+  ).length;
+  const pendingTasksCount = day
+    ? initialDone.filter((done) => !done).length + pendingCustomTasks
+    : 0;
   return { checks, activities, initialDone, pendingTasksCount };
 }
 
@@ -669,6 +682,8 @@ export function MyPlanOverview({
   onSaveWorkoutNotes,
   onUploadPhoto,
   onCompleteDay,
+  bodyMetricLogs = [],
+  onCustomTaskSubmitted,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -691,6 +706,12 @@ export function MyPlanOverview({
   onSaveWorkoutNotes: (notes: string, dayId: string) => Promise<void | boolean>;
   onUploadPhoto: (type: "before" | "after", url: string, dayId: string) => Promise<void | boolean>;
   onCompleteDay: (dayId: string) => Promise<void | boolean>;
+  bodyMetricLogs?: BodyMetricPoint[];
+  onCustomTaskSubmitted?: (
+    dayId: string,
+    customTaskId: string,
+    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
+  ) => void;
 }) {
   void onOpenDetails;
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
@@ -781,6 +802,7 @@ export function MyPlanOverview({
                 </h2>
                 {program && (
                   <p className="mt-1 text-xs text-white/80 truncate">
+                    {program.organizationName ? `${program.organizationName} • ` : ""}
                     {program.coachName || "—"}
                     {isUpcoming
                       ? ` · ${formatStartsIn(program.startDate).headline} (${formatStartsIn(program.startDate).dateLabel})`
@@ -924,6 +946,7 @@ export function MyPlanOverview({
                       onSaveMeal={onSaveMeal}
                       onSaveReflection={onSaveReflection}
                       onCompleteDay={onCompleteDay}
+                      onCustomTaskSubmitted={onCustomTaskSubmitted}
                       widgetIndex={widgetIndex}
                       onSwitchWidget={setWidgetIndex}
                     />
@@ -932,7 +955,8 @@ export function MyPlanOverview({
                   )}
                 </div>
 
-                <div className={activeWidget === 2 ? "block" : "hidden"}>
+                <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
+                  <BodyProgressWidget logs={bodyMetricLogs} programId={program.id} />
                   <CohortPerformanceCard
                     days={fullProgramDays}
                     currentDayNumber={currentDayNumber}

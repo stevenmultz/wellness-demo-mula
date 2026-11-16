@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
-import { prisma } from "../db";
+import { prisma, lockProgramRow } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { hashPassword } from "../security/password";
 import { createUserNotifications } from "../integrations/user-notifications";
@@ -72,12 +72,13 @@ export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, o
 }
 
 /**
- * Superadmin: Update User Role (USER <-> SUPERADMIN).
- * Protected against accidental self-demotion.
+ * Superadmin: Update User Role (USER <-> COACH / PARTNER_ADMIN).
+ * Protected against accidental self-demotion and keeps SUPERADMIN exclusive.
  */
 export async function wellnessAdminUpdateUserRole(
   targetUserId: string,
-  newRole: "USER" | "SUPERADMIN"
+  newRole: "USER" | "COACH" | "PARTNER_ADMIN" | "SUPERADMIN",
+  scope?: { organizationId?: string | null; coachProfileId?: string | null }
 ): Promise<WellnessActionResult> {
   const currentAdmin = await requireSuperadmin();
 
@@ -95,16 +96,18 @@ export async function wellnessAdminUpdateUserRole(
     };
   }
 
-  if (newRole === "USER") {
-    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-    if (targetUser?.role === "SUPERADMIN") {
-      const superadminCount = await prisma.user.count({ where: { role: "SUPERADMIN" } });
-      if (superadminCount <= 1) {
-        return {
-          success: false,
-          message: "Cannot demote the last remaining Superadmin on the platform.",
-        };
-      }
+  const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!targetUser) {
+    return { success: false, message: "User not found." };
+  }
+
+  if (targetUser.role === "SUPERADMIN") {
+    const superadminCount = await prisma.user.count({ where: { role: "SUPERADMIN" } });
+    if (superadminCount <= 1) {
+      return {
+        success: false,
+        message: "Cannot demote the last remaining Superadmin on the platform.",
+      };
     }
   }
 
@@ -112,9 +115,28 @@ export async function wellnessAdminUpdateUserRole(
     where: { id: targetUserId },
     data: {
       role: newRole,
+      organizationId:
+        newRole === "PARTNER_ADMIN"
+          ? scope?.organizationId ?? targetUser.organizationId
+          : newRole === "USER"
+            ? null
+            : targetUser.organizationId,
+      coachProfileId:
+        newRole === "COACH"
+          ? scope?.coachProfileId ?? targetUser.coachProfileId
+          : newRole === "USER"
+            ? null
+            : targetUser.coachProfileId,
       tokenVersion: { increment: 1 },
     },
-    select: { id: true, email: true, fullName: true, role: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      organizationId: true,
+      coachProfileId: true,
+    },
   });
 
   revalidateAdminRoutes();
@@ -182,6 +204,7 @@ export async function wellnessAdminApprovePayment(
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
+      await lockProgramRow(tx, enrollment.programId);
       // Verify cohort quota atomically before activating
       const activeCount = await tx.programEnrollment.count({
         where: {

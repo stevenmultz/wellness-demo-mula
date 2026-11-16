@@ -10,10 +10,10 @@ import { WIB_OFFSET_MS, getProgramDayWibWindow } from "./timezone";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type DailyTaskKind = "SLEEP" | "WORKOUT" | "MEAL" | "REFLECTION" | "REST" | "EVENT";
+export type DailyTaskKind = "SLEEP" | "WORKOUT" | "MEAL" | "REFLECTION" | "REST" | "EVENT" | "CUSTOM";
 
 export interface DailyTask {
-  id: string; // stable: `${programDayId}:${kind}`
+  id: string; // stable: `${programDayId}:${kind}` or `${programDayId}:CUSTOM:${customTaskId}`
   kind: DailyTaskKind;
   name: string;
   description: string;
@@ -30,6 +30,12 @@ export interface DailyTaskDayInput {
   restInstructions: string | null;
   eventTitle: string | null;
   eventDetails: string | null;
+  customTasks?: Array<{
+    id: string;
+    title: string;
+    instructions?: string | null;
+    isDone: boolean;
+  }>;
   progress: {
     videoWatched: boolean;
     isCompleted: boolean;
@@ -135,6 +141,18 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     description: "Write your daily reflection and rate how your day went.",
     isDone: !!p?.dailyReflection,
   });
+
+  if (Array.isArray(day.customTasks)) {
+    for (const ct of day.customTasks) {
+      tasks.push({
+        id: `${day.id}:CUSTOM:${ct.id}`,
+        kind: "CUSTOM",
+        name: ct.title,
+        description: ct.instructions || "Custom checkpoint assigned by your coach.",
+        isDone: ct.isDone,
+      });
+    }
+  }
 
   return tasks;
 }

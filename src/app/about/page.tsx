@@ -1,5 +1,7 @@
 import { getPublicSanctuaryData } from "@/wellness/public-data";
 import { BRAND } from "@/wellness/brand";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { getDictionary } from "@/wellness/i18n/dictionaries";
 import {
   PublicPageShell,
   PublicPageActions,
@@ -8,8 +10,10 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
-  const { programs, coaches, categories, audiences, commitments } =
+  const { sessionUser, programs, coaches, categories, audiences, commitments } =
     await getPublicSanctuaryData();
+  const locale = getServerLocale(sessionUser ? undefined : null);
+  const t = getDictionary(locale);
 
   const distinctVenues = Array.from(
     new Set(
@@ -24,15 +28,13 @@ export default async function AboutPage() {
       {/* HERO */}
       <section className="space-y-4 max-w-2xl">
         <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
-          About {BRAND.fullName}
+          {t.public.aboutEyebrow}
         </span>
         <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-          Consistency over intensity.
+          {t.public.aboutHeadline}
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-          {BRAND.fullName} is a daily movement, whole-food nutrition, and sleep
-          restoration platform. Cohorts unlock at 00:00 WIB and pair guided
-          digital tracking with live sessions in{" "}
+          {BRAND.fullName} {t.public.aboutIntro}{" "}
           {distinctVenues[0] || "Senopati, Jakarta Selatan"}.
         </p>
       </section>

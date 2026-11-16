@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { resolveLocalizedField } from "@/wellness/i18n/types";
 import {
   getPublicBadgeMeta,
   normalizeProgramStatus,
@@ -14,6 +16,10 @@ interface ExploreProgramItem {
   title: string;
   coverImage: string | null;
   coachName: string;
+  organizationName: string | null;
+  organizationLogo: string | null;
+  organizationVerified: boolean;
+  language: string;
   startDate: string;
   endDate: string;
   registrationDeadline: string;
@@ -58,6 +64,7 @@ export async function GET(req: NextRequest) {
     const sort = sp.get("sort") === "price" ? "price" : "date";
     const dir = sp.get("dir") === "desc" ? "desc" : "asc";
 
+    const locale = getServerLocale(session.preferredLocale);
     const [programs, enrollments] = await Promise.all([
       prisma.program.findMany({
         take: 100, // Enforce maximum upper boundary to prevent unbounded query memory spikes
@@ -67,6 +74,7 @@ export async function GET(req: NextRequest) {
         },
         include: {
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+          organization: { select: { name: true, logoUrl: true, isVerified: true } },
           days: { select: { dayType: true } },
         },
       }),
@@ -119,9 +127,13 @@ export async function GET(req: NextRequest) {
 
         return {
           id: p.id,
-          title: p.title,
+          title: resolveLocalizedField(p.title, p.translations, locale, "title"),
           coverImage: p.coverImage,
           coachName: p.coachName,
+          organizationName: p.organization?.name || p.organizationCache || null,
+          organizationLogo: p.organization?.logoUrl || null,
+          organizationVerified: p.organization?.isVerified ?? false,
+          language: p.language || "id",
           startDate: p.startDate.toISOString(),
           endDate: p.endDate.toISOString(),
           registrationDeadline: p.registrationDeadline.toISOString(),

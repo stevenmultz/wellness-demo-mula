@@ -1,4 +1,6 @@
 import { getPublicSanctuaryData } from "@/wellness/public-data";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { getDictionary } from "@/wellness/i18n/dictionaries";
 import {
   PublicPageShell,
   PublicPageActions,
@@ -8,20 +10,21 @@ export const dynamic = "force-dynamic";
 
 export default async function CurriculumPage() {
   const { curriculumSample } = await getPublicSanctuaryData();
+  const locale = getServerLocale();
+  const t = getDictionary(locale);
 
   return (
     <PublicPageShell>
       {/* HERO */}
       <section className="space-y-4 max-w-2xl">
         <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
-          Curriculum
+          {t.public.curriculumEyebrow}
         </span>
         <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-          Three daily disciplines.
+          {t.public.curriculumHeadline}
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-          Every module unlocks at 00:00 WIB with structured checkpoints for
-          movement, nourishment, and evening recovery before 23:59 WIB.
+          {t.public.curriculumIntro}
         </p>
       </section>
 

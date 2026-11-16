@@ -82,7 +82,17 @@ import {
 } from "@/wellness/utils/timeline";
 import { isProgramHeaderComplete, isProgramDayComplete } from "@/wellness/validators/program";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { LocaleToggle } from "@/components/common/LocaleToggle";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
+  AdminCustomTasksBuilder,
+  normalizeCustomTaskDrafts,
+  type AdminCustomTaskDraft,
+} from "./AdminCustomTasksBuilder";
+import { AdminOrganizationsManager } from "./AdminOrganizationsManager";
+import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import {
+  Building2,
   Calendar,
   Users,
   Moon,
@@ -242,6 +252,8 @@ export interface AdminProgramDay {
   restInstructions: string | null;
   coachName?: string | null;
   recommendedFor?: string | null;
+  translations?: string | null;
+  customTasks?: ProgramDayCustomTaskDTO[];
   responseCount?: number;
 }
 
@@ -258,6 +270,10 @@ export interface AdminProgram {
   recommendedFor: string;
   coachName: string;
   coachTitle?: string | null;
+  organizationId?: string | null;
+  organizationCache?: string | null;
+  language?: string | null;
+  translations?: string | null;
   durationDays: number;
   actualPrice?: number;
   discountPercentage?: number;
@@ -332,6 +348,8 @@ export interface AdminUserItem {
   emergencyContactPhone?: string | null;
   role: string;
   status: string;
+  organizationId?: string | null;
+  coachProfileId?: string | null;
   createdAt: Date | string;
   healthProfile?: AdminCustomerHealthProfile | null;
   enrollments: {
@@ -392,7 +410,7 @@ export interface AdminInitialRoute {
   isCreating?: boolean;
   programTab?: "info" | "schedule" | "responses";
   day?: number;
-  masterTab?: "coaches" | "audience" | "categories" | "equipment" | "commitments";
+  masterTab?: "coaches" | "organizations" | "audience" | "categories" | "equipment" | "commitments";
   customerId?: string | null;
   customerTab?: "overview" | "responses" | "health" | "medical" | "lifestyle" | "notes";
 }
@@ -402,6 +420,9 @@ interface AdminClientProps {
   initialPrograms: AdminProgram[];
   initialMasterData: MasterDataPayload;
   currentAdminId: string;
+  currentAdminRole?: string;
+  currentAdminOrgId?: string | null;
+  currentAdminCoachId?: string | null;
   initialRoute?: AdminInitialRoute;
 }
 
@@ -1533,9 +1554,15 @@ export function AdminClient({
   initialPrograms,
   initialMasterData,
   currentAdminId,
+  currentAdminRole = "SUPERADMIN",
+  currentAdminOrgId = null,
+  currentAdminCoachId = null,
   initialRoute,
 }: AdminClientProps) {
   const router = useRouter();
+  const { t } = useLocale();
+  const isSuperadminUser = currentAdminRole === "SUPERADMIN";
+  void currentAdminCoachId;
 
   const [activeMenu, setActiveMenu] = useState<
     "dashboard" | "programs" | "master" | "members" | "payments"
@@ -1693,7 +1720,7 @@ export function AdminClient({
 
   const [programs, setPrograms] = useState<AdminProgram[]>(initialPrograms);
   const [masterData, setMasterData] = useState<MasterDataPayload>(
-    initialMasterData || { coaches: [], targetAudiences: [], categories: [] }
+    initialMasterData || { coaches: [], targetAudiences: [], categories: [], equipment: [], dailyCommitments: [], organizations: [] }
   );
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [isCreatingProgram, setIsCreatingProgram] = useState(Boolean(initialRoute?.isCreating));
@@ -1708,7 +1735,7 @@ export function AdminClient({
   const [masterActionLoading, setMasterActionLoading] = useState(false);
 
   // Master Directories View State & Pagination
-  const [masterTab, setMasterTab] = useState<"coaches" | "audience" | "categories" | "equipment" | "commitments">(
+  const [masterTab, setMasterTab] = useState<"coaches" | "organizations" | "audience" | "categories" | "equipment" | "commitments">(
     initialRoute?.masterTab && initialRoute.masterTab !== ("all" as any)
       ? (initialRoute.masterTab as any)
       : "coaches"
@@ -1779,6 +1806,11 @@ export function AdminClient({
     dailyCommitment: "",
     coachName: "",
     coachTitle: "",
+    organizationId: currentAdminOrgId || "",
+    organizationCache: "",
+    language: "id" as "id" | "en" | "bilingual",
+    titleEn: "",
+    descriptionEn: "",
     recommendedFor: "",
     durationDays: 7,
     startDate: defaultStart,
@@ -1919,6 +1951,7 @@ export function AdminClient({
     3: false,
     4: false,
     5: false,
+    6: false,
   });
 
   const toggleDaySection = (sec: number) => {
@@ -1932,6 +1965,7 @@ export function AdminClient({
       3: expanded,
       4: expanded,
       5: expanded,
+      6: expanded,
     });
   };
 
@@ -2059,6 +2093,11 @@ export function AdminClient({
     dailyCommitment: "20 - 30 Mins / Day",
     coachName: "",
     coachTitle: "",
+    organizationId: currentAdminOrgId || "",
+    organizationCache: "",
+    language: "id" as "id" | "en" | "bilingual",
+    titleEn: "",
+    descriptionEn: "",
     recommendedFor: "",
     durationDays: 7,
     startDate: "",
@@ -2108,6 +2147,8 @@ export function AdminClient({
     eventDetails: string;
     pendingReminder: string;
     completedReminder: string;
+    titleEn: string;
+    customTasks: AdminCustomTaskDraft[];
   }>({
     title: "",
     dayType: "TRAINING_DAY",
@@ -2140,6 +2181,8 @@ export function AdminClient({
     eventDetails: "",
     pendingReminder: "",
     completedReminder: "",
+    titleEn: "",
+    customTasks: [],
   });
 
   // Section Field Progress Calculation Helper Functions
@@ -2276,6 +2319,10 @@ export function AdminClient({
         const filled = notifs.filter((n) => Boolean(n.message?.trim())).length;
         return { filled, total };
       }
+      case 6: {
+        const count = (form.customTasks || []).length;
+        return { filled: count, total: Math.max(count, 1) };
+      }
       default:
         return { filled: 0, total: 0 };
     }
@@ -2351,6 +2398,8 @@ export function AdminClient({
         eventDetails: existing.eventDetails || "",
         pendingReminder: existing.pendingReminder || "",
         completedReminder: existing.completedReminder || "",
+        titleEn: safeJsonParse<any>(existing.translations, {})?.en?.title || "",
+        customTasks: normalizeCustomTaskDrafts(existing.customTasks),
       });
     } else {
       const defaultGroups = DEFAULT_WORKOUT_OPTION_GROUPS.map((g) => ({
@@ -2389,6 +2438,8 @@ export function AdminClient({
         eventDetails: "",
         pendingReminder: `Day ${dayNumber} is ready. Complete your session before 23:59 WIB.`,
         completedReminder: `Well done on completing Day ${dayNumber}! Rest well tonight.`,
+        titleEn: "",
+        customTasks: [],
       });
     }
   };
@@ -2427,6 +2478,11 @@ export function AdminClient({
       dailyCommitment: prog.dailyCommitment || "20 - 30 Mins / Day",
       coachName: prog.coachName,
       coachTitle: prog.coachTitle || "",
+      organizationId: prog.organizationId || "",
+      organizationCache: prog.organizationCache || "",
+      language: ((prog.language as "id" | "en" | "bilingual") || "id"),
+      titleEn: safeJsonParse<any>(prog.translations, {})?.en?.title || "",
+      descriptionEn: safeJsonParse<any>(prog.translations, {})?.en?.description || "",
       recommendedFor: prog.recommendedFor || "All Levels",
       durationDays: prog.durationDays || 7,
       actualPrice: prog.actualPrice ?? prog.price,
@@ -2602,6 +2658,19 @@ export function AdminClient({
         eventDetails: isConnect ? dayForm.eventDetails : "",
         pendingReminder: dayForm.pendingReminder,
         completedReminder: dayForm.completedReminder,
+        translations: dayForm.titleEn.trim()
+          ? JSON.stringify({ en: { title: dayForm.titleEn.trim() } })
+          : null,
+        customTasks: dayForm.customTasks.map((ct, idx) => ({
+          id: ct.id,
+          sortOrder: idx,
+          taskType: ct.taskType,
+          title: ct.title,
+          instructions: ct.instructions,
+          isRequired: ct.isRequired,
+          fields: ct.fields,
+          translations: ct.translations || null,
+        })),
       });
 
       if (res.success && res.data) {
@@ -2744,6 +2813,20 @@ export function AdminClient({
       const finalGuidelines =
         cleanedGuidelines.length > 0 ? cleanedGuidelines : [...DEFAULT_PROGRAM_GUIDELINES];
 
+      const metaTranslations =
+        metaForm.titleEn.trim() || metaForm.descriptionEn.trim()
+          ? JSON.stringify({
+              en: {
+                ...(metaForm.titleEn.trim() ? { title: metaForm.titleEn.trim() } : {}),
+                ...(metaForm.descriptionEn.trim() ? { description: metaForm.descriptionEn.trim() } : {}),
+              },
+            })
+          : null;
+
+      const selectedOrgObj = (masterData.organizations || []).find(
+        (o) => o.id === metaForm.organizationId
+      );
+
       const res = await wellnessAdminUpdateProgramMeta({
         programId: prog.id,
         title: metaForm.title.trim(),
@@ -2760,6 +2843,10 @@ export function AdminClient({
         dailyCommitment: metaForm.dailyCommitment?.trim() || undefined,
         coachName: metaForm.coachName.trim(),
         coachTitle: metaForm.coachTitle?.trim() || undefined,
+        organizationId: metaForm.organizationId || null,
+        organizationCache: selectedOrgObj?.name || metaForm.organizationCache || null,
+        language: metaForm.language || "id",
+        translations: metaTranslations,
         recommendedFor: metaForm.recommendedFor.trim(),
         durationDays: Number(metaForm.durationDays) || 7,
         actualPrice: Number(metaForm.actualPrice) || 0,
@@ -2803,6 +2890,10 @@ export function AdminClient({
                   dailyCommitment: metaForm.dailyCommitment?.trim() || null,
                   coachName: metaForm.coachName,
                   coachTitle: metaForm.coachTitle || null,
+                  organizationId: metaForm.organizationId || null,
+                  organizationCache: selectedOrgObj?.name || metaForm.organizationCache || null,
+                  language: metaForm.language || "id",
+                  translations: metaTranslations,
                   recommendedFor: metaForm.recommendedFor,
                   durationDays: Number(metaForm.durationDays) || 7,
                   actualPrice: Number(metaForm.actualPrice) || 0,
@@ -2901,6 +2992,20 @@ export function AdminClient({
     const resolvedCreateCity = isCreateOnline ? "Online" : createForm.city.trim() || "Jakarta";
     const resolvedCreateVenue = isCreateOnline ? undefined : createForm.venueAddress.trim() || undefined;
 
+    const createTranslations =
+      createForm.titleEn.trim() || createForm.descriptionEn.trim()
+        ? JSON.stringify({
+            en: {
+              ...(createForm.titleEn.trim() ? { title: createForm.titleEn.trim() } : {}),
+              ...(createForm.descriptionEn.trim() ? { description: createForm.descriptionEn.trim() } : {}),
+            },
+          })
+        : null;
+
+    const createOrgObj = (masterData.organizations || []).find(
+      (o) => o.id === createForm.organizationId
+    );
+
     try {
       const res = await wellnessAdminCreateProgram({
         title: createForm.title.trim(),
@@ -2917,6 +3022,10 @@ export function AdminClient({
         dailyCommitment: createForm.dailyCommitment?.trim() || undefined,
         coachName: createForm.coachName.trim() || "TBA",
         coachTitle: createForm.coachTitle?.trim() || undefined,
+        organizationId: createForm.organizationId || null,
+        organizationCache: createOrgObj?.name || createForm.organizationCache || null,
+        language: createForm.language || "id",
+        translations: createTranslations,
         recommendedFor: createForm.recommendedFor.trim() || "All Levels",
         durationDays: Number(createForm.durationDays) || 21,
         actualPrice: Number(createForm.actualPrice) || 0,
@@ -2965,6 +3074,10 @@ export function AdminClient({
           recommendedFor: created.recommendedFor,
           coachName: created.coachName,
           coachTitle: created.coachTitle || createForm.coachTitle,
+          organizationId: created.organizationId || createForm.organizationId || null,
+          organizationCache: created.organizationCache || createOrgObj?.name || null,
+          language: created.language || createForm.language || "id",
+          translations: created.translations || createTranslations || null,
           durationDays: created.durationDays,
           actualPrice: created.actualPrice ?? createForm.actualPrice,
           discountPercentage: created.discountPercentage ?? createForm.discountPercentage,
@@ -4025,8 +4138,16 @@ export function AdminClient({
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate font-normal">
                   {currentAdmin?.fullName || "Sanctuary Admin"}
                 </p>
+                {!isSuperadminUser && (
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-[10px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                    {currentAdminRole}
+                  </span>
+                )}
               </div>
-              <ThemeToggle />
+              <div className="flex items-center gap-3">
+                <LocaleToggle />
+                <ThemeToggle />
+              </div>
             </div>
 
             {/* Default Time, Date & Location Reference Card */}
@@ -4052,7 +4173,7 @@ export function AdminClient({
             >
               <span className="flex items-center gap-2.5">
                 <LayoutDashboard className="w-4 h-4 shrink-0" />
-                <span>Dashboard</span>
+                <span>{t.admin.dashboard}</span>
               </span>
             </button>
 
@@ -4073,31 +4194,33 @@ export function AdminClient({
             >
               <span className="flex items-center gap-2.5">
                 <Layers className="w-4 h-4 shrink-0" />
-                <span>Programs</span>
+                <span>{t.admin.programs}</span>
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMenu("master");
-                setMasterTab("coaches");
-                setSelectedProgramId(null);
-                setIsCreatingProgram(false);
-                setFeedback(null);
-                router.push("/admin/directories?tab=coaches");
-              }}
-              className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
-                activeMenu === "master"
-                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <Tag className="w-4 h-4 shrink-0" />
-                <span>Directories</span>
-              </span>
-            </button>
+            {isSuperadminUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMenu("master");
+                  setMasterTab("coaches");
+                  setSelectedProgramId(null);
+                  setIsCreatingProgram(false);
+                  setFeedback(null);
+                  router.push("/admin/directories?tab=coaches");
+                }}
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
+                  activeMenu === "master"
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <Tag className="w-4 h-4 shrink-0" />
+                  <span>{t.admin.directories}</span>
+                </span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -4117,30 +4240,32 @@ export function AdminClient({
             >
               <span className="flex items-center gap-2.5">
                 <Users className="w-4 h-4 shrink-0" />
-                <span>Customers</span>
+                <span>{t.admin.customers}</span>
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMenu("payments");
-                setSelectedProgramId(null);
-                setIsCreatingProgram(false);
-                setFeedback(null);
-                router.push("/admin/payments");
-              }}
-              className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
-                activeMenu === "payments"
-                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <QrCode className="w-4 h-4 shrink-0" />
-                <span>Payments</span>
-              </span>
-            </button>
+            {isSuperadminUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMenu("payments");
+                  setSelectedProgramId(null);
+                  setIsCreatingProgram(false);
+                  setFeedback(null);
+                  router.push("/admin/payments");
+                }}
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
+                  activeMenu === "payments"
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <QrCode className="w-4 h-4 shrink-0" />
+                  <span>{t.admin.payments}</span>
+                </span>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -4421,6 +4546,15 @@ export function AdminClient({
             </>
           )}
         </section>
+        )}
+
+        {/* Scoped Role Banner for Coaches / Partner Admins */}
+        {!isSuperadminUser && (
+          <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+            <span className="font-medium">
+              {t.admin.scopedModeBanner} ({currentAdminRole})
+            </span>
+          </div>
         )}
 
         {/* Feedback Banner */}
@@ -5376,6 +5510,84 @@ export function AdminClient({
                       manageLabel="+ Manage in Audience Directory"
                       icon={Sparkles}
                     />
+
+                    {/* Community / Brand Creator & Language */}
+                    <div className="pt-4 border-t border-zinc-100 dark:border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                          Community / Brand Host (Optional)
+                        </label>
+                        <select
+                          value={createForm.organizationId}
+                          disabled={!isSuperadminUser && Boolean(currentAdminOrgId)}
+                          onChange={(e) => {
+                            const org = (masterData.organizations || []).find(
+                              (o) => o.id === e.target.value
+                            );
+                            setCreateForm((p) => ({
+                              ...p,
+                              organizationId: e.target.value,
+                              organizationCache: org?.name || "",
+                            }));
+                          }}
+                          className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white"
+                        >
+                          <option value="">ZERA + (Default Platform)</option>
+                          {(masterData.organizations || []).map((org) => (
+                            <option key={org.id} value={org.id}>
+                              {org.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                          Program Primary Language
+                        </label>
+                        <select
+                          value={createForm.language}
+                          onChange={(e) =>
+                            setCreateForm((p) => ({
+                              ...p,
+                              language: e.target.value as "id" | "en" | "bilingual",
+                            }))
+                          }
+                          className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white"
+                        >
+                          <option value="id">Indonesia (ID)</option>
+                          <option value="en">English (EN)</option>
+                          <option value="bilingual">Bilingual (ID &amp; EN)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                          English Title Override (Optional for ID/EN switcher)
+                        </label>
+                        <input
+                          type="text"
+                          value={createForm.titleEn}
+                          onChange={(e) => setCreateForm((p) => ({ ...p, titleEn: e.target.value }))}
+                          placeholder="Optional English program title..."
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                          English Description Override (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={createForm.descriptionEn}
+                          onChange={(e) => setCreateForm((p) => ({ ...p, descriptionEn: e.target.value }))}
+                          placeholder="Optional English summary..."
+                          className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5894,9 +6106,10 @@ export function AdminClient({
         {/* VIEW: MASTER DIRECTORIES MANAGEMENT (Stacked with Pagination & CRUD)*/}
         {/* ================================================================= */}
         {activeMenu === "master" && (() => {
+          type StandardMasterTab = "coaches" | "audience" | "categories" | "equipment" | "commitments";
           interface MasterDirectoryItem {
             id: string;
-            type: "coaches" | "audience" | "categories" | "equipment" | "commitments";
+            type: StandardMasterTab;
             masterCategoryName: string;
             name: string;
             icon: any;
@@ -5904,13 +6117,21 @@ export function AdminClient({
           }
 
           const directoryTabs: {
-            key: "coaches" | "audience" | "categories" | "equipment" | "commitments";
+            key: StandardMasterTab | "organizations";
             label: string;
             singular: string;
             masterCategoryName: string;
             icon: any;
             count: number;
           }[] = [
+            {
+              key: "organizations",
+              label: "Communities",
+              singular: "Community",
+              masterCategoryName: "Master Community / Brand",
+              icon: Building2,
+              count: (masterData?.organizations || []).length,
+            },
             {
               key: "coaches",
               label: "Coaches",
@@ -6065,6 +6286,7 @@ export function AdminClient({
           };
 
           const handleOpenCreate = () => {
+            if (masterTab === "organizations") return;
             setActiveDirectoryModal({
               mode: "add",
               type: masterTab,
@@ -6078,6 +6300,7 @@ export function AdminClient({
               {/* TOP WIDGET: Search & Action Stack (Row 1) + Filter Tabs & Sort (Row 2) */}
               <div className="bg-white dark:bg-zinc-900/90 rounded-3xl p-5 sm:p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-4">
                 {/* Row 1: Search Bar (Left) + New Entry Button (Right) */}
+                {masterTab !== "organizations" && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="relative flex-1">
                     <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -6114,9 +6337,10 @@ export function AdminClient({
                     <span>New {currentTabMeta.singular}</span>
                   </button>
                 </div>
+                )}
 
                 {/* Row 2: Filter Tabs + Sort Dropdown */}
-                <div className="pt-3.5 border-t border-zinc-100 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 font-mono">
+                <div className={`${masterTab !== "organizations" ? "pt-3.5 border-t border-zinc-100 dark:border-white/10" : ""} flex flex-wrap items-center justify-between gap-3 font-mono`}>
                   {/* Filter Tabs (Strictly per Master Directory, No "All") */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {directoryTabs.map((tab) => {
@@ -6162,7 +6386,15 @@ export function AdminClient({
                 </div>
               </div>
 
-              {/* BOTTOM WIDGET: Directories Header + Cards Grid + Pagination */}
+              {/* BOTTOM WIDGET: Organizations OR Directories Header + Cards Grid + Pagination */}
+              {masterTab === "organizations" ? (
+                <AdminOrganizationsManager
+                  organizations={masterData.organizations || []}
+                  isSuperadmin={isSuperadminUser}
+                  onUpdated={(next) => setMasterData((p) => ({ ...p, organizations: next }))}
+                  onNotify={setFeedback}
+                />
+              ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2 font-mono">
@@ -6243,6 +6475,7 @@ export function AdminClient({
                   itemLabel="entries"
                 />
               </div>
+              )}
 
               {/* Master Directory Add / Edit Modal Drawer */}
               {activeDirectoryModal && (
@@ -7363,6 +7596,87 @@ export function AdminClient({
                               manageLabel="+ Manage in Audience Directory"
                               icon={Sparkles}
                             />
+
+                            {/* Community / Brand Creator & Language */}
+                            <div className="pt-4 border-t border-zinc-100 dark:border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                  Community / Brand Host (Optional)
+                                </label>
+                                <select
+                                  disabled={selectedProgram.isPublished || (!isSuperadminUser && Boolean(currentAdminOrgId))}
+                                  value={metaForm.organizationId}
+                                  onChange={(e) => {
+                                    const org = (masterData.organizations || []).find(
+                                      (o) => o.id === e.target.value
+                                    );
+                                    setMetaForm((p) => ({
+                                      ...p,
+                                      organizationId: e.target.value,
+                                      organizationCache: org?.name || "",
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60"
+                                >
+                                  <option value="">ZERA + (Default Platform)</option>
+                                  {(masterData.organizations || []).map((org) => (
+                                    <option key={org.id} value={org.id}>
+                                      {org.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                  Program Primary Language
+                                </label>
+                                <select
+                                  disabled={selectedProgram.isPublished}
+                                  value={metaForm.language}
+                                  onChange={(e) =>
+                                    setMetaForm((p) => ({
+                                      ...p,
+                                      language: e.target.value as "id" | "en" | "bilingual",
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60"
+                                >
+                                  <option value="id">Indonesia (ID)</option>
+                                  <option value="en">English (EN)</option>
+                                  <option value="bilingual">Bilingual (ID &amp; EN)</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                                  English Title Override (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  disabled={selectedProgram.isPublished}
+                                  value={metaForm.titleEn}
+                                  onChange={(e) => setMetaForm((p) => ({ ...p, titleEn: e.target.value }))}
+                                  placeholder="Optional English program title..."
+                                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs disabled:opacity-60"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                                  English Description Override (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  disabled={selectedProgram.isPublished}
+                                  value={metaForm.descriptionEn}
+                                  onChange={(e) => setMetaForm((p) => ({ ...p, descriptionEn: e.target.value }))}
+                                  placeholder="Optional English summary..."
+                                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs disabled:opacity-60"
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -8271,19 +8585,35 @@ export function AdminClient({
 
                   {expandedDaySections[1] && (
                     <div className="p-5 sm:p-6 pt-0 space-y-5 border-t border-zinc-100 dark:border-white/10">
-                      <div className="pt-4 space-y-1.5">
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                          Day Title *
-                        </label>
-                        <input
-                          type="text"
-                          placeholder={`Enter day ${selectedDayNum} title...`}
-                          value={dayForm.title}
-                          onChange={(e) =>
-                            setDayForm((p) => ({ ...p, title: e.target.value }))
-                          }
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
-                        />
+                      <div className="pt-4 grid md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                            Day Title *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={`Enter day ${selectedDayNum} title...`}
+                            value={dayForm.title}
+                            onChange={(e) =>
+                              setDayForm((p) => ({ ...p, title: e.target.value }))
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                            English Title (Optional — EN Translation)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={`English title for Day ${selectedDayNum}...`}
+                            value={dayForm.titleEn}
+                            onChange={(e) =>
+                              setDayForm((p) => ({ ...p, titleEn: e.target.value }))
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+                          />
+                        </div>
                       </div>
 
                       {/* Assigned Coach & Focus Target for Today (Hidden for REST_DAY) */}
@@ -9203,6 +9533,51 @@ export function AdminClient({
                     </div>
                   )}
                 </div>
+
+                {/* POINT 6 (EVEN - SUBTLE GRAY): CUSTOM DAILY TASKS & MEASUREMENTS */}
+                <div className={getSectionCardClass(6, Boolean(expandedDaySections[6]))}>
+                  <button
+                    type="button"
+                    onClick={() => toggleDaySection(6)}
+                    className={getSectionHeaderClass(6)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={getSectionBadgeClass(6)}>6</span>
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+                          Custom Daily Tasks &amp; Measurements ({dayForm.customTasks?.length || 0})
+                        </h4>
+                        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
+                          Add body measurements, fitness benchmarks, coach check-ins, or custom checklists for Day {selectedDayNum}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(() => {
+                        const { filled, total } = getDaySectionStats(6, dayForm);
+                        return renderSectionProgressBadge(filled, total);
+                      })()}
+                      {expandedDaySections[6] ? (
+                        <ChevronUp className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0" />
+                      )}
+                    </div>
+                  </button>
+
+                  {expandedDaySections[6] && (
+                    <div className="p-5 sm:p-6 pt-0 space-y-4 border-t border-zinc-300/80 dark:border-zinc-700">
+                      <div className="pt-4">
+                        <AdminCustomTasksBuilder
+                          tasks={dayForm.customTasks}
+                          onChange={(next) =>
+                            setDayForm((p) => ({ ...p, customTasks: next }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Action Footer */}
@@ -9791,6 +10166,49 @@ export function AdminClient({
                                 </div>
                               )}
                             </div>
+
+                            {/* Custom Tasks & Body Measurements Submissions */}
+                            {sub.customSubmissions && sub.customSubmissions.length > 0 && (
+                              <div className="pt-2 space-y-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
+                                  Custom Tasks &amp; Measurements ({sub.customSubmissions.length})
+                                </span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                  {sub.customSubmissions.map((cs) => (
+                                    <div
+                                      key={cs.customTaskId}
+                                      className="p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-1.5"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                                          {cs.title}
+                                        </span>
+                                        <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 shrink-0">
+                                          {cs.taskType}
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {Object.entries(cs.values || {}).map(([k, v]) => (
+                                          <span
+                                            key={k}
+                                            className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-200"
+                                          >
+                                            {k}:{" "}
+                                            {Array.isArray(v)
+                                              ? v.join(", ")
+                                              : typeof v === "boolean"
+                                              ? v
+                                                ? "Yes"
+                                                : "No"
+                                              : String(v ?? "—")}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -9922,6 +10340,127 @@ export function AdminClient({
 
                     {u.id !== currentAdminId && u.role !== "SUPERADMIN" && (
                       <>
+                        {isSuperadminUser && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <select
+                              value={u.role}
+                              disabled={userActionLoading === u.id}
+                              onChange={async (e) => {
+                                const nextRole = e.target.value as "USER" | "COACH" | "PARTNER_ADMIN";
+                                setUserActionLoading(u.id);
+                                try {
+                                  const res = await wellnessAdminUpdateUserRole(u.id, nextRole, {
+                                    organizationId: nextRole === "PARTNER_ADMIN" ? (u.organizationId ?? null) : null,
+                                    coachProfileId: nextRole === "COACH" ? (u.coachProfileId ?? null) : null,
+                                  });
+                                  if (res.success) {
+                                    setUsers((prev) =>
+                                      prev.map((item) =>
+                                        item.id === u.id ? { ...item, role: nextRole } : item
+                                      )
+                                    );
+                                    setInspectingUserHealth((prev) =>
+                                      prev && prev.id === u.id ? { ...prev, role: nextRole } : prev
+                                    );
+                                    setFeedback({ type: "success", text: `Updated role to ${nextRole}.` });
+                                    router.refresh();
+                                  } else {
+                                    setFeedback({ type: "error", text: res.message || "Failed to update role." });
+                                  }
+                                } finally {
+                                  setUserActionLoading(null);
+                                }
+                              }}
+                              aria-label="User Role"
+                              className="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            >
+                              <option value="USER">Role: USER</option>
+                              <option value="COACH">Role: COACH</option>
+                              <option value="PARTNER_ADMIN">Role: PARTNER_ADMIN</option>
+                            </select>
+
+                            {u.role === "COACH" && (
+                              <select
+                                value={u.coachProfileId || ""}
+                                disabled={userActionLoading === u.id}
+                                onChange={async (e) => {
+                                  const nextCoachId = e.target.value || null;
+                                  setUserActionLoading(u.id);
+                                  try {
+                                    const res = await wellnessAdminUpdateUserRole(u.id, "COACH", {
+                                      coachProfileId: nextCoachId,
+                                    });
+                                    if (res.success) {
+                                      setUsers((prev) =>
+                                        prev.map((item) =>
+                                          item.id === u.id ? { ...item, coachProfileId: nextCoachId } : item
+                                        )
+                                      );
+                                      setInspectingUserHealth((prev) =>
+                                        prev && prev.id === u.id ? { ...prev, coachProfileId: nextCoachId } : prev
+                                      );
+                                      setFeedback({ type: "success", text: "Linked Coach profile updated." });
+                                    } else {
+                                      setFeedback({ type: "error", text: res.message || "Failed to link coach profile." });
+                                    }
+                                  } finally {
+                                    setUserActionLoading(null);
+                                  }
+                                }}
+                                aria-label="Linked Coach Profile"
+                                className="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                              >
+                                <option value="">Link Coach Profile...</option>
+                                {masterData.coaches.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+
+                            {u.role === "PARTNER_ADMIN" && (
+                              <select
+                                value={u.organizationId || ""}
+                                disabled={userActionLoading === u.id}
+                                onChange={async (e) => {
+                                  const nextOrgId = e.target.value || null;
+                                  setUserActionLoading(u.id);
+                                  try {
+                                    const res = await wellnessAdminUpdateUserRole(u.id, "PARTNER_ADMIN", {
+                                      organizationId: nextOrgId,
+                                    });
+                                    if (res.success) {
+                                      setUsers((prev) =>
+                                        prev.map((item) =>
+                                          item.id === u.id ? { ...item, organizationId: nextOrgId } : item
+                                        )
+                                      );
+                                      setInspectingUserHealth((prev) =>
+                                        prev && prev.id === u.id ? { ...prev, organizationId: nextOrgId } : prev
+                                      );
+                                      setFeedback({ type: "success", text: "Linked Organization updated." });
+                                    } else {
+                                      setFeedback({ type: "error", text: res.message || "Failed to link organization." });
+                                    }
+                                  } finally {
+                                    setUserActionLoading(null);
+                                  }
+                                }}
+                                aria-label="Linked Organization"
+                                className="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                              >
+                                <option value="">Link Organization...</option>
+                                {(masterData.organizations || []).map((org) => (
+                                  <option key={org.id} value={org.id}>
+                                    {org.name}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => handleToggleUserStatus(u)}

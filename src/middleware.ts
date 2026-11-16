@@ -45,11 +45,12 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      const { payload } = await jwtVerify(sessionCookie, SECRET_KEY);
+      const { payload } = await jwtVerify(sessionCookie, SECRET_KEY, { algorithms: ["HS256"] });
       const tokenData = payload as unknown as TokenPayload;
 
-      if (tokenData.role !== "SUPERADMIN" || !tokenData.userId) {
-        // Bukan superadmin -> alihkan ke user dashboard
+      const ALLOWED_ADMIN_ROLES = new Set(["SUPERADMIN", "COACH", "PARTNER_ADMIN"]);
+      if (!ALLOWED_ADMIN_ROLES.has(tokenData.role) || !tokenData.userId) {
+        // Bukan admin/coach/partner -> alihkan ke user dashboard
         return NextResponse.redirect(new URL("/dashboard?error=unauthorized_admin", request.url));
       }
 
@@ -76,7 +77,7 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      await jwtVerify(sessionCookie, SECRET_KEY);
+      await jwtVerify(sessionCookie, SECRET_KEY, { algorithms: ["HS256"] });
     } catch {
       const response = NextResponse.redirect(new URL("/?auth=signin", request.url));
       response.cookies.delete("wellness_session");

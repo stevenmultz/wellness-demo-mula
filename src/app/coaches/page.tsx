@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { getPublicSanctuaryData } from "@/wellness/public-data";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { getDictionary } from "@/wellness/i18n/dictionaries";
 import {
   PublicPageShell,
   PublicPageActions,
@@ -72,6 +74,8 @@ const COACH_FALLBACK_IMAGES = [
 
 export default async function CoachesPage() {
   const { coaches } = await getPublicSanctuaryData();
+  const locale = getServerLocale();
+  const t = getDictionary(locale);
 
   const displayCoaches = (
     coaches && coaches.length > 0 ? coaches : DEFAULT_COACHES
@@ -82,14 +86,13 @@ export default async function CoachesPage() {
       {/* HERO */}
       <section className="space-y-4 max-w-2xl">
         <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
-          Coaches
+          {t.public.coachesEyebrow}
         </span>
         <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-          Sanctuary Coaches
+          {t.public.coachesHeadline}
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-          Master Coaches guiding our daily movement, whole-food nutrition, and
-          recovery cohorts.
+          {t.public.coachesIntro}
         </p>
       </section>
 

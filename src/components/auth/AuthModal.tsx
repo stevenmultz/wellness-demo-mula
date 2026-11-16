@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/common/BrandLogo";
-import { BRAND } from "@/wellness/brand";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
   wellnessSignIn,
   wellnessSignUp,
@@ -55,6 +55,7 @@ export function AuthGatewayCard({
   });
   const [forgotEmail, setForgotEmail] = useState("");
   const [peekPassword, setPeekPassword] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     if (activeTabOverride) {
@@ -252,12 +253,12 @@ export function AuthGatewayCard({
         <div className="space-y-2.5 sm:space-y-3.5">
           <div className="space-y-1">
             <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              {tab === "signin" ? `Sign in to ${BRAND.name}` : "Create your account"}
+              {tab === "signin" ? t.auth.signInTitle : t.auth.signUpTitle}
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {tab === "signin"
-                ? "Enter your details to access your daily 00:00 WIB cohort protocol."
-                : "Join private athletic cohorts and track your daily longevity rituals."}
+                ? t.auth.signInSubtitle
+                : t.auth.signUpSubtitle}
             </p>
           </div>
 
@@ -278,7 +279,7 @@ export function AuthGatewayCard({
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
-              Sign In
+              {t.auth.signInTab}
             </button>
             <button
               type="button"
@@ -291,17 +292,17 @@ export function AuthGatewayCard({
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
-              Sign Up
+              {t.auth.signUpTab}
             </button>
           </div>
         </div>
       ) : (
         <div className="space-y-1">
           <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-            Reset password
+            {t.auth.forgotTitle}
           </h1>
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
-            Enter your registered email address to receive a recovery link.
+            {t.auth.forgotSubtitle}
           </p>
         </div>
       )}

@@ -19,6 +19,9 @@ import {
 } from "@/wellness/utils/json";
 import { getProgramDayWibWindow } from "@/wellness/utils/timezone";
 import { resolveProgramDailyPlan, ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { resolveLocalizedField } from "@/wellness/i18n/types";
+import { parseCustomTaskFields, parseCustomSubmissionValues } from "@/wellness/utils/custom-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -36,14 +39,17 @@ async function DashboardContent() {
     redirect("/?auth=signin&target=dashboard");
   }
 
-  // Fetch enrollments, published programs, and health profile concurrently
-  const [enrollments, allProgramsData, healthProfile] = await Promise.all([
+  const locale = getServerLocale(session.preferredLocale);
+
+  // Fetch enrollments, published programs, health profile, and body metric logs concurrently
+  const [enrollments, allProgramsData, healthProfile, bodyMetricLogsRaw] = await Promise.all([
     prisma.programEnrollment.findMany({
       where: { userId: session.userId },
       include: {
         program: {
           include: {
             _count: { select: { days: true } },
+            organization: { select: { name: true, logoUrl: true, isVerified: true } },
           },
         },
       },
@@ -66,10 +72,19 @@ async function DashboardContent() {
             enrollments: { where: { status: "ACTIVE" } },
           },
         },
+        organization: { select: { name: true, logoUrl: true, isVerified: true } },
         days: {
           include: {
             progress: {
               where: { userId: session.userId },
+            },
+            customTasks: {
+              orderBy: { sortOrder: "asc" },
+              include: {
+                submissions: {
+                  where: { userId: session.userId },
+                },
+              },
             },
           },
           orderBy: { dayNumber: "asc" },
@@ -80,6 +95,11 @@ async function DashboardContent() {
     prisma.customerHealthProfile.findUnique({
       where: { userId: session.userId },
     }),
+    prisma.userBodyMetricLog.findMany({
+      where: { userId: session.userId },
+      orderBy: { recordedAt: "asc" },
+      take: 100,
+    }),
   ]);
 
   const userActiveProgramIds = new Set(
@@ -89,11 +109,20 @@ async function DashboardContent() {
   const myPrograms = enrollments.map((e) => ({
     enrollmentId: e.id,
     programId: e.program.id,
-    title: e.program.title,
+    title: resolveLocalizedField(e.program.title, e.program.translations, locale, "title"),
     slug: e.program.slug,
-    description: e.program.description,
+    description: resolveLocalizedField(
+      e.program.description,
+      e.program.translations,
+      locale,
+      "description"
+    ),
     coverImage: e.program.coverImage || null,
     coachName: e.program.coachName,
+    organizationName: e.program.organization?.name || e.program.organizationCache || null,
+    organizationLogo: e.program.organization?.logoUrl || null,
+    organizationVerified: e.program.organization?.isVerified ?? false,
+    language: e.program.language || "id",
     price: e.program.price,
     maxQuota: e.program.maxQuota,
     locationType: e.program.locationType,
@@ -128,13 +157,34 @@ async function DashboardContent() {
           return {
             id: d.id,
             dayNumber: d.dayNumber,
-            title: d.title,
+            title: resolveLocalizedField(d.title, d.translations, locale, "title"),
             dayType: d.dayType,
             videoUrl: d.videoUrl,
-            mealRecommendation: d.mealRecommendation,
-            restInstructions: d.restInstructions,
+            mealRecommendation: resolveLocalizedField(
+              d.mealRecommendation,
+              d.translations,
+              locale,
+              "mealRecommendation"
+            ) || null,
+            restInstructions: resolveLocalizedField(
+              d.restInstructions,
+              d.translations,
+              locale,
+              "restInstructions"
+            ) || null,
             eventTitle: d.eventTitle,
             eventDetails: d.eventDetails,
+            customTasks: d.customTasks.map((ct) => ({
+              id: ct.id,
+              title: resolveLocalizedField(ct.title, ct.translations, locale, "title"),
+              instructions: resolveLocalizedField(
+                ct.instructions,
+                ct.translations,
+                locale,
+                "instructions"
+              ) || null,
+              isDone: ct.submissions.length > 0,
+            })),
             progress: prog
               ? {
                   videoWatched: prog.videoWatched,
@@ -164,13 +214,17 @@ async function DashboardContent() {
 
     return {
       id: p.id,
-      title: p.title,
+      title: resolveLocalizedField(p.title, p.translations, locale, "title"),
       slug: p.slug,
-      description: p.description,
+      description: resolveLocalizedField(p.description, p.translations, locale, "description"),
       coverImage: p.coverImage || null,
       recommendedFor: p.recommendedFor,
       coachName: p.coachName,
       coachTitle: p.coachTitle,
+      organizationName: p.organization?.name || p.organizationCache || null,
+      organizationLogo: p.organization?.logoUrl || null,
+      organizationVerified: p.organization?.isVerified ?? false,
+      language: p.language || "id",
       category: p.category,
       difficultyLevel: p.difficultyLevel,
       dailyCommitment: p.dailyCommitment,
@@ -243,12 +297,18 @@ async function DashboardContent() {
           }
         }
 
+        const requiredCustomTasks = d.customTasks.filter((ct) => ct.isRequired);
+        const allRequiredCustomDone = requiredCustomTasks.every(
+          (ct) => ct.submissions.length > 0
+        );
+
         const isFullyCompleted =
-          !!progRecord?.isCompleted ||
-          (!!progRecord &&
-            videoDone &&
-            checklistDone &&
-            (checklistItems.length === 0 || completedChecklist.length > 0));
+          (!!progRecord?.isCompleted ||
+            (!!progRecord &&
+              videoDone &&
+              checklistDone &&
+              (checklistItems.length === 0 || completedChecklist.length > 0))) &&
+          allRequiredCustomDone;
 
         // SOW 5.3 Skip Day Logic:
         // Automatically recorded as "Skipped Day" if user has not completed both workout video & daily assessment checklist by 23:59 on that day
@@ -261,7 +321,7 @@ async function DashboardContent() {
         return {
           id: d.id,
           dayNumber: d.dayNumber,
-          title: d.title,
+          title: resolveLocalizedField(d.title, d.translations, locale, "title"),
           dayType: d.dayType,
           workoutOptions: canAccessMedia ? safeJsonParse<string[]>(d.workoutOptions, []) : [],
           sleepRecommendation: canAccessMedia
@@ -276,7 +336,8 @@ async function DashboardContent() {
           isSkipped,
           videoUrl: canAccessMedia ? d.videoUrl : null,
           videoChecklist: canAccessMedia ? checklistItems : [],
-          mealRecommendation: d.mealRecommendation,
+          mealRecommendation:
+            resolveLocalizedField(d.mealRecommendation, d.translations, locale, "mealRecommendation") || null,
           dailyAssessment: canAccessMedia ? d.dailyAssessment : null,
           pendingReminder: canAccessMedia ? d.pendingReminder : null,
           completedReminder: canAccessMedia ? d.completedReminder : null,
@@ -287,9 +348,36 @@ async function DashboardContent() {
           eventDetails: isPaidMember ? d.eventDetails : null,
           onsiteVenue: d.onsiteVenue,
           onsiteSchedule: d.onsiteSchedule,
-          restInstructions: canAccessMedia ? d.restInstructions : null,
+          restInstructions: canAccessMedia
+            ? resolveLocalizedField(d.restInstructions, d.translations, locale, "restInstructions") || null
+            : null,
           coachName: d.coachName,
           recommendedFor: d.recommendedFor,
+          customTasks: canAccessMedia
+            ? d.customTasks.map((ct) => {
+                const sub = ct.submissions[0] || null;
+                return {
+                  id: ct.id,
+                  programDayId: ct.programDayId,
+                  sortOrder: ct.sortOrder,
+                  taskType: ct.taskType as any,
+                  title: resolveLocalizedField(ct.title, ct.translations, locale, "title"),
+                  instructions:
+                    resolveLocalizedField(ct.instructions, ct.translations, locale, "instructions") || null,
+                  isRequired: ct.isRequired,
+                  fields: parseCustomTaskFields(ct.fieldsSchema),
+                  translations: ct.translations,
+                  submission: sub
+                    ? {
+                        id: sub.id,
+                        values: parseCustomSubmissionValues(sub.valuesJson),
+                        submittedAt: sub.submittedAt.toISOString(),
+                        updatedAt: sub.updatedAt.toISOString(),
+                      }
+                    : null,
+                };
+              })
+            : [],
           userProgress: progRecord
             ? {
                 id: progRecord.id,
@@ -336,6 +424,22 @@ async function DashboardContent() {
     createdAt: session.createdAt,
   };
 
+  const bodyMetricLogs = bodyMetricLogsRaw.map((m) => ({
+    id: m.id,
+    programId: m.programId,
+    programDayId: m.programDayId,
+    source: m.source,
+    weightKg: m.weightKg,
+    heightCm: m.heightCm,
+    waistCm: m.waistCm,
+    chestCm: m.chestCm,
+    hipsCm: m.hipsCm,
+    bodyFatPct: m.bodyFatPct,
+    restingHr: m.restingHr,
+    notes: m.notes,
+    recordedAt: m.recordedAt.toISOString(),
+  }));
+
   return (
     <DashboardClient
       user={user}
@@ -343,6 +447,7 @@ async function DashboardContent() {
       allPrograms={allPrograms}
       dailyPlans={dailyPlans}
       initialHealthProfile={healthProfile}
+      initialBodyMetricLogs={bodyMetricLogs}
     />
   );
 }

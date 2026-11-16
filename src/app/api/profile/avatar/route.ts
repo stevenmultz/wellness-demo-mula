@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
+import { checkRateLimit } from "@/wellness/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const MAX_AVATAR_BYTES = 400 * 1024; // client resizes to 384px JPEG, so real files are far smaller
+
+const MAX_AVATAR_BODY_BYTES = Math.ceil((MAX_AVATAR_BYTES * 4) / 3) + 1024;
+const AVATAR_RATE_LIMIT = { windowMs: 60 * 1000, maxRequests: 10 };
 
 function detectImageMime(buf: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
   if (buf.length < 12) return null;
@@ -31,6 +35,19 @@ export async function POST(req: NextRequest) {
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = checkRateLimit(`avatar:${session.userId}`, AVATAR_RATE_LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, message: "Too many attempts. Please wait a moment." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
+  const declaredLength = Number(req.headers.get("content-length"));
+  if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_AVATAR_BODY_BYTES) {
+    return NextResponse.json({ success: false, message: "Image is too large." }, { status: 413 });
   }
 
   try {

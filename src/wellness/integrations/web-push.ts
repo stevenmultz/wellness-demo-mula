@@ -1,6 +1,9 @@
 import webpush from "web-push";
 import { BRAND } from "../brand";
 
+/** Abort a push request that the provider leaves hanging so one slow endpoint cannot stall dispatch. */
+const PUSH_REQUEST_TIMEOUT_MS = 10_000;
+
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${BRAND.supportEmail}`;
@@ -62,6 +65,7 @@ export async function sendWebPushNotification(
     await webpush.sendNotification(pushSubscription, jsonPayload, {
       TTL: 60 * 60 * 24, // 24 hours
       urgency: "high",
+      timeout: PUSH_REQUEST_TIMEOUT_MS,
     });
     return { success: true };
   } catch (err: unknown) {

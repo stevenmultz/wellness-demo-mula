@@ -18,6 +18,15 @@ import {
 import { sendTransactionalEmail } from "../integrations/email-service";
 import { checkRateLimit } from "../security/rate-limit";
 
+/** Reset tokens are stored as SHA-256 digests so a database leak cannot be replayed. */
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Valid bcrypt hash of a random value, compared against when the account does not exist
+// so response time does not reveal which emails are registered.
+const DUMMY_PASSWORD_HASH = "$2a$12$NwraF30b7JtZAOkOowU0BeV33h.hq1PxXvyFm0ZJ.dc0ibqkVg.kW";
+
 export interface WellnessActionResult<T = unknown> {
   success: boolean;
   message?: string;
@@ -151,6 +160,7 @@ export async function wellnessSignIn(
     });
 
     if (!user) {
+      await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
       return {
         success: false,
         message: "Invalid email or password.",
@@ -265,7 +275,7 @@ export async function wellnessRequestPasswordReset(
 
     await prisma.passwordResetToken.create({
       data: {
-        token,
+        token: hashResetToken(token),
         userId: user.id,
         expiresAt,
         used: false,
@@ -315,8 +325,8 @@ export async function wellnessConfirmPasswordReset(
     const { token, newPassword } = validation.data;
 
     const resetRecord = await prisma.passwordResetToken.findUnique({
-      where: { token },
-      include: { user: true },
+      where: { token: hashResetToken(token) },
+      select: { id: true, userId: true, used: true, expiresAt: true },
     });
 
     if (!resetRecord || resetRecord.used || new Date() > resetRecord.expiresAt) {
@@ -328,19 +338,26 @@ export async function wellnessConfirmPasswordReset(
 
     const newPasswordHash = await hashPassword(newPassword);
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: resetRecord.userId },
-        data: {
-          passwordHash: newPasswordHash,
-          tokenVersion: { increment: 1 },
-        },
-      }),
-      prisma.passwordResetToken.update({
-        where: { id: resetRecord.id },
+    // Atomically consume the token: only one concurrent request can flip used false -> true.
+    const consumed = await prisma.$transaction(async (tx) => {
+      const claim = await tx.passwordResetToken.updateMany({
+        where: { id: resetRecord.id, used: false, expiresAt: { gt: new Date() } },
         data: { used: true },
-      }),
-    ]);
+      });
+      if (claim.count !== 1) return false;
+      await tx.user.update({
+        where: { id: resetRecord.userId },
+        data: { passwordHash: newPasswordHash, tokenVersion: { increment: 1 } },
+      });
+      return true;
+    });
+
+    if (!consumed) {
+      return {
+        success: false,
+        message: "This password reset link is invalid or has expired. Please request a new one.",
+      };
+    }
 
     return {
       success: true,

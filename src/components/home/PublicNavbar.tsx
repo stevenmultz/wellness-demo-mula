@@ -4,15 +4,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { LocaleToggle } from "@/components/common/LocaleToggle";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { BRAND } from "@/wellness/brand";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-const PUBLIC_NAV_LINKS = [
-  { href: "/about", label: "About" },
-  { href: "/curriculum", label: "Curriculum" },
-  { href: "/programs", label: "Programs" },
-  { href: "/coaches", label: "Coaches" },
+const PUBLIC_NAV_KEYS = [
+  { href: "/about", key: "about" },
+  { href: "/curriculum", key: "curriculum" },
+  { href: "/programs", key: "programs" },
+  { href: "/coaches", key: "coaches" },
 ] as const;
 
 /**
@@ -51,7 +53,10 @@ export function PublicTopBrand() {
         <BrandLogo size="md" />
       </Link>
 
-      <ThemeToggle />
+      <div className="flex items-center gap-4">
+        <LocaleToggle />
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
@@ -91,6 +96,8 @@ export function PublicPageActions({
   nextHref?: string;
   nextLabel?: string;
 }) {
+  const { t } = useLocale();
+
   return (
     <section
       aria-label="Page navigation actions"
@@ -101,7 +108,7 @@ export function PublicPageActions({
         className="h-8 sm:h-10 px-3.5 sm:px-5 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] sm:text-xs font-medium tracking-wide inline-flex items-center justify-center gap-1.5 transition shrink-0"
       >
         <ArrowLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-        <span>Sign In</span>
+        <span>{t.common.signIn}</span>
       </Link>
 
       {nextHref && nextLabel && (
@@ -122,6 +129,7 @@ export function PublicPageActions({
  */
 export function PublicBottomNavbar() {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   return (
     <nav
@@ -129,7 +137,7 @@ export function PublicBottomNavbar() {
       className="w-full flex flex-wrap items-center justify-between gap-y-2 gap-x-4 text-[11px] sm:text-xs pt-4 shrink-0"
     >
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-        {PUBLIC_NAV_LINKS.map(({ href, label }) => {
+        {PUBLIC_NAV_KEYS.map(({ href, key }) => {
           const isActive = pathname === href;
           return (
             <Link
@@ -141,7 +149,7 @@ export function PublicBottomNavbar() {
                   : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
               }`}
             >
-              {label}
+              {t.nav[key]}
             </Link>
           );
         })}

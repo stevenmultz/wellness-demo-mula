@@ -28,20 +28,29 @@ model User {
   province              String?              @map("province")
   emergencyContactName  String?              @map("emergency_contact_name")
   emergencyContactPhone String?              @map("emergency_contact_phone")
-  role                  String               @default("USER") @map("role") // "USER" | "SUPERADMIN"
+  role                  String               @default("USER") @map("role") // "USER" | "COACH" | "PARTNER_ADMIN" | "SUPERADMIN"
   status            String               @default("ACTIVE") @map("status") // "ACTIVE" | "SUSPENDED"
+  preferredLocale   String               @default("id") @map("preferred_locale") // "id" | "en"
+  organizationId    String?              @map("organization_id")
+  coachProfileId    String?              @map("coach_profile_id")
   tokenVersion      Int                  @default(0) @map("token_version") // Invalidates all sessions on password change
   createdAt         DateTime             @default(now()) @map("created_at")
   updatedAt         DateTime             @updatedAt @map("updated_at")
+  organization      MasterOrganization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  coachProfile      MasterCoach?         @relation(fields: [coachProfileId], references: [id], onDelete: SetNull)
   resetTokens       PasswordResetToken[]
   enrollments       ProgramEnrollment[]
   pushSubscriptions PushSubscription[]
   dayProgress       ProgramDayProgress[]
+  customSubmissions ProgramDayCustomSubmission[]
+  bodyMetricLogs    UserBodyMetricLog[]
   healthProfile     CustomerHealthProfile?
   notifications     UserNotification[]
 
   @@index([role])
   @@index([status])
+  @@index([organizationId])
+  @@index([coachProfileId])
   @@index([createdAt])
   @@map("users")
 }
@@ -80,8 +89,25 @@ model MasterCoach {
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
   programs  ProgramCoach[]
+  users     User[]
 
   @@map("master_coaches")
+}
+
+model MasterOrganization {
+  id         String    @id @default(cuid()) @map("id")
+  name       String    @unique @map("name")
+  slug       String    @unique @map("slug")
+  tagline    String?   @map("tagline")
+  logoUrl    String?   @map("logo_url")
+  websiteUrl String?   @map("website_url")
+  isVerified Boolean   @default(true) @map("is_verified")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  programs   Program[]
+  users      User[]
+
+  @@map("master_organizations")
 }
 
 model MasterTargetAudience {
@@ -177,6 +203,13 @@ model Program {
   audienceCache            String?                @map("audience_cache")
   commitmentCache          String?                @map("commitment_cache")
 
+  // Community / Brand Creator Identity & Multi-Language Support
+  organizationId           String?                @map("organization_id")
+  organization             MasterOrganization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationCache        String?                @map("organization_cache")
+  language                 String                 @default("id") @map("language") // "id" | "en" | "bilingual"
+  translations             String?                @map("translations") // JSON { id?: { title, description, ... }, en?: { ... } }
+
   createdAt                DateTime               @default(now()) @map("created_at")
   updatedAt                DateTime               @updatedAt @map("updated_at")
 
@@ -191,6 +224,7 @@ model Program {
   @@index([status, isPublished, startDate])
   @@index([locationType, isPublished])
   @@index([dailyCommitmentId])
+  @@index([organizationId])
   @@map("programs")
 }
 
@@ -282,15 +316,80 @@ model ProgramDay {
   restInstructions    String?       @map("rest_instructions")
   coachName           String?       @map("coach_name")
   recommendedFor      String?       @map("recommended_for")
+  translations        String?       @map("translations") // JSON { id?: { title, mealRecommendation, restInstructions }, en?: { ... } }
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
 
-  program             Program              @relation(fields: [programId], references: [id], onDelete: Cascade)
+  program             Program                      @relation(fields: [programId], references: [id], onDelete: Cascade)
   progress            ProgramDayProgress[]
+  customTasks         ProgramDayCustomTask[]
+  customSubmissions   ProgramDayCustomSubmission[]
 
   @@unique([programId, dayNumber])
   @@index([programId])
   @@map("program_days")
+}
+
+model ProgramDayCustomTask {
+  id           String   @id @default(cuid()) @map("id")
+  programDayId String   @map("program_day_id")
+  sortOrder    Int      @default(0) @map("sort_order")
+  taskType     String   @map("task_type") // "MEASUREMENT" | "BENCHMARK" | "FORM" | "CHECKLIST" | "MEDIA_UPLOAD"
+  title        String   @map("title")
+  instructions String?  @map("instructions")
+  isRequired   Boolean  @default(true) @map("is_required")
+  fieldsSchema String   @map("fields_schema") // JSON CustomTaskField[]
+  translations String?  @map("translations") // JSON { id?: { title, instructions }, en?: { title, instructions } }
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  programDay   ProgramDay                   @relation(fields: [programDayId], references: [id], onDelete: Cascade)
+  submissions  ProgramDayCustomSubmission[]
+
+  @@index([programDayId, sortOrder])
+  @@map("program_day_custom_tasks")
+}
+
+model ProgramDayCustomSubmission {
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @map("user_id")
+  programDayId String   @map("program_day_id")
+  customTaskId String   @map("custom_task_id")
+  valuesJson   String   @map("values_json") // JSON Record<string, string | number | boolean>
+  submittedAt  DateTime @default(now()) @map("submitted_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  programDay   ProgramDay           @relation(fields: [programDayId], references: [id], onDelete: Cascade)
+  customTask   ProgramDayCustomTask @relation(fields: [customTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, customTaskId])
+  @@index([userId, programDayId])
+  @@index([customTaskId])
+  @@map("program_day_custom_submissions")
+}
+
+model UserBodyMetricLog {
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @map("user_id")
+  programId    String?  @map("program_id")
+  programDayId String?  @map("program_day_id")
+  source       String   @default("CUSTOM_TASK") @map("source") // "CUSTOM_TASK" | "HEALTH_PROFILE" | "ADMIN"
+  weightKg     Float?   @map("weight_kg")
+  heightCm     Float?   @map("height_cm")
+  waistCm      Float?   @map("waist_cm")
+  chestCm      Float?   @map("chest_cm")
+  hipsCm       Float?   @map("hips_cm")
+  bodyFatPct   Float?   @map("body_fat_pct")
+  restingHr    Int?     @map("resting_hr")
+  notes        String?  @map("notes")
+  recordedAt   DateTime @default(now()) @map("recorded_at")
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, recordedAt])
+  @@index([userId, programId])
+  @@map("user_body_metric_logs")
 }
 
 // ============================================================================

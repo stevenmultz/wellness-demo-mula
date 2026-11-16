@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
-import { getWellnessSession } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
+import { buildProgramScopeWhere } from "@/wellness/security/guards";
 import { prisma } from "@/wellness/db";
 import { AdminClient, AdminInitialRoute } from "@/components/admin/AdminClient";
+import { parseCustomTaskFields } from "@/wellness/utils/custom-tasks";
 import {
   safeJsonParse,
   parseTermsList,
@@ -35,9 +37,11 @@ export default async function AdminPage({
   // 1. Strict Real-Time Database Session & Role Verification on EVERY Route Load / Refresh
   const session = await getWellnessSession();
 
-  if (!session || session.role !== "SUPERADMIN" || session.status !== "ACTIVE") {
+  if (!session || !isAdminRole(session.role) || session.status !== "ACTIVE") {
     redirect("/?auth=signin&target=admin");
   }
+
+  const programScopeWhere = buildProgramScopeWhere(session);
 
   // 2. Parse & Validate Route Segments (/admin, /admin/programs, /admin/programs/new, /admin/programs/[id], /admin/directories, /admin/customers, /admin/payments)
   const slugSegments = params?.slug || [];
@@ -83,6 +87,14 @@ export default async function AdminPage({
     masterDataResult,
   ] = await Promise.all([
     prisma.user.findMany({
+      where:
+        session.role === "SUPERADMIN"
+          ? {}
+          : {
+              enrollments: {
+                some: { program: programScopeWhere },
+              },
+            },
       take: 200,
       select: {
         id: true,
@@ -99,9 +111,15 @@ export default async function AdminPage({
         emergencyContactPhone: true,
         role: true,
         status: true,
+        organizationId: true,
+        coachProfileId: true,
         createdAt: true,
         healthProfile: true,
         enrollments: {
+          where:
+            session.role === "SUPERADMIN"
+              ? {}
+              : { program: programScopeWhere },
           select: {
             id: true,
             status: true,
@@ -127,10 +145,17 @@ export default async function AdminPage({
       orderBy: { createdAt: "desc" },
     }),
     prisma.program.findMany({
+      where: programScopeWhere,
       include: {
+        organization: {
+          select: { id: true, name: true, logoUrl: true },
+        },
         days: {
           orderBy: { dayNumber: "asc" },
           include: {
+            customTasks: {
+              orderBy: { sortOrder: "asc" },
+            },
             _count: {
               select: { progress: true },
             },
@@ -172,6 +197,10 @@ export default async function AdminPage({
     recommendedFor: p.recommendedFor,
     coachName: p.coachName,
     coachTitle: p.coachTitle || null,
+    organizationId: p.organizationId || null,
+    organizationCache: p.organization?.name || p.organizationCache || null,
+    language: p.language || "id",
+    translations: p.translations || null,
     durationDays: p.durationDays,
     actualPrice: p.actualPrice,
     discountPercentage: p.discountPercentage,
@@ -225,6 +254,18 @@ export default async function AdminPage({
       restInstructions: d.restInstructions,
       coachName: d.coachName,
       recommendedFor: d.recommendedFor,
+      translations: d.translations || null,
+      customTasks: d.customTasks.map((ct) => ({
+        id: ct.id,
+        programDayId: ct.programDayId,
+        sortOrder: ct.sortOrder,
+        taskType: ct.taskType as any,
+        title: ct.title,
+        instructions: ct.instructions,
+        isRequired: ct.isRequired,
+        fields: parseCustomTaskFields(ct.fieldsSchema),
+        translations: ct.translations || null,
+      })),
     })),
   }));
 
@@ -351,7 +392,7 @@ export default async function AdminPage({
   const selectedDayNum =
     parsedDay && !Number.isNaN(parsedDay) && parsedDay >= 1 ? parsedDay : undefined;
 
-  const validMasterTabs = ["coaches", "audience", "categories", "equipment", "commitments"] as const;
+  const validMasterTabs = ["coaches", "organizations", "audience", "categories", "equipment", "commitments"] as const;
   const masterTab = validMasterTabs.includes(rawTab as (typeof validMasterTabs)[number])
     ? (rawTab as (typeof validMasterTabs)[number])
     : "coaches";
@@ -373,6 +414,9 @@ export default async function AdminPage({
       initialPrograms={programs}
       initialMasterData={masterDataResult.data}
       currentAdminId={session.userId}
+      currentAdminRole={session.role}
+      currentAdminOrgId={session.organizationId}
+      currentAdminCoachId={session.coachProfileId}
       initialRoute={initialRoute}
     />
   );

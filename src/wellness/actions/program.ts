@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
-import { requireAuth, requireSuperadmin } from "../security/guards";
+import {
+  requireAuth,
+  requireAdminAccess,
+  requireProgramAccess,
+} from "../security/guards";
+import {
+  parseCustomTaskFields,
+  parseCustomSubmissionValues,
+} from "../utils/custom-tasks";
 import {
   CreateProgramSchema,
   UpdateProgramMetaSchema,
@@ -137,7 +145,7 @@ function revalidateWellnessRoutes() {
 export async function wellnessAdminCreateProgram(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  const session = await requireAdminAccess();
 
   const validation = CreateProgramSchema.safeParse(rawInput);
   if (!validation.success) {
@@ -159,6 +167,10 @@ export async function wellnessAdminCreateProgram(
     recommendedFor,
     coachName,
     coachTitle,
+    organizationId,
+    organizationCache,
+    language,
+    translations,
     durationDays,
     actualPrice,
     discountPercentage,
@@ -224,6 +236,23 @@ export async function wellnessAdminCreateProgram(
     DEFAULT_PROGRAM_GUIDELINES
   );
 
+  const effectiveOrganizationId =
+    session.role === "PARTNER_ADMIN" && session.organizationId
+      ? session.organizationId
+      : organizationId?.trim() || null;
+
+  const matchedOrg = effectiveOrganizationId
+    ? await prisma.masterOrganization.findUnique({
+        where: { id: effectiveOrganizationId },
+        select: { id: true, name: true },
+      })
+    : null;
+
+  const effectiveCoachName =
+    session.role === "COACH" && session.coachProfileName
+      ? session.coachProfileName
+      : (coachName || "TBA").trim();
+
   // Execute Program Header creation + Relational Taxonomy Sync + Optional Day Seed in 1 Atomic Transaction
   const newProgram = await prisma.$transaction(async (tx) => {
     const created = await tx.program.create({
@@ -242,8 +271,12 @@ export async function wellnessAdminCreateProgram(
         equipment: equipment?.trim() || null,
         dailyCommitment: dailyCommitment?.trim() || null,
         recommendedFor: recommendedFor?.trim() || "All Levels",
-        coachName: (coachName || "TBA").trim(),
+        coachName: effectiveCoachName,
         coachTitle: coachTitle?.trim() || null,
+        organizationId: matchedOrg?.id || null,
+        organizationCache: matchedOrg?.name || organizationCache?.trim() || null,
+        language: language || "id",
+        translations: translations || null,
         durationDays: finalDuration,
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
@@ -306,7 +339,7 @@ export async function wellnessAdminCreateProgram(
 
     await syncProgramTaxonomyRelations(tx, created.id, {
       category,
-      coachName,
+      coachName: effectiveCoachName,
       recommendedFor,
       equipment,
       dailyCommitment,
@@ -337,8 +370,6 @@ export async function wellnessAdminCreateProgram(
 export async function wellnessAdminSaveProgramDay(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
-
   const validation = SaveSingleDaySchema.safeParse(rawInput);
   if (!validation.success) {
     const detail = Object.values(validation.error.flatten().fieldErrors)
@@ -352,6 +383,7 @@ export async function wellnessAdminSaveProgramDay(
   }
 
   const d = validation.data;
+  await requireProgramAccess(d.programId);
 
   // Enforce required content based on dayType before saving as complete
   const dayValidation = validateProgramDay({
@@ -374,69 +406,111 @@ export async function wellnessAdminSaveProgramDay(
     };
   }
 
-  const savedDay = await prisma.programDay.upsert({
-    where: {
-      programId_dayNumber: {
+  const savedDay = await prisma.$transaction(async (tx) => {
+    const dayRow = await tx.programDay.upsert({
+      where: {
+        programId_dayNumber: {
+          programId: d.programId,
+          dayNumber: d.dayNumber,
+        },
+      },
+      create: {
         programId: d.programId,
         dayNumber: d.dayNumber,
+        title: d.title.trim(),
+        dayType: d.dayType,
+        workoutOptions: JSON.stringify(d.workoutOptions || []),
+        sleepRecommendation: d.sleepRecommendation?.trim() || null,
+        dayNotifications: JSON.stringify(d.dayNotifications || []),
+        videoUrl: d.videoUrl?.trim() || null,
+        videoChecklist: JSON.stringify(d.videoChecklist || []),
+        mealRecommendation: d.mealRecommendation?.trim() || null,
+        dailyAssessment: d.dailyAssessment?.trim() || null,
+        pendingReminder:
+          d.pendingReminder?.trim() ||
+          `Day ${d.dayNumber} is unlocked! Complete your routine before 23:59.`,
+        completedReminder:
+          d.completedReminder?.trim() ||
+          `Day ${d.dayNumber} completed! Great consistency.`,
+        meetupLink: d.meetupLink?.trim() || null,
+        mapLink: d.mapLink?.trim() || null,
+        onsiteVenue: d.onsiteVenue?.trim() || null,
+        onsiteSchedule: d.onsiteSchedule?.trim() || null,
+        eventTitle: d.eventTitle?.trim() || null,
+        eventHost: d.eventHost?.trim() || null,
+        eventDetails: d.eventDetails?.trim() || null,
+        restInstructions: d.restInstructions?.trim() || null,
+        coachName: d.dayType === "REST_DAY" ? null : (d.coachName?.trim() || null),
+        recommendedFor: d.dayType === "REST_DAY" ? null : (d.recommendedFor?.trim() || null),
+        translations: d.translations || null,
       },
-    },
-    create: {
-      programId: d.programId,
-      dayNumber: d.dayNumber,
-      title: d.title.trim(),
-      dayType: d.dayType,
-      workoutOptions: JSON.stringify(d.workoutOptions || []),
-      sleepRecommendation: d.sleepRecommendation?.trim() || null,
-      dayNotifications: JSON.stringify(d.dayNotifications || []),
-      videoUrl: d.videoUrl?.trim() || null,
-      videoChecklist: JSON.stringify(d.videoChecklist || []),
-      mealRecommendation: d.mealRecommendation?.trim() || null,
-      dailyAssessment: d.dailyAssessment?.trim() || null,
-      pendingReminder:
-        d.pendingReminder?.trim() ||
-        `Day ${d.dayNumber} is unlocked! Complete your routine before 23:59.`,
-      completedReminder:
-        d.completedReminder?.trim() ||
-        `Day ${d.dayNumber} completed! Great consistency.`,
-      meetupLink: d.meetupLink?.trim() || null,
-      mapLink: d.mapLink?.trim() || null,
-      onsiteVenue: d.onsiteVenue?.trim() || null,
-      onsiteSchedule: d.onsiteSchedule?.trim() || null,
-      eventTitle: d.eventTitle?.trim() || null,
-      eventHost: d.eventHost?.trim() || null,
-      eventDetails: d.eventDetails?.trim() || null,
-      restInstructions: d.restInstructions?.trim() || null,
-      coachName: d.dayType === "REST_DAY" ? null : (d.coachName?.trim() || null),
-      recommendedFor: d.dayType === "REST_DAY" ? null : (d.recommendedFor?.trim() || null),
-    },
-    update: {
-      title: d.title.trim(),
-      dayType: d.dayType,
-      workoutOptions: JSON.stringify(d.workoutOptions || []),
-      sleepRecommendation: d.sleepRecommendation?.trim() || null,
-      dayNotifications: JSON.stringify(d.dayNotifications || []),
-      videoUrl: d.videoUrl?.trim() || null,
-      videoChecklist: JSON.stringify(d.videoChecklist || []),
-      mealRecommendation: d.mealRecommendation?.trim() || null,
-      dailyAssessment: d.dailyAssessment?.trim() || null,
-      pendingReminder:
-        d.pendingReminder?.trim() ||
-        `Day ${d.dayNumber} is unlocked! Complete your routine before 23:59.`,
-      completedReminder:
-        d.completedReminder?.trim() ||
-        `Day ${d.dayNumber} completed! Great consistency.`,
-      meetupLink: d.meetupLink?.trim() || null,
-      mapLink: d.mapLink?.trim() || null,
-      onsiteVenue: d.onsiteVenue?.trim() || null,
-      onsiteSchedule: d.onsiteSchedule?.trim() || null,
-      eventTitle: d.eventTitle?.trim() || null,
-      eventHost: d.eventHost?.trim() || null,
-      eventDetails: d.eventDetails?.trim() || null,
-      restInstructions: d.restInstructions?.trim() || null,
-      coachName: d.dayType === "REST_DAY" ? null : (d.coachName?.trim() || null),
-      recommendedFor: d.dayType === "REST_DAY" ? null : (d.recommendedFor?.trim() || null),
-    },
+      update: {
+        title: d.title.trim(),
+        dayType: d.dayType,
+        workoutOptions: JSON.stringify(d.workoutOptions || []),
+        sleepRecommendation: d.sleepRecommendation?.trim() || null,
+        dayNotifications: JSON.stringify(d.dayNotifications || []),
+        videoUrl: d.videoUrl?.trim() || null,
+        videoChecklist: JSON.stringify(d.videoChecklist || []),
+        mealRecommendation: d.mealRecommendation?.trim() || null,
+        dailyAssessment: d.dailyAssessment?.trim() || null,
+        pendingReminder:
+          d.pendingReminder?.trim() ||
+          `Day ${d.dayNumber} is unlocked! Complete your routine before 23:59.`,
+        completedReminder:
+          d.completedReminder?.trim() ||
+          `Day ${d.dayNumber} completed! Great consistency.`,
+        meetupLink: d.meetupLink?.trim() || null,
+        mapLink: d.mapLink?.trim() || null,
+        onsiteVenue: d.onsiteVenue?.trim() || null,
+        onsiteSchedule: d.onsiteSchedule?.trim() || null,
+        eventTitle: d.eventTitle?.trim() || null,
+        eventHost: d.eventHost?.trim() || null,
+        eventDetails: d.eventDetails?.trim() || null,
+        restInstructions: d.restInstructions?.trim() || null,
+        coachName: d.dayType === "REST_DAY" ? null : (d.coachName?.trim() || null),
+        recommendedFor: d.dayType === "REST_DAY" ? null : (d.recommendedFor?.trim() || null),
+        translations: d.translations !== undefined ? (d.translations || null) : undefined,
+      },
+    });
+
+    if (d.customTasks !== undefined) {
+      const incomingIds = d.customTasks.map((t) => t.id).filter((id): id is string => Boolean(id));
+      await tx.programDayCustomTask.deleteMany({
+        where: {
+          programDayId: dayRow.id,
+          ...(incomingIds.length > 0 ? { id: { notIn: incomingIds } } : {}),
+        },
+      });
+      for (let idx = 0; idx < d.customTasks.length; idx++) {
+        const ct = d.customTasks[idx];
+        const ctData = {
+          sortOrder: idx,
+          taskType: ct.taskType,
+          title: ct.title.trim(),
+          instructions: ct.instructions?.trim() || null,
+          isRequired: ct.isRequired ?? true,
+          fieldsSchema: JSON.stringify(ct.fields),
+          translations: ct.translations || null,
+        };
+        if (ct.id) {
+          const upd = await tx.programDayCustomTask.updateMany({
+            where: { id: ct.id, programDayId: dayRow.id },
+            data: ctData,
+          });
+          if (upd.count === 0) {
+            await tx.programDayCustomTask.create({ data: { programDayId: dayRow.id, ...ctData } });
+          }
+        } else {
+          await tx.programDayCustomTask.create({ data: { programDayId: dayRow.id, ...ctData } });
+        }
+      }
+    }
+
+    return tx.programDay.findUniqueOrThrow({
+      where: { id: dayRow.id },
+      include: { customTasks: { orderBy: { sortOrder: "asc" } } },
+    });
   });
 
   revalidateWellnessRoutes();
@@ -449,19 +523,30 @@ export async function wellnessAdminSaveProgramDay(
       workoutOptions: safeJsonParse<string[]>(savedDay.workoutOptions, []),
       videoChecklist: safeJsonParse<string[]>(savedDay.videoChecklist, []),
       dayNotifications: safeJsonParse<any[]>(savedDay.dayNotifications, []),
+      customTasks: savedDay.customTasks.map((ct) => ({
+        id: ct.id,
+        programDayId: ct.programDayId,
+        sortOrder: ct.sortOrder,
+        taskType: ct.taskType,
+        title: ct.title,
+        instructions: ct.instructions,
+        isRequired: ct.isRequired,
+        fields: parseCustomTaskFields(ct.fieldsSchema),
+        translations: ct.translations,
+      })),
     },
   };
 }
 
 /**
- * Superadmin: Clear / Delete a specific Day from a Program.
+ * Superadmin / Scoped Coach / Partner: Clear / Delete a specific Day from a Program.
  * If the program was published and removing a day makes it incomplete, reverts to Draft (`isPublished: false`).
  */
 export async function wellnessAdminDeleteProgramDay(
   programId: string,
   dayNumber: number
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requireProgramAccess(programId);
 
   const existingDay = await prisma.programDay.findUnique({
     where: {
@@ -503,8 +588,6 @@ export async function wellnessAdminDeleteProgramDay(
 export async function wellnessAdminUpdateProgramMeta(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
-
   const validation = UpdateProgramMetaSchema.safeParse(rawInput);
   if (!validation.success) {
     const detail = Object.values(validation.error.flatten().fieldErrors)
@@ -518,6 +601,7 @@ export async function wellnessAdminUpdateProgramMeta(
   }
 
   const input = validation.data;
+  const session = await requireProgramAccess(input.programId);
 
   const existingProgram = await prisma.program.findUnique({
     where: { id: input.programId },
@@ -589,6 +673,20 @@ export async function wellnessAdminUpdateProgramMeta(
       ? (input.registrationOpenDate ? new Date(input.registrationOpenDate) : null)
       : existingProgram.registrationOpenDate;
 
+    const requestedOrgId =
+      session.role === "PARTNER_ADMIN" && session.organizationId
+        ? session.organizationId
+        : input.organizationId !== undefined
+          ? (input.organizationId?.trim() || null)
+          : existingProgram.organizationId;
+
+    const orgRecord = requestedOrgId
+      ? await tx.masterOrganization.findUnique({
+          where: { id: requestedOrgId },
+          select: { id: true, name: true },
+        })
+      : null;
+
     const prog = await tx.program.update({
       where: { id: input.programId },
       data: {
@@ -607,6 +705,17 @@ export async function wellnessAdminUpdateProgramMeta(
         recommendedFor: (input.recommendedFor || existingProgram.recommendedFor || "All Levels").trim(),
         coachName: (input.coachName || existingProgram.coachName || "TBA").trim(),
         coachTitle: input.coachTitle?.trim() || null,
+        organizationId: orgRecord?.id || null,
+        organizationCache:
+          orgRecord?.name ||
+          (input.organizationCache !== undefined
+            ? (input.organizationCache?.trim() || null)
+            : existingProgram.organizationCache),
+        language: input.language || existingProgram.language || "id",
+        translations:
+          input.translations !== undefined
+            ? (input.translations || null)
+            : existingProgram.translations,
         durationDays: resolvedDuration,
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
@@ -668,7 +777,7 @@ export async function wellnessAdminSetProgramStatus(
   programId: string,
   rawStatus: "DRAFT" | "REVIEW" | "OPEN" | "PUBLISH" | "DONE" | "ARCHIVE" | string
 ): Promise<WellnessActionResult<{ status: string; isPublished: boolean }>> {
-  await requireSuperadmin();
+  await requireProgramAccess(programId);
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
@@ -765,7 +874,7 @@ export async function wellnessAdminTogglePublishProgram(
   programId: string,
   publish: boolean
 ): Promise<WellnessActionResult<{ isPublished: boolean; status: string }>> {
-  await requireSuperadmin();
+  await requireProgramAccess(programId);
 
   const program = await prisma.program.findUnique({
     where: { id: programId },
@@ -891,7 +1000,7 @@ export async function wellnessAdminTogglePublishProgram(
 export async function wellnessAdminDeleteProgram(
   programId: string
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requireProgramAccess(programId);
 
   const existing = await prisma.program.findUnique({
     where: { id: programId },
@@ -1082,6 +1191,24 @@ export async function wellnessUserSubmitDayProgress(
     }
   }
 
+  if (verifiedCompleted) {
+    const requiredCustomTasks = await prisma.programDayCustomTask.findMany({
+      where: { programDayId, isRequired: true },
+      select: { id: true },
+    });
+    if (requiredCustomTasks.length > 0) {
+      const submittedCount = await prisma.programDayCustomSubmission.count({
+        where: {
+          userId: session.userId,
+          customTaskId: { in: requiredCustomTasks.map((t) => t.id) },
+        },
+      });
+      if (submittedCount < requiredCustomTasks.length) {
+        verifiedCompleted = false;
+      }
+    }
+  }
+
   const payloadData = {
     videoWatched: nextVideoWatched,
     isCompleted: verifiedCompleted,
@@ -1149,6 +1276,13 @@ export interface ProgramSubmissionItem {
   wakeTime: string | null;
   sleepDurationMinutes: number | null;
   assessmentResponse: string | null;
+  customSubmissions?: Array<{
+    id: string;
+    customTaskId: string;
+    title: string;
+    taskType: string;
+    values: Record<string, unknown>;
+  }>;
   completedAt: string | null;
   updatedAt: string;
 }
@@ -1164,7 +1298,7 @@ export interface ProgramSubmissionsPayload {
 }
 
 /**
- * Superadmin: Retrieve all member responses / day progress submissions for a program.
+ * Superadmin / Scoped Coach / Partner: Retrieve member responses / day progress submissions for a program.
  * Includes optional filtering by day number, user ID, or photo presence.
  */
 export async function wellnessAdminGetProgramSubmissions(
@@ -1176,11 +1310,11 @@ export async function wellnessAdminGetProgramSubmissions(
     limit?: number;
   }
 ): Promise<WellnessActionResult<ProgramSubmissionsPayload>> {
-  await requireSuperadmin();
-
   if (!programId) {
     return { success: false, message: "Program ID is required." };
   }
+
+  await requireProgramAccess(programId);
 
   const whereClause: any = {
     programDay: {
@@ -1205,31 +1339,67 @@ export async function wellnessAdminGetProgramSubmissions(
 
   const limit = filters?.limit ? Math.min(500, Math.max(1, filters.limit)) : 200;
 
-  const rawRecords = await prisma.programDayProgress.findMany({
-    where: whereClause,
-    take: limit,
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
+  const [rawRecords, rawCustomSubs] = await Promise.all([
+    prisma.programDayProgress.findMany({
+      where: whereClause,
+      take: limit,
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        programDay: {
+          select: {
+            id: true,
+            dayNumber: true,
+            title: true,
+            dayType: true,
+          },
         },
       },
-      programDay: {
-        select: {
-          id: true,
-          dayNumber: true,
-          title: true,
-          dayType: true,
+      orderBy: [
+        { programDay: { dayNumber: "asc" } },
+        { completedAt: "desc" },
+      ],
+    }),
+    prisma.programDayCustomSubmission.findMany({
+      where: {
+        programDay: {
+          programId,
+          ...(filters?.dayNumber !== undefined && filters.dayNumber > 0
+            ? { dayNumber: filters.dayNumber }
+            : {}),
+        },
+        ...(filters?.userId && filters.userId !== "ALL" ? { userId: filters.userId } : {}),
+      },
+      include: {
+        customTask: {
+          select: {
+            id: true,
+            title: true,
+            taskType: true,
+          },
         },
       },
-    },
-    orderBy: [
-      { programDay: { dayNumber: "asc" } },
-      { completedAt: "desc" },
-    ],
-  });
+    }),
+  ]);
+
+  const customSubsByPair = new Map<string, ProgramSubmissionItem["customSubmissions"]>();
+  for (const cs of rawCustomSubs) {
+    const key = `${cs.userId}:${cs.programDayId}`;
+    const list = customSubsByPair.get(key) ?? [];
+    list.push({
+      id: cs.id,
+      customTaskId: cs.customTaskId,
+      title: cs.customTask.title,
+      taskType: cs.customTask.taskType,
+      values: parseCustomSubmissionValues(cs.valuesJson),
+    });
+    customSubsByPair.set(key, list);
+  }
 
   const uniqueUserIds = new Set<string>();
   let completedCount = 0;
@@ -1265,6 +1435,7 @@ export async function wellnessAdminGetProgramSubmissions(
       wakeTime: r.wakeTime,
       sleepDurationMinutes: r.sleepDurationMinutes,
       assessmentResponse: r.assessmentResponse,
+      customSubmissions: customSubsByPair.get(`${r.userId}:${r.programDayId}`) ?? [],
       completedAt: r.completedAt ? r.completedAt.toISOString() : null,
       updatedAt: r.updatedAt.toISOString(),
     };

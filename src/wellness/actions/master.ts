@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
-import { requireSuperadmin } from "../security/guards";
+import { requireAdminAccess, requireSuperadmin } from "../security/guards";
 import { WellnessActionResult } from "./auth";
 
 function revalidateAdminMasterRoutes() {
@@ -36,12 +36,23 @@ function replaceCsvToken(
   return changed ? Array.from(new Set(updated)).join(", ") : null;
 }
 
+export interface MasterOrganizationItem {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string | null;
+  logoUrl: string | null;
+  websiteUrl: string | null;
+  isVerified: boolean;
+}
+
 export interface MasterDataPayload {
   coaches: Array<{ id: string; name: string; title: string }>;
   targetAudiences: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
   equipment: Array<{ id: string; name: string }>;
   dailyCommitments: Array<{ id: string; name: string }>;
+  organizations: MasterOrganizationItem[];
 }
 
 export async function wellnessGetMasterData(): Promise<{
@@ -49,14 +60,15 @@ export async function wellnessGetMasterData(): Promise<{
   data: MasterDataPayload;
 }> {
   try {
-    await requireSuperadmin();
-    let [coaches, targetAudiences, categories, equipment, dailyCommitments] =
+    await requireAdminAccess();
+    let [coaches, targetAudiences, categories, equipment, dailyCommitments, organizations] =
       await Promise.all([
         prisma.masterCoach.findMany({ orderBy: { name: "asc" } }),
         prisma.masterTargetAudience.findMany({ orderBy: { name: "asc" } }),
         prisma.masterCategory.findMany({ orderBy: { name: "asc" } }),
         prisma.masterEquipment.findMany({ orderBy: { name: "asc" } }),
         prisma.masterDailyCommitment.findMany({ orderBy: { name: "asc" } }),
+        prisma.masterOrganization.findMany({ orderBy: { name: "asc" } }),
       ]);
 
     // Provide fallback defaults in memory if tables are unseeded (pure read, no database mutation side-effects)
@@ -122,6 +134,7 @@ export async function wellnessGetMasterData(): Promise<{
         categories: effectiveCategories,
         equipment: effectiveEquipment,
         dailyCommitments: effectiveCommitments,
+        organizations,
       },
     };
   } catch (error) {
@@ -134,6 +147,7 @@ export async function wellnessGetMasterData(): Promise<{
         categories: [],
         equipment: [],
         dailyCommitments: [],
+        organizations: [],
       },
     };
   }
@@ -650,4 +664,117 @@ export async function wellnessUpdateMasterDailyCommitment(input: {
 
   revalidateAdminMasterRoutes();
   return { success: true, message: `Daily commitment "${item.name}" updated.`, data: item };
+}
+
+export async function wellnessCreateMasterOrganization(input: {
+  name: string;
+  tagline?: string | null;
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
+  isVerified?: boolean;
+}): Promise<WellnessActionResult> {
+  await requireSuperadmin();
+  const name = input.name?.trim();
+  if (!name || name.length < 2) {
+    return { success: false, message: "Community / Brand name must be at least 2 characters." };
+  }
+  const baseSlug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+  const slug = baseSlug || `org-${Date.now()}`;
+
+  try {
+    const existing = await prisma.masterOrganization.findFirst({
+      where: { OR: [{ name }, { slug }] },
+    });
+    if (existing) {
+      return { success: false, message: `Community / Brand "${name}" already exists.` };
+    }
+
+    const org = await prisma.masterOrganization.create({
+      data: {
+        name,
+        slug,
+        tagline: input.tagline?.trim() || null,
+        logoUrl: input.logoUrl?.trim() || null,
+        websiteUrl: input.websiteUrl?.trim() || null,
+        isVerified: input.isVerified ?? true,
+      },
+    });
+    revalidateAdminMasterRoutes();
+    return { success: true, message: `Community / Brand "${org.name}" added.`, data: org };
+  } catch (error) {
+    console.error("Failed to create master organization:", error);
+    return { success: false, message: "Failed to add Community / Brand." };
+  }
+}
+
+export async function wellnessUpdateMasterOrganization(input: {
+  id: string;
+  name: string;
+  tagline?: string | null;
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
+  isVerified?: boolean;
+}): Promise<WellnessActionResult> {
+  await requireSuperadmin();
+  const name = input.name?.trim();
+  if (!name || name.length < 2) {
+    return { success: false, message: "Community / Brand name must be at least 2 characters." };
+  }
+
+  const oldItem = await prisma.masterOrganization.findUnique({ where: { id: input.id } });
+  if (!oldItem) {
+    return { success: false, message: "Community / Brand not found." };
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const org = await tx.masterOrganization.update({
+        where: { id: input.id },
+        data: {
+          name,
+          tagline: input.tagline !== undefined ? (input.tagline?.trim() || null) : oldItem.tagline,
+          logoUrl: input.logoUrl !== undefined ? (input.logoUrl?.trim() || null) : oldItem.logoUrl,
+          websiteUrl: input.websiteUrl !== undefined ? (input.websiteUrl?.trim() || null) : oldItem.websiteUrl,
+          isVerified: input.isVerified !== undefined ? input.isVerified : oldItem.isVerified,
+        },
+      });
+
+      if (oldItem.name !== name) {
+        await tx.program.updateMany({
+          where: { organizationId: org.id },
+          data: { organizationCache: name },
+        });
+      }
+      return org;
+    });
+
+    revalidateAdminMasterRoutes();
+    return { success: true, message: `Community / Brand "${updated.name}" updated.`, data: updated };
+  } catch (error) {
+    console.error("Failed to update master organization:", error);
+    return { success: false, message: "Failed to update Community / Brand." };
+  }
+}
+
+export async function wellnessDeleteMasterOrganization(
+  id: string
+): Promise<WellnessActionResult> {
+  await requireSuperadmin();
+  try {
+    const usedCount = await prisma.program.count({ where: { organizationId: id } });
+    if (usedCount > 0) {
+      return {
+        success: false,
+        message: `Cannot delete this Community / Brand because it is linked to ${usedCount} program(s).`,
+      };
+    }
+    await prisma.masterOrganization.delete({ where: { id } });
+    revalidateAdminMasterRoutes();
+    return { success: true, message: "Community / Brand deleted." };
+  } catch {
+    return { success: false, message: "Failed to delete Community / Brand." };
+  }
 }

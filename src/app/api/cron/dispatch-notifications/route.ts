@@ -18,7 +18,8 @@ async function handleCronDispatch(req: NextRequest) {
     const authHeader = req.headers.get("authorization");
     const secretQuery = searchParams.get("secret");
     const isProd = process.env.NODE_ENV === "production";
-    const cronSecret = process.env.CRON_SECRET || (isProd ? "" : "zera_sanctuary_cron_secure_key_2026");
+    // No built-in fallback secret: CRON_SECRET must be configured explicitly in every environment.
+    const cronSecret = process.env.CRON_SECRET || "";
 
     let bodyJson: {
       simulateTime?: string;
@@ -46,8 +47,6 @@ async function handleCronDispatch(req: NextRequest) {
       if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
         isAuthorized = true;
       }
-    } else if (process.env.NODE_ENV === "development" && !cronSecret) {
-      isAuthorized = true;
     }
 
     if (!isAuthorized) {

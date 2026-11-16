@@ -36,7 +36,7 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
  */
 export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY);
+    const { payload } = await jwtVerify(token, SECRET_KEY, { algorithms: ["HS256"] });
     return payload as unknown as SessionPayload;
   } catch {
     return null;
@@ -84,6 +84,14 @@ export async function clearSessionCookie() {
  */
 const safeCache = typeof cache === "function" ? cache : <T extends (...args: any[]) => any>(fn: T): T => fn;
 
+export const wellnessGetSessionType = {} as never;
+export type AdminRole = "SUPERADMIN" | "COACH" | "PARTNER_ADMIN";
+export const ADMIN_ROLES: readonly string[] = ["SUPERADMIN", "COACH", "PARTNER_ADMIN"];
+
+export function isAdminRole(role?: string | null): boolean {
+  return !!role && ADMIN_ROLES.includes(role);
+}
+
 export const getWellnessSession = safeCache(async (): Promise<{
   userId: string;
   email: string;
@@ -101,6 +109,11 @@ export const getWellnessSession = safeCache(async (): Promise<{
   emergencyContactPhone: string | null;
   role: string;
   status: string;
+  preferredLocale: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  coachProfileId: string | null;
+  coachProfileName: string | null;
   createdAt: Date;
 } | null> => {
   try {
@@ -131,6 +144,11 @@ export const getWellnessSession = safeCache(async (): Promise<{
         emergencyContactPhone: true,
         role: true,
         status: true,
+        preferredLocale: true,
+        organizationId: true,
+        coachProfileId: true,
+        organization: { select: { name: true } },
+        coachProfile: { select: { name: true } },
         createdAt: true,
         tokenVersion: true,
       },
@@ -157,6 +175,11 @@ export const getWellnessSession = safeCache(async (): Promise<{
       emergencyContactPhone: user.emergencyContactPhone,
       role: user.role,
       status: user.status,
+      preferredLocale: user.preferredLocale || "en",
+      organizationId: user.organizationId,
+      organizationName: user.organization?.name ?? null,
+      coachProfileId: user.coachProfileId,
+      coachProfileName: user.coachProfile?.name ?? null,
       createdAt: user.createdAt,
     };
   } catch {

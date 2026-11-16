@@ -16,6 +16,7 @@ import {
 } from "@/components/home/PublicNavbar";
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import { BRAND } from "@/wellness/brand";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -35,6 +36,7 @@ interface LandingClientProps {
 export function LandingClient({ sessionUser }: LandingClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { t } = useLocale();
 
   const [authTab, setAuthTab] = useState<AuthTabMode>("signin");
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -87,7 +89,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 py-2.5 px-5 text-xs flex items-center justify-between shadow-xl font-mono">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Your account has been deleted.</span>
+            <span>{t.public.accountDeleted}</span>
           </div>
           <button
             type="button"
@@ -124,7 +126,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                     Active Session • {sessionUser.role}
                   </span>
                   <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                    Welcome back, {sessionUser.fullName}
+                    {t.public.welcomeBack}, {sessionUser.fullName}
                   </h1>
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-mono">
                     {sessionUser.email}
@@ -136,16 +138,16 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                     href="/dashboard"
                     className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"
                   >
-                    <span>Enter Member Dashboard</span>
+                    <span>{t.public.enterDashboard}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
 
-                  {sessionUser.role === "SUPERADMIN" && (
+                  {["SUPERADMIN", "COACH", "PARTNER_ADMIN"].includes(sessionUser.role) && (
                     <Link
                       href="/admin"
                       className="w-full h-10 sm:h-11 rounded-full bg-zinc-900/10 hover:bg-zinc-900/15 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-950 dark:text-white text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"
                     >
-                      <span>Open Admin Console</span>
+                      <span>{t.public.openAdmin}</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
                     </Link>
                   )}
@@ -157,7 +159,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                     className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>{signingOut ? "Signing out..." : "Sign Out"}</span>
+                    <span>{signingOut ? t.common.signingOut : t.common.signOut}</span>
                   </button>
                 </div>
               </div>
@@ -186,14 +188,14 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
         <div className="absolute bottom-8 left-8 right-8 z-10 flex items-end justify-between gap-4 text-white pointer-events-none">
           <div className="space-y-1 max-w-md">
             <span className="text-[10px] font-mono uppercase tracking-[0.24em] text-zinc-300 block">
-              00:00 WIB Synchronized Protocol
+              {t.public.heroCaptionTag}
             </span>
             <p className="text-lg sm:text-xl font-geometric font-light tracking-tight text-white">
-              Precision Movement. Engineered Longevity.
+              {t.public.heroCaptionTitle}
             </p>
           </div>
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-300">
-            Jakarta • Online
+            {t.public.heroLocationTag}
           </span>
         </div>
       </div>

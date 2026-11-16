@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getPublicSanctuaryData } from "@/wellness/public-data";
 import { BRAND } from "@/wellness/brand";
+import { getServerLocale } from "@/wellness/i18n/server";
+import { getDictionary } from "@/wellness/i18n/dictionaries";
 import {
   PublicPageShell,
   PublicPageActions,
@@ -15,6 +17,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ProgramsPage() {
   const { sessionUser, programs } = await getPublicSanctuaryData();
+  const locale = getServerLocale();
+  const t = getDictionary(locale);
   const recentPrograms = programs.slice(0, 5);
 
   return (
@@ -22,14 +26,13 @@ export default async function ProgramsPage() {
       {/* HERO */}
       <section className="space-y-4 max-w-2xl">
         <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400 block">
-          Programs
+          {t.public.programsEyebrow}
         </span>
         <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-tight">
-          Recent Programs
+          {t.public.programsHeadline}
         </h1>
         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-          Up to 5 recent published cohorts with schedule format, duration, and
-          current registration status.
+          {t.public.programsIntro}
         </p>
       </section>
 
@@ -37,7 +40,7 @@ export default async function ProgramsPage() {
       {recentPrograms.length === 0 ? (
         <section className="py-10 border-y border-zinc-200/80 dark:border-white/10">
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
-            No published programs available right now.
+            {t.public.programsEmpty}
           </p>
         </section>
       ) : (
@@ -72,8 +75,18 @@ export default async function ProgramsPage() {
                     <span className="text-zinc-950 dark:text-white font-semibold">
                       {publicBadge}
                     </span>
+                    {prog.organizationName && (
+                      <>
+                        <span>•</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 font-semibold">
+                          {prog.organizationName}
+                        </span>
+                      </>
+                    )}
                     <span>•</span>
-                    <span>{prog.durationDays} Days</span>
+                    <span>
+                      {prog.durationDays} {t.public.days}
+                    </span>
                     <span>•</span>
                     <span>{attendanceLabel}</span>
                   </div>
@@ -83,6 +96,7 @@ export default async function ProgramsPage() {
                   </h2>
 
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    {prog.organizationName ? `${prog.organizationName} • ` : ""}
                     {prog.coachName || BRAND.coachFallback} &bull; Rp{" "}
                     {prog.price.toLocaleString("id-ID")}
                   </p>
@@ -94,7 +108,7 @@ export default async function ProgramsPage() {
                       href="/dashboard"
                       className="text-xs font-medium text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:underline underline-offset-4"
                     >
-                      <span>Dashboard</span>
+                      <span>{t.public.dashboard}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   ) : isEnrollable ? (
@@ -106,7 +120,7 @@ export default async function ProgramsPage() {
                       }
                       className="text-xs font-medium text-zinc-950 dark:text-white inline-flex items-center gap-1 hover:underline underline-offset-4"
                     >
-                      <span>{sessionUser ? "Enroll" : "Join"}</span>
+                      <span>{sessionUser ? t.public.enroll : t.public.join}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   ) : (
@@ -121,7 +135,7 @@ export default async function ProgramsPage() {
         </section>
       )}
 
-      <PublicPageActions nextHref="/coaches" nextLabel="Coaches" />
+      <PublicPageActions nextHref="/coaches" nextLabel={t.nav.coaches} />
     </PublicPageShell>
   );
 }

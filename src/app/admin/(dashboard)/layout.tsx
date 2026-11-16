@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getWellnessSession } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export default async function AdminLayout({
 }) {
   const session = await getWellnessSession();
 
-  if (!session || session.role !== "SUPERADMIN") {
+  if (!session || !isAdminRole(session.role)) {
     redirect("/?auth=signin&target=admin");
   }
 

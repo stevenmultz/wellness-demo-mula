@@ -33,8 +33,10 @@ import {
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { PlanDay } from "./MyPlanTab";
 import { HeaderBackButton, InfoPopupModal, safeHttpUrl } from "./shared";
+import { CustomTaskSection } from "./CustomTaskSection";
 
 type SaveResult = Promise<void | boolean>;
 
@@ -59,6 +61,11 @@ export interface DailyCheckInProps {
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
+  onCustomTaskSubmitted?: (
+    dayId: string,
+    customTaskId: string,
+    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
+  ) => void;
   widgetIndex?: 0 | 1 | 2;
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }
@@ -2908,6 +2915,17 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           );
         })}
       </ol>
+
+      {selectedDay.customTasks && selectedDay.customTasks.length > 0 && (
+        <CustomTaskSection
+          programDayId={selectedDay.id}
+          customTasks={selectedDay.customTasks}
+          locked={selectedLocked}
+          onSubmitted={(customTaskId, submission) =>
+            props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission)
+          }
+        />
+      )}
 
       {/* BOTTOM ACTION: RENDERED ONLY WHEN CONTEXTUALLY NEEDED */}
       {showStatusFooter && (

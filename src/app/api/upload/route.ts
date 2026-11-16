@@ -3,8 +3,14 @@ import { getWellnessSession } from "@/wellness/security/session";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { checkRateLimit } from "@/wellness/security/rate-limit";
 
 export const dynamic = "force-dynamic";
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// base64 inflates by 4/3; allow a little JSON envelope overhead on top.
+const MAX_UPLOAD_BODY_BYTES = Math.ceil((MAX_UPLOAD_BYTES * 4) / 3) + 1024;
+const UPLOAD_RATE_LIMIT = { windowMs: 60 * 1000, maxRequests: 20 };
 
 function detectImageMime(buf: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
   if (buf.length < 12) return null;
@@ -31,6 +37,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
+  const rl = checkRateLimit(`upload:${session.userId}`, UPLOAD_RATE_LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, message: "Too many uploads. Please wait a moment." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
+  // Reject oversized bodies before buffering/parsing them.
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_UPLOAD_BODY_BYTES) {
+    return NextResponse.json({ success: false, message: "Upload is too large or has no declared size." }, { status: 413 });
+  }
+
   try {
     const body = await request.json();
     const { dataUrl, type } = body as { dataUrl?: string; type?: string };
@@ -48,7 +68,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(base64Data, "base64");
 
     // Limit upload payload to 5MB
-    if (buffer.length === 0 || buffer.length > 5 * 1024 * 1024) {
+    if (buffer.length === 0 || buffer.length > MAX_UPLOAD_BYTES) {
       return NextResponse.json({ success: false, message: "File exceeds 5MB size limit or is empty" }, { status: 400 });
     }
 
