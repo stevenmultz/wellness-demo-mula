@@ -167,6 +167,7 @@ async function main() {
   // 2. Hash default passwords
   const superadminPassword = await bcrypt.hash("SuperAdmin123!", 12);
   const userPassword = await bcrypt.hash("UserBudi123!", 12);
+  const stevenPassword = await bcrypt.hash("P@ssw0rd", 12);
 
   // 3. Seed Master Data
   console.log("📦 Seeding Master Directories...");
@@ -275,6 +276,22 @@ async function main() {
     },
   });
 
+  const userSteven = await prisma.user.create({
+    data: {
+      email: "steven@gmail.com",
+      emailVerifiedAt: verifiedNow,
+      fullName: "Steven Mulya",
+      birthDate: birthDateYearsAgo(27),
+      phone: "+6281290001122",
+      city: "Jakarta Selatan",
+      avatarPath: "/coach.webp",
+      passwordHash: stevenPassword,
+      role: "USER",
+      status: "ACTIVE",
+      tokenVersion: 0,
+    },
+  });
+
   const additionalSeedMembers = [
     { fullName: "Reza Pratama", email: "reza.pratama@wellness.test", phone: "+6281298761001", age: 29, cover: "/coach.webp", weightKg: 74, heightCm: 180 },
     { fullName: "Nadia Safitri", email: "nadia.safitri@wellness.test", phone: "+6281312345602", age: 25, cover: "/coach2.webp", weightKg: 52, heightCm: 162 },
@@ -323,6 +340,7 @@ async function main() {
       { userId: userBudi.id, source: "SELF", weightKg: 72.5, heightCm: 178, waistCm: 81, chestCm: 98, hipsCm: 99 },
       { userId: userSiti.id, source: "SELF", weightKg: 54.0, heightCm: 164, waistCm: 68, chestCm: 85, hipsCm: 92 },
       { userId: userDewi.id, source: "SELF", weightKg: 58.5, heightCm: 168, waistCm: 70, chestCm: 88, hipsCm: 94 },
+      { userId: userSteven.id, source: "SELF", weightKg: 71.0, heightCm: 175, waistCm: 80, chestCm: 96, hipsCm: 94 },
     ],
   });
 
@@ -804,11 +822,182 @@ async function main() {
     },
   });
 
+  // 10-12. Additional Active PUBLISHED Ongoing Cohorts for steven@gmail.com (4 On Progress + 2 Incoming)
+  const prog10Start = new Date(today00.getTime() - 3 * oneDayMs);
+  const prog10End = new Date(prog10Start.getTime() + 14 * oneDayMs);
+  const prog10 = await prisma.program.create({
+    data: {
+      title: "14-Day Core Bracing & Desk Posture Reset",
+      slug: "core-bracing-desk-posture-reset",
+      description:
+        "Targeted daily biomechanical decompression for desk professionals: thoracic extension, deep core activation, and neck release.",
+      coverImagePath: "/coach3.webp",
+      durationDays: 14,
+      actualPrice: 320000,
+      discountPercentage: 10,
+      price: 288000,
+      maxQuota: 30,
+      locationType: "ONLINE",
+      isVirtualFallbackAvailable: true,
+      communityLink: "https://chat.whatsapp.com/wellness-core-posture",
+      startAt: prog10Start,
+      endAt: prog10End,
+      registrationOpenAt: new Date(prog10Start.getTime() - 10 * oneDayMs),
+      registrationDeadlineAt: new Date(prog10Start.getTime() - 1 * oneDayMs),
+      status: "PUBLISHED",
+      dailyCommitmentId: commit15.id,
+      organizationId: orgZera.id,
+      days: { create: createDayList(14, "Posture Alignment & Deep Core") },
+      categories: { create: [{ categoryId: catPilates.id }, { categoryId: catMobility.id }] },
+      coaches: { create: [{ coachId: coachElena.id }] },
+      audiences: { create: [{ audienceId: audDesk.id }] },
+      equipments: { create: [{ equipmentId: eqMat.id }] },
+    },
+    include: { days: true },
+  });
+
+  const prog11Start = new Date(today00.getTime() - 4 * oneDayMs);
+  const prog11End = new Date(prog11Start.getTime() + 21 * oneDayMs);
+  const prog11 = await prisma.program.create({
+    data: {
+      title: "21-Day Morning Mobility & Joint Elasticity",
+      slug: "morning-mobility-joint-elasticity",
+      description:
+        "Progressive morning CARs, hip flexor opening, and scapular stability flow designed to elevate daily movement energy.",
+      coverImagePath: "/coach.webp",
+      durationDays: 21,
+      actualPrice: 400000,
+      discountPercentage: 15,
+      price: 340000,
+      maxQuota: 25,
+      locationType: "HYBRID",
+      city: "Jakarta Selatan",
+      venueAddress: "The Sanctuary Wellness Pavilion, Senopati",
+      isVirtualFallbackAvailable: true,
+      communityLink: "https://chat.whatsapp.com/wellness-morning-mobility",
+      startAt: prog11Start,
+      endAt: prog11End,
+      registrationOpenAt: new Date(prog11Start.getTime() - 12 * oneDayMs),
+      registrationDeadlineAt: new Date(prog11Start.getTime() - 2 * oneDayMs),
+      status: "PUBLISHED",
+      dailyCommitmentId: commit30.id,
+      organizationId: orgZera.id,
+      days: { create: createDayList(21, "Morning Joint Elasticity") },
+      categories: { create: [{ categoryId: catMobility.id }] },
+      coaches: { create: [{ coachId: coachSarah.id }] },
+      audiences: { create: [{ audienceId: audAll.id }] },
+      equipments: { create: [{ equipmentId: eqBands.id }] },
+    },
+    include: { days: true },
+  });
+
+  const prog12Start = new Date(today00.getTime() - 1 * oneDayMs);
+  const prog12End = new Date(prog12Start.getTime() + 14 * oneDayMs);
+  const prog12 = await prisma.program.create({
+    data: {
+      title: "14-Day Parasympathetic Breathwork & Sleep Hygiene",
+      slug: "parasympathetic-breathwork-sleep-hygiene",
+      description:
+        "Evening vagal toning, nasal CO2 tolerance drills, and digital sunset protocols for restorative deep sleep.",
+      coverImagePath: "/image.webp",
+      durationDays: 14,
+      actualPrice: 280000,
+      discountPercentage: 0,
+      price: 280000,
+      maxQuota: 30,
+      locationType: "ONLINE",
+      isVirtualFallbackAvailable: true,
+      communityLink: "https://chat.whatsapp.com/wellness-sleep-breathwork",
+      startAt: prog12Start,
+      endAt: prog12End,
+      registrationOpenAt: new Date(prog12Start.getTime() - 10 * oneDayMs),
+      registrationDeadlineAt: new Date(prog12Start.getTime() - 1 * oneDayMs),
+      status: "PUBLISHED",
+      dailyCommitmentId: commit15.id,
+      organizationId: orgZera.id,
+      days: { create: createDayList(14, "Vagal Toning & Sleep Recovery") },
+      categories: { create: [{ categoryId: catBreathwork.id }] },
+      coaches: { create: [{ coachId: coachJulian.id }] },
+      audiences: { create: [{ audienceId: audFounders.id }] },
+      equipments: { create: [{ equipmentId: eqNone.id }] },
+    },
+    include: { days: true },
+  });
+
+  // Enroll steven@gmail.com: 4 On Progress (prog1, prog10, prog11, prog12) + 2 Incoming (prog5, prog2)
+  const stevenEnrollSpecs = [
+    { program: prog1, days: prog1.days, endAt: prog1End, ref: "QRIS-STV-10001", paidOffsetDays: 4, completedDays: 2 },
+    { program: prog10, days: prog10.days, endAt: prog10End, ref: "QRIS-STV-10002", paidOffsetDays: 5, completedDays: 2 },
+    { program: prog11, days: prog11.days, endAt: prog11End, ref: "QRIS-STV-10003", paidOffsetDays: 6, completedDays: 3 },
+    { program: prog12, days: prog12.days, endAt: prog12End, ref: "QRIS-STV-10004", paidOffsetDays: 3, completedDays: 1 },
+    { program: prog5, days: [], endAt: prog5End, ref: "QRIS-STV-10005", paidOffsetDays: 1, completedDays: 0 },
+    { program: prog2, days: [], endAt: prog2End, ref: "QRIS-STV-10006", paidOffsetDays: 1, completedDays: 0 },
+  ];
+
+  for (const spec of stevenEnrollSpecs) {
+    const paidAt = new Date(today00.getTime() - spec.paidOffsetDays * oneDayMs);
+    const enr = await prisma.programEnrollment.create({
+      data: {
+        userId: userSteven.id,
+        programId: spec.program.id,
+        status: "ACTIVE",
+        paymentReference: spec.ref,
+        paidAt,
+        validUntilAt: spec.endAt,
+        termsAgreedAt: paidAt,
+      },
+    });
+    await prisma.paymentTransaction.create({
+      data: {
+        enrollmentId: enr.id,
+        userId: userSteven.id,
+        programId: spec.program.id,
+        orderId: spec.ref,
+        provider: "SEED",
+        grossAmount: spec.program.price,
+        status: "SETTLEMENT",
+        settledAt: paidAt,
+      },
+    });
+
+    if (spec.completedDays > 0 && spec.days.length > 0) {
+      const daysToComplete = spec.days
+        .filter((d) => d.dayNumber <= spec.completedDays)
+        .sort((a, b) => a.dayNumber - b.dayNumber);
+
+      for (const day of daysToComplete) {
+        await prisma.programDayProgress.create({
+          data: {
+            userId: userSteven.id,
+            programDayId: day.id,
+            isVideoWatched: true,
+            isCompleted: true,
+            selectedWorkout: "Hot Pilates",
+            mealCompliance: "FULL",
+            mealNotes: "Mengikuti panduan nutrisi seimbang harian.",
+            dailyReflection: `Menyelesaikan Day ${day.dayNumber} dengan ritme fokus dan napas terjaga.`,
+            happinessRate: 5,
+            bedtime: "22:30",
+            wakeTime: "06:15",
+            sleepDurationMinutes: 465,
+            checklistCompletedJson: [
+              "5 min diaphragmatic breathing & posture check",
+              "15 min guided mobility & core sequence",
+              "5 min gentle fascial cooldown",
+            ],
+            completedAt: new Date(spec.program.startAt.getTime() + (day.dayNumber - 1) * oneDayMs + 10 * 3600 * 1000),
+          },
+        });
+      }
+    }
+  }
+
   console.log("🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY!");
-  console.log("  Seeded 9 Programs:", [prog1.slug, prog2.slug, prog3.slug, prog4.slug, prog5.slug, prog6.slug, prog7.slug, prog8.slug, prog9.slug].join(", "));
+  console.log("  Seeded 12 Programs:", [prog1.slug, prog2.slug, prog3.slug, prog4.slug, prog5.slug, prog6.slug, prog7.slug, prog8.slug, prog9.slug, prog10.slug, prog11.slug, prog12.slug].join(", "));
   console.log("  Default Credentials (all pre-verified):");
   console.log("    Superadmin : superadmin@wellness.test / SuperAdmin123!");
   console.log("    Member     : budi@wellness.test       / UserBudi123!");
+  console.log("    Member     : steven@gmail.com         / P@ssw0rd (4 On Progress + 2 Incoming)");
 }
 
 main()
