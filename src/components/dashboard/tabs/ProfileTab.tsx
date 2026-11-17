@@ -250,33 +250,33 @@ export function ProfileTab({
   const menu = useMemo(
     () => [
       {
-        title: "Personal Information",
+        title: t.profile.groupPersonal,
         pct: personalPct,
         items: [
-          ["basic", "Basic Information", "Full name, date of birth, gender, and avatar"],
-          ["contact", "Contact Details", "Phone number, email, and living address"],
-          ["emergency", "Emergency Contact", "Primary contact for urgent cohort matters"],
+          ["basic", t.profile.basicTitle, t.profile.basicDesc],
+          ["contact", t.profile.contactTitle, t.profile.contactDesc],
+          ["emergency", t.profile.emergencyTitle, t.profile.emergencyDesc],
         ] as const,
       },
       {
-        title: "Account & Security",
+        title: t.profile.groupAccount,
         pct: null,
         items: [
-          ["security", "Login & Security", "Password credentials and active session info"],
-          ["notifications", "Notification Preferences", "Push alerts, reminders, and cohort updates"],
-          ["share_progress", "Share Progress", "Share read-only progress or view shared plans"],
+          ["security", t.profile.securityTitle, t.profile.securityDesc],
+          ["notifications", t.profile.notificationsTitle, t.profile.notificationsDesc],
+          ["share_progress", t.profile.shareProgressTitle, t.profile.shareProgressDesc],
         ] as const,
       },
       {
-        title: "Data & Management",
+        title: t.profile.groupData,
         pct: null,
         items: [
-          ["privacy", "Privacy & Data Export", "Data export, account verification, and cache"],
-          ["account", "Account & Support", "Concierge support, sign out, and deletion"],
+          ["privacy", t.profile.privacyTitle, t.profile.privacyDesc],
+          ["account", t.profile.accountTitle, t.profile.accountDesc],
         ] as const,
       },
     ],
-    [personalPct]
+    [personalPct, t]
   );
 
   return (
@@ -328,14 +328,14 @@ export function ProfileTab({
                 <div className="flex items-center gap-2.5">
                   <span className="w-5 h-px bg-white/50" />
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
-                    Account
+                    {t.profile.eyebrow}
                   </span>
                 </div>
                 <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
-                  Profile &amp; Settings
+                  {t.profile.title}
                 </h1>
                 <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
-                  Manage your personal details, security credentials, and account preferences.
+                  {t.profile.subtitle}
                 </p>
               </div>
 
@@ -347,7 +347,7 @@ export function ProfileTab({
                   onClick={() => setMode("menu")}
                   className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>Open Profile &amp; Settings</span>
+                  <span>{t.profile.openSettings}</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
@@ -376,10 +376,10 @@ export function ProfileTab({
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
                 <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-medium tracking-[0.02em] text-white inline-flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  <span>Active Member</span>
+                  <span>{t.profile.activeMember}</span>
                 </span>
                 <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
-                  Joined {new Date(user.createdAt).getFullYear()}
+                  {t.profile.joined} {new Date(user.createdAt).getFullYear()}
                 </span>
               </div>
 
@@ -412,7 +412,7 @@ export function ProfileTab({
                   {/* Name, email, occupation */}
                   <div className="min-w-0 text-white drop-shadow-sm space-y-0.5">
                     <h1 className="text-lg sm:text-xl font-geometric font-medium tracking-tight truncate leading-snug">
-                      {form.fullName || "Member Profile"}
+                      {form.fullName || t.profile.memberProfile}
                     </h1>
                     <p className="text-xs text-white/80 font-mono truncate">{user.email}</p>
                     {form.occupation && (
@@ -430,7 +430,7 @@ export function ProfileTab({
                   }}
                   className="shrink-0 hidden sm:inline-flex px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-[11px] font-geometric font-medium tracking-wider uppercase transition active:scale-95"
                 >
-                  Edit Profile
+                  {t.profile.editProfile}
                 </button>
               </div>
             </div>
@@ -472,7 +472,7 @@ export function ProfileTab({
                 </h2>
                 {group.pct !== null && (
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                    {group.pct}% Complete
+                    {group.pct}{t.profile.completeSuffix}
                   </span>
                 )}
               </div>

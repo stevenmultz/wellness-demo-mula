@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { EmptyState, PullToRefreshBanner } from "../shared";
 import type { ExploreProgram, LoadState } from "./exploreFilters";
 
@@ -31,6 +32,7 @@ export function ExploreCoachesView({
   refreshing,
   loadStatus,
 }: ExploreCoachesViewProps) {
+  const { t } = useLocale();
   const query = coachSearch.trim().toLowerCase();
   const filteredCoaches = query
     ? availableCoaches.filter((c) => c.name.toLowerCase().includes(query))
@@ -51,21 +53,21 @@ export function ExploreCoachesView({
 
       <div className="space-y-1">
         <h1 className="text-xl sm:text-2xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-          Plan Faculty &amp; Coaches
+          {t.explore.coachesHeading}
         </h1>
       </div>
 
       {filteredCoaches.length === 0 ? (
         <EmptyState
-          title="No coaches found"
-          description="No coaches match that name right now."
+          title={t.explore.noCoachesTitle}
+          description={t.explore.noCoachesDesc}
           action={
             <button
               type="button"
               onClick={onResetSearch}
               className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold"
             >
-              Clear Search
+              {t.common.clearSearch}
             </button>
           }
         />
@@ -95,7 +97,8 @@ export function ExploreCoachesView({
                       {name}
                     </h2>
                     <span className="text-[10px] font-mono text-white/75 block">
-                      {count} {count === 1 ? "Plan" : "Plans"}
+                      {count}{" "}
+                      {count === 1 ? t.explore.planSingular : t.explore.planPlural}
                     </span>
                   </div>
                 </button>
@@ -111,7 +114,7 @@ export function ExploreCoachesView({
                 onClick={() => onChangeCoachPage(safeCoachPage - 1)}
                 className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
               >
-                <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                <ChevronLeft className="w-3.5 h-3.5" /> {t.common.previous}
               </button>
               {Array.from({ length: coachPages }, (_, i) => i + 1).map((n) => (
                 <button
@@ -134,7 +137,7 @@ export function ExploreCoachesView({
                 onClick={() => onChangeCoachPage(safeCoachPage + 1)}
                 className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
               >
-                Next <ChevronRight className="w-3.5 h-3.5" />
+                {t.common.next} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </nav>
           )}

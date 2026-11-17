@@ -37,6 +37,7 @@ export function formatIdr(amount: number): string {
 
 export { safeHttpUrl } from "@/wellness/utils/url-safety";
 import { BrandLogo } from "@/components/common/BrandLogo";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 
 /** Unified static brand wordmark rendered identically across all top headers. */
 export function BrandWordmark({ light = false }: { light?: boolean }) {
@@ -59,12 +60,13 @@ export function HeaderProfileButton({
   fullName?: string | null;
   onClick: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Open Profile"
-      title={fullName ? `Profile (${fullName})` : "Profile"}
+      aria-label={t.nav.profile}
+      title={fullName ? `${t.nav.profile} (${fullName})` : t.nav.profile}
       className="shrink-0 h-8 pl-1 pr-2.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
     >
       <span className="w-6 h-6 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shrink-0">
@@ -72,14 +74,14 @@ export function HeaderProfileButton({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatarUrl}
-            alt={fullName || "Profile"}
+            alt={fullName || t.nav.profile}
             className="w-full h-full object-cover"
           />
         ) : (
           <User className="w-3.5 h-3.5 text-white" />
         )}
       </span>
-      <span>Profile</span>
+      <span>{t.nav.profile}</span>
     </button>
   );
 }
@@ -87,7 +89,7 @@ export function HeaderProfileButton({
 /** Unified borderless & boxless back button used consistently across all detail & subview headers. */
 export function HeaderBackButton({
   onClick,
-  label = "Back",
+  label,
   ariaLabel,
   title,
   overlay = false,
@@ -100,6 +102,8 @@ export function HeaderBackButton({
   overlay?: boolean;
   className?: string;
 }) {
+  const { t } = useLocale();
+  const displayLabel = label ?? t.common.back;
   return (
     <button
       type="button"
@@ -113,7 +117,7 @@ export function HeaderBackButton({
       } ${className}`}
     >
       <ArrowLeft className="w-4 h-4 shrink-0" />
-      <span>{label}</span>
+      <span>{displayLabel}</span>
     </button>
   );
 }
@@ -177,16 +181,18 @@ export function SectionCard({
   );
 }
 
-export function LoadingState({ label = "Loading..." }: { label?: string }) {
+export function LoadingState({ label }: { label?: string }) {
+  const { t } = useLocale();
+  const text = label ?? t.common.loading;
   return (
     <div
       role="status"
-      aria-label={label}
+      aria-label={text}
       className="py-4 space-y-3"
     >
       <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-mono">
         <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-        <span>{label}</span>
+        <span>{text}</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
         <div className="py-2 space-y-2.5">
@@ -207,6 +213,7 @@ export function LoadingState({ label = "Loading..." }: { label?: string }) {
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { locale } = useLocale();
   return (
     <div
       role="alert"
@@ -220,7 +227,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
           onClick={onRetry}
           className="px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 active:scale-95 transition"
         >
-          Try again
+          {locale === "id" ? "Coba lagi" : "Try again"}
         </button>
       )}
     </div>
@@ -359,6 +366,7 @@ export function PullToRefreshBanner({
   pullDistance: number;
   refreshing: boolean;
 }) {
+  const { locale } = useLocale();
   if (!refreshing && pullDistance < 8) return null;
   const ready = pullDistance >= 48;
 
@@ -373,14 +381,22 @@ export function PullToRefreshBanner({
         {refreshing ? (
           <>
             <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Refreshing latest data...</span>
+            <span>{locale === "id" ? "Memuat data terbaru..." : "Refreshing latest data..."}</span>
           </>
         ) : (
           <>
             <ArrowDown
               className={`w-3 h-3 transition-transform ${ready ? "rotate-180 text-zinc-950 dark:text-white" : ""}`}
             />
-            <span>{ready ? "Release to refresh" : "Pull down to refresh"}</span>
+            <span>
+              {ready
+                ? locale === "id"
+                  ? "Lepaskan untuk muat ulang"
+                  : "Release to refresh"
+                : locale === "id"
+                  ? "Tarik ke bawah untuk muat ulang"
+                  : "Pull down to refresh"}
+            </span>
           </>
         )}
       </div>

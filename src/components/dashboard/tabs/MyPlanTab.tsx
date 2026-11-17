@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { DailyCheckIn } from "./DailyCheckIn";
 import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
 import {
@@ -76,6 +77,7 @@ export function MyPlanHeader({
   onOpenProfile?: () => void;
 }) {
   void _onSelect;
+  const { t } = useLocale();
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
   const isIntro = mode === "intro";
   const showDetailBack = mode === "detail" && !!current;
@@ -87,13 +89,13 @@ export function MyPlanHeader({
       ) : showDetailBack ? (
         <HeaderBackButton
           onClick={() => onBackToIndex?.()}
-          title="Back to All My Plans"
+          title={t.dashboard.backToPlans}
           overlay={overlay}
         />
       ) : mode === "index" && onBackToIntro ? (
         <HeaderBackButton
           onClick={onBackToIntro}
-          ariaLabel="Back to My Plan overview"
+          ariaLabel={t.common.back}
         />
       ) : (
         <BrandWordmark light={overlay} />
@@ -114,7 +116,7 @@ export function MyPlanHeader({
               className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
             >
               <Compass className="w-3.5 h-3.5" />
-              <span>Explore Plan</span>
+              <span>{t.dashboard.explorePlan}</span>
             </button>
           )
         ) : !current ? (
@@ -128,7 +130,7 @@ export function MyPlanHeader({
             }`}
           >
             <Compass className="w-3.5 h-3.5" />
-            <span>Explore Plan</span>
+            <span>{t.dashboard.explorePlan}</span>
           </button>
         ) : null}
       </div>
@@ -187,6 +189,7 @@ export function MyPlanOverview({
   ) => void;
 }) {
   void onOpenDetails;
+  const { locale, t } = useLocale();
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
@@ -239,11 +242,11 @@ export function MyPlanOverview({
 
   const showSubtabs = !!program;
   const subtabs = isUpcoming
-    ? ([{ index: 0, label: "Guides", count: 0 }] as const)
+    ? ([{ index: 0, label: t.myPlan.subtabGuides, count: 0 }] as const)
     : ([
-        { index: 0, label: "Guides", count: 0 },
-        { index: 1, label: "Tasks", count: pendingTasksCount },
-        { index: 2, label: "Metrics", count: 0 },
+        { index: 0, label: t.myPlan.subtabGuides, count: 0 },
+        { index: 1, label: t.myPlan.subtabTasks, count: pendingTasksCount },
+        { index: 2, label: t.myPlan.subtabMetrics, count: 0 },
       ] as const);
 
   return (
@@ -271,15 +274,17 @@ export function MyPlanOverview({
             <div className="space-y-3">
               <div>
                 <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
-                  {program?.title || "No active plan"}
+                  {program?.title || t.myPlan.noActivePlanTitle}
                 </h2>
                 {program && (
                   <p className="mt-1 text-xs text-white/80 truncate">
                     {program.organizationName ? `${program.organizationName} • ` : ""}
                     {program.coachName || "—"}
-                    {isUpcoming
-                      ? ` · ${formatStartsIn(program.startDate).headline} (${formatStartsIn(program.startDate).dateLabel})`
-                      : ""}
+                    {program.isCompleted
+                      ? ` · ${t.myPlan.completedLabel}`
+                      : isUpcoming
+                        ? ` · ${formatStartsIn(program.startDate, locale).headline} (${formatStartsIn(program.startDate, locale).dateLabel})`
+                        : ""}
                   </p>
                 )}
               </div>
@@ -292,7 +297,7 @@ export function MyPlanOverview({
                     className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs"
                   >
                     <Users className="w-3.5 h-3.5" />
-                    <span>Join Community</span>
+                    <span>{t.myPlan.joinCommunity}</span>
                   </button>
                   <button
                     type="button"
@@ -300,7 +305,7 @@ export function MyPlanOverview({
                     className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs"
                   >
                     <AlertCircle className="w-3.5 h-3.5" />
-                    <span>Report</span>
+                    <span>{t.myPlan.report}</span>
                   </button>
                 </div>
               )}
@@ -354,8 +359,8 @@ export function MyPlanOverview({
         <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
           {!program ? (
             <EmptyState
-              title="No active plan"
-              description="You do not have an active cohort right now. Explore available plans or view your completed plans in History."
+              title={t.myPlan.noActivePlanTitle}
+              description={t.myPlan.noActivePlanDesc}
               action={
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
@@ -363,7 +368,7 @@ export function MyPlanOverview({
                     onClick={onExplore}
                     className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
                   >
-                    <Compass className="w-3.5 h-3.5" /> Explore Plans
+                    <Compass className="w-3.5 h-3.5" /> {t.myPlan.explorePlans}
                   </button>
                   {onViewHistory && (
                     <button
@@ -371,7 +376,7 @@ export function MyPlanOverview({
                       onClick={onViewHistory}
                       className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
                     >
-                      View History
+                      {t.myPlan.viewCompletedHistory}
                     </button>
                   )}
                 </div>
@@ -423,7 +428,7 @@ export function MyPlanOverview({
                       onSwitchWidget={setWidgetIndex}
                     />
                   ) : (
-                    <EmptyState title="No tasks today" description="There is no open session for today." />
+                    <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
                   )}
                 </div>
 
@@ -460,13 +465,13 @@ export function MyPlanOverview({
 
               <div className="text-center space-y-2">
                 <h3 className="text-base font-bold text-zinc-950 dark:text-white">
-                  Third-Party Community Notice
+                  {t.myPlan.communityModalTitle}
                 </h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                  You are about to navigate to an external messaging service (such as WhatsApp or Telegram).
+                  {t.myPlan.communityModalDesc}
                 </p>
                 <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/70 dark:border-white/10 text-left text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Please note that interactions, discussions, and activities occurring outside the {BRAND.name} platform take place independently and are not the responsibility or liability of {BRAND.name}.
+                  {t.myPlan.communityModalNote} {BRAND.name}.
                 </div>
               </div>
 
@@ -476,7 +481,7 @@ export function MyPlanOverview({
                   onClick={handleConfirmCommunityProceed}
                   className="w-full h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold active:scale-[0.98] transition shadow-xs flex items-center justify-center gap-1.5"
                 >
-                  <span>Continue to Community</span>
+                  <span>{t.myPlan.continueExternal}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </button>
                 <button
@@ -484,7 +489,7 @@ export function MyPlanOverview({
                   onClick={() => setShowCommunityModal(false)}
                   className="w-full h-9 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
                 >
-                  Cancel
+                  {t.common.cancel}
                 </button>
               </div>
             </div>

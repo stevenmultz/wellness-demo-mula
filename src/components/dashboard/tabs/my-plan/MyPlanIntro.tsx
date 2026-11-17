@@ -1,6 +1,9 @@
 "use client";
 
 import { ArrowRight, Compass } from "lucide-react";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
+
+export type MyPlanFilter = "all" | "ongoing" | "upcoming" | "completed";
 
 export function MyPlanIntro({
   userName,
@@ -10,17 +13,16 @@ export function MyPlanIntro({
   completedCount,
   onSelectFilter,
   onExplore,
-  onViewHistory,
 }: {
   userName: string;
   totalCount: number;
   ongoingCount: number;
   upcomingCount: number;
   completedCount: number;
-  onSelectFilter: (filter: "all" | "ongoing" | "upcoming") => void;
+  onSelectFilter: (filter: MyPlanFilter) => void;
   onExplore: () => void;
-  onViewHistory: () => void;
 }) {
+  const { t } = useLocale();
   const firstName = (userName || "Member").trim().split(/\s+/)[0] || "Member";
 
   return (
@@ -45,16 +47,16 @@ export function MyPlanIntro({
             <div className="flex items-center gap-2.5">
               <span className="w-5 h-px bg-white/50" />
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
-                My Plan
+                {t.myPlan.eyebrow}
               </span>
             </div>
             <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
-              Hello, {firstName}
+              {t.myPlan.helloPrefix}, {firstName}
             </h1>
             <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
               {totalCount > 0
-                ? "Manage your enrolled programs, daily workouts, and upcoming cohorts in one place."
-                : "You haven\u2019t got any plans yet. Start your wellness journey by exploring curated programs tailored to your goals."}
+                ? t.myPlan.heroSubtitleActive
+                : t.myPlan.heroSubtitleEmpty}
             </p>
           </div>
 
@@ -67,7 +69,7 @@ export function MyPlanIntro({
                 onClick={() => onSelectFilter("all")}
                 className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
               >
-                <span>All My Plan</span>
+                <span>{t.myPlan.filterAll}</span>
                 <span className="text-xs font-mono text-white/60 tabular-nums">
                   ({totalCount})
                 </span>
@@ -77,9 +79,9 @@ export function MyPlanIntro({
               <button
                 type="button"
                 onClick={() => onSelectFilter("ongoing")}
-                className="group py-1 text-white/80 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
               >
-                <span>On Going</span>
+                <span>{t.myPlan.filterOngoing}</span>
                 <span className="text-[11px] font-mono text-white/55 tabular-nums">
                   ({ongoingCount})
                 </span>
@@ -89,11 +91,23 @@ export function MyPlanIntro({
               <button
                 type="button"
                 onClick={() => onSelectFilter("upcoming")}
-                className="group py-1 text-white/80 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
               >
-                <span>Upcoming</span>
+                <span>{t.myPlan.filterUpcoming}</span>
                 <span className="text-[11px] font-mono text-white/55 tabular-nums">
                   ({upcomingCount})
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectFilter("completed")}
+                className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+              >
+                <span>{t.myPlan.filterCompleted}</span>
+                <span className="text-[11px] font-mono text-white/55 tabular-nums">
+                  ({completedCount})
                 </span>
                 <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
               </button>
@@ -106,20 +120,9 @@ export function MyPlanIntro({
                 className="group px-5 py-2.5 rounded-full bg-white text-zinc-950 hover:bg-white/90 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 shadow-sm active:scale-95 transition"
               >
                 <Compass className="w-4 h-4" />
-                <span>Explore Plans</span>
+                <span>{t.myPlan.explorePlans}</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
               </button>
-
-              {completedCount > 0 && (
-                <button
-                  type="button"
-                  onClick={onViewHistory}
-                  className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-                >
-                  <span>View Completed History</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-              )}
             </div>
           )}
         </div>

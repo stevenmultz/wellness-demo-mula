@@ -11,6 +11,7 @@ import {
   wellnessMarkNotificationRead,
 } from "@/wellness/actions/activity";
 import { usePushNotifications } from "./usePushNotifications";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
   BrandWordmark,
   EmptyState,
@@ -63,6 +64,7 @@ export function NotificationsHistoryTab({
   profileName?: string | null;
   onOpenProfile?: () => void;
 }) {
+  const { locale, t } = useLocale();
   const [internalMode, setInternalMode] = useState<"intro" | "feed">("intro");
   const mode = viewMode ?? internalMode;
   const setMode = (next: "intro" | "feed") => {
@@ -192,7 +194,7 @@ export function NotificationsHistoryTab({
         ) : (
           <HeaderBackButton
             onClick={() => setMode("intro")}
-            ariaLabel="Back to Alerts overview"
+            ariaLabel={t.common.back}
           />
         )}
       </FloatingHeader>
@@ -223,14 +225,14 @@ export function NotificationsHistoryTab({
                 <div className="flex items-center gap-2.5">
                   <span className="w-5 h-px bg-white/50" />
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
-                    Alerts
+                    {t.alerts.eyebrow}
                   </span>
                 </div>
                 <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
-                  Notifications &amp; History
+                  {t.alerts.title}
                 </h1>
                 <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
-                  Stay updated with cohort alerts, session reminders, completed plans, and billing records.
+                  {t.alerts.subtitle}
                 </p>
               </section>
 
@@ -245,7 +247,7 @@ export function NotificationsHistoryTab({
                   }}
                   className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>Notifications</span>
+                  <span>{t.alerts.notifications}</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
 
@@ -257,7 +259,7 @@ export function NotificationsHistoryTab({
                   }}
                   className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>History</span>
+                  <span>{t.alerts.history}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
@@ -271,7 +273,7 @@ export function NotificationsHistoryTab({
           {/* SUB-TAB BAR CONSISTENT WITH MY PLAN */}
           <div className="space-y-3">
             <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-              Alerts
+              {t.alerts.eyebrow}
             </h1>
 
             <div
@@ -281,10 +283,10 @@ export function NotificationsHistoryTab({
             >
               {(
                 [
-                  { key: "notifications" as const, label: "Notifications", count: unreadCount },
+                  { key: "notifications" as const, label: t.alerts.notifications, count: unreadCount },
                   {
                     key: "history" as const,
-                    label: "History",
+                    label: t.alerts.history,
                     count:
                       history.status === "ready"
                         ? completedPrograms.length + history.data.payments.length
@@ -335,17 +337,17 @@ export function NotificationsHistoryTab({
               <div className="flex items-center gap-2">
                 <Bell className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
                 <h3 className="text-xs font-geometric font-medium text-zinc-950 dark:text-white">
-                  Push Notifications
+                  {t.alerts.pushTitle}
                 </h3>
               </div>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
                 {push.status === "on"
-                  ? "Alerts active for daily tasks & live sessions"
+                  ? t.alerts.pushOnDesc
                   : push.status === "denied"
-                    ? "Notifications blocked in browser settings"
+                    ? t.alerts.pushDeniedDesc
                     : push.status === "unsupported"
-                      ? "Push unavailable on this device"
-                      : "Enable alerts for task reminders & live calls"}
+                      ? t.alerts.pushUnsupportedDesc
+                      : t.alerts.pushOffDesc}
               </p>
               {push.error && (
                 <p role="alert" className="text-[11px] text-red-600 truncate mt-1">
@@ -363,7 +365,7 @@ export function NotificationsHistoryTab({
                   className="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-geometric font-medium uppercase tracking-wider bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
                 >
                   {(push.busy || push.status === "checking") && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {push.status === "on" ? "Turn Off" : "Turn On"}
+                  {push.status === "on" ? t.alerts.turnOff : t.alerts.turnOn}
                 </button>
               )}
             </div>
@@ -373,7 +375,9 @@ export function NotificationsHistoryTab({
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-medium text-zinc-400">
-                {notifs.status === "ready" ? `${allNotifications.length} Alerts` : "Recent Alerts"}
+                {notifs.status === "ready"
+                  ? `${allNotifications.length} ${t.alerts.alertsSuffix}`
+                  : t.alerts.recentAlerts}
               </span>
               {unreadCount > 0 && (
                 <button
@@ -383,17 +387,17 @@ export function NotificationsHistoryTab({
                   className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1.5 transition"
                 >
                   <CheckCheck className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Mark all read</span>
+                  <span>{t.alerts.markAllRead}</span>
                 </button>
               )}
             </div>
 
-            {notifs.status === "loading" && <LoadingState label="Loading notifications..." />}
+            {notifs.status === "loading" && <LoadingState label={t.alerts.loadingNotifs} />}
             {notifs.status === "error" && <ErrorState message={notifs.message} onRetry={() => loadNotifs(false)} />}
             {notifs.status === "ready" && allNotifications.length === 0 && (
               <EmptyState
-                title="No notifications yet"
-                description="Plan updates, habit reminders, and payment receipts will appear here."
+                title={t.alerts.noNotifsTitle}
+                description={t.alerts.noNotifsDesc}
               />
             )}
 
@@ -432,7 +436,7 @@ export function NotificationsHistoryTab({
                             : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                         }`}
                       >
-                        {n.isRead ? "Read" : "New"}
+                        {n.isRead ? t.alerts.readBadge : t.alerts.newBadge}
                       </span>
                     </div>
 
@@ -456,14 +460,14 @@ export function NotificationsHistoryTab({
       {/* ================================================================= */}
       {section === "history" && (
         <section className="space-y-3">
-          {history.status === "loading" && <LoadingState label="Loading history..." />}
+          {history.status === "loading" && <LoadingState label={t.alerts.loadingHistory} />}
           {history.status === "error" && <ErrorState message={history.message} onRetry={() => loadHistory(false)} />}
 
           {history.status === "ready" && (completedPrograms.length > 0 || history.data.payments.length > 0) && (
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
                 <span className="text-[11px] font-medium text-zinc-400">
-                  {completedPrograms.length + history.data.payments.length} Records
+                  {completedPrograms.length + history.data.payments.length} {t.common.records}
                 </span>
               </div>
 
@@ -478,7 +482,7 @@ export function NotificationsHistoryTab({
                         {cp.title}
                       </span>
                       <span className="text-[9px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
-                        Completed
+                        {t.common.completed}
                       </span>
                     </div>
 
@@ -489,12 +493,15 @@ export function NotificationsHistoryTab({
                     <div className="pt-2 border-t border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3 text-[10px] text-zinc-400">
                       <span className="font-mono">
                         {cp.endDate
-                          ? new Date(cp.endDate).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "Completed"}
+                          ? new Date(cp.endDate).toLocaleDateString(
+                              locale === "id" ? "id-ID" : "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )
+                          : t.common.completed}
                       </span>
                       {onOpenProgramDetail && (
                         <button
@@ -502,7 +509,7 @@ export function NotificationsHistoryTab({
                           onClick={() => onOpenProgramDetail(cp.programId)}
                           className="font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
                         >
-                          <span>View Details</span>
+                          <span>{t.common.viewDetails}</span>
                           <ExternalLink className="w-3 h-3" />
                         </button>
                       )}
@@ -531,7 +538,7 @@ export function NotificationsHistoryTab({
                     </div>
 
                     <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      Total Billed · {p.isFree ? "Free Plan" : formatIdr(p.amount)}
+                      {t.alerts.totalBilled} · {p.isFree ? t.alerts.freePlan : formatIdr(p.amount)}
                       {p.reference ? ` · Ref: ${p.reference}` : ""}
                     </p>
 
@@ -547,8 +554,8 @@ export function NotificationsHistoryTab({
           {/* EMPTY STATE */}
           {history.status === "ready" && completedPrograms.length === 0 && history.data.payments.length === 0 && (
             <EmptyState
-              title="No history yet"
-              description="Completed plans and payment receipts will be recorded here."
+              title={t.alerts.noHistoryTitle}
+              description={t.alerts.noHistoryDesc}
             />
           )}
         </section>

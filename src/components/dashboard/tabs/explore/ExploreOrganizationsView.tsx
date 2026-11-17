@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { ArrowRight, BadgeCheck, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { EmptyState, LoadingState, PullToRefreshBanner } from "../shared";
 import { type ExploreProgram } from "./exploreFilters";
 
@@ -44,6 +45,7 @@ export function ExploreOrganizationsView({
   refreshing: boolean;
   loadStatus: "loading" | "error" | "ready";
 }) {
+  const { t } = useLocale();
   const entries = useMemo<OrganizationEntry[]>(() => {
     const map = new Map<string, OrganizationEntry>();
 
@@ -115,26 +117,29 @@ export function ExploreOrganizationsView({
       <div className="flex items-center justify-between gap-2 pt-1">
         <div>
           <h2 className="text-base sm:text-lg font-geometric font-semibold text-zinc-950 dark:text-white tracking-tight">
-            All Organizations
+            {t.explore.communitiesHeading}
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Browse studios, academies, and communities hosting plans on zera.id.
+            {t.explore.communitiesSub}
           </p>
         </div>
         <span className="shrink-0 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-          {filtered.length} {filtered.length === 1 ? "organization" : "organizations"}
+          {filtered.length}{" "}
+          {filtered.length === 1
+            ? t.explore.communitySingular
+            : t.explore.communityPlural}
         </span>
       </div>
 
       {loadStatus === "loading" ? (
-        <LoadingState />
+        <LoadingState label={t.explore.loadingPlans} />
       ) : pageItems.length === 0 ? (
         <EmptyState
-          title="No organizations found"
+          title={t.explore.noCommunitiesTitle}
           description={
             orgSearch.trim()
-              ? `No organizations match "${orgSearch.trim()}".`
-              : "Organizations hosting published plans will appear here."
+              ? `${t.explore.noCommunitiesSearchPrefix} "${orgSearch.trim()}".`
+              : t.explore.noCommunitiesDesc
           }
           action={
             orgSearch.trim() ? (
@@ -143,7 +148,7 @@ export function ExploreOrganizationsView({
                 onClick={onResetSearch}
                 className="mt-1 px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold"
               >
-                Clear search
+                {t.common.clearSearch}
               </button>
             ) : undefined
           }
@@ -185,7 +190,7 @@ export function ExploreOrganizationsView({
                         )}
                       </div>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                        {org.tagline || "Verified training organization & wellness partner."}
+                        {org.tagline || t.explore.defaultCommunityTagline}
                       </p>
                     </div>
                   </div>
@@ -193,17 +198,20 @@ export function ExploreOrganizationsView({
                   <div className="pt-3 border-t border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-600 dark:text-zinc-300">
                       <span>
-                        {org.programCount} {org.programCount === 1 ? "plan" : "plans"}
+                        {org.programCount}{" "}
+                        {org.programCount === 1
+                          ? t.explore.planSingular
+                          : t.explore.planPlural}
                       </span>
                       {org.freeCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white text-[10px] font-semibold">
-                          {org.freeCount} free
+                          {org.freeCount} {t.explore.freeTag}
                         </span>
                       )}
                     </div>
 
                     <span className="inline-flex items-center gap-1 font-geometric font-medium text-zinc-950 dark:text-white">
-                      <span>View plans</span>
+                      <span>{t.explore.viewPlans}</span>
                       <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                     </span>
                   </div>
@@ -213,14 +221,14 @@ export function ExploreOrganizationsView({
           </ul>
 
           {pages > 1 && (
-            <nav aria-label="Organization pages" className="flex items-center justify-center gap-1.5 pt-2">
+            <nav aria-label="Community pages" className="flex items-center justify-center gap-1.5 pt-2">
               <button
                 type="button"
                 disabled={safePage === 1}
                 onClick={() => onChangeOrgPage(safePage - 1)}
                 className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
               >
-                <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                <ChevronLeft className="w-3.5 h-3.5" /> {t.common.previous}
               </button>
               {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
                 <button
@@ -243,7 +251,7 @@ export function ExploreOrganizationsView({
                 onClick={() => onChangeOrgPage(safePage + 1)}
                 className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1"
               >
-                Next <ChevronRight className="w-3.5 h-3.5" />
+                {t.common.next} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </nav>
           )}

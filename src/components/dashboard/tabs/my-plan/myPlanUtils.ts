@@ -62,6 +62,7 @@ export interface MyPlanIndexItem {
   city?: string | null;
   dailyCommitment?: string | null;
   isUpcoming: boolean;
+  isCompleted?: boolean;
   completedDays: number;
   totalDays: number;
   currentDayNumber: number;
@@ -91,6 +92,7 @@ export interface PlanProgramInfo {
   scientificReferences?: Array<{ title: string; url?: string }> | null;
   totalDays: number;
   isUpcoming?: boolean;
+  isCompleted?: boolean;
   targetState?: string | null;
   methodology?: string | null;
   expectedBenefits?: string[];
@@ -107,12 +109,12 @@ export interface PlanStats {
   segments: ("done" | "today" | "skipped" | "upcoming")[];
 }
 
-export function formatDayTypeLabel(dayType?: string | null): string | null {
+export function formatDayTypeLabel(dayType?: string | null, locale: "en" | "id" = "en"): string | null {
   if (!dayType) return null;
-  if (dayType === "TRAINING_DAY") return "Training Day";
-  if (dayType === "REST_DAY") return "Rest Day";
+  if (dayType === "TRAINING_DAY") return locale === "id" ? "Hari Latihan" : "Training Day";
+  if (dayType === "REST_DAY") return locale === "id" ? "Hari Istirahat" : "Rest Day";
   if (dayType === "CONNECT_DAY" || dayType === "MEETUP_DAY" || dayType === "CONNECTION_DAY") {
-    return "Meetup Day";
+    return locale === "id" ? "Hari Pertemuan" : "Meetup Day";
   }
   return dayType
     .replace(/_/g, " ")
@@ -120,17 +122,28 @@ export function formatDayTypeLabel(dayType?: string | null): string | null {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function formatIntensityBadge(level?: string | null): string {
+export function formatIntensityBadge(level?: string | null, locale: "en" | "id" = "en"): string {
   const v = (level || "").trim().toUpperCase();
-  if (v.includes("VERY") && v.includes("HIGH")) return "Very High Intensity";
-  if (v === "ADVANCED" || v === "HIGH") return "High Intensity";
-  if (v === "INTERMEDIATE" || v === "MODERATE") return "Moderate Intensity";
-  if (v === "BEGINNER" || v === "LOW") return "Low Intensity";
-  if (v) return `${level} Intensity`;
-  return "Moderate Intensity";
+  if (v.includes("VERY") && v.includes("HIGH")) {
+    return locale === "id" ? "Intensitas Sangat Tinggi" : "Very High Intensity";
+  }
+  if (v === "ADVANCED" || v === "HIGH") {
+    return locale === "id" ? "Intensitas Tinggi" : "High Intensity";
+  }
+  if (v === "INTERMEDIATE" || v === "MODERATE") {
+    return locale === "id" ? "Intensitas Sedang" : "Moderate Intensity";
+  }
+  if (v === "BEGINNER" || v === "LOW") {
+    return locale === "id" ? "Intensitas Rendah" : "Low Intensity";
+  }
+  if (v) return locale === "id" ? `Intensitas ${level}` : `${level} Intensity`;
+  return locale === "id" ? "Intensitas Sedang" : "Moderate Intensity";
 }
 
-export function formatStartsIn(startDate: string | Date): {
+export function formatStartsIn(
+  startDate: string | Date,
+  locale: "en" | "id" = "en"
+): {
   headline: string;
   dateLabel: string;
 } {
@@ -151,7 +164,7 @@ export function formatStartsIn(startDate: string | Date): {
   );
   const diffDays = Math.round((startDayUtc - nowDayUtc) / DAY_MS);
 
-  const dateLabel = new Intl.DateTimeFormat("en-US", {
+  const dateLabel = new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-US", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -160,12 +173,15 @@ export function formatStartsIn(startDate: string | Date): {
   }).format(start);
 
   if (diffDays <= 0) {
-    return { headline: "Starts Today", dateLabel };
+    return { headline: locale === "id" ? "Mulai Hari Ini" : "Starts Today", dateLabel };
   }
   if (diffDays === 1) {
-    return { headline: "Starts Tomorrow", dateLabel };
+    return { headline: locale === "id" ? "Mulai Besok" : "Starts Tomorrow", dateLabel };
   }
-  return { headline: `Starts in ${diffDays} Days`, dateLabel };
+  return {
+    headline: locale === "id" ? `Mulai ${diffDays} Hari Lagi` : `Starts in ${diffDays} Days`,
+    dateLabel,
+  };
 }
 
 export function splitActivities(text: string | null | undefined): string[] {

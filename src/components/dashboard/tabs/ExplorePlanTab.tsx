@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
   BrandWordmark,
   EmptyState,
@@ -49,8 +50,17 @@ import {
   ExploreOrganizationsView,
   type ExploreOrganization,
 } from "./explore/ExploreOrganizationsView";
+import {
+  ExploreCategoriesView,
+  type ExploreCategory,
+} from "./explore/ExploreCategoriesView";
 
-export type ExploreViewMode = "intro" | "catalog" | "coaches" | "organizations";
+export type ExploreViewMode =
+  | "intro"
+  | "catalog"
+  | "coaches"
+  | "organizations"
+  | "categories";
 
 export function ExplorePlanTab({
   headerVisible,
@@ -78,6 +88,7 @@ export function ExplorePlanTab({
   onOpenProfile?: () => void;
 }) {
   void _onOpenPlan;
+  const { locale, t } = useLocale();
   const [internalMode, setInternalMode] = useState<ExploreViewMode>("intro");
   const mode = viewMode ?? internalMode;
   const setMode = (next: ExploreViewMode) => {
@@ -89,6 +100,7 @@ export function ExplorePlanTab({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [coachSearch, setCoachSearch] = useState("");
   const [orgSearch, setOrgSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [selectedOrganization, setSelectedOrganization] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -98,9 +110,11 @@ export function ExplorePlanTab({
   const [page, setPage] = useState(1);
   const [coachPage, setCoachPage] = useState(1);
   const [orgPage, setOrgPage] = useState(1);
+  const [categoryPage, setCategoryPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [organizations, setOrganizations] = useState<ExploreOrganization[]>([]);
+  const [categories, setCategories] = useState<ExploreCategory[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -142,6 +156,9 @@ export function ExplorePlanTab({
       setState({ status: "ready", programs: json.programs as ExploreProgram[] });
       if (Array.isArray(json.organizations)) {
         setOrganizations(json.organizations as ExploreOrganization[]);
+      }
+      if (Array.isArray(json.categories)) {
+        setCategories(json.categories as ExploreCategory[]);
       }
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
@@ -235,15 +252,21 @@ export function ExplorePlanTab({
   };
 
   const chips: { key: string; value: string; label: string }[] = [
-    ...(selectedCoach ? [{ key: "coach", value: selectedCoach, label: `Coach: ${selectedCoach}` }] : []),
+    ...(selectedCoach
+      ? [{ key: "coach", value: selectedCoach, label: `${t.explore.coachPrefix}: ${selectedCoach}` }]
+      : []),
     ...(selectedOrganization
-      ? [{ key: "organization", value: selectedOrganization, label: `Organization: ${selectedOrganization}` }]
+      ? [{ key: "organization", value: selectedOrganization, label: `${t.explore.communityPrefix}: ${selectedOrganization}` }]
       : []),
     ...applied.format.map((value) => ({ key: "format", value, label: FORMAT_OPTIONS.find((o) => o.id === value)?.label || value })),
     ...applied.intensity.map((value) => ({ key: "intensity", value, label: value })),
-    ...applied.category.map((value) => ({ key: "category", value, label: value })),
+    ...applied.category.map((value) => ({ key: "category", value, label: `${t.explore.categoryPrefix}: ${value}` })),
     ...applied.duration.map((value) => ({ key: "duration", value, label: value })),
-    ...applied.price.map((value) => ({ key: "price", value, label: PRICE_BANDS.find((b) => b.id === value)?.label || value })),
+    ...applied.price.map((value) => ({
+      key: "price",
+      value,
+      label: value === "free" ? t.explore.priceFree : PRICE_BANDS.find((b) => b.id === value)?.label || value,
+    })),
     ...applied.experience.map((value) => ({ key: "experience", value, label: value })),
     ...applied.schedule.map((value) => ({ key: "schedule", value, label: value })),
   ];
@@ -264,7 +287,7 @@ export function ExplorePlanTab({
           <div className="w-full flex items-center gap-2">
             <HeaderBackButton
               onClick={() => setMode("intro")}
-              ariaLabel="Back to Explore overview"
+              ariaLabel={t.common.back}
             />
             <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
               <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
@@ -276,8 +299,8 @@ export function ExplorePlanTab({
                   setCoachSearch(e.target.value);
                   setCoachPage(1);
                 }}
-                placeholder="Search coach name..."
-                aria-label="Search coach name..."
+                placeholder={t.explore.searchCoachPlaceholder}
+                aria-label={t.explore.searchCoachPlaceholder}
                 maxLength={100}
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
               />
@@ -287,7 +310,7 @@ export function ExplorePlanTab({
           <div className="w-full flex items-center gap-2">
             <HeaderBackButton
               onClick={() => setMode("intro")}
-              ariaLabel="Back to Explore overview"
+              ariaLabel={t.common.back}
             />
             <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
               <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
@@ -299,8 +322,31 @@ export function ExplorePlanTab({
                   setOrgSearch(e.target.value);
                   setOrgPage(1);
                 }}
-                placeholder="Search organization name..."
-                aria-label="Search organization name..."
+                placeholder={t.explore.searchCommunityPlaceholder}
+                aria-label={t.explore.searchCommunityPlaceholder}
+                maxLength={100}
+                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
+              />
+            </div>
+          </div>
+        ) : mode === "categories" ? (
+          <div className="w-full flex items-center gap-2">
+            <HeaderBackButton
+              onClick={() => setMode("intro")}
+              ariaLabel={t.common.back}
+            />
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
+              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <input
+                type="search"
+                inputMode="search"
+                value={categorySearch}
+                onChange={(e) => {
+                  setCategorySearch(e.target.value);
+                  setCategoryPage(1);
+                }}
+                placeholder={t.explore.searchCategoryPlaceholder}
+                aria-label={t.explore.searchCategoryPlaceholder}
                 maxLength={100}
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
               />
@@ -310,7 +356,7 @@ export function ExplorePlanTab({
           <div className="relative w-full flex items-center gap-2">
             <HeaderBackButton
               onClick={() => setMode("intro")}
-              ariaLabel="Back to Explore overview"
+              ariaLabel={t.common.back}
             />
             <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
               <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
@@ -319,8 +365,8 @@ export function ExplorePlanTab({
                 inputMode="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search plan or keyword..."
-                aria-label="Search plan or keyword..."
+                placeholder={t.explore.searchPlanPlaceholder}
+                aria-label={t.explore.searchPlanPlaceholder}
                 maxLength={100}
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
               />
@@ -340,7 +386,7 @@ export function ExplorePlanTab({
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Filter</span>
+              <span>{t.explore.filterTitle}</span>
               {activeCount > 0 && (
                 <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-bold inline-flex items-center justify-center">
                   {activeCount}
@@ -380,14 +426,14 @@ export function ExplorePlanTab({
                 <div className="flex items-center gap-2.5">
                   <span className="w-5 h-px bg-white/50" />
                   <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
-                    Curated Plans
+                    {t.explore.eyebrow}
                   </span>
                 </div>
                 <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
-                  Explore All Plans
+                  {t.explore.title}
                 </h1>
                 <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
-                  Structured movement, whole-food nutrition, and circadian recovery plans led by certified longevity practitioners.
+                  {t.explore.subtitle}
                 </p>
               </div>
 
@@ -406,8 +452,34 @@ export function ExplorePlanTab({
                   }}
                   className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>Browse All Plans</span>
+                  <span>{t.explore.optAllPlans}</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrgSearch("");
+                    setOrgPage(1);
+                    setMode("organizations");
+                  }}
+                  className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>{t.explore.optAllCommunity}</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoachSearch("");
+                    setCoachPage(1);
+                    setMode("coaches");
+                  }}
+                  className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>{t.explore.optAllCoaches}</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
 
                 <button
@@ -423,33 +495,20 @@ export function ExplorePlanTab({
                   }}
                   className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>Explore Free Plan</span>
+                  <span>{t.explore.optFreePlan}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    setCoachSearch("");
-                    setCoachPage(1);
-                    setMode("coaches");
+                    setCategorySearch("");
+                    setCategoryPage(1);
+                    setMode("categories");
                   }}
-                  className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                  className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
                 >
-                  <span>Explore All Coaches</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOrgSearch("");
-                    setOrgPage(1);
-                    setMode("organizations");
-                  }}
-                  className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-                >
-                  <span>Explore All Organization</span>
+                  <span>{t.explore.optFilterCategory}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
@@ -491,6 +550,30 @@ export function ExplorePlanTab({
           onSelectOrganization={(name) => {
             setSelectedOrganization(name);
             setSelectedCoach(null);
+            setPage(1);
+            setMode("catalog");
+          }}
+          pullDistance={pullDistance}
+          refreshing={refreshing}
+          loadStatus={state.status}
+        />
+      ) : mode === "categories" ? (
+        <ExploreCategoriesView
+          categories={categories}
+          catalog={catalog}
+          categorySearch={categorySearch}
+          onResetSearch={() => {
+            setCategorySearch("");
+            setCategoryPage(1);
+          }}
+          categoryPage={categoryPage}
+          onChangeCategoryPage={setCategoryPage}
+          onSelectCategory={(name) => {
+            setSelectedCoach(null);
+            setSelectedOrganization(null);
+            const nextFilters = { ...EMPTY, category: [name] };
+            setApplied(nextFilters);
+            setDraft(nextFilters);
             setPage(1);
             setMode("catalog");
           }}
@@ -542,7 +625,7 @@ export function ExplorePlanTab({
                 : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
             }`}
           >
-            All Coaches
+            {t.explore.allCoaches}
           </button>
 
           {availableCoaches.map(({ name, avatar }) => {
@@ -579,11 +662,58 @@ export function ExplorePlanTab({
               }}
               className="shrink-0 h-8 px-3.5 rounded-full bg-zinc-200/80 hover:bg-zinc-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 transition active:scale-95"
             >
-              <span>And more</span>
+              <span>{locale === "id" ? "Lainnya" : "And more"}</span>
               <ArrowRight className="w-3 h-3" />
             </button>
           )}
         </div>
+
+          {supported.category.length > 0 && (
+            <div
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 scroll-smooth"
+              style={{ scrollbarWidth: "none" }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setApplied((f) => ({ ...f, category: [] }));
+                  setDraft((f) => ({ ...f, category: [] }));
+                  setPage(1);
+                }}
+                className={`shrink-0 h-7 px-3 rounded-full text-[11px] font-geometric font-medium transition ${
+                  applied.category.length === 0
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
+                    : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                }`}
+              >
+                {t.explore.allCategories}
+              </button>
+              {supported.category.map((cat) => {
+                const isSelected = applied.category.some(
+                  (c) => c.toLowerCase() === cat.toLowerCase()
+                );
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      const nextCats = isSelected ? [] : [cat];
+                      setApplied((f) => ({ ...f, category: nextCats }));
+                      setDraft((f) => ({ ...f, category: nextCats }));
+                      setPage(1);
+                    }}
+                    className={`shrink-0 h-7 px-3 rounded-full text-[11px] font-geometric font-medium transition ${
+                      isSelected
+                        ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
+                        : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -600,15 +730,19 @@ export function ExplorePlanTab({
           </div>
         )}
 
-        {state.status === "loading" && <LoadingState label="Loading plans..." />}
+        {state.status === "loading" && <LoadingState label={t.explore.loadingPlans} />}
         {state.status === "error" && <ErrorState message={state.message} onRetry={() => setReloadKey((k) => k + 1)} />}
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
-            title={debouncedSearch || activeCount || selectedCoach || selectedOrganization ? "No plans match" : "No plans available yet"}
+            title={
+              debouncedSearch || activeCount || selectedCoach || selectedOrganization
+                ? t.explore.noPlansMatch
+                : t.explore.noPlansYet
+            }
             description={
               debouncedSearch || activeCount || selectedCoach || selectedOrganization
-                ? "Try another organization, coach, search term, or clear filters."
-                : "New plans will show up here when they are published."
+                ? t.explore.noPlansMatchDesc
+                : t.explore.noPlansYetDesc
             }
             action={
               activeCount || debouncedSearch || selectedCoach || selectedOrganization ? (
@@ -623,7 +757,7 @@ export function ExplorePlanTab({
                   }}
                   className="px-4 py-1.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase"
                 >
-                  Clear all
+                  {t.common.clearAll}
                 </button>
               ) : undefined
             }
@@ -782,7 +916,7 @@ export function ExplorePlanTab({
                         <div>
                           <div className="flex items-baseline gap-1.5">
                             <span className="text-base font-bold text-zinc-950 dark:text-white">
-                              {p.price > 0 ? formatIdr(p.price) : "Free"}
+                              {p.price > 0 ? formatIdr(p.price) : t.common.free}
                             </span>
                             {p.discountPercentage && p.discountPercentage > 0 && p.actualPrice && p.actualPrice > p.price ? (
                               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
@@ -803,7 +937,7 @@ export function ExplorePlanTab({
                             onClick={() => onViewDetails(p.id)}
                             className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                           >
-                            View
+                            {t.common.view}
                           </button>
                           {p.canEnroll ? (
                             <button
@@ -812,7 +946,11 @@ export function ExplorePlanTab({
                               onClick={() => onRegister(p.id)}
                               className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
                             >
-                              {p.enrollmentStatus === "PENDING" ? "Pay now" : registeringId === p.id ? "..." : "Register"}
+                              {p.enrollmentStatus === "PENDING"
+                                ? t.common.payNow
+                                : registeringId === p.id
+                                  ? "..."
+                                  : t.common.register}
                             </button>
                           ) : null}
                         </div>
@@ -825,7 +963,7 @@ export function ExplorePlanTab({
             {pages > 1 && (
               <nav aria-label="Plan pages" className="flex items-center justify-center gap-1.5 pt-2">
                 <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
-                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                  <ChevronLeft className="w-3.5 h-3.5" /> {t.common.previous}
                 </button>
                 {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
                   <button key={n} type="button" aria-current={n === safePage ? "page" : undefined} onClick={() => setPage(n)} className={`w-9 h-9 rounded-full text-xs font-semibold ${n === safePage ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950" : "border border-zinc-200 dark:border-white/15"}`}>
@@ -833,7 +971,7 @@ export function ExplorePlanTab({
                   </button>
                 ))}
                 <button type="button" disabled={safePage === pages} onClick={() => setPage(safePage + 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
-                  Next <ChevronRight className="w-3.5 h-3.5" />
+                  {t.common.next} <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </nav>
             )}

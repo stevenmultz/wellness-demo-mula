@@ -17,6 +17,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { wellnessChangePassword } from "@/wellness/actions/account";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { GENDER_OPTIONS } from "@/wellness/validators/auth";
 import { formatDateWib } from "../shared";
 import { NotificationPrefs } from "./NotificationPrefs";
@@ -96,6 +97,7 @@ export function Banner({ msg }: { msg: Msg }) {
 }
 
 function SaveButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  const { t } = useLocale();
   return (
     <button
       type="button"
@@ -104,7 +106,7 @@ function SaveButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
       className="h-10 px-6 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-geometric font-medium disabled:opacity-50 inline-flex items-center gap-1.5 active:scale-95 transition"
     >
       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-      <span>Save Changes</span>
+      <span>{t.common.saveChanges}</span>
     </button>
   );
 }
@@ -156,17 +158,39 @@ export function ProfileSectionView({
   onLogout,
   onDeleteAccount,
 }: ProfileSectionViewProps) {
+  const { t } = useLocale();
+  const localizedTitles: Record<ProfileView, string> = {
+    basic: t.profile.basicTitle,
+    contact: t.profile.contactTitle,
+    emergency: t.profile.emergencyTitle,
+    security: t.profile.securityTitle,
+    notifications: t.profile.notificationsTitle,
+    share_progress: t.profile.shareProgressTitle,
+    privacy: t.profile.privacyTitle,
+    account: t.profile.accountTitle,
+  };
+  const localizedSubtitles: Record<ProfileView, string> = {
+    basic: t.profile.basicSubtitle,
+    contact: t.profile.contactSubtitle,
+    emergency: t.profile.emergencySubtitle,
+    security: t.profile.securitySubtitle,
+    notifications: t.profile.notificationsSubtitle,
+    share_progress: t.profile.shareProgressSubtitle,
+    privacy: t.profile.privacySubtitle,
+    account: t.profile.accountSubtitle,
+  };
+
   return (
     <div className="profile-detail-scope max-w-xl w-full mx-auto space-y-6 pt-2 pb-12">
       <div className="space-y-1.5 pb-4 border-b border-zinc-200/80 dark:border-white/10">
         <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold block">
-          Account Settings
+          {t.profile.accountSettings}
         </span>
         <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-          {PROFILE_TITLES[view]}
+          {localizedTitles[view]}
         </h1>
         <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          {PROFILE_SUBTITLES[view]}
+          {localizedSubtitles[view]}
         </p>
       </div>
 

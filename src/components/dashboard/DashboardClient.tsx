@@ -12,7 +12,8 @@ import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import type { BodyMetricPoint } from "./tabs/BodyProgressWidget";
 import { evaluateDayTaskState, MyPlanHeader, MyPlanIndex, MyPlanIntro, MyPlanOverview } from "./tabs/MyPlanTab";
-import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
+import type { MyPlanFilter } from "./tabs/my-plan/MyPlanIntro";
+import { ExplorePlanTab, type ExploreViewMode } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
 import { ProgramDetailView } from "./tabs/ProgramDetailView";
@@ -82,8 +83,8 @@ export function DashboardClient({
     hasInitialActivePlan ? "my_plan" : "all_plan"
   );
   const [myPlanView, setMyPlanView] = useState<"intro" | "index" | "detail">("intro");
-  const [myPlanFilter, setMyPlanFilter] = useState<"all" | "ongoing" | "upcoming">("all");
-  const [exploreView, setExploreView] = useState<"intro" | "catalog" | "coaches" | "organizations">("intro");
+  const [myPlanFilter, setMyPlanFilter] = useState<MyPlanFilter>("all");
+  const [exploreView, setExploreView] = useState<ExploreViewMode>("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
@@ -327,12 +328,12 @@ export function DashboardClient({
     isCohortEnded(e.startDate, e.endDate, e.dayCount)
   );
 
-  // My Plan tab: strictly contains active ongoing or upcoming programs (completed are archived in History)
+  // My Plan tab: includes all active-status enrollments (ongoing, upcoming, and completed)
   const activeEnrollments = allActiveEnrollments.filter(
     (e) => !isCohortEnded(e.startDate, e.endDate, e.dayCount)
   );
-  const planOptions = activeEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
-  const myPlanIndexItems = activeEnrollments.map((e) => {
+  const planOptions = allActiveEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
+  const myPlanIndexItems = allActiveEnrollments.map((e) => {
     const fullProg = myEnrolledPrograms.find((p) => p.id === e.programId);
     const days = fullProg?.days || [];
     const totalDays = days.length || e.dayCount || 0;
@@ -340,8 +341,10 @@ export function DashboardClient({
     const liveIdx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
     const liveDay = liveIdx >= 0 ? days[liveIdx] : null;
     const currentDayNumber = liveDay?.dayNumber || 0;
-    const isUpcoming = isCohortUpcoming(e.startDate || fullProg?.startDate);
-    const pendingTasksCount = !isUpcoming && liveDay ? evaluateDayTaskState(liveDay).pendingTasksCount : 0;
+    const isCompleted = isCohortEnded(e.startDate, e.endDate, e.dayCount);
+    const isUpcoming = !isCompleted && isCohortUpcoming(e.startDate || fullProg?.startDate);
+    const pendingTasksCount =
+      !isCompleted && !isUpcoming && liveDay ? evaluateDayTaskState(liveDay).pendingTasksCount : 0;
     return {
       programId: e.programId,
       title: e.title,
@@ -354,16 +357,20 @@ export function DashboardClient({
       locationType: e.locationType || fullProg?.locationType,
       city: e.city || fullProg?.city || null,
       isUpcoming,
+      isCompleted,
       completedDays,
       totalDays,
       currentDayNumber,
       dailyCommitment: fullProg?.dailyCommitment || "15–20 Mins / Day",
-      todayDayType: !isUpcoming && liveDay ? liveDay.dayType : null,
+      todayDayType: !isCompleted && !isUpcoming && liveDay ? liveDay.dayType : null,
       pendingTasksCount,
     };
   });
   const overviewEnrollment =
-    activeEnrollments.find((e) => e.programId === selectedProgId) || activeEnrollments[0] || null;
+    allActiveEnrollments.find((e) => e.programId === selectedProgId) ||
+    activeEnrollments[0] ||
+    allActiveEnrollments[0] ||
+    null;
   const overviewPlan = overviewEnrollment
     ? dailyPlans.find((p) => p.programId === overviewEnrollment.programId) ?? null
     : null;
@@ -526,9 +533,9 @@ export function DashboardClient({
             <MyPlanIntro
               userName={user.fullName}
               totalCount={myPlanIndexItems.length}
-              ongoingCount={myPlanIndexItems.filter((p) => !p.isUpcoming).length}
-              upcomingCount={myPlanIndexItems.filter((p) => p.isUpcoming).length}
-              completedCount={completedEnrollments.length}
+              ongoingCount={myPlanIndexItems.filter((p) => !p.isUpcoming && !p.isCompleted).length}
+              upcomingCount={myPlanIndexItems.filter((p) => p.isUpcoming && !p.isCompleted).length}
+              completedCount={myPlanIndexItems.filter((p) => !!p.isCompleted).length}
               onSelectFilter={(filter) => {
                 setMyPlanFilter(filter);
                 setMyPlanView("index");
@@ -538,12 +545,6 @@ export function DashboardClient({
               onExplore={() => {
                 setExploreView("catalog");
                 setActiveTab("all_plan");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              onViewHistory={() => {
-                setHistorySection("history");
-                setHistoryView("feed");
-                setActiveTab("notifications");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             />
@@ -597,7 +598,17 @@ export function DashboardClient({
                       communityLink: overviewEnrollment.communityLink,
                       scientificReferences: currentProgram.scientificReferences || [],
                       totalDays: currentProgram.days.length || currentProgram.durationDays || 0,
-                      isUpcoming: isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
+                      isCompleted: isCohortEnded(
+                        overviewEnrollment.startDate,
+                        overviewEnrollment.endDate,
+                        overviewEnrollment.dayCount
+                      ),
+                      isUpcoming:
+                        !isCohortEnded(
+                          overviewEnrollment.startDate,
+                          overviewEnrollment.endDate,
+                          overviewEnrollment.dayCount
+                        ) && isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
                       targetState: currentProgram.targetState || null,
                       methodology: currentProgram.methodology || null,
                       expectedBenefits: currentProgram.expectedBenefits || [],

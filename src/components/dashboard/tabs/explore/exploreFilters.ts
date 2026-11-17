@@ -98,7 +98,7 @@ export const EMPTY: Filters = {
 export interface SupportedFilterOptions {
   format: Array<(typeof FORMAT_OPTIONS)[number]>;
   intensity: Array<(typeof INTENSITY_OPTIONS)[number]>;
-  category: Array<(typeof CATEGORY_OPTIONS)[number]>;
+  category: string[];
   duration: Array<(typeof DURATION_OPTIONS)[number]>;
   experience: Array<(typeof EXPERIENCE_OPTIONS)[number]>;
   schedule: Array<(typeof SCHEDULE_OPTIONS)[number]>;
@@ -142,14 +142,12 @@ export function experienceOf(program: ExploreProgram): string[] {
 }
 
 export function categoriesOf(program: ExploreProgram): string[] {
-  const raw = (program.category || "").toLowerCase();
-  const hits: string[] = [];
-  if (/fit|pilates|workout|strength|hiit|mobility|cardio/.test(raw)) hits.push("Fitness");
-  if (/nutri|meal|diet|food/.test(raw)) hits.push("Nutrition");
-  if (/mental|mind|meditat|stress/.test(raw)) hits.push("Mental Wellness");
-  if (/lifestyle|habit|longevity|sleep/.test(raw)) hits.push("Lifestyle");
-  if (/personal|develop|growth|career/.test(raw)) hits.push("Personal Development");
-  return hits;
+  const raw = (program.category || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 }
 
 export function durationOf(days: number): string {
@@ -187,7 +185,9 @@ export function matches(program: ExploreProgram, f: Filters): boolean {
   }
   if (
     f.category.length &&
-    !categoriesOf(program).some((c) => f.category.includes(c))
+    !categoriesOf(program).some((c) =>
+      f.category.some((sel) => sel.trim().toLowerCase() === c.trim().toLowerCase())
+    )
   ) {
     return false;
   }
@@ -213,7 +213,11 @@ export function computeSupportedFilterOptions(
 ): SupportedFilterOptions {
   const formats = new Set(catalog.map((p) => p.locationType));
   const intensities = new Set(catalog.map((p) => intensityOf(p.difficultyLevel)));
-  const categories = new Set(catalog.flatMap(categoriesOf));
+  const categoriesMap = new Map<string, string>();
+  for (const name of catalog.flatMap(categoriesOf)) {
+    const key = name.toLowerCase();
+    if (!categoriesMap.has(key)) categoriesMap.set(key, name);
+  }
   const durations = new Set(catalog.map((p) => durationOf(p.durationDays)));
   const experiences = new Set(catalog.flatMap(experienceOf));
   const schedules = new Set(catalog.map(scheduleOf).filter(Boolean) as string[]);
@@ -221,7 +225,7 @@ export function computeSupportedFilterOptions(
   return {
     format: FORMAT_OPTIONS.filter((o) => formats.has(o.id)),
     intensity: INTENSITY_OPTIONS.filter((o) => intensities.has(o)),
-    category: CATEGORY_OPTIONS.filter((o) => categories.has(o)),
+    category: Array.from(categoriesMap.values()).sort((a, b) => a.localeCompare(b)),
     duration: DURATION_OPTIONS.filter((o) => durations.has(o)),
     experience: EXPERIENCE_OPTIONS.filter((o) => experiences.has(o)),
     schedule: SCHEDULE_OPTIONS.filter((o) => schedules.has(o)),

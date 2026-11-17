@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, Number.parseInt(sp.get("limit") || "50", 10) || 50));
 
     const locale = getServerLocale(session.preferredLocale);
-    const [programs, enrollments, organizations] = await Promise.all([
+    const [programs, enrollments, organizations, categories] = await Promise.all([
       prisma.program.findMany({
         take: 100,
         where: {
@@ -112,6 +112,10 @@ export async function GET(req: NextRequest) {
           websiteUrl: true,
           isVerified: true,
         },
+        orderBy: { name: "asc" },
+      }),
+      prisma.masterCategory.findMany({
+        select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
     ]);
@@ -229,6 +233,10 @@ export async function GET(req: NextRequest) {
           logoUrl: toClientMediaUrl(org.logoPath),
           websiteUrl: org.websiteUrl,
           isVerified: org.isVerified,
+        })),
+        categories: categories.map((cat) => ({
+          id: cat.id,
+          name: cat.name,
         })),
         pagination: {
           page,
