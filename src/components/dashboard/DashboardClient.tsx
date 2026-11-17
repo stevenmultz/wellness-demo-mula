@@ -11,7 +11,7 @@ import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import type { BodyMetricPoint } from "./tabs/BodyProgressWidget";
-import { evaluateDayTaskState, MyPlanHeader, MyPlanIndex, MyPlanOverview } from "./tabs/MyPlanTab";
+import { evaluateDayTaskState, MyPlanHeader, MyPlanIndex, MyPlanIntro, MyPlanOverview } from "./tabs/MyPlanTab";
 import { ExplorePlanTab } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
@@ -81,8 +81,9 @@ export function DashboardClient({
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">(
     hasInitialActivePlan ? "my_plan" : "all_plan"
   );
-  const [myPlanView, setMyPlanView] = useState<"index" | "detail">("index");
-  const [exploreView, setExploreView] = useState<"intro" | "catalog" | "coaches">("intro");
+  const [myPlanView, setMyPlanView] = useState<"intro" | "index" | "detail">("intro");
+  const [myPlanFilter, setMyPlanFilter] = useState<"all" | "ongoing" | "upcoming">("all");
+  const [exploreView, setExploreView] = useState<"intro" | "catalog" | "coaches" | "organizations">("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
@@ -368,9 +369,16 @@ export function DashboardClient({
     : null;
 
   const isFullBleedFirstPage =
+    (activeTab === "my_plan" && myPlanView === "intro") ||
     (activeTab === "all_plan" && exploreView === "intro") ||
     (activeTab === "notifications" && historyView === "intro") ||
     (activeTab === "profile" && profileViewMode === "intro");
+
+  const openProfileFromHeader = () => {
+    setActiveTab("profile");
+    setProfileViewMode("menu");
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <div className="member-dashboard-unboxed min-h-screen flex flex-col relative overflow-x-clip font-sans bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
@@ -382,9 +390,16 @@ export function DashboardClient({
           mode={myPlanView}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
+          avatarUrl={user.avatarUrl}
+          userName={user.fullName}
           onSelect={(id) => {
             setSelectedProgId(id);
             setMyPlanView("detail");
+          }}
+          onBackToIntro={() => {
+            setMyPlanView("intro");
+            setIsOverHero(true);
+            window.scrollTo({ top: 0 });
           }}
           onBackToIndex={() => {
             setMyPlanView("index");
@@ -396,6 +411,7 @@ export function DashboardClient({
             setActiveTab("all_plan");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
+          onOpenProfile={openProfileFromHeader}
         />
       )}
 
@@ -439,7 +455,7 @@ export function DashboardClient({
                   onClick={() => {
                     setActiveTab(key);
                     if (key === "my_plan") {
-                      setMyPlanView("index");
+                      setMyPlanView("intro");
                     } else if (key === "all_plan") {
                       setExploreView("intro");
                     } else if (key === "notifications") {
@@ -505,12 +521,39 @@ export function DashboardClient({
           </div>
         )}
 
-        <div className={activeTab === "my_plan" ? "block" : "hidden"} hidden={activeTab !== "my_plan"}>
-          {myPlanView === "index" ? (
+        <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
+          {myPlanView === "intro" ? (
+            <MyPlanIntro
+              userName={user.fullName}
+              totalCount={myPlanIndexItems.length}
+              ongoingCount={myPlanIndexItems.filter((p) => !p.isUpcoming).length}
+              upcomingCount={myPlanIndexItems.filter((p) => p.isUpcoming).length}
+              completedCount={completedEnrollments.length}
+              onSelectFilter={(filter) => {
+                setMyPlanFilter(filter);
+                setMyPlanView("index");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onExplore={() => {
+                setExploreView("catalog");
+                setActiveTab("all_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              onViewHistory={() => {
+                setHistorySection("history");
+                setHistoryView("feed");
+                setActiveTab("notifications");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          ) : myPlanView === "index" ? (
             <MyPlanIndex
               userName={user.fullName}
               plans={myPlanIndexItems}
               completedCount={completedEnrollments.length}
+              planFilter={myPlanFilter}
+              onChangePlanFilter={setMyPlanFilter}
               onSelectPlan={(programId) => {
                 setSelectedProgId(programId);
                 setMyPlanView("detail");
@@ -656,6 +699,9 @@ export function DashboardClient({
               viewMode={exploreView}
               onChangeViewMode={setExploreView}
               registeringId={enrollingId}
+              profileAvatarUrl={user.avatarUrl}
+              profileName={user.fullName}
+              onOpenProfile={openProfileFromHeader}
               onRegister={(id) => handleOpenQrisCheckout(id)}
               onViewDetails={(id) => {
                 const prog = allPrograms.find((p) => p.id === id);
@@ -681,6 +727,9 @@ export function DashboardClient({
               viewMode={historyView}
               onChangeViewMode={setHistoryView}
               initialSection={historySection}
+              profileAvatarUrl={user.avatarUrl}
+              profileName={user.fullName}
+              onOpenProfile={openProfileFromHeader}
               completedPrograms={completedEnrollments.map((e) => ({
                 programId: e.programId,
                 title: e.title,

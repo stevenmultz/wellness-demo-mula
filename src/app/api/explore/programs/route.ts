@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, Number.parseInt(sp.get("limit") || "50", 10) || 50));
 
     const locale = getServerLocale(session.preferredLocale);
-    const [programs, enrollments] = await Promise.all([
+    const [programs, enrollments, organizations] = await Promise.all([
       prisma.program.findMany({
         take: 100,
         where: {
@@ -96,6 +96,23 @@ export async function GET(req: NextRequest) {
       prisma.programEnrollment.findMany({
         where: { userId: session.userId },
         select: { programId: true, status: true },
+      }),
+      prisma.masterOrganization.findMany({
+        where: {
+          OR: [
+            { isVerified: true },
+            { programs: { some: { status: "PUBLISHED", deletedAt: null } } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          tagline: true,
+          logoPath: true,
+          websiteUrl: true,
+          isVerified: true,
+        },
+        orderBy: { name: "asc" },
       }),
     ]);
 
@@ -205,6 +222,14 @@ export async function GET(req: NextRequest) {
       {
         success: true,
         programs: pagedItems,
+        organizations: organizations.map((org) => ({
+          id: org.id,
+          name: org.name,
+          tagline: org.tagline,
+          logoUrl: toClientMediaUrl(org.logoPath),
+          websiteUrl: org.websiteUrl,
+          isVerified: org.isVerified,
+        })),
         pagination: {
           page,
           limit,

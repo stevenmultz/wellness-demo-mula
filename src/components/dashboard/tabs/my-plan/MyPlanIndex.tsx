@@ -15,6 +15,8 @@ export function MyPlanIndex({
   userName,
   plans,
   completedCount,
+  planFilter: controlledFilter,
+  onChangePlanFilter,
   onSelectPlan,
   onExplore,
   onViewHistory,
@@ -22,6 +24,8 @@ export function MyPlanIndex({
   userName: string;
   plans: MyPlanIndexItem[];
   completedCount: number;
+  planFilter?: "all" | "ongoing" | "upcoming";
+  onChangePlanFilter?: (next: "all" | "ongoing" | "upcoming") => void;
   onSelectPlan: (programId: string) => void;
   onExplore: () => void;
   onViewHistory: () => void;
@@ -29,7 +33,19 @@ export function MyPlanIndex({
   const firstName = (userName || "Member").trim().split(/\s+/)[0] || "Member";
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [planFilter, setPlanFilter] = useState<"all" | "ongoing" | "upcoming">("all");
+  const [internalFilter, setInternalFilter] = useState<"all" | "ongoing" | "upcoming">("all");
+  const planFilter = controlledFilter ?? internalFilter;
+  const setPlanFilter = (
+    updater:
+      | "all"
+      | "ongoing"
+      | "upcoming"
+      | ((prev: "all" | "ongoing" | "upcoming") => "all" | "ongoing" | "upcoming")
+  ) => {
+    const next = typeof updater === "function" ? updater(planFilter) : updater;
+    setInternalFilter(next);
+    onChangePlanFilter?.(next);
+  };
 
   const ongoingPlans = plans.filter((p) => !p.isUpcoming);
   const upcomingPlans = plans.filter((p) => p.isUpcoming);
@@ -68,19 +84,19 @@ export function MyPlanIndex({
 
   const filterHeadingLabel =
     planFilter === "ongoing"
-      ? "My Ongoing Plans"
+      ? "On Going Plans"
       : planFilter === "upcoming"
-        ? "My Upcoming Plans"
-        : "Your Enrolled Plans";
+        ? "Upcoming Plans"
+        : "All My Plans";
 
   const filterOptions: Array<{
     key: "all" | "ongoing" | "upcoming";
     label: string;
     count: number;
   }> = [
-    { key: "all", label: "See All My Plans", count: plans.length },
-    { key: "ongoing", label: "My Ongoing Plans", count: ongoingPlans.length },
-    { key: "upcoming", label: "My Upcoming Plans", count: upcomingPlans.length },
+    { key: "all", label: "All My Plan", count: plans.length },
+    { key: "ongoing", label: "On Going", count: ongoingPlans.length },
+    { key: "upcoming", label: "Upcoming", count: upcomingPlans.length },
   ];
 
   return (
@@ -248,29 +264,38 @@ export function MyPlanIndex({
               })}
             </div>
           ) : (
-            <div className="rounded-3xl bg-[#ececea] dark:bg-[#1f1f1f] px-5 py-10 text-center space-y-3">
-              <p className="text-xs text-zinc-600 dark:text-zinc-300">
+            <div className="rounded-3xl bg-[#ececea] dark:bg-[#1f1f1f] px-5 py-10 text-center space-y-4">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-xs mx-auto">
                 {planFilter === "upcoming"
-                  ? "You have no upcoming plans right now."
-                  : "You have no ongoing plans right now."}
+                  ? "You haven\u2019t got any upcoming plans yet. Start exploring available programs to schedule your next cohort."
+                  : "You haven\u2019t got any ongoing plans right now. Explore available programs or check your upcoming plans."}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setPlanFilter("all");
-                  setActiveSlide(0);
-                }}
-                className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-medium"
-              >
-                Show All Plans
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={onExplore}
+                  className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-medium inline-flex items-center gap-1.5"
+                >
+                  <Compass className="w-3.5 h-3.5" /> Explore Plans
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlanFilter("all");
+                    setActiveSlide(0);
+                  }}
+                  className="px-4 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-zinc-800 dark:text-zinc-200 text-[11px] font-medium"
+                >
+                  All My Plan
+                </button>
+              </div>
             </div>
           )}
         </section>
       ) : (
         <EmptyState
-          title="No active plans"
-          description="Explore available plans to start a cohort or review your completed journeys in History."
+          title="No plans yet"
+          description="You haven\u2019t got any plans yet. Start your wellness journey by exploring available programs or checking your completed history."
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               <button

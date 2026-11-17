@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 import { wellnessUpdateProfile } from "@/wellness/actions/account";
 import { calculateAgeFromDob } from "@/wellness/validators/auth";
-import { BrandWordmark, FloatingHeader, HeaderBackButton } from "./shared";
+import {
+  BrandWordmark,
+  FloatingHeader,
+  HeaderBackButton,
+  HeaderProfileButton,
+} from "./shared";
 import type { UserProfile } from "../types";
 import {
   Banner,
@@ -285,7 +290,14 @@ export function ProfileTab({
             }}
           />
         ) : mode === "intro" ? (
-          <BrandWordmark light />
+          <>
+            <BrandWordmark light />
+            <HeaderProfileButton
+              avatarUrl={avatarUrl}
+              fullName={form.fullName || user.fullName}
+              onClick={() => setMode("menu")}
+            />
+          </>
         ) : (
           <HeaderBackButton
             onClick={() => setMode("intro")}

@@ -17,6 +17,7 @@ import {
   ErrorState,
   FloatingHeader,
   HeaderBackButton,
+  HeaderProfileButton,
   LoadingState,
   PullToRefreshBanner,
   formatDateTimeWib,
@@ -47,6 +48,9 @@ export function NotificationsHistoryTab({
   initialSection = "notifications",
   viewMode,
   onChangeViewMode,
+  profileAvatarUrl,
+  profileName,
+  onOpenProfile,
 }: {
   headerVisible: boolean;
   isActive?: boolean;
@@ -55,6 +59,9 @@ export function NotificationsHistoryTab({
   initialSection?: Section;
   viewMode?: "intro" | "feed";
   onChangeViewMode?: (next: "intro" | "feed") => void;
+  profileAvatarUrl?: string | null;
+  profileName?: string | null;
+  onOpenProfile?: () => void;
 }) {
   const [internalMode, setInternalMode] = useState<"intro" | "feed">("intro");
   const mode = viewMode ?? internalMode;
@@ -174,7 +181,14 @@ export function NotificationsHistoryTab({
     <>
       <FloatingHeader visible={headerVisible} transparent={mode === "intro"}>
         {mode === "intro" ? (
-          <BrandWordmark light />
+          <>
+            <BrandWordmark light />
+            <HeaderProfileButton
+              avatarUrl={profileAvatarUrl}
+              fullName={profileName}
+              onClick={() => onOpenProfile?.()}
+            />
+          </>
         ) : (
           <HeaderBackButton
             onClick={() => setMode("intro")}

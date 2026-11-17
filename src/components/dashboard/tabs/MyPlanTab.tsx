@@ -14,8 +14,16 @@ import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import { DailyCheckIn } from "./DailyCheckIn";
 import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
-import { BrandWordmark, EmptyState, FloatingHeader, HeaderBackButton, safeHttpUrl } from "./shared";
+import {
+  BrandWordmark,
+  EmptyState,
+  FloatingHeader,
+  HeaderBackButton,
+  HeaderProfileButton,
+  safeHttpUrl,
+} from "./shared";
 import { MyPlanIndex } from "./my-plan/MyPlanIndex";
+import { MyPlanIntro } from "./my-plan/MyPlanIntro";
 import { CohortPerformanceCard } from "./my-plan/CohortPerformanceCard";
 import { ProgramReportPageView } from "./my-plan/ProgramReportPageView";
 import { ProgramPreparationWidgets } from "./my-plan/ProgramPreparationWidgets";
@@ -38,7 +46,7 @@ export type {
   PlanStats,
   PlanTaskId,
 };
-export { evaluateDayTaskState, MyPlanIndex };
+export { evaluateDayTaskState, MyPlanIndex, MyPlanIntro };
 
 export function MyPlanHeader({
   visible,
@@ -46,37 +54,59 @@ export function MyPlanHeader({
   mode = "detail",
   plans,
   selectedProgramId,
+  avatarUrl,
+  userName,
   onSelect: _onSelect,
+  onBackToIntro,
   onBackToIndex,
   onExplore,
+  onOpenProfile,
 }: {
   visible: boolean;
   overlay?: boolean;
-  mode?: "index" | "detail";
+  mode?: "intro" | "index" | "detail";
   plans: PlanOption[];
   selectedProgramId: string;
+  avatarUrl?: string | null;
+  userName?: string | null;
   onSelect: (programId: string) => void;
+  onBackToIntro?: () => void;
   onBackToIndex?: () => void;
   onExplore: () => void;
+  onOpenProfile?: () => void;
 }) {
   void _onSelect;
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
+  const isIntro = mode === "intro";
   const showDetailBack = mode === "detail" && !!current;
 
   return (
-    <FloatingHeader visible={visible} transparent={overlay}>
-      {showDetailBack ? (
+    <FloatingHeader visible={visible} transparent={isIntro || overlay}>
+      {isIntro ? (
+        <BrandWordmark light />
+      ) : showDetailBack ? (
         <HeaderBackButton
           onClick={() => onBackToIndex?.()}
           title="Back to All My Plans"
           overlay={overlay}
+        />
+      ) : mode === "index" && onBackToIntro ? (
+        <HeaderBackButton
+          onClick={onBackToIntro}
+          ariaLabel="Back to My Plan overview"
         />
       ) : (
         <BrandWordmark light={overlay} />
       )}
 
       <div className="relative min-w-0">
-        {mode === "index" ? (
+        {isIntro ? (
+          <HeaderProfileButton
+            avatarUrl={avatarUrl}
+            fullName={userName}
+            onClick={() => onOpenProfile?.()}
+          />
+        ) : mode === "index" ? (
           plans.length > 0 ? null : (
             <button
               type="button"

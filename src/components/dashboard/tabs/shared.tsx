@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowDown, ArrowLeft, Info, Loader2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowLeft, Info, Loader2, User, X } from "lucide-react";
 
 /** App timezone: Western Indonesia Time. All user-facing dates use it (SSR and browser agree). */
 export const APP_TIMEZONE = "Asia/Jakarta";
@@ -46,6 +46,41 @@ export function BrandWordmark({ light = false }: { light?: boolean }) {
       tone={light ? "light" : "auto"}
       className={light ? "drop-shadow-xs" : ""}
     />
+  );
+}
+
+/** First-page header profile shortcut displayed on the top-right opposite zera.id. */
+export function HeaderProfileButton({
+  avatarUrl,
+  fullName,
+  onClick,
+}: {
+  avatarUrl?: string | null;
+  fullName?: string | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Open Profile"
+      title={fullName ? `Profile (${fullName})` : "Profile"}
+      className="shrink-0 h-8 pl-1 pr-2.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+    >
+      <span className="w-6 h-6 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shrink-0">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt={fullName || "Profile"}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <User className="w-3.5 h-3.5 text-white" />
+        )}
+      </span>
+      <span>Profile</span>
+    </button>
   );
 }
 

@@ -22,6 +22,7 @@ import {
   ErrorState,
   FloatingHeader,
   HeaderBackButton,
+  HeaderProfileButton,
   LoadingState,
   PullToRefreshBanner,
   formatDateWib,
@@ -44,6 +45,12 @@ import {
 } from "./explore/exploreFilters";
 import { ExploreFilterDialog } from "./explore/ExploreFilterDialog";
 import { ExploreCoachesView } from "./explore/ExploreCoachesView";
+import {
+  ExploreOrganizationsView,
+  type ExploreOrganization,
+} from "./explore/ExploreOrganizationsView";
+
+export type ExploreViewMode = "intro" | "catalog" | "coaches" | "organizations";
 
 export function ExplorePlanTab({
   headerVisible,
@@ -54,20 +61,26 @@ export function ExplorePlanTab({
   onViewDetails,
   onOpenPlan: _onOpenPlan,
   registeringId,
+  profileAvatarUrl,
+  profileName,
+  onOpenProfile,
 }: {
   headerVisible: boolean;
   isActive?: boolean;
-  viewMode?: "intro" | "catalog" | "coaches";
-  onChangeViewMode?: (mode: "intro" | "catalog" | "coaches") => void;
+  viewMode?: ExploreViewMode;
+  onChangeViewMode?: (mode: ExploreViewMode) => void;
   onRegister: (programId: string) => void;
   onViewDetails: (programId: string) => void;
   onOpenPlan: (programId: string) => void;
   registeringId: string | null;
+  profileAvatarUrl?: string | null;
+  profileName?: string | null;
+  onOpenProfile?: () => void;
 }) {
   void _onOpenPlan;
-  const [internalMode, setInternalMode] = useState<"intro" | "catalog" | "coaches">("intro");
+  const [internalMode, setInternalMode] = useState<ExploreViewMode>("intro");
   const mode = viewMode ?? internalMode;
-  const setMode = (next: "intro" | "catalog" | "coaches") => {
+  const setMode = (next: ExploreViewMode) => {
     setInternalMode(next);
     onChangeViewMode?.(next);
     window.scrollTo({ top: 0 });
@@ -75,15 +88,19 @@ export function ExplorePlanTab({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [coachSearch, setCoachSearch] = useState("");
+  const [orgSearch, setOrgSearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
+  const [selectedOrganization, setSelectedOrganization] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
   const [coachPage, setCoachPage] = useState(1);
+  const [orgPage, setOrgPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [organizations, setOrganizations] = useState<ExploreOrganization[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -93,7 +110,7 @@ export function ExplorePlanTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, applied, selectedCoach]);
+  }, [debouncedSearch, applied, selectedCoach, selectedOrganization]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -123,6 +140,9 @@ export function ExplorePlanTab({
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load plans.");
       setState({ status: "ready", programs: json.programs as ExploreProgram[] });
+      if (Array.isArray(json.organizations)) {
+        setOrganizations(json.organizations as ExploreOrganization[]);
+      }
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       setState((prev) =>
@@ -174,6 +194,12 @@ export function ExplorePlanTab({
     if (selectedCoach && p.coachName.trim().toLowerCase() !== selectedCoach.trim().toLowerCase()) {
       return false;
     }
+    if (
+      selectedOrganization &&
+      (p.organizationName ?? "").trim().toLowerCase() !== selectedOrganization.trim().toLowerCase()
+    ) {
+      return false;
+    }
     return matches(p, applied);
   });
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -195,6 +221,11 @@ export function ExplorePlanTab({
       setPage(1);
       return;
     }
+    if (key === "organization") {
+      setSelectedOrganization(null);
+      setPage(1);
+      return;
+    }
     setApplied((f) => {
       const list = f[key as keyof Filters];
       if (!Array.isArray(list) || !value) return f;
@@ -205,6 +236,9 @@ export function ExplorePlanTab({
 
   const chips: { key: string; value: string; label: string }[] = [
     ...(selectedCoach ? [{ key: "coach", value: selectedCoach, label: `Coach: ${selectedCoach}` }] : []),
+    ...(selectedOrganization
+      ? [{ key: "organization", value: selectedOrganization, label: `Organization: ${selectedOrganization}` }]
+      : []),
     ...applied.format.map((value) => ({ key: "format", value, label: FORMAT_OPTIONS.find((o) => o.id === value)?.label || value })),
     ...applied.intensity.map((value) => ({ key: "intensity", value, label: value })),
     ...applied.category.map((value) => ({ key: "category", value, label: value })),
@@ -218,7 +252,14 @@ export function ExplorePlanTab({
     <>
       <FloatingHeader visible={headerVisible} transparent={mode === "intro"}>
         {mode === "intro" ? (
-          <BrandWordmark light />
+          <>
+            <BrandWordmark light />
+            <HeaderProfileButton
+              avatarUrl={profileAvatarUrl}
+              fullName={profileName}
+              onClick={() => onOpenProfile?.()}
+            />
+          </>
         ) : mode === "coaches" ? (
           <div className="w-full flex items-center gap-2">
             <HeaderBackButton
@@ -237,6 +278,29 @@ export function ExplorePlanTab({
                 }}
                 placeholder="Search coach name..."
                 aria-label="Search coach name..."
+                maxLength={100}
+                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
+              />
+            </div>
+          </div>
+        ) : mode === "organizations" ? (
+          <div className="w-full flex items-center gap-2">
+            <HeaderBackButton
+              onClick={() => setMode("intro")}
+              ariaLabel="Back to Explore overview"
+            />
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
+              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <input
+                type="search"
+                inputMode="search"
+                value={orgSearch}
+                onChange={(e) => {
+                  setOrgSearch(e.target.value);
+                  setOrgPage(1);
+                }}
+                placeholder="Search organization name..."
+                aria-label="Search organization name..."
                 maxLength={100}
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
               />
@@ -334,12 +398,33 @@ export function ExplorePlanTab({
                   type="button"
                   onClick={() => {
                     setSelectedCoach(null);
+                    setSelectedOrganization(null);
+                    setApplied(EMPTY);
+                    setDraft(EMPTY);
+                    setPage(1);
                     setMode("catalog");
                   }}
                   className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
                 >
                   <span>Browse All Plans</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCoach(null);
+                    setSelectedOrganization(null);
+                    const freeFilters = { ...EMPTY, price: ["free"] };
+                    setApplied(freeFilters);
+                    setDraft(freeFilters);
+                    setPage(1);
+                    setMode("catalog");
+                  }}
+                  className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>Explore Free Plan</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
 
                 <button
@@ -352,6 +437,19 @@ export function ExplorePlanTab({
                   className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
                 >
                   <span>Explore All Coaches</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrgSearch("");
+                    setOrgPage(1);
+                    setMode("organizations");
+                  }}
+                  className="group py-1 text-white/75 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                >
+                  <span>Explore All Organization</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
@@ -371,6 +469,28 @@ export function ExplorePlanTab({
           onChangeCoachPage={setCoachPage}
           onSelectCoach={(name) => {
             setSelectedCoach(name);
+            setSelectedOrganization(null);
+            setPage(1);
+            setMode("catalog");
+          }}
+          pullDistance={pullDistance}
+          refreshing={refreshing}
+          loadStatus={state.status}
+        />
+      ) : mode === "organizations" ? (
+        <ExploreOrganizationsView
+          organizations={organizations}
+          catalog={catalog}
+          orgSearch={orgSearch}
+          onResetSearch={() => {
+            setOrgSearch("");
+            setOrgPage(1);
+          }}
+          orgPage={orgPage}
+          onChangeOrgPage={setOrgPage}
+          onSelectOrganization={(name) => {
+            setSelectedOrganization(name);
+            setSelectedCoach(null);
             setPage(1);
             setMode("catalog");
           }}
@@ -484,19 +604,20 @@ export function ExplorePlanTab({
         {state.status === "error" && <ErrorState message={state.message} onRetry={() => setReloadKey((k) => k + 1)} />}
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
-            title={debouncedSearch || activeCount || selectedCoach ? "No plans match" : "No plans available yet"}
+            title={debouncedSearch || activeCount || selectedCoach || selectedOrganization ? "No plans match" : "No plans available yet"}
             description={
-              debouncedSearch || activeCount || selectedCoach
-                ? "Try another coach, search term, or clear filters."
+              debouncedSearch || activeCount || selectedCoach || selectedOrganization
+                ? "Try another organization, coach, search term, or clear filters."
                 : "New plans will show up here when they are published."
             }
             action={
-              activeCount || debouncedSearch || selectedCoach ? (
+              activeCount || debouncedSearch || selectedCoach || selectedOrganization ? (
                 <button
                   type="button"
                   onClick={() => {
                     setSearch("");
                     setSelectedCoach(null);
+                    setSelectedOrganization(null);
                     setApplied(EMPTY);
                     setDraft(EMPTY);
                   }}
