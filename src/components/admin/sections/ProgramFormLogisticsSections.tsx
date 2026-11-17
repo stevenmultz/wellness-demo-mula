@@ -177,10 +177,34 @@ export function ProgramFormLogisticsSections({
 
         {expandedSections[6] && (
           <div className="px-5 pb-6 sm:px-8 sm:pb-8 pt-2 border-t border-zinc-300/60 dark:border-zinc-700/60 space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-3">
               <div className="space-y-2">
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Participant Capacity (Seats) *
+                  Minimum Participants (Target) *
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={form.maxQuota || 1000}
+                  required
+                  disabled={isLocked}
+                  value={form.minQuota}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      minQuota: Math.max(1, Number(e.target.value) || 1),
+                    }))
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                />
+                <span className="text-[10px] text-zinc-400 block">
+                  Minimum threshold for batch run (e.g. 15 of 25)
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Max Capacity (Seats) *
                 </label>
                 <input
                   type="number"
@@ -191,7 +215,7 @@ export function ProgramFormLogisticsSections({
                   onChange={(e) =>
                     setForm((p) => ({
                       ...p,
-                      maxQuota: Number(e.target.value),
+                      maxQuota: Math.max(1, Number(e.target.value) || 1),
                     }))
                   }
                   className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
@@ -200,7 +224,7 @@ export function ProgramFormLogisticsSections({
 
               <div className="space-y-2">
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Actual Tuition (IDR) *
+                  Actual Tuition (IDR — 0 for Free) *
                 </label>
                 <input
                   type="number"
@@ -208,7 +232,7 @@ export function ProgramFormLogisticsSections({
                   step={1000}
                   required
                   disabled={isLocked}
-                  value={mode === "create" ? form.actualPrice || "" : form.actualPrice}
+                  value={form.actualPrice}
                   onChange={(e) => {
                     const actual = Number(e.target.value) || 0;
                     const disc = Number(form.discountPercentage) || 0;
@@ -218,7 +242,7 @@ export function ProgramFormLogisticsSections({
                       price: Math.max(0, Math.round(actual * (1 - disc / 100))),
                     }));
                   }}
-                  placeholder="Enter actual tuition..."
+                  placeholder="0 for Free intro program..."
                   className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
                 />
               </div>
@@ -249,14 +273,14 @@ export function ProgramFormLogisticsSections({
                 </select>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 sm:col-span-2 lg:col-span-2">
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Final Calculated Tuition
                 </label>
                 <div className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono font-bold text-zinc-900 dark:text-white flex items-center justify-between">
                   <span>
-                    {form.price === 0 && mode === "edit"
-                      ? "Free"
+                    {form.price === 0
+                      ? "Free (Rp 0 — Intro Program)"
                       : `Rp ${form.price.toLocaleString("id-ID")}`}
                   </span>
                   {form.discountPercentage > 0 && (

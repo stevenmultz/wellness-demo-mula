@@ -149,21 +149,22 @@ return (
             </a>
           )}
 
-          {/* Reset Password */}
-          <button
-            type="button"
-            onClick={() => handleResetPassword(u)}
-            disabled={userActionLoading === u.id}
-            className="px-3 py-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 text-xs font-medium flex items-center gap-1.5 transition"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Reset Password</span>
-          </button>
+          {/* Reset Password (Superadmin Only) */}
+          {isSuperadminUser && (
+            <button
+              type="button"
+              onClick={() => handleResetPassword(u)}
+              disabled={userActionLoading === u.id}
+              className="px-3 py-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 text-xs font-medium flex items-center gap-1.5 transition"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
+              <span>Reset Password</span>
+            </button>
+          )}
 
-          {u.id !== currentAdminId && u.role !== "SUPERADMIN" && (
+          {isSuperadminUser && u.id !== currentAdminId && u.role !== "SUPERADMIN" && (
             <>
-              {isSuperadminUser && (
-                <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                   <select
                     value={u.role}
                     disabled={userActionLoading === u.id}
@@ -281,7 +282,6 @@ return (
                     </select>
                   )}
                 </div>
-              )}
 
               <button
                 type="button"

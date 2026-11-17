@@ -259,6 +259,7 @@ export function ProfileTab({
         items: [
           ["security", "Login & Security", "Password credentials and active session info"],
           ["notifications", "Notification Preferences", "Push alerts, reminders, and cohort updates"],
+          ["share_progress", "Share Progress", "Share read-only progress or view shared plans"],
         ] as const,
       },
       {

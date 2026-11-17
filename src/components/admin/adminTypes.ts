@@ -125,6 +125,7 @@ export interface AdminProgram {
   actualPrice?: number;
   discountPercentage?: number;
   price: number;
+  minQuota?: number;
   maxQuota: number;
   communityLink: string | null;
   locationType?: string | null;
@@ -221,7 +222,7 @@ export interface AdminUserItem {
 }
 
 export interface AdminInitialRoute {
-  menu: "dashboard" | "programs" | "master" | "members" | "payments";
+  menu: AdminMenuKey;
   programId?: string | null;
   isCreating?: boolean;
   programTab?: "info" | "schedule" | "responses";
@@ -283,7 +284,7 @@ export const DIFFICULTY_LEVELS = [
   },
 ] as const;
 
-export type AdminMenuKey = "dashboard" | "programs" | "master" | "members" | "payments";
+export type AdminMenuKey = "dashboard" | "programs" | "master" | "members" | "payments" | "team";
 
 export interface AdminBreadcrumbItem {
   label: string;
@@ -342,6 +343,7 @@ export interface ProgramHeaderFormState {
   actualPrice: number;
   discountPercentage: number;
   price: number;
+  minQuota?: number;
   maxQuota: number;
   communityLink: string;
   locationType: "ONLINE" | "ONSITE" | "HYBRID";

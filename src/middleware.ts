@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { getJwtSecretKey, SESSION_COOKIE_NAME } from "./wellness/config";
+import { isAdminRole } from "./wellness/security/roles";
 
 interface TokenPayload {
   userId: string;
@@ -42,8 +43,7 @@ export async function middleware(request: NextRequest) {
       const { payload } = await jwtVerify(sessionCookie, secretKey, { algorithms: ["HS256"] });
       const tokenData = payload as unknown as TokenPayload;
 
-      const ALLOWED_ADMIN_ROLES = new Set(["SUPERADMIN", "COACH", "PARTNER_ADMIN"]);
-      if (!ALLOWED_ADMIN_ROLES.has(tokenData.role) || !tokenData.userId) {
+      if (!isAdminRole(tokenData.role) || !tokenData.userId) {
         // Bukan admin/coach/partner -> alihkan ke user dashboard
         return NextResponse.redirect(new URL("/dashboard?error=unauthorized_admin", request.url));
       }
@@ -79,7 +79,7 @@ export async function middleware(request: NextRequest) {
       return response;
     } catch {
       const response = NextResponse.redirect(new URL("/?auth=signin", request.url));
-      response.cookies.delete("wellness_session");
+      response.cookies.delete(SESSION_COOKIE_NAME);
       return response;
     }
   }

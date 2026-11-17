@@ -10,6 +10,7 @@ import {
   wellnessRequestPasswordReset,
   wellnessResendVerificationEmail,
 } from "@/wellness/actions/auth";
+import { isAdminRole } from "@/wellness/security/roles";
 import {
   X,
   Loader2,
@@ -146,7 +147,7 @@ export function AuthGatewayCard({
           const searchParams = new URLSearchParams(window.location.search);
           const target = searchParams.get("target");
 
-          const isStaffRole = ["SUPERADMIN", "COACH", "PARTNER_ADMIN"].includes(result.data?.role || "");
+          const isStaffRole = isAdminRole(result.data?.role);
           if (target === "admin" && isStaffRole) {
             router.push("/admin");
           } else if (target === "dashboard") {

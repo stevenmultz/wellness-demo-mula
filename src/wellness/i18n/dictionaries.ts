@@ -46,7 +46,7 @@ export const DICTIONARIES = {
       enterDashboard: "Enter Member Dashboard",
       openAdmin: "Open Admin Console",
       accountDeleted: "Your account has been deleted.",
-      aboutEyebrow: "About ZERA + Sanctuary",
+      aboutEyebrow: "About zera.id",
       aboutHeadline: "Consistency over intensity.",
       aboutIntro:
         "is a daily movement, whole-food nutrition, and sleep restoration platform. Cohorts unlock at 00:00 WIB and pair guided digital tracking with live sessions in",
@@ -69,7 +69,7 @@ export const DICTIONARIES = {
       days: "Days",
     },
     auth: {
-      signInTitle: "Sign in to ZERA +",
+      signInTitle: "Sign in to zera.id",
       signUpTitle: "Create your account",
       signInSubtitle: "Enter your details to access your daily 00:00 WIB cohort protocol.",
       signUpSubtitle: "Join private athletic cohorts and track your daily longevity rituals.",
@@ -182,7 +182,7 @@ export const DICTIONARIES = {
       enterDashboard: "Masuk ke Dashboard Member",
       openAdmin: "Buka Admin Console",
       accountDeleted: "Akun Anda telah dihapus.",
-      aboutEyebrow: "Tentang ZERA + Sanctuary",
+      aboutEyebrow: "Tentang zera.id",
       aboutHeadline: "Konsistensi di atas intensitas.",
       aboutIntro:
         "adalah platform latihan harian, nutrisi whole-food, dan pemulihan tidur. Setiap cohort terbuka pukul 00:00 WIB dan memadukan pelacakan digital terstruktur dengan sesi tatap muka di",
@@ -205,7 +205,7 @@ export const DICTIONARIES = {
       days: "Hari",
     },
     auth: {
-      signInTitle: "Masuk ke ZERA +",
+      signInTitle: "Masuk ke zera.id",
       signUpTitle: "Buat akun baru",
       signInSubtitle: "Masukkan detail Anda untuk mengakses protokol harian pukul 00:00 WIB.",
       signUpSubtitle: "Bergabung dengan cohort privat dan pantau ritual kebugaran harian Anda.",

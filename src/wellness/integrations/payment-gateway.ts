@@ -143,3 +143,95 @@ export function verifyMidtransWebhookSignature(params: {
   if (expectedBuf.length !== receivedBuf.length) return false;
   return crypto.timingSafeEqual(expectedBuf, receivedBuf);
 }
+
+export interface MidtransRefundResult {
+  success: boolean;
+  mode: PaymentProviderMode;
+  refundKey?: string;
+  errorMessage?: string;
+  rawResponse?: unknown;
+}
+
+/**
+ * Calls Midtrans Core API `POST /v2/{order_id}/refund` for SETTLEMENT transactions.
+ * Handles QRIS/gateway constraints gracefully (e.g. >7 days Off-Us or insufficient Payable Amount),
+ * returning structured failure details so caller can fall back to manual refund tracking.
+ */
+export async function refundMidtransTransactionAdapter(params: {
+  orderId: string;
+  amountIdr: number;
+  reason: string;
+}): Promise<MidtransRefundResult> {
+  const provider = getPaymentProvider();
+  const refundKey = `REF-${params.orderId}-${Date.now()}`.slice(0, 64);
+
+  if (provider !== "MIDTRANS") {
+    return {
+      success: true,
+      mode: provider,
+      refundKey,
+    };
+  }
+
+  const midtrans = getMidtransConfig();
+  if (!midtrans.serverKey) {
+    return {
+      success: false,
+      mode: "MIDTRANS",
+      refundKey,
+      errorMessage: "MIDTRANS_SERVER_KEY is not configured.",
+    };
+  }
+
+  try {
+    const authHeader = Buffer.from(`${midtrans.serverKey}:`).toString("base64");
+    const response = await fetch(
+      `${midtrans.apiBaseUrl}/v2/${encodeURIComponent(params.orderId)}/refund`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          refund_key: refundKey,
+          amount: Math.max(1, Math.round(params.amountIdr)),
+          reason: params.reason.slice(0, 200),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+
+    const data = (await response.json().catch(() => null)) as {
+      status_code?: string;
+      status_message?: string;
+      refund_chargeback_id?: number;
+    } | null;
+
+    if (response.ok && data && ["200", "201"].includes(String(data.status_code || ""))) {
+      return {
+        success: true,
+        mode: "MIDTRANS",
+        refundKey,
+        rawResponse: data,
+      };
+    }
+
+    return {
+      success: false,
+      mode: "MIDTRANS",
+      refundKey,
+      errorMessage:
+        data?.status_message || `Midtrans refund rejected (HTTP ${response.status}).`,
+      rawResponse: data,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      mode: "MIDTRANS",
+      refundKey,
+      errorMessage: err instanceof Error ? err.message : "Midtrans refund request failed.",
+    };
+  }
+}

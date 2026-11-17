@@ -213,8 +213,8 @@ async function runAuditUnitTests() {
   assert.ok(MAX_UPLOAD_BYTES > MAX_AVATAR_BYTES);
   assert.ok(getAppUrl().startsWith("http"));
   assert.ok(["INTERNAL_SIMULATION", "MIDTRANS", "XENDIT"].includes(getPaymentProvider()));
-  const waHref = buildConciergeWhatsAppUrl("Hello ZERA +");
-  assert.ok(waHref.startsWith(`https://wa.me/${BRAND.conciergeWhatsApp}?text=Hello%20ZERA`));
+  const waHref = buildConciergeWhatsAppUrl("Hello zera.id");
+  assert.ok(waHref.startsWith(`https://wa.me/${BRAND.conciergeWhatsApp}?text=Hello%20zera.id`));
   console.log("  [PASS] 7. Centralized config and concierge WhatsApp URL helper verified");
 
   console.log("\n=== ALL AUDIT UNIT TESTS PASSED ===");

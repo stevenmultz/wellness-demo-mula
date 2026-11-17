@@ -49,6 +49,7 @@ interface AdminProgramsListProps {
   resetCreateForm: () => void;
   setIsCreatingProgram: (val: boolean) => void;
   setSelectedProgramId: (id: string | null) => void;
+  isSuperadminUser?: boolean;
   openProgramDetail: (
     prog: AdminProgram,
     defaultDay?: number,
@@ -73,12 +74,30 @@ export function AdminProgramsList({
   resetCreateForm,
   setIsCreatingProgram,
   setSelectedProgramId,
+  isSuperadminUser = false,
   openProgramDetail,
 }: AdminProgramsListProps) {
   const router = useRouter();
+  const publishedFreeCount = programs.filter((p) => p.isPublished && p.price === 0).length;
 
   return (
     <div className="space-y-6">
+      {!isSuperadminUser && (
+        <div
+          className={`rounded-2xl px-4 py-3 text-xs border flex flex-wrap items-center justify-between gap-2 ${
+            publishedFreeCount >= 2
+              ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200"
+              : "bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200"
+          }`}
+        >
+          <span>
+            <strong>Free Intro Programs ({publishedFreeCount}/2 Published):</strong>{" "}
+            {publishedFreeCount >= 2
+              ? "Requirement met. You may publish paid cohorts."
+              : "Publish at least 2 free (Rp 0) introductory programs before publishing paid programs."}
+          </span>
+        </div>
+      )}
       {/* MIDDLE WIDGET: Search & New Program (Top Row) + Filters (Bottom Row - Stacked) */}
       <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-5 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-4">
         {/* Row 1: Search Bar (Left) side-by-side with New Program Button (Right) */}
@@ -346,6 +365,7 @@ export function AdminProgramsList({
                         <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         <span>
                           {prog.activeSubscribers}/{prog.maxQuota}
+                          {(prog.minQuota ?? 1) > 1 ? ` (Min ${prog.minQuota})` : ""}
                         </span>
                       </div>
                     </div>

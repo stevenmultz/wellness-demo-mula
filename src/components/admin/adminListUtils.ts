@@ -274,6 +274,8 @@ export function buildAdminBreadcrumbs({
     }
   } else if (activeMenu === "payments") {
     items.push({ label: "Payments", isCurrent: true });
+  } else if (activeMenu === "team") {
+    items.push({ label: "Team & Coaches", isCurrent: true });
   }
 
   return items;

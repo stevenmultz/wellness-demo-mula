@@ -69,6 +69,7 @@ export interface ProgramItem {
   actualPrice?: number;
   discountPercentage?: number;
   price: number;
+  minQuota?: number;
   maxQuota: number;
   equipment?: string | null;
   audience?: string | null;
@@ -108,6 +109,7 @@ export interface EnrollmentItem {
   organizationLogo?: string | null;
   organizationVerified?: boolean;
   price: number;
+  minQuota?: number;
   maxQuota: number;
   locationType?: string;
   city?: string | null;

@@ -89,13 +89,24 @@ export default async function AdminPage({
       requestedProgramIdentifier = secondarySegment;
     }
   } else if (primarySegment === "directories" || primarySegment === "master") {
+    if (session.role !== "SUPERADMIN") {
+      redirect("/admin");
+    }
     activeMenu = "master";
   } else if (primarySegment === "customers" || primarySegment === "members") {
     activeMenu = "members";
     if (secondarySegment) {
       requestedCustomerIdentifier = secondarySegment;
     }
+  } else if (primarySegment === "team" || primarySegment === "coaches") {
+    if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+      redirect("/admin");
+    }
+    activeMenu = "team";
   } else if (primarySegment === "payments") {
+    if (session.role !== "SUPERADMIN") {
+      redirect("/admin");
+    }
     activeMenu = "payments";
   } else {
     // Unknown sub-route -> redirect safely to /admin
@@ -197,18 +208,16 @@ export default async function AdminPage({
       _count: { id: true },
     }),
     wellnessGetMasterData(),
-    prisma.cohortSupportRequest.findMany({
-      where:
-        session.role === "SUPERADMIN"
-          ? {}
-          : { program: programScopeWhere },
-      include: {
-        user: { select: { id: true, fullName: true, email: true, phone: true } },
-        program: { select: { id: true, title: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
+    session.role === "SUPERADMIN"
+      ? prisma.cohortSupportRequest.findMany({
+          include: {
+            user: { select: { id: true, fullName: true, email: true, phone: true } },
+            program: { select: { id: true, title: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        })
+      : Promise.resolve([]),
   ]);
 
   // Build O(1) subscriber count lookup map from SQL group-by
@@ -247,6 +256,7 @@ export default async function AdminPage({
       actualPrice: p.actualPrice,
       discountPercentage: p.discountPercentage,
       price: p.price,
+      minQuota: p.minQuota,
       maxQuota: p.maxQuota,
       locationType: p.locationType,
       city: p.city,

@@ -113,7 +113,7 @@ self.addEventListener("fetch", (event) => {
 // Web Push Notification Listener
 self.addEventListener("push", (event) => {
   let data = {
-    title: "ZERA + Sanctuary",
+    title: "zera.id",
     body: "Waktunya melanjutkan rutinitas mindful wellness hari ini.",
   };
   try {

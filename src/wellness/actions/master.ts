@@ -28,7 +28,7 @@ export interface MasterOrganizationItem {
 }
 
 export interface MasterDataPayload {
-  coaches: Array<{ id: string; name: string; title: string }>;
+  coaches: Array<{ id: string; name: string; title: string; organizationId?: string | null }>;
   targetAudiences: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
   equipment: Array<{ id: string; name: string }>;
@@ -41,25 +41,49 @@ export async function wellnessGetMasterData(): Promise<{
   data: MasterDataPayload;
 }> {
   try {
-    await requireAdminAccess();
+    const session = await requireAdminAccess();
+
+    const coachWhere =
+      session.role === "SUPERADMIN"
+        ? undefined
+        : session.role === "PARTNER_ADMIN"
+          ? session.organizationId
+            ? {
+                OR: [
+                  { organizationId: session.organizationId },
+                  { programs: { some: { program: { organizationId: session.organizationId, deletedAt: null } } } },
+                ],
+              }
+            : { id: "__unassigned_scope__" }
+          : session.role === "COACH" && session.coachProfileId
+            ? { id: session.coachProfileId }
+            : { id: "__unassigned_scope__" };
+
+    const orgWhere =
+      session.role === "SUPERADMIN"
+        ? undefined
+        : (session.role === "PARTNER_ADMIN" || session.role === "COACH") && session.organizationId
+          ? { id: session.organizationId }
+          : { id: "__unassigned_scope__" };
+
     const [coaches, targetAudiences, categories, equipment, dailyCommitments, organizations] =
       await Promise.all([
-        prisma.masterCoach.findMany({ orderBy: { name: "asc" } }),
+        prisma.masterCoach.findMany({ where: coachWhere, orderBy: { name: "asc" } }),
         prisma.masterTargetAudience.findMany({ orderBy: { name: "asc" } }),
         prisma.masterCategory.findMany({ orderBy: { name: "asc" } }),
         prisma.masterEquipment.findMany({ orderBy: { name: "asc" } }),
         prisma.masterDailyCommitment.findMany({ orderBy: { name: "asc" } }),
-        prisma.masterOrganization.findMany({ orderBy: { name: "asc" } }),
+        prisma.masterOrganization.findMany({ where: orgWhere, orderBy: { name: "asc" } }),
       ]);
 
     const effectiveCoaches =
-      coaches.length > 0
+      coaches.length > 0 || session.role !== "SUPERADMIN"
         ? coaches
         : [
-            { id: "mc-1", name: "Marcus Vance", title: "Movement & Mobility Lead" },
-            { id: "mc-2", name: "Elena Rostova", title: "Nutrition & Longevity Director" },
-            { id: "mc-3", name: "Julian Thorne", title: "Breathwork & Recovery Lead" },
-            { id: "mc-4", name: "Dr. Maya Lin", title: "Sleep & Circadian Specialist" },
+            { id: "mc-1", name: "Marcus Vance", title: "Movement & Mobility Lead", organizationId: null },
+            { id: "mc-2", name: "Elena Rostova", title: "Nutrition & Longevity Director", organizationId: null },
+            { id: "mc-3", name: "Julian Thorne", title: "Breathwork & Recovery Lead", organizationId: null },
+            { id: "mc-4", name: "Dr. Maya Lin", title: "Sleep & Circadian Specialist", organizationId: null },
           ];
 
     const effectiveCategories =

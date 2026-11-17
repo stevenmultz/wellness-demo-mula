@@ -10,6 +10,7 @@ import {
   LogOut,
   QrCode,
   Tag,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
@@ -173,6 +174,29 @@ export function AdminSidebar({
             <span>{t.admin.customers}</span>
           </span>
         </button>
+
+        {(isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMenu("team");
+              setSelectedProgramId(null);
+              setIsCreatingProgram(false);
+              setFeedback(null);
+              router.push("/admin/team");
+            }}
+            className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
+              activeMenu === "team"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
+            }`}
+          >
+            <span className="flex items-center gap-2.5">
+              <UserCheck className="w-4 h-4 shrink-0" />
+              <span>{isSuperadminUser ? "Partners & Team" : "Coaches & Team"}</span>
+            </span>
+          </button>
+        )}
 
         {isSuperadminUser && (
           <button

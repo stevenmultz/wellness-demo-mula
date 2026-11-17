@@ -17,25 +17,25 @@ const SIZE_CLASSES: Record<
   { text: string; accent: string; gap: string }
 > = {
   sm: {
-    text: "font-semibold text-xs tracking-[0.24em] leading-none",
-    accent: "font-extralight text-[11px] leading-none",
-    gap: "gap-1",
+    text: "font-semibold text-xs tracking-[0.14em] leading-none",
+    accent: "font-light text-xs tracking-[0.08em] leading-none opacity-75",
+    gap: "gap-0",
   },
   md: {
-    text: "font-semibold text-sm tracking-[0.26em] leading-none",
-    accent: "font-extralight text-xs leading-none",
-    gap: "gap-1.5",
+    text: "font-semibold text-sm tracking-[0.16em] leading-none",
+    accent: "font-light text-sm tracking-[0.08em] leading-none opacity-75",
+    gap: "gap-0",
   },
   lg: {
-    text: "font-semibold text-base tracking-[0.28em] leading-none",
-    accent: "font-extralight text-sm leading-none",
-    gap: "gap-1.5",
+    text: "font-semibold text-base tracking-[0.18em] leading-none",
+    accent: "font-light text-base tracking-[0.08em] leading-none opacity-75",
+    gap: "gap-0",
   },
 };
 
 /**
  * Single unified brand logo component used across Public Navbar, Dashboard, Admin, Modals, and Loading states.
- * Uses Urbanist (--font-geometric) uniformly for both the wordmark and the thin minimal "+" accent.
+ * Uses Urbanist (--font-geometric) uniformly for the clean "zera.id" wordmark.
  */
 export function BrandLogo({
   size = "md",
@@ -49,7 +49,7 @@ export function BrandLogo({
 
   return (
     <span
-      className={`select-none inline-flex items-center font-geometric uppercase ${preset.gap} ${toneClass} ${className}`}
+      className={`select-none inline-flex items-baseline font-geometric lowercase ${preset.gap} ${toneClass} ${className}`}
       style={style}
     >
       <span className={preset.text}>{BRAND.wordmarkPrimary}</span>

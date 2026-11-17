@@ -109,8 +109,8 @@ export default function RootLayout({
               }
               #zera-pwa-splash .zera-splash-title {
                 display: flex;
-                align-items: center;
-                gap: 6px;
+                align-items: baseline;
+                gap: 1px;
                 text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
               }
             `,
@@ -137,10 +137,10 @@ export default function RootLayout({
           <div className="zera-splash-scrim" />
           <div className="zera-splash-brand">
             <div className="zera-splash-title">
-              <span style={{ fontWeight: 600, fontSize: "0.875rem", letterSpacing: "0.26em", textTransform: "uppercase", lineHeight: 1, color: "#ffffff" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.95rem", letterSpacing: "0.16em", textTransform: "lowercase", lineHeight: 1, color: "#ffffff" }}>
                 {BRAND.wordmarkPrimary}
               </span>
-              <span style={{ fontWeight: 200, fontSize: "0.75rem", lineHeight: 1, color: "#ffffff" }}>
+              <span style={{ fontWeight: 300, fontSize: "0.95rem", letterSpacing: "0.08em", textTransform: "lowercase", lineHeight: 1, opacity: 0.78, color: "#ffffff" }}>
                 {BRAND.wordmarkAccent}
               </span>
             </div>

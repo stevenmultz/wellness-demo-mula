@@ -41,6 +41,7 @@ interface ExploreProgramItem {
   durationDays: number;
   locationType: string;
   city: string | null;
+  minQuota: number;
   maxQuota: number;
   seatsLeft: number;
   badge: string;
@@ -158,6 +159,7 @@ export async function GET(req: NextRequest) {
           durationDays: p.durationDays,
           locationType: p.locationType,
           city: p.city,
+          minQuota: p.minQuota,
           maxQuota: p.maxQuota,
           seatsLeft: Math.max(0, p.maxQuota - p._count.enrollments),
           badge,

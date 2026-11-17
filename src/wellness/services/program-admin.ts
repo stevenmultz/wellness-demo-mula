@@ -1,6 +1,8 @@
 import { Prisma, type Program, type ProgramDay } from "@prisma/client";
 import { prisma, lockProgramRow } from "../db";
 import { requireAdminAccess, requireProgramAccess } from "../security/guards";
+import { clampMinQuota, evaluateFreeIntroRequirement } from "../security/program-rules";
+import { ensureCoachNameIncluded } from "../security/roles";
 import { recordAuditLog } from "../integrations/audit-log";
 import {
   CreateProgramSchema,
@@ -116,6 +118,19 @@ export async function createProgramService(
 ): Promise<WellnessActionResult> {
   const session = await requireAdminAccess();
 
+  if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
+    return {
+      success: false,
+      message: "Your Partner Admin account is not linked to an organization yet. Contact Superadmin.",
+    };
+  }
+  if (session.role === "COACH" && (!session.coachProfileId || !session.coachProfileName)) {
+    return {
+      success: false,
+      message: "Your Coach account is not linked to a Coach Profile yet. Contact Superadmin.",
+    };
+  }
+
   const validation = CreateProgramSchema.safeParse(rawInput);
   if (!validation.success) {
     return {
@@ -142,6 +157,7 @@ export async function createProgramService(
     actualPrice,
     discountPercentage,
     price,
+    minQuota,
     maxQuota,
     communityLink,
     locationType,
@@ -221,9 +237,13 @@ export async function createProgramService(
   }
 
   const effectiveOrganizationId =
-    session.role === "PARTNER_ADMIN" && session.organizationId
-      ? session.organizationId
-      : organizationId?.trim() || null;
+    session.role === "SUPERADMIN"
+      ? organizationId?.trim() || null
+      : session.role === "PARTNER_ADMIN"
+        ? session.organizationId
+        : session.role === "COACH"
+          ? session.organizationId ?? null
+          : null;
 
   const matchedOrg = effectiveOrganizationId
     ? await prisma.masterOrganization.findUnique({
@@ -234,7 +254,7 @@ export async function createProgramService(
 
   const effectiveCoachName =
     session.role === "COACH" && session.coachProfileName
-      ? session.coachProfileName
+      ? ensureCoachNameIncluded(coachName, session.coachProfileName)
       : (coachName || "").trim();
 
   const newProgram = await prisma.$transaction(async (tx) => {
@@ -257,6 +277,7 @@ export async function createProgramService(
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
         price: resolvedFinalPrice,
+        minQuota: clampMinQuota(minQuota, maxQuota || 50),
         maxQuota: maxQuota || 50,
         communityLink: communityLink?.trim() || null,
         locationType: locationType || "ONLINE",
@@ -452,10 +473,12 @@ export async function updateProgramMetaService(
         : existingProgram.registrationOpenAt;
 
     const requestedOrgId =
-      session.role === "PARTNER_ADMIN" && session.organizationId
-        ? session.organizationId
-        : input.organizationId !== undefined
+      session.role === "SUPERADMIN"
+        ? input.organizationId !== undefined
           ? input.organizationId?.trim() || null
+          : existingProgram.organizationId
+        : session.role === "PARTNER_ADMIN"
+          ? session.organizationId
           : existingProgram.organizationId;
 
     const orgRecord = requestedOrgId
@@ -467,7 +490,10 @@ export async function updateProgramMetaService(
 
     const requestedCoachName =
       session.role === "COACH" && session.coachProfileName
-        ? existingTax.coachName || session.coachProfileName
+        ? ensureCoachNameIncluded(
+            input.coachName ?? existingTax.coachName,
+            session.coachProfileName
+          )
         : (input.coachName ?? existingTax.coachName).trim();
 
     await tx.program.update({
@@ -500,6 +526,10 @@ export async function updateProgramMetaService(
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
         price: resolvedFinalPrice,
+        minQuota: clampMinQuota(
+          input.minQuota !== undefined ? input.minQuota : existingProgram.minQuota,
+          Math.max(1, Number(input.maxQuota) || existingProgram.maxQuota || 50)
+        ),
         maxQuota: Math.max(1, Number(input.maxQuota) || 50),
         communityLink: input.communityLink?.trim() || null,
         locationType: input.locationType || "ONLINE",
@@ -544,6 +574,66 @@ export async function updateProgramMetaService(
   };
 }
 
+async function checkFreeIntroPolicyInTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    callerRole: string;
+    callerCoachProfileId?: string | null;
+    program: {
+      id: string;
+      price: number;
+      status: string;
+      organizationId: string | null;
+      coaches?: Array<{ coachId: string }>;
+    };
+    action: "PUBLISH" | "UNPUBLISH_OR_DELETE";
+  }
+): Promise<string | null> {
+  if (params.callerRole === "SUPERADMIN") return null;
+
+  const coachIds =
+    params.program.coaches?.map((c) => c.coachId).filter(Boolean) ??
+    (params.callerCoachProfileId ? [params.callerCoachProfileId] : []);
+
+  const ownerScopeWhere: Prisma.ProgramWhereInput = params.program.organizationId
+    ? { organizationId: params.program.organizationId }
+    : coachIds.length > 0
+      ? { organizationId: null, coaches: { some: { coachId: { in: coachIds } } } }
+      : { id: "__unassigned_scope__" };
+
+  const [otherPublishedFreeCount, otherPublishedPaidCount] = await Promise.all([
+    tx.program.count({
+      where: {
+        ...ownerScopeWhere,
+        id: { not: params.program.id },
+        status: "PUBLISHED",
+        deletedAt: null,
+        price: 0,
+      },
+    }),
+    tx.program.count({
+      where: {
+        ...ownerScopeWhere,
+        id: { not: params.program.id },
+        status: "PUBLISHED",
+        deletedAt: null,
+        price: { gt: 0 },
+      },
+    }),
+  ]);
+
+  const check = evaluateFreeIntroRequirement({
+    callerRole: params.callerRole,
+    action: params.action,
+    programPrice: params.program.price,
+    isCurrentlyPublished: params.program.status === "PUBLISHED",
+    otherPublishedFreeCount,
+    otherPublishedPaidCount,
+  });
+
+  return check.allowed ? null : check.message || "Free introductory program requirement not met.";
+}
+
 export async function setProgramStatusService(
   programId: string,
   rawStatus: string
@@ -571,6 +661,14 @@ export async function setProgramStatusService(
     if (targetPrismaStatus === "PUBLISHED") {
       const headerMsg = getIncompleteHeaderMessage(program);
       if (headerMsg) return { success: false as const, message: headerMsg };
+
+      const freePolicyErr = await checkFreeIntroPolicyInTx(tx, {
+        callerRole: admin.role,
+        callerCoachProfileId: admin.coachProfileId,
+        program,
+        action: "PUBLISH",
+      });
+      if (freePolicyErr) return { success: false as const, message: freePolicyErr };
     }
 
     if (targetPrismaStatus === "OPEN" || targetPrismaStatus === "PUBLISHED") {
@@ -593,6 +691,13 @@ export async function setProgramStatusService(
           message: `Cannot update status: There are ${activeEnrollments} active participant(s) enrolled in this cohort. Use the official Unpublish action once no active participants remain.`,
         };
       }
+      const unpublishPolicyErr = await checkFreeIntroPolicyInTx(tx, {
+        callerRole: admin.role,
+        callerCoachProfileId: admin.coachProfileId,
+        program,
+        action: "UNPUBLISH_OR_DELETE",
+      });
+      if (unpublishPolicyErr) return { success: false as const, message: unpublishPolicyErr };
     }
 
     const updated = await tx.program.update({
@@ -670,6 +775,14 @@ export async function togglePublishProgramService(
         };
       }
 
+      const freePolicyErr = await checkFreeIntroPolicyInTx(tx, {
+        callerRole: admin.role,
+        callerCoachProfileId: admin.coachProfileId,
+        program,
+        action: "PUBLISH",
+      });
+      if (freePolicyErr) return { success: false as const, message: freePolicyErr };
+
       const updated = await tx.program.update({
         where: { id: programId },
         data: { status: "PUBLISHED", version: { increment: 1 } },
@@ -702,6 +815,14 @@ export async function togglePublishProgramService(
         message: `Cannot unpublish: ${activeEnrollments} active member(s) are currently enrolled in this cohort. Unpublishing would break their live curriculum access.`,
       };
     }
+
+    const unpublishPolicyErr = await checkFreeIntroPolicyInTx(tx, {
+      callerRole: admin.role,
+      callerCoachProfileId: admin.coachProfileId,
+      program,
+      action: "UNPUBLISH_OR_DELETE",
+    });
+    if (unpublishPolicyErr) return { success: false as const, message: unpublishPolicyErr };
 
     const updated = await tx.program.update({
       where: { id: programId },
@@ -739,12 +860,28 @@ export async function deleteProgramService(
 
     const existing = await tx.program.findFirst({
       where: { id: programId, deletedAt: null },
-      select: { id: true, title: true, slug: true },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        price: true,
+        status: true,
+        organizationId: true,
+        coaches: { select: { coachId: true } },
+      },
     });
 
     if (!existing) {
       return { success: false as const, message: "Program not found." };
     }
+
+    const deletePolicyErr = await checkFreeIntroPolicyInTx(tx, {
+      callerRole: admin.role,
+      callerCoachProfileId: admin.coachProfileId,
+      program: existing,
+      action: "UNPUBLISH_OR_DELETE",
+    });
+    if (deletePolicyErr) return { success: false as const, message: deletePolicyErr };
 
     const activeEnrollments = await tx.programEnrollment.count({
       where: { programId, status: "ACTIVE" },

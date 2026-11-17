@@ -266,6 +266,7 @@ async function DashboardContent() {
       actualPrice: p.actualPrice ?? p.price,
       discountPercentage: p.discountPercentage ?? 0,
       price: p.price,
+      minQuota: p.minQuota,
       maxQuota: p.maxQuota,
       equipment: tax.equipment || "No Equipment",
       audience: tax.recommendedFor || "All Levels",

@@ -559,9 +559,17 @@ export async function wellnessConfirmPasswordReset(
         data: { isUsed: true },
       });
       if (claim.count !== 1) return false;
+      const targetUser = await tx.user.findUnique({
+        where: { id: resetRecord.userId },
+        select: { emailVerifiedAt: true },
+      });
       await tx.user.update({
         where: { id: resetRecord.userId },
-        data: { passwordHash: newPasswordHash, tokenVersion: { increment: 1 } },
+        data: {
+          passwordHash: newPasswordHash,
+          emailVerifiedAt: targetUser?.emailVerifiedAt ?? new Date(),
+          tokenVersion: { increment: 1 },
+        },
       });
       return true;
     });

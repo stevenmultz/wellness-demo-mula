@@ -793,6 +793,10 @@ export async function wellnessDeleteAccount(
       await tx.userPushSubscription.deleteMany({ where: { userId: session.userId } });
       await tx.userPasswordResetToken.deleteMany({ where: { userId: session.userId } });
       await tx.userEmailVerificationToken.deleteMany({ where: { userId: session.userId } });
+      await tx.userProgressShare.updateMany({
+        where: { OR: [{ ownerUserId: session.userId }, { viewerUserId: session.userId }], status: "ACTIVE" },
+        data: { status: "REVOKED", revokedAt: now },
+      });
 
       await recordAuditLog(
         {

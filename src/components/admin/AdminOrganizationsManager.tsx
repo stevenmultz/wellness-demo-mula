@@ -114,7 +114,7 @@ export function AdminOrganizationsManager({
             Communities &amp; Partner Brands ({organizations.length})
           </h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Studios, academies, or partner communities hosting cohorts on ZERA +.
+            Studios, academies, or partner communities hosting cohorts on zera.id.
           </p>
         </div>
         {isSuperadmin && (

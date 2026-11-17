@@ -49,6 +49,7 @@ import { AdminProgramInfoTab } from "./sections/AdminProgramInfoTab";
 import { AdminDayCurriculumTab } from "./sections/AdminDayCurriculumTab";
 import { AdminProgramSubmissionsTab } from "./sections/AdminProgramSubmissionsTab";
 import { AdminCustomerDetailView } from "./sections/AdminCustomerDetailView";
+import { AdminTeamView } from "./sections/AdminTeamView";
 import {
   useMasterDirectoryActions,
   type StandardMasterTab,
@@ -80,7 +81,7 @@ export function AdminClient({
   initialMasterData,
   initialSupportRequests = [],
   currentAdminId,
-  currentAdminRole = "SUPERADMIN",
+  currentAdminRole = "USER",
   currentAdminOrgId = null,
   currentAdminCoachId = null,
   initialRoute,
@@ -453,6 +454,7 @@ export function AdminClient({
             users={users}
             pendingEnrollments={pendingEnrollments}
             approvingId={customerActions.approvingId}
+            isSuperadminUser={isSuperadminUser}
             setActiveMenu={setActiveMenu}
             setSelectedProgramId={setSelectedProgramId}
             setIsCreatingProgram={setIsCreatingProgram}
@@ -480,6 +482,7 @@ export function AdminClient({
             resetCreateForm={programActions.resetCreateForm}
             setIsCreatingProgram={setIsCreatingProgram}
             setSelectedProgramId={setSelectedProgramId}
+            isSuperadminUser={isSuperadminUser}
             openProgramDetail={openProgramDetail}
           />
         )}
@@ -641,6 +644,7 @@ export function AdminClient({
             totalMemberPages={totalMemberPages}
             memberPageSize={MEMBER_PAGE_SIZE}
             currentAdminId={currentAdminId}
+            isSuperadminUser={isSuperadminUser}
             userActionLoading={customerActions.userActionLoading}
             openCustomerDetail={customerActions.openCustomerDetail}
             handleResetPassword={customerActions.handleResetPassword}
@@ -649,7 +653,15 @@ export function AdminClient({
           />
         )}
 
-        {activeMenu === "payments" && (
+        {activeMenu === "team" && (isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
+          <AdminTeamView
+            currentAdminRole={currentAdminRole}
+            currentAdminOrgId={currentAdminOrgId}
+            setFeedback={setFeedback}
+          />
+        )}
+
+        {activeMenu === "payments" && isSuperadminUser && (
           <AdminPaymentsView
             qrisSearch={qrisSearch}
             setQrisSearch={setQrisSearch}
@@ -662,6 +674,7 @@ export function AdminClient({
             qrisPageSize={QRIS_PAGE_SIZE}
             approvingId={customerActions.approvingId}
             handleApprovePayment={customerActions.handleApprovePayment}
+            setFeedback={setFeedback}
             supportRequests={supportRequests}
             resolvingSupportId={resolvingSupportId}
             onResolveSupportRequest={async (id, status) => {

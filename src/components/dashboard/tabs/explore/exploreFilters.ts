@@ -16,6 +16,7 @@ export interface ExploreProgram {
   durationDays: number;
   locationType: string;
   city: string | null;
+  minQuota?: number;
   maxQuota?: number;
   seatsLeft: number;
   badge: string;

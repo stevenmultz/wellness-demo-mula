@@ -15,6 +15,7 @@ import {
   PublicMobileBackdrop,
 } from "@/components/home/PublicNavbar";
 import { wellnessSignOut } from "@/wellness/actions/auth";
+import { isAdminRole } from "@/wellness/security/roles";
 import { BRAND } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
@@ -142,7 +143,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
 
-                  {["SUPERADMIN", "COACH", "PARTNER_ADMIN"].includes(sessionUser.role) && (
+                  {isAdminRole(sessionUser.role) && (
                     <Link
                       href="/admin"
                       className="w-full h-10 sm:h-11 rounded-full bg-zinc-900/10 hover:bg-zinc-900/15 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-950 dark:text-white text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition"

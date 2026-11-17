@@ -47,6 +47,7 @@ export interface PublicProgramItem {
   actualPrice?: number;
   discountPercentage?: number;
   price: number;
+  minQuota?: number;
   maxQuota: number;
   enrolledCount: number;
   isUserEnrolled?: boolean;
@@ -231,6 +232,7 @@ export async function getPublicSanctuaryData(): Promise<{
       actualPrice: p.actualPrice,
       discountPercentage: p.discountPercentage,
       price: p.price,
+      minQuota: p.minQuota,
       maxQuota: p.maxQuota,
       locationType: p.locationType,
       city: p.city || "Jakarta Selatan",

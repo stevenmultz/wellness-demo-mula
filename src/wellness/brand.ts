@@ -3,25 +3,25 @@
  * Update this file (and BrandLogo.tsx) to rebrand the entire application consistently.
  */
 export const BRAND = {
-  /** Primary short brand name (e.g. "ZERA +") */
-  name: "ZERA +",
+  /** Primary short brand name (e.g. "zera.id") */
+  name: "zera.id",
   /** Wordmark primary text */
-  wordmarkPrimary: "ZERA",
+  wordmarkPrimary: "zera",
   /** Wordmark accent symbol */
-  wordmarkAccent: "+",
-  /** Full sanctuary brand name */
-  fullName: "ZERA + Sanctuary",
+  wordmarkAccent: ".id",
+  /** Full platform brand name */
+  fullName: "zera.id",
   /** Default page title */
-  title: "ZERA + — Minimalist Longevity & Movement Sanctuary",
+  title: "zera.id — Wellness & Movement Community",
   /** Platform label for exports/diagnostics */
-  platform: "ZERA + PWA",
+  platform: "zera.id PWA",
   /** Support email */
-  supportEmail: "support@zera.plus",
+  supportEmail: "support@zera.id",
   /** Fallback coach & faculty labels */
-  coachFallback: "ZERA + Coach",
-  facultyFallback: "ZERA Faculty",
+  coachFallback: "zera.id Coach",
+  facultyFallback: "zera.id Faculty",
   /** Copyright notice */
-  copyright: "© 2026 ZERA +",
+  copyright: "© 2026 zera.id",
   /** Web Push notification tag prefix */
   notificationTagPrefix: "zera-cadence",
   /** Concierge WhatsApp phone number (E.164 digits without `+`) */

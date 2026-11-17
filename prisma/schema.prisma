@@ -83,6 +83,7 @@ enum PaymentTransactionStatus {
   EXPIRE
   CANCEL
   DENY
+  REFUND_REQUESTED
   REFUND
   MANUAL_APPROVED
 }
@@ -112,6 +113,11 @@ enum SupportRequestStatus {
   IN_REVIEW
   RESOLVED
   REJECTED
+}
+
+enum ProgressShareStatus {
+  ACTIVE
+  REVOKED
 }
 
 // ============================================================================
@@ -158,6 +164,8 @@ model User {
   bodyMetricLogs          UserBodyMetricLog[]
   notifications           UserNotification[]
   supportRequests         CohortSupportRequest[]
+  progressSharesOwned     UserProgressShare[]          @relation("ProgressShareOwner")
+  progressSharesReceived  UserProgressShare[]          @relation("ProgressShareViewer")
 
   @@index([role])
   @@index([status])
@@ -214,6 +222,26 @@ model UserPasswordResetToken {
   @@map("user_password_reset_tokens")
 }
 
+model UserProgressShare {
+  id           String              @id @default(cuid()) @map("id")
+  ownerUserId  String              @map("owner_user_id")
+  viewerEmail  String              @map("viewer_email")
+  viewerUserId String?             @map("viewer_user_id")
+  label        String?             @map("label")
+  status       ProgressShareStatus @default(ACTIVE) @map("status")
+  revokedAt    DateTime?           @map("revoked_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  owner  User  @relation("ProgressShareOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  viewer User? @relation("ProgressShareViewer", fields: [viewerUserId], references: [id], onDelete: SetNull)
+
+  @@unique([ownerUserId, viewerEmail])
+  @@index([viewerEmail, status])
+  @@index([viewerUserId, status])
+  @@map("user_progress_shares")
+}
+
 // ============================================================================
 // 2. MASTER DIRECTORIES (STANDALONE CATALOGS)
 // ============================================================================
@@ -229,29 +257,33 @@ model MasterCategory {
 }
 
 model MasterCoach {
-  id        String         @id @default(cuid()) @map("id")
-  name      String         @map("name")
-  title     String         @map("title")
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
-  programs  ProgramCoach[]
-  users     User[]
+  id             String              @id @default(cuid()) @map("id")
+  name           String              @map("name")
+  title          String              @map("title")
+  organizationId String?             @map("organization_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  organization   MasterOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  programs       ProgramCoach[]
+  users          User[]
 
   @@index([name])
+  @@index([organizationId])
   @@map("master_coaches")
 }
 
 model MasterOrganization {
-  id         String    @id @default(cuid()) @map("id")
-  name       String    @unique @map("name")
-  slug       String    @unique @map("slug")
-  tagline    String?   @map("tagline")
-  logoPath   String?   @map("logo_path")
-  websiteUrl String?   @map("website_url")
-  isVerified Boolean   @default(true) @map("is_verified")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  id         String        @id @default(cuid()) @map("id")
+  name       String        @unique @map("name")
+  slug       String        @unique @map("slug")
+  tagline    String?       @map("tagline")
+  logoPath   String?       @map("logo_path")
+  websiteUrl String?       @map("website_url")
+  isVerified Boolean       @default(true) @map("is_verified")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
   programs   Program[]
+  coaches    MasterCoach[]
   users      User[]
 
   @@map("master_organizations")
@@ -304,6 +336,7 @@ model Program {
   actualPrice                Int                    @default(0) @map("actual_price")
   discountPercentage         Int                    @default(0) @map("discount_percentage")
   price                      Int                    @default(0) @map("price")
+  minQuota                   Int                    @default(1) @map("min_quota")
   maxQuota                   Int                    @default(50) @map("max_quota")
 
   // Community & Logistics
@@ -585,6 +618,11 @@ model PaymentTransaction {
   rawWebhookJson       Json?                    @map("raw_webhook_json")
   expiresAt            DateTime?                @map("expires_at")
   settledAt            DateTime?                @map("settled_at")
+  refundAmount         Int?                     @map("refund_amount")
+  refundFeeAmount      Int?                     @map("refund_fee_amount")
+  refundReason         String?                  @map("refund_reason")
+  refundedAt           DateTime?                @map("refunded_at")
+  refundedById         String?                  @map("refunded_by_id")
   createdById          String?                  @map("created_by_id")
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")

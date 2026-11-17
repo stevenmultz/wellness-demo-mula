@@ -20,6 +20,7 @@ import { wellnessChangePassword } from "@/wellness/actions/account";
 import { GENDER_OPTIONS } from "@/wellness/validators/auth";
 import { formatDateWib } from "../shared";
 import { NotificationPrefs } from "./NotificationPrefs";
+import { ShareProgressSection } from "./ShareProgressSection";
 
 export type Msg = { type: "success" | "error"; text: string } | null;
 export type ProfileView =
@@ -28,6 +29,7 @@ export type ProfileView =
   | "emergency"
   | "security"
   | "notifications"
+  | "share_progress"
   | "privacy"
   | "account";
 
@@ -61,6 +63,7 @@ export const PROFILE_TITLES: Record<ProfileView, string> = {
   emergency: "Emergency Contact",
   security: "Login & Security",
   notifications: "Notification Preferences",
+  share_progress: "Share Progress",
   privacy: "Privacy & Data Export",
   account: "Account & Support",
 };
@@ -71,6 +74,7 @@ export const PROFILE_SUBTITLES: Record<ProfileView, string> = {
   emergency: "Designated point of contact for safety and cohort escalations.",
   security: "Update your account password, credentials, and authentication security.",
   notifications: "Configure push alerts, training reminders, and cohort updates.",
+  share_progress: "Grant read-only progress access or view progress shared with you.",
   privacy: "Review verification status, export your account data, and clear local cache.",
   account: "Concierge support, active session management, and account deletion.",
 };
@@ -462,6 +466,8 @@ export function ProfileSectionView({
         )}
 
         {view === "notifications" && <NotificationPrefs />}
+
+        {view === "share_progress" && <ShareProgressSection setMsg={setMsg} />}
 
         {view === "privacy" && (
           <div className="space-y-4">

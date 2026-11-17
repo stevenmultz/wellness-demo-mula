@@ -94,7 +94,7 @@ export function AdminWorkspaceHeader({
       </nav>
 
       {/* CONTEXTUAL TOP WIDGETS (Compact 4-column strip, only shown on primary menu views) */}
-      {!(activeMenu === "programs" && (isCreatingProgram || Boolean(selectedProgram))) && (
+      {activeMenu !== "team" && !(activeMenu === "programs" && (isCreatingProgram || Boolean(selectedProgram))) && (
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {activeMenu === "dashboard" && (
           <>

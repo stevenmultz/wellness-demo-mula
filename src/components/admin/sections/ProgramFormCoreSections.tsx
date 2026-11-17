@@ -74,6 +74,7 @@ export function ProgramFormCoreSections({
   currentAdminOrgId,
   navigateToDirectory,
 }: ProgramFormCoreSectionsProps) {
+  void currentAdminOrgId;
   const sec1Stats = getProgramSectionStats(1, form);
   const sec2Stats = getProgramSectionStats(2, form);
   const sec3Stats = getProgramSectionStats(3, form);
@@ -331,7 +332,7 @@ export function ProgramFormCoreSections({
                   name: c.name,
                 }))}
                 selectPlaceholder="Enter or select category..."
-                onManage={() => navigateToDirectory("categories")}
+                onManage={isSuperadminUser ? () => navigateToDirectory("categories") : undefined}
                 manageLabel="+ Manage in Categories Directory"
                 icon={Tag}
               />
@@ -344,7 +345,7 @@ export function ProgramFormCoreSections({
                   setForm((p) => ({ ...p, dailyCommitment: val }))
                 }
                 options={masterData.dailyCommitments || []}
-                onManage={() => navigateToDirectory("commitments")}
+                onManage={isSuperadminUser ? () => navigateToDirectory("commitments") : undefined}
                 manageLabel="+ Manage in Commitments Directory"
                 placeholder="Enter or select daily time commitment..."
                 icon={Clock}
@@ -359,7 +360,7 @@ export function ProgramFormCoreSections({
                 onChange={(val) => setForm((p) => ({ ...p, equipment: val }))}
                 options={masterData.equipment || []}
                 selectPlaceholder="Enter or select equipment..."
-                onManage={() => navigateToDirectory("equipment")}
+                onManage={isSuperadminUser ? () => navigateToDirectory("equipment") : undefined}
                 manageLabel="+ Manage in Equipment Directory"
                 icon={Dumbbell}
               />
@@ -376,7 +377,7 @@ export function ProgramFormCoreSections({
                   title: c.title,
                 }))}
                 selectPlaceholder="Enter or select coach..."
-                onManage={() => navigateToDirectory("coaches")}
+                onManage={isSuperadminUser ? () => navigateToDirectory("coaches") : undefined}
                 manageLabel="+ Manage in Coaches Directory"
                 icon={UserCheck}
               />
@@ -394,7 +395,7 @@ export function ProgramFormCoreSections({
                   name: a.name,
                 }))}
                 selectPlaceholder="Enter or select target audience..."
-                onManage={() => navigateToDirectory("audience")}
+                onManage={isSuperadminUser ? () => navigateToDirectory("audience") : undefined}
                 manageLabel="+ Manage in Audience Directory"
                 icon={Sparkles}
               />
@@ -406,9 +407,7 @@ export function ProgramFormCoreSections({
                     Community / Brand Host (Optional)
                   </label>
                   <select
-                    disabled={
-                      isLocked || (!isSuperadminUser && Boolean(currentAdminOrgId))
-                    }
+                    disabled={isLocked || !isSuperadminUser}
                     value={form.organizationId}
                     onChange={(e) => {
                       const org = (masterData.organizations || []).find(
@@ -422,7 +421,7 @@ export function ProgramFormCoreSections({
                     }}
                     className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60"
                   >
-                    <option value="">ZERA + (Default Platform)</option>
+                    <option value="">zera.id (Default Platform)</option>
                     {(masterData.organizations || []).map((org) => (
                       <option key={org.id} value={org.id}>
                         {org.name}

@@ -84,12 +84,7 @@ export async function clearSessionCookie() {
 const safeCache = typeof cache === "function" ? cache : <T extends (...args: any[]) => any>(fn: T): T => fn;
 
 export const wellnessGetSessionType = {} as never;
-export type AdminRole = "SUPERADMIN" | "COACH" | "PARTNER_ADMIN";
-export const ADMIN_ROLES: readonly string[] = ["SUPERADMIN", "COACH", "PARTNER_ADMIN"];
-
-export function isAdminRole(role?: string | null): boolean {
-  return !!role && ADMIN_ROLES.includes(role);
-}
+export { ADMIN_ROLES, isAdminRole, type AdminRole } from "./roles";
 
 export const getWellnessSession = safeCache(async (): Promise<{
   userId: string;

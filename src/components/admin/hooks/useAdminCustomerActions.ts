@@ -169,7 +169,16 @@ export function useAdminCustomerActions({
         setUsers((prev) =>
           prev.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u))
         );
+        setFeedback({
+          type: "success",
+          text: res.message || `User status updated to ${nextStatus}.`,
+        });
         router.refresh();
+      } else {
+        setFeedback({
+          type: "error",
+          text: res.message || "Failed to update user status.",
+        });
       }
     } finally {
       setUserActionLoading(null);
@@ -184,6 +193,11 @@ export function useAdminCustomerActions({
         setFeedback({
           type: "success",
           text: `Temporary password for ${user.fullName}: ${res.data.temporaryPassword}`,
+        });
+      } else {
+        setFeedback({
+          type: "error",
+          text: res.message || "Failed to reset user password.",
         });
       }
     } finally {

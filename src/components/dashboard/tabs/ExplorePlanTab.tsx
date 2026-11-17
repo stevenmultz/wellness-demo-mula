@@ -622,6 +622,7 @@ export function ExplorePlanTab({
                               </dt>
                               <dd className="text-right font-mono tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
                                 {p.seatsLeft} / {p.maxQuota || p.seatsLeft} spots left
+                                {(p.minQuota ?? 1) > 1 ? ` · Min ${p.minQuota}` : ""}
                               </dd>
                             </div>
                             <div className="flex items-start justify-between gap-3">

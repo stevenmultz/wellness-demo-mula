@@ -11,6 +11,16 @@ import {
   matchesCoachNameToken,
 } from "../src/wellness/security/guards";
 import {
+  ensureCoachNameIncluded,
+  isAdminRole,
+  isSuperadminRole,
+  sanitizeUserScopeForRole,
+} from "../src/wellness/security/roles";
+import {
+  clampMinQuota,
+  evaluateFreeIntroRequirement,
+} from "../src/wellness/security/program-rules";
+import {
   detectImageMime,
   processAndOptimizeImage,
 } from "../src/wellness/utils/image-processor";
@@ -187,6 +197,125 @@ async function runSecurityRemediationTests() {
   }
   assert.ok(getRateLimitStoreSize() <= 10_000, `Expected <= 10000 keys, got ${getRateLimitStoreSize()}`);
   console.log(`   ✅ Rate limiter store bounded at ${getRateLimitStoreSize()} entries.`);
+
+  // 8. Test Role Integrity, Fail-Closed Scoping & Scope Sanitization
+  console.log("\n8. Testing Role Integrity & Anti-Privilege-Leak Guards...");
+  assert.equal(isAdminRole("SUPERADMIN"), true);
+  assert.equal(isAdminRole("COACH"), true);
+  assert.equal(isAdminRole("PARTNER_ADMIN"), true);
+  assert.equal(isAdminRole("USER"), false);
+  assert.equal(isAdminRole(null), false);
+  assert.equal(isSuperadminRole("SUPERADMIN"), true);
+  assert.equal(isSuperadminRole("COACH"), false);
+
+  // Unassigned COACH or PARTNER_ADMIN must fail closed
+  assert.deepEqual(
+    buildProgramScopeWhere({ role: "COACH", coachProfileId: null, coachProfileName: null }),
+    { id: "__unassigned_scope__" }
+  );
+  assert.deepEqual(
+    buildProgramScopeWhere({ role: "PARTNER_ADMIN", organizationId: null }),
+    { id: "__unassigned_scope__" }
+  );
+  assert.deepEqual(
+    buildProgramScopeWhere({ role: "USER" }),
+    { id: "__unassigned_scope__" }
+  );
+
+  // Switching role must wipe unrelated scope IDs (prevent swapped/stale scope)
+  assert.deepEqual(
+    sanitizeUserScopeForRole(
+      "COACH",
+      { organizationId: "org-1", coachProfileId: null },
+      { coachProfileId: "coach-9" }
+    ),
+    { organizationId: null, coachProfileId: "coach-9" }
+  );
+  assert.deepEqual(
+    sanitizeUserScopeForRole(
+      "COACH",
+      { organizationId: null, coachProfileId: null },
+      { organizationId: "org-1", coachProfileId: "coach-9" }
+    ),
+    { organizationId: "org-1", coachProfileId: "coach-9" }
+  );
+  assert.deepEqual(
+    sanitizeUserScopeForRole(
+      "PARTNER_ADMIN",
+      { organizationId: null, coachProfileId: "coach-9" },
+      { organizationId: "org-2" }
+    ),
+    { organizationId: "org-2", coachProfileId: null }
+  );
+  assert.deepEqual(
+    sanitizeUserScopeForRole("USER", { organizationId: "org-2", coachProfileId: "coach-9" }),
+    { organizationId: null, coachProfileId: null }
+  );
+  assert.deepEqual(
+    sanitizeUserScopeForRole(
+      "PARTNER_ADMIN",
+      { organizationId: "org-2", coachProfileId: null },
+      { organizationId: null }
+    ),
+    { organizationId: null, coachProfileId: null }
+  );
+
+  // Coach cannot strip their own name or rely on "Head Wellness Coach" fallback
+  assert.equal(ensureCoachNameIncluded("Head Wellness Coach", "Elena Rostova"), "Elena Rostova");
+  assert.equal(ensureCoachNameIncluded("Marcus Vance", "Elena Rostova"), "Elena Rostova, Marcus Vance");
+  assert.equal(ensureCoachNameIncluded("Marcus Vance, Elena Rostova", "elena rostova"), "Marcus Vance, Elena Rostova");
+  console.log("   ✅ Role predicates, fail-closed scopes, and role-switch cleanup verified.");
+
+  // 9. Test Free Intro Program Policy & Min Quota Clamping
+  console.log("\n9. Testing Free Intro Policy (Min 2 Free Programs) & Min Quota Range...");
+  assert.equal(
+    evaluateFreeIntroRequirement({
+      callerRole: "PARTNER_ADMIN",
+      action: "PUBLISH",
+      programPrice: 150000,
+      isCurrentlyPublished: false,
+      otherPublishedFreeCount: 1,
+      otherPublishedPaidCount: 0,
+    }).allowed,
+    false
+  );
+  assert.equal(
+    evaluateFreeIntroRequirement({
+      callerRole: "COACH",
+      action: "PUBLISH",
+      programPrice: 150000,
+      isCurrentlyPublished: false,
+      otherPublishedFreeCount: 2,
+      otherPublishedPaidCount: 0,
+    }).allowed,
+    true
+  );
+  assert.equal(
+    evaluateFreeIntroRequirement({
+      callerRole: "PARTNER_ADMIN",
+      action: "UNPUBLISH_OR_DELETE",
+      programPrice: 0,
+      isCurrentlyPublished: true,
+      otherPublishedFreeCount: 1,
+      otherPublishedPaidCount: 1,
+    }).allowed,
+    false
+  );
+  assert.equal(
+    evaluateFreeIntroRequirement({
+      callerRole: "SUPERADMIN",
+      action: "PUBLISH",
+      programPrice: 150000,
+      isCurrentlyPublished: false,
+      otherPublishedFreeCount: 0,
+      otherPublishedPaidCount: 0,
+    }).allowed,
+    true
+  );
+  assert.equal(clampMinQuota(15, 25), 15);
+  assert.equal(clampMinQuota(30, 25), 25);
+  assert.equal(clampMinQuota(0, 25), 1);
+  console.log("   ✅ Free intro 2-program policy and minQuota clamping verified.");
 
   console.log("\n========================================================");
   console.log("🎉 ALL ZERO-TRUST SECURITY REMEDIATIONS VERIFIED 100%!");

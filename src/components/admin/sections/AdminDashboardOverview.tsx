@@ -10,6 +10,7 @@ interface AdminDashboardOverviewProps {
   users: AdminUserItem[];
   pendingEnrollments: AdminPendingEnrollmentItem[];
   approvingId: string | null;
+  isSuperadminUser?: boolean;
   setActiveMenu: (menu: AdminMenuKey) => void;
   setSelectedProgramId: (id: string | null) => void;
   setIsCreatingProgram: (val: boolean) => void;
@@ -23,6 +24,7 @@ export function AdminDashboardOverview({
   users,
   pendingEnrollments,
   approvingId,
+  isSuperadminUser = false,
   setActiveMenu,
   setSelectedProgramId,
   setIsCreatingProgram,
@@ -64,22 +66,24 @@ export function AdminDashboardOverview({
             <span>New Program</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveMenu("payments");
-              router.push("/admin/payments");
-            }}
-            className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition hover:bg-zinc-100 dark:hover:bg-white/10 whitespace-nowrap"
-          >
-            <QrCode className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-            <span>Pending Payments ({pendingEnrollments.length})</span>
-          </button>
+          {isSuperadminUser && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMenu("payments");
+                router.push("/admin/payments");
+              }}
+              className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-800 dark:text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition hover:bg-zinc-100 dark:hover:bg-white/10 whitespace-nowrap"
+            >
+              <QrCode className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+              <span>Pending Payments ({pendingEnrollments.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 2-Column Split: Programs Health & Pending Approvals */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* Programs Health & (for Superadmin) Pending Approvals */}
+      <div className={`grid ${isSuperadminUser ? "lg:grid-cols-2" : ""} gap-6`}>
         {/* Left Column: Programs Directory Snapshot */}
         <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden flex flex-col">
           <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
@@ -162,7 +166,8 @@ export function AdminDashboardOverview({
           </div>
         </div>
 
-        {/* Right Column: Pending Payment Approvals */}
+        {/* Right Column: Pending Payment Approvals (Superadmin Only) */}
+        {isSuperadminUser && (
         <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden flex flex-col">
           <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -232,6 +237,7 @@ export function AdminDashboardOverview({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* Customers Overview Snapshot */}

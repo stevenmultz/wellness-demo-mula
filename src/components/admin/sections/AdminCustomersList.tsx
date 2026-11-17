@@ -34,6 +34,7 @@ interface AdminCustomersListProps {
   totalMemberPages: number;
   memberPageSize: number;
   currentAdminId: string;
+  isSuperadminUser?: boolean;
   userActionLoading: string | null;
   openCustomerDetail: (
     u: AdminUserItem,
@@ -59,6 +60,7 @@ export function AdminCustomersList({
   totalMemberPages,
   memberPageSize: MEMBER_PAGE_SIZE,
   currentAdminId,
+  isSuperadminUser = false,
   userActionLoading,
   openCustomerDetail,
   handleResetPassword,
@@ -113,7 +115,7 @@ export function AdminCustomersList({
               { key: "ACTIVE", label: "Active" },
               { key: "PENDING", label: "Pending" },
               { key: "SUSPENDED", label: "Suspended" },
-              { key: "SUPERADMIN", label: "Superadmin" },
+              ...(isSuperadminUser ? [{ key: "SUPERADMIN", label: "Superadmin" }] : []),
             ].map((tab) => {
               const isSelected = memberFilter === tab.key;
               return (
@@ -288,7 +290,7 @@ export function AdminCustomersList({
                         <span>Detail</span>
                       </button>
 
-                      {m.id !== currentAdminId && !isSuperadmin && (
+                      {isSuperadminUser && m.id !== currentAdminId && !isSuperadmin && (
                         <>
                           <button
                             type="button"

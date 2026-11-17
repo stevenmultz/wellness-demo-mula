@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { prisma, lockProgramRow } from "../db";
 import { requireSuperadmin } from "../security/guards";
+import { sanitizeUserScopeForRole } from "../security/roles";
 import { hashPassword } from "../security/password";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { deleteStorageObjects } from "../integrations/supabase-storage";
@@ -120,23 +121,18 @@ export async function wellnessAdminUpdateUserRole(
         }
       }
 
-      const nextOrgId =
-        newRole === "PARTNER_ADMIN"
-          ? scope?.organizationId ?? targetUser.organizationId
-          : newRole === "USER"
-            ? null
-            : targetUser.organizationId;
+      let resolvedScope = sanitizeUserScopeForRole(
+        newRole,
+        {
+          organizationId: targetUser.organizationId,
+          coachProfileId: targetUser.coachProfileId,
+        },
+        scope
+      );
 
-      const nextCoachId =
-        newRole === "COACH"
-          ? scope?.coachProfileId ?? targetUser.coachProfileId
-          : newRole === "USER"
-            ? null
-            : targetUser.coachProfileId;
-
-      if (nextOrgId) {
+      if (resolvedScope.organizationId) {
         const orgExists = await tx.masterOrganization.findUnique({
-          where: { id: nextOrgId },
+          where: { id: resolvedScope.organizationId },
           select: { id: true },
         });
         if (!orgExists) {
@@ -144,15 +140,23 @@ export async function wellnessAdminUpdateUserRole(
         }
       }
 
-      if (nextCoachId) {
+      if (resolvedScope.coachProfileId) {
         const coachExists = await tx.masterCoach.findUnique({
-          where: { id: nextCoachId },
-          select: { id: true },
+          where: { id: resolvedScope.coachProfileId },
+          select: { id: true, organizationId: true },
         });
         if (!coachExists) {
           throw new Error("Selected coach profile does not exist.");
         }
+        if (newRole === "COACH" && scope?.organizationId === undefined) {
+          resolvedScope = {
+            ...resolvedScope,
+            organizationId: coachExists.organizationId ?? null,
+          };
+        }
       }
+
+      const { organizationId: nextOrgId, coachProfileId: nextCoachId } = resolvedScope;
 
       const updated = await tx.user.update({
         where: { id: targetUserId },
@@ -414,6 +418,10 @@ export async function wellnessAdminDeleteUser(
       await tx.userPushSubscription.deleteMany({ where: { userId: targetUserId } });
       await tx.userPasswordResetToken.deleteMany({ where: { userId: targetUserId } });
       await tx.userEmailVerificationToken.deleteMany({ where: { userId: targetUserId } });
+      await tx.userProgressShare.updateMany({
+        where: { OR: [{ ownerUserId: targetUserId }, { viewerUserId: targetUserId }], status: "ACTIVE" },
+        data: { status: "REVOKED", revokedAt: now },
+      });
 
       await recordAuditLog(
         {
