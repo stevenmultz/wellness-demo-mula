@@ -73,6 +73,7 @@ export function ExplorePlanTab({
   registeringId,
   profileAvatarUrl,
   profileName,
+  profileEmail,
   onOpenProfile,
 }: {
   headerVisible: boolean;
@@ -85,6 +86,7 @@ export function ExplorePlanTab({
   registeringId: string | null;
   profileAvatarUrl?: string | null;
   profileName?: string | null;
+  profileEmail?: string | null;
   onOpenProfile?: () => void;
 }) {
   void _onOpenPlan;
@@ -280,6 +282,7 @@ export function ExplorePlanTab({
             <HeaderProfileButton
               avatarUrl={profileAvatarUrl}
               fullName={profileName}
+              email={profileEmail}
               onClick={() => onOpenProfile?.()}
             />
           </>

@@ -10,7 +10,7 @@ interface LocaleContextValue {
   locale: Locale;
   t: Dictionary;
   isUpdating: boolean;
-  setLocale: (next: Locale) => void;
+  setLocale: (next: Locale, options?: { reload?: boolean }) => void;
   toggleLocale: () => void;
 }
 
@@ -33,7 +33,7 @@ export function LocaleProvider({
   const [locale, setLocaleState] = useState<Locale>(normalizeLocale(initialLocale));
   const [isUpdating, startTransition] = useTransition();
 
-  const setLocale = (next: Locale) => {
+  const setLocale = (next: Locale, options?: { reload?: boolean }) => {
     const normalized = normalizeLocale(next);
     if (normalized === locale) return;
     setLocaleState(normalized);
@@ -42,6 +42,10 @@ export function LocaleProvider({
     }
     startTransition(async () => {
       await wellnessSetLocale(normalized);
+      if (options?.reload && typeof window !== "undefined") {
+        window.location.reload();
+        return;
+      }
       router.refresh();
     });
   };

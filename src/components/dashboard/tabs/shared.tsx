@@ -54,34 +54,37 @@ export function BrandWordmark({ light = false }: { light?: boolean }) {
 export function HeaderProfileButton({
   avatarUrl,
   fullName,
+  email,
   onClick,
 }: {
   avatarUrl?: string | null;
   fullName?: string | null;
+  email?: string | null;
   onClick: () => void;
 }) {
   const { t } = useLocale();
+  const displayText = email?.trim() || fullName?.trim() || t.nav.profile;
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={t.nav.profile}
-      title={fullName ? `${t.nav.profile} (${fullName})` : t.nav.profile}
-      className="shrink-0 h-8 pl-1 pr-2.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+      title={email ? `${t.nav.profile} (${email})` : t.nav.profile}
+      className="shrink-0 max-w-[62vw] sm:max-w-[260px] h-8 pl-1 pr-3 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
     >
       <span className="w-6 h-6 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shrink-0">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatarUrl}
-            alt={fullName || t.nav.profile}
+            alt={displayText}
             className="w-full h-full object-cover"
           />
         ) : (
           <User className="w-3.5 h-3.5 text-white" />
         )}
       </span>
-      <span>{t.nav.profile}</span>
+      <span className="truncate">{displayText}</span>
     </button>
   );
 }

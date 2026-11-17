@@ -25,6 +25,10 @@ import {
 } from "./shared";
 import { MyPlanIndex } from "./my-plan/MyPlanIndex";
 import { MyPlanIntro } from "./my-plan/MyPlanIntro";
+import { MyPlanAllPage } from "./my-plan/MyPlanAllPage";
+import { MyPlanOngoingPage } from "./my-plan/MyPlanOngoingPage";
+import { MyPlanUpcomingPage } from "./my-plan/MyPlanUpcomingPage";
+import { MyPlanDonePage } from "./my-plan/MyPlanDonePage";
 import { CohortPerformanceCard } from "./my-plan/CohortPerformanceCard";
 import { ProgramReportPageView } from "./my-plan/ProgramReportPageView";
 import { ProgramPreparationWidgets } from "./my-plan/ProgramPreparationWidgets";
@@ -47,7 +51,17 @@ export type {
   PlanStats,
   PlanTaskId,
 };
-export { evaluateDayTaskState, MyPlanIndex, MyPlanIntro };
+export {
+  evaluateDayTaskState,
+  MyPlanIndex,
+  MyPlanIntro,
+  MyPlanAllPage,
+  MyPlanOngoingPage,
+  MyPlanUpcomingPage,
+  MyPlanDonePage,
+};
+
+export type MyPlanSubView = "intro" | "all" | "ongoing" | "upcoming" | "done" | "detail";
 
 export function MyPlanHeader({
   visible,
@@ -57,6 +71,7 @@ export function MyPlanHeader({
   selectedProgramId,
   avatarUrl,
   userName,
+  userEmail,
   onSelect: _onSelect,
   onBackToIntro,
   onBackToIndex,
@@ -65,11 +80,12 @@ export function MyPlanHeader({
 }: {
   visible: boolean;
   overlay?: boolean;
-  mode?: "intro" | "index" | "detail";
+  mode?: MyPlanSubView;
   plans: PlanOption[];
   selectedProgramId: string;
   avatarUrl?: string | null;
   userName?: string | null;
+  userEmail?: string | null;
   onSelect: (programId: string) => void;
   onBackToIntro?: () => void;
   onBackToIndex?: () => void;
@@ -80,6 +96,8 @@ export function MyPlanHeader({
   const { t } = useLocale();
   const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
   const isIntro = mode === "intro";
+  const isListSubPage =
+    mode === "all" || mode === "ongoing" || mode === "upcoming" || mode === "done";
   const showDetailBack = mode === "detail" && !!current;
 
   return (
@@ -92,7 +110,7 @@ export function MyPlanHeader({
           title={t.dashboard.backToPlans}
           overlay={overlay}
         />
-      ) : mode === "index" && onBackToIntro ? (
+      ) : isListSubPage && onBackToIntro ? (
         <HeaderBackButton
           onClick={onBackToIntro}
           ariaLabel={t.common.back}
@@ -106,9 +124,10 @@ export function MyPlanHeader({
           <HeaderProfileButton
             avatarUrl={avatarUrl}
             fullName={userName}
+            email={userEmail}
             onClick={() => onOpenProfile?.()}
           />
-        ) : mode === "index" ? (
+        ) : isListSubPage ? (
           plans.length > 0 ? null : (
             <button
               type="button"

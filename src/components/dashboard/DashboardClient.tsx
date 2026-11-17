@@ -11,8 +11,17 @@ import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import type { BodyMetricPoint } from "./tabs/BodyProgressWidget";
-import { evaluateDayTaskState, MyPlanHeader, MyPlanIndex, MyPlanIntro, MyPlanOverview } from "./tabs/MyPlanTab";
-import type { MyPlanFilter } from "./tabs/my-plan/MyPlanIntro";
+import {
+  evaluateDayTaskState,
+  MyPlanAllPage,
+  MyPlanDonePage,
+  MyPlanHeader,
+  MyPlanIntro,
+  MyPlanOngoingPage,
+  MyPlanOverview,
+  MyPlanUpcomingPage,
+  type MyPlanSubView,
+} from "./tabs/MyPlanTab";
 import { ExplorePlanTab, type ExploreViewMode } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
@@ -82,8 +91,8 @@ export function DashboardClient({
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">(
     hasInitialActivePlan ? "my_plan" : "all_plan"
   );
-  const [myPlanView, setMyPlanView] = useState<"intro" | "index" | "detail">("intro");
-  const [myPlanFilter, setMyPlanFilter] = useState<MyPlanFilter>("all");
+  const [myPlanView, setMyPlanView] = useState<MyPlanSubView>("intro");
+  const [lastMyPlanPage, setLastMyPlanPage] = useState<"all" | "ongoing" | "upcoming" | "done">("all");
   const [exploreView, setExploreView] = useState<ExploreViewMode>("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
@@ -399,6 +408,7 @@ export function DashboardClient({
           selectedProgramId={overviewEnrollment?.programId ?? ""}
           avatarUrl={user.avatarUrl}
           userName={user.fullName}
+          userEmail={user.email}
           onSelect={(id) => {
             setSelectedProgId(id);
             setMyPlanView("detail");
@@ -409,7 +419,7 @@ export function DashboardClient({
             window.scrollTo({ top: 0 });
           }}
           onBackToIndex={() => {
-            setMyPlanView("index");
+            setMyPlanView(lastMyPlanPage);
             setIsOverHero(true);
             window.scrollTo({ top: 0 });
           }}
@@ -537,8 +547,9 @@ export function DashboardClient({
               upcomingCount={myPlanIndexItems.filter((p) => p.isUpcoming && !p.isCompleted).length}
               completedCount={myPlanIndexItems.filter((p) => !!p.isCompleted).length}
               onSelectFilter={(filter) => {
-                setMyPlanFilter(filter);
-                setMyPlanView("index");
+                const targetPage = filter === "completed" ? "done" : filter;
+                setLastMyPlanPage(targetPage);
+                setMyPlanView(targetPage);
                 setIsOverHero(true);
                 window.scrollTo({ top: 0 });
               }}
@@ -548,14 +559,33 @@ export function DashboardClient({
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             />
-          ) : myPlanView === "index" ? (
-            <MyPlanIndex
-              userName={user.fullName}
+          ) : myPlanView === "all" ? (
+            <MyPlanAllPage
               plans={myPlanIndexItems}
-              completedCount={completedEnrollments.length}
-              planFilter={myPlanFilter}
-              onChangePlanFilter={setMyPlanFilter}
               onSelectPlan={(programId) => {
+                setLastMyPlanPage("all");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onOpenSection={(sec) => {
+                const targetPage = sec === "completed" ? "done" : sec;
+                setLastMyPlanPage(targetPage);
+                setMyPlanView(targetPage);
+                window.scrollTo({ top: 0 });
+              }}
+              onExplore={() => {
+                setExploreView("catalog");
+                setActiveTab("all_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          ) : myPlanView === "ongoing" ? (
+            <MyPlanOngoingPage
+              plans={myPlanIndexItems}
+              onSelectPlan={(programId) => {
+                setLastMyPlanPage("ongoing");
                 setSelectedProgId(programId);
                 setMyPlanView("detail");
                 setIsOverHero(true);
@@ -566,10 +596,36 @@ export function DashboardClient({
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              onViewHistory={() => {
-                setHistorySection("history");
-                setHistoryView("feed");
-                setActiveTab("notifications");
+            />
+          ) : myPlanView === "upcoming" ? (
+            <MyPlanUpcomingPage
+              plans={myPlanIndexItems}
+              onSelectPlan={(programId) => {
+                setLastMyPlanPage("upcoming");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onExplore={() => {
+                setExploreView("catalog");
+                setActiveTab("all_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          ) : myPlanView === "done" ? (
+            <MyPlanDonePage
+              plans={myPlanIndexItems}
+              onSelectPlan={(programId) => {
+                setLastMyPlanPage("done");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onExplore={() => {
+                setExploreView("catalog");
+                setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             />
@@ -712,6 +768,7 @@ export function DashboardClient({
               registeringId={enrollingId}
               profileAvatarUrl={user.avatarUrl}
               profileName={user.fullName}
+              profileEmail={user.email}
               onOpenProfile={openProfileFromHeader}
               onRegister={(id) => handleOpenQrisCheckout(id)}
               onViewDetails={(id) => {
@@ -740,6 +797,7 @@ export function DashboardClient({
               initialSection={historySection}
               profileAvatarUrl={user.avatarUrl}
               profileName={user.fullName}
+              profileEmail={user.email}
               onOpenProfile={openProfileFromHeader}
               completedPrograms={completedEnrollments.map((e) => ({
                 programId: e.programId,
@@ -763,7 +821,6 @@ export function DashboardClient({
           <div className={activeTab === "profile" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "profile"}>
             <ProfileTab
               user={user}
-              bodyMetricLogs={bodyMetricLogs}
               headerVisible={isHeaderVisible}
               viewMode={profileViewMode}
               onChangeViewMode={setProfileViewMode}

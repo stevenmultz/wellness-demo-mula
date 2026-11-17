@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { BRAND } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { LocaleToggle } from "@/components/common/LocaleToggle";
-import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
 import {
   ArrowRight,
   Camera,
@@ -67,7 +66,6 @@ function resizeToAvatar(file: File, size = 384): Promise<string> {
 
 export function ProfileTab({
   user,
-  bodyMetricLogs = [],
   headerVisible,
   viewMode,
   onChangeViewMode,
@@ -75,7 +73,6 @@ export function ProfileTab({
   onDeleteAccount,
 }: {
   user: ProfileUser;
-  bodyMetricLogs?: BodyMetricPoint[];
   headerVisible: boolean;
   viewMode?: "intro" | "menu";
   onChangeViewMode?: (next: "intro" | "menu") => void;
@@ -295,6 +292,7 @@ export function ProfileTab({
             <HeaderProfileButton
               avatarUrl={avatarUrl}
               fullName={form.fullName || user.fullName}
+              email={user.email}
               onClick={() => setMode("menu")}
             />
           </>
@@ -436,32 +434,13 @@ export function ProfileTab({
             </div>
           </section>
 
-          {/* App Language Switcher */}
-          <section className="space-y-2">
-            <div className="px-1">
-              <h2 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">
-                {t.profile.languageTitle}
-              </h2>
-            </div>
-            <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-sm font-geometric font-medium text-zinc-950 dark:text-white">
-                  {t.common.languageLabel}
-                </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  {t.profile.languageDesc}
-                </p>
-              </div>
-              <LocaleToggle className="shrink-0" />
-            </div>
-          </section>
-
-          {/* Body Metric History Summary */}
-          {bodyMetricLogs.length > 0 && (
-            <section className="space-y-2">
-              <BodyProgressWidget logs={bodyMetricLogs} />
-            </section>
-          )}
+          {/* Simple Language Switcher with Reload App Confirmation */}
+          <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 px-4 sm:px-5 py-3 flex items-center justify-between gap-4">
+            <span className="text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+              {t.common.languageLabel}
+            </span>
+            <LocaleToggle variant="pill" confirmReload className="shrink-0" />
+          </div>
 
           {/* Settings Menus */}
           {menu.map((group) => (

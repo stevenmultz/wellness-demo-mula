@@ -51,6 +51,7 @@ export function NotificationsHistoryTab({
   onChangeViewMode,
   profileAvatarUrl,
   profileName,
+  profileEmail,
   onOpenProfile,
 }: {
   headerVisible: boolean;
@@ -62,6 +63,7 @@ export function NotificationsHistoryTab({
   onChangeViewMode?: (next: "intro" | "feed") => void;
   profileAvatarUrl?: string | null;
   profileName?: string | null;
+  profileEmail?: string | null;
   onOpenProfile?: () => void;
 }) {
   const { locale, t } = useLocale();
@@ -188,6 +190,7 @@ export function NotificationsHistoryTab({
             <HeaderProfileButton
               avatarUrl={profileAvatarUrl}
               fullName={profileName}
+              email={profileEmail}
               onClick={() => onOpenProfile?.()}
             />
           </>
