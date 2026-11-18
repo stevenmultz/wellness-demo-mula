@@ -149,8 +149,10 @@ async function main() {
   await prisma.masterDailyCommitment.deleteMany();
   console.log("✅ All tables cleanly wiped.");
 
-  // 2. Hash default passwords
-  const superadminPassword = await bcrypt.hash("SuperAdmin123!", 12);
+  // 2. Hash default passwords (Superadmin reads from SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD in .env)
+  const superadminEmail = (process.env.SUPERADMIN_EMAIL || "superadmin@wellness.test").trim().toLowerCase();
+  const superadminRawPassword = process.env.SUPERADMIN_PASSWORD || "SuperAdmin123!";
+  const superadminPassword = await bcrypt.hash(superadminRawPassword, 12);
   const userPassword = await bcrypt.hash("UserBudi123!", 12);
   const stevenPassword = await bcrypt.hash("P@ssw0rd", 12);
 
@@ -244,7 +246,7 @@ async function main() {
   const verifiedNow = new Date();
   await prisma.user.create({
     data: {
-      email: "superadmin@wellness.test",
+      email: superadminEmail,
       emailVerifiedAt: verifiedNow,
       fullName: "Super Administrator Wellness",
       birthDate: birthDateYearsAgo(32),

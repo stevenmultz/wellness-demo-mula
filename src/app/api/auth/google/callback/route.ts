@@ -4,6 +4,7 @@ import { prisma } from "@/wellness/db";
 import {
   getGoogleOAuthConfig,
   getJwtSecretKey,
+  getSuperadminConfig,
   GOOGLE_OAUTH_COOKIE,
 } from "@/wellness/config";
 import {
@@ -171,13 +172,16 @@ export async function GET(request: NextRequest) {
         return updated;
       }
 
+      const superadminEmail = getSuperadminConfig().email;
+      const targetRole = superadminEmail && email === superadminEmail ? "SUPERADMIN" : "USER";
+
       const created = await tx.user.create({
         data: {
           email,
           emailVerifiedAt: new Date(),
           fullName,
           passwordHash: null,
-          role: "USER",
+          role: targetRole,
           status: "ACTIVE",
           tokenVersion: 0,
           identities: {

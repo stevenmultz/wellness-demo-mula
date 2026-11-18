@@ -139,6 +139,18 @@ export function getSupabaseConfig(): {
   };
 }
 
+export function getSuperadminConfig(): {
+  email: string;
+  password: string;
+  fullName: string;
+} {
+  return {
+    email: (process.env.SUPERADMIN_EMAIL || "superadmin@wellness.test").trim().toLowerCase(),
+    password: process.env.SUPERADMIN_PASSWORD || "",
+    fullName: (process.env.SUPERADMIN_NAME || "Super Administrator Wellness").trim(),
+  };
+}
+
 export function getGoogleOAuthConfig(requestOrigin?: string): {
   clientId: string;
   clientSecret: string;

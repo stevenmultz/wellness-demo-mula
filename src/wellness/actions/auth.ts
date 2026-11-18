@@ -25,6 +25,7 @@ import {
 import {
   EMAIL_VERIFICATION_TTL_MS,
   getAppUrl,
+  getSuperadminConfig,
   isProductionEnv,
   PASSWORD_RESET_TTL_MS,
   RATE_LIMITS,
@@ -356,32 +357,91 @@ export async function wellnessSignIn(
       };
     }
 
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
     });
 
-    if (!user) {
-      await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
-      return {
-        success: false,
-        message: "Invalid email or password.",
-      };
-    }
+    const superadminEnv = getSuperadminConfig();
+    const isConfiguredSuperadminEmail =
+      Boolean(superadminEnv.email) && email.trim().toLowerCase() === superadminEnv.email;
 
-    if (!user.passwordHash) {
-      await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
-      return {
-        success: false,
-        message: "This account uses Google Sign-In. Please sign in with Google or use Forgot Password to set a password.",
-      };
-    }
+    if (isConfiguredSuperadminEmail && superadminEnv.password) {
+      const a = Buffer.from(password, "utf8");
+      const b = Buffer.from(superadminEnv.password, "utf8");
+      const envMatch = a.length === b.length && crypto.timingSafeEqual(a, b);
 
-    const isValidPassword = await verifyPassword(password, user.passwordHash);
-    if (!isValidPassword) {
-      return {
-        success: false,
-        message: "Invalid email or password.",
-      };
+      if (!envMatch) {
+        await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
+        return {
+          success: false,
+          message: "Invalid email or password.",
+        };
+      }
+
+      const now = new Date();
+      if (!user) {
+        const syncedHash = await hashPassword(superadminEnv.password);
+        user = await prisma.user.create({
+          data: {
+            email: superadminEnv.email,
+            emailVerifiedAt: now,
+            fullName: superadminEnv.fullName,
+            passwordHash: syncedHash,
+            role: "SUPERADMIN",
+            status: "ACTIVE",
+            tokenVersion: 0,
+          },
+        });
+      } else {
+        const hashAlreadyMatches = user.passwordHash
+          ? await verifyPassword(superadminEnv.password, user.passwordHash).catch(() => false)
+          : false;
+        if (
+          !hashAlreadyMatches ||
+          user.role !== "SUPERADMIN" ||
+          user.status !== "ACTIVE" ||
+          !user.emailVerifiedAt
+        ) {
+          const syncedHash = hashAlreadyMatches
+            ? user.passwordHash
+            : await hashPassword(superadminEnv.password);
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              passwordHash: syncedHash,
+              role: "SUPERADMIN",
+              status: "ACTIVE",
+              emailVerifiedAt: user.emailVerifiedAt ?? now,
+              organizationId: null,
+              coachProfileId: null,
+            },
+          });
+        }
+      }
+    } else {
+      if (!user) {
+        await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
+        return {
+          success: false,
+          message: "Invalid email or password.",
+        };
+      }
+
+      if (!user.passwordHash) {
+        await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
+        return {
+          success: false,
+          message: "This account uses Google Sign-In. Please sign in with Google or use Forgot Password to set a password.",
+        };
+      }
+
+      const isValidPassword = await verifyPassword(password, user.passwordHash);
+      if (!isValidPassword) {
+        return {
+          success: false,
+          message: "Invalid email or password.",
+        };
+      }
     }
 
     await resetDistributedRateLimit(accountBucket);
