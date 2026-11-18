@@ -7,6 +7,7 @@ import { BRAND } from "../brand";
 import { hashPassword, verifyPassword } from "../security/password";
 import {
   createSessionToken,
+  getWellnessSession,
   setSessionCookie,
   clearSessionCookie,
 } from "../security/session";
@@ -25,17 +26,11 @@ import {
 import {
   EMAIL_VERIFICATION_TTL_MS,
   getAppUrl,
-  getEmailConfig,
   getSuperadminConfig,
   isProductionEnv,
   PASSWORD_RESET_TTL_MS,
   RATE_LIMITS,
 } from "../config";
-
-function isTransactionalEmailConfigured(): boolean {
-  const { provider, resendApiKey } = getEmailConfig();
-  return provider === "RESEND" && Boolean(resendApiKey);
-}
 
 async function getClientIpKey(): Promise<string> {
   try {
@@ -139,10 +134,13 @@ export async function wellnessSignUp(
     if (existingUser) {
       if (!existingUser.emailVerifiedAt) {
         const { verifyUrl, delivered } = await issueEmailVerificationForUser(existingUser);
+        if (!delivered) {
+          console.error(`[wellnessSignUp] Failed to deliver verification email for userId=${existingUser.id}`);
+        }
         return {
           success: false,
           requiresVerification: true,
-          devVerifyUrl: !isProductionEnv() || !delivered ? verifyUrl : undefined,
+          devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
           message:
             "This email is already registered but not yet verified. We have sent a fresh verification link.",
         };
@@ -157,8 +155,13 @@ export async function wellnessSignUp(
     const superadminEnv = getSuperadminConfig();
     const isSuperadminEmail =
       Boolean(superadminEnv.email) && email.toLowerCase() === superadminEnv.email;
-    const emailConfigured = isTransactionalEmailConfigured();
-    const autoVerifyNow = !emailConfigured || isSuperadminEmail;
+
+    if (isSuperadminEmail) {
+      return {
+        success: false,
+        message: "This email is reserved for platform administration. Please sign in directly.",
+      };
+    }
 
     const newUser = await prisma.user.create({
       data: {
@@ -166,8 +169,8 @@ export async function wellnessSignUp(
         email,
         phone: phone || null,
         passwordHash,
-        emailVerifiedAt: autoVerifyNow ? new Date() : null,
-        role: isSuperadminEmail ? "SUPERADMIN" : "USER",
+        emailVerifiedAt: null,
+        role: "USER",
         status: "ACTIVE",
         tokenVersion: 0,
       },
@@ -180,38 +183,16 @@ export async function wellnessSignUp(
       },
     });
 
-    if (autoVerifyNow) {
-      try {
-        const token = await createSessionToken({
-          userId: newUser.id,
-          email: newUser.email,
-          role: newUser.role,
-          tokenVersion: newUser.tokenVersion,
-        });
-        await setSessionCookie(token);
-      } catch {
-        // Ignore if called outside HTTP request context
-      }
-      return {
-        success: true,
-        requiresVerification: false,
-        message: "Account created! Entering Sanctuary...",
-        data: {
-          id: newUser.id,
-          email: newUser.email,
-          fullName: newUser.fullName,
-          role: newUser.role,
-        },
-      };
-    }
-
     const { verifyUrl, delivered } = await issueEmailVerificationForUser(newUser);
+    if (!delivered) {
+      console.error(`[wellnessSignUp] Failed to deliver verification email for userId=${newUser.id}`);
+    }
 
     return {
       success: true,
       requiresVerification: true,
       message: "Account created! Please check your email inbox and click the verification link before signing in.",
-      devVerifyUrl: !isProductionEnv() || !delivered ? verifyUrl : undefined,
+      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
       data: {
         id: newUser.id,
         email: newUser.email,
@@ -314,6 +295,15 @@ export async function wellnessVerifyEmailToken(
         select: { id: true, email: true, role: true, status: true, tokenVersion: true },
       });
 
+      await tx.userProgressShare.updateMany({
+        where: {
+          viewerEmail: updated.email.trim().toLowerCase(),
+          viewerUserId: null,
+          status: "ACTIVE",
+        },
+        data: { viewerUserId: updated.id },
+      });
+
       await recordAuditLog(
         {
           actorUserId: updated.id,
@@ -401,10 +391,13 @@ export async function wellnessResendVerificationEmail(
     }
 
     const { verifyUrl, delivered } = await issueEmailVerificationForUser(user);
+    if (!delivered) {
+      console.error(`[wellnessResendVerificationEmail] Failed to deliver verification email for userId=${user.id}`);
+    }
     return {
       success: true,
       message: genericMsg,
-      devVerifyUrl: !isProductionEnv() || !delivered ? verifyUrl : undefined,
+      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
     };
   } catch (error) {
     console.error("[wellnessResendVerificationEmail Error]:", error);
@@ -557,18 +550,11 @@ export async function wellnessSignIn(
     }
 
     if (!user.emailVerifiedAt) {
-      if (!isTransactionalEmailConfigured()) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { emailVerifiedAt: new Date() },
-        });
-      } else {
-        return {
-          success: false,
-          requiresVerification: true,
-          message: "Please verify your email address before signing in. Check your inbox or request a new verification link.",
-        };
-      }
+      return {
+        success: false,
+        requiresVerification: true,
+        message: "Please verify your email address before signing in. Check your inbox or request a new verification link.",
+      };
     }
 
     const token = await createSessionToken({
@@ -603,6 +589,17 @@ export async function wellnessSignIn(
  * Sign Out and clear HttpOnly session cookie.
  */
 export async function wellnessSignOut(): Promise<WellnessActionResult> {
+  try {
+    const session = await getWellnessSession();
+    if (session?.userId) {
+      await prisma.user.updateMany({
+        where: { id: session.userId, deletedAt: null },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    }
+  } catch {
+    // Always continue clearing cookie even if session lookup/revocation fails
+  }
   await clearSessionCookie();
   return {
     success: true,
@@ -692,7 +689,7 @@ export async function wellnessRequestPasswordReset(
     return {
       success: true,
       message: genericSuccessMessage,
-      devResetUrl: !isProductionEnv() || !emailRes.delivered ? resetUrl : undefined,
+      devResetUrl: !isProductionEnv() ? resetUrl : undefined,
     };
   } catch (error) {
     console.error("[wellnessRequestPasswordReset Error]:", error);

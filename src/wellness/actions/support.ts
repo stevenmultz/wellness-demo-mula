@@ -94,45 +94,52 @@ export async function wellnessAdminUpdateSupportRequest(
 
   const { id, status, adminNote } = parsed.data;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const existing = await tx.cohortSupportRequest.findUnique({ where: { id } });
-    if (!existing) throw new Error("Support request not found.");
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const existing = await tx.cohortSupportRequest.findUnique({ where: { id } });
+      if (!existing) throw new Error("Support request not found.");
 
-    const isResolved = status === "RESOLVED" || status === "REJECTED";
-    const row = await tx.cohortSupportRequest.update({
-      where: { id },
-      data: {
-        status,
-        adminNote: adminNote?.trim() || existing.adminNote,
-        resolvedById: isResolved ? admin.userId : null,
-        resolvedAt: isResolved ? new Date() : null,
-      },
+      const isResolved = status === "RESOLVED" || status === "REJECTED";
+      const row = await tx.cohortSupportRequest.update({
+        where: { id },
+        data: {
+          status,
+          adminNote: adminNote?.trim() || existing.adminNote,
+          resolvedById: isResolved ? admin.userId : null,
+          resolvedAt: isResolved ? new Date() : null,
+        },
+      });
+
+      await recordAuditLog(
+        {
+          actorUserId: admin.userId,
+          action: "SUPPORT_REQUEST_STATUS_UPDATED",
+          entityType: "CohortSupportRequest",
+          entityId: id,
+          metadata: { status },
+        },
+        tx
+      );
+
+      return row;
     });
 
-    await recordAuditLog(
-      {
-        actorUserId: admin.userId,
-        action: "SUPPORT_REQUEST_STATUS_UPDATED",
-        entityType: "CohortSupportRequest",
-        entityId: id,
-        metadata: { status },
-      },
-      tx
-    );
+    try {
+      revalidatePath("/admin");
+      revalidatePath("/dashboard");
+    } catch {
+      // Ignore outside request context
+    }
 
-    return row;
-  });
-
-  try {
-    revalidatePath("/admin");
-    revalidatePath("/dashboard");
-  } catch {
-    // Ignore outside request context
+    return {
+      success: true,
+      message: `Support request updated to ${status}.`,
+      data: updated,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to update support request.",
+    };
   }
-
-  return {
-    success: true,
-    message: `Support request updated to ${status}.`,
-    data: updated,
-  };
 }

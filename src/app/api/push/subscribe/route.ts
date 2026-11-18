@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
+import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { sendWebPushNotification, VAPID_PUBLIC_KEY } from "@/wellness/integrations/web-push";
 import { BRAND } from "@/wellness/brand";
@@ -40,6 +41,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!verifySameOriginRequest(req)) {
+      return NextResponse.json({ success: false, message: "Cross-origin request rejected." }, { status: 403 });
+    }
     const session = await getWellnessSession();
     if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: "Unauthorized. Please sign in." }, { status: 401 });
@@ -191,6 +195,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    if (!verifySameOriginRequest(req)) {
+      return NextResponse.json({ success: false, message: "Cross-origin request rejected." }, { status: 403 });
+    }
     const session = await getWellnessSession();
     if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });

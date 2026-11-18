@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getWellnessSession } from "@/wellness/security/session";
+import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { RATE_LIMITS } from "@/wellness/config";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  if (!verifySameOriginRequest(req)) {
+    return NextResponse.json({ success: false, message: "Cross-origin request rejected." }, { status: 403 });
+  }
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });

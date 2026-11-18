@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
+import { isProductionEnv } from "../config";
 import { getWellnessSession } from "../security/session";
 import { LOCALE_COOKIE_NAME, normalizeLocale, type Locale } from "../i18n/types";
 
@@ -18,6 +19,7 @@ export async function wellnessSetLocale(rawLocale: string): Promise<{
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
+      secure: isProductionEnv(),
     });
   } catch {
     // Ignore cookie errors outside request context

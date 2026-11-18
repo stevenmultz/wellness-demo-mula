@@ -2,16 +2,30 @@
 
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma, lockProgramRow } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { sanitizeUserScopeForRole } from "../security/roles";
 import { hashPassword } from "../security/password";
+import { resetDistributedRateLimit } from "../security/rate-limit";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { deleteStorageObjects } from "../integrations/supabase-storage";
 import { recordAuditLog } from "../integrations/audit-log";
 import { AdminUpdateCustomerProfileSchema, calculateAgeFromDob } from "../validators/auth";
 import { cleanupUserUploadedFiles } from "../utils/image-processor";
 import type { WellnessActionResult } from "./auth";
+
+const AdminTargetUserIdSchema = z.string().trim().min(1, "User ID is required").max(128);
+const AdminUpdateUserRoleSchema = z.object({
+  targetUserId: AdminTargetUserIdSchema,
+  newRole: z.enum(["USER", "COACH", "PARTNER_ADMIN", "SUPERADMIN"]),
+  scope: z
+    .object({
+      organizationId: z.string().trim().max(128).nullable().optional(),
+      coachProfileId: z.string().trim().max(128).nullable().optional(),
+    })
+    .optional(),
+});
 
 function revalidateAdminRoutes() {
   try {
@@ -89,14 +103,25 @@ export async function wellnessAdminUpdateUserRole(
 ): Promise<WellnessActionResult> {
   const currentAdmin = await requireSuperadmin();
 
-  if (targetUserId === currentAdmin.userId && newRole !== "SUPERADMIN") {
+  const parsedInput = AdminUpdateUserRoleSchema.safeParse({ targetUserId, newRole, scope });
+  if (!parsedInput.success) {
+    return {
+      success: false,
+      message: "Invalid role update payload.",
+    };
+  }
+  const cleanTargetId = parsedInput.data.targetUserId;
+  const cleanRole = parsedInput.data.newRole;
+  const cleanScope = parsedInput.data.scope;
+
+  if (cleanTargetId === currentAdmin.userId && cleanRole !== "SUPERADMIN") {
     return {
       success: false,
       message: "You cannot demote your own Superadmin role.",
     };
   }
 
-  if (newRole === "SUPERADMIN") {
+  if (cleanRole === "SUPERADMIN") {
     return {
       success: false,
       message: "Only one Superadmin is permitted in the system. Users cannot be promoted to Superadmin.",
@@ -106,7 +131,7 @@ export async function wellnessAdminUpdateUserRole(
   try {
     const updatedUser = await prisma.$transaction(async (tx) => {
       const targetUser = await tx.user.findFirst({
-        where: { id: targetUserId, deletedAt: null },
+        where: { id: cleanTargetId, deletedAt: null },
       });
       if (!targetUser) {
         throw new Error("User not found.");
@@ -122,12 +147,12 @@ export async function wellnessAdminUpdateUserRole(
       }
 
       let resolvedScope = sanitizeUserScopeForRole(
-        newRole,
+        cleanRole,
         {
           organizationId: targetUser.organizationId,
           coachProfileId: targetUser.coachProfileId,
         },
-        scope
+        cleanScope
       );
 
       if (resolvedScope.organizationId) {
@@ -148,7 +173,7 @@ export async function wellnessAdminUpdateUserRole(
         if (!coachExists) {
           throw new Error("Selected coach profile does not exist.");
         }
-        if (newRole === "COACH" && scope?.organizationId === undefined) {
+        if (cleanRole === "COACH" && cleanScope?.organizationId === undefined) {
           resolvedScope = {
             ...resolvedScope,
             organizationId: coachExists.organizationId ?? null,
@@ -159,9 +184,9 @@ export async function wellnessAdminUpdateUserRole(
       const { organizationId: nextOrgId, coachProfileId: nextCoachId } = resolvedScope;
 
       const updated = await tx.user.update({
-        where: { id: targetUserId },
+        where: { id: cleanTargetId },
         data: {
-          role: newRole,
+          role: cleanRole,
           organizationId: nextOrgId,
           coachProfileId: nextCoachId,
           tokenVersion: { increment: 1 },
@@ -181,8 +206,8 @@ export async function wellnessAdminUpdateUserRole(
           actorUserId: currentAdmin.userId,
           action: "ADMIN_UPDATE_USER_ROLE",
           entityType: "User",
-          entityId: targetUserId,
-          metadata: { fromRole: targetUser.role, toRole: newRole, nextOrgId, nextCoachId },
+          entityId: cleanTargetId,
+          metadata: { fromRole: targetUser.role, toRole: cleanRole, nextOrgId, nextCoachId },
         },
         tx
       );
@@ -193,7 +218,7 @@ export async function wellnessAdminUpdateUserRole(
     revalidateAdminRoutes();
     return {
       success: true,
-      message: `Role for ${updatedUser.fullName} updated to ${newRole}.`,
+      message: `Role for ${updatedUser.fullName} updated to ${cleanRole}.`,
       data: updatedUser,
     };
   } catch (err) {
@@ -408,13 +433,26 @@ export async function wellnessAdminDeleteUser(
           email: `deleted_${targetUserId}_${now.getTime()}@deleted.invalid`,
           fullName: "Deleted User",
           phone: null,
+          gender: null,
+          occupation: null,
+          birthDate: null,
           address: null,
+          city: null,
+          province: null,
           emergencyContactName: null,
           emergencyContactPhone: null,
           avatarPath: null,
           passwordHash: null,
           tokenVersion: { increment: 1 },
         },
+      });
+      await tx.programEnrollment.updateMany({
+        where: { userId: targetUserId, status: { in: ["ACTIVE", "PENDING"] } },
+        data: { status: "CANCELLED", cancellationReason: "Account deleted by administrator" },
+      });
+      await tx.paymentTransaction.updateMany({
+        where: { userId: targetUserId, status: "PENDING" },
+        data: { status: "CANCEL" },
       });
       await tx.userIdentity.deleteMany({ where: { userId: targetUserId } });
       await tx.userPushSubscription.deleteMany({ where: { userId: targetUserId } });
@@ -459,40 +497,65 @@ export async function wellnessAdminResetUserPassword(
 ): Promise<WellnessActionResult<{ temporaryPassword: string }>> {
   const currentAdmin = await requireSuperadmin();
 
-  const user = await prisma.user.findFirst({
-    where: { id: targetUserId, deletedAt: null },
-  });
-
-  if (!user) {
-    return { success: false, message: "User not found." };
+  const parsedId = AdminTargetUserIdSchema.safeParse(targetUserId);
+  if (!parsedId.success) {
+    return { success: false, message: "Invalid user ID." };
   }
+  const cleanTargetId = parsedId.data;
 
-  const tempPassword = `Temp${crypto.randomBytes(3).toString("hex").toUpperCase()}9!`;
-  const passwordHash = await hashPassword(tempPassword);
+  try {
+    const user = await prisma.user.findFirst({
+      where: { id: cleanTargetId, deletedAt: null },
+      select: { id: true, email: true, fullName: true, role: true },
+    });
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: targetUserId },
-      data: {
-        passwordHash,
-        tokenVersion: { increment: 1 },
-      },
-    }),
-    prisma.auditLog.create({
-      data: {
-        actorUserId: currentAdmin.userId,
-        action: "ADMIN_RESET_USER_PASSWORD",
-        entityType: "User",
-        entityId: targetUserId,
-      },
-    }),
-  ]);
+    if (!user) {
+      return { success: false, message: "User not found." };
+    }
 
-  return {
-    success: true,
-    message: `Password for ${user.fullName} has been reset. Share this temporary password with the member:`,
-    data: { temporaryPassword: tempPassword },
-  };
+    if (user.role === "SUPERADMIN" && user.id !== currentAdmin.userId) {
+      return {
+        success: false,
+        message: "Cannot reset another Superadmin's password.",
+      };
+    }
+
+    const tempPassword = `Temp-${crypto.randomBytes(8).toString("base64url")}9!`;
+    const passwordHash = await hashPassword(tempPassword);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: cleanTargetId },
+        data: {
+          passwordHash,
+          tokenVersion: { increment: 1 },
+        },
+      });
+      await recordAuditLog(
+        {
+          actorUserId: currentAdmin.userId,
+          action: "ADMIN_RESET_USER_PASSWORD",
+          entityType: "User",
+          entityId: cleanTargetId,
+        },
+        tx
+      );
+    });
+
+    await resetDistributedRateLimit(`signin-email:${user.email.toLowerCase()}`);
+
+    return {
+      success: true,
+      message: `Password for ${user.fullName} has been reset. Share this temporary password with the member:`,
+      data: { temporaryPassword: tempPassword },
+    };
+  } catch (err) {
+    console.error("[Admin Reset Password Error]:", err);
+    return {
+      success: false,
+      message: "Failed to reset user password.",
+    };
+  }
 }
 
 export async function wellnessAdminUpdateCustomerProfile(

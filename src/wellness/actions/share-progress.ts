@@ -246,6 +246,12 @@ export async function wellnessCreateProgressShare(
   rawInput: unknown
 ): Promise<WellnessActionResult<OutgoingShareItem>> {
   const session = await requireAuth();
+  if (!session.emailVerifiedAt) {
+    return {
+      success: false,
+      message: "Please verify your email address before sharing progress with others.",
+    };
+  }
   const parsed = CreateShareSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {

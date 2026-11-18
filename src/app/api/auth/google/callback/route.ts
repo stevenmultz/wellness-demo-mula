@@ -173,6 +173,14 @@ export async function GET(request: NextRequest) {
                 data: { ...(linkUpdate || {}), ...roleUpgrade },
               })
             : existingByEmail;
+        await tx.userProgressShare.updateMany({
+          where: {
+            viewerEmail: updated.email.trim().toLowerCase(),
+            viewerUserId: null,
+            status: "ACTIVE",
+          },
+          data: { viewerUserId: updated.id },
+        });
         await recordAuditLog(
           {
             actorUserId: updated.id,
@@ -204,6 +212,14 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+      });
+      await tx.userProgressShare.updateMany({
+        where: {
+          viewerEmail: created.email.trim().toLowerCase(),
+          viewerUserId: null,
+          status: "ACTIVE",
+        },
+        data: { viewerUserId: created.id },
       });
       await recordAuditLog(
         {

@@ -71,41 +71,56 @@ export async function wellnessUpdateProfile(
   const dobProvided = dateOfBirth !== undefined;
   const dobValue = dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : null;
 
-  const updatedUser = await prisma.user.update({
-    where: { id: session.userId },
-    data: {
-      fullName,
-      phone: phone || null,
-      ...(dobProvided ? { birthDate: dobValue } : {}),
-      gender: gender !== undefined ? (gender?.trim() || null) : undefined,
-      occupation: occupation !== undefined ? (occupation?.trim() || null) : undefined,
-      address: address !== undefined ? (address?.trim() || null) : undefined,
-      city: city !== undefined ? (city?.trim() || null) : undefined,
-      province: province !== undefined ? (province?.trim() || null) : undefined,
-      emergencyContactName:
-        emergencyContactName !== undefined
-          ? (emergencyContactName?.trim() || null)
-          : undefined,
-      emergencyContactPhone:
-        emergencyContactPhone !== undefined
-          ? (emergencyContactPhone?.trim() || null)
-          : undefined,
-    },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      phone: true,
-      birthDate: true,
-      gender: true,
-      occupation: true,
-      address: true,
-      city: true,
-      province: true,
-      emergencyContactName: true,
-      emergencyContactPhone: true,
-    },
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const result = await tx.user.updateMany({
+      where: { id: session.userId, deletedAt: null, status: "ACTIVE" },
+      data: {
+        fullName,
+        phone: phone || null,
+        ...(dobProvided ? { birthDate: dobValue } : {}),
+        gender: gender !== undefined ? (gender?.trim() || null) : undefined,
+        occupation: occupation !== undefined ? (occupation?.trim() || null) : undefined,
+        address: address !== undefined ? (address?.trim() || null) : undefined,
+        city: city !== undefined ? (city?.trim() || null) : undefined,
+        province: province !== undefined ? (province?.trim() || null) : undefined,
+        emergencyContactName:
+          emergencyContactName !== undefined
+            ? (emergencyContactName?.trim() || null)
+            : undefined,
+        emergencyContactPhone:
+          emergencyContactPhone !== undefined
+            ? (emergencyContactPhone?.trim() || null)
+            : undefined,
+      },
+    });
+    if (result.count !== 1) {
+      return null;
+    }
+    return tx.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        birthDate: true,
+        gender: true,
+        occupation: true,
+        address: true,
+        city: true,
+        province: true,
+        emergencyContactName: true,
+        emergencyContactPhone: true,
+      },
+    });
   });
+
+  if (!updatedUser) {
+    return {
+      success: false,
+      message: "Account is no longer active.",
+    };
+  }
 
   try {
     revalidatePath("/dashboard");

@@ -89,6 +89,22 @@ const DateOfBirthSchema = z
 
 export const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
 
+const OptionalTrimmedString = (max: number, label: string) =>
+  z.string().trim().max(max, `${label} cannot exceed ${max} characters`).nullable().optional();
+
+const OptionalGenderSchema = z
+  .union([z.enum(GENDER_OPTIONS), z.literal("")])
+  .nullable()
+  .optional();
+
+const OptionalEmergencyPhoneSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9+\s\-()]*$/, "Emergency phone may only contain digits, +, spaces, parentheses, or hyphens")
+  .max(30, "Emergency phone cannot exceed 30 characters")
+  .nullable()
+  .optional();
+
 export const UpdateProfileSchema = z.object({
   fullName: z
     .string({ error: (iss) => (iss.input === undefined ? "Full name is required" : undefined) })
@@ -104,16 +120,13 @@ export const UpdateProfileSchema = z.object({
     .optional()
     .or(z.literal("")),
   dateOfBirth: z.union([DateOfBirthSchema, z.literal("")]).nullable().optional(),
-  gender: z
-    .union([z.enum(GENDER_OPTIONS), z.literal("")])
-    .nullable()
-    .optional(),
-  occupation: z.string().max(100).nullable().optional(),
-  address: z.string().max(255).nullable().optional(),
-  city: z.string().max(100).nullable().optional(),
-  province: z.string().max(100).nullable().optional(),
-  emergencyContactName: z.string().max(100).nullable().optional(),
-  emergencyContactPhone: z.string().max(30).nullable().optional(),
+  gender: OptionalGenderSchema,
+  occupation: OptionalTrimmedString(100, "Occupation"),
+  address: OptionalTrimmedString(255, "Address"),
+  city: OptionalTrimmedString(100, "City"),
+  province: OptionalTrimmedString(100, "Province"),
+  emergencyContactName: OptionalTrimmedString(100, "Emergency contact name"),
+  emergencyContactPhone: OptionalEmergencyPhoneSchema,
 });
 
 export const ChangePasswordSchema = z
@@ -149,11 +162,11 @@ export const DeleteAccountSchema = z.object({
 
 export const AdminUpdateCustomerProfileSchema = z.object({
   userId: z.string().trim().min(1, "User ID is required").max(128),
-  city: z.string().max(100).nullable().optional(),
-  province: z.string().max(100).nullable().optional(),
-  address: z.string().max(255).nullable().optional(),
-  occupation: z.string().max(100).nullable().optional(),
-  gender: z.string().max(50).nullable().optional(),
-  emergencyContactName: z.string().max(100).nullable().optional(),
-  emergencyContactPhone: z.string().max(30).nullable().optional(),
+  city: OptionalTrimmedString(100, "City"),
+  province: OptionalTrimmedString(100, "Province"),
+  address: OptionalTrimmedString(255, "Address"),
+  occupation: OptionalTrimmedString(100, "Occupation"),
+  gender: OptionalGenderSchema,
+  emergencyContactName: OptionalTrimmedString(100, "Emergency contact name"),
+  emergencyContactPhone: OptionalEmergencyPhoneSchema,
 });

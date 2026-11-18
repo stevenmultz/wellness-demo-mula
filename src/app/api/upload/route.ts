@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
+import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
 import {
@@ -34,6 +35,9 @@ const IMAGE_PROFILES: Record<
  * compressing to WebP), and returns a signed-proxy path or inline data URI when storage is unconfigured.
  */
 export async function POST(request: NextRequest) {
+  if (!verifySameOriginRequest(request)) {
+    return NextResponse.json({ success: false, message: "Cross-origin request rejected." }, { status: 403 });
+  }
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });

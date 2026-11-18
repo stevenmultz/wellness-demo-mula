@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
+import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
 import {
@@ -24,6 +25,9 @@ export const dynamic = "force-dynamic";
  * private Supabase Storage `avatars` bucket, and stores the object path in users.avatar_path.
  */
 export async function POST(req: NextRequest) {
+  if (!verifySameOriginRequest(req)) {
+    return NextResponse.json({ success: false, message: "Cross-origin request rejected." }, { status: 403 });
+  }
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -136,7 +140,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  if (!verifySameOriginRequest(req)) {
+    return NextResponse.json({ success: false, message: "Cross-origin request rejected." }, { status: 403 });
+  }
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
