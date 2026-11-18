@@ -119,8 +119,9 @@ export const UpdateProfileSchema = z.object({
 export const ChangePasswordSchema = z
   .object({
     currentPassword: z
-      .string({ error: (iss) => (iss.input === undefined ? "Current password is required" : undefined) })
-      .min(1, "Current password is required"),
+      .string()
+      .optional()
+      .or(z.literal("")),
     newPassword: z
       .string({ error: (iss) => (iss.input === undefined ? "New password is required" : undefined) })
       .min(8, "New password must be at least 8 characters")
@@ -133,7 +134,7 @@ export const ChangePasswordSchema = z
     message: "Password confirmation does not match new password",
     path: ["confirmPassword"],
   })
-  .refine((data) => data.currentPassword !== data.newPassword, {
+  .refine((data) => !data.currentPassword || data.currentPassword !== data.newPassword, {
     message: "New password must be different from your current password",
     path: ["newPassword"],
   });

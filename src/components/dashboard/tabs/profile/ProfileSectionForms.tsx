@@ -17,6 +17,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { wellnessChangePassword } from "@/wellness/actions/account";
+import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { GENDER_OPTIONS } from "@/wellness/validators/auth";
 import { formatDateWib } from "../shared";
@@ -122,6 +123,7 @@ interface ProfileSectionViewProps {
   avatarBusy: boolean;
   fileRef: RefObject<HTMLInputElement>;
   onPickAvatar: (file: File | undefined) => void;
+  onRemoveAvatar: () => void;
   form: ProfileFormState;
   setForm: React.Dispatch<React.SetStateAction<ProfileFormState>>;
   saving: boolean;
@@ -144,6 +146,7 @@ export function ProfileSectionView({
   avatarBusy,
   fileRef,
   onPickAvatar,
+  onRemoveAvatar,
   form,
   setForm,
   saving,
@@ -218,25 +221,42 @@ export function ProfileSectionView({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={avatarBusy}
-                onClick={() => fileRef.current?.click()}
-                className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
-              >
-                {avatarBusy ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Camera className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2 shrink-0">
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    disabled={avatarBusy}
+                    onClick={onRemoveAvatar}
+                    className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 bg-transparent text-xs font-geometric font-medium text-zinc-600 dark:text-zinc-300 inline-flex items-center gap-1 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
                 )}
-                <span>Upload</span>
-              </button>
+                <button
+                  type="button"
+                  disabled={avatarBusy}
+                  onClick={() => fileRef.current?.click()}
+                  className="h-9 px-4 rounded-full border border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 shrink-0 hover:bg-zinc-100 dark:hover:bg-white/10 transition active:scale-95"
+                >
+                  {avatarBusy ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="w-3.5 h-3.5" />
+                  )}
+                  <span>Upload</span>
+                </button>
+              </div>
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
-                onChange={(e) => onPickAvatar(e.target.files?.[0])}
+                onChange={(e) => {
+                  const picked = e.target.files?.[0];
+                  e.target.value = "";
+                  onPickAvatar(picked);
+                }}
               />
             </div>
 
@@ -421,6 +441,8 @@ export function ProfileSectionView({
                   if (res.success) {
                     setPw({ currentPassword: "", newPassword: "", confirmPassword: "" });
                   }
+                } catch {
+                  setMsg({ type: "error", text: "Connection error. Please try again." });
                 } finally {
                   setSaving(false);
                 }
@@ -430,7 +452,7 @@ export function ProfileSectionView({
                 <span className={labelSpanCls}>Current Password</span>
                 <input
                   type="password"
-                  placeholder="Enter your current password"
+                  placeholder="Enter current password (leave blank if Google-only account)"
                   value={pw.currentPassword}
                   onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })}
                   className={inputCls}
@@ -572,7 +594,11 @@ export function ProfileSectionView({
                 Have questions regarding your cohort schedule, exercises, or account access? Our concierge team is standing by to help.
               </p>
               <a
-                href="mailto:support@wellness.com?subject=Wellness%20Account%20Inquiry"
+                href={buildConciergeWhatsAppUrl(
+                  `Hello ${BRAND.name} Concierge, I need assistance with my account (${user.email}).`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs font-geometric font-medium text-zinc-950 dark:text-white underline hover:opacity-80"
               >
                 <span>Contact Concierge Desk</span>

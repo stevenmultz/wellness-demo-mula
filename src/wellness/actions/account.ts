@@ -107,6 +107,13 @@ export async function wellnessUpdateProfile(
     },
   });
 
+  try {
+    revalidatePath("/dashboard");
+    revalidatePath("/admin", "layout");
+  } catch {
+    // Ignore outside Next.js request context
+  }
+
   return {
     success: true,
     message: "Profile details updated successfully.",
@@ -154,19 +161,20 @@ export async function wellnessChangePassword(
     return { success: false, message: "User not found." };
   }
 
-  if (!user.passwordHash) {
-    return {
-      success: false,
-      message: "Your account currently signs in via Google. Use Forgot Password to set a local password.",
-    };
-  }
-
-  const isMatch = await verifyPassword(currentPassword, user.passwordHash);
-  if (!isMatch) {
-    return {
-      success: false,
-      message: "The current password you entered is incorrect.",
-    };
+  if (user.passwordHash) {
+    if (!currentPassword) {
+      return {
+        success: false,
+        message: "Please enter your current password.",
+      };
+    }
+    const isMatch = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return {
+        success: false,
+        message: "The current password you entered is incorrect.",
+      };
+    }
   }
 
   const newPasswordHash = await hashPassword(newPassword);
@@ -834,13 +842,26 @@ export async function wellnessDeleteAccount(
           email: `deleted_${session.userId}_${now.getTime()}@deleted.invalid`,
           fullName: "Deleted User",
           phone: null,
+          gender: null,
+          occupation: null,
+          birthDate: null,
           address: null,
+          city: null,
+          province: null,
           emergencyContactName: null,
           emergencyContactPhone: null,
           avatarPath: null,
           passwordHash: null,
           tokenVersion: { increment: 1 },
         },
+      });
+      await tx.programEnrollment.updateMany({
+        where: { userId: session.userId, status: { in: ["ACTIVE", "PENDING"] } },
+        data: { status: "CANCELLED", cancellationReason: "Account self-deleted by member" },
+      });
+      await tx.paymentTransaction.updateMany({
+        where: { userId: session.userId, status: "PENDING" },
+        data: { status: "CANCEL" },
       });
       await tx.userIdentity.deleteMany({ where: { userId: session.userId } });
       await tx.userPushSubscription.deleteMany({ where: { userId: session.userId } });

@@ -37,16 +37,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!isSupabaseStorageConfigured()) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-      },
-      { status: 503 }
-    );
-  }
-
   const declaredLength = Number(req.headers.get("content-length"));
   if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_AVATAR_BODY_BYTES) {
     return NextResponse.json({ success: false, message: "Image is too large." }, { status: 413 });
@@ -96,30 +86,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const safeUserId = session.userId.replace(/[^A-Za-z0-9_-]/g, "");
-    const objectPath = `${safeUserId}/avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${optimized.ext}`;
     const oldAvatarPath = session.avatarPath;
+    let storedPath = "";
+    let clientAvatarUrl = "";
 
-    const { storageUri, signedUrl } = await uploadPrivateStorageObject({
-      bucket: STORAGE_BUCKETS.AVATARS,
-      objectPath,
-      buffer: optimized.buffer,
-      contentType: optimized.mime,
-    });
+    if (isSupabaseStorageConfigured()) {
+      try {
+        const safeUserId = session.userId.replace(/[^A-Za-z0-9_-]/g, "");
+        const objectPath = `${safeUserId}/avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${optimized.ext}`;
+        const { storageUri, signedUrl } = await uploadPrivateStorageObject({
+          bucket: STORAGE_BUCKETS.AVATARS,
+          objectPath,
+          buffer: optimized.buffer,
+          contentType: optimized.mime,
+        });
+        storedPath = storageUri;
+        clientAvatarUrl = signedUrl || `/api/media/signed?path=${encodeURIComponent(storageUri)}`;
+      } catch {
+        const fallbackDataUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
+        storedPath = fallbackDataUrl;
+        clientAvatarUrl = fallbackDataUrl;
+      }
+    } else {
+      const fallbackDataUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
+      storedPath = fallbackDataUrl;
+      clientAvatarUrl = fallbackDataUrl;
+    }
 
     await prisma.user.update({
       where: { id: session.userId },
-      data: { avatarPath: storageUri },
+      data: { avatarPath: storedPath },
     });
 
-    if (oldAvatarPath) {
+    if (oldAvatarPath && oldAvatarPath.startsWith("sb://")) {
       await deleteStorageObjects([oldAvatarPath]);
     }
 
     return NextResponse.json({
       success: true,
-      avatarPath: storageUri,
-      avatarUrl: signedUrl || `/api/media/signed?path=${encodeURIComponent(storageUri)}`,
+      avatarPath: storedPath,
+      avatarUrl: clientAvatarUrl,
     });
   } catch (error) {
     console.error("[Avatar Upload Error]:", error);

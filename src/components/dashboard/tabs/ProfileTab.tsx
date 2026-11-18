@@ -195,6 +195,23 @@ export function ProfileTab({
     }
   };
 
+  const onRemoveAvatar = async () => {
+    setMsg(null);
+    setAvatarBusy(true);
+    try {
+      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to remove picture.");
+      setAvatarUrl(null);
+      setMsg({ type: "success", text: "Profile picture removed." });
+      router.refresh();
+    } catch (err) {
+      setMsg({ type: "error", text: err instanceof Error ? err.message : "Failed to remove picture." });
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
   const handleExportData = () => {
     const payload = {
       user: {
@@ -222,7 +239,7 @@ export function ProfileTab({
     a.href = url;
     a.download = `wellness-profile-${user.id.slice(0, 8)}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     setMsg({ type: "success", text: "Profile data archive exported successfully." });
   };
 
@@ -377,7 +394,7 @@ export function ProfileTab({
                   <span>{t.profile.activeMember}</span>
                 </span>
                 <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/20 text-[10px] font-mono text-zinc-300">
-                  {t.profile.joined} {new Date(user.createdAt).getFullYear()}
+                  {t.profile.joined} {Number.isFinite(new Date(user.createdAt).getFullYear()) ? new Date(user.createdAt).getFullYear() : new Date().getFullYear()}
                 </span>
               </div>
 
@@ -489,6 +506,7 @@ export function ProfileTab({
           avatarBusy={avatarBusy}
           fileRef={fileRef}
           onPickAvatar={onPickAvatar}
+          onRemoveAvatar={onRemoveAvatar}
           form={form}
           setForm={setForm}
           saving={saving}
