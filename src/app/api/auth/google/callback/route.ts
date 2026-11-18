@@ -102,6 +102,9 @@ export async function GET(request: NextRequest) {
       return redirectWithError(request, "google_email_not_verified");
     }
 
+    const superadminEmail = getSuperadminConfig().email;
+    const isSuperadminMatch = Boolean(superadminEmail) && email === superadminEmail;
+
     const user = await prisma.$transaction(async (tx) => {
       const existingIdentity = await tx.userIdentity.findUnique({
         where: {
@@ -114,14 +117,19 @@ export async function GET(request: NextRequest) {
       });
 
       if (existingIdentity) {
-        const linked = existingIdentity.user;
+        let linked = existingIdentity.user;
         if (linked.deletedAt !== null || linked.status !== "ACTIVE") {
           throw new Error("ACCOUNT_DISABLED");
         }
-        if (!linked.emailVerifiedAt) {
-          await tx.user.update({
+        if (!linked.emailVerifiedAt || (isSuperadminMatch && linked.role !== "SUPERADMIN")) {
+          linked = await tx.user.update({
             where: { id: linked.id },
-            data: { emailVerifiedAt: new Date() },
+            data: {
+              emailVerifiedAt: linked.emailVerifiedAt ?? new Date(),
+              ...(isSuperadminMatch
+                ? { role: "SUPERADMIN", organizationId: null, coachProfileId: null }
+                : {}),
+            },
           });
         }
         await recordAuditLog(
@@ -154,12 +162,17 @@ export async function GET(request: NextRequest) {
           },
         });
         const linkUpdate = buildOAuthLinkUserUpdate(existingByEmail);
-        const updated = linkUpdate
-          ? await tx.user.update({
-              where: { id: existingByEmail.id },
-              data: linkUpdate,
-            })
-          : existingByEmail;
+        const roleUpgrade =
+          isSuperadminMatch && existingByEmail.role !== "SUPERADMIN"
+            ? { role: "SUPERADMIN" as const, organizationId: null, coachProfileId: null }
+            : {};
+        const updated =
+          linkUpdate || Object.keys(roleUpgrade).length > 0
+            ? await tx.user.update({
+                where: { id: existingByEmail.id },
+                data: { ...(linkUpdate || {}), ...roleUpgrade },
+              })
+            : existingByEmail;
         await recordAuditLog(
           {
             actorUserId: updated.id,
@@ -172,8 +185,7 @@ export async function GET(request: NextRequest) {
         return updated;
       }
 
-      const superadminEmail = getSuperadminConfig().email;
-      const targetRole = superadminEmail && email === superadminEmail ? "SUPERADMIN" : "USER";
+      const targetRole = isSuperadminMatch ? "SUPERADMIN" : "USER";
 
       const created = await tx.user.create({
         data: {

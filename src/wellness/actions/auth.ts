@@ -25,11 +25,17 @@ import {
 import {
   EMAIL_VERIFICATION_TTL_MS,
   getAppUrl,
+  getEmailConfig,
   getSuperadminConfig,
   isProductionEnv,
   PASSWORD_RESET_TTL_MS,
   RATE_LIMITS,
 } from "../config";
+
+function isTransactionalEmailConfigured(): boolean {
+  const { provider, resendApiKey } = getEmailConfig();
+  return provider === "RESEND" && Boolean(resendApiKey);
+}
 
 async function getClientIpKey(): Promise<string> {
   try {
@@ -131,6 +137,16 @@ export async function wellnessSignUp(
     });
 
     if (existingUser) {
+      if (!existingUser.emailVerifiedAt) {
+        const { verifyUrl, delivered } = await issueEmailVerificationForUser(existingUser);
+        return {
+          success: false,
+          requiresVerification: true,
+          devVerifyUrl: !isProductionEnv() || !delivered ? verifyUrl : undefined,
+          message:
+            "This email is already registered but not yet verified. We have sent a fresh verification link.",
+        };
+      }
       return {
         success: false,
         message: "This email is already registered. Please sign in or use another email.",
@@ -138,6 +154,11 @@ export async function wellnessSignUp(
     }
 
     const passwordHash = await hashPassword(password);
+    const superadminEnv = getSuperadminConfig();
+    const isSuperadminEmail =
+      Boolean(superadminEnv.email) && email.toLowerCase() === superadminEnv.email;
+    const emailConfigured = isTransactionalEmailConfigured();
+    const autoVerifyNow = !emailConfigured || isSuperadminEmail;
 
     const newUser = await prisma.user.create({
       data: {
@@ -145,8 +166,8 @@ export async function wellnessSignUp(
         email,
         phone: phone || null,
         passwordHash,
-        emailVerifiedAt: null,
-        role: "USER",
+        emailVerifiedAt: autoVerifyNow ? new Date() : null,
+        role: isSuperadminEmail ? "SUPERADMIN" : "USER",
         status: "ACTIVE",
         tokenVersion: 0,
       },
@@ -155,16 +176,42 @@ export async function wellnessSignUp(
         email: true,
         fullName: true,
         role: true,
+        tokenVersion: true,
       },
     });
 
-    const { verifyUrl } = await issueEmailVerificationForUser(newUser);
+    if (autoVerifyNow) {
+      try {
+        const token = await createSessionToken({
+          userId: newUser.id,
+          email: newUser.email,
+          role: newUser.role,
+          tokenVersion: newUser.tokenVersion,
+        });
+        await setSessionCookie(token);
+      } catch {
+        // Ignore if called outside HTTP request context
+      }
+      return {
+        success: true,
+        requiresVerification: false,
+        message: "Account created! Entering Sanctuary...",
+        data: {
+          id: newUser.id,
+          email: newUser.email,
+          fullName: newUser.fullName,
+          role: newUser.role,
+        },
+      };
+    }
+
+    const { verifyUrl, delivered } = await issueEmailVerificationForUser(newUser);
 
     return {
       success: true,
       requiresVerification: true,
       message: "Account created! Please check your email inbox and click the verification link before signing in.",
-      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
+      devVerifyUrl: !isProductionEnv() || !delivered ? verifyUrl : undefined,
       data: {
         id: newUser.id,
         email: newUser.email,
@@ -197,20 +244,59 @@ export async function wellnessVerifyEmailToken(
       where: { tokenHash: hashToken(token) },
       include: {
         user: {
-          select: { id: true, email: true, role: true, status: true, deletedAt: true, tokenVersion: true },
+          select: {
+            id: true,
+            email: true,
+            emailVerifiedAt: true,
+            role: true,
+            status: true,
+            deletedAt: true,
+            tokenVersion: true,
+          },
         },
       },
     });
 
-    if (
-      !tokenRecord ||
-      tokenRecord.usedAt !== null ||
-      new Date() > tokenRecord.expiresAt ||
-      tokenRecord.user.deletedAt !== null
-    ) {
+    if (!tokenRecord || tokenRecord.user.deletedAt !== null) {
       return {
         success: false,
         message: "This verification link is invalid or has expired. Please request a new one.",
+      };
+    }
+
+    // Idempotent handling: if an email scanner prefetched the link or user clicked twice,
+    // succeed gracefully when the user's email is already verified.
+    if (tokenRecord.usedAt !== null) {
+      if (tokenRecord.user.emailVerifiedAt) {
+        if (tokenRecord.user.status === "ACTIVE") {
+          try {
+            const sessionJwt = await createSessionToken({
+              userId: tokenRecord.user.id,
+              email: tokenRecord.user.email,
+              role: tokenRecord.user.role,
+              tokenVersion: tokenRecord.user.tokenVersion,
+            });
+            await setSessionCookie(sessionJwt);
+          } catch {
+            // Safe fallback when invoked from a Server Component render
+          }
+        }
+        return {
+          success: true,
+          message: "Email verified successfully! Your account is active.",
+          data: { email: tokenRecord.user.email, role: tokenRecord.user.role },
+        };
+      }
+      return {
+        success: false,
+        message: "This verification link has already been used. Please request a new one.",
+      };
+    }
+
+    if (new Date() > tokenRecord.expiresAt) {
+      return {
+        success: false,
+        message: "This verification link has expired. Please request a new one.",
       };
     }
 
@@ -243,19 +329,24 @@ export async function wellnessVerifyEmailToken(
 
     if (!verifiedUser) {
       return {
-        success: false,
-        message: "This verification link has already been used or expired.",
+        success: true,
+        message: "Email verified successfully! Your account is active.",
+        data: { email: tokenRecord.user.email, role: tokenRecord.user.role },
       };
     }
 
     if (verifiedUser.status === "ACTIVE") {
-      const sessionJwt = await createSessionToken({
-        userId: verifiedUser.id,
-        email: verifiedUser.email,
-        role: verifiedUser.role,
-        tokenVersion: verifiedUser.tokenVersion,
-      });
-      await setSessionCookie(sessionJwt);
+      try {
+        const sessionJwt = await createSessionToken({
+          userId: verifiedUser.id,
+          email: verifiedUser.email,
+          role: verifiedUser.role,
+          tokenVersion: verifiedUser.tokenVersion,
+        });
+        await setSessionCookie(sessionJwt);
+      } catch {
+        // Safe fallback when invoked from a Server Component render
+      }
     }
 
     return {
@@ -309,11 +400,11 @@ export async function wellnessResendVerificationEmail(
       return { success: true, message: genericMsg };
     }
 
-    const { verifyUrl } = await issueEmailVerificationForUser(user);
+    const { verifyUrl, delivered } = await issueEmailVerificationForUser(user);
     return {
       success: true,
       message: genericMsg,
-      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
+      devVerifyUrl: !isProductionEnv() || !delivered ? verifyUrl : undefined,
     };
   } catch (error) {
     console.error("[wellnessResendVerificationEmail Error]:", error);
@@ -365,7 +456,10 @@ export async function wellnessSignIn(
     const isConfiguredSuperadminEmail =
       Boolean(superadminEnv.email) && email.trim().toLowerCase() === superadminEnv.email;
 
-    if (isConfiguredSuperadminEmail && superadminEnv.password) {
+    // Best-practice Bootstrap-Only Superadmin pattern:
+    // 1. If the Superadmin account does not exist yet in DB (or has no passwordHash), bootstrap it once using SUPERADMIN_PASSWORD from env.
+    // 2. Once the account exists in DB with a bcrypt passwordHash, verify against the DB hash so in-app password changes & resets work normally.
+    if (!user && isConfiguredSuperadminEmail && superadminEnv.password) {
       const a = Buffer.from(password, "utf8");
       const b = Buffer.from(superadminEnv.password, "utf8");
       const envMatch = a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -378,46 +472,18 @@ export async function wellnessSignIn(
         };
       }
 
-      const now = new Date();
-      if (!user) {
-        const syncedHash = await hashPassword(superadminEnv.password);
-        user = await prisma.user.create({
-          data: {
-            email: superadminEnv.email,
-            emailVerifiedAt: now,
-            fullName: superadminEnv.fullName,
-            passwordHash: syncedHash,
-            role: "SUPERADMIN",
-            status: "ACTIVE",
-            tokenVersion: 0,
-          },
-        });
-      } else {
-        const hashAlreadyMatches = user.passwordHash
-          ? await verifyPassword(superadminEnv.password, user.passwordHash).catch(() => false)
-          : false;
-        if (
-          !hashAlreadyMatches ||
-          user.role !== "SUPERADMIN" ||
-          user.status !== "ACTIVE" ||
-          !user.emailVerifiedAt
-        ) {
-          const syncedHash = hashAlreadyMatches
-            ? user.passwordHash
-            : await hashPassword(superadminEnv.password);
-          user = await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              passwordHash: syncedHash,
-              role: "SUPERADMIN",
-              status: "ACTIVE",
-              emailVerifiedAt: user.emailVerifiedAt ?? now,
-              organizationId: null,
-              coachProfileId: null,
-            },
-          });
-        }
-      }
+      const syncedHash = await hashPassword(superadminEnv.password);
+      user = await prisma.user.create({
+        data: {
+          email: superadminEnv.email,
+          emailVerifiedAt: new Date(),
+          fullName: superadminEnv.fullName,
+          passwordHash: syncedHash,
+          role: "SUPERADMIN",
+          status: "ACTIVE",
+          tokenVersion: 0,
+        },
+      });
     } else {
       if (!user) {
         await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
@@ -428,23 +494,60 @@ export async function wellnessSignIn(
       }
 
       if (!user.passwordHash) {
-        await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
-        return {
-          success: false,
-          message: "This account uses Google Sign-In. Please sign in with Google or use Forgot Password to set a password.",
-        };
-      }
-
-      const isValidPassword = await verifyPassword(password, user.passwordHash);
-      if (!isValidPassword) {
-        return {
-          success: false,
-          message: "Invalid email or password.",
-        };
+        if (isConfiguredSuperadminEmail && superadminEnv.password) {
+          const a = Buffer.from(password, "utf8");
+          const b = Buffer.from(superadminEnv.password, "utf8");
+          if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+            const syncedHash = await hashPassword(superadminEnv.password);
+            user = await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                passwordHash: syncedHash,
+                role: "SUPERADMIN",
+                status: "ACTIVE",
+                emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+              },
+            });
+          } else {
+            await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
+            return {
+              success: false,
+              message: "Invalid email or password.",
+            };
+          }
+        } else {
+          await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
+          return {
+            success: false,
+            message: "This account uses Google Sign-In. Please sign in with Google or use Forgot Password to set a password.",
+          };
+        }
+      } else {
+        const isValidPassword = await verifyPassword(password, user.passwordHash);
+        if (!isValidPassword) {
+          return {
+            success: false,
+            message: "Invalid email or password.",
+          };
+        }
+        if (isConfiguredSuperadminEmail && (user.role !== "SUPERADMIN" || !user.emailVerifiedAt)) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              role: "SUPERADMIN",
+              emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+              organizationId: null,
+              coachProfileId: null,
+            },
+          });
+        }
       }
     }
 
-    await resetDistributedRateLimit(accountBucket);
+    await Promise.all([
+      resetDistributedRateLimit(accountBucket),
+      resetDistributedRateLimit(emailBucket),
+    ]);
 
     if (user.status !== "ACTIVE") {
       return {
@@ -454,11 +557,18 @@ export async function wellnessSignIn(
     }
 
     if (!user.emailVerifiedAt) {
-      return {
-        success: false,
-        requiresVerification: true,
-        message: "Please verify your email address before signing in. Check your inbox or request a new verification link.",
-      };
+      if (!isTransactionalEmailConfigured()) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: new Date() },
+        });
+      } else {
+        return {
+          success: false,
+          requiresVerification: true,
+          message: "Please verify your email address before signing in. Check your inbox or request a new verification link.",
+        };
+      }
     }
 
     const token = await createSessionToken({
@@ -507,7 +617,9 @@ export async function wellnessRequestPasswordReset(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
   try {
-    const validation = ForgotPasswordSchema.safeParse(rawInput);
+    const normalizedInput =
+      typeof rawInput === "string" ? { email: rawInput } : rawInput;
+    const validation = ForgotPasswordSchema.safeParse(normalizedInput);
     if (!validation.success) {
       return {
         success: false,
@@ -580,7 +692,7 @@ export async function wellnessRequestPasswordReset(
     return {
       success: true,
       message: genericSuccessMessage,
-      devResetUrl: !isProductionEnv() ? resetUrl : undefined,
+      devResetUrl: !isProductionEnv() || !emailRes.delivered ? resetUrl : undefined,
     };
   } catch (error) {
     console.error("[wellnessRequestPasswordReset Error]:", error);
@@ -631,7 +743,7 @@ export async function wellnessConfirmPasswordReset(
       if (claim.count !== 1) return false;
       const targetUser = await tx.user.findUnique({
         where: { id: resetRecord.userId },
-        select: { emailVerifiedAt: true },
+        select: { email: true, emailVerifiedAt: true },
       });
       await tx.user.update({
         where: { id: resetRecord.userId },
@@ -641,7 +753,7 @@ export async function wellnessConfirmPasswordReset(
           tokenVersion: { increment: 1 },
         },
       });
-      return true;
+      return targetUser?.email || null;
     });
 
     if (!consumed) {
@@ -650,6 +762,12 @@ export async function wellnessConfirmPasswordReset(
         message: "This password reset link is invalid or has expired. Please request a new one.",
       };
     }
+
+    const ip = await getClientIpKey();
+    await Promise.all([
+      resetDistributedRateLimit(`signin-email:${consumed.toLowerCase()}`),
+      resetDistributedRateLimit(`signin:${ip}:${consumed.toLowerCase()}`),
+    ]);
 
     return {
       success: true,

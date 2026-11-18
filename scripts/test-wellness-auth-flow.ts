@@ -1,4 +1,9 @@
 import { prisma } from "../src/wellness/db";
+import {
+  wellnessVerifyEmailToken,
+  wellnessRequestPasswordReset,
+  wellnessConfirmPasswordReset,
+} from "../src/wellness/actions/auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -244,8 +249,51 @@ async function runTestSuite() {
   });
   console.log("   ✅ Soft-delete & anonymization sukses:", anonymizedUser.email, "| deletedAt set:", !!anonymizedUser.deletedAt);
 
+  // 8. Uji Server Actions Verifikasi Email (Idempotent) & Reset Password Langsung
+  console.log("\n8. Menguji Server Action wellnessVerifyEmailToken (Idempotent) & wellnessConfirmPasswordReset...");
+  const actionUser = await prisma.user.create({
+    data: {
+      fullName: "Action Flow Tester",
+      email: "newuser@wellness.test",
+      phone: "081277776666",
+      passwordHash: hash,
+      role: "USER",
+      status: "ACTIVE",
+      tokenVersion: 0,
+      emailVerifiedAt: null,
+    },
+  });
+  const actionVerifyRaw = crypto.randomBytes(32).toString("hex");
+  const actionVerifyHash = crypto.createHash("sha256").update(actionVerifyRaw).digest("hex");
+  await prisma.userEmailVerificationToken.create({
+    data: {
+      userId: actionUser.id,
+      tokenHash: actionVerifyHash,
+      expiresAt: new Date(Date.now() + 3600_000),
+    },
+  });
+  const verifyRes1 = await wellnessVerifyEmailToken(actionVerifyRaw);
+  const verifyRes2 = await wellnessVerifyEmailToken(actionVerifyRaw);
+  if (!verifyRes1.success || !verifyRes2.success) {
+    throw new Error("wellnessVerifyEmailToken gagal atau tidak idempotent saat diklik 2x!");
+  }
+  const reqResetRes = await wellnessRequestPasswordReset("newuser@wellness.test");
+  if (!reqResetRes.success || !reqResetRes.devResetUrl) {
+    throw new Error("wellnessRequestPasswordReset gagal membuat reset URL!");
+  }
+  const parsedResetToken = new URL(reqResetRes.devResetUrl).searchParams.get("token") || "";
+  const confirmResetRes = await wellnessConfirmPasswordReset({
+    token: parsedResetToken,
+    newPassword: "ActionPass999!",
+    confirmPassword: "ActionPass999!",
+  });
+  if (!confirmResetRes.success) {
+    throw new Error("wellnessConfirmPasswordReset gagal mengganti password!");
+  }
+  console.log("   ✅ Server Action Verify Email (1x & 2x idempotent) + Request/Confirm Reset Password sukses!");
+
   // Bersihkan seluruh row uji coba (child rows lebih dulu agar bersih)
-  const testIds = [newUser.id, deleteTestUser.id];
+  const testIds = [newUser.id, deleteTestUser.id, actionUser.id];
   await prisma.paymentTransaction.deleteMany({ where: { userId: { in: testIds } } });
   await prisma.cohortSupportRequest.deleteMany({ where: { userId: { in: testIds } } });
   await prisma.programEnrollment.deleteMany({ where: { userId: { in: testIds } } });

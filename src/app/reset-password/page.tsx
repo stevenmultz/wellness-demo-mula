@@ -227,8 +227,17 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-[100dvh] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex items-center justify-center p-5 sm:p-6 relative overflow-hidden">
-      <div className="absolute top-5 right-5 sm:top-6 sm:right-6 z-20">
+    <div
+      style={{
+        paddingTop: "max(env(safe-area-inset-top, 0px), 1.25rem)",
+        paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1.25rem)",
+      }}
+      className="min-h-[100dvh] bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex items-center justify-center px-5 sm:px-6 relative overflow-hidden"
+    >
+      <div
+        style={{ top: "max(env(safe-area-inset-top, 0px), 1.25rem)" }}
+        className="absolute right-5 sm:right-6 z-20"
+      >
         <ThemeToggle />
       </div>
       <Suspense
