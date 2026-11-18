@@ -16,7 +16,6 @@ import { StepHeader } from "./SleepMealSteps";
 export function ReflectionStepView({
   currentSubStep,
   dayNumber,
-  dailyAssessment,
   review,
   score,
   onChangeReview,
@@ -25,7 +24,6 @@ export function ReflectionStepView({
 }: {
   currentSubStep: SubStepId;
   dayNumber: number;
-  dailyAssessment?: string | null;
   review: string;
   score: number;
   onChangeReview: (next: string) => void;
@@ -39,7 +37,6 @@ export function ReflectionStepView({
         <StepHeader
           eyebrow={`Day ${dayNumber} · Daily Reflection`}
           title="Reflect on your day"
-          quote={dailyAssessment}
           subtitle="Write freely in your own words — log today's journal, vent about anything on your mind, or capture whatever stood out today."
         />
 

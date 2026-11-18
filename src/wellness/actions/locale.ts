@@ -13,7 +13,7 @@ export async function wellnessSetLocale(rawLocale: string): Promise<{
   const locale = normalizeLocale(rawLocale);
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set(LOCALE_COOKIE_NAME, locale, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,

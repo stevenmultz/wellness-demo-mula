@@ -39,9 +39,17 @@ async function main() {
   const openBadge = getPublicBadgeMeta("Open Registration");
   const ongoingBadge = getPublicBadgeMeta("On going");
   const fullBadge = getPublicBadgeMeta("Full");
-  assert.ok(openBadge.colorClass.includes("emerald"), "Open Registration uses semantic emerald token");
-  assert.ok(ongoingBadge.colorClass.includes("blue"), "On going uses semantic cool-blue token");
-  assert.ok(fullBadge.colorClass.includes("amber"), "Full uses semantic amber token");
+  // The Obsidian Chrome design system is intentionally monochrome, so hue is no longer part of the
+  // contract. Verify the behavioural contract instead: labels, enrollability, distinct styling.
+  assert.equal(openBadge.label, "Open Registration");
+  assert.equal(openBadge.canEnroll, true, "Only Open Registration allows enrolling");
+  assert.equal(ongoingBadge.canEnroll, false);
+  assert.equal(fullBadge.canEnroll, false);
+  for (const b of [openBadge, ongoingBadge, fullBadge]) {
+    assert.ok(b.colorClass.trim().length > 0, `${b.label} has styling classes`);
+  }
+  assert.notEqual(openBadge.colorClass, fullBadge.colorClass, "Open and Full badges are visually distinct");
+  assert.notEqual(openBadge.colorClass, ongoingBadge.colorClass, "Open and On going badges are visually distinct");
   console.log("   ✅ Semantic Obsidian Chrome badge tokens verified.");
 
   // 4. Verify Database Connectivity & Unpublished Program Filtering

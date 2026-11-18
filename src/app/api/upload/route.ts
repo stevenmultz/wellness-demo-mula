@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getWellnessSession } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
 import {
@@ -16,12 +16,22 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TYPES = new Set(["profile", "custom"]);
+const ALLOWED_TYPES = new Set(["profile", "custom", "org-logo", "program-cover"]);
+const ADMIN_ONLY_TYPES = new Set(["org-logo", "program-cover"]);
+
+const IMAGE_PROFILES: Record<
+  string,
+  { maxWidth: number; maxHeight: number; fit: "inside" | "cover"; quality: number }
+> = {
+  "org-logo": { maxWidth: 256, maxHeight: 256, fit: "inside", quality: 84 },
+  "program-cover": { maxWidth: 1280, maxHeight: 720, fit: "inside", quality: 80 },
+  default: { maxWidth: 1280, maxHeight: 1280, fit: "inside", quality: 78 },
+};
 
 /**
- * Authenticated photo upload endpoint backed by private Supabase Storage.
+ * Authenticated photo upload endpoint backed by private Supabase Storage (with Sharp WebP fallback).
  * Validates magic bytes, decodes & re-encodes via Sharp (stripping EXIF/GPS metadata and
- * compressing to WebP <= 1280px), and returns a signed-proxy path.
+ * compressing to WebP), and returns a signed-proxy path or inline data URI when storage is unconfigured.
  */
 export async function POST(request: NextRequest) {
   const session = await getWellnessSession();
@@ -37,16 +47,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!isSupabaseStorageConfigured()) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-      },
-      { status: 503 }
-    );
-  }
-
   const declaredLength = Number(request.headers.get("content-length"));
   if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_UPLOAD_BODY_BYTES) {
     return NextResponse.json(
@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { dataUrl, type } = body as { dataUrl?: string; type?: string };
+    const safeType = type && ALLOWED_TYPES.has(type) ? type : "custom";
+
+    if (ADMIN_ONLY_TYPES.has(safeType) && !isAdminRole(session.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: Admin privileges required for branding assets." },
+        { status: 403 }
+      );
+    }
 
     if (!dataUrl || typeof dataUrl !== "string") {
       return NextResponse.json({ success: false, message: "Missing image data" }, { status: 400 });
@@ -88,14 +96,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const profile = IMAGE_PROFILES[safeType] ?? IMAGE_PROFILES.default;
     let optimized: { buffer: Buffer; mime: "image/webp"; ext: "webp" };
     try {
-      optimized = await processAndOptimizeImage(rawBuffer, {
-        maxWidth: 1280,
-        maxHeight: 1280,
-        fit: "inside",
-        quality: 78,
-      });
+      optimized = await processAndOptimizeImage(rawBuffer, profile);
     } catch {
       return NextResponse.json(
         { success: false, message: "Uploaded file could not be decoded as a valid image." },
@@ -103,7 +107,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const safeType = type && ALLOWED_TYPES.has(type) ? type : "custom";
+    if (!isSupabaseStorageConfigured()) {
+      const inlineDataUrl = `data:${optimized.mime};base64,${optimized.buffer.toString("base64")}`;
+      return NextResponse.json({
+        success: true,
+        storagePath: inlineDataUrl,
+        previewUrl: inlineDataUrl,
+        url: inlineDataUrl,
+      });
+    }
+
     const safeUserId = session.userId.replace(/[^A-Za-z0-9_-]/g, "");
     const uniqueId = crypto.randomBytes(12).toString("hex");
     const objectPath = `${safeUserId}/${safeType}-${Date.now()}-${uniqueId}.${optimized.ext}`;

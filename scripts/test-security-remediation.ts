@@ -266,18 +266,18 @@ async function runSecurityRemediationTests() {
   assert.equal(ensureCoachNameIncluded("Marcus Vance, Elena Rostova", "elena rostova"), "Marcus Vance, Elena Rostova");
   console.log("   ✅ Role predicates, fail-closed scopes, and role-switch cleanup verified.");
 
-  // 9. Test Free Intro Program Policy & Min Quota Clamping
-  console.log("\n9. Testing Free Intro Policy (Min 2 Free Programs) & Min Quota Range...");
+  // 9. Test Community Publish Policy (No Free-Intro Gate) & Min Quota Clamping
+  console.log("\n9. Testing Community Publish Policy (No Free-Intro Block) & Min Quota Range...");
   assert.equal(
     evaluateFreeIntroRequirement({
       callerRole: "PARTNER_ADMIN",
       action: "PUBLISH",
       programPrice: 150000,
       isCurrentlyPublished: false,
-      otherPublishedFreeCount: 1,
+      otherPublishedFreeCount: 0,
       otherPublishedPaidCount: 0,
     }).allowed,
-    false
+    true
   );
   assert.equal(
     evaluateFreeIntroRequirement({
@@ -285,7 +285,7 @@ async function runSecurityRemediationTests() {
       action: "PUBLISH",
       programPrice: 150000,
       isCurrentlyPublished: false,
-      otherPublishedFreeCount: 2,
+      otherPublishedFreeCount: 0,
       otherPublishedPaidCount: 0,
     }).allowed,
     true
@@ -296,10 +296,10 @@ async function runSecurityRemediationTests() {
       action: "UNPUBLISH_OR_DELETE",
       programPrice: 0,
       isCurrentlyPublished: true,
-      otherPublishedFreeCount: 1,
+      otherPublishedFreeCount: 0,
       otherPublishedPaidCount: 1,
     }).allowed,
-    false
+    true
   );
   assert.equal(
     evaluateFreeIntroRequirement({
@@ -315,7 +315,7 @@ async function runSecurityRemediationTests() {
   assert.equal(clampMinQuota(15, 25), 15);
   assert.equal(clampMinQuota(30, 25), 25);
   assert.equal(clampMinQuota(0, 25), 1);
-  console.log("   ✅ Free intro 2-program policy and minQuota clamping verified.");
+  console.log("   ✅ Free intro gate removed and minQuota clamping verified.");
 
   console.log("\n========================================================");
   console.log("🎉 ALL ZERO-TRUST SECURITY REMEDIATIONS VERIFIED 100%!");

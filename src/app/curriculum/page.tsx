@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CurriculumPage() {
   const { curriculumSample } = await getPublicSanctuaryData();
-  const locale = getServerLocale();
+  const locale = await getServerLocale();
   const t = getDictionary(locale);
 
   return (

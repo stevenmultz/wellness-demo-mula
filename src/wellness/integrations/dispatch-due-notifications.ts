@@ -128,6 +128,10 @@ export async function dispatchDueNotifications(options: {
     where: {
       status: "PUBLISHED",
       deletedAt: null,
+      OR: [
+        { locationType: "HYBRID", startAt: { not: null } },
+        { locationType: "ONLINE" },
+      ],
       ...(scopedUserId
         ? {
             enrollments: {
@@ -139,11 +143,9 @@ export async function dispatchDueNotifications(options: {
     select: {
       id: true,
       title: true,
+      locationType: true,
       startAt: true,
       days: {
-        where: {
-          dayNotificationsJson: { not: Prisma.DbNull },
-        },
         select: {
           id: true,
           dayNumber: true,
@@ -157,6 +159,7 @@ export async function dispatchDueNotifications(options: {
           ...(scopedUserId ? { userId: scopedUserId } : {}),
         },
         select: {
+          id: true,
           userId: true,
           user: {
             select: {
@@ -168,7 +171,33 @@ export async function dispatchDueNotifications(options: {
     },
   });
 
-  // 1. Collect candidate dispatches across ALL programs first to eliminate N+1 DB lookups
+  // Batch-load completed day IDs for enrolled members of ONLINE programs so reminders follow each user's next uncompleted module
+  const onlineProgramDayIds = programs
+    .filter((p) => p.locationType === "ONLINE")
+    .flatMap((p) => p.days.map((d) => d.id));
+  const onlineMemberIds = Array.from(
+    new Set(
+      programs
+        .filter((p) => p.locationType === "ONLINE")
+        .flatMap((p) => p.enrollments.map((e) => e.userId))
+    )
+  );
+  const completedOnlineSet = new Set<string>();
+  if (onlineProgramDayIds.length > 0 && onlineMemberIds.length > 0) {
+    const completedRows = await prisma.programDayProgress.findMany({
+      where: {
+        userId: { in: onlineMemberIds },
+        programDayId: { in: onlineProgramDayIds },
+        isCompleted: true,
+      },
+      select: { userId: true, programDayId: true },
+    });
+    for (const r of completedRows) {
+      completedOnlineSet.add(`${r.userId}:${r.programDayId}`);
+    }
+  }
+
+  // 1. Collect candidate dispatches across ALL programs (both HYBRID calendar cohorts and ONLINE anytime enrollments)
   const candidates: Array<{
     prog: (typeof programs)[number];
     day: (typeof programs)[number]["days"][number];
@@ -176,10 +205,65 @@ export async function dispatchDueNotifications(options: {
     index: number;
     item: DayNotificationItem;
     dedupeKey: string;
+    targetUserIds?: Set<string>;
   }> = [];
 
   for (const prog of programs) {
     if (prog.enrollments.length === 0 || prog.days.length === 0) continue;
+
+    if (prog.locationType === "ONLINE") {
+      // For each active member in an ONLINE program, remind on their next uncompleted module at the configured WIB times
+      const usersByDayId = new Map<string, Set<string>>();
+      for (const enrollment of prog.enrollments) {
+        const nextModule = prog.days.find(
+          (d) => !completedOnlineSet.has(`${enrollment.userId}:${d.id}`)
+        );
+        if (!nextModule) continue;
+        let userSet = usersByDayId.get(nextModule.id);
+        if (!userSet) {
+          userSet = new Set<string>();
+          usersByDayId.set(nextModule.id, userSet);
+        }
+        userSet.add(enrollment.userId);
+      }
+
+      for (const day of prog.days) {
+        const targetUsers = usersByDayId.get(day.id);
+        if (!targetUsers || targetUsers.size === 0) continue;
+
+        const rawNotifs = safeJsonParse<DayNotificationItem[]>(day.dayNotificationsJson, []);
+        const notifications =
+          Array.isArray(rawNotifs) && rawNotifs.length > 0
+            ? rawNotifs
+            : [
+                {
+                  time: "08:00",
+                  label: "Daily Module Reminder",
+                  message: `Lanjutkan Module ${day.dayNumber} di ${prog.title} kapan saja hari ini.`,
+                },
+              ];
+
+        for (const slot of slots) {
+          notifications.forEach((item, index) => {
+            if (!item?.message?.trim()) return;
+            if (normalizeWibTime(item.time) === slot.time) {
+              candidates.push({
+                prog,
+                day,
+                slot,
+                index,
+                item,
+                dedupeKey: `online:${buildCadenceDedupeKey(day.id, slot, index)}`,
+                targetUserIds: targetUsers,
+              });
+            }
+          });
+        }
+      }
+      continue;
+    }
+
+    if (!prog.startAt) continue;
 
     for (const day of prog.days) {
       const notifications = safeJsonParse<DayNotificationItem[]>(day.dayNotificationsJson, []);
@@ -253,7 +337,9 @@ export async function dispatchDueNotifications(options: {
 
   for (const cand of candidates) {
     const alreadySet = alreadyByKey.get(cand.dedupeKey) ?? new Set<string>();
-    const recipients = cand.prog.enrollments.filter((e) => !alreadySet.has(e.userId));
+    const recipients = cand.prog.enrollments.filter(
+      (e) => (!cand.targetUserIds || cand.targetUserIds.has(e.userId)) && !alreadySet.has(e.userId)
+    );
     if (recipients.length === 0) continue;
 
     const message = cand.item.message.trim();

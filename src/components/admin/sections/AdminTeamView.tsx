@@ -110,11 +110,11 @@ export function AdminTeamView({
         newOrganizationTagline: partnerOrgMode === "new" ? newOrgTagline : null,
       });
       if (!res.success || !res.data) {
-        setFeedback({ type: "error", text: res.message || "Failed to create Partner Admin." });
+        setFeedback({ type: "error", text: res.message || "Failed to create Community Admin." });
         return;
       }
       setCredentialBanner({
-        roleLabel: `Partner Admin (${res.data.user.organizationName || "Partner"})`,
+        roleLabel: `Community Admin (${res.data.user.organizationName || "Community"})`,
         name: res.data.user.fullName,
         email: res.data.user.email,
         temporaryPassword: res.data.temporaryPassword,
@@ -125,7 +125,7 @@ export function AdminTeamView({
       setPartnerPhone("");
       setNewOrgName("");
       setNewOrgTagline("");
-      setFeedback({ type: "success", text: res.message || "Partner Admin created." });
+      setFeedback({ type: "success", text: res.message || "Community Admin created." });
       await loadTeam();
     } finally {
       setSavingPartner(false);
@@ -242,17 +242,17 @@ export function AdminTeamView({
       <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <span className="text-[10px] uppercase tracking-wider font-mono font-semibold text-zinc-400 block">
-            {isSuperadmin ? "Platform Access Delegation" : "Partner Organization Team"}
+            {isSuperadmin ? "Platform Access Delegation" : "Community Organization Team"}
           </span>
           <h2 className="text-xl font-geometric font-light tracking-tight text-zinc-900 dark:text-white">
             {isSuperadmin
-              ? "Partners, Partner Admins & Coaches"
-              : `${team?.callerOrganizationName || "Partner"} — Coaches`}
+              ? "Communities, Community Admins & Coaches"
+              : `${team?.callerOrganizationName || "Community"} — Coaches`}
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {isSuperadmin
-              ? "Only Superadmin can create Partner Admins. Partner Admins manage Coaches locked strictly to their own organization."
-              : "Create and manage Coach accounts scoped exclusively to your partner organization."}
+              ? "Only Superadmin can create Community Admins. Community Admins manage Coaches locked strictly to their own community."
+              : "Create and manage Coach accounts scoped exclusively to your community."}
           </p>
         </div>
 
@@ -268,7 +268,7 @@ export function AdminTeamView({
               className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:opacity-90 transition"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New Partner Admin</span>
+              <span>New Community Admin</span>
             </button>
           )}
 
@@ -292,10 +292,10 @@ export function AdminTeamView({
         </div>
       </div>
 
-      {/* Warning if Partner Admin has no linked organization */}
+      {/* Warning if Community Admin has no linked organization */}
       {partnerUnlinked && (
         <div className="rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/30 p-5 text-xs text-amber-900 dark:text-amber-200">
-          Your Partner Admin account has not been linked to a Partner Organization yet. Contact the Superadmin to assign your organization before creating Coaches.
+          Your Community Admin account has not been linked to a Community yet. Contact the Superadmin to assign your community before creating Coaches.
         </div>
       )}
 
@@ -341,21 +341,21 @@ export function AdminTeamView({
         </div>
       )}
 
-      {/* SUPERADMIN ONLY: Partner Admins Directory */}
+      {/* SUPERADMIN ONLY: Community Admins Directory */}
       {isSuperadmin && (
         <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">
           <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-zinc-400" />
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
-                Partner Admins ({team?.partnerAdmins.length ?? 0})
+                Community Admins ({team?.partnerAdmins.length ?? 0})
               </h3>
             </div>
           </div>
 
           {(team?.partnerAdmins.length ?? 0) === 0 ? (
             <div className="p-10 text-center text-xs text-zinc-500">
-              No Partner Admin accounts created yet.
+              No Community Admin accounts created yet.
             </div>
           ) : (
             <div className="divide-y divide-zinc-100 dark:divide-white/5">
@@ -387,7 +387,7 @@ export function AdminTeamView({
                     </p>
                   </div>
                   <span className="text-[11px] font-mono text-zinc-400 shrink-0">
-                    PARTNER_ADMIN
+                    COMMUNITY_ADMIN
                   </span>
                 </div>
               ))}
@@ -493,7 +493,7 @@ export function AdminTeamView({
         )}
       </div>
 
-      {/* Modal: Create Partner Admin (Superadmin Only) */}
+      {/* Modal: Create Community Admin (Superadmin Only) */}
       {isSuperadmin && partnerModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-6 space-y-4 shadow-2xl">
@@ -501,7 +501,7 @@ export function AdminTeamView({
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-zinc-500" />
                 <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  Create Partner Admin
+                  Create Community Admin
                 </h4>
               </div>
               <button
@@ -524,7 +524,7 @@ export function AdminTeamView({
                       : "border-zinc-200 dark:border-white/15 text-zinc-600 dark:text-zinc-300"
                   }`}
                 >
-                  Existing Partner
+                  Existing Community
                 </button>
                 <button
                   type="button"
@@ -535,14 +535,14 @@ export function AdminTeamView({
                       : "border-zinc-200 dark:border-white/15 text-zinc-600 dark:text-zinc-300"
                   }`}
                 >
-                  + New Partner
+                  + New Community
                 </button>
               </div>
 
               {partnerOrgMode === "existing" ? (
                 <div>
                   <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
-                    Partner Organization *
+                    Community Organization *
                   </label>
                   <select
                     required
@@ -550,7 +550,7 @@ export function AdminTeamView({
                     onChange={(e) => setPartnerOrgId(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
                   >
-                    <option value="">Select partner organization...</option>
+                    <option value="">Select community...</option>
                     {(team?.organizations || []).map((org) => (
                       <option key={org.id} value={org.id}>
                         {org.name}
@@ -562,7 +562,7 @@ export function AdminTeamView({
                 <>
                   <div>
                     <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
-                      New Partner Organization Name *
+                      New Community Name *
                     </label>
                     <input
                       type="text"
@@ -610,7 +610,7 @@ export function AdminTeamView({
                   required
                   value={partnerEmail}
                   onChange={(e) => setPartnerEmail(e.target.value)}
-                  placeholder="partner-admin@studio.com"
+                  placeholder="community-admin@studio.com"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
                 />
               </div>
@@ -640,7 +640,7 @@ export function AdminTeamView({
                   disabled={savingPartner}
                   className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50"
                 >
-                  {savingPartner ? "Creating..." : "Create Partner Admin"}
+                  {savingPartner ? "Creating..." : "Create Community Admin"}
                 </button>
               </div>
             </form>
@@ -672,7 +672,7 @@ export function AdminTeamView({
               {isSuperadmin && (
                 <div>
                   <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
-                    Partner Organization (optional)
+                    Community Organization (optional)
                   </label>
                   <select
                     value={coachOrgId}

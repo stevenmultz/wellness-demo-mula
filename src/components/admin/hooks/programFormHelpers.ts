@@ -27,12 +27,9 @@ export const COLLAPSED_SECTIONS_STATE: Record<number, boolean> = {
 export function createInitialCreateFormState(
   currentAdminOrgId: string | null
 ): ProgramHeaderFormState {
-  const defaultOpenDate = formatWIBDateISO(new Date());
-  const defaultStart = formatWIBDateISO(new Date(Date.now() + 3 * 24 * 3600 * 1000));
-  const defaultDeadline = formatWIBDateISO(new Date(Date.now() + 2 * 24 * 3600 * 1000));
-
   return {
     title: "",
+    batchNumber: null,
     description: "",
     targetState: "",
     methodology: "",
@@ -40,6 +37,7 @@ export function createInitialCreateFormState(
     scientificReferences: [{ title: "", url: "" }],
     programGuidelines: [""],
     coverImage: "",
+    introVideoUrl: "",
     difficultyLevel: "",
     category: "",
     equipment: "",
@@ -48,15 +46,11 @@ export function createInitialCreateFormState(
     coachTitle: "",
     organizationId: currentAdminOrgId || "",
     organizationCache: "",
-    language: "id",
-    titleEn: "",
-    descriptionEn: "",
-    recommendedFor: "",
-    durationDays: 7,
-    startDate: defaultStart,
-    endDate: computeEndDate(defaultStart, 7),
-    registrationOpenDate: defaultOpenDate,
-    registrationDeadline: defaultDeadline,
+    durationDays: 1,
+    startDate: "",
+    endDate: "",
+    registrationOpenDate: "",
+    registrationDeadline: "",
     actualPrice: 0,
     discountPercentage: 0,
     price: 0,
@@ -64,10 +58,8 @@ export function createInitialCreateFormState(
     maxQuota: 35,
     communityLink: "",
     locationType: "ONLINE",
-    city: "Jakarta",
+    city: "",
     venueAddress: "",
-    virtualFallbackAvailable: true,
-    termsType: "CUSTOM",
     customTerms: serializeTermsChapters(DEFAULT_PROGRAM_TERMS_CHAPTERS),
     termsList: [...DEFAULT_PROGRAM_TERMS],
     termsChapters: DEFAULT_PROGRAM_TERMS_CHAPTERS.map((c) => ({
@@ -83,6 +75,7 @@ export function createDefaultMetaFormState(
 ): ProgramHeaderFormState {
   return {
     title: "",
+    batchNumber: null,
     description: "",
     targetState: DEFAULT_TARGET_STATE,
     methodology: DEFAULT_METHODOLOGY,
@@ -90,6 +83,7 @@ export function createDefaultMetaFormState(
     scientificReferences: DEFAULT_PROGRAM_REFERENCES.map((r) => ({ ...r })),
     programGuidelines: [...DEFAULT_PROGRAM_GUIDELINES],
     coverImage: "",
+    introVideoUrl: "",
     difficultyLevel: "INTERMEDIATE",
     category: "Pilates",
     equipment: "Yoga Mat",
@@ -98,11 +92,7 @@ export function createDefaultMetaFormState(
     coachTitle: "",
     organizationId: currentAdminOrgId || "",
     organizationCache: "",
-    language: "id",
-    titleEn: "",
-    descriptionEn: "",
-    recommendedFor: "",
-    durationDays: 7,
+    durationDays: 1,
     startDate: "",
     endDate: "",
     registrationOpenDate: "",
@@ -114,10 +104,8 @@ export function createDefaultMetaFormState(
     maxQuota: 35,
     communityLink: "",
     locationType: "ONLINE",
-    city: "Jakarta",
+    city: "",
     venueAddress: "",
-    virtualFallbackAvailable: true,
-    termsType: "CUSTOM",
     customTerms: serializeTermsChapters(DEFAULT_PROGRAM_TERMS_CHAPTERS),
     termsList: [...DEFAULT_PROGRAM_TERMS],
     termsChapters: DEFAULT_PROGRAM_TERMS_CHAPTERS.map((c) => ({
@@ -184,16 +172,6 @@ export function buildProgramHeaderPayloads(
       ? [...DEFAULT_PROGRAM_GUIDELINES]
       : cleanedGuidelines;
 
-  const translations =
-    form.titleEn.trim() || form.descriptionEn.trim()
-      ? JSON.stringify({
-          en: {
-            ...(form.titleEn.trim() ? { title: form.titleEn.trim() } : {}),
-            ...(form.descriptionEn.trim() ? { description: form.descriptionEn.trim() } : {}),
-          },
-        })
-      : null;
-
   const selectedOrgObj = (organizations || []).find((o) => o.id === form.organizationId);
 
   return {
@@ -204,18 +182,31 @@ export function buildProgramHeaderPayloads(
     finalBenefits,
     finalRefs,
     finalGuidelines,
-    translations,
     selectedOrgObj,
   };
 }
 
 export function validateProgramForPublish(prog: AdminProgram) {
+  const isOnline = (prog.locationType || "ONLINE") === "ONLINE";
   const missingDays: number[] = [];
-  const targetDays = prog.durationDays || 21;
-  for (let d = 1; d <= targetDays; d++) {
-    const found = prog.days.find((x) => x.dayNumber === d);
-    if (!isDayFilled(found)) {
-      missingDays.push(d);
+
+  if (isOnline) {
+    if (!prog.days || prog.days.length === 0) {
+      missingDays.push(1);
+    } else {
+      for (const day of prog.days) {
+        if (!isDayFilled(day)) {
+          missingDays.push(day.dayNumber);
+        }
+      }
+    }
+  } else {
+    const targetDays = prog.durationDays || 21;
+    for (let d = 1; d <= targetDays; d++) {
+      const found = prog.days.find((x) => x.dayNumber === d);
+      if (!isDayFilled(found)) {
+        missingDays.push(d);
+      }
     }
   }
 
@@ -231,7 +222,6 @@ export function validateProgramForPublish(prog: AdminProgram) {
     category: prog.category,
     dailyCommitment: prog.dailyCommitment,
     coachName: prog.coachName,
-    recommendedFor: prog.recommendedFor,
     startDate: prog.startDate,
     endDate: prog.endDate,
     registrationDeadline: prog.registrationDeadline,
@@ -252,9 +242,21 @@ export function validateProgramForPublish(prog: AdminProgram) {
   }
 
   if (missingDays.length > 0) {
+    const totalCount = isOnline ? Math.max(1, prog.days.length) : prog.durationDays || 21;
     errors.push(
-      `Curriculum Incomplete: ${missingDays.length} out of ${targetDays} days are missing required routines (Day ${missingDays.slice(0, 7).join(", ")}${missingDays.length > 7 ? "..." : ""}).`
+      `Curriculum Incomplete: ${missingDays.length} out of ${totalCount} ${isOnline ? "modules" : "days"} are missing required routines (${isOnline ? "Module" : "Day"} ${missingDays.slice(0, 7).join(", ")}${missingDays.length > 7 ? "..." : ""}).`
     );
+  }
+
+  if ((prog.locationType || "ONLINE") === "ONLINE") {
+    const forbiddenConnectDays = prog.days
+      .filter((d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY")
+      .map((d) => d.dayNumber);
+    if (forbiddenConnectDays.length > 0) {
+      errors.push(
+        `Full Online programs cannot contain Connect / Meetup days (Day ${forbiddenConnectDays.join(", ")}). Switch days to Training/Rest or change program mode to Hybrid.`
+      );
+    }
   }
 
   return {

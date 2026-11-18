@@ -43,12 +43,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const locale = getServerLocale();
+  const locale = await getServerLocale();
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -118,7 +118,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const t=localStorage.getItem("wellness-theme");const d=t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}const m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",d?"#0e0e0e":"#f6f6f4")}}catch(e){}`,
+            __html: `try{const isDash=window.location.pathname.startsWith("/dashboard");const t=localStorage.getItem("wellness-theme");const d=!isDash&&(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches));if(d){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}const m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",d?"#0e0e0e":"#f6f6f4")}}catch(e){}`,
           }}
         />
       </head>

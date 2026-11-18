@@ -6,6 +6,7 @@ import type { MasterDataPayload } from "@/wellness/actions/master";
 import {
   wellnessAdminCreateProgram,
   wellnessAdminDeleteProgram,
+  wellnessAdminDuplicateProgram,
   wellnessAdminTogglePublishProgram,
   wellnessAdminUpdateProgramMeta,
 } from "@/wellness/actions/program";
@@ -17,7 +18,6 @@ import {
   DEFAULT_TARGET_STATE,
   parseTermsChapters,
   parseTermsList,
-  safeJsonParse,
   serializeTermsChapters,
 } from "@/wellness/utils/json";
 import type {
@@ -69,6 +69,7 @@ export function useAdminProgramActions({
   const [metaError, setMetaError] = useState<string | null>(null);
 
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [deletingProgId, setDeletingProgId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [publishModal, setPublishModal] = useState<AdminPublishModalState | null>(null);
@@ -139,12 +140,9 @@ export function useAdminProgramActions({
         ? [...prog.programGuidelines]
         : [...DEFAULT_PROGRAM_GUIDELINES];
 
-    const parsedTranslations = safeJsonParse<{
-      en?: { title?: string; description?: string };
-    }>(prog.translations, {});
-
     setMetaForm({
       title: prog.title,
+      batchNumber: prog.batchNumber ?? null,
       description: prog.description,
       targetState: prog.targetState || DEFAULT_TARGET_STATE,
       methodology: prog.methodology || DEFAULT_METHODOLOGY,
@@ -152,6 +150,7 @@ export function useAdminProgramActions({
       scientificReferences: resolvedRefs,
       programGuidelines: resolvedGuidelines,
       coverImage: prog.coverImage || "",
+      introVideoUrl: prog.introVideoUrl || "",
       difficultyLevel: prog.difficultyLevel || "INTERMEDIATE",
       category: prog.category || "Pilates",
       equipment: prog.equipment || "Yoga Mat",
@@ -160,31 +159,33 @@ export function useAdminProgramActions({
       coachTitle: prog.coachTitle || "",
       organizationId: prog.organizationId || "",
       organizationCache: prog.organizationCache || "",
-      language: (prog.language as "id" | "en" | "bilingual") || "id",
-      titleEn: parsedTranslations?.en?.title || "",
-      descriptionEn: parsedTranslations?.en?.description || "",
-      recommendedFor: prog.recommendedFor || "All Levels",
-      durationDays: prog.durationDays || 7,
+      durationDays:
+        (prog.locationType || "ONLINE") === "ONLINE"
+          ? Math.max(1, prog.days?.length || prog.durationDays || 1)
+          : prog.durationDays || 7,
       actualPrice: prog.actualPrice ?? prog.price,
       discountPercentage: prog.discountPercentage ?? 0,
       price: prog.price,
       minQuota: prog.minQuota ?? 1,
       maxQuota: prog.maxQuota,
       communityLink: prog.communityLink || "",
-      locationType: (prog.locationType as "ONLINE" | "ONSITE" | "HYBRID") || "ONLINE",
-      city: prog.city || "Jakarta",
-      venueAddress: prog.venueAddress || "",
-      virtualFallbackAvailable: prog.virtualFallbackAvailable ?? true,
-      termsType: "CUSTOM",
+      locationType:
+        prog.locationType === "HYBRID" || prog.locationType === "ONSITE"
+          ? "HYBRID"
+          : "ONLINE",
+      city: prog.locationType === "ONLINE" ? "" : prog.city || "Jakarta",
+      venueAddress: prog.locationType === "ONLINE" ? "" : prog.venueAddress || "",
       customTerms: prog.customTerms || serializeTermsChapters(resolvedChapters),
       termsList: resolvedTerms,
       termsChapters: resolvedChapters,
-      startDate: toInputDate(prog.startDate),
-      endDate: toInputDate(prog.endDate),
-      registrationOpenDate: prog.registrationOpenDate
-        ? toInputDate(prog.registrationOpenDate)
-        : "",
-      registrationDeadline: toInputDate(prog.registrationDeadline),
+      startDate: prog.locationType === "ONLINE" ? "" : toInputDate(prog.startDate),
+      endDate: prog.locationType === "ONLINE" ? "" : toInputDate(prog.endDate),
+      registrationOpenDate:
+        prog.locationType === "ONLINE" || !prog.registrationOpenDate
+          ? ""
+          : toInputDate(prog.registrationOpenDate),
+      registrationDeadline:
+        prog.locationType === "ONLINE" ? "" : toInputDate(prog.registrationDeadline),
       status:
         (prog.status as "DRAFT" | "PUBLISHED") ||
         (prog.isPublished ? "PUBLISHED" : "DRAFT"),
@@ -202,15 +203,16 @@ export function useAdminProgramActions({
         true
       );
       const resolvedCity = payload.isOnline
-        ? "Online"
+        ? null
         : metaForm.city.trim() || undefined;
       const resolvedVenue = payload.isOnline
-        ? undefined
+        ? null
         : metaForm.venueAddress.trim() || undefined;
 
       const res = await wellnessAdminUpdateProgramMeta({
         programId: prog.id,
         title: metaForm.title.trim(),
+        batchNumber: payload.isOnline ? null : metaForm.batchNumber ?? null,
         description: metaForm.description.trim(),
         targetState: metaForm.targetState.trim() || DEFAULT_TARGET_STATE,
         methodology: metaForm.methodology.trim() || DEFAULT_METHODOLOGY,
@@ -218,6 +220,7 @@ export function useAdminProgramActions({
         scientificReferences: payload.finalRefs,
         programGuidelines: payload.finalGuidelines,
         coverImage: metaForm.coverImage?.trim() || undefined,
+        introVideoUrl: metaForm.introVideoUrl?.trim() || null,
         difficultyLevel: metaForm.difficultyLevel,
         category: metaForm.category.trim(),
         equipment: metaForm.equipment?.trim() || undefined,
@@ -227,10 +230,9 @@ export function useAdminProgramActions({
         organizationId: metaForm.organizationId || null,
         organizationCache:
           payload.selectedOrgObj?.name || metaForm.organizationCache || null,
-        language: metaForm.language || "id",
-        translations: payload.translations,
-        recommendedFor: metaForm.recommendedFor.trim(),
-        durationDays: Number(metaForm.durationDays) || 7,
+        durationDays: payload.isOnline
+          ? Math.max(1, prog.days.length, Number(metaForm.durationDays) || 1)
+          : Number(metaForm.durationDays) || 7,
         actualPrice: Number(metaForm.actualPrice) || 0,
         discountPercentage: Number(metaForm.discountPercentage) || 0,
         price: payload.calculatedFinalPrice,
@@ -240,26 +242,38 @@ export function useAdminProgramActions({
         locationType: metaForm.locationType,
         city: resolvedCity,
         venueAddress: resolvedVenue,
-        virtualFallbackAvailable: metaForm.virtualFallbackAvailable,
-        termsType: "CUSTOM",
         customTerms: payload.serializedCustomTerms,
         termsList: payload.finalTermsList,
-        startDate: new Date(metaForm.startDate),
-        endDate: new Date(metaForm.endDate),
-        registrationOpenDate: metaForm.registrationOpenDate
-          ? new Date(metaForm.registrationOpenDate)
-          : null,
-        registrationDeadline: new Date(metaForm.registrationDeadline),
+        startDate:
+          !payload.isOnline && metaForm.startDate
+            ? new Date(metaForm.startDate)
+            : null,
+        endDate:
+          !payload.isOnline && metaForm.endDate
+            ? new Date(metaForm.endDate)
+            : null,
+        registrationOpenDate:
+          !payload.isOnline && metaForm.registrationOpenDate
+            ? new Date(metaForm.registrationOpenDate)
+            : null,
+        registrationDeadline:
+          !payload.isOnline && metaForm.registrationDeadline
+            ? new Date(metaForm.registrationDeadline)
+            : null,
         status: metaForm.status,
       });
 
       if (res.success) {
+        const nextDurationDays = payload.isOnline
+          ? Math.max(1, prog.days.length, Number(metaForm.durationDays) || 1)
+          : Number(metaForm.durationDays) || 7;
         setPrograms((prev) =>
           prev.map((p) =>
             p.id === prog.id
               ? {
                   ...p,
                   title: metaForm.title,
+                  batchNumber: payload.isOnline ? null : metaForm.batchNumber ?? null,
                   description: metaForm.description,
                   targetState: metaForm.targetState.trim() || DEFAULT_TARGET_STATE,
                   methodology: metaForm.methodology.trim() || DEFAULT_METHODOLOGY,
@@ -267,6 +281,7 @@ export function useAdminProgramActions({
                   scientificReferences: payload.finalRefs,
                   programGuidelines: payload.finalGuidelines,
                   coverImage: metaForm.coverImage?.trim() || null,
+                  introVideoUrl: metaForm.introVideoUrl?.trim() || null,
                   difficultyLevel: metaForm.difficultyLevel,
                   category: metaForm.category,
                   equipment: metaForm.equipment?.trim() || null,
@@ -276,10 +291,7 @@ export function useAdminProgramActions({
                   organizationId: metaForm.organizationId || null,
                   organizationCache:
                     payload.selectedOrgObj?.name || metaForm.organizationCache || null,
-                  language: metaForm.language || "id",
-                  translations: payload.translations,
-                  recommendedFor: metaForm.recommendedFor,
-                  durationDays: Number(metaForm.durationDays) || 7,
+                  durationDays: nextDurationDays,
                   actualPrice: Number(metaForm.actualPrice) || 0,
                   discountPercentage: Number(metaForm.discountPercentage) || 0,
                   price: payload.calculatedFinalPrice,
@@ -287,22 +299,24 @@ export function useAdminProgramActions({
                   maxQuota: Number(metaForm.maxQuota) || 35,
                   communityLink: metaForm.communityLink || null,
                   locationType: metaForm.locationType,
-                  city: payload.isOnline ? "Online" : metaForm.city.trim() || null,
+                  city: payload.isOnline ? null : metaForm.city.trim() || null,
                   venueAddress: payload.isOnline
                     ? null
                     : metaForm.venueAddress.trim() || null,
-                  virtualFallbackAvailable: metaForm.virtualFallbackAvailable,
-                  termsType: "CUSTOM",
                   customTerms: payload.serializedCustomTerms,
                   termsList: payload.finalTermsList,
-                  startDate: metaForm.startDate,
-                  endDate: metaForm.endDate,
-                  registrationOpenDate: metaForm.registrationOpenDate || null,
-                  registrationDeadline: metaForm.registrationDeadline,
+                  startDate: payload.isOnline ? null : metaForm.startDate || null,
+                  endDate: payload.isOnline ? null : metaForm.endDate || null,
+                  registrationOpenDate: payload.isOnline
+                    ? null
+                    : metaForm.registrationOpenDate || null,
+                  registrationDeadline: payload.isOnline
+                    ? null
+                    : metaForm.registrationDeadline || null,
                   status: metaForm.status,
-                  days: p.days.filter(
-                    (d) => d.dayNumber <= (Number(metaForm.durationDays) || 7)
-                  ),
+                  days: payload.isOnline
+                    ? p.days
+                    : p.days.filter((d) => d.dayNumber <= nextDurationDays),
                 }
               : p
           )
@@ -345,15 +359,16 @@ export function useAdminProgramActions({
       false
     );
     const resolvedCreateCity = payload.isOnline
-      ? "Online"
+      ? null
       : createForm.city.trim() || "Jakarta";
     const resolvedCreateVenue = payload.isOnline
-      ? undefined
+      ? null
       : createForm.venueAddress.trim() || undefined;
 
     try {
       const res = await wellnessAdminCreateProgram({
         title: createForm.title.trim(),
+        batchNumber: payload.isOnline ? null : createForm.batchNumber ?? null,
         description:
           createForm.description.trim() ||
           "Program description will be configured soon.",
@@ -363,6 +378,7 @@ export function useAdminProgramActions({
         scientificReferences: payload.finalRefs,
         programGuidelines: payload.finalGuidelines,
         coverImage: createForm.coverImage?.trim() || undefined,
+        introVideoUrl: createForm.introVideoUrl?.trim() || null,
         difficultyLevel: createForm.difficultyLevel || "INTERMEDIATE",
         category: createForm.category?.trim() || "Pilates",
         equipment: createForm.equipment?.trim() || undefined,
@@ -372,10 +388,7 @@ export function useAdminProgramActions({
         organizationId: createForm.organizationId || null,
         organizationCache:
           payload.selectedOrgObj?.name || createForm.organizationCache || null,
-        language: createForm.language || "id",
-        translations: payload.translations,
-        recommendedFor: createForm.recommendedFor.trim() || "All Levels",
-        durationDays: Number(createForm.durationDays) || 21,
+        durationDays: payload.isOnline ? 1 : Number(createForm.durationDays) || 7,
         actualPrice: Number(createForm.actualPrice) || 0,
         discountPercentage: Number(createForm.discountPercentage) || 0,
         price: payload.calculatedFinalPrice,
@@ -385,18 +398,24 @@ export function useAdminProgramActions({
         locationType: createForm.locationType || "ONLINE",
         city: resolvedCreateCity,
         venueAddress: resolvedCreateVenue,
-        virtualFallbackAvailable: createForm.virtualFallbackAvailable ?? true,
-        termsType: "CUSTOM",
         customTerms: payload.serializedCustomTerms,
         termsList: payload.finalTermsList,
-        startDate: createForm.startDate ? new Date(createForm.startDate) : undefined,
-        endDate: createForm.endDate ? new Date(createForm.endDate) : undefined,
-        registrationOpenDate: createForm.registrationOpenDate
-          ? new Date(createForm.registrationOpenDate)
-          : null,
-        registrationDeadline: createForm.registrationDeadline
-          ? new Date(createForm.registrationDeadline)
-          : undefined,
+        startDate:
+          !payload.isOnline && createForm.startDate
+            ? new Date(createForm.startDate)
+            : null,
+        endDate:
+          !payload.isOnline && createForm.endDate
+            ? new Date(createForm.endDate)
+            : null,
+        registrationOpenDate:
+          !payload.isOnline && createForm.registrationOpenDate
+            ? new Date(createForm.registrationOpenDate)
+            : null,
+        registrationDeadline:
+          !payload.isOnline && createForm.registrationDeadline
+            ? new Date(createForm.registrationDeadline)
+            : null,
         status: "DRAFT",
         isPublished: false,
         days: [],
@@ -407,6 +426,7 @@ export function useAdminProgramActions({
         const formattedNewProgram: AdminProgram = {
           id: created.id,
           title: created.title,
+          batchNumber: created.batchNumber ?? (payload.isOnline ? null : createForm.batchNumber ?? null),
           slug: created.slug,
           description: created.description,
           targetState: createForm.targetState.trim(),
@@ -415,19 +435,17 @@ export function useAdminProgramActions({
           scientificReferences: payload.finalRefs,
           programGuidelines: payload.finalGuidelines,
           coverImage: created.coverImage || createForm.coverImage || null,
+          introVideoUrl: created.introVideoUrl ?? (createForm.introVideoUrl?.trim() || null),
           difficultyLevel:
             created.difficultyLevel || createForm.difficultyLevel || "INTERMEDIATE",
           category: created.category || createForm.category,
           equipment: created.equipment || createForm.equipment || null,
           dailyCommitment: created.dailyCommitment || createForm.dailyCommitment || null,
-          recommendedFor: created.recommendedFor,
           coachName: created.coachName,
           coachTitle: created.coachTitle || createForm.coachTitle,
           organizationId: created.organizationId || createForm.organizationId || null,
           organizationCache:
             created.organizationCache || payload.selectedOrgObj?.name || null,
-          language: created.language || createForm.language || "id",
-          translations: created.translations || payload.translations || null,
           durationDays: created.durationDays,
           actualPrice: created.actualPrice ?? createForm.actualPrice,
           discountPercentage: created.discountPercentage ?? createForm.discountPercentage,
@@ -436,13 +454,10 @@ export function useAdminProgramActions({
           maxQuota: created.maxQuota,
           communityLink: created.communityLink,
           locationType: created.locationType || createForm.locationType,
-          city: payload.isOnline ? "Online" : created.city || createForm.city || null,
+          city: payload.isOnline ? null : created.city || createForm.city || null,
           venueAddress: payload.isOnline
             ? null
             : created.venueAddress || createForm.venueAddress || null,
-          virtualFallbackAvailable:
-            created.virtualFallbackAvailable ?? createForm.virtualFallbackAvailable,
-          termsType: "CUSTOM",
           customTerms: payload.serializedCustomTerms,
           termsList: payload.finalTermsList,
           startDate: created.startDate,
@@ -562,6 +577,39 @@ export function useAdminProgramActions({
     }
   };
 
+  const handleDuplicateProgram = async (
+    prog: AdminProgram,
+    asNextBatch = true
+  ) => {
+    setDuplicatingId(prog.id);
+    setFeedback(null);
+    try {
+      const res = await wellnessAdminDuplicateProgram(prog.id, asNextBatch);
+      if (res.success && res.data) {
+        const cloned = res.data as AdminProgram;
+        setPrograms((prev) => [cloned, ...prev]);
+        setSelectedProgramId(cloned.id);
+        setIsCreatingProgram(false);
+        loadMetaIntoForm(cloned);
+        setFeedback({
+          type: "success",
+          text:
+            res.message ||
+            `Created draft copy of "${cloned.title}"${cloned.batchNumber ? ` (Batch ${cloned.batchNumber})` : ""}.`,
+        });
+        router.push(`/admin/programs/${cloned.id}?tab=info`);
+        router.refresh();
+      } else {
+        setFeedback({
+          type: "error",
+          text: res.message || "Failed to duplicate program.",
+        });
+      }
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   return {
     createForm,
     setCreateForm,
@@ -573,6 +621,7 @@ export function useAdminProgramActions({
     savingMeta,
     metaError,
     publishingId,
+    duplicatingId,
     deletingProgId,
     publishModal,
     setPublishModal,
@@ -588,5 +637,6 @@ export function useAdminProgramActions({
     handleInitiatePublish,
     handleTogglePublish,
     handleDeleteProgram,
+    handleDuplicateProgram,
   };
 }

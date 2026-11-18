@@ -13,6 +13,7 @@ import {
   setSessionCookie,
 } from "@/wellness/security/session";
 import { recordAuditLog } from "@/wellness/integrations/audit-log";
+import { buildOAuthLinkUserUpdate } from "@/wellness/security/oauth-linking";
 
 export const dynamic = "force-dynamic";
 
@@ -151,12 +152,13 @@ export async function GET(request: NextRequest) {
             email,
           },
         });
-        const updated = existingByEmail.emailVerifiedAt
-          ? existingByEmail
-          : await tx.user.update({
+        const linkUpdate = buildOAuthLinkUserUpdate(existingByEmail);
+        const updated = linkUpdate
+          ? await tx.user.update({
               where: { id: existingByEmail.id },
-              data: { emailVerifiedAt: new Date() },
-            });
+              data: linkUpdate,
+            })
+          : existingByEmail;
         await recordAuditLog(
           {
             actorUserId: updated.id,

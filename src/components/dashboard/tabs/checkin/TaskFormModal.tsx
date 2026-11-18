@@ -700,7 +700,6 @@ export function TaskForm({
               <ReflectionStepView
                 currentSubStep={currentSubStep}
                 dayNumber={day.dayNumber}
-                dailyAssessment={day.dailyAssessment}
                 review={review}
                 score={score}
                 onChangeReview={(next) => {

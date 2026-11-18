@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
+  Building2,
   Globe,
   Layers,
   LayoutDashboard,
@@ -27,7 +28,7 @@ interface AdminSidebarProps {
   setIsCreatingProgram: (val: boolean) => void;
   setInspectingUserHealth: (u: AdminUserItem | null) => void;
   setMasterTab: (
-    tab: "coaches" | "organizations" | "audience" | "categories" | "equipment" | "commitments"
+    tab: "coaches" | "organizations" | "categories" | "equipment" | "commitments"
   ) => void;
   setFeedback: (fb: AdminFeedbackMessage | null) => void;
   currentAdmin?: AdminUserItem;
@@ -175,6 +176,29 @@ export function AdminSidebar({
           </span>
         </button>
 
+        {currentAdminRole === "PARTNER_ADMIN" && (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMenu("community");
+              setSelectedProgramId(null);
+              setIsCreatingProgram(false);
+              setFeedback(null);
+              router.push("/admin/community");
+            }}
+            className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between transition ${
+              activeMenu === "community"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
+            }`}
+          >
+            <span className="flex items-center gap-2.5">
+              <Building2 className="w-4 h-4 shrink-0" />
+              <span>Community Profile</span>
+            </span>
+          </button>
+        )}
+
         {(isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
           <button
             type="button"
@@ -193,7 +217,7 @@ export function AdminSidebar({
           >
             <span className="flex items-center gap-2.5">
               <UserCheck className="w-4 h-4 shrink-0" />
-              <span>{isSuperadminUser ? "Partners & Team" : "Coaches & Team"}</span>
+              <span>{isSuperadminUser ? "Communities & Team" : "Coaches & Team"}</span>
             </span>
           </button>
         )}

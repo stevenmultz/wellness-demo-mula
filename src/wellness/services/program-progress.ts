@@ -108,10 +108,11 @@ export async function submitDayProgressService(
     };
   }
 
-  const { isCalendarUnlocked, isPast2359 } = getProgramDayWibWindow(
-    programDay.program.startAt,
-    programDay.dayNumber
-  );
+  const isAnytimeOnline =
+    programDay.program.locationType === "ONLINE" || !programDay.program.startAt;
+  const { isCalendarUnlocked, isPast2359 } = isAnytimeOnline
+    ? { isCalendarUnlocked: true, isPast2359: false }
+    : getProgramDayWibWindow(programDay.program.startAt!, programDay.dayNumber);
 
   if (!isCalendarUnlocked) {
     return {
@@ -265,7 +266,7 @@ export async function submitDayProgressService(
   return {
     success: true,
     message: progress.isCompleted
-      ? programDay.completedReminder || "Day marked as completed! Excellent job."
+      ? `Day ${programDay.dayNumber} completed! Great consistency.`
       : "Daily progress saved.",
     data: {
       ...progress,
@@ -318,6 +319,7 @@ export async function getProgramSubmissionsService(
         programDay: { programId, ...dayNumberFilter },
         ...userFilter,
       },
+      take: limit * 20,
       include: {
         customTask: { select: { id: true, title: true, taskType: true } },
       },

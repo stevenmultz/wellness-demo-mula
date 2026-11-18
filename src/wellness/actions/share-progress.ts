@@ -6,7 +6,8 @@ import { prisma } from "../db";
 import { BRAND } from "../brand";
 import { getAppUrl } from "../config";
 import { requireAuth } from "../security/guards";
-import { sendTransactionalEmail } from "../integrations/email-service";
+import { checkDistributedRateLimit } from "../security/rate-limit";
+import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { recordAuditLog } from "../integrations/audit-log";
 import type { WellnessActionResult } from "./auth";
@@ -43,8 +44,8 @@ export interface SharedProgramProgressItem {
   category: string;
   coachName: string;
   durationDays: number;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   completedDaysCount: number;
   days: SharedDaySummary[];
 }
@@ -87,6 +88,7 @@ export async function wellnessGetShareProgressOverview(): Promise<
   const [outgoingRows, incomingRows] = await Promise.all([
     prisma.userProgressShare.findMany({
       where: { ownerUserId: session.userId, status: "ACTIVE" },
+      take: 50,
       include: {
         viewer: { select: { fullName: true } },
       },
@@ -96,9 +98,10 @@ export async function wellnessGetShareProgressOverview(): Promise<
       ? prisma.userProgressShare.findMany({
           where: {
             status: "ACTIVE",
-            viewerEmail: { equals: normalizedEmail, mode: "insensitive" },
+            viewerEmail: normalizedEmail,
             owner: { deletedAt: null, status: "ACTIVE" },
           },
+          take: 50,
           include: {
             owner: {
               select: {
@@ -106,6 +109,7 @@ export async function wellnessGetShareProgressOverview(): Promise<
                 fullName: true,
                 enrollments: {
                   where: { status: "ACTIVE" },
+                  take: 25,
                   include: {
                     program: {
                       select: {
@@ -140,12 +144,23 @@ export async function wellnessGetShareProgressOverview(): Promise<
   ]);
 
   // Note: nested `progresses` inside `program.days` must be filtered strictly to `owner.id`
-  // Fetch owner day progresses explicitly per ownerUserId so no other member's rows are ever read!
+  // Fetch owner day progresses explicitly per ownerUserId and shared day IDs so no other rows are read!
   const ownerIds = Array.from(new Set(incomingRows.map((r) => r.owner.id)));
+  const sharedDayIds = Array.from(
+    new Set(
+      incomingRows.flatMap((r) =>
+        r.owner.enrollments.flatMap((e) => e.program.days.map((d) => d.id))
+      )
+    )
+  );
   const ownerProgressRows =
-    ownerIds.length > 0
+    ownerIds.length > 0 && sharedDayIds.length > 0
       ? await prisma.programDayProgress.findMany({
-          where: { userId: { in: ownerIds } },
+          where: {
+            userId: { in: ownerIds },
+            programDayId: { in: sharedDayIds },
+          },
+          take: 2000,
           select: {
             userId: true,
             programDayId: true,
@@ -203,8 +218,8 @@ export async function wellnessGetShareProgressOverview(): Promise<
               coachName:
                 p.coaches.map((c) => c.coach.name).filter(Boolean).join(", ") || "Wellness Coach",
               durationDays: p.durationDays,
-              startDate: p.startAt.toISOString(),
-              endDate: p.endAt.toISOString(),
+              startDate: p.startAt ? p.startAt.toISOString() : null,
+              endDate: p.endAt ? p.endAt.toISOString() : null,
               completedDaysCount: days.filter((d) => d.isCompleted).length,
               days,
             };
@@ -248,6 +263,17 @@ export async function wellnessCreateProgressShare(
     return {
       success: false,
       message: "You cannot share progress with your own email address.",
+    };
+  }
+
+  const rl = await checkDistributedRateLimit(`share-progress:${session.userId}`, {
+    maxRequests: 10,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!rl.allowed) {
+    return {
+      success: false,
+      message: "Too many Share Progress invitations sent recently. Please wait 15 minutes.",
     };
   }
 
@@ -318,10 +344,12 @@ export async function wellnessCreateProgressShare(
   }
 
   const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeSenderName = escapeHtml(session.fullName);
+  const safeViewerEmail = escapeHtml(viewerEmail);
   await sendTransactionalEmail({
     to: viewerEmail,
     subject: `${BRAND.fullName} — ${session.fullName} shared their progress with you`,
-    html: `<p>Hi,</p><p><strong>${session.fullName}</strong> invited you to view their read-only wellness progress on ${BRAND.fullName}.</p><p>Sign in with <strong>${viewerEmail}</strong> at <a href="${dashboardUrl}">${dashboardUrl}</a> and open <em>Profile → Share Progress</em> to view.</p>`,
+    html: `<p>Hi,</p><p><strong>${safeSenderName}</strong> invited you to view their read-only wellness progress on ${BRAND.fullName}.</p><p>Sign in with <strong>${safeViewerEmail}</strong> at <a href="${dashboardUrl}">${dashboardUrl}</a> and open <em>Profile → Share Progress</em> to view.</p>`,
     text: `${session.fullName} shared their wellness progress with you. Sign in with ${viewerEmail} at ${dashboardUrl} to view.`,
   }).catch(() => null);
 

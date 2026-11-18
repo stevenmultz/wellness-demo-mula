@@ -102,7 +102,7 @@ if (!selectedCustomerProgramId) {
                         {e.attendanceMode || e.program?.locationType || "ONLINE"}
                       </span>
                     </div>
-                    {e.program?.locationType === "ONSITE" && e.program?.venueAddress && (
+                    {e.program?.locationType === "HYBRID" && e.program?.venueAddress && (
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-zinc-400" />
                         <span>{e.program.venueAddress}{e.program.city ? `, ${e.program.city}` : ""}</span>

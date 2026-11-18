@@ -27,12 +27,22 @@ export async function saveProgramDayService(
 
   const parentProgram = await prisma.program.findFirst({
     where: { id: d.programId, deletedAt: null },
-    select: { id: true, durationDays: true },
+    select: { id: true, durationDays: true, locationType: true },
   });
   if (!parentProgram) {
     return { success: false, message: "Program not found." };
   }
-  if (d.dayNumber > parentProgram.durationDays) {
+  if (
+    parentProgram.locationType === "ONLINE" &&
+    (d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY")
+  ) {
+    return {
+      success: false,
+      message:
+        "Connect Day is only available for Hybrid programs. Full Online programs support Training and Rest days only.",
+    };
+  }
+  if (parentProgram.locationType !== "ONLINE" && d.dayNumber > parentProgram.durationDays) {
     return {
       success: false,
       message: `Day ${d.dayNumber} exceeds the program's ${parentProgram.durationDays}-day duration.`,
@@ -59,18 +69,6 @@ export async function saveProgramDayService(
     };
   }
 
-  let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
-  if (d.translations) {
-    try {
-      parsedTranslations =
-        typeof d.translations === "string"
-          ? (JSON.parse(d.translations) as Prisma.InputJsonValue)
-          : (d.translations as Prisma.InputJsonValue);
-    } catch {
-      parsedTranslations = undefined;
-    }
-  }
-
   const sharedDayFields = {
     title: d.title.trim(),
     dayType: d.dayType,
@@ -80,13 +78,6 @@ export async function saveProgramDayService(
     videoUrl: d.videoUrl?.trim() || null,
     videoChecklistJson: (d.videoChecklist || []) as Prisma.InputJsonValue,
     mealRecommendation: d.mealRecommendation?.trim() || null,
-    dailyAssessment: d.dailyAssessment?.trim() || null,
-    pendingReminder:
-      d.pendingReminder?.trim() ||
-      `Day ${d.dayNumber} is unlocked! Complete your routine before 23:59.`,
-    completedReminder:
-      d.completedReminder?.trim() ||
-      `Day ${d.dayNumber} completed! Great consistency.`,
     meetupLink: d.meetupLink?.trim() || null,
     mapLink: d.mapLink?.trim() || null,
     onsiteVenue: d.onsiteVenue?.trim() || null,
@@ -95,11 +86,11 @@ export async function saveProgramDayService(
     eventHost: d.eventHost?.trim() || null,
     eventDetails: d.eventDetails?.trim() || null,
     restInstructions: d.restInstructions?.trim() || null,
-    coachName: d.dayType === "REST_DAY" ? null : d.coachName?.trim() || null,
-    recommendedFor: d.dayType === "REST_DAY" ? null : d.recommendedFor?.trim() || null,
   };
 
   const savedDay = await prisma.$transaction(async (tx) => {
+    await lockProgramRow(tx, d.programId);
+
     const dayRow = await tx.programDay.upsert({
       where: {
         programId_dayNumber: {
@@ -111,14 +102,24 @@ export async function saveProgramDayService(
         programId: d.programId,
         dayNumber: d.dayNumber,
         ...sharedDayFields,
-        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
       },
       update: {
         ...sharedDayFields,
         version: { increment: 1 },
-        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
       },
     });
+
+    if (parentProgram.locationType === "ONLINE") {
+      const agg = await tx.programDay.aggregate({
+        where: { programId: d.programId },
+        _count: { id: true },
+      });
+      const syncedCount = Math.max(1, agg._count.id);
+      await tx.program.update({
+        where: { id: d.programId },
+        data: { durationDays: syncedCount },
+      });
+    }
 
     if (d.customTasks !== undefined) {
       const incomingIds = d.customTasks
@@ -237,9 +238,24 @@ export async function deleteProgramDayService(
     }
 
     await tx.programDay.delete({ where: { id: existingDay.id } });
+    const remainingAgg = await tx.programDay.aggregate({
+      where: { programId },
+      _max: { dayNumber: true },
+      _count: { id: true },
+    });
+    const parentMeta = await tx.program.findUnique({
+      where: { id: programId },
+      select: { locationType: true, durationDays: true },
+    });
     await tx.program.update({
       where: { id: programId },
-      data: { status: "DRAFT", version: { increment: 1 } },
+      data: {
+        status: "DRAFT",
+        version: { increment: 1 },
+        ...(parentMeta?.locationType === "ONLINE"
+          ? { durationDays: Math.max(1, remainingAgg._count.id) }
+          : {}),
+      },
     });
 
     return {

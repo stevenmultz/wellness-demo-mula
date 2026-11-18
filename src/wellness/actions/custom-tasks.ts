@@ -19,7 +19,7 @@ import type { WellnessActionResult } from "./auth";
 const SubmitCustomTaskSchema = z.object({
   programDayId: z.string().min(1),
   customTaskId: z.string().min(1),
-  values: z.record(z.unknown()),
+  values: z.record(z.string(), z.unknown()),
 });
 
 /**
@@ -70,10 +70,15 @@ export async function wellnessUserSubmitCustomTask(
     };
   }
 
-  const { isCalendarUnlocked, isPast2359 } = getProgramDayWibWindow(
-    customTask.programDay.program.startAt,
-    customTask.programDay.dayNumber
-  );
+  const isOnlineProgram =
+    customTask.programDay.program.locationType === "ONLINE" ||
+    !customTask.programDay.program.startAt;
+  const { isCalendarUnlocked, isPast2359 } = isOnlineProgram
+    ? { isCalendarUnlocked: true, isPast2359: false }
+    : getProgramDayWibWindow(
+        customTask.programDay.program.startAt!,
+        customTask.programDay.dayNumber
+      );
 
   if (!isCalendarUnlocked) {
     return {

@@ -67,7 +67,6 @@ export function filterAndSortAdminPrograms(
             category: p.category,
             dailyCommitment: p.dailyCommitment,
             coachName: p.coachName,
-            recommendedFor: p.recommendedFor,
             startDate: p.startDate,
             endDate: p.endDate,
             registrationDeadline: p.registrationDeadline,
@@ -236,10 +235,8 @@ export function buildAdminBreadcrumbs({
     const activeDirectoryLabel =
       masterTab === "coaches"
         ? "Coaches"
-        : masterTab === "audience"
-        ? "Target Audience"
         : masterTab === "categories"
-        ? "Categories"
+        ? "Sports"
         : masterTab === "equipment"
         ? "Equipment"
         : masterTab === "organizations"
@@ -274,6 +271,8 @@ export function buildAdminBreadcrumbs({
     }
   } else if (activeMenu === "payments") {
     items.push({ label: "Payments", isCurrent: true });
+  } else if (activeMenu === "community") {
+    items.push({ label: "Community Profile", isCurrent: true });
   } else if (activeMenu === "team") {
     items.push({ label: "Team & Coaches", isCurrent: true });
   }

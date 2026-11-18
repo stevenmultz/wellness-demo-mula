@@ -8,10 +8,9 @@ import {
   Coffee,
   Dumbbell,
   MapPin,
-  Sparkles,
-  UserCheck,
 } from "lucide-react";
 import type { MasterDataPayload } from "@/wellness/actions/master";
+import type { ProgramTemplateDTO } from "@/wellness/actions/templates";
 import {
   getDefaultNotificationsForType,
   type AdminDayFormState,
@@ -22,13 +21,13 @@ import {
   getSectionBadgeClass,
   getSectionCardClass,
   getSectionHeaderClass,
-  parseTagList,
   renderSectionProgressBadge,
 } from "../adminUtils";
 import { AdminDaySelectorBar } from "./AdminDaySelectorBar";
 import { AdminDayTrainingSection } from "./AdminDayTrainingSection";
 import { AdminDayRestAndConnectSection } from "./AdminDayRestAndConnectSection";
 import { AdminDayCurriculumTailSections } from "./AdminDayCurriculumTailSections";
+import { ProgramTemplateBar } from "./ProgramTemplateBar";
 
 interface AdminDayCurriculumTabProps {
   selectedProgram: AdminProgram;
@@ -43,6 +42,10 @@ interface AdminDayCurriculumTabProps {
   handleSaveDay: (prog: AdminProgram, goToNextDay?: boolean) => void;
   savingDay: boolean;
   dayError: string | null;
+  templates: ProgramTemplateDTO[];
+  onApplyDayTemplate: (tpl: ProgramTemplateDTO) => void;
+  onSaveDayTemplate: (name: string, dayForm: AdminDayFormState) => Promise<boolean>;
+  onDeleteTemplate: (id: string) => Promise<void>;
 }
 
 export function AdminDayCurriculumTab({
@@ -58,7 +61,12 @@ export function AdminDayCurriculumTab({
   handleSaveDay,
   savingDay,
   dayError,
+  templates,
+  onApplyDayTemplate,
+  onSaveDayTemplate,
+  onDeleteTemplate,
 }: AdminDayCurriculumTabProps) {
+  void masterData;
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       <AdminDaySelectorBar
@@ -66,6 +74,14 @@ export function AdminDayCurriculumTab({
         selectedDayNum={selectedDayNum}
         dayForm={dayForm}
         handleSelectDay={handleSelectDay}
+      />
+
+      <ProgramTemplateBar
+        templateType="DAY_ROUTINE"
+        templates={templates}
+        onApply={onApplyDayTemplate}
+        onSaveAsTemplate={(name) => onSaveDayTemplate(name, dayForm)}
+        onDeleteTemplate={onDeleteTemplate}
       />
 
 {/* Day Content Form (5-Point Accordion) */}
@@ -95,11 +111,15 @@ export function AdminDayCurriculumTab({
               label: "Rest",
               icon: Coffee,
             },
-            {
-              value: "CONNECTION_DAY",
-              label: "Connect",
-              icon: MapPin,
-            },
+            ...(selectedProgram.locationType === "HYBRID"
+              ? [
+                  {
+                    value: "CONNECTION_DAY" as const,
+                    label: "Connect",
+                    icon: MapPin,
+                  },
+                ]
+              : []),
           ] as const
         ).map((typeOpt) => {
           const Icon = typeOpt.icon;
@@ -132,6 +152,13 @@ export function AdminDayCurriculumTab({
           );
         })}
       </div>
+      {selectedProgram.locationType === "ONLINE" &&
+        (dayForm.dayType === "CONNECTION_DAY" ||
+          dayForm.dayType === "MEETUP_DAY") && (
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            Full Online programs do not support Connect days. Switch this day to Training or Rest.
+          </p>
+        )}
     </div>
   </div>
 
@@ -148,10 +175,12 @@ export function AdminDayCurriculumTab({
           <span className={getSectionBadgeClass(1)}>1</span>
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
-              Day Identity &amp; Coach Assignment
+              {selectedProgram.locationType === "ONLINE" ? "Module Title" : "Day Title"}
             </h4>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Day title, assigned coach for today, and target focus persona
+              {selectedProgram.locationType === "ONLINE"
+                ? `Name for Module ${selectedDayNum}`
+                : `Name for Day ${selectedDayNum}`}
             </p>
           </div>
         </div>
@@ -170,90 +199,20 @@ export function AdminDayCurriculumTab({
 
       {expandedDaySections[1] && (
         <div className="p-5 sm:p-6 pt-0 space-y-5 border-t border-zinc-100 dark:border-white/10">
-          <div className="pt-4 grid md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Day Title *
-              </label>
-              <input
-                type="text"
-                placeholder={`Enter day ${selectedDayNum} title...`}
-                value={dayForm.title}
-                onChange={(e) =>
-                  setDayForm((p) => ({ ...p, title: e.target.value }))
-                }
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                English Title (Optional — EN Translation)
-              </label>
-              <input
-                type="text"
-                placeholder={`English title for Day ${selectedDayNum}...`}
-                value={dayForm.titleEn}
-                onChange={(e) =>
-                  setDayForm((p) => ({ ...p, titleEn: e.target.value }))
-                }
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
-              />
-            </div>
+          <div className="pt-4 space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              {selectedProgram.locationType === "ONLINE" ? "Module Title *" : "Day Title *"}
+            </label>
+            <input
+              type="text"
+              placeholder={`Enter ${selectedProgram.locationType === "ONLINE" ? "module" : "day"} ${selectedDayNum} title...`}
+              value={dayForm.title}
+              onChange={(e) =>
+                setDayForm((p) => ({ ...p, title: e.target.value }))
+              }
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+            />
           </div>
-
-          {/* Assigned Coach & Focus Target for Today (Hidden for REST_DAY) */}
-          {dayForm.dayType !== "REST_DAY" && (
-            <div className="grid md:grid-cols-2 gap-4 pt-1">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                  <span>Assigned Coach for Day {selectedDayNum}</span>
-                </label>
-
-                <select
-                  value={dayForm.coachName}
-                  onChange={(e) =>
-                    setDayForm((p) => ({ ...p, coachName: e.target.value }))
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                >
-                  <option value="">— Select Coach for Today —</option>
-                  {parseTagList(selectedProgram.coachName).map((coach, idx) => (
-                    <option key={idx} value={coach}>
-                      {coach}
-                    </option>
-                  ))}
-                  {masterData.coaches
-                    .filter(
-                      (mc) =>
-                        !parseTagList(selectedProgram.coachName).includes(mc.name)
-                    )
-                    .map((mc) => (
-                      <option key={mc.id} value={mc.name}>
-                        {mc.name} ({mc.title})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                  <span>Day Focus</span>
-                </label>
-
-                <input
-                  type="text"
-                  placeholder="Enter day focus"
-                  value={dayForm.recommendedFor}
-                  onChange={(e) =>
-                    setDayForm((p) => ({ ...p, recommendedFor: e.target.value }))
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

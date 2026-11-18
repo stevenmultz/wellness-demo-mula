@@ -40,27 +40,15 @@ import {
   matches,
   PAGE_SIZE,
   PRICE_BANDS,
+  splitCoachTokens,
   type ExploreProgram,
   type Filters,
   type LoadState,
 } from "./explore/exploreFilters";
 import { ExploreFilterDialog } from "./explore/ExploreFilterDialog";
 import { ExploreCoachesView } from "./explore/ExploreCoachesView";
-import {
-  ExploreOrganizationsView,
-  type ExploreOrganization,
-} from "./explore/ExploreOrganizationsView";
-import {
-  ExploreCategoriesView,
-  type ExploreCategory,
-} from "./explore/ExploreCategoriesView";
 
-export type ExploreViewMode =
-  | "intro"
-  | "catalog"
-  | "coaches"
-  | "organizations"
-  | "categories";
+export type ExploreViewMode = "intro" | "catalog" | "coaches";
 
 export function ExplorePlanTab({
   headerVisible,
@@ -101,22 +89,15 @@ export function ExplorePlanTab({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [coachSearch, setCoachSearch] = useState("");
-  const [orgSearch, setOrgSearch] = useState("");
-  const [categorySearch, setCategorySearch] = useState("");
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
-  const [selectedOrganization, setSelectedOrganization] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
   const [coachPage, setCoachPage] = useState(1);
-  const [orgPage, setOrgPage] = useState(1);
-  const [categoryPage, setCategoryPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [organizations, setOrganizations] = useState<ExploreOrganization[]>([]);
-  const [categories, setCategories] = useState<ExploreCategory[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -126,7 +107,7 @@ export function ExplorePlanTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, applied, selectedCoach, selectedOrganization]);
+  }, [debouncedSearch, applied, selectedCoach]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -151,17 +132,12 @@ export function ExplorePlanTab({
     }
     try {
       const params = new URLSearchParams();
+      params.set("limit", "100");
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/explore/programs?${params.toString()}`, { signal, cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load plans.");
       setState({ status: "ready", programs: json.programs as ExploreProgram[] });
-      if (Array.isArray(json.organizations)) {
-        setOrganizations(json.organizations as ExploreOrganization[]);
-      }
-      if (Array.isArray(json.categories)) {
-        setCategories(json.categories as ExploreCategory[]);
-      }
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       setState((prev) =>
@@ -191,36 +167,37 @@ export function ExplorePlanTab({
   });
 
   const catalog = useMemo(() => (state.status === "ready" ? state.programs : []), [state]);
-  const supported = useMemo(() => computeSupportedFilterOptions(catalog), [catalog]);
 
   const availableCoaches = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { name: string; avatar: string }>();
     catalog.forEach((p) => {
-      if (p.coachName) {
-        const name = p.coachName.trim();
-        if (!map.has(name)) {
-          map.set(name, coachAvatarFor(name));
+      for (const name of splitCoachTokens(p.coachName)) {
+        const key = name.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, { name, avatar: coachAvatarFor(name) });
         }
       }
     });
-    if (!map.has("Julian Thorne")) map.set("Julian Thorne", "/coach.webp");
-    if (!map.has("Dr. Marcus Vance")) map.set("Dr. Marcus Vance", "/coach2.webp");
-    if (!map.has("Elena Rostova")) map.set("Elena Rostova", "/coach3.webp");
-    return Array.from(map.entries()).map(([name, avatar]) => ({ name, avatar }));
+    return Array.from(map.values());
   }, [catalog]);
 
-  const filtered = catalog.filter((p) => {
-    if (selectedCoach && p.coachName.trim().toLowerCase() !== selectedCoach.trim().toLowerCase()) {
-      return false;
-    }
-    if (
-      selectedOrganization &&
-      (p.organizationName ?? "").trim().toLowerCase() !== selectedOrganization.trim().toLowerCase()
-    ) {
-      return false;
-    }
-    return matches(p, applied);
-  });
+  const coachScopedCatalog = useMemo(
+    () =>
+      selectedCoach
+        ? catalog.filter((p) =>
+            splitCoachTokens(p.coachName).some(
+              (c) => c.toLowerCase() === selectedCoach.trim().toLowerCase()
+            )
+          )
+        : catalog,
+    [catalog, selectedCoach]
+  );
+  const supported = useMemo(
+    () => computeSupportedFilterOptions(coachScopedCatalog),
+    [coachScopedCatalog]
+  );
+
+  const filtered = coachScopedCatalog.filter((p) => matches(p, applied));
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages);
   const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -240,11 +217,6 @@ export function ExplorePlanTab({
       setPage(1);
       return;
     }
-    if (key === "organization") {
-      setSelectedOrganization(null);
-      setPage(1);
-      return;
-    }
     setApplied((f) => {
       const list = f[key as keyof Filters];
       if (!Array.isArray(list) || !value) return f;
@@ -257,9 +229,6 @@ export function ExplorePlanTab({
     ...(selectedCoach
       ? [{ key: "coach", value: selectedCoach, label: `${t.explore.coachPrefix}: ${selectedCoach}` }]
       : []),
-    ...(selectedOrganization
-      ? [{ key: "organization", value: selectedOrganization, label: `${t.explore.communityPrefix}: ${selectedOrganization}` }]
-      : []),
     ...applied.format.map((value) => ({ key: "format", value, label: FORMAT_OPTIONS.find((o) => o.id === value)?.label || value })),
     ...applied.intensity.map((value) => ({ key: "intensity", value, label: value })),
     ...applied.category.map((value) => ({ key: "category", value, label: `${t.explore.categoryPrefix}: ${value}` })),
@@ -271,6 +240,7 @@ export function ExplorePlanTab({
     })),
     ...applied.experience.map((value) => ({ key: "experience", value, label: value })),
     ...applied.schedule.map((value) => ({ key: "schedule", value, label: value })),
+    ...applied.availability.map((value) => ({ key: "availability", value, label: value })),
   ];
 
   return (
@@ -304,52 +274,6 @@ export function ExplorePlanTab({
                 }}
                 placeholder={t.explore.searchCoachPlaceholder}
                 aria-label={t.explore.searchCoachPlaceholder}
-                maxLength={100}
-                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
-              />
-            </div>
-          </div>
-        ) : mode === "organizations" ? (
-          <div className="w-full flex items-center gap-2">
-            <HeaderBackButton
-              onClick={() => setMode("intro")}
-              ariaLabel={t.common.back}
-            />
-            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
-              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-              <input
-                type="search"
-                inputMode="search"
-                value={orgSearch}
-                onChange={(e) => {
-                  setOrgSearch(e.target.value);
-                  setOrgPage(1);
-                }}
-                placeholder={t.explore.searchCommunityPlaceholder}
-                aria-label={t.explore.searchCommunityPlaceholder}
-                maxLength={100}
-                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
-              />
-            </div>
-          </div>
-        ) : mode === "categories" ? (
-          <div className="w-full flex items-center gap-2">
-            <HeaderBackButton
-              onClick={() => setMode("intro")}
-              ariaLabel={t.common.back}
-            />
-            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/15 px-3 h-9">
-              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-              <input
-                type="search"
-                inputMode="search"
-                value={categorySearch}
-                onChange={(e) => {
-                  setCategorySearch(e.target.value);
-                  setCategoryPage(1);
-                }}
-                placeholder={t.explore.searchCategoryPlaceholder}
-                aria-label={t.explore.searchCategoryPlaceholder}
                 maxLength={100}
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-xs placeholder:text-zinc-500"
               />
@@ -447,7 +371,6 @@ export function ExplorePlanTab({
                   type="button"
                   onClick={() => {
                     setSelectedCoach(null);
-                    setSelectedOrganization(null);
                     setApplied(EMPTY);
                     setDraft(EMPTY);
                     setPage(1);
@@ -457,19 +380,6 @@ export function ExplorePlanTab({
                 >
                   <span>{t.explore.optAllPlans}</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOrgSearch("");
-                    setOrgPage(1);
-                    setMode("organizations");
-                  }}
-                  className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-                >
-                  <span>{t.explore.optAllCommunity}</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
 
                 <button
@@ -489,7 +399,6 @@ export function ExplorePlanTab({
                   type="button"
                   onClick={() => {
                     setSelectedCoach(null);
-                    setSelectedOrganization(null);
                     const freeFilters = { ...EMPTY, price: ["free"] };
                     setApplied(freeFilters);
                     setDraft(freeFilters);
@@ -499,19 +408,6 @@ export function ExplorePlanTab({
                   className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
                 >
                   <span>{t.explore.optFreePlan}</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCategorySearch("");
-                    setCategoryPage(1);
-                    setMode("categories");
-                  }}
-                  className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
-                >
-                  <span>{t.explore.optFilterCategory}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
@@ -531,52 +427,6 @@ export function ExplorePlanTab({
           onChangeCoachPage={setCoachPage}
           onSelectCoach={(name) => {
             setSelectedCoach(name);
-            setSelectedOrganization(null);
-            setPage(1);
-            setMode("catalog");
-          }}
-          pullDistance={pullDistance}
-          refreshing={refreshing}
-          loadStatus={state.status}
-        />
-      ) : mode === "organizations" ? (
-        <ExploreOrganizationsView
-          organizations={organizations}
-          catalog={catalog}
-          orgSearch={orgSearch}
-          onResetSearch={() => {
-            setOrgSearch("");
-            setOrgPage(1);
-          }}
-          orgPage={orgPage}
-          onChangeOrgPage={setOrgPage}
-          onSelectOrganization={(name) => {
-            setSelectedOrganization(name);
-            setSelectedCoach(null);
-            setPage(1);
-            setMode("catalog");
-          }}
-          pullDistance={pullDistance}
-          refreshing={refreshing}
-          loadStatus={state.status}
-        />
-      ) : mode === "categories" ? (
-        <ExploreCategoriesView
-          categories={categories}
-          catalog={catalog}
-          categorySearch={categorySearch}
-          onResetSearch={() => {
-            setCategorySearch("");
-            setCategoryPage(1);
-          }}
-          categoryPage={categoryPage}
-          onChangeCategoryPage={setCategoryPage}
-          onSelectCategory={(name) => {
-            setSelectedCoach(null);
-            setSelectedOrganization(null);
-            const nextFilters = { ...EMPTY, category: [name] };
-            setApplied(nextFilters);
-            setDraft(nextFilters);
             setPage(1);
             setMode("catalog");
           }}
@@ -590,7 +440,7 @@ export function ExplorePlanTab({
       <ExploreFilterDialog
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        catalog={catalog}
+        catalog={coachScopedCatalog}
         supported={supported}
         draft={draft}
         setDraft={setDraft}
@@ -598,8 +448,6 @@ export function ExplorePlanTab({
         onToggle={toggle}
         onReset={() => {
           setDraft(EMPTY);
-          setApplied(EMPTY);
-          setPage(1);
         }}
         onApply={() => {
           setApplied(draft);
@@ -700,7 +548,11 @@ export function ExplorePlanTab({
                     key={cat}
                     type="button"
                     onClick={() => {
-                      const nextCats = isSelected ? [] : [cat];
+                      const nextCats = isSelected
+                        ? applied.category.filter(
+                            (c) => c.toLowerCase() !== cat.toLowerCase()
+                          )
+                        : [...applied.category, cat];
                       setApplied((f) => ({ ...f, category: nextCats }));
                       setDraft((f) => ({ ...f, category: nextCats }));
                       setPage(1);
@@ -738,23 +590,22 @@ export function ExplorePlanTab({
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
             title={
-              debouncedSearch || activeCount || selectedCoach || selectedOrganization
+              debouncedSearch || activeCount || selectedCoach
                 ? t.explore.noPlansMatch
                 : t.explore.noPlansYet
             }
             description={
-              debouncedSearch || activeCount || selectedCoach || selectedOrganization
+              debouncedSearch || activeCount || selectedCoach
                 ? t.explore.noPlansMatchDesc
                 : t.explore.noPlansYetDesc
             }
             action={
-              activeCount || debouncedSearch || selectedCoach || selectedOrganization ? (
+              activeCount || debouncedSearch || selectedCoach ? (
                 <button
                   type="button"
                   onClick={() => {
                     setSearch("");
                     setSelectedCoach(null);
-                    setSelectedOrganization(null);
                     setApplied(EMPTY);
                     setDraft(EMPTY);
                   }}
@@ -772,8 +623,9 @@ export function ExplorePlanTab({
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {visible.map((p) => {
                 const meta = getPublicBadgeMeta(p.badge as PublicProgramBadge);
-                const locLabel = p.locationType === "ONLINE" ? "Online" : p.locationType === "HYBRID" ? "Hybrid" : "Onsite";
-                const cityLabel = p.city || (p.locationType === "ONLINE" ? "Global" : null);
+                const isOnline = p.locationType === "ONLINE";
+                const locLabel = isOnline ? "Online" : "Hybrid";
+                const cityLabel = isOnline ? "Anytime" : p.city;
                 const isExpanded = !!expandedIds[p.id];
 
                 return (
@@ -827,10 +679,27 @@ export function ExplorePlanTab({
                     <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          {p.organizationName && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-0.5">
-                              {p.organizationName}
-                            </span>
+                          {(p.organizationName || p.batchNumber) && (
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                              {p.organizationName && (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                                  {p.organizationLogo && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={p.organizationLogo}
+                                      alt={p.organizationName}
+                                      className="w-4 h-4 rounded-full object-contain bg-white border border-zinc-200/80 shrink-0"
+                                    />
+                                  )}
+                                  <span>{p.organizationName}</span>
+                                </span>
+                              )}
+                              {p.batchNumber ? (
+                                <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase text-zinc-700 dark:text-zinc-200">
+                                  Batch {p.batchNumber}
+                                </span>
+                              ) : null}
+                            </div>
                           )}
                           <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
                             {p.title}
@@ -870,7 +739,9 @@ export function ExplorePlanTab({
                                 <span>Schedule</span>
                               </dt>
                               <dd className="text-right font-mono tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
-                                {formatDateWib(p.startDate)} – {formatDateWib(p.endDate)} · {p.durationDays}d
+                                {isOnline || !p.startDate
+                                  ? `${t.explore.anytimeAccess} · ${p.durationDays} Modules`
+                                  : `${formatDateWib(p.startDate)} – ${formatDateWib(p.endDate)} · ${p.durationDays}d`}
                               </dd>
                             </div>
                             <div className="flex items-center justify-between gap-3">
@@ -883,27 +754,35 @@ export function ExplorePlanTab({
                                 {(p.minQuota ?? 1) > 1 ? ` · Min ${p.minQuota}` : ""}
                               </dd>
                             </div>
-                            <div className="flex items-start justify-between gap-3">
-                              <dt className="text-zinc-500 dark:text-zinc-400 shrink-0">Recommended</dt>
-                              <dd className="text-right font-medium text-zinc-900 dark:text-zinc-100">
-                                {p.recommendedFor || "All Levels"}
-                              </dd>
-                            </div>
+                            {p.category && (
+                              <div className="flex items-start justify-between gap-3">
+                                <dt className="text-zinc-500 dark:text-zinc-400 shrink-0">
+                                  {t.explore.categoryPrefix}
+                                </dt>
+                                <dd className="text-right font-medium text-zinc-900 dark:text-zinc-100">
+                                  {p.category}
+                                </dd>
+                              </div>
+                            )}
                           </dl>
 
-                          <div className="grid grid-cols-3 gap-2 pt-2.5 border-t border-zinc-200/80 dark:border-white/10 text-center">
+                          <div
+                            className={`grid ${isOnline ? "grid-cols-2" : "grid-cols-3"} gap-2 pt-2.5 border-t border-zinc-200/80 dark:border-white/10 text-center`}
+                          >
                             <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
                               <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
                                 {p.trainingDaysTotal ?? 0}
                               </span>
                               <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Training</span>
                             </div>
-                            <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
-                              <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
-                                {p.connectDaysTotal ?? 0}
-                              </span>
-                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Connect</span>
-                            </div>
+                            {!isOnline && (
+                              <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
+                                <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
+                                  {p.connectDaysTotal ?? 0}
+                                </span>
+                                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Connect</span>
+                              </div>
+                            )}
                             <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
                               <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
                                 {p.restDaysTotal ?? 0}

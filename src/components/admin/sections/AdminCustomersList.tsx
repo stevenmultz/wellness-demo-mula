@@ -210,8 +210,10 @@ export function AdminCustomersList({
                       <img
                         src={coverSrc}
                         alt={m.fullName}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = fallbackCover;
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
                         }}
                         className="w-full h-full object-cover object-center scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
                       />

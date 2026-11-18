@@ -16,8 +16,8 @@ export interface UnderQuotaProgramItem {
   minQuota: number;
   maxQuota: number;
   activeSubscribers: number;
-  startAt: string;
-  registrationDeadlineAt: string;
+  startAt: string | null;
+  registrationDeadlineAt: string | null;
 }
 
 export interface AdminRefundTransactionItem {
@@ -114,8 +114,10 @@ export async function wellnessAdminGetRefundDashboardData(): Promise<
       minQuota: p.minQuota,
       maxQuota: p.maxQuota,
       activeSubscribers: p._count.enrollments,
-      startAt: p.startAt.toISOString(),
-      registrationDeadlineAt: p.registrationDeadlineAt.toISOString(),
+      startAt: p.startAt ? p.startAt.toISOString() : null,
+      registrationDeadlineAt: p.registrationDeadlineAt
+        ? p.registrationDeadlineAt.toISOString()
+        : null,
     }));
 
   const transactions: AdminRefundTransactionItem[] = txRows.map((tx) => ({
@@ -356,8 +358,14 @@ export async function wellnessAdminRecordManualRefund(
       if (!existing) {
         throw new Error("Payment transaction not found.");
       }
-      if (!["SETTLEMENT", "MANUAL_APPROVED", "REFUND_REQUESTED"].includes(existing.status)) {
-        throw new Error(`Cannot refund transaction in status ${existing.status}.`);
+      await lockProgramRow(tx, existing.programId);
+
+      const freshTx = await tx.paymentTransaction.findUnique({
+        where: { id: transactionId },
+        select: { status: true, grossAmount: true },
+      });
+      if (!freshTx || !["SETTLEMENT", "MANUAL_APPROVED", "REFUND_REQUESTED"].includes(freshTx.status)) {
+        throw new Error(`Cannot refund transaction in status ${freshTx?.status || existing.status}.`);
       }
       if (refundAmount > existing.grossAmount) {
         throw new Error(

@@ -1,4 +1,5 @@
 import type { MasterDataPayload } from "@/wellness/actions/master";
+import type { ProgramTemplateDTO } from "@/wellness/actions/templates";
 import type {
   DayVideoLinkItem,
   ProgramReferenceItem,
@@ -86,9 +87,6 @@ export interface AdminProgramDay {
   videoUrl: string | null;
   videoChecklist: string[];
   mealRecommendation: string | null;
-  dailyAssessment: string | null;
-  pendingReminder: string | null;
-  completedReminder: string | null;
   meetupLink: string | null;
   mapLink?: string | null;
   onsiteVenue: string | null;
@@ -97,9 +95,6 @@ export interface AdminProgramDay {
   eventHost?: string | null;
   eventDetails?: string | null;
   restInstructions: string | null;
-  coachName?: string | null;
-  recommendedFor?: string | null;
-  translations?: string | null;
   customTasks?: ProgramDayCustomTaskDTO[];
   responseCount?: number;
 }
@@ -107,20 +102,19 @@ export interface AdminProgramDay {
 export interface AdminProgram {
   id: string;
   title: string;
+  batchNumber?: number | null;
   slug: string;
   description: string;
   coverImage?: string | null;
+  introVideoUrl?: string | null;
   difficultyLevel?: string | null;
   category?: string | null;
   equipment?: string | null;
   dailyCommitment?: string | null;
-  recommendedFor: string;
   coachName: string;
   coachTitle?: string | null;
   organizationId?: string | null;
   organizationCache?: string | null;
-  language?: string | null;
-  translations?: string | null;
   durationDays: number;
   actualPrice?: number;
   discountPercentage?: number;
@@ -131,8 +125,6 @@ export interface AdminProgram {
   locationType?: string | null;
   city?: string | null;
   venueAddress?: string | null;
-  virtualFallbackAvailable?: boolean | null;
-  termsType?: string | null;
   customTerms?: string | null;
   termsList?: string[];
   targetState?: string | null;
@@ -140,10 +132,10 @@ export interface AdminProgram {
   expectedBenefits?: string[];
   scientificReferences?: ProgramReferenceItem[];
   programGuidelines?: string[];
-  startDate: Date | string;
-  endDate: Date | string;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
   registrationOpenDate?: Date | string | null;
-  registrationDeadline: Date | string;
+  registrationDeadline: Date | string | null;
   status?: string;
   isPublished: boolean;
   dayCount: number;
@@ -230,7 +222,6 @@ export interface AdminInitialRoute {
   masterTab?:
     | "coaches"
     | "organizations"
-    | "audience"
     | "categories"
     | "equipment"
     | "commitments";
@@ -260,6 +251,7 @@ export interface AdminClientProps {
   initialUsers: AdminUserItem[];
   initialPrograms: AdminProgram[];
   initialMasterData: MasterDataPayload;
+  initialTemplates?: ProgramTemplateDTO[];
   initialSupportRequests?: AdminSupportRequestItem[];
   currentAdminId: string;
   currentAdminRole?: string;
@@ -284,7 +276,14 @@ export const DIFFICULTY_LEVELS = [
   },
 ] as const;
 
-export type AdminMenuKey = "dashboard" | "programs" | "master" | "members" | "payments" | "team";
+export type AdminMenuKey =
+  | "dashboard"
+  | "programs"
+  | "master"
+  | "members"
+  | "payments"
+  | "team"
+  | "community";
 
 export interface AdminBreadcrumbItem {
   label: string;
@@ -316,6 +315,7 @@ export interface AdminPublishModalState {
 
 export interface ProgramHeaderFormState {
   title: string;
+  batchNumber: number | null;
   description: string;
   targetState: string;
   methodology: string;
@@ -323,6 +323,7 @@ export interface ProgramHeaderFormState {
   scientificReferences: ProgramReferenceItem[];
   programGuidelines: string[];
   coverImage: string;
+  introVideoUrl: string;
   difficultyLevel: string;
   category: string;
   equipment: string;
@@ -331,10 +332,6 @@ export interface ProgramHeaderFormState {
   coachTitle: string;
   organizationId: string;
   organizationCache: string;
-  language: "id" | "en" | "bilingual";
-  titleEn: string;
-  descriptionEn: string;
-  recommendedFor: string;
   durationDays: number;
   startDate: string;
   endDate: string;
@@ -346,11 +343,9 @@ export interface ProgramHeaderFormState {
   minQuota?: number;
   maxQuota: number;
   communityLink: string;
-  locationType: "ONLINE" | "ONSITE" | "HYBRID";
+  locationType: "ONLINE" | "HYBRID";
   city: string;
   venueAddress: string;
-  virtualFallbackAvailable: boolean;
-  termsType: "STANDARD" | "CUSTOM";
   customTerms: string;
   termsList: string[];
   termsChapters: ProgramTermChapter[];
@@ -360,14 +355,11 @@ export interface ProgramHeaderFormState {
 export interface AdminDayFormState {
   title: string;
   dayType: "TRAINING_DAY" | "REST_DAY" | "CONNECTION_DAY" | "MEETUP_DAY";
-  coachName: string;
-  recommendedFor: string;
   videoUrl: string;
   videoLinks: DayVideoLinkItem[];
   workoutGroups: WorkoutOptionGroup[];
   videoChecklist: string[];
   mealRecommendation: string;
-  dailyAssessment: string;
   workoutOptions: string[];
   sleepRecommendation: string;
   dayNotifications: DayNotificationState[];
@@ -379,8 +371,5 @@ export interface AdminDayFormState {
   eventTitle: string;
   eventHost: string;
   eventDetails: string;
-  pendingReminder: string;
-  completedReminder: string;
-  titleEn: string;
   customTasks: AdminCustomTaskDraft[];
 }

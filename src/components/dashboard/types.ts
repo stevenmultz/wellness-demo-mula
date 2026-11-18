@@ -15,9 +15,6 @@ export interface ProgramDayItem {
   videoUrl: string | null;
   videoChecklist: string[];
   mealRecommendation: string | null;
-  dailyAssessment: string | null;
-  pendingReminder: string | null;
-  completedReminder: string | null;
   meetupLink: string | null;
   mapLink?: string | null;
   onsiteVenue: string | null;
@@ -26,8 +23,6 @@ export interface ProgramDayItem {
   eventHost?: string | null;
   eventDetails?: string | null;
   restInstructions: string | null;
-  coachName?: string | null;
-  recommendedFor?: string | null;
   dayNotifications?: Array<{ time: string; message: string; label?: string }>;
   customTasks?: ProgramDayCustomTaskDTO[];
   userProgress?: {
@@ -52,16 +47,16 @@ export interface ProgramDayItem {
 export interface ProgramItem {
   id: string;
   title: string;
+  batchNumber?: number | null;
   slug: string;
   description: string;
   coverImage?: string | null;
-  recommendedFor?: string;
+  introVideoUrl?: string | null;
   coachName: string;
   coachTitle?: string | null;
   organizationName?: string | null;
   organizationLogo?: string | null;
   organizationVerified?: boolean;
-  language?: string;
   category?: string;
   difficultyLevel?: string;
   dailyCommitment?: string | null;
@@ -72,18 +67,15 @@ export interface ProgramItem {
   minQuota?: number;
   maxQuota: number;
   equipment?: string | null;
-  audience?: string | null;
-  termsType?: string | null;
   enrolledCount: number;
   locationType?: string;
   city?: string | null;
   venueAddress?: string | null;
-  virtualFallbackAvailable?: boolean;
   communityLink: string | null;
-  startDate: Date | string;
-  endDate: Date | string;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
   registrationOpenDate?: Date | string | null;
-  registrationDeadline: Date | string;
+  registrationDeadline: Date | string | null;
   status?: string;
   dayCount: number;
   targetState?: string | null;
@@ -101,9 +93,11 @@ export interface EnrollmentItem {
   enrollmentId: string;
   programId: string;
   title: string;
+  batchNumber?: number | null;
   slug: string;
   description: string;
   coverImage?: string | null;
+  introVideoUrl?: string | null;
   coachName: string;
   organizationName?: string | null;
   organizationLogo?: string | null;
@@ -114,13 +108,12 @@ export interface EnrollmentItem {
   locationType?: string;
   city?: string | null;
   venueAddress?: string | null;
-  virtualFallbackAvailable?: boolean;
   attendanceMode?: string;
   communityLink: string | null;
   dayCount: number;
-  startDate: Date | string;
-  endDate: Date | string;
-  registrationDeadline: Date | string;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
+  registrationDeadline: Date | string | null;
   status: string;
   paymentReference: string | null;
   invoiceExpiresAt: Date | string | null;

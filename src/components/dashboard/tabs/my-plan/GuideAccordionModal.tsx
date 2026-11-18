@@ -12,6 +12,7 @@ import {
   Video,
 } from "lucide-react";
 import { HeaderBackButton, safeHttpUrl } from "../shared";
+import { ProgramIntroVideoPlayer } from "../ProgramIntroVideoPlayer";
 import {
   formatIntensityBadge,
   formatMealNoteSummary,
@@ -402,20 +403,21 @@ export function GuideAccordionModal({
 
         {activePage === "overview" && (
           <div className="space-y-4">
+            {program.introVideoUrl && (
+              <ProgramIntroVideoPlayer
+                videoUrl={program.introVideoUrl}
+                fallbackImage={program.coverImage}
+                coachName={program.coachName}
+                programTitle={program.title}
+              />
+            )}
+
             <GuideAccordion
               title="Logistics & Commitment"
               open={!!openSections["ov-logistics"]}
               onToggle={() => toggleSection("ov-logistics")}
             >
               <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
-                <div className="py-3.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">
-                    Target Audience
-                  </dt>
-                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
-                    {program.recommendedFor || program.audience || "All Levels • Mindful Longevity"}
-                  </dd>
-                </div>
                 <div className="py-3.5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                   <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">
                     Daily Commitment
@@ -437,7 +439,9 @@ export function GuideAccordionModal({
                     Delivery &amp; Location
                   </dt>
                   <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
-                    {program.locationType || "Online Studio"}
+                    {program.locationType === "HYBRID"
+                      ? `Hybrid${program.city ? ` · ${program.city}` : ""}`
+                      : "Full Online · Anytime Access"}
                   </dd>
                 </div>
               </dl>

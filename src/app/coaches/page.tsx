@@ -74,7 +74,7 @@ const COACH_FALLBACK_IMAGES = [
 
 export default async function CoachesPage() {
   const { coaches } = await getPublicSanctuaryData();
-  const locale = getServerLocale();
+  const locale = await getServerLocale();
   const t = getDictionary(locale);
 
   const displayCoaches = (

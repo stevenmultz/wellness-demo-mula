@@ -3,6 +3,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MasterDataPayload } from "@/wellness/actions/master";
+import {
+  wellnessDeleteProgramTemplate,
+  wellnessSaveProgramTemplate,
+  type DayRoutineTemplatePayload,
+  type ProgramHeaderTemplatePayload,
+  type ProgramTemplateDTO,
+} from "@/wellness/actions/templates";
 import { wellnessSignOut } from "@/wellness/actions/auth";
 import { wellnessAdminUpdateSupportRequest } from "@/wellness/actions/support";
 import {
@@ -50,6 +57,7 @@ import { AdminDayCurriculumTab } from "./sections/AdminDayCurriculumTab";
 import { AdminProgramSubmissionsTab } from "./sections/AdminProgramSubmissionsTab";
 import { AdminCustomerDetailView } from "./sections/AdminCustomerDetailView";
 import { AdminTeamView } from "./sections/AdminTeamView";
+import { AdminOrganizationsManager } from "./AdminOrganizationsManager";
 import {
   useMasterDirectoryActions,
   type StandardMasterTab,
@@ -79,6 +87,7 @@ export function AdminClient({
   initialUsers,
   initialPrograms,
   initialMasterData,
+  initialTemplates = [],
   initialSupportRequests = [],
   currentAdminId,
   currentAdminRole = "USER",
@@ -95,6 +104,7 @@ export function AdminClient({
   );
   const [users, setUsers] = useState<AdminUserItem[]>(initialUsers);
   const [programs, setPrograms] = useState<AdminProgram[]>(initialPrograms);
+  const [templates, setTemplates] = useState<ProgramTemplateDTO[]>(initialTemplates);
   const [supportRequests, setSupportRequests] = useState<AdminSupportRequestItem[]>(
     initialSupportRequests
   );
@@ -102,7 +112,6 @@ export function AdminClient({
   const [masterData, setMasterData] = useState<MasterDataPayload>(
     initialMasterData || {
       coaches: [],
-      targetAudiences: [],
       categories: [],
       equipment: [],
       dailyCommitments: [],
@@ -179,6 +188,124 @@ export function AdminClient({
     setPrograms,
     setFeedback,
   });
+
+  const handleApplyHeaderTemplate = (
+    tpl: ProgramTemplateDTO,
+    target: "create" | "edit"
+  ) => {
+    if (tpl.templateType !== "PROGRAM_HEADER") return;
+    const p = (tpl.payload || {}) as ProgramHeaderTemplatePayload;
+    const updater = target === "create" ? programActions.setCreateForm : programActions.setMetaForm;
+    updater((prev) => ({
+      ...prev,
+      ...(typeof p.difficultyLevel === "string" ? { difficultyLevel: p.difficultyLevel } : {}),
+      ...(typeof p.category === "string" ? { category: p.category } : {}),
+      ...(typeof p.equipment === "string" ? { equipment: p.equipment } : {}),
+      ...(typeof p.dailyCommitment === "string" ? { dailyCommitment: p.dailyCommitment } : {}),
+      ...(typeof p.targetState === "string" ? { targetState: p.targetState } : {}),
+      ...(typeof p.methodology === "string" ? { methodology: p.methodology } : {}),
+      ...(Array.isArray(p.expectedBenefits) ? { expectedBenefits: p.expectedBenefits as string[] } : {}),
+      ...(Array.isArray(p.scientificReferences)
+        ? { scientificReferences: p.scientificReferences as typeof prev.scientificReferences }
+        : {}),
+      ...(Array.isArray(p.programGuidelines) ? { programGuidelines: p.programGuidelines as string[] } : {}),
+      ...(typeof p.communityLink === "string" ? { communityLink: p.communityLink } : {}),
+      ...(typeof p.customTerms === "string" ? { customTerms: p.customTerms } : {}),
+      ...(Array.isArray(p.termsList) ? { termsList: p.termsList as string[] } : {}),
+      ...(Array.isArray(p.termsChapters)
+        ? { termsChapters: p.termsChapters as typeof prev.termsChapters }
+        : {}),
+    }));
+    setFeedback({ type: "success", text: `Applied template "${tpl.name}".` });
+  };
+
+  const handleSaveHeaderTemplate = async (
+    name: string,
+    form: typeof programActions.createForm
+  ): Promise<boolean> => {
+    const res = await wellnessSaveProgramTemplate({
+      templateType: "PROGRAM_HEADER",
+      name,
+      organizationId: form.organizationId || currentAdminOrgId || null,
+      payload: {
+        difficultyLevel: form.difficultyLevel,
+        category: form.category,
+        equipment: form.equipment,
+        dailyCommitment: form.dailyCommitment,
+        targetState: form.targetState,
+        methodology: form.methodology,
+        expectedBenefits: form.expectedBenefits,
+        scientificReferences: form.scientificReferences,
+        programGuidelines: form.programGuidelines,
+        communityLink: form.communityLink,
+        customTerms: form.customTerms,
+        termsList: form.termsList,
+        termsChapters: form.termsChapters,
+      },
+    });
+    if (res.success && res.data) {
+      setTemplates((prev) => [res.data!, ...prev.filter((t) => t.id !== res.data!.id)]);
+      setFeedback({ type: "success", text: `Saved header template "${res.data.name}".` });
+      return true;
+    }
+    setFeedback({ type: "error", text: res.message || "Failed to save template." });
+    return false;
+  };
+
+  const handleApplyDayTemplate = (tpl: ProgramTemplateDTO) => {
+    if (tpl.templateType !== "DAY_ROUTINE") return;
+    const p = (tpl.payload || {}) as DayRoutineTemplatePayload;
+    dayActions.setDayForm((prev) => ({
+      ...prev,
+      ...(typeof p.dayType === "string" ? { dayType: p.dayType as typeof prev.dayType } : {}),
+      ...(typeof p.sleepRecommendation === "string" ? { sleepRecommendation: p.sleepRecommendation } : {}),
+      ...(typeof p.mealRecommendation === "string" ? { mealRecommendation: p.mealRecommendation } : {}),
+      ...(typeof p.restInstructions === "string" ? { restInstructions: p.restInstructions } : {}),
+      ...(Array.isArray(p.dayNotifications)
+        ? { dayNotifications: p.dayNotifications as typeof prev.dayNotifications }
+        : {}),
+      ...(Array.isArray(p.workoutGroups)
+        ? { workoutGroups: p.workoutGroups as typeof prev.workoutGroups }
+        : {}),
+    }));
+    setFeedback({ type: "success", text: `Applied routine template "${tpl.name}".` });
+  };
+
+  const handleSaveDayTemplate = async (
+    name: string,
+    dayForm: typeof dayActions.dayForm
+  ): Promise<boolean> => {
+    const res = await wellnessSaveProgramTemplate({
+      templateType: "DAY_ROUTINE",
+      name,
+      organizationId: selectedProgram?.organizationId || currentAdminOrgId || null,
+      payload: {
+        dayType: dayForm.dayType,
+        sleepRecommendation: dayForm.sleepRecommendation,
+        mealRecommendation: dayForm.mealRecommendation,
+        restInstructions: dayForm.restInstructions,
+        dayNotifications: dayForm.dayNotifications,
+        workoutGroups: dayForm.workoutGroups,
+      },
+    });
+    if (res.success && res.data) {
+      setTemplates((prev) => [res.data!, ...prev.filter((t) => t.id !== res.data!.id)]);
+      setFeedback({ type: "success", text: `Saved day routine template "${res.data.name}".` });
+      return true;
+    }
+    setFeedback({ type: "error", text: res.message || "Failed to save routine template." });
+    return false;
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    const res = await wellnessDeleteProgramTemplate(id);
+    if (res.success) {
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      setFeedback({ type: "success", text: "Template deleted." });
+    } else {
+      setFeedback({ type: "error", text: res.message || "Failed to delete template." });
+    }
+  };
 
   const navigateToDirectory = (tab: StandardMasterTab) => {
     setActiveMenu("master");
@@ -483,6 +610,8 @@ export function AdminClient({
             setIsCreatingProgram={setIsCreatingProgram}
             setSelectedProgramId={setSelectedProgramId}
             isSuperadminUser={isSuperadminUser}
+            duplicatingId={programActions.duplicatingId}
+            handleDuplicateProgram={programActions.handleDuplicateProgram}
             openProgramDetail={openProgramDetail}
           />
         )}
@@ -502,6 +631,10 @@ export function AdminClient({
             handleCreateProgramSubmit={handleCreateProgramAndOpen}
             creatingLoading={programActions.creatingLoading}
             createError={programActions.createError}
+            templates={templates}
+            onApplyHeaderTemplate={handleApplyHeaderTemplate}
+            onSaveHeaderTemplate={handleSaveHeaderTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
           />
         )}
 
@@ -535,8 +668,10 @@ export function AdminClient({
             setProgramDetailTab={setProgramDetailTab}
             selectedDayNum={dayActions.selectedDayNum}
             publishingId={programActions.publishingId}
+            duplicatingId={programActions.duplicatingId}
             deletingProgId={programActions.deletingProgId}
             handleInitiatePublish={programActions.handleInitiatePublish}
+            handleDuplicateProgram={programActions.handleDuplicateProgram}
             handleDeleteProgram={programActions.handleDeleteProgram}
             loadProgramSubmissions={submissionsActions.loadProgramSubmissions}
             submissionsCount={submissionsActions.programSubmissions.length}
@@ -558,6 +693,10 @@ export function AdminClient({
                 handleSaveMeta={programActions.handleSaveMeta}
                 savingMeta={programActions.savingMeta}
                 metaError={programActions.metaError}
+                templates={templates}
+                onApplyHeaderTemplate={handleApplyHeaderTemplate}
+                onSaveHeaderTemplate={handleSaveHeaderTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
               />
             )}
 
@@ -575,6 +714,10 @@ export function AdminClient({
                 handleSaveDay={dayActions.handleSaveDay}
                 savingDay={dayActions.savingDay}
                 dayError={dayActions.dayError}
+                templates={templates}
+                onApplyDayTemplate={handleApplyDayTemplate}
+                onSaveDayTemplate={handleSaveDayTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
               />
             )}
 
@@ -651,6 +794,20 @@ export function AdminClient({
             handleToggleUserStatus={customerActions.handleToggleUserStatus}
             handleDeleteUser={customerActions.handleDeleteUser}
           />
+        )}
+
+        {activeMenu === "community" && (isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
+          <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-6">
+            <AdminOrganizationsManager
+              organizations={masterData.organizations || []}
+              isSuperadmin={isSuperadminUser}
+              currentAdminOrgId={currentAdminOrgId}
+              onUpdated={(next) =>
+                setMasterData((prev) => ({ ...prev, organizations: next }))
+              }
+              onNotify={setFeedback}
+            />
+          </div>
         )}
 
         {activeMenu === "team" && (isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (

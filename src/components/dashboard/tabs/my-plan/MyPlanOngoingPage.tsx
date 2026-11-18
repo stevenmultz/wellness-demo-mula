@@ -70,10 +70,27 @@ export function MyPlanOngoingPage({
 
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-4">
                     <div className="space-y-1">
-                      {p.organizationName && (
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                          {p.organizationName}
-                        </span>
+                      {(p.organizationName || p.batchNumber) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {p.organizationName && (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                              {p.organizationLogo && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={p.organizationLogo}
+                                  alt={p.organizationName}
+                                  className="w-4 h-4 rounded-full object-contain bg-white border border-zinc-200/80 shrink-0"
+                                />
+                              )}
+                              <span>{p.organizationName}</span>
+                            </span>
+                          )}
+                          {p.batchNumber ? (
+                            <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase text-zinc-700 dark:text-zinc-200">
+                              Batch {p.batchNumber}
+                            </span>
+                          ) : null}
+                        </div>
                       )}
                       <h2 className="text-base font-semibold text-zinc-950 dark:text-white leading-snug line-clamp-2">
                         {p.title}

@@ -3,10 +3,12 @@
 import type { Dispatch, SetStateAction } from "react";
 import { AlertCircle, Loader2, Lock, Save } from "lucide-react";
 import type { MasterDataPayload } from "@/wellness/actions/master";
+import type { ProgramTemplateDTO } from "@/wellness/actions/templates";
 import type { AdminProgram, ProgramHeaderFormState } from "../adminTypes";
 import type { StandardMasterTab } from "../hooks/useMasterDirectoryActions";
 import { ProgramFormCoreSections } from "./ProgramFormCoreSections";
 import { ProgramFormLogisticsSections } from "./ProgramFormLogisticsSections";
+import { ProgramTemplateBar } from "./ProgramTemplateBar";
 
 interface AdminProgramInfoTabProps {
   selectedProgram: AdminProgram;
@@ -24,6 +26,10 @@ interface AdminProgramInfoTabProps {
   handleSaveMeta: (prog: AdminProgram) => Promise<void>;
   savingMeta: boolean;
   metaError: string | null;
+  templates: ProgramTemplateDTO[];
+  onApplyHeaderTemplate: (tpl: ProgramTemplateDTO, target: "create" | "edit") => void;
+  onSaveHeaderTemplate: (name: string, form: ProgramHeaderFormState) => Promise<boolean>;
+  onDeleteTemplate: (id: string) => Promise<void>;
 }
 
 export function AdminProgramInfoTab({
@@ -42,6 +48,10 @@ export function AdminProgramInfoTab({
   handleSaveMeta,
   savingMeta,
   metaError,
+  templates,
+  onApplyHeaderTemplate,
+  onSaveHeaderTemplate,
+  onDeleteTemplate,
 }: AdminProgramInfoTabProps) {
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -105,6 +115,15 @@ export function AdminProgramInfoTab({
           </button>
         </div>
       </div>
+
+      <ProgramTemplateBar
+        templateType="PROGRAM_HEADER"
+        templates={templates}
+        disabled={selectedProgram.isPublished}
+        onApply={(tpl) => onApplyHeaderTemplate(tpl, "edit")}
+        onSaveAsTemplate={(name) => onSaveHeaderTemplate(name, metaForm)}
+        onDeleteTemplate={onDeleteTemplate}
+      />
 
       <form
         onSubmit={(e) => {

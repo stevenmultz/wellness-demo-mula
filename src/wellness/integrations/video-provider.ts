@@ -20,6 +20,14 @@ export interface NormalizedVideoEmbed {
  * - https://www.youtube.com/embed/sTANio_2E0Q
  * - https://www.youtube.com/shorts/sTANio_2E0Q
  */
+const SAFE_YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{6,16}$/;
+
+function sanitizeYouTubeId(candidate?: string | null): string | null {
+  if (!candidate) return null;
+  const trimmed = candidate.trim();
+  return SAFE_YOUTUBE_ID_RE.test(trimmed) ? trimmed : null;
+}
+
 export function extractYouTubeId(rawUrl: string): string | null {
   try {
     let trimmed = rawUrl.trim();
@@ -40,7 +48,7 @@ export function extractYouTubeId(rawUrl: string): string | null {
 
     if (host === "youtu.be" || host === "www.youtu.be") {
       const id = url.pathname.split("/").filter(Boolean)[0];
-      return id || null;
+      return sanitizeYouTubeId(id);
     }
 
     if (
@@ -51,12 +59,12 @@ export function extractYouTubeId(rawUrl: string): string | null {
       host === "www.youtube-nocookie.com"
     ) {
       const vParam = url.searchParams.get("v");
-      if (vParam) return vParam;
+      if (vParam) return sanitizeYouTubeId(vParam);
 
       const segments = url.pathname.split("/").filter(Boolean);
       const embedIdx = segments.findIndex((s) => s === "embed" || s === "shorts" || s === "v");
       if (embedIdx !== -1 && segments[embedIdx + 1]) {
-        return segments[embedIdx + 1];
+        return sanitizeYouTubeId(segments[embedIdx + 1]);
       }
     }
   } catch {
@@ -64,7 +72,7 @@ export function extractYouTubeId(rawUrl: string): string | null {
     const match = rawUrl.match(
       /(?:^|\/\/|(?:www\.|m\.)?)(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i
     );
-    return match ? match[1] : null;
+    return sanitizeYouTubeId(match ? match[1] : null);
   }
   return null;
 }

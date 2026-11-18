@@ -155,10 +155,8 @@ export function QrisCheckoutModal({
     }
   };
 
-  const isHybridOrOnsite =
-    programLocationType === "ONSITE" ||
+  const isHybridProgram =
     programLocationType === "HYBRID" ||
-    currentInvoice.locationType === "ONSITE" ||
     currentInvoice.locationType === "HYBRID";
 
   return (
@@ -199,8 +197,8 @@ export function QrisCheckoutModal({
               {currentInvoice.programTitle}
             </h4>
 
-            {/* Attendance Modality Selector (On-Site vs Virtual) */}
-            {isHybridOrOnsite && (
+            {/* Attendance Modality Selector (Hybrid: In-Studio vs Virtual) */}
+            {isHybridProgram && (
               <div className="pt-2 border-t border-zinc-200/70 dark:border-white/10 space-y-2">
                 <span className="text-micro uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400 block font-mono">
                   Attendance Modality:

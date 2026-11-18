@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { prisma, lockProgramRow } from "../db";
 import { requireAuth } from "../security/guards";
+import { checkDistributedRateLimit } from "../security/rate-limit";
 import { hashPassword, verifyPassword } from "../security/password";
 import { createSessionToken, setSessionCookie, clearSessionCookie } from "../security/session";
 import { UpdateProfileSchema, ChangePasswordSchema, DeleteAccountSchema, calculateAgeFromDob } from "../validators/auth";
@@ -133,6 +134,17 @@ export async function wellnessChangePassword(
 
   const { currentPassword, newPassword } = validation.data;
 
+  const pwdRl = await checkDistributedRateLimit(`changepwd:${session.userId}`, {
+    maxRequests: 6,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!pwdRl.allowed) {
+    return {
+      success: false,
+      message: "Too many password change attempts. Please wait 15 minutes.",
+    };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: { passwordHash: true, tokenVersion: true, email: true, role: true },
@@ -231,6 +243,7 @@ export async function wellnessEnrollProgram(
 
   const publicBadge = resolvePublicBadge({
     status: program.status,
+    locationType: program.locationType,
     registrationOpenDate: program.registrationOpenAt,
     registrationDeadline: program.registrationDeadlineAt,
     startDate: program.startAt,
@@ -258,24 +271,39 @@ export async function wellnessEnrollProgram(
       message: "Registration for this cohort batch has closed.",
     };
   }
-  if (isRegistrationClosedInWib(program.registrationDeadlineAt)) {
+  if (
+    program.locationType === "HYBRID" &&
+    program.registrationDeadlineAt &&
+    isRegistrationClosedInWib(program.registrationDeadlineAt)
+  ) {
     return {
       success: false,
       message: "Registration for this cohort batch has closed.",
     };
   }
 
+  const effectiveAttendanceMode = program.locationType === "ONLINE" ? "VIRTUAL" : attendanceMode;
+
   // Free Program: Atomic activation
   if (program.price <= 0) {
     const paidAt = new Date();
     const validUntilAt =
-      program.endAt > paidAt
-        ? program.endAt
-        : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+      program.locationType === "ONLINE" || !program.endAt
+        ? null
+        : program.endAt > paidAt
+          ? program.endAt
+          : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
 
     try {
       const enrollment = await prisma.$transaction(async (tx) => {
         await lockProgramRow(tx, program.id);
+        const freshProgram = await tx.program.findFirst({
+          where: { id: program.id, status: "PUBLISHED", deletedAt: null },
+          select: { maxQuota: true, price: true },
+        });
+        if (!freshProgram || freshProgram.price > 0) {
+          throw new Error("This cohort program is no longer eligible for free enrollment.");
+        }
         const txExisting = await tx.programEnrollment.findUnique({
           where: { userId_programId: { userId: session.userId, programId: program.id } },
         });
@@ -286,9 +314,9 @@ export async function wellnessEnrollProgram(
         const liveActiveCount = await tx.programEnrollment.count({
           where: { programId: program.id, status: "ACTIVE" },
         });
-        if (liveActiveCount >= program.maxQuota) {
+        if (liveActiveCount >= freshProgram.maxQuota) {
           throw new Error(
-            `This cohort batch has reached its maximum quota of ${program.maxQuota} participants.`
+            `This cohort batch has reached its maximum quota of ${freshProgram.maxQuota} participants.`
           );
         }
 
@@ -299,7 +327,7 @@ export async function wellnessEnrollProgram(
               where: { id: txExisting.id },
               data: {
                 status: "ACTIVE",
-                attendanceMode,
+                attendanceMode: effectiveAttendanceMode,
                 paymentReference: freeRef,
                 paidAt,
                 validUntilAt,
@@ -312,7 +340,7 @@ export async function wellnessEnrollProgram(
                 userId: session.userId,
                 programId: program.id,
                 status: "ACTIVE",
-                attendanceMode,
+                attendanceMode: effectiveAttendanceMode,
                 paymentReference: freeRef,
                 paidAt,
                 validUntilAt,
@@ -377,6 +405,13 @@ export async function wellnessEnrollProgram(
     const provider = getPaymentProvider();
     const { enrollment, paymentTx, reusedValidInvoice } = await prisma.$transaction(async (tx) => {
       await lockProgramRow(tx, program.id);
+      const freshProgram = await tx.program.findFirst({
+        where: { id: program.id, status: "PUBLISHED", deletedAt: null },
+        select: { maxQuota: true, price: true },
+      });
+      if (!freshProgram) {
+        throw new Error("This cohort program is no longer open for public enrollment.");
+      }
       const txNow = new Date();
 
       const txExisting = await tx.programEnrollment.findUnique({
@@ -408,9 +443,9 @@ export async function wellnessEnrollProgram(
         },
       });
 
-      if (liveHoldCount >= program.maxQuota) {
+      if (liveHoldCount >= freshProgram.maxQuota) {
         throw new Error(
-          `This cohort batch has reached its maximum quota of ${program.maxQuota} participants (including active checkout holds).`
+          `This cohort batch has reached its maximum quota of ${freshProgram.maxQuota} participants (including active checkout holds).`
         );
       }
 
@@ -421,11 +456,12 @@ export async function wellnessEnrollProgram(
         txExisting.invoiceExpiresAt &&
         txNow < txExisting.invoiceExpiresAt &&
         activePendingTx &&
-        activePendingTx.grossAmount === program.price
+        activePendingTx.grossAmount === freshProgram.price &&
+        (provider !== "MIDTRANS" || Boolean(activePendingTx.qrisStringOrUrl))
       ) {
         const refreshed = await tx.programEnrollment.update({
           where: { id: txExisting.id },
-          data: { attendanceMode },
+          data: { attendanceMode: effectiveAttendanceMode },
         });
         return { enrollment: refreshed, paymentTx: activePendingTx, reusedValidInvoice: true };
       }
@@ -438,7 +474,7 @@ export async function wellnessEnrollProgram(
             where: { id: txExisting.id },
             data: {
               status: "PENDING",
-              attendanceMode,
+              attendanceMode: effectiveAttendanceMode,
               paymentReference: newOrderId,
               invoiceExpiresAt: provisionalExpiresAt,
             },
@@ -448,7 +484,7 @@ export async function wellnessEnrollProgram(
               userId: session.userId,
               programId: program.id,
               status: "PENDING",
-              attendanceMode,
+              attendanceMode: effectiveAttendanceMode,
               paymentReference: newOrderId,
               invoiceExpiresAt: provisionalExpiresAt,
             },
@@ -600,7 +636,11 @@ export async function wellnessConfirmQrisPayment(
     };
   }
 
-  if (isRegistrationClosedInWib(enrollment.program.registrationDeadlineAt)) {
+  if (
+    enrollment.program.locationType === "HYBRID" &&
+    enrollment.program.registrationDeadlineAt &&
+    isRegistrationClosedInWib(enrollment.program.registrationDeadlineAt)
+  ) {
     return {
       success: false,
       message: "Registration for this cohort batch has closed.",
@@ -643,9 +683,11 @@ export async function wellnessConfirmQrisPayment(
 
       const paidAt = new Date();
       const validUntilAt =
-        enrollment.program.endAt > paidAt
-          ? enrollment.program.endAt
-          : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+        enrollment.program.locationType === "ONLINE" || !enrollment.program.endAt
+          ? null
+          : enrollment.program.endAt > paidAt
+            ? enrollment.program.endAt
+            : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
 
       if (current.paymentReference) {
         await tx.paymentTransaction.updateMany({
@@ -729,6 +771,17 @@ export async function wellnessDeleteAccount(
   }
 
   const { password } = validation.data;
+
+  const delRl = await checkDistributedRateLimit(`delaccount:${session.userId}`, {
+    maxRequests: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!delRl.allowed) {
+    return {
+      success: false,
+      message: "Too many account deletion attempts. Please wait 15 minutes.",
+    };
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },

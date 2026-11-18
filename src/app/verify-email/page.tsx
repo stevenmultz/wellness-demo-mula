@@ -6,9 +6,10 @@ export const dynamic = "force-dynamic";
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams?: { token?: string };
+  searchParams?: Promise<{ token?: string }>;
 }) {
-  const token = searchParams?.token || "";
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const token = resolvedSearchParams?.token || "";
   const result = token
     ? await wellnessVerifyEmailToken(token)
     : { success: false, message: "Verification token is missing from the link." };

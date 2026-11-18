@@ -239,6 +239,11 @@ export function AdminDayCurriculumTailSections({
 
       {expandedDaySections[5] && (
         <div className="p-5 sm:p-6 pt-0 space-y-4 border-t border-zinc-100 dark:border-white/10">
+          {(selectedProgram.locationType || "ONLINE") === "ONLINE" && (
+            <div className="mt-4 p-3 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 text-[11px] text-zinc-600 dark:text-zinc-300">
+              Full Online mode: these WIB reminders fire daily for each member&apos;s current incomplete module until they complete the program.
+            </div>
+          )}
           <div className="space-y-3.5 pt-4">
             {(dayForm.dayNotifications || []).map((notif, idx) => {
               const isEvenNotif = (idx + 1) % 2 === 0;

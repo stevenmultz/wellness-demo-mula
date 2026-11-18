@@ -294,9 +294,11 @@ export async function wellnessAdminApprovePayment(
 
       const paidAt = new Date();
       const validUntilAt =
-        enrollment.program.endAt > paidAt
-          ? enrollment.program.endAt
-          : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+        enrollment.program.locationType === "ONLINE" || !enrollment.program.endAt
+          ? null
+          : enrollment.program.endAt > paidAt
+            ? enrollment.program.endAt
+            : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
 
       if (enrollment.paymentReference) {
         await tx.paymentTransaction.updateMany({

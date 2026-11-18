@@ -1,15 +1,16 @@
 export interface ExploreProgram {
   id: string;
   title: string;
+  batchNumber?: number | null;
   coverImage: string | null;
+  introVideoUrl?: string | null;
   coachName: string;
   organizationName?: string | null;
   organizationLogo?: string | null;
   organizationVerified?: boolean;
-  language?: string;
-  startDate: string;
-  endDate: string;
-  registrationDeadline: string;
+  startDate: string | null;
+  endDate: string | null;
+  registrationDeadline: string | null;
   price: number;
   actualPrice?: number;
   discountPercentage?: number;
@@ -24,7 +25,6 @@ export interface ExploreProgram {
   enrollmentStatus: "ACTIVE" | "PENDING" | null;
   difficultyLevel: string;
   category: string;
-  recommendedFor: string;
   dailyCommitment: string | null;
   trainingDaysTotal?: number;
   connectDaysTotal?: number;
@@ -41,7 +41,6 @@ export const PAGE_SIZE = 8;
 export const FORMAT_OPTIONS = [
   { id: "ONLINE", label: "Full Online" },
   { id: "HYBRID", label: "Hybrid (Online + Onsite)" },
-  { id: "ONSITE", label: "Full Onsite" },
 ] as const;
 
 export const INTENSITY_OPTIONS = ["Low", "Moderate", "High", "Very High"] as const;
@@ -74,6 +73,11 @@ export const EXPERIENCE_OPTIONS = [
   "All Levels",
 ] as const;
 export const SCHEDULE_OPTIONS = ["Flexible Schedule", "Fixed Schedule"] as const;
+export const AVAILABILITY_OPTIONS = [
+  "Open Registration",
+  "Enrolled",
+  "Full / Closed",
+] as const;
 
 export type Filters = {
   format: string[];
@@ -83,6 +87,7 @@ export type Filters = {
   price: string[];
   experience: string[];
   schedule: string[];
+  availability: string[];
 };
 
 export const EMPTY: Filters = {
@@ -93,6 +98,7 @@ export const EMPTY: Filters = {
   price: [],
   experience: [],
   schedule: [],
+  availability: [],
 };
 
 export interface SupportedFilterOptions {
@@ -102,6 +108,7 @@ export interface SupportedFilterOptions {
   duration: Array<(typeof DURATION_OPTIONS)[number]>;
   experience: Array<(typeof EXPERIENCE_OPTIONS)[number]>;
   schedule: Array<(typeof SCHEDULE_OPTIONS)[number]>;
+  availability: Array<(typeof AVAILABILITY_OPTIONS)[number]>;
   price: boolean;
 }
 
@@ -117,15 +124,14 @@ export function intensityOf(level: string): (typeof INTENSITY_OPTIONS)[number] {
   const value = (level || "").toUpperCase();
   if (value.includes("HIGH")) return "Very High";
   if (value === "ADVANCED") return "High";
-  if (value === "INTERMEDIATE") return "High";
-  if (value === "MODERATE") return "Moderate";
+  if (value === "INTERMEDIATE" || value === "MODERATE") return "Moderate";
   return "Low";
 }
 
 export function experienceOf(program: ExploreProgram): string[] {
   const tags: string[] = [];
   const level = (program.difficultyLevel || "").toUpperCase();
-  const text = `${program.recommendedFor || ""} ${program.difficultyLevel || ""}`.toLowerCase();
+  const text = (program.difficultyLevel || "").toLowerCase();
   if (text.includes("all level")) tags.push("All Levels");
   if (level === "BEGINNER" || text.includes("beginner")) tags.push("Beginner");
   if (
@@ -159,11 +165,31 @@ export function durationOf(days: number): string {
   return "Custom Duration";
 }
 
-export function scheduleOf(program: ExploreProgram): string | null {
-  const text = `${program.dailyCommitment || ""} ${program.recommendedFor || ""}`.toLowerCase();
-  if (text.includes("flex")) return "Flexible Schedule";
-  if (text.includes("fixed")) return "Fixed Schedule";
-  return null;
+export function scheduleOf(program: ExploreProgram): (typeof SCHEDULE_OPTIONS)[number] {
+  return program.locationType === "ONLINE" ? "Flexible Schedule" : "Fixed Schedule";
+}
+
+export function availabilityOf(program: ExploreProgram): (typeof AVAILABILITY_OPTIONS)[number] {
+  if (program.enrollmentStatus === "ACTIVE") return "Enrolled";
+  if (program.canEnroll) return "Open Registration";
+  return "Full / Closed";
+}
+
+export function splitCoachTokens(coachName?: string | null): string[] {
+  const raw = (coachName || "").trim();
+  if (!raw) return [];
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const part of raw.split(",")) {
+    const clean = part.trim();
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      tokens.push(clean);
+    }
+  }
+  return tokens;
 }
 
 export function countActive(f: Filters): number {
@@ -174,7 +200,8 @@ export function countActive(f: Filters): number {
     f.duration.length +
     f.price.length +
     f.experience.length +
-    f.schedule.length
+    f.schedule.length +
+    f.availability.length
   );
 }
 
@@ -200,9 +227,11 @@ export function matches(program: ExploreProgram, f: Filters): boolean {
   ) {
     return false;
   }
-  if (f.schedule.length) {
-    const s = scheduleOf(program);
-    if (!s || !f.schedule.includes(s)) return false;
+  if (f.schedule.length && !f.schedule.includes(scheduleOf(program))) {
+    return false;
+  }
+  if (f.availability.length && !f.availability.includes(availabilityOf(program))) {
+    return false;
   }
   if (f.price.length && !f.price.includes(priceBand(program.price))) return false;
   return true;
@@ -220,7 +249,8 @@ export function computeSupportedFilterOptions(
   }
   const durations = new Set(catalog.map((p) => durationOf(p.durationDays)));
   const experiences = new Set(catalog.flatMap(experienceOf));
-  const schedules = new Set(catalog.map(scheduleOf).filter(Boolean) as string[]);
+  const schedules = new Set(catalog.map(scheduleOf));
+  const availabilities = new Set(catalog.map(availabilityOf));
 
   return {
     format: FORMAT_OPTIONS.filter((o) => formats.has(o.id)),
@@ -229,6 +259,7 @@ export function computeSupportedFilterOptions(
     duration: DURATION_OPTIONS.filter((o) => durations.has(o)),
     experience: EXPERIENCE_OPTIONS.filter((o) => experiences.has(o)),
     schedule: SCHEDULE_OPTIONS.filter((o) => schedules.has(o)),
+    availability: AVAILABILITY_OPTIONS.filter((o) => availabilities.has(o)),
     price: catalog.some((p) => p.price <= 0) || catalog.some((p) => p.price > 0),
   };
 }

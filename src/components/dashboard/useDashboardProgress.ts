@@ -1,10 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { wellnessUserSubmitDayProgress } from "@/wellness/actions/program";
+import { wellnessUserSubmitDayProgress as rawWellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { ActionNotice, ProgramDayItem, ProgramItem } from "./types";
+
+async function wellnessUserSubmitDayProgress(
+  payload: Parameters<typeof rawWellnessUserSubmitDayProgress>[0]
+): ReturnType<typeof rawWellnessUserSubmitDayProgress> {
+  try {
+    return await rawWellnessUserSubmitDayProgress(payload);
+  } catch {
+    return {
+      success: false,
+      message: "Network error while saving progress. Please check your connection and try again.",
+    };
+  }
+}
 
 interface UseDashboardProgressParams {
   currentProgram: ProgramItem | null;
@@ -81,7 +94,8 @@ export function useDashboardProgress({
     }
     if (day.userProgress?.checklistCompleted) {
       try {
-        return JSON.parse(day.userProgress.checklistCompleted);
+        const parsed = JSON.parse(day.userProgress.checklistCompleted);
+        return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
       } catch {
         return [];
       }

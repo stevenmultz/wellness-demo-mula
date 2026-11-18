@@ -275,8 +275,10 @@ export function AdminPaymentsView({
                     </span>
                   </div>
                   <p className="text-[11px] font-mono text-zinc-500">
-                    {prog.price === 0 ? "Free" : `Rp ${prog.price.toLocaleString("id-ID")}`} • Cutoff{" "}
-                    {new Date(prog.registrationDeadlineAt).toLocaleDateString("id-ID")}
+                    {prog.price === 0 ? "Free" : `Rp ${prog.price.toLocaleString("id-ID")}`} •{" "}
+                    {prog.registrationDeadlineAt
+                      ? `Cutoff ${new Date(prog.registrationDeadlineAt).toLocaleDateString("id-ID")}`
+                      : "Anytime Access"}
                   </p>
                 </div>
 

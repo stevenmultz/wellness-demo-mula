@@ -62,10 +62,11 @@ self.addEventListener("fetch", (event) => {
 
   // Instant Cache-First for splash wallpaper & icons (background-updated when online)
   if (
-    url.pathname === "/image.webp" ||
-    url.pathname === "/icon-192.png" ||
-    url.pathname === "/icon-512.png" ||
-    url.pathname === "/apple-touch-icon.png"
+    url.origin === self.location.origin &&
+    (url.pathname === "/image.webp" ||
+      url.pathname === "/icon-192.png" ||
+      url.pathname === "/icon-512.png" ||
+      url.pathname === "/apple-touch-icon.png")
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -73,11 +74,14 @@ self.addEventListener("fetch", (event) => {
           .then((res) => {
             if (res && res.status === 200) {
               const copy = res.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put(request, copy))
+                .catch(() => {});
             }
             return res;
           })
-          .catch(() => cached);
+          .catch(() => cached || Response.error());
         return cached || networkFetch;
       })
     );
@@ -86,6 +90,7 @@ self.addEventListener("fetch", (event) => {
 
   // Stale-while-revalidate for other static assets (exclude user /uploads/ media)
   if (
+    url.origin === self.location.origin &&
     !url.pathname.startsWith("/uploads/") &&
     (url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2|woff|css|js)$/) ||
       url.pathname.startsWith("/_next/static/"))
@@ -96,13 +101,14 @@ self.addEventListener("fetch", (event) => {
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
               const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, responseToCache);
-              });
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put(request, responseToCache))
+                .catch(() => {});
             }
             return networkResponse;
           })
-          .catch(() => cached);
+          .catch(() => cached || Response.error());
 
         return cached || fetchPromise;
       })
@@ -112,17 +118,28 @@ self.addEventListener("fetch", (event) => {
 
 // Web Push Notification Listener
 self.addEventListener("push", (event) => {
-  let data = {
+  const defaults = {
     title: "zera.id",
     body: "Waktunya melanjutkan rutinitas mindful wellness hari ini.",
+    tag: undefined,
+    url: "/dashboard",
   };
+  let data = { ...defaults };
   try {
     if (event.data) {
-      data = event.data.json();
+      const parsed = event.data.json();
+      if (parsed && typeof parsed === "object") {
+        data = {
+          title: typeof parsed.title === "string" && parsed.title.trim() ? parsed.title : defaults.title,
+          body: typeof parsed.body === "string" && parsed.body.trim() ? parsed.body : defaults.body,
+          tag: typeof parsed.tag === "string" && parsed.tag.trim() ? parsed.tag : undefined,
+          url: typeof parsed.url === "string" && parsed.url.startsWith("/") ? parsed.url : defaults.url,
+        };
+      }
     }
   } catch {
     if (event.data) {
-      data.body = event.data.text();
+      data.body = event.data.text() || defaults.body;
     }
   }
 

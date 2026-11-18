@@ -198,6 +198,8 @@ export function ProgramPreparationWidgets({
     },
   ];
 
+  const isOnlineProgram = (program.locationType || "ONLINE").toUpperCase() === "ONLINE";
+
   const guideCards: Array<{
     key: GuidePageKey;
     img: string;
@@ -214,14 +216,18 @@ export function ProgramPreparationWidgets({
       title: "Meal Guide",
       subtitle: "Daily nutrition",
     },
-    {
-      key: "meetup",
-      img: "/coach.webp",
-      icon: Users,
-      badge: `${meetupDays.length} ${meetupDays.length === 1 ? "session" : "sessions"}`,
-      title: "Meetups & Live",
-      subtitle: "Zoom & calls",
-    },
+    ...(!isOnlineProgram
+      ? [
+          {
+            key: "meetup" as GuidePageKey,
+            img: "/coach.webp",
+            icon: Users,
+            badge: `${meetupDays.length} ${meetupDays.length === 1 ? "session" : "sessions"}`,
+            title: "Meetups & Live",
+            subtitle: "Zoom & calls",
+          },
+        ]
+      : []),
     {
       key: "overview",
       img: "/coach3.webp",

@@ -34,6 +34,13 @@ function getSupabaseAdminClient(): SupabaseClient {
         persistSession: false,
         autoRefreshToken: false,
       },
+      global: {
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            signal: init?.signal ?? AbortSignal.timeout(10_000),
+          }),
+      },
     });
     cachedKeySignature = sig;
   }

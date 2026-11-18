@@ -94,7 +94,7 @@ export function AdminWorkspaceHeader({
       </nav>
 
       {/* CONTEXTUAL TOP WIDGETS (Compact 4-column strip, only shown on primary menu views) */}
-      {activeMenu !== "team" && !(activeMenu === "programs" && (isCreatingProgram || Boolean(selectedProgram))) && (
+      {activeMenu !== "team" && activeMenu !== "community" && !(activeMenu === "programs" && (isCreatingProgram || Boolean(selectedProgram))) && (
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {activeMenu === "dashboard" && (
           <>
@@ -192,16 +192,16 @@ export function AdminWorkspaceHeader({
 
             <div className="bg-white dark:bg-zinc-900/90 rounded-xl p-3.5 sm:p-4 border border-zinc-200/80 dark:border-white/10 shadow-2xs min-w-0">
               <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block truncate">
-                Target Audiences
+                Communities
               </span>
               <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white mt-0.5">
-                {masterData.targetAudiences.length}
+                {masterData.organizations.length}
               </div>
             </div>
 
             <div className="bg-white dark:bg-zinc-900/90 rounded-xl p-3.5 sm:p-4 border border-zinc-200/80 dark:border-white/10 shadow-2xs min-w-0">
               <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block truncate">
-                Categories
+                Sports
               </span>
               <div className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white mt-0.5">
                 {masterData.categories.length}

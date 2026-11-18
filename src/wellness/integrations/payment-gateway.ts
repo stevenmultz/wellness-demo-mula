@@ -144,6 +144,25 @@ export function verifyMidtransWebhookSignature(params: {
   return crypto.timingSafeEqual(expectedBuf, receivedBuf);
 }
 
+export type PaymentTxStatus = "PENDING" | "SETTLEMENT" | "EXPIRE" | "CANCEL" | "DENY" | "REFUND";
+
+/**
+ * Midtrans does not guarantee webhook ordering. A delayed `pending`/`expire`/`cancel`/`deny`
+ * notification must never overwrite a settled or refunded payment.
+ * - PENDING never overwrites any non-PENDING state.
+ * - SETTLEMENT may only move to REFUND.
+ * - REFUND is terminal.
+ * Re-delivery of the same status is treated as allowed (callers handle idempotency).
+ */
+export function isAllowedPaymentTransition(from: string, to: PaymentTxStatus): boolean {
+  if (from === to) return true;
+  if (from === "REFUND") return false;
+  if (from === "REFUND_REQUESTED") return to === "REFUND";
+  if (from === "SETTLEMENT" || from === "MANUAL_APPROVED") return to === "REFUND";
+  if (to === "PENDING") return from === "PENDING";
+  return true;
+}
+
 export interface MidtransRefundResult {
   success: boolean;
   mode: PaymentProviderMode;

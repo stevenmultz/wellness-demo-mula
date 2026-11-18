@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { lockProgramRow, prisma } from "@/wellness/db";
 import { getMidtransConfig } from "@/wellness/config";
-import { verifyMidtransWebhookSignature } from "@/wellness/integrations/payment-gateway";
+import { isAllowedPaymentTransition, verifyMidtransWebhookSignature } from "@/wellness/integrations/payment-gateway";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { recordAuditLog } from "@/wellness/integrations/audit-log";
 
@@ -20,11 +20,26 @@ interface MidtransWebhookBody {
 }
 
 export async function POST(request: NextRequest) {
+  const contentLength = Number(request.headers.get("content-length") || "0");
+  if (contentLength > 65_536) {
+    return NextResponse.json({ message: "Payload too large" }, { status: 413 });
+  }
   let body: MidtransWebhookBody;
   try {
-    body = (await request.json()) as MidtransWebhookBody;
+    const parsed: unknown = await request.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json({ message: "Invalid JSON payload" }, { status: 400 });
+    }
+    body = parsed as MidtransWebhookBody;
   } catch {
     return NextResponse.json({ message: "Invalid JSON payload" }, { status: 400 });
+  }
+
+  // Fields may arrive with unexpected types; coerce defensively instead of throwing.
+  for (const key of ["order_id", "status_code", "gross_amount", "signature_key"] as const) {
+    if (body[key] !== undefined && typeof body[key] !== "string") {
+      return NextResponse.json({ message: "Invalid field types" }, { status: 400 });
+    }
   }
 
   const orderId = body.order_id?.trim() || "";
@@ -107,6 +122,20 @@ export async function POST(request: NextRequest) {
       return { activated: false, quotaOverflow: false };
     }
 
+    // Out-of-order / stale notification: never regress a settled or refunded payment.
+    if (freshTx && !isAllowedPaymentTransition(freshTx.status, nextTxStatus)) {
+      await recordAuditLog(
+        {
+          action: "PAYMENT_WEBHOOK_STALE_TRANSITION_IGNORED",
+          entityType: "PaymentTransaction",
+          entityId: txRecord.id,
+          metadata: { orderId, from: freshTx.status, attempted: nextTxStatus },
+        },
+        tx
+      );
+      return { activated: false, quotaOverflow: false };
+    }
+
     const now = new Date();
     const webhookJson = JSON.parse(JSON.stringify(body)) as Prisma.InputJsonValue;
 
@@ -135,6 +164,26 @@ export async function POST(request: NextRequest) {
         currentEnrollment?.status !== "ACTIVE" &&
         activeCount >= txRecord.enrollment.program.maxQuota
       ) {
+        const existingOverflowTicket = await tx.cohortSupportRequest.findFirst({
+          where: {
+            enrollmentId: txRecord.enrollmentId,
+            reasonCode: "QUOTA_OVERFLOW_REFUND",
+          },
+          select: { id: true },
+        });
+        if (!existingOverflowTicket) {
+          await tx.cohortSupportRequest.create({
+            data: {
+              userId: txRecord.userId,
+              programId: txRecord.programId,
+              enrollmentId: txRecord.enrollmentId,
+              requestType: "REPORT_ISSUE",
+              reasonCode: "QUOTA_OVERFLOW_REFUND",
+              note: `Automated ticket: QRIS payment settled (Order ${orderId}, Rp ${txRecord.grossAmount.toLocaleString("id-ID")}) after cohort quota filled (${activeCount}/${txRecord.enrollment.program.maxQuota}). Refund or manual slot resolution required.`,
+              status: "OPEN",
+            },
+          });
+        }
         await recordAuditLog(
           {
             actorUserId: txRecord.userId,
@@ -150,7 +199,11 @@ export async function POST(request: NextRequest) {
 
       const programEnd = txRecord.enrollment.program.endAt;
       const validUntilAt =
-        programEnd > now ? programEnd : new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+        txRecord.enrollment.program.locationType === "ONLINE" || !programEnd
+          ? null
+          : programEnd > now
+            ? programEnd
+            : new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
       await tx.programEnrollment.update({
         where: { id: txRecord.enrollmentId },
@@ -183,6 +236,21 @@ export async function POST(request: NextRequest) {
         where: { id: txRecord.enrollmentId, status: "PENDING", paymentReference: orderId },
         data: { status: nextTxStatus === "EXPIRE" ? "EXPIRED" : "CANCELLED" },
       });
+    } else if (nextTxStatus === "REFUND") {
+      await tx.programEnrollment.updateMany({
+        where: { id: txRecord.enrollmentId, status: { in: ["ACTIVE", "PENDING"] } },
+        data: { status: "CANCELLED", cancellationReason: "Midtrans gateway refund webhook" },
+      });
+      await recordAuditLog(
+        {
+          actorUserId: txRecord.userId,
+          action: "PAYMENT_REFUNDED_WEBHOOK",
+          entityType: "ProgramEnrollment",
+          entityId: txRecord.enrollmentId,
+          metadata: { orderId, grossAmount: txRecord.grossAmount },
+        },
+        tx
+      );
     }
 
     return { activated: false, quotaOverflow: false };
@@ -197,6 +265,17 @@ export async function POST(request: NextRequest) {
         body: `Your QRIS payment for "${txRecord.enrollment.program.title}" is confirmed. Your plan is now active.`,
         url: "/dashboard",
         dedupeKey: `payment-active:${txRecord.enrollmentId}`,
+      },
+    ]);
+  } else if (outcome.quotaOverflow) {
+    await createUserNotifications([
+      {
+        userId: txRecord.userId,
+        type: "PAYMENT",
+        title: "Payment settled — cohort quota full",
+        body: `Your payment for "${txRecord.enrollment.program.title}" was received after the last slot filled. An admin support ticket has been opened to process your refund or reassignment.`,
+        url: "/dashboard",
+        dedupeKey: `payment-overflow:${txRecord.enrollmentId}`,
       },
     ]);
   }

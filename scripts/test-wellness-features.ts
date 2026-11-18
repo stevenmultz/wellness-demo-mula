@@ -110,6 +110,19 @@ async function runFeatureTests() {
 
   console.log("   ✅ Seluruh field baru tersimpan dan tervalidasi dengan sempurna!");
 
+  // 4. Test BatchNumber, Volleyball Sport, & Reusable ProgramTemplate DB Schema
+  console.log("\n4. Menguji Skema Batch Number, Sport Taxonomy, & ProgramTemplate...");
+  const templateCount = await prisma.programTemplate.count();
+  const volleyballSport = await prisma.masterCategory.findFirst({ where: { name: "Volleyball" } });
+  const hybridWithBatch = await prisma.program.findFirst({
+    where: { locationType: "HYBRID", batchNumber: { not: null } },
+  });
+  console.log(`   - Seeded Templates: ${templateCount}, Volleyball Sport: ${Boolean(volleyballSport)}, Hybrid Batch #: ${hybridWithBatch?.batchNumber}`);
+  if (templateCount < 1 || !volleyballSport || !hybridWithBatch?.batchNumber) {
+    throw new Error("Gagal validasi data baru (ProgramTemplate / Volleyball / batchNumber)!");
+  }
+  console.log("   ✅ Skema & seed Batch Number, Sport, dan Custom Template tervalidasi!");
+
   console.log("\n========================================================");
   console.log("🎉 SELURUH PENGUJIAN FITUR BARU 100% SUKSES!");
   console.log("========================================================\n");

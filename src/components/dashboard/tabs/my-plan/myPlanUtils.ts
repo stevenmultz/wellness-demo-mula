@@ -21,7 +21,6 @@ export interface PlanDay {
   eventDetails?: string | null;
   restInstructions: string | null;
   sleepRecommendation?: string | null;
-  dailyAssessment?: string | null;
   eventHost?: string | null;
   coachName?: string | null;
   customTasks?: ProgramDayCustomTaskDTO[];
@@ -52,12 +51,15 @@ export type PlanTaskId = "sleep" | "activity" | "meal" | "reflection";
 export interface MyPlanIndexItem {
   programId: string;
   title: string;
+  batchNumber?: number | null;
   coachName: string;
   organizationName?: string | null;
+  organizationLogo?: string | null;
   coverImage?: string | null;
+  introVideoUrl?: string | null;
   dayCount: number;
-  startDate: Date | string;
-  endDate: Date | string;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
   locationType?: string;
   city?: string | null;
   dailyCommitment?: string | null;
@@ -73,6 +75,7 @@ export interface MyPlanIndexItem {
 export interface PlanProgramInfo {
   id?: string;
   title: string;
+  batchNumber?: number | null;
   coachName: string;
   coachTitle?: string | null;
   organizationName?: string | null;
@@ -86,8 +89,9 @@ export interface PlanProgramInfo {
   equipment?: string | null;
   durationDays?: number;
   coverImage: string | null;
-  startDate: string | Date;
-  endDate: string | Date;
+  introVideoUrl?: string | null;
+  startDate: string | Date | null;
+  endDate: string | Date | null;
   communityLink: string | null;
   scientificReferences?: Array<{ title: string; url?: string }> | null;
   totalDays: number;
@@ -97,8 +101,6 @@ export interface PlanProgramInfo {
   methodology?: string | null;
   expectedBenefits?: string[];
   programGuidelines?: string[];
-  recommendedFor?: string | null;
-  audience?: string | null;
   dailyCommitment?: string | null;
 }
 
@@ -141,15 +143,27 @@ export function formatIntensityBadge(level?: string | null, locale: "en" | "id" 
 }
 
 export function formatStartsIn(
-  startDate: string | Date,
+  startDate: string | Date | null | undefined,
   locale: "en" | "id" = "en"
 ): {
   headline: string;
   dateLabel: string;
 } {
+  if (!startDate) {
+    return {
+      headline: locale === "id" ? "Akses Kapan Saja" : "Anytime Access",
+      dateLabel: locale === "id" ? "Jadwal Fleksibel" : "Flexible Schedule",
+    };
+  }
   const WIB_MS = 7 * 60 * 60 * 1000;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const start = new Date(startDate);
+  if (isNaN(start.getTime())) {
+    return {
+      headline: locale === "id" ? "Akses Kapan Saja" : "Anytime Access",
+      dateLabel: locale === "id" ? "Jadwal Fleksibel" : "Flexible Schedule",
+    };
+  }
   const startWib = new Date(start.getTime() + WIB_MS);
   const nowWib = new Date(Date.now() + WIB_MS);
   const startDayUtc = Date.UTC(

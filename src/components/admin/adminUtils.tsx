@@ -58,9 +58,10 @@ export function formatWIBDateDisplay(date: Date): string {
   }
 }
 
-export function toInputDate(d: Date | string): string {
+export function toInputDate(d: Date | string | null | undefined): string {
+  if (!d) return "";
   const parsed = new Date(d);
-  if (isNaN(parsed.getTime())) return formatWIBDateISO(new Date());
+  if (isNaN(parsed.getTime())) return "";
   return formatWIBDateISO(parsed);
 }
 
@@ -166,11 +167,13 @@ export function getProgramSectionStats(
         Boolean(form.dailyCommitment?.trim()),
         parseTagList(form.equipment || "").length > 0,
         parseTagList(form.coachName || "").length > 0,
-        parseTagList(form.recommendedFor || "").length > 0,
       ];
       return { filled: items.filter(Boolean).length, total: items.length };
     }
     case 4: {
+      if (form.locationType === "ONLINE") {
+        return { filled: 1, total: 1 };
+      }
       const items = [
         Boolean(form.startDate),
         Boolean(form.endDate),
@@ -223,15 +226,7 @@ export function getDaySectionStats(
 ): { filled: number; total: number } {
   switch (section) {
     case 1: {
-      if (form.dayType === "REST_DAY") {
-        const items = [Boolean(form.title?.trim())];
-        return { filled: items.filter(Boolean).length, total: items.length };
-      }
-      const items = [
-        Boolean(form.title?.trim()),
-        Boolean(form.coachName?.trim()),
-        Boolean(form.recommendedFor?.trim()),
-      ];
+      const items = [Boolean(form.title?.trim())];
       return { filled: items.filter(Boolean).length, total: items.length };
     }
     case 2: {

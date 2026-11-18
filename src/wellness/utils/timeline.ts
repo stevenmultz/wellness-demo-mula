@@ -70,6 +70,7 @@ export function normalizeProgramStatus(rawStatus?: string | null): ProgramDataba
  */
 export function resolvePublicBadge(program: {
   status?: string | null;
+  locationType?: string | null;
   registrationOpenDate?: Date | string | null;
   registrationDeadline?: Date | string | null;
   startDate?: Date | string | null;
@@ -83,15 +84,23 @@ export function resolvePublicBadge(program: {
     return null;
   }
 
+  const quota = program.maxQuota || 35;
+  const enrolled = program.enrolledCount || 0;
+  const isFull = enrolled >= quota;
+
+  // Full Online programs have no fixed date range and are open for enrollment anytime (subject to quota).
+  const isOnlineAnytime =
+    program.locationType === "ONLINE" ||
+    (!program.startDate && !program.endDate && !program.registrationDeadline);
+  if (isOnlineAnytime) {
+    return isFull ? "Full" : "Open Registration";
+  }
+
   const now = (program.now ? new Date(program.now) : new Date()).getTime();
   const regOpen = program.registrationOpenDate ? new Date(program.registrationOpenDate).getTime() : 0;
   const regClose = program.registrationDeadline ? new Date(program.registrationDeadline).getTime() : 0;
   const start = program.startDate ? new Date(program.startDate).getTime() : 0;
   const end = program.endDate ? new Date(program.endDate).getTime() : 0;
-
-  const quota = program.maxQuota || 35;
-  const enrolled = program.enrolledCount || 0;
-  const isFull = enrolled >= quota;
 
   // 1. End: program period has concluded
   if (end > 0 && now > end) {
@@ -189,6 +198,7 @@ export interface ProgramStatusResolution {
 export function resolveProgramStatus(program: {
   isPublished?: boolean | null;
   status?: string | null;
+  locationType?: string | null;
   startDate?: Date | string | null;
   endDate?: Date | string | null;
   registrationOpenDate?: Date | string | null;

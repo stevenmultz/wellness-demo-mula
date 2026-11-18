@@ -79,10 +79,13 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     [programDays, selectedDayId, day]
   );
 
+  const isAnytime = Boolean(props.isAnytime);
   const isSelectedToday = selectedDay.id === day.id;
   const isSelectedPast =
-    !isSelectedToday && (selectedDay.isPast2359 || selectedDay.dayNumber < day.dayNumber);
-  const isSelectedFuture = !isSelectedToday && !isSelectedPast;
+    !isAnytime &&
+    !isSelectedToday &&
+    (selectedDay.isPast2359 || selectedDay.dayNumber < day.dayNumber);
+  const isSelectedFuture = !isAnytime && !isSelectedToday && !isSelectedPast;
 
   const todayDateStr = useMemo(() => {
     return new Intl.DateTimeFormat("en-GB", {
@@ -129,7 +132,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     [isSelectedToday, done, selectedDay, selectedActivities, selectedChecks]
   );
 
-  const selectedLocked = isSelectedToday ? locked : true;
+  const selectedLocked = isAnytime ? false : isSelectedToday ? locked : true;
   const tasks = useMemo(() => getTasksForDay(selectedDay.dayType), [selectedDay.dayType]);
 
   const openDetail = (index: number) => {
@@ -145,17 +148,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   const currentTask = tasks[step] || tasks[0];
-  const allDone = done.every(Boolean);
+  const allDone = selectedDone.every(Boolean);
 
   const handleFinishTask = () => {
-    if (isSelectedToday && !locked) {
+    if (!selectedLocked && isSelectedToday) {
       markDone(step);
     }
     setDetailOpen(false);
   };
 
   const showStatusFooter =
-    isSelectedFuture || isSelectedPast || !!day.userProgress?.isCompleted || allDone;
+    isSelectedFuture ||
+    isSelectedPast ||
+    !!selectedDay.userProgress?.isCompleted ||
+    allDone;
 
   return (
     <section className="w-full space-y-4">
@@ -174,14 +180,18 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           </button>
         </div>
         <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-          {resetCountdown}
+          {isAnytime ? "Anytime Access" : resetCountdown}
         </span>
       </div>
 
       <InfoPopupModal
         open={showDailyTasksInfo}
         title="Daily Tasks & Schedule"
-        subtitle={`${todayDateStr} • ${resetCountdown}`}
+        subtitle={
+          isAnytime
+            ? "Flexible · Anytime Access"
+            : `${todayDateStr} • ${resetCountdown}`
+        }
         onClose={() => setShowDailyTasksInfo(false)}
       >
         <p className="font-semibold text-zinc-950 dark:text-white">
@@ -241,7 +251,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               const isActiveSelected = d.id === selectedDay.id;
               const isTodayItem = d.id === day.id;
               const isDoneItem = !!d.userProgress?.isCompleted;
-              const isPastItem = !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
+              const isPastItem =
+                !isAnytime && !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
               const dayTypeWord =
                 d.dayType === "TRAINING_DAY"
                   ? "Training"
@@ -265,8 +276,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         ? "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white border border-zinc-950 dark:border-white"
                         : isDoneItem
                           ? "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/20"
-                          : isPastItem
-                            ? "bg-white dark:bg-[#141414] text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-white/10"
+                          : isPastItem || isAnytime
+                            ? "bg-white dark:bg-[#141414] text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10"
                             : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
                   }`}
                 >
@@ -306,9 +317,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             <li key={t.title} className="w-full">
               <div
                 onClick={() => {
-                  if (!isSelectedFuture && (!locked || isSelectedPast || isDone)) {
-                    openDetail(index);
-                  } else if (!isSelectedFuture && !locked) {
+                  if (!isSelectedFuture && (!selectedLocked || isSelectedPast || isDone)) {
                     openDetail(index);
                   }
                 }}
@@ -390,13 +399,13 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       }}
                       className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition inline-flex items-center gap-1"
                     >
-                      <span>{locked ? "View" : "Edit"}</span>
+                      <span>{selectedLocked ? "View" : "Edit"}</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   ) : (
                     <button
                       type="button"
-                      disabled={locked}
+                      disabled={selectedLocked}
                       onClick={(e) => {
                         e.stopPropagation();
                         openDetail(index);
@@ -458,15 +467,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 Back to Today
               </button>
             </div>
-          ) : day.userProgress?.isCompleted ? (
+          ) : selectedDay.userProgress?.isCompleted ? (
             <div className="w-full py-2.5 px-4 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">
               <span className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-zinc-950 dark:text-white" />
-                <span>Today&apos;s Routine Completed</span>
+                <span>
+                  {isAnytime
+                    ? `Day ${selectedDay.dayNumber} Completed`
+                    : "Today's Routine Completed"}
+                </span>
               </span>
-              <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Locked
-              </span>
+              {!isAnytime && (
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider inline-flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Locked
+                </span>
+              )}
             </div>
           ) : allDone ? (
             <div className="w-full py-2.5 px-4 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] flex items-center justify-between text-xs font-medium text-zinc-900 dark:text-white">

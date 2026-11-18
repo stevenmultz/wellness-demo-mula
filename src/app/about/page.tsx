@@ -10,9 +10,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
-  const { sessionUser, programs, coaches, categories, audiences, commitments } =
+  const { sessionUser, programs, coaches, categories, commitments } =
     await getPublicSanctuaryData();
-  const locale = getServerLocale(sessionUser ? undefined : null);
+  const locale = await getServerLocale(sessionUser ? undefined : null);
   const t = getDictionary(locale);
 
   const distinctVenues = Array.from(
@@ -76,22 +76,13 @@ export default async function AboutPage() {
       </section>
 
       {/* FOCUS AREAS */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-8">
         <div className="space-y-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
-            Categories
+            Sports
           </span>
           <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
             {categories.join(" • ")}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
-            Designed For
-          </span>
-          <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
-            {audiences.join(" • ")}
           </p>
         </div>
 

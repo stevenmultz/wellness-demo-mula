@@ -6,9 +6,6 @@ import {
   wellnessCreateMasterCoach,
   wellnessUpdateMasterCoach,
   wellnessDeleteMasterCoach,
-  wellnessCreateMasterTargetAudience,
-  wellnessUpdateMasterTargetAudience,
-  wellnessDeleteMasterTargetAudience,
   wellnessCreateMasterCategory,
   wellnessUpdateMasterCategory,
   wellnessDeleteMasterCategory,
@@ -24,7 +21,6 @@ import type { AdminFeedbackMessage } from "../adminTypes";
 
 export type StandardMasterTab =
   | "coaches"
-  | "audience"
   | "categories"
   | "equipment"
   | "commitments";
@@ -43,7 +39,7 @@ interface UseMasterDirectoryActionsArgs {
 interface TaxonomyRegistryEntry {
   key: keyof Pick<
     MasterDataPayload,
-    "targetAudiences" | "categories" | "equipment" | "dailyCommitments"
+    "categories" | "equipment" | "dailyCommitments"
   >;
   addSuccess: string;
   updateSuccess: string;
@@ -63,22 +59,11 @@ const TAXONOMY_REGISTRY: Record<
   Exclude<StandardMasterTab, "coaches">,
   TaxonomyRegistryEntry
 > = {
-  audience: {
-    key: "targetAudiences",
-    addSuccess: "Target audience added.",
-    updateSuccess: "Audience updated.",
-    removeLabel: "Target audience",
-    confirmBeforeDelete: false,
-    shouldRefreshOnSuccess: true,
-    createFn: wellnessCreateMasterTargetAudience,
-    updateFn: wellnessUpdateMasterTargetAudience,
-    deleteFn: wellnessDeleteMasterTargetAudience,
-  },
   categories: {
     key: "categories",
-    addSuccess: "Category added.",
-    updateSuccess: "Category updated.",
-    removeLabel: "Category",
+    addSuccess: "Sport added.",
+    updateSuccess: "Sport updated.",
+    removeLabel: "Sport",
     confirmBeforeDelete: false,
     shouldRefreshOnSuccess: true,
     createFn: wellnessCreateMasterCategory,

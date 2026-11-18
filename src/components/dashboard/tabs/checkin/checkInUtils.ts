@@ -24,6 +24,7 @@ export interface DailyCheckInProps {
   communityLink?: string | null;
   programTitle?: string;
   locked: boolean;
+  isAnytime?: boolean;
   activities: string[];
   checks: string[];
   initialDone: [boolean, boolean, boolean, boolean];

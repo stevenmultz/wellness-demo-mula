@@ -1,7 +1,7 @@
 import { Prisma, type Program, type ProgramDay } from "@prisma/client";
 import { prisma, lockProgramRow } from "../db";
 import { requireAdminAccess, requireProgramAccess } from "../security/guards";
-import { clampMinQuota, evaluateFreeIntroRequirement } from "../security/program-rules";
+import { clampMinQuota } from "../security/program-rules";
 import { ensureCoachNameIncluded } from "../security/roles";
 import { recordAuditLog } from "../integrations/audit-log";
 import {
@@ -39,8 +39,9 @@ function toClientProgramPayload<
   return {
     ...hydrated,
     ...tax,
+    batchNumber: program.batchNumber ?? null,
     coverImage: program.coverImagePath,
-    virtualFallbackAvailable: program.isVirtualFallbackAvailable,
+    introVideoUrl: program.introVideoUrl,
     startDate: program.startAt,
     endDate: program.endAt,
     registrationOpenDate: program.registrationOpenAt,
@@ -69,7 +70,6 @@ function getIncompleteHeaderMessage(
     category: tax.category,
     dailyCommitment: tax.dailyCommitment,
     coachName: tax.coachName,
-    recommendedFor: tax.recommendedFor,
     startDate: program.startAt,
     endDate: program.endAt,
     registrationDeadline: program.registrationDeadlineAt,
@@ -90,9 +90,27 @@ function getIncompleteHeaderMessage(
   return `Cannot publish yet! Program header is incomplete (${headerCheck.completedCount}/${headerCheck.totalPoints} points completed). Missing: ${missingSummary}.`;
 }
 
-function getIncompleteDaysPreview(durationDays: number, days: ProgramDay[]): string | null {
+function getIncompleteDaysPreview(
+  program: { locationType: string; durationDays: number },
+  days: ProgramDay[]
+): string | null {
+  if (program.locationType === "ONLINE") {
+    if (days.length === 0) return "at least 1 Session / Module";
+    const incomplete = days
+      .filter(
+        (d) =>
+          !isProgramDayComplete({
+            ...d,
+            videoChecklist: safeJsonParse<string[]>(d.videoChecklistJson, []),
+          })
+      )
+      .map((d) => d.dayNumber);
+    if (incomplete.length === 0) return null;
+    return `Module ${incomplete.join(", Module ")}`;
+  }
+
   const missingDays: number[] = [];
-  for (let i = 1; i <= durationDays; i++) {
+  for (let i = 1; i <= program.durationDays; i++) {
     const dayRecord = days.find((d) => d.dayNumber === i);
     if (
       !isProgramDayComplete(
@@ -121,7 +139,7 @@ export async function createProgramService(
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
     return {
       success: false,
-      message: "Your Partner Admin account is not linked to an organization yet. Contact Superadmin.",
+      message: "Your Community Admin account is not linked to a community yet. Contact Superadmin.",
     };
   }
   if (session.role === "COACH" && (!session.coachProfileId || !session.coachProfileName)) {
@@ -142,17 +160,16 @@ export async function createProgramService(
 
   const {
     title,
+    batchNumber,
     description,
     coverImage,
+    introVideoUrl,
     difficultyLevel,
     category,
     equipment,
     dailyCommitment,
-    recommendedFor,
     coachName,
     organizationId,
-    language,
-    translations,
     durationDays,
     actualPrice,
     discountPercentage,
@@ -163,7 +180,6 @@ export async function createProgramService(
     locationType,
     city,
     venueAddress,
-    virtualFallbackAvailable,
     startDate,
     endDate,
     registrationOpenDate,
@@ -172,7 +188,14 @@ export async function createProgramService(
     days,
   } = validation.data;
 
-  const baseSlug = title
+  const isOnlineProgram = (locationType || "ONLINE") === "ONLINE";
+  const resolvedBatchNumber =
+    batchNumber !== undefined && batchNumber !== null
+      ? batchNumber
+      : isOnlineProgram
+        ? null
+        : 1;
+  const baseSlug = `${title}${resolvedBatchNumber ? `-batch-${resolvedBatchNumber}` : ""}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
@@ -180,23 +203,40 @@ export async function createProgramService(
   const slug = `${baseSlug || "program"}-${randomSuffix}`;
 
   const now = new Date();
-  const resolvedDuration = durationDays || 21;
-  const startD = startDate
-    ? new Date(startDate)
-    : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const endD = endDate
-    ? new Date(endDate)
-    : new Date(startD.getTime() + (resolvedDuration - 1) * 24 * 60 * 60 * 1000);
-  const calculatedDays = Math.max(
-    1,
-    Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  );
-  const finalDuration = durationDays || calculatedDays;
+  if (
+    isOnlineProgram &&
+    days?.some((d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY")
+  ) {
+    return {
+      success: false,
+      message: "Connect Day is only available for Hybrid programs. Full Online programs support Training and Rest days only.",
+    };
+  }
 
-  const regDeadline = registrationDeadline
-    ? new Date(registrationDeadline)
-    : new Date(startD.getTime() - 24 * 60 * 60 * 1000);
-  const regOpen = registrationOpenDate ? new Date(registrationOpenDate) : now;
+  const resolvedDuration = isOnlineProgram ? Math.max(1, days?.length || 1) : (durationDays || 21);
+  let startD: Date | null = null;
+  let endD: Date | null = null;
+  let regDeadline: Date | null = null;
+  let regOpen: Date | null = null;
+  let finalDuration = resolvedDuration;
+
+  if (!isOnlineProgram) {
+    startD = startDate
+      ? new Date(startDate)
+      : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    endD = endDate
+      ? new Date(endDate)
+      : new Date(startD.getTime() + (resolvedDuration - 1) * 24 * 60 * 60 * 1000);
+    const calculatedDays = Math.max(
+      1,
+      Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    );
+    finalDuration = durationDays || calculatedDays;
+    regDeadline = registrationDeadline
+      ? new Date(registrationDeadline)
+      : new Date(startD.getTime() - 24 * 60 * 60 * 1000);
+    regOpen = registrationOpenDate ? new Date(registrationOpenDate) : now;
+  }
 
   const resolvedActualPrice = Math.round(
     actualPrice !== undefined ? Number(actualPrice) : Number(price) || 0
@@ -224,18 +264,6 @@ export async function createProgramService(
     DEFAULT_PROGRAM_GUIDELINES
   ) as Prisma.InputJsonValue;
 
-  let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
-  if (translations) {
-    try {
-      parsedTranslations =
-        typeof translations === "string"
-          ? (JSON.parse(translations) as Prisma.InputJsonValue)
-          : (translations as Prisma.InputJsonValue);
-    } catch {
-      parsedTranslations = undefined;
-    }
-  }
-
   const effectiveOrganizationId =
     session.role === "SUPERADMIN"
       ? organizationId?.trim() || null
@@ -262,6 +290,7 @@ export async function createProgramService(
       data: {
         title: title.trim(),
         slug,
+        batchNumber: resolvedBatchNumber,
         description: description.trim(),
         targetState: validation.data.targetState?.trim() || DEFAULT_TARGET_STATE,
         methodology: validation.data.methodology?.trim() || DEFAULT_METHODOLOGY,
@@ -269,10 +298,9 @@ export async function createProgramService(
         scientificReferencesJson: referencesJson,
         programGuidelinesJson: guidelinesJson,
         coverImagePath: coverImage?.trim() || null,
+        introVideoUrl: introVideoUrl?.trim() || null,
         difficultyLevel: difficultyLevel || "INTERMEDIATE",
         organizationId: matchedOrg?.id || null,
-        language: language || "id",
-        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
         durationDays: finalDuration,
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
@@ -280,11 +308,9 @@ export async function createProgramService(
         minQuota: clampMinQuota(minQuota, maxQuota || 50),
         maxQuota: maxQuota || 50,
         communityLink: communityLink?.trim() || null,
-        locationType: locationType || "ONLINE",
-        city: city?.trim() || null,
-        venueAddress: venueAddress?.trim() || null,
-        isVirtualFallbackAvailable: virtualFallbackAvailable ?? true,
-        termsType: "CUSTOM",
+        locationType: isOnlineProgram ? "ONLINE" : "HYBRID",
+        city: isOnlineProgram ? null : city?.trim() || null,
+        venueAddress: isOnlineProgram ? null : venueAddress?.trim() || null,
         customTerms: serializedTerms,
         startAt: startD,
         endAt: endD,
@@ -304,13 +330,6 @@ export async function createProgramService(
                   videoUrl: d.videoUrl || null,
                   videoChecklistJson: (d.videoChecklist || []) as Prisma.InputJsonValue,
                   mealRecommendation: d.mealRecommendation || null,
-                  dailyAssessment: d.dailyAssessment || null,
-                  pendingReminder:
-                    d.pendingReminder ||
-                    "Don't forget your scheduled routine today! Complete video & checklist before 23:59.",
-                  completedReminder:
-                    d.completedReminder ||
-                    "Outstanding work completing your routine today! Hydrate and recover.",
                   meetupLink: d.meetupLink || null,
                   onsiteVenue: d.onsiteVenue || null,
                   onsiteSchedule: d.onsiteSchedule || null,
@@ -326,7 +345,6 @@ export async function createProgramService(
     await syncProgramTaxonomyRelations(tx, created.id, {
       category: category?.trim() || "Pilates",
       coachName: effectiveCoachName,
-      recommendedFor: recommendedFor?.trim() || "All Levels",
       equipment: equipment?.trim() || null,
       dailyCommitment: dailyCommitment?.trim() || null,
     });
@@ -433,25 +451,29 @@ export async function updateProgramMetaService(
         ) as Prisma.InputJsonValue)
       : undefined;
 
-  let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
-  if (input.translations !== undefined && input.translations) {
-    try {
-      parsedTranslations =
-        typeof input.translations === "string"
-          ? (JSON.parse(input.translations) as Prisma.InputJsonValue)
-          : (input.translations as Prisma.InputJsonValue);
-    } catch {
-      parsedTranslations = undefined;
-    }
-  }
-
   const existingTax = serializeProgramTaxonomy(existingProgram);
+  const nextIsOnline = (input.locationType || existingProgram.locationType) === "ONLINE";
+
+  if (
+    nextIsOnline &&
+    existingProgram.days.some(
+      (d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY"
+    )
+  ) {
+    return {
+      success: false,
+      message:
+        "Cannot switch to Full Online while Connect Day modules exist in the curriculum. Change or clear those Connect Days to Training or Rest Days first.",
+    };
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     await lockProgramRow(tx, input.programId);
 
-    const resolvedDuration = input.durationDays || existingProgram.durationDays || 21;
-    if (resolvedDuration < existingProgram.durationDays) {
+    const resolvedDuration = nextIsOnline
+      ? Math.max(1, existingProgram.days.length)
+      : input.durationDays || existingProgram.durationDays || 21;
+    if (!nextIsOnline && resolvedDuration < existingProgram.durationDays) {
       await tx.programDay.deleteMany({
         where: {
           programId: input.programId,
@@ -460,13 +482,24 @@ export async function updateProgramMetaService(
       });
     }
 
-    const startD = input.startDate ? new Date(input.startDate) : existingProgram.startAt;
-    const endD = input.endDate ? new Date(input.endDate) : existingProgram.endAt;
-    const regDeadline = input.registrationDeadline
-      ? new Date(input.registrationDeadline)
-      : existingProgram.registrationDeadlineAt;
-    const regOpen =
-      input.registrationOpenDate !== undefined
+    const startD = nextIsOnline
+      ? null
+      : input.startDate
+        ? new Date(input.startDate)
+        : existingProgram.startAt;
+    const endD = nextIsOnline
+      ? null
+      : input.endDate
+        ? new Date(input.endDate)
+        : existingProgram.endAt;
+    const regDeadline = nextIsOnline
+      ? null
+      : input.registrationDeadline
+        ? new Date(input.registrationDeadline)
+        : existingProgram.registrationDeadlineAt;
+    const regOpen = nextIsOnline
+      ? null
+      : input.registrationOpenDate !== undefined
         ? input.registrationOpenDate
           ? new Date(input.registrationOpenDate)
           : null
@@ -500,6 +533,12 @@ export async function updateProgramMetaService(
       where: { id: input.programId },
       data: {
         title: input.title.trim(),
+        batchNumber:
+          nextIsOnline
+            ? null
+            : input.batchNumber !== undefined
+              ? input.batchNumber
+              : existingProgram.batchNumber,
         description: (
           input.description ||
           existingProgram.description ||
@@ -517,11 +556,13 @@ export async function updateProgramMetaService(
         ...(referencesJson !== undefined ? { scientificReferencesJson: referencesJson } : {}),
         ...(guidelinesJson !== undefined ? { programGuidelinesJson: guidelinesJson } : {}),
         coverImagePath: input.coverImage?.trim() || null,
+        introVideoUrl:
+          input.introVideoUrl !== undefined
+            ? input.introVideoUrl?.trim() || null
+            : existingProgram.introVideoUrl,
         difficultyLevel:
           input.difficultyLevel || existingProgram.difficultyLevel || "INTERMEDIATE",
         organizationId: orgRecord?.id || null,
-        language: input.language || existingProgram.language || "id",
-        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
         durationDays: resolvedDuration,
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
@@ -532,11 +573,9 @@ export async function updateProgramMetaService(
         ),
         maxQuota: Math.max(1, Number(input.maxQuota) || 50),
         communityLink: input.communityLink?.trim() || null,
-        locationType: input.locationType || "ONLINE",
-        city: input.city?.trim() || null,
-        venueAddress: input.venueAddress?.trim() || null,
-        isVirtualFallbackAvailable: input.virtualFallbackAvailable ?? true,
-        termsType: "CUSTOM",
+        locationType: nextIsOnline ? "ONLINE" : "HYBRID",
+        city: nextIsOnline ? null : input.city?.trim() || null,
+        venueAddress: nextIsOnline ? null : input.venueAddress?.trim() || null,
         customTerms: serializedTerms,
         startAt: startD,
         endAt: endD,
@@ -550,8 +589,6 @@ export async function updateProgramMetaService(
     await syncProgramTaxonomyRelations(tx, input.programId, {
       category: input.category !== undefined ? input.category : existingTax.category,
       coachName: requestedCoachName,
-      recommendedFor:
-        input.recommendedFor !== undefined ? input.recommendedFor : existingTax.recommendedFor,
       equipment: input.equipment !== undefined ? input.equipment : existingTax.equipment,
       dailyCommitment:
         input.dailyCommitment !== undefined
@@ -561,7 +598,10 @@ export async function updateProgramMetaService(
 
     return tx.program.findUniqueOrThrow({
       where: { id: input.programId },
-      include: PROGRAM_TAXONOMY_INCLUDE,
+      include: {
+        ...PROGRAM_TAXONOMY_INCLUDE,
+        days: { orderBy: { dayNumber: "asc" } },
+      },
     });
   });
 
@@ -572,66 +612,6 @@ export async function updateProgramMetaService(
     message: `Base info updated for "${updated.title}".`,
     data: toClientProgramPayload(updated),
   };
-}
-
-async function checkFreeIntroPolicyInTx(
-  tx: Prisma.TransactionClient,
-  params: {
-    callerRole: string;
-    callerCoachProfileId?: string | null;
-    program: {
-      id: string;
-      price: number;
-      status: string;
-      organizationId: string | null;
-      coaches?: Array<{ coachId: string }>;
-    };
-    action: "PUBLISH" | "UNPUBLISH_OR_DELETE";
-  }
-): Promise<string | null> {
-  if (params.callerRole === "SUPERADMIN") return null;
-
-  const coachIds =
-    params.program.coaches?.map((c) => c.coachId).filter(Boolean) ??
-    (params.callerCoachProfileId ? [params.callerCoachProfileId] : []);
-
-  const ownerScopeWhere: Prisma.ProgramWhereInput = params.program.organizationId
-    ? { organizationId: params.program.organizationId }
-    : coachIds.length > 0
-      ? { organizationId: null, coaches: { some: { coachId: { in: coachIds } } } }
-      : { id: "__unassigned_scope__" };
-
-  const [otherPublishedFreeCount, otherPublishedPaidCount] = await Promise.all([
-    tx.program.count({
-      where: {
-        ...ownerScopeWhere,
-        id: { not: params.program.id },
-        status: "PUBLISHED",
-        deletedAt: null,
-        price: 0,
-      },
-    }),
-    tx.program.count({
-      where: {
-        ...ownerScopeWhere,
-        id: { not: params.program.id },
-        status: "PUBLISHED",
-        deletedAt: null,
-        price: { gt: 0 },
-      },
-    }),
-  ]);
-
-  const check = evaluateFreeIntroRequirement({
-    callerRole: params.callerRole,
-    action: params.action,
-    programPrice: params.program.price,
-    isCurrentlyPublished: params.program.status === "PUBLISHED",
-    otherPublishedFreeCount,
-    otherPublishedPaidCount,
-  });
-
-  return check.allowed ? null : check.message || "Free introductory program requirement not met.";
 }
 
 export async function setProgramStatusService(
@@ -662,21 +642,24 @@ export async function setProgramStatusService(
       const headerMsg = getIncompleteHeaderMessage(program);
       if (headerMsg) return { success: false as const, message: headerMsg };
 
-      const freePolicyErr = await checkFreeIntroPolicyInTx(tx, {
-        callerRole: admin.role,
-        callerCoachProfileId: admin.coachProfileId,
-        program,
-        action: "PUBLISH",
-      });
-      if (freePolicyErr) return { success: false as const, message: freePolicyErr };
+      if (
+        program.locationType === "ONLINE" &&
+        program.days.some((d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY")
+      ) {
+        return {
+          success: false as const,
+          message:
+            "Cannot publish Full Online program with Connect Day modules. Connect Days are only supported in Hybrid programs.",
+        };
+      }
     }
 
     if (targetPrismaStatus === "OPEN" || targetPrismaStatus === "PUBLISHED") {
-      const previewMissing = getIncompleteDaysPreview(program.durationDays, program.days);
+      const previewMissing = getIncompleteDaysPreview(program, program.days);
       if (previewMissing) {
         return {
           success: false as const,
-          message: `Cannot change status to ${targetPrismaStatus}! All ${program.durationDays} curriculum days must be completed first. Incomplete: ${previewMissing}.`,
+          message: `Cannot change status to ${targetPrismaStatus}! Curriculum content is incomplete: ${previewMissing}.`,
         };
       }
     }
@@ -691,13 +674,6 @@ export async function setProgramStatusService(
           message: `Cannot update status: There are ${activeEnrollments} active participant(s) enrolled in this cohort. Use the official Unpublish action once no active participants remain.`,
         };
       }
-      const unpublishPolicyErr = await checkFreeIntroPolicyInTx(tx, {
-        callerRole: admin.role,
-        callerCoachProfileId: admin.coachProfileId,
-        program,
-        action: "UNPUBLISH_OR_DELETE",
-      });
-      if (unpublishPolicyErr) return { success: false as const, message: unpublishPolicyErr };
     }
 
     const updated = await tx.program.update({
@@ -767,21 +743,24 @@ export async function togglePublishProgramService(
       const headerMsg = getIncompleteHeaderMessage(program);
       if (headerMsg) return { success: false as const, message: headerMsg };
 
-      const previewMissing = getIncompleteDaysPreview(program.durationDays, program.days);
-      if (previewMissing) {
+      if (
+        program.locationType === "ONLINE" &&
+        program.days.some((d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY")
+      ) {
         return {
           success: false as const,
-          message: `Cannot publish yet! All ${program.durationDays} curriculum days must be completed first. Incomplete: ${previewMissing}.`,
+          message:
+            "Cannot publish Full Online program with Connect Day modules. Connect Days are only supported in Hybrid programs.",
         };
       }
 
-      const freePolicyErr = await checkFreeIntroPolicyInTx(tx, {
-        callerRole: admin.role,
-        callerCoachProfileId: admin.coachProfileId,
-        program,
-        action: "PUBLISH",
-      });
-      if (freePolicyErr) return { success: false as const, message: freePolicyErr };
+      const previewMissing = getIncompleteDaysPreview(program, program.days);
+      if (previewMissing) {
+        return {
+          success: false as const,
+          message: `Cannot publish yet! Curriculum content is incomplete: ${previewMissing}.`,
+        };
+      }
 
       const updated = await tx.program.update({
         where: { id: programId },
@@ -815,14 +794,6 @@ export async function togglePublishProgramService(
         message: `Cannot unpublish: ${activeEnrollments} active member(s) are currently enrolled in this cohort. Unpublishing would break their live curriculum access.`,
       };
     }
-
-    const unpublishPolicyErr = await checkFreeIntroPolicyInTx(tx, {
-      callerRole: admin.role,
-      callerCoachProfileId: admin.coachProfileId,
-      program,
-      action: "UNPUBLISH_OR_DELETE",
-    });
-    if (unpublishPolicyErr) return { success: false as const, message: unpublishPolicyErr };
 
     const updated = await tx.program.update({
       where: { id: programId },
@@ -875,14 +846,6 @@ export async function deleteProgramService(
       return { success: false as const, message: "Program not found." };
     }
 
-    const deletePolicyErr = await checkFreeIntroPolicyInTx(tx, {
-      callerRole: admin.role,
-      callerCoachProfileId: admin.coachProfileId,
-      program: existing,
-      action: "UNPUBLISH_OR_DELETE",
-    });
-    if (deletePolicyErr) return { success: false as const, message: deletePolicyErr };
-
     const activeEnrollments = await tx.programEnrollment.count({
       where: { programId, status: "ACTIVE" },
     });
@@ -925,6 +888,232 @@ export async function deleteProgramService(
     return {
       success: true as const,
       message: `Program "${existing.title}" deleted.`,
+    };
+  });
+
+  if (result.success) revalidateWellnessRoutes();
+  return result;
+}
+
+/**
+ * Duplicates a program (header, taxonomy, all curriculum days, and custom tasks)
+ * into a fresh Draft with an incremented `batchNumber` and unique slug so admins/communities
+ * can launch Batch 2, Batch 3, etc. without re-entering data.
+ */
+export async function duplicateProgramService(
+  sourceProgramId: string,
+  options?: { asNextBatch?: boolean }
+): Promise<WellnessActionResult> {
+  const admin = await requireProgramAccess(sourceProgramId);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const source = await tx.program.findFirst({
+      where: { id: sourceProgramId, deletedAt: null },
+      include: {
+        ...PROGRAM_TAXONOMY_INCLUDE,
+        days: {
+          orderBy: { dayNumber: "asc" },
+          include: {
+            customTasks: { orderBy: { sortOrder: "asc" } },
+          },
+        },
+      },
+    });
+
+    if (!source) {
+      return { success: false as const, message: "Source program not found." };
+    }
+
+    const asNextBatch = options?.asNextBatch ?? true;
+    const isOnline = source.locationType === "ONLINE";
+
+    let nextBatchNumber: number | null = null;
+    if (!isOnline || source.batchNumber !== null) {
+      const sameSeries = await tx.program.aggregate({
+        where: {
+          title: source.title,
+          organizationId: source.organizationId,
+          deletedAt: null,
+        },
+        _max: { batchNumber: true },
+      });
+      const currentMax = Math.max(source.batchNumber ?? 1, sameSeries._max.batchNumber ?? 1);
+      nextBatchNumber = asNextBatch ? currentMax + 1 : source.batchNumber;
+    }
+
+    const baseSlug = `${source.title}${nextBatchNumber ? `-batch-${nextBatchNumber}` : "-copy"}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    const slug = `${baseSlug || "program"}-${suffix}`;
+
+    let nextStart: Date | null = null;
+    let nextEnd: Date | null = null;
+    let nextOpen: Date | null = null;
+    let nextDeadline: Date | null = null;
+    if (!isOnline) {
+      const duration = Math.max(1, source.durationDays || 7);
+      const baseStart = source.endAt
+        ? new Date(source.endAt.getTime() + 7 * 24 * 60 * 60 * 1000)
+        : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      nextStart = baseStart;
+      nextEnd = new Date(baseStart.getTime() + (duration - 1) * 24 * 60 * 60 * 1000);
+      nextOpen = new Date();
+      nextDeadline = new Date(baseStart.getTime() - 2 * 24 * 60 * 60 * 1000);
+    }
+
+    const cloned = await tx.program.create({
+      data: {
+        title: source.title,
+        slug,
+        batchNumber: nextBatchNumber,
+        description: source.description,
+        coverImagePath: source.coverImagePath,
+        introVideoUrl: source.introVideoUrl,
+        difficultyLevel: source.difficultyLevel,
+        durationDays: isOnline ? Math.max(1, source.days.length) : source.durationDays,
+        actualPrice: source.actualPrice,
+        discountPercentage: source.discountPercentage,
+        price: source.price,
+        minQuota: source.minQuota,
+        maxQuota: source.maxQuota,
+        communityLink: source.communityLink,
+        locationType: source.locationType,
+        city: isOnline ? null : source.city,
+        venueAddress: isOnline ? null : source.venueAddress,
+        startAt: nextStart,
+        endAt: nextEnd,
+        registrationOpenAt: nextOpen,
+        registrationDeadlineAt: nextDeadline,
+        status: "DRAFT",
+        dailyCommitmentId: source.dailyCommitmentId,
+        organizationId: source.organizationId,
+        customTerms: source.customTerms,
+        targetState: source.targetState,
+        methodology: source.methodology,
+        expectedBenefitsJson:
+          source.expectedBenefitsJson === null
+            ? Prisma.DbNull
+            : (source.expectedBenefitsJson as Prisma.InputJsonValue),
+        scientificReferencesJson:
+          source.scientificReferencesJson === null
+            ? Prisma.DbNull
+            : (source.scientificReferencesJson as Prisma.InputJsonValue),
+        programGuidelinesJson:
+          source.programGuidelinesJson === null
+            ? Prisma.DbNull
+            : (source.programGuidelinesJson as Prisma.InputJsonValue),
+      },
+    });
+
+    await Promise.all([
+      source.categories.length > 0
+        ? tx.programCategory.createMany({
+            data: source.categories.map((c) => ({
+              programId: cloned.id,
+              categoryId: c.category.id,
+            })),
+          })
+        : Promise.resolve(),
+      source.coaches.length > 0
+        ? tx.programCoach.createMany({
+            data: source.coaches.map((c) => ({
+              programId: cloned.id,
+              coachId: c.coach.id,
+            })),
+          })
+        : Promise.resolve(),
+      source.equipments.length > 0
+        ? tx.programEquipment.createMany({
+            data: source.equipments.map((e) => ({
+              programId: cloned.id,
+              equipmentId: e.equipment.id,
+            })),
+          })
+        : Promise.resolve(),
+    ]);
+
+    for (const day of source.days) {
+      const createdDay = await tx.programDay.create({
+        data: {
+          programId: cloned.id,
+          dayNumber: day.dayNumber,
+          title: day.title,
+          dayType: day.dayType,
+          workoutOptionsJson:
+            day.workoutOptionsJson === null
+              ? Prisma.DbNull
+              : (day.workoutOptionsJson as Prisma.InputJsonValue),
+          sleepRecommendation: day.sleepRecommendation,
+          dayNotificationsJson:
+            day.dayNotificationsJson === null
+              ? Prisma.DbNull
+              : (day.dayNotificationsJson as Prisma.InputJsonValue),
+          videoUrl: day.videoUrl,
+          videoChecklistJson:
+            day.videoChecklistJson === null
+              ? Prisma.DbNull
+              : (day.videoChecklistJson as Prisma.InputJsonValue),
+          mealRecommendation: day.mealRecommendation,
+          meetupLink: day.meetupLink,
+          mapLink: day.mapLink,
+          onsiteVenue: day.onsiteVenue,
+          onsiteSchedule: day.onsiteSchedule,
+          eventTitle: day.eventTitle,
+          eventHost: day.eventHost,
+          eventDetails: day.eventDetails,
+          restInstructions: day.restInstructions,
+        },
+      });
+
+      if (day.customTasks.length > 0) {
+        await tx.programDayCustomTask.createMany({
+          data: day.customTasks.map((ct) => ({
+            programDayId: createdDay.id,
+            sortOrder: ct.sortOrder,
+            taskType: ct.taskType,
+            title: ct.title,
+            instructions: ct.instructions,
+            isRequired: ct.isRequired,
+            fieldsSchemaJson: ct.fieldsSchemaJson as Prisma.InputJsonValue,
+            translationsJson:
+              ct.translationsJson === null
+                ? Prisma.DbNull
+                : (ct.translationsJson as Prisma.InputJsonValue),
+          })),
+        });
+      }
+    }
+
+    await recordAuditLog(
+      {
+        actorUserId: admin.userId,
+        action: "PROGRAM_DUPLICATED",
+        entityType: "Program",
+        entityId: cloned.id,
+        metadata: { sourceProgramId, batchNumber: nextBatchNumber },
+      },
+      tx
+    );
+
+    const fullCloned = await tx.program.findUniqueOrThrow({
+      where: { id: cloned.id },
+      include: {
+        ...PROGRAM_TAXONOMY_INCLUDE,
+        days: {
+          orderBy: { dayNumber: "asc" },
+          include: { customTasks: { orderBy: { sortOrder: "asc" } } },
+        },
+      },
+    });
+
+    return {
+      success: true as const,
+      message: nextBatchNumber
+        ? `Created "${cloned.title}" (Batch ${nextBatchNumber}) as Draft with all ${source.days.length} day(s) copied.`
+        : `Duplicated "${cloned.title}" as Draft with all ${source.days.length} module(s) copied.`,
+      data: toClientProgramPayload(fullCloned),
     };
   });
 

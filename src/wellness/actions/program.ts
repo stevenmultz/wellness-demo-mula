@@ -4,6 +4,7 @@ import type { WellnessActionResult } from "./auth";
 import {
   createProgramService,
   deleteProgramService,
+  duplicateProgramService,
   setProgramStatusService,
   togglePublishProgramService,
   updateProgramMetaService,
@@ -61,6 +62,13 @@ export async function wellnessAdminDeleteProgram(
   programId: string
 ): Promise<WellnessActionResult> {
   return deleteProgramService(programId);
+}
+
+export async function wellnessAdminDuplicateProgram(
+  programId: string,
+  asNextBatch = true
+): Promise<WellnessActionResult> {
+  return duplicateProgramService(programId, { asNextBatch });
 }
 
 export async function wellnessUserSubmitDayProgress(

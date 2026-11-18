@@ -21,6 +21,7 @@ async function main() {
 
   const categorySeed = [
     { name: "Pilates" },
+    { name: "Volleyball" },
     { name: "Mobility & Longevity" },
     { name: "Nutrition & Gut Health" },
     { name: "Breathwork & Sleep" },
@@ -31,19 +32,6 @@ async function main() {
       where: { name: cat.name },
       update: {},
       create: cat,
-    });
-  }
-
-  const audienceSeed = [
-    { name: "Desk Professionals & Sedentary Workers" },
-    { name: "Founders & High-Performance Executives" },
-    { name: "All Levels & Beginners" },
-  ];
-  for (const aud of audienceSeed) {
-    await prisma.masterTargetAudience.upsert({
-      where: { name: aud.name },
-      update: {},
-      create: aud,
     });
   }
 

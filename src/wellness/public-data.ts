@@ -1,8 +1,6 @@
 import { getWellnessSession } from "@/wellness/security/session";
 import { prisma } from "@/wellness/db";
 import { parseTermsList, safeJsonParse } from "@/wellness/utils/json";
-import { getServerLocale } from "@/wellness/i18n/server";
-import { resolveLocalizedField } from "@/wellness/i18n/types";
 import {
   PROGRAM_TAXONOMY_INCLUDE,
   serializeProgramTaxonomy,
@@ -27,19 +25,19 @@ export interface PublicProgramItem {
   id: string;
   title: string;
   slug: string;
+  batchNumber?: number | null;
   description: string;
   coverImage?: string | null;
+  introVideoUrl?: string | null;
   difficultyLevel?: string | null;
   category?: string | null;
   equipment?: string | null;
   dailyCommitment?: string | null;
-  recommendedFor?: string | null;
   coachName?: string | null;
   coachTitle?: string | null;
   organizationName?: string | null;
   organizationLogo?: string | null;
   organizationVerified?: boolean;
-  language?: string | null;
   durationDays: number;
   trainingDays: number;
   restDays: number;
@@ -54,7 +52,6 @@ export interface PublicProgramItem {
   locationType?: string | null;
   city?: string | null;
   venueAddress?: string | null;
-  virtualFallbackAvailable?: boolean | null;
   communityLink?: string | null;
   startDate?: Date | string | null;
   endDate?: Date | string | null;
@@ -76,7 +73,6 @@ export interface PublicCoachItem {
     category: string;
     durationDays: number;
     dailyCommitment?: string | null;
-    recommendedFor?: string | null;
   }>;
 }
 
@@ -100,22 +96,22 @@ export async function getPublicSanctuaryData(): Promise<{
   programs: PublicProgramItem[];
   coaches: PublicCoachItem[];
   categories: string[];
-  audiences: string[];
   equipments: string[];
   commitments: string[];
   curriculumSample: PublicCurriculumSample;
 }> {
   const sessionUser = await getWellnessSession();
-  const locale = getServerLocale(sessionUser?.preferredLocale);
 
   const [
     programs,
     userEnrollments,
     masterCoaches,
     masterCategories,
-    masterAudiences,
     masterEquipments,
     masterCommitments,
+    sampleTrainingDay,
+    sampleRestDay,
+    sampleConnectionDay,
   ] = await Promise.all([
     prisma.program
       .findMany({
@@ -134,18 +130,8 @@ export async function getPublicSanctuaryData(): Promise<{
           },
           days: {
             select: {
-              dayNumber: true,
               dayType: true,
-              workoutOptionsJson: true,
-              videoChecklistJson: true,
-              mealRecommendation: true,
-              sleepRecommendation: true,
-              restInstructions: true,
-              onsiteVenue: true,
-              onsiteSchedule: true,
-              dayNotificationsJson: true,
             },
-            orderBy: { dayNumber: "asc" },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -154,6 +140,7 @@ export async function getPublicSanctuaryData(): Promise<{
     sessionUser
       ? prisma.programEnrollment
           .findMany({
+            take: 200,
             where: { userId: sessionUser.userId, status: "ACTIVE" },
             select: { programId: true },
           })
@@ -182,17 +169,57 @@ export async function getPublicSanctuaryData(): Promise<{
       })
       .catch(() => []),
     prisma.masterCategory
-      .findMany({ orderBy: { name: "asc" } })
-      .catch(() => []),
-    prisma.masterTargetAudience
-      .findMany({ orderBy: { name: "asc" } })
+      .findMany({ take: 200, orderBy: { name: "asc" } })
       .catch(() => []),
     prisma.masterEquipment
-      .findMany({ orderBy: { name: "asc" } })
+      .findMany({ take: 200, orderBy: { name: "asc" } })
       .catch(() => []),
     prisma.masterDailyCommitment
-      .findMany({ orderBy: { createdAt: "asc" } })
+      .findMany({ take: 100, orderBy: { createdAt: "asc" } })
       .catch(() => []),
+    prisma.programDay
+      .findFirst({
+        where: {
+          dayType: "TRAINING_DAY",
+          program: { status: "PUBLISHED", deletedAt: null },
+        },
+        select: {
+          workoutOptionsJson: true,
+          videoChecklistJson: true,
+          mealRecommendation: true,
+          sleepRecommendation: true,
+          dayNotificationsJson: true,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+      .catch(() => null),
+    prisma.programDay
+      .findFirst({
+        where: {
+          dayType: "REST_DAY",
+          program: { status: "PUBLISHED", deletedAt: null },
+        },
+        select: {
+          restInstructions: true,
+          mealRecommendation: true,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+      .catch(() => null),
+    prisma.programDay
+      .findFirst({
+        where: {
+          dayType: { in: ["CONNECTION_DAY", "MEETUP_DAY"] },
+          program: { status: "PUBLISHED", deletedAt: null },
+        },
+        select: {
+          onsiteVenue: true,
+          onsiteSchedule: true,
+          mealRecommendation: true,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+      .catch(() => null),
   ]);
 
   const userActiveProgramIds = new Set(userEnrollments.map((e) => e.programId));
@@ -210,21 +237,21 @@ export async function getPublicSanctuaryData(): Promise<{
 
     return {
       id: p.id,
-      title: resolveLocalizedField(p.title, p.translationsJson, locale, "title"),
+      title: p.title,
       slug: p.slug,
-      description: resolveLocalizedField(p.description, p.translationsJson, locale, "description"),
+      batchNumber: p.batchNumber ?? null,
+      description: p.description,
       coverImage: toClientMediaUrl(p.coverImagePath),
+      introVideoUrl: p.introVideoUrl || null,
       difficultyLevel: p.difficultyLevel || "ALL LEVELS",
       category: tax.category || "Pilates",
       equipment: tax.equipment || "Yoga Mat",
       dailyCommitment: tax.dailyCommitment || "25 - 30 Mins / Day",
-      recommendedFor: tax.recommendedFor || "All Levels",
       coachName: tax.coachName,
       coachTitle: tax.coachTitle,
       organizationName: tax.organizationName || null,
       organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
       organizationVerified: tax.organizationVerified ?? false,
-      language: p.language || "id",
       durationDays: p.durationDays,
       trainingDays,
       restDays,
@@ -235,9 +262,8 @@ export async function getPublicSanctuaryData(): Promise<{
       minQuota: p.minQuota,
       maxQuota: p.maxQuota,
       locationType: p.locationType,
-      city: p.city || "Jakarta Selatan",
+      city: p.city || null,
       venueAddress: p.venueAddress,
-      virtualFallbackAvailable: p.isVirtualFallbackAvailable,
       communityLink: p.communityLink,
       enrolledCount: p._count.enrollments,
       isUserEnrolled: userActiveProgramIds.has(p.id),
@@ -251,28 +277,6 @@ export async function getPublicSanctuaryData(): Promise<{
       termsList: parseTermsList(p.customTerms),
     };
   });
-
-  // Extract real sample curriculum day fields from published programs
-  let sampleTrainingDay = null;
-  let sampleRestDay = null;
-  let sampleConnectionDay = null;
-
-  for (const p of programs) {
-    for (const d of p.days) {
-      if (!sampleTrainingDay && d.dayType === "TRAINING_DAY") {
-        sampleTrainingDay = d;
-      }
-      if (!sampleRestDay && d.dayType === "REST_DAY") {
-        sampleRestDay = d;
-      }
-      if (
-        !sampleConnectionDay &&
-        (d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY")
-      ) {
-        sampleConnectionDay = d;
-      }
-    }
-  }
 
   const parsedWorkouts = safeJsonParse<string[]>(
     sampleTrainingDay?.workoutOptionsJson,
@@ -352,7 +356,6 @@ export async function getPublicSanctuaryData(): Promise<{
         category: lpTax.category || "Pilates",
         durationDays: lp.durationDays,
         dailyCommitment: lpTax.dailyCommitment || null,
-        recommendedFor: lpTax.recommendedFor || null,
       };
     });
 
@@ -377,14 +380,6 @@ export async function getPublicSanctuaryData(): Promise<{
             "Nutrition & Gut Health",
             "Breathwork & Sleep",
             "Strength & Conditioning",
-          ],
-    audiences:
-      masterAudiences.length > 0
-        ? masterAudiences.map((a) => a.name)
-        : [
-            "Desk Professionals & Sedentary Workers",
-            "Founders & High-Performance Executives",
-            "All Levels & Beginners",
           ],
     equipments:
       masterEquipments.length > 0

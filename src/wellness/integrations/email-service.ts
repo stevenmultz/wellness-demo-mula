@@ -9,7 +9,18 @@ import {
   EMAIL_MAX_ATTEMPTS,
   EMAIL_REQUEST_TIMEOUT_MS,
   getEmailConfig,
+  isProductionEnv,
 } from "../config";
+
+export function escapeHtml(input: string | null | undefined): string {
+  if (!input) return "";
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export interface SendEmailPayload {
   to: string;
@@ -65,6 +76,11 @@ export async function sendTransactionalEmail(
       await new Promise((r) => setTimeout(r, jitterMs));
     }
     return { delivered: false, provider: "RESEND" };
+  }
+
+  if (isProductionEnv()) {
+    console.error("[Email Adapter]: Transactional email provider is not configured in production.");
+    return { delivered: false, provider: "UNCONFIGURED" };
   }
 
   console.log(`\n======================================================`);

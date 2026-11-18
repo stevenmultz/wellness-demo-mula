@@ -113,6 +113,7 @@ export async function wellnessGetHistory(): Promise<WellnessActionResult<History
 
   const enrollments = await prisma.programEnrollment.findMany({
     where: { userId: session.userId },
+    take: 100,
     include: { program: { select: { title: true, price: true } } },
     orderBy: { createdAt: "desc" },
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Theme = "dark" | "light";
 
@@ -17,6 +18,8 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLightOnlyRoute = pathname?.startsWith("/dashboard") ?? false;
   const [theme, setThemeState] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
@@ -28,6 +31,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    if (isLightOnlyRoute) {
+      document.documentElement.classList.remove("dark");
+      syncThemeMeta("light");
+      setMounted(true);
+      return;
+    }
+
     const saved = localStorage.getItem("wellness-theme") as Theme | null;
     const isDark =
       saved === "dark" ||
@@ -45,9 +55,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       syncThemeMeta("light");
     }
     setMounted(true);
-  }, []);
+  }, [isLightOnlyRoute]);
+
+  const effectiveTheme: Theme = isLightOnlyRoute ? "light" : theme;
 
   const setTheme = (newTheme: Theme) => {
+    if (isLightOnlyRoute) {
+      document.documentElement.classList.remove("dark");
+      syncThemeMeta("light");
+      return;
+    }
     setThemeState(newTheme);
     localStorage.setItem("wellness-theme", newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
@@ -55,11 +72,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    setTheme(effectiveTheme === "dark" ? "light" : "dark");
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme: effectiveTheme, toggleTheme, setTheme }}>
       <div data-theme-mounted={mounted ? "true" : "false"}>{children}</div>
     </ThemeContext.Provider>
   );

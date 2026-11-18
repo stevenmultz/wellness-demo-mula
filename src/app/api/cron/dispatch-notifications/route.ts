@@ -46,9 +46,29 @@ async function handleCronDispatch(req: NextRequest) {
         );
       }
       try {
-        const rawText = await req.text();
-        if (rawText.length <= MAX_CRON_BODY_BYTES && rawText.trim().length > 0) {
-          bodyJson = JSON.parse(rawText);
+        const reader = req.body?.getReader();
+        if (reader) {
+          const chunks: Uint8Array[] = [];
+          let totalBytes = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              totalBytes += value.byteLength;
+              if (totalBytes > MAX_CRON_BODY_BYTES) {
+                await reader.cancel();
+                return NextResponse.json(
+                  { success: false, message: "Request payload too large." },
+                  { status: 413 }
+                );
+              }
+              chunks.push(value);
+            }
+          }
+          const rawText = Buffer.concat(chunks).toString("utf8");
+          if (rawText.trim().length > 0) {
+            bodyJson = JSON.parse(rawText);
+          }
         }
       } catch {
         // empty or invalid JSON body

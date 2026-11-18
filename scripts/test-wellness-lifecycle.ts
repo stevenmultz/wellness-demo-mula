@@ -29,13 +29,14 @@ async function main() {
   }
   console.log("   ✅ Normalization for all 10 legacy/new variants passed!");
 
-  // 2. Test Dynamic Badges when status === "PUBLISH"
-  console.log("\n2. Testing 6 Dynamic Badges when status === 'PUBLISH'...");
+  // 2. Test Dynamic Badges when status === "PUBLISH" & locationType === "HYBRID"
+  console.log("\n2. Testing 6 Dynamic Badges for HYBRID (status === 'PUBLISH')...");
   const baseNow = new Date("2026-10-30T10:00:00Z");
 
   // Badge 1: Coming Soon (now < regOpen)
   const badge1 = resolvePublicBadge({
     status: "PUBLISH",
+    locationType: "HYBRID",
     registrationOpenDate: new Date("2026-11-05T00:00:00Z"),
     registrationDeadline: new Date("2026-11-15T00:00:00Z"),
     startDate: new Date("2026-11-20T00:00:00Z"),
@@ -48,6 +49,7 @@ async function main() {
   // Badge 2: Open Registration (regOpen <= now <= regDeadline && enrolled < quota)
   const badge2 = resolvePublicBadge({
     status: "PUBLISH",
+    locationType: "HYBRID",
     registrationOpenDate: new Date("2026-10-25T00:00:00Z"),
     registrationDeadline: new Date("2026-11-05T00:00:00Z"),
     startDate: new Date("2026-11-10T00:00:00Z"),
@@ -62,6 +64,7 @@ async function main() {
   // Badge 3: Full (enrolled >= quota && now <= regDeadline)
   const badge3 = resolvePublicBadge({
     status: "PUBLISH",
+    locationType: "HYBRID",
     registrationOpenDate: new Date("2026-10-25T00:00:00Z"),
     registrationDeadline: new Date("2026-11-05T00:00:00Z"),
     startDate: new Date("2026-11-10T00:00:00Z"),
@@ -76,6 +79,7 @@ async function main() {
   // Badge 4: Close Registration (regDeadline < now < startDate)
   const badge4 = resolvePublicBadge({
     status: "PUBLISH",
+    locationType: "HYBRID",
     registrationOpenDate: new Date("2026-10-15T00:00:00Z"),
     registrationDeadline: new Date("2026-10-28T00:00:00Z"),
     startDate: new Date("2026-11-02T00:00:00Z"),
@@ -90,6 +94,7 @@ async function main() {
   // Badge 5: On going (startDate <= now <= endDate)
   const badge5 = resolvePublicBadge({
     status: "PUBLISH",
+    locationType: "HYBRID",
     registrationOpenDate: new Date("2026-10-10T00:00:00Z"),
     registrationDeadline: new Date("2026-10-20T00:00:00Z"),
     startDate: new Date("2026-10-25T00:00:00Z"),
@@ -104,6 +109,7 @@ async function main() {
   // Badge 6: End (now > endDate)
   const badge6 = resolvePublicBadge({
     status: "PUBLISH",
+    locationType: "HYBRID",
     registrationOpenDate: new Date("2026-09-01T00:00:00Z"),
     registrationDeadline: new Date("2026-09-10T00:00:00Z"),
     startDate: new Date("2026-09-15T00:00:00Z"),
@@ -115,10 +121,31 @@ async function main() {
   console.log(`   - End condition -> ${badge6}`);
   if (badge6 !== "End") throw new Error("Expected End");
 
+  // 2b. Test Full Online (Anytime) badges
+  console.log("\n2b. Testing Full Online (Anytime) Dynamic Badges...");
+  const onlineOpen = resolvePublicBadge({
+    status: "PUBLISH",
+    locationType: "ONLINE",
+    maxQuota: 20,
+    enrolledCount: 5,
+    now: baseNow,
+  });
+  if (onlineOpen !== "Open Registration") throw new Error("Expected Open Registration for ONLINE");
+  const onlineFull = resolvePublicBadge({
+    status: "PUBLISH",
+    locationType: "ONLINE",
+    maxQuota: 20,
+    enrolledCount: 20,
+    now: baseNow,
+  });
+  if (onlineFull !== "Full") throw new Error("Expected Full for ONLINE");
+  console.log(`   ✅ Full Online anytime badges passed (${onlineOpen}, ${onlineFull})!`);
+
   // 3. Test Seeded Programs in Database
   console.log("\n3. Testing Database Seeded Program Query Resolution...");
   const programs = await prisma.program.findMany({
     include: {
+      days: { select: { dayType: true } },
       _count: {
         select: { enrollments: { where: { status: "ACTIVE" } }, days: true },
       },
@@ -128,8 +155,21 @@ async function main() {
 
   console.log(`   Found ${programs.length} programs in database:`);
   for (const p of programs) {
+    if (p.locationType !== "ONLINE" && p.locationType !== "HYBRID") {
+      throw new Error(`Invalid locationType ${p.locationType} on program ${p.slug}`);
+    }
+    if (p.locationType === "ONLINE") {
+      if (p.startAt || p.endAt || p.registrationDeadlineAt) {
+        throw new Error(`ONLINE program ${p.slug} must not have fixed dates`);
+      }
+      const hasConnect = p.days.some((d) => d.dayType === "CONNECTION_DAY" || d.dayType === "MEETUP_DAY");
+      if (hasConnect) {
+        throw new Error(`ONLINE program ${p.slug} must not have CONNECTION_DAY/MEETUP_DAY`);
+      }
+    }
     const res = resolveProgramStatus({
       status: p.status,
+      locationType: p.locationType,
       isPublished: p.status === "PUBLISHED",
       registrationOpenDate: p.registrationOpenAt,
       registrationDeadline: p.registrationDeadlineAt,
@@ -138,7 +178,7 @@ async function main() {
       maxQuota: p.maxQuota,
       enrolledCount: p._count.enrollments,
     });
-    console.log(`   - [DB: ${res.dbStatus}] [Public: ${res.publicBadge || "N/A"}] "${p.title}" (Days: ${p._count.days}, Active Members: ${p._count.enrollments})`);
+    console.log(`   - [Mode: ${p.locationType}] [DB: ${res.dbStatus}] [Public: ${res.publicBadge || "N/A"}] "${p.title}" (Days: ${p._count.days}, Active Members: ${p._count.enrollments})`);
   }
 
   console.log("\n========================================================");

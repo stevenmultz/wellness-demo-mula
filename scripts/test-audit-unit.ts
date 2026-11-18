@@ -1,6 +1,7 @@
 import assert from "assert";
 import crypto from "crypto";
 import { safeHttpUrl, safeMediaUrl, isSafePhotoUrl } from "../src/wellness/utils/url-safety";
+import { escapeHtml } from "../src/wellness/integrations/email-service";
 import { extractYouTubeId, normalizeVideoEmbed } from "../src/wellness/integrations/video-provider";
 import { AdminUpdateCustomerProfileSchema, calculateAgeFromDob } from "../src/wellness/validators/auth";
 import { verifyMidtransWebhookSignature } from "../src/wellness/integrations/payment-gateway";
@@ -8,11 +9,23 @@ import { formatStorageUri, parseStorageUri } from "../src/wellness/integrations/
 import {
   CreateProgramSchema,
   CustomTaskFieldInputSchema,
+  isProgramHeaderComplete,
   ProgramDayInputSchema,
   SubmitDayProgressSchema,
+  UpdateProgramMetaSchema,
 } from "../src/wellness/validators/program";
 import { sanitizeCustomTaskSubmission } from "../src/wellness/utils/custom-tasks";
 import { getProgramDayWibWindow, calculateSleepDuration } from "../src/wellness/utils/timezone";
+import { resolvePublicBadge } from "../src/wellness/utils/timeline";
+import { evaluateFreeIntroRequirement } from "../src/wellness/security/program-rules";
+import { resolveProgramDailyPlan } from "../src/wellness/utils/daily-tasks";
+import {
+  FORMAT_OPTIONS,
+  intensityOf,
+  scheduleOf,
+  splitCoachTokens,
+  type ExploreProgram,
+} from "../src/components/dashboard/tabs/explore/exploreFilters";
 import { BRAND, buildConciergeWhatsAppUrl } from "../src/wellness/brand";
 import {
   SESSION_COOKIE_NAME,
@@ -55,8 +68,13 @@ async function runAuditUnitTests() {
   // 2. Video Provider Hostname & Protocol Hardening
   assert.strictEqual(extractYouTubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
   assert.strictEqual(extractYouTubeId("https://youtu.be/dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+  assert.strictEqual(extractYouTubeId("https://www.youtube.com/watch?v=../../evil"), null);
   assert.strictEqual(extractYouTubeId("https://evil-youtube.com/watch?v=dQw4w9WgXcQ"), null);
   assert.strictEqual(extractYouTubeId("https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ"), null);
+  assert.strictEqual(
+    escapeHtml('<img src=x onerror="alert(1)">'),
+    "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"
+  );
 
   const badVideo = normalizeVideoEmbed("javascript:alert(1)");
   assert.strictEqual(badVideo.provider, "UNKNOWN");
@@ -216,6 +234,214 @@ async function runAuditUnitTests() {
   const waHref = buildConciergeWhatsAppUrl("Hello zera.id");
   assert.ok(waHref.startsWith(`https://wa.me/${BRAND.conciergeWhatsApp}?text=Hello%20zera.id`));
   console.log("  [PASS] 7. Centralized config and concierge WhatsApp URL helper verified");
+
+  // 9. Hybrid & Full Online Two-Mode Rules + Intro Video URL + Explore Filters
+  assert.strictEqual(
+    CreateProgramSchema.safeParse({
+      title: "Legacy Onsite Test",
+      locationType: "ONSITE",
+    }).success,
+    false
+  );
+  assert.strictEqual(
+    CreateProgramSchema.safeParse({
+      title: "Bad Intro Video",
+      locationType: "ONLINE",
+      introVideoUrl: "javascript:alert(1)",
+    }).success,
+    false
+  );
+  assert.strictEqual(
+    UpdateProgramMetaSchema.safeParse({
+      programId: "prog-online-1",
+      title: "Anytime Flexibility",
+      description: "Full online cohort without dates",
+      coachName: "Coach Julian",
+      category: "Volleyball",
+      locationType: "ONLINE",
+      introVideoUrl: "https://www.youtube.com/watch?v=sTANio_2E0Q",
+      startDate: null,
+      endDate: null,
+      registrationDeadline: null,
+      maxQuota: 30,
+      price: 150000,
+    }).success,
+    true
+  );
+
+  assert.strictEqual(
+    CreateProgramSchema.safeParse({
+      title: "Voli Core Training",
+      batchNumber: 2,
+      category: "Volleyball",
+      locationType: "HYBRID",
+    }).success,
+    true
+  );
+
+  const onlineComplete = isProgramHeaderComplete({
+    title: "Online Breathwork",
+    description: "Anytime nervous system reset",
+    difficultyLevel: "BEGINNER",
+    category: "Breathwork",
+    dailyCommitment: "15 mins/day",
+    coachName: "Coach Julian",
+    locationType: "ONLINE",
+    startDate: null,
+    endDate: null,
+    registrationDeadline: null,
+    maxQuota: 30,
+    price: 0,
+    communityLink: "https://chat.whatsapp.com/test",
+    termsList: ["Follow safely"],
+  });
+  assert.strictEqual(onlineComplete.isComplete, true);
+
+  const hybridMissingDates = isProgramHeaderComplete({
+    title: "Hybrid Core",
+    description: "In-studio + online hybrid",
+    difficultyLevel: "INTERMEDIATE",
+    category: "Pilates",
+    dailyCommitment: "30 mins/day",
+    coachName: "Coach Sarah",
+    locationType: "HYBRID",
+    startDate: null,
+    endDate: null,
+    registrationDeadline: null,
+    city: "Jakarta",
+    venueAddress: "Senopati",
+    maxQuota: 20,
+    price: 250000,
+    communityLink: "https://chat.whatsapp.com/test",
+    termsList: ["Arrive 10m early"],
+  });
+  assert.strictEqual(hybridMissingDates.isComplete, false);
+
+  assert.strictEqual(
+    resolvePublicBadge({ status: "PUBLISH", locationType: "ONLINE", maxQuota: 10, enrolledCount: 2 }),
+    "Open Registration"
+  );
+  assert.strictEqual(
+    resolvePublicBadge({ status: "PUBLISH", locationType: "ONLINE", maxQuota: 10, enrolledCount: 10 }),
+    "Full"
+  );
+
+  const onlineDaily = resolveProgramDailyPlan(
+    "prog-online-test",
+    null,
+    [
+      {
+        id: "d1",
+        dayNumber: 1,
+        title: "Day 1",
+        dayType: "TRAINING_DAY",
+        videoUrl: null,
+        mealRecommendation: null,
+        restInstructions: null,
+        eventTitle: null,
+        eventDetails: null,
+        progress: {
+          videoWatched: true,
+          isCompleted: true,
+          mealCompliance: "FULL",
+          dailyReflection: "Done",
+        },
+      },
+      {
+        id: "d2",
+        dayNumber: 2,
+        title: "Day 2",
+        dayType: "TRAINING_DAY",
+        videoUrl: null,
+        mealRecommendation: null,
+        restInstructions: null,
+        eventTitle: null,
+        eventDetails: null,
+        progress: null,
+      },
+      {
+        id: "d3",
+        dayNumber: 3,
+        title: "Day 3",
+        dayType: "REST_DAY",
+        videoUrl: null,
+        mealRecommendation: null,
+        restInstructions: "Walk",
+        eventTitle: null,
+        eventDetails: null,
+        progress: null,
+      },
+    ],
+    new Date(),
+    "ONLINE"
+  );
+  assert.strictEqual(onlineDaily.today?.dayNumber, 2);
+  assert.strictEqual(onlineDaily.tomorrow?.dayNumber, 3);
+
+  assert.deepStrictEqual(
+    FORMAT_OPTIONS.map((o) => o.id),
+    ["ONLINE", "HYBRID"]
+  );
+  assert.strictEqual(intensityOf("MODERATE"), "Moderate");
+  assert.strictEqual(intensityOf("INTERMEDIATE"), "Moderate");
+  assert.strictEqual(intensityOf("ADVANCED"), "High");
+  assert.strictEqual(intensityOf("HIGH_INTENSITY"), "Very High");
+  assert.deepStrictEqual(splitCoachTokens("Coach Sarah, Coach Julian, coach sarah"), [
+    "Coach Sarah",
+    "Coach Julian",
+  ]);
+  const sampleExplore: ExploreProgram = {
+    id: "p1",
+    title: "Test",
+    coverImage: null,
+    coachName: "Coach Julian",
+    startDate: null,
+    endDate: null,
+    registrationDeadline: null,
+    price: 0,
+    durationDays: 7,
+    locationType: "ONLINE",
+    city: null,
+    seatsLeft: 10,
+    badge: "Open Registration",
+    canEnroll: true,
+    enrollmentStatus: null,
+    difficultyLevel: "INTERMEDIATE",
+    category: "Breathwork",
+    dailyCommitment: "15 mins/day",
+  };
+  assert.strictEqual(scheduleOf(sampleExplore), "Flexible Schedule");
+  assert.strictEqual(scheduleOf({ ...sampleExplore, locationType: "HYBRID" }), "Fixed Schedule");
+
+  // Minimal header without Blueprint Section 2 or targetAudience still passes
+  const minimalOnline = isProgramHeaderComplete({
+    title: "Voli Core Conditioning",
+    description: "Self-paced volleyball conditioning modules",
+    difficultyLevel: "INTERMEDIATE",
+    category: "Volleyball",
+    dailyCommitment: "20 mins/day",
+    coachName: "Coach Sarah",
+    locationType: "ONLINE",
+    maxQuota: 40,
+    price: 0,
+    communityLink: "https://chat.whatsapp.com/voli",
+    termsList: ["Listen to your body"],
+  });
+  assert.strictEqual(minimalOnline.isComplete, true);
+
+  // Community / Coach publishing no longer requires 2 free intro programs
+  assert.strictEqual(
+    evaluateFreeIntroRequirement({
+      callerRole: "PARTNER_ADMIN",
+      action: "PUBLISH",
+      programPrice: 250000,
+      isCurrentlyPublished: false,
+      otherPublishedFreeCount: 0,
+      otherPublishedPaidCount: 0,
+    }).allowed,
+    true
+  );
+  console.log("  [PASS] 8. Hybrid/Online two-mode validation, batchNumber, Sports, Community publish & Explore filters pass");
 
   console.log("\n=== ALL AUDIT UNIT TESTS PASSED ===");
 }

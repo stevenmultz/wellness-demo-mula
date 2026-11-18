@@ -12,7 +12,7 @@ import {
   requireSuperadmin,
   WellnessForbiddenError,
 } from "../security/guards";
-import { sendTransactionalEmail } from "../integrations/email-service";
+import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { recordAuditLog } from "../integrations/audit-log";
 import type { WellnessActionResult } from "./auth";
 
@@ -100,13 +100,13 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
   const session = await requireAdminAccess();
 
   if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
-    throw new WellnessForbiddenError("Only Superadmin or Partner Admin can access team management.");
+    throw new WellnessForbiddenError("Only Superadmin or Community Admin can access team management.");
   }
 
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
     return {
       success: true,
-      message: "Partner Admin is not linked to an organization yet.",
+      message: "Community Admin is not linked to a community yet.",
       data: {
         callerRole: session.role,
         callerOrganizationId: null,
@@ -131,12 +131,14 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
   const [organizations, partnerAdminsRaw, coachesRaw] = await Promise.all([
     prisma.masterOrganization.findMany({
       where: orgWhere,
+      take: 500,
       select: { id: true, name: true, tagline: true, isVerified: true },
       orderBy: { name: "asc" },
     }),
     session.role === "SUPERADMIN"
       ? prisma.user.findMany({
           where: { role: "PARTNER_ADMIN", deletedAt: null },
+          take: 500,
           select: {
             id: true,
             fullName: true,
@@ -152,6 +154,7 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
       : Promise.resolve([]),
     prisma.user.findMany({
       where: coachUserWhere,
+      take: 500,
       select: {
         id: true,
         fullName: true,
@@ -214,7 +217,7 @@ export async function wellnessSuperadminCreatePartnerAdmin(
   if (!parsed.success) {
     return {
       success: false,
-      message: Object.values(parsed.error.flatten().fieldErrors).flat()[0] || "Invalid Partner Admin details.",
+      message: Object.values(parsed.error.flatten().fieldErrors).flat()[0] || "Invalid Community Admin details.",
     };
   }
 
@@ -227,7 +230,7 @@ export async function wellnessSuperadminCreatePartnerAdmin(
   if (!trimmedExistingOrgId && trimmedNewOrgName.length < 2) {
     return {
       success: false,
-      message: "Please select an existing Partner organization or enter a new Partner name.",
+      message: "Please select an existing Community or enter a new Community name.",
     };
   }
 
@@ -253,7 +256,7 @@ export async function wellnessSuperadminCreatePartnerAdmin(
           select: { id: true, name: true },
         });
         if (!foundOrg) {
-          throw new Error("Selected Partner organization does not exist.");
+          throw new Error("Selected Community does not exist.");
         }
         resolvedOrg = foundOrg;
       } else {
@@ -261,13 +264,13 @@ export async function wellnessSuperadminCreatePartnerAdmin(
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)+/g, "");
-        const slug = `${baseSlug || "partner"}-${crypto.randomBytes(2).toString("hex")}`;
+        const slug = `${baseSlug || "community"}-${crypto.randomBytes(2).toString("hex")}`;
         const duplicateOrg = await tx.masterOrganization.findFirst({
           where: { name: { equals: trimmedNewOrgName, mode: "insensitive" } },
           select: { id: true },
         });
         if (duplicateOrg) {
-          throw new Error(`Partner "${trimmedNewOrgName}" already exists. Select it from the list instead.`);
+          throw new Error(`Community "${trimmedNewOrgName}" already exists. Select it from the list instead.`);
         }
         resolvedOrg = await tx.masterOrganization.create({
           data: {
@@ -330,16 +333,16 @@ export async function wellnessSuperadminCreatePartnerAdmin(
     const setupUrl = `${getAppUrl()}/reset-password?token=${setupToken}`;
     await sendTransactionalEmail({
       to: created.newUser.email,
-      subject: `${BRAND.fullName} — Partner Admin Account Ready`,
-      html: `<p>Hi ${created.newUser.fullName},</p><p>Your Partner Admin account for <strong>${created.resolvedOrg.name}</strong> has been created.</p><p>Set your personal password here (valid for 24 hours): <a href="${setupUrl}">${setupUrl}</a></p>`,
-      text: `Your Partner Admin account for ${created.resolvedOrg.name} is ready. Set your password: ${setupUrl}`,
+      subject: `${BRAND.fullName} — Community Admin Account Ready`,
+      html: `<p>Hi ${escapeHtml(created.newUser.fullName)},</p><p>Your Community Admin account for <strong>${escapeHtml(created.resolvedOrg.name)}</strong> has been created.</p><p>Set your personal password here (valid for 24 hours): <a href="${setupUrl}">${setupUrl}</a></p>`,
+      text: `Your Community Admin account for ${created.resolvedOrg.name} is ready. Set your password: ${setupUrl}`,
     }).catch(() => null);
 
     revalidateTeamRoutes();
 
     return {
       success: true,
-      message: `Partner Admin "${created.newUser.fullName}" created for ${created.resolvedOrg.name}.`,
+      message: `Community Admin "${created.newUser.fullName}" created for ${created.resolvedOrg.name}.`,
       data: {
         user: {
           id: created.newUser.id,
@@ -357,7 +360,7 @@ export async function wellnessSuperadminCreatePartnerAdmin(
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to create Partner Admin account.",
+      message: err instanceof Error ? err.message : "Failed to create Community Admin account.",
     };
   }
 }
@@ -375,14 +378,14 @@ export async function wellnessCreatePartnerCoachAccount(
   if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
     return {
       success: false,
-      message: "Forbidden: Only Superadmin or Partner Admin can create Coach accounts.",
+      message: "Forbidden: Only Superadmin or Community Admin can create Coach accounts.",
     };
   }
 
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
     return {
       success: false,
-      message: "Your Partner Admin account is not linked to an organization yet.",
+      message: "Your Community Admin account is not linked to a community yet.",
     };
   }
 
@@ -488,7 +491,7 @@ export async function wellnessCreatePartnerCoachAccount(
     await sendTransactionalEmail({
       to: created.newUser.email,
       subject: `${BRAND.fullName} — Coach Account Ready`,
-      html: `<p>Hi ${created.newUser.fullName},</p><p>Your Coach account${created.orgName ? ` for <strong>${created.orgName}</strong>` : ""} has been created.</p><p>Set your personal password here (valid for 24 hours): <a href="${setupUrl}">${setupUrl}</a></p>`,
+      html: `<p>Hi ${escapeHtml(created.newUser.fullName)},</p><p>Your Coach account${created.orgName ? ` for <strong>${escapeHtml(created.orgName)}</strong>` : ""} has been created.</p><p>Set your personal password here (valid for 24 hours): <a href="${setupUrl}">${setupUrl}</a></p>`,
       text: `Your Coach account is ready. Set your password: ${setupUrl}`,
     }).catch(() => null);
 
@@ -534,7 +537,7 @@ export async function wellnessTogglePartnerCoachStatus(
     return { success: false, message: "Forbidden." };
   }
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
-    return { success: false, message: "Partner Admin is not linked to an organization." };
+    return { success: false, message: "Community Admin is not linked to a community." };
   }
 
   try {
@@ -595,7 +598,7 @@ export async function wellnessResetPartnerCoachPassword(
     return { success: false, message: "Forbidden." };
   }
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
-    return { success: false, message: "Partner Admin is not linked to an organization." };
+    return { success: false, message: "Community Admin is not linked to a community." };
   }
 
   const tempPassword = generateTempStaffPassword();
@@ -657,7 +660,7 @@ export async function wellnessUpdatePartnerCoachProfile(
     return { success: false, message: "Forbidden." };
   }
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
-    return { success: false, message: "Partner Admin is not linked to an organization." };
+    return { success: false, message: "Community Admin is not linked to a community." };
   }
 
   const parsed = UpdateCoachProfileSchema.safeParse(rawInput);
@@ -684,13 +687,6 @@ export async function wellnessUpdatePartnerCoachProfile(
         where: { id: coach.id },
         data: { name, title },
       });
-
-      if (coach.name !== name) {
-        await tx.programDay.updateMany({
-          where: { coachName: coach.name },
-          data: { coachName: name },
-        });
-      }
 
       await recordAuditLog(
         {

@@ -1,16 +1,18 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import {
   ChevronDown,
   ChevronUp,
   Clock,
   Dumbbell,
   ImageIcon,
-  Sparkles,
   Tag,
+  Upload,
   UserCheck,
+  Video,
 } from "lucide-react";
+import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import type { MasterDataPayload } from "@/wellness/actions/master";
 import {
   DropdownTagPicker,
@@ -75,10 +77,34 @@ export function ProgramFormCoreSections({
   navigateToDirectory,
 }: ProgramFormCoreSectionsProps) {
   void currentAdminOrgId;
+  const [uploadingCover, setUploadingCover] = useState(false);
   const sec1Stats = getProgramSectionStats(1, form);
   const sec2Stats = getProgramSectionStats(2, form);
   const sec3Stats = getProgramSectionStats(3, form);
   const sec4Stats = getProgramSectionStats(4, form);
+
+  const handleUploadCoverFile = async (file: File) => {
+    setUploadingCover(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl, type: "program-cover" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success) {
+        setForm((p) => ({ ...p, coverImage: json.url || json.storagePath || "" }));
+      }
+    } finally {
+      setUploadingCover(false);
+    }
+  };
 
   return (
     <>
@@ -161,29 +187,48 @@ export function ProgramFormCoreSections({
 
               {/* Cover / Banner Image with Preview */}
               <div className="sm:col-span-3 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-zinc-400" />
                     <span>Cover / Banner Image URL</span>
                   </label>
-                  {form.coverImage && !isLocked && (
-                    <button
-                      type="button"
-                      onClick={() => setForm((p) => ({ ...p, coverImage: "" }))}
-                      className="text-[10px] text-zinc-500 hover:text-red-500 transition underline"
-                    >
-                      Clear Image
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {!isLocked && (
+                      <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-white/15 bg-white dark:bg-white/5 hover:bg-zinc-50 text-[11px] font-medium text-zinc-700 dark:text-zinc-200 cursor-pointer">
+                        <Upload className="w-3 h-3" />
+                        <span>{uploadingCover ? "Uploading..." : "Upload WebP"}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={uploadingCover}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) void handleUploadCoverFile(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+                    {form.coverImage && !isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, coverImage: "" }))}
+                        className="text-[10px] text-zinc-500 hover:text-red-500 transition underline"
+                      >
+                        Clear Image
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <input
-                  type="url"
+                  type="text"
                   disabled={isLocked}
                   value={form.coverImage}
                   onChange={(e) =>
                     setForm((p) => ({ ...p, coverImage: e.target.value }))
                   }
-                  placeholder="Enter cover image URL..."
+                  placeholder="Upload WebP cover or enter cover image URL..."
                   className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
                 />
                 <div className="relative h-28 sm:h-36 rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50 dark:bg-white/5 overflow-hidden flex items-center justify-center">
@@ -206,6 +251,54 @@ export function ProgramFormCoreSections({
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="sm:col-span-3 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    Coach Introduction Video URL (Optional)
+                  </label>
+                  {form.introVideoUrl && !isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, introVideoUrl: "" }))}
+                      className="text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 underline transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  disabled={isLocked}
+                  value={form.introVideoUrl}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, introVideoUrl: e.target.value }))
+                  }
+                  placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400 placeholder:text-zinc-400"
+                />
+                {form.introVideoUrl ? (
+                  <div className="relative h-28 sm:h-36 rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-950 overflow-hidden flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={extractVideoThumbnail(
+                        form.introVideoUrl,
+                        form.coverImage || "/image.webp"
+                      )}
+                      alt="Introduction Video Thumbnail Preview"
+                      className="w-full h-full object-cover opacity-85"
+                    />
+                    <span className="absolute bottom-2 left-2 px-2.5 py-1 rounded-full bg-black/70 text-[10px] font-mono text-white inline-flex items-center gap-1">
+                      <Video className="w-3 h-3" />
+                      <span>Coach Intro Preview Ready</span>
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Add a YouTube, Vimeo, or direct video link where the coach explains the program curriculum before users enroll.
+                  </p>
+                )}
               </div>
 
               <div className="sm:col-span-3 space-y-2">
@@ -302,7 +395,7 @@ export function ProgramFormCoreSections({
                 Directories &amp; Classification
               </h3>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-                Taxonomy, coaching team, target personas, equipment, and daily commitment
+                Sports discipline, coaching team, equipment, and daily commitment
               </p>
             </div>
           </div>
@@ -322,8 +415,8 @@ export function ProgramFormCoreSections({
           <div className="px-5 pb-6 sm:px-8 sm:pb-8 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 space-y-6">
             <div className="space-y-6 pt-3">
               <DropdownTagPicker
-                label="Category / Categories *"
-                subLabel="Program taxonomy & disciplines (select from master list)"
+                label="Sports / Discipline *"
+                subLabel="Primary sport or discipline (e.g. Volleyball, Pilates, Strength)"
                 disabled={isLocked}
                 value={form.category}
                 onChange={(val) => setForm((p) => ({ ...p, category: val }))}
@@ -331,9 +424,9 @@ export function ProgramFormCoreSections({
                   id: c.id,
                   name: c.name,
                 }))}
-                selectPlaceholder="Enter or select category..."
+                selectPlaceholder="Enter or select sport..."
                 onManage={isSuperadminUser ? () => navigateToDirectory("categories") : undefined}
-                manageLabel="+ Manage in Categories Directory"
+                manageLabel="+ Manage in Sports Directory"
                 icon={Tag}
               />
 
@@ -382,25 +475,7 @@ export function ProgramFormCoreSections({
                 icon={UserCheck}
               />
 
-              <DropdownTagPicker
-                label="Target Audience (Recommended For) *"
-                subLabel="Ideal participant demographics & personas (e.g. Private Sector Employees, Creative Workers)"
-                disabled={isLocked}
-                value={form.recommendedFor}
-                onChange={(val) =>
-                  setForm((p) => ({ ...p, recommendedFor: val }))
-                }
-                options={masterData.targetAudiences.map((a) => ({
-                  id: a.id,
-                  name: a.name,
-                }))}
-                selectPlaceholder="Enter or select target audience..."
-                onManage={isSuperadminUser ? () => navigateToDirectory("audience") : undefined}
-                manageLabel="+ Manage in Audience Directory"
-                icon={Sparkles}
-              />
-
-              {/* Community / Brand Creator & Language */}
+              {/* Community Host & Cohort Batch */}
               <div className="pt-4 border-t border-zinc-100 dark:border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -430,59 +505,26 @@ export function ProgramFormCoreSections({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Program Primary Language
-                  </label>
-                  <select
-                    disabled={isLocked}
-                    value={form.language}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        language: e.target.value as "id" | "en" | "bilingual",
-                      }))
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60"
-                  >
-                    <option value="id">Indonesia (ID)</option>
-                    <option value="en">English (EN)</option>
-                    <option value="bilingual">Bilingual (ID &amp; EN)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-medium text-zinc-500 mb-1">
-                    English Title Override (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    disabled={isLocked}
-                    value={form.titleEn}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, titleEn: e.target.value }))
-                    }
-                    placeholder="Optional English program title..."
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs disabled:opacity-60"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-zinc-500 mb-1">
-                    English Description Override (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    disabled={isLocked}
-                    value={form.descriptionEn}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, descriptionEn: e.target.value }))
-                    }
-                    placeholder="Optional English summary..."
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs disabled:opacity-60"
-                  />
-                </div>
+                {form.locationType === "HYBRID" && (
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                      Batch Number (Optional — e.g. Batch 1, Batch 2)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      disabled={isLocked}
+                      value={form.batchNumber ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value ? Math.max(1, Number(e.target.value)) : null;
+                        setForm((p) => ({ ...p, batchNumber: v }));
+                      }}
+                      placeholder="e.g. 1 (leave blank if single run)"
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white disabled:opacity-60"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -500,14 +542,18 @@ export function ProgramFormCoreSections({
             <span className={getSectionBadgeClass(4)}>4</span>
             <div className="min-w-0">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
-                {mode === "create"
-                  ? "Schedule & Registration Dates"
-                  : "Schedule & Duration"}
+                {form.locationType === "ONLINE"
+                  ? "Access Mode & Module Schedule"
+                  : mode === "create"
+                  ? "Cohort Schedule & Registration Dates"
+                  : "Cohort Schedule & Duration"}
               </h3>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-                {mode === "create"
-                  ? `Start, end, and cutoff timelines in WIB (${form.durationDays} Days • Asia/Jakarta)`
-                  : "Program run window and registration cutoff timeline in WIB (Asia/Jakarta)"}
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                {form.locationType === "ONLINE"
+                  ? "Anytime self-paced access · Add modules freely in the Curriculum tab"
+                  : mode === "create"
+                    ? `Start, end, and cutoff timelines in WIB (${form.durationDays} Days • Asia/Jakarta)`
+                    : "Program run window and registration cutoff timeline in WIB (Asia/Jakarta)"}
               </p>
             </div>
           </div>
@@ -525,110 +571,126 @@ export function ProgramFormCoreSections({
 
         {expandedSections[4] && (
           <div className="px-5 pb-6 sm:px-8 sm:pb-8 pt-2 border-t border-zinc-300/60 dark:border-zinc-700/60 space-y-6">
-            {mode === "edit" && (
-              <div className="flex items-center justify-between pt-3 pb-1 border-b border-zinc-300/50 dark:border-zinc-700/50">
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Calendar timeline (WIB • Asia/Jakarta)
-                </span>
-                <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white font-medium">
-                  Duration: {form.durationDays} Days (Day 1 – Day {form.durationDays})
-                </span>
+            {form.locationType === "ONLINE" ? (
+              <div className="space-y-3 pt-3">
+                <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300/70 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-1">
+                  <p>
+                    <strong className="text-zinc-950 dark:text-white">Full Online (Anytime Access):</strong>{" "}
+                    No start date, end date, or preset day count required. Members can enroll and start whenever they join.
+                  </p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Current modules configured: <strong>{form.durationDays || 1}</strong> (auto-updates as you add/remove modules in the Curriculum tab). Scheduled push reminders still fire daily for each member&apos;s active incomplete module!
+                  </p>
+                </div>
               </div>
-            )}
+            ) : (
+              <>
+                {mode === "edit" && (
+                  <div className="flex items-center justify-between pt-3 pb-1 border-b border-zinc-300/50 dark:border-zinc-700/50">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Calendar timeline (WIB • Asia/Jakarta)
+                    </span>
+                    <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white font-medium">
+                      Duration: {form.durationDays} Days (Day 1 – Day {form.durationDays})
+                    </span>
+                  </div>
+                )}
 
-            <div
-              className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${
-                mode === "create" ? "pt-3" : ""
-              }`}
-            >
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Start Date (WIB) *
-                </label>
-                <input
-                  type="date"
-                  required
-                  disabled={isLocked}
-                  value={form.startDate}
-                  onChange={(e) => {
-                    const newStart = e.target.value;
-                    setForm((p) => ({
-                      ...p,
-                      startDate: newStart,
-                      durationDays: computeInclusiveDays(
-                        newStart,
-                        p.endDate,
-                        p.durationDays
-                      ),
-                    }));
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                />
-              </div>
+                <div
+                  className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${
+                    mode === "create" ? "pt-3" : ""
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Start Date (WIB) *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      disabled={isLocked}
+                      value={form.startDate}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setForm((p) => ({
+                          ...p,
+                          startDate: newStart,
+                          durationDays: computeInclusiveDays(
+                            newStart,
+                            p.endDate,
+                            p.durationDays
+                          ),
+                        }));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  End Date (WIB) *
-                </label>
-                <input
-                  type="date"
-                  required
-                  disabled={isLocked}
-                  value={form.endDate}
-                  onChange={(e) => {
-                    const newEnd = e.target.value;
-                    setForm((p) => ({
-                      ...p,
-                      endDate: newEnd,
-                      durationDays: computeInclusiveDays(p.startDate, newEnd, 1),
-                    }));
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      End Date (WIB) *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      disabled={isLocked}
+                      value={form.endDate}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        setForm((p) => ({
+                          ...p,
+                          endDate: newEnd,
+                          durationDays: computeInclusiveDays(p.startDate, newEnd, 1),
+                        }));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Registration Open Date (WIB)
-                </label>
-                <input
-                  type="date"
-                  disabled={isLocked}
-                  value={form.registrationOpenDate}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      registrationOpenDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Registration Open Date (WIB)
+                    </label>
+                    <input
+                      type="date"
+                      disabled={isLocked}
+                      value={form.registrationOpenDate}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          registrationOpenDate: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Registration Cutoff Date (WIB) *
-                </label>
-                <input
-                  type="date"
-                  required
-                  disabled={isLocked}
-                  value={form.registrationDeadline}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      registrationDeadline: e.target.value,
-                    }))
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                />
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Registration Cutoff Date (WIB) *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      disabled={isLocked}
+                      value={form.registrationDeadline}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          registrationDeadline: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    />
+                  </div>
+                </div>
 
-            {mode === "edit" && (
-              <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300/70 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Duration is automatically calculated from the date range ({form.durationDays} days). If shortened, schedule entries beyond Day {form.durationDays} will be trimmed. If extended, existing saved days are preserved.
-              </div>
+                {mode === "edit" && (
+                  <div className="p-4 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300/70 dark:border-white/10 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Duration is automatically calculated from the date range ({form.durationDays} days). If shortened, schedule entries beyond Day {form.durationDays} will be trimmed. If extended, existing saved days are preserved.
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

@@ -4,6 +4,8 @@ import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { serializeTermsChapters } from "@/wellness/utils/json";
 import { ProgramTermsChapterBuilder } from "../AdminFormBuilders";
 import {
+  computeEndDate,
+  formatWIBDateISO,
   getProgramSectionStats,
   getSectionBadgeClass,
   getSectionCardClass,
@@ -59,21 +61,51 @@ export function ProgramFormLogisticsSections({
 
         {expandedSections[5] && (
           <div className="px-5 pb-6 sm:px-8 sm:pb-8 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 space-y-4">
-            <div className="grid sm:grid-cols-3 gap-3 pt-3">
+            <div className="grid sm:grid-cols-2 gap-3 pt-3">
               {[
-                { key: "ONLINE", label: "Online" },
-                { key: "ONSITE", label: "On-Site" },
-                { key: "HYBRID", label: "Online + Onsite" },
+                { key: "ONLINE", label: "Full Online (Anytime)" },
+                { key: "HYBRID", label: "Hybrid (Online + Onsite)" },
               ].map((locMode) => (
                 <button
                   key={locMode.key}
                   type="button"
                   disabled={isLocked}
                   onClick={() =>
-                    setForm((p) => ({
-                      ...p,
-                      locationType: locMode.key as "ONLINE" | "ONSITE" | "HYBRID",
-                    }))
+                    setForm((p) => {
+                      const nextMode = locMode.key as "ONLINE" | "HYBRID";
+                      if (nextMode === "ONLINE") {
+                        return {
+                          ...p,
+                          locationType: "ONLINE",
+                          batchNumber: null,
+                          startDate: "",
+                          endDate: "",
+                          registrationOpenDate: "",
+                          registrationDeadline: "",
+                          city: "",
+                          venueAddress: "",
+                        };
+                      }
+                      const defaultOpen =
+                        p.registrationOpenDate || formatWIBDateISO(new Date());
+                      const defaultStart =
+                        p.startDate ||
+                        formatWIBDateISO(new Date(Date.now() + 3 * 24 * 3600 * 1000));
+                      const defaultEnd =
+                        p.endDate || computeEndDate(defaultStart, p.durationDays || 7);
+                      const defaultDeadline =
+                        p.registrationDeadline ||
+                        formatWIBDateISO(new Date(Date.now() + 2 * 24 * 3600 * 1000));
+                      return {
+                        ...p,
+                        locationType: "HYBRID",
+                        city: p.city || "Jakarta",
+                        startDate: defaultStart,
+                        endDate: defaultEnd,
+                        registrationOpenDate: defaultOpen,
+                        registrationDeadline: defaultDeadline,
+                      };
+                    })
                   }
                   className={`p-3.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition disabled:opacity-60 disabled:cursor-not-allowed ${
                     form.locationType === locMode.key
@@ -93,10 +125,10 @@ export function ProgramFormLogisticsSections({
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-zinc-900 dark:text-white">
-                    Virtual Online Delivery Selected
+                    Full Online · Anytime Access Selected
                   </p>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    No physical venue or city address is required for 100% online programs. Sessions take place virtually via daily video links and community access.
+                    No physical venue, city address, or fixed calendar dates are required. Connect Days are disabled and members can complete modules at any time.
                   </p>
                 </div>
               </div>
@@ -386,7 +418,6 @@ export function ProgramFormLogisticsSections({
                 const flattened = nextChapters.flatMap((c) => c.clauses);
                 setForm((p) => ({
                   ...p,
-                  termsType: "CUSTOM",
                   termsChapters: nextChapters,
                   termsList: flattened,
                   customTerms: serialized,

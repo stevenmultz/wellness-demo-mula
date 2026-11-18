@@ -2,12 +2,15 @@
 
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, Loader2, Plus } from "lucide-react";
+import { AlertCircle, ArrowLeft, Globe, Loader2, MapPin, Plus } from "lucide-react";
 import type { MasterDataPayload } from "@/wellness/actions/master";
+import type { ProgramTemplateDTO } from "@/wellness/actions/templates";
 import type { ProgramHeaderFormState } from "../adminTypes";
+import { computeEndDate, formatWIBDateISO } from "../adminUtils";
 import type { StandardMasterTab } from "../hooks/useMasterDirectoryActions";
 import { ProgramFormCoreSections } from "./ProgramFormCoreSections";
 import { ProgramFormLogisticsSections } from "./ProgramFormLogisticsSections";
+import { ProgramTemplateBar } from "./ProgramTemplateBar";
 
 interface AdminProgramCreateViewProps {
   createForm: ProgramHeaderFormState;
@@ -23,6 +26,10 @@ interface AdminProgramCreateViewProps {
   handleCreateProgramSubmit: (e: FormEvent) => Promise<void>;
   creatingLoading: boolean;
   createError: string | null;
+  templates: ProgramTemplateDTO[];
+  onApplyHeaderTemplate: (tpl: ProgramTemplateDTO, target: "create" | "edit") => void;
+  onSaveHeaderTemplate: (name: string, form: ProgramHeaderFormState) => Promise<boolean>;
+  onDeleteTemplate: (id: string) => Promise<void>;
 }
 
 export function AdminProgramCreateView({
@@ -39,8 +46,50 @@ export function AdminProgramCreateView({
   handleCreateProgramSubmit,
   creatingLoading,
   createError,
+  templates,
+  onApplyHeaderTemplate,
+  onSaveHeaderTemplate,
+  onDeleteTemplate,
 }: AdminProgramCreateViewProps) {
   const router = useRouter();
+
+  const handleSelectMode = (nextMode: "ONLINE" | "HYBRID") => {
+    setCreateForm((p) => {
+      if (nextMode === "ONLINE") {
+        return {
+          ...p,
+          locationType: "ONLINE",
+          batchNumber: null,
+          durationDays: Math.max(1, p.durationDays || 1),
+          startDate: "",
+          endDate: "",
+          registrationOpenDate: "",
+          registrationDeadline: "",
+          city: "",
+          venueAddress: "",
+        };
+      }
+      const defaultOpen = p.registrationOpenDate || formatWIBDateISO(new Date());
+      const defaultStart =
+        p.startDate || formatWIBDateISO(new Date(Date.now() + 3 * 24 * 3600 * 1000));
+      const defaultEnd =
+        p.endDate || computeEndDate(defaultStart, Math.max(7, p.durationDays || 7));
+      const defaultDeadline =
+        p.registrationDeadline ||
+        formatWIBDateISO(new Date(Date.now() + 2 * 24 * 3600 * 1000));
+      return {
+        ...p,
+        locationType: "HYBRID",
+        batchNumber: p.batchNumber ?? 1,
+        durationDays: Math.max(7, p.durationDays || 7),
+        city: p.city || "Jakarta",
+        startDate: defaultStart,
+        endDate: defaultEnd,
+        registrationOpenDate: defaultOpen,
+        registrationDeadline: defaultDeadline,
+      };
+    });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -61,7 +110,7 @@ export function AdminProgramCreateView({
             Create Program Header
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-2xl">
-            Configure program metadata, schedule duration, master coach, audience, pricing, and terms. Saved as Draft until you choose to publish.
+            Step 1: Choose Full Online (anytime modules) or Hybrid (fixed cohort dates + Connect Days), then configure details and terms. Saved as Draft until published.
           </p>
         </div>
 
@@ -83,6 +132,76 @@ export function AdminProgramCreateView({
           </button>
         </div>
       </div>
+
+      {/* STEP 1: CHOOSE PROGRAM MODE FIRST */}
+      <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-5 sm:p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+            Step 1 · Select Delivery Mode
+          </h3>
+          <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+            Adapts fields below automatically
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => handleSelectMode("ONLINE")}
+            className={`p-4 rounded-xl border text-left transition flex items-start gap-3 ${
+              createForm.locationType === "ONLINE"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-sm"
+                : "bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+            }`}
+          >
+            <Globe className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold">Full Online · Anytime Access</p>
+              <p
+                className={`text-[11px] mt-0.5 ${
+                  createForm.locationType === "ONLINE"
+                    ? "text-white/80 dark:text-zinc-700"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
+                No start/end dates or fixed duration days. Add modules freely and members still receive daily WIB notifications.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectMode("HYBRID")}
+            className={`p-4 rounded-xl border text-left transition flex items-start gap-3 ${
+              createForm.locationType === "HYBRID"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-sm"
+                : "bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+            }`}
+          >
+            <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold">Hybrid (Online + Onsite Connect)</p>
+              <p
+                className={`text-[11px] mt-0.5 ${
+                  createForm.locationType === "HYBRID"
+                    ? "text-white/80 dark:text-zinc-700"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
+                Cohort schedule with Start–End dates, Batch numbering, City/Studio venue, and live Connect Days.
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* HEADER TEMPLATES BAR */}
+      <ProgramTemplateBar
+        templateType="PROGRAM_HEADER"
+        templates={templates}
+        onApply={(tpl) => onApplyHeaderTemplate(tpl, "create")}
+        onSaveAsTemplate={(name) => onSaveHeaderTemplate(name, createForm)}
+        onDeleteTemplate={onDeleteTemplate}
+      />
 
       {/* Program Header Form */}
       <form onSubmit={handleCreateProgramSubmit} className="space-y-6">

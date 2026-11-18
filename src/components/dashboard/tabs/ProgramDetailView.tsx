@@ -15,6 +15,7 @@ import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import type { ProgramTermChapter } from "@/wellness/utils/json";
 import { HeaderBackButton, formatDateWib, formatIdr, safeHttpUrl } from "./shared";
+import { ProgramIntroVideoPlayer } from "./ProgramIntroVideoPlayer";
 
 export interface DetailDay {
   dayNumber: number;
@@ -35,11 +36,11 @@ export interface DetailDay {
 export interface DetailProgram {
   id: string;
   title: string;
+  batchNumber?: number | null;
   slug?: string;
   description: string;
   coverImage?: string | null;
-  recommendedFor?: string;
-  audience?: string | null;
+  introVideoUrl?: string | null;
   equipment?: string | null;
   coachName: string;
   coachTitle?: string | null;
@@ -58,12 +59,11 @@ export interface DetailProgram {
   locationType?: string;
   city?: string | null;
   venueAddress?: string | null;
-  virtualFallbackAvailable?: boolean;
   communityLink: string | null;
-  startDate: Date | string;
-  endDate: Date | string;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
   registrationOpenDate?: Date | string | null;
-  registrationDeadline: Date | string;
+  registrationDeadline: Date | string | null;
   status?: string;
   dayCount: number;
   targetState?: string | null;
@@ -71,7 +71,6 @@ export interface DetailProgram {
   expectedBenefits?: string[];
   scientificReferences?: Array<{ title: string; url?: string }>;
   programGuidelines?: string[];
-  termsType?: string | null;
   customTerms?: string | null;
   termsList?: string[];
   termsChapters?: ProgramTermChapter[];
@@ -90,8 +89,7 @@ function difficultyLabel(level?: string) {
 
 function formatLabel(type?: string) {
   if (type === "HYBRID") return "Hybrid (Onsite + Online)";
-  if (type === "ONSITE") return "Onsite (In-Person)";
-  return "Online (Remote)";
+  return "Full Online (Anytime)";
 }
 
 function dayLabel(type: string) {
@@ -160,9 +158,11 @@ export function ProgramDetailView({
   onOpenPlan: () => void;
   onEnroll: () => void;
 }) {
+  const isOnline = (program.locationType || "ONLINE").toUpperCase() === "ONLINE";
   const badge =
     resolvePublicBadge({
       status: program.status,
+      locationType: program.locationType,
       registrationOpenDate: program.registrationOpenDate,
       registrationDeadline: program.registrationDeadline,
       startDate: program.startDate,
@@ -198,7 +198,7 @@ export function ProgramDetailView({
   );
 
   const equipmentList = splitLines(program.equipment || "Movement Mat, Hydration Flask");
-  const baseTime = new Date(program.startDate).getTime();
+  const baseTime = program.startDate ? new Date(program.startDate).getTime() : NaN;
 
   let action: React.ReactNode = null;
   if (enrolled) {
@@ -343,9 +343,22 @@ export function ProgramDetailView({
               <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] font-medium tracking-[0.03em] text-white">
                 {enrolled ? "Enrolled" : badge}
               </span>
+              {program.batchNumber ? (
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
+                  Batch {program.batchNumber}
+                </span>
+              ) : null}
               {program.organizationName && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-wider text-white/95">
-                  {program.organizationName}
+                <span className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-wider text-white/95">
+                  {program.organizationLogo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={program.organizationLogo}
+                      alt={program.organizationName}
+                      className="w-4 h-4 rounded-full object-contain bg-white shrink-0"
+                    />
+                  )}
+                  <span>{program.organizationName}</span>
                 </span>
               )}
             </div>
@@ -356,7 +369,7 @@ export function ProgramDetailView({
 
             <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-lg">
               {program.organizationName ? `${program.organizationName} · ` : ""}
-              Coach {program.coachName} · {totalDays} days · {program.dailyCommitment || "20–30 mins/day"}
+              Coach {program.coachName} · {isOnline ? `${totalDays} modules` : `${totalDays} days`} · {program.dailyCommitment || "20–30 mins/day"}
             </p>
           </div>
         </div>
@@ -389,6 +402,13 @@ export function ProgramDetailView({
                 {program.description}
               </p>
 
+              <ProgramIntroVideoPlayer
+                videoUrl={program.introVideoUrl}
+                fallbackImage={program.coverImage}
+                coachName={program.coachName}
+                programTitle={program.title}
+              />
+
               <dl className="divide-y divide-zinc-200/80 dark:divide-white/10 border-y border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm">
                 <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                   <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Intensity</dt>
@@ -411,10 +431,10 @@ export function ProgramDetailView({
                 <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                   <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Location</dt>
                   <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
-                    {program.city || (program.locationType === "ONLINE" ? "Global Access" : "Jakarta")}
+                    {isOnline ? "Global · Anytime Access" : program.city || "Jakarta"}
                   </dd>
                 </div>
-                {program.locationType !== "ONLINE" && program.venueAddress && (
+                {!isOnline && program.venueAddress && (
                   <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                     <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Venue</dt>
                     <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
@@ -451,10 +471,10 @@ export function ProgramDetailView({
                     Coach {program.coachName}
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {program.coachTitle || "Master Movement & Longevity Specialist"}
+                    {program.coachTitle || "Lead Coach"}
                   </p>
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
-                    Designs and guides daily somatic training protocols, posture alignment, and neuromuscular conditioning.
+                    Leads daily training sessions, technique feedback, and structured progression across this cohort.
                   </p>
                 </div>
               </div>
@@ -487,32 +507,40 @@ export function ProgramDetailView({
                 <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                   <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Registration</dt>
                   <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
-                    {program.registrationOpenDate ? formatDateWib(program.registrationOpenDate) : "Open"} – {formatDateWib(program.registrationDeadline)}
+                    {isOnline
+                      ? "Always Open (Enroll Anytime)"
+                      : `${program.registrationOpenDate ? formatDateWib(program.registrationOpenDate) : "Open"} – ${formatDateWib(program.registrationDeadline)}`}
                   </dd>
                 </div>
                 <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                   <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Plan Dates</dt>
                   <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
-                    {formatDateWib(program.startDate)} – {formatDateWib(program.endDate)} ({totalDays} days)
+                    {isOnline || !program.startDate
+                      ? `Flexible · Access Anytime (${totalDays} modules)`
+                      : `${formatDateWib(program.startDate)} – ${formatDateWib(program.endDate)} (${totalDays} days)`}
                   </dd>
                 </div>
-                <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Target Audience</dt>
-                  <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
-                    {program.audience || program.recommendedFor || "All Levels · Mindful Longevity"}
-                  </dd>
-                </div>
+                {program.category && (
+                  <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                    <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Sport</dt>
+                    <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
+                      {program.category}
+                    </dd>
+                  </div>
+                )}
               </dl>
 
-              <div className="grid grid-cols-3 divide-x divide-zinc-200/80 dark:divide-white/10 text-center py-1">
+              <div className={`grid ${isOnline ? "grid-cols-2" : "grid-cols-3"} divide-x divide-zinc-200/80 dark:divide-white/10 text-center py-1`}>
                 <div>
                   <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{trainingDaysCount}</span>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Training</span>
                 </div>
-                <div>
-                  <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{connectDaysCount}</span>
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Connect</span>
-                </div>
+                {!isOnline && (
+                  <div>
+                    <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{connectDaysCount}</span>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Connect</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-base sm:text-lg font-geometric font-medium text-zinc-950 dark:text-white block">{restDaysCount}</span>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Rest</span>
@@ -521,97 +549,98 @@ export function ProgramDetailView({
             </div>
           </ProgramAccordion>
 
-          {/* 4. MEETUPS & LIVE SESSIONS */}
-          <ProgramAccordion
-            title="Meetups & Live Sessions"
-            count={liveSessions.length}
-            open={openSections.sessions}
-            onToggle={() => toggleSection("sessions")}
-          >
-            {liveSessions.length > 0 ? (
-              <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
-                {liveSessions.map((session) => {
-                  const sessionDate = new Date(baseTime + (session.dayNumber - 1) * 86400000);
-                  const meetUrl = safeHttpUrl(session.meetupLink);
-                  const mapUrl = safeHttpUrl(session.mapLink);
+          {/* 4. MEETUPS & LIVE SESSIONS (Hybrid Only) */}
+          {!isOnline && (
+            <ProgramAccordion
+              title="Meetups & Live Sessions"
+              count={liveSessions.length}
+              open={openSections.sessions}
+              onToggle={() => toggleSection("sessions")}
+            >
+              {liveSessions.length > 0 ? (
+                <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                  {liveSessions.map((session) => {
+                    const sessionDate = Number.isFinite(baseTime)
+                      ? new Date(baseTime + (session.dayNumber - 1) * 86400000)
+                      : null;
+                    const meetUrl = safeHttpUrl(session.meetupLink);
+                    const mapUrl = safeHttpUrl(session.mapLink);
 
-                  return (
-                    <article key={session.dayNumber} className="py-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-mono tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
-                            Day {session.dayNumber} · {formatDateWib(sessionDate)}
-                          </span>
-                          <h3 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white">
-                            {session.eventTitle || session.title || "Live Cohort Session"}
-                          </h3>
+                    return (
+                      <article key={session.dayNumber} className="py-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-mono tracking-[0.04em] text-zinc-500 dark:text-zinc-400 block">
+                              Day {session.dayNumber}
+                              {sessionDate ? ` · ${formatDateWib(sessionDate)}` : ""}
+                            </span>
+                            <h3 className="text-sm font-geometric font-medium text-zinc-950 dark:text-white">
+                              {session.eventTitle || session.title || "Live Cohort Session"}
+                            </h3>
+                          </div>
+
+                          {session.onsiteSchedule && (
+                            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
+                              {session.onsiteSchedule}
+                            </span>
+                          )}
                         </div>
 
-                        {session.onsiteSchedule && (
-                          <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0">
-                            {session.onsiteSchedule}
-                          </span>
-                        )}
-                      </div>
+                        <div className="text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
+                          <p className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            <span>
+                              {session.onsiteVenue ||
+                                (program.city ? `Studio ${program.city}` : "Online Room")}
+                            </span>
+                          </p>
+                          {session.eventHost && (
+                            <p className="text-zinc-500 dark:text-zinc-400">Host: {session.eventHost}</p>
+                          )}
+                        </div>
 
-                      <div className="text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
-                        <p className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span>
-                            {session.onsiteVenue ||
-                              (program.locationType === "ONLINE"
-                                ? "Zoom Room"
-                                : program.city
-                                  ? `Studio ${program.city}`
-                                  : "Online Room")}
-                          </span>
-                        </p>
-                        {session.eventHost && (
-                          <p className="text-zinc-500 dark:text-zinc-400">Host: {session.eventHost}</p>
-                        )}
-                      </div>
+                        <div className="pt-1 flex items-center justify-between gap-3">
+                          {enrolled && meetUrl ? (
+                            <a
+                              href={meetUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-medium text-zinc-950 dark:text-white underline inline-flex items-center gap-1"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span>Join Session</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-zinc-400 inline-flex items-center gap-1">
+                              <Lock className="w-3 h-3" />
+                              <span>Meeting link unlocks after enrollment</span>
+                            </span>
+                          )}
 
-                      <div className="pt-1 flex items-center justify-between gap-3">
-                        {enrolled && meetUrl ? (
-                          <a
-                            href={meetUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-medium text-zinc-950 dark:text-white underline inline-flex items-center gap-1"
-                          >
-                            <Video className="w-3.5 h-3.5" />
-                            <span>Join Session</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <span className="text-[11px] text-zinc-400 inline-flex items-center gap-1">
-                            <Lock className="w-3 h-3" />
-                            <span>Meeting link unlocks after enrollment</span>
-                          </span>
-                        )}
-
-                        {mapUrl && (
-                          <a
-                            href={mapUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:underline inline-flex items-center gap-1"
-                          >
-                            <MapPin className="w-3 h-3" />
-                            <span>Map</span>
-                          </a>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Continuous asynchronous coaching, daily check-ins, and direct feedback throughout the {totalDays} days.
-              </p>
-            )}
-          </ProgramAccordion>
+                          {mapUrl && (
+                            <a
+                              href={mapUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:underline inline-flex items-center gap-1"
+                            >
+                              <MapPin className="w-3 h-3" />
+                              <span>Map</span>
+                            </a>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Continuous asynchronous coaching, daily check-ins, and direct feedback throughout the {totalDays} days.
+                </p>
+              )}
+            </ProgramAccordion>
+          )}
 
           {/* 5. NUTRITION PROTOCOL */}
           <ProgramAccordion
@@ -622,14 +651,17 @@ export function ProgramDetailView({
           >
             <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10 max-h-96 overflow-y-auto pr-1">
               {program.days.map((day) => {
-                const dayDate = new Date(baseTime + (day.dayNumber - 1) * 86400000);
+                const dayDate = !isOnline && Number.isFinite(baseTime)
+                  ? new Date(baseTime + (day.dayNumber - 1) * 86400000)
+                  : null;
                 const mealLines = splitLines(day.mealRecommendation);
 
                 return (
                   <div key={day.dayNumber} className="py-3.5 space-y-1.5 text-xs sm:text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-                        Day {day.dayNumber} · {formatDateWib(dayDate)}
+                        Day {day.dayNumber}
+                        {dayDate ? ` · ${formatDateWib(dayDate)}` : ""}
                       </span>
                       <span className="text-[11px] text-zinc-400">
                         {dayLabel(day.dayType)}
@@ -649,7 +681,7 @@ export function ProgramDetailView({
                       <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
                         {day.mealRecommendation && day.mealRecommendation.trim()
                           ? day.mealRecommendation
-                          : "Whole-food nutritional fuel, high-protein breakfast, and circadian hydration (3L daily)."}
+                          : "No custom nutrition note set for this session."}
                       </p>
                     )}
                   </div>

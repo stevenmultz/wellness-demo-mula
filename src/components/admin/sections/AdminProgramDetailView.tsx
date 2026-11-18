@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Calendar,
   CheckCircle2,
+  Copy,
   FileEdit,
   Globe,
   Loader2,
@@ -27,8 +28,10 @@ interface AdminProgramDetailViewProps {
   setProgramDetailTab: (tab: "info" | "schedule" | "responses") => void;
   selectedDayNum: number;
   publishingId: string | null;
+  duplicatingId: string | null;
   deletingProgId: string | null;
   handleInitiatePublish: (prog: AdminProgram) => void;
+  handleDuplicateProgram: (prog: AdminProgram, asNextBatch?: boolean) => void;
   handleDeleteProgram: (prog: AdminProgram) => void;
   loadProgramSubmissions: (progId: string) => void;
   submissionsCount: number;
@@ -42,20 +45,29 @@ export function AdminProgramDetailView({
   setProgramDetailTab,
   selectedDayNum,
   publishingId,
+  duplicatingId,
   deletingProgId,
   handleInitiatePublish,
+  handleDuplicateProgram,
   handleDeleteProgram,
   loadProgramSubmissions,
   submissionsCount,
   children,
 }: AdminProgramDetailViewProps) {
   const router = useRouter();
+  const isOnlineProgram = (selectedProgram.locationType || "ONLINE") === "ONLINE";
 
-  const targetDays = selectedProgram.durationDays || 21;
+  const targetDays = isOnlineProgram
+    ? Math.max(1, selectedProgram.days.length)
+    : selectedProgram.durationDays || 21;
   let filledCount = 0;
-  for (let d = 1; d <= targetDays; d++) {
-    if (isDayFilled(selectedProgram.days.find((x) => x.dayNumber === d))) {
-      filledCount++;
+  if (isOnlineProgram) {
+    filledCount = selectedProgram.days.filter((x) => isDayFilled(x)).length;
+  } else {
+    for (let d = 1; d <= targetDays; d++) {
+      if (isDayFilled(selectedProgram.days.find((x) => x.dayNumber === d))) {
+        filledCount++;
+      }
     }
   }
 
@@ -69,7 +81,6 @@ export function AdminProgramDetailView({
     category: selectedProgram.category,
     dailyCommitment: selectedProgram.dailyCommitment,
     coachName: selectedProgram.coachName,
-    recommendedFor: selectedProgram.recommendedFor,
     startDate: selectedProgram.startDate,
     endDate: selectedProgram.endDate,
     registrationDeadline: selectedProgram.registrationDeadline,
@@ -83,12 +94,15 @@ export function AdminProgramDetailView({
     customTerms: selectedProgram.customTerms,
   });
 
-  const isCurriculumComplete = filledCount === targetDays;
+  const isCurriculumComplete = isOnlineProgram
+    ? selectedProgram.days.length >= 1 && filledCount === selectedProgram.days.length
+    : filledCount === targetDays;
   const isReadyToPublish = headerCheck.isComplete && isCurriculumComplete;
 
   const statusRes = resolveProgramStatus({
     isPublished: selectedProgram.isPublished,
     status: selectedProgram.status,
+    locationType: selectedProgram.locationType,
     startDate: selectedProgram.startDate,
     endDate: selectedProgram.endDate,
     registrationOpenDate: selectedProgram.registrationOpenDate,
@@ -99,12 +113,9 @@ export function AdminProgramDetailView({
     curriculumComplete: isCurriculumComplete,
   });
 
-  const attendanceLabel =
-    selectedProgram.locationType === "ONLINE"
-      ? "Online"
-      : selectedProgram.locationType === "ONSITE"
-      ? `On-Site • ${selectedProgram.city || "Jakarta"}`
-      : `Online + Onsite • ${selectedProgram.city || "Jakarta"}`;
+  const attendanceLabel = isOnlineProgram
+    ? "Full Online • Anytime Access"
+    : `Hybrid (Online + Onsite) • ${selectedProgram.city || "Jakarta"}`;
 
   return (
     <div className="space-y-6">
@@ -184,6 +195,21 @@ export function AdminProgramDetailView({
 
             <button
               type="button"
+              onClick={() => handleDuplicateProgram(selectedProgram, true)}
+              disabled={duplicatingId === selectedProgram.id}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 transition flex items-center gap-1.5"
+              title="Duplicate header + curriculum as a fresh Draft (Next Batch)"
+            >
+              {duplicatingId === selectedProgram.id ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-zinc-500" />
+              )}
+              <span>{isOnlineProgram ? "Duplicate Program" : "Create Next Batch"}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleDeleteProgram(selectedProgram)}
               disabled={deletingProgId === selectedProgram.id}
               className="p-2 rounded-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition border border-zinc-200/70 dark:border-white/10 hover:border-red-200 dark:hover:border-red-900/50"
@@ -249,6 +275,11 @@ export function AdminProgramDetailView({
                 <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10">
                   {attendanceLabel}
                 </span>
+                {selectedProgram.batchNumber ? (
+                  <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950">
+                    Batch {selectedProgram.batchNumber}
+                  </span>
+                ) : null}
               </div>
 
               <h2 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-zinc-900 dark:text-white leading-snug">
@@ -280,11 +311,14 @@ export function AdminProgramDetailView({
                 Duration &amp; Dates
               </span>
               <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">
-                {selectedProgram.durationDays} Days ({filledCount}/{targetDays} filled)
+                {isOnlineProgram
+                  ? `${selectedProgram.days.length} Modules (${filledCount}/${targetDays} filled)`
+                  : `${selectedProgram.durationDays} Days (${filledCount}/${targetDays} filled)`}
               </p>
               <span className="text-[11px] text-zinc-500 block truncate">
-                {formatDate(selectedProgram.startDate)} &ndash;{" "}
-                {formatDate(selectedProgram.endDate)}
+                {isOnlineProgram || !selectedProgram.startDate
+                  ? "Flexible · Anytime Access"
+                  : `${formatDate(selectedProgram.startDate)} – ${formatDate(selectedProgram.endDate)}`}
               </span>
             </div>
 
@@ -336,7 +370,9 @@ export function AdminProgramDetailView({
                 {selectedProgram.activeSubscribers} active)
               </p>
               <span className="text-[11px] text-zinc-500 truncate block">
-                Cutoff: {formatDate(selectedProgram.registrationDeadline)}
+                {isOnlineProgram || !selectedProgram.registrationDeadline
+                  ? "No deadline (Always open)"
+                  : `Cutoff: ${formatDate(selectedProgram.registrationDeadline)}`}
               </span>
             </div>
           </div>

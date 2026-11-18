@@ -38,7 +38,6 @@ enum ProgramDifficultyLevel {
 
 enum ProgramLocationType {
   ONLINE
-  ONSITE
   HYBRID
 }
 
@@ -173,6 +172,8 @@ model User {
   @@index([coachProfileId])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([deletedAt, createdAt])
+  @@index([role, deletedAt, createdAt])
   @@map("users")
 }
 
@@ -273,30 +274,21 @@ model MasterCoach {
 }
 
 model MasterOrganization {
-  id         String        @id @default(cuid()) @map("id")
-  name       String        @unique @map("name")
-  slug       String        @unique @map("slug")
-  tagline    String?       @map("tagline")
-  logoPath   String?       @map("logo_path")
-  websiteUrl String?       @map("website_url")
-  isVerified Boolean       @default(true) @map("is_verified")
-  createdAt  DateTime      @default(now()) @map("created_at")
-  updatedAt  DateTime      @updatedAt @map("updated_at")
+  id         String            @id @default(cuid()) @map("id")
+  name       String            @unique @map("name")
+  slug       String            @unique @map("slug")
+  tagline    String?           @map("tagline")
+  logoPath   String?           @map("logo_path")
+  websiteUrl String?           @map("website_url")
+  isVerified Boolean           @default(true) @map("is_verified")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
   programs   Program[]
   coaches    MasterCoach[]
   users      User[]
+  templates  ProgramTemplate[]
 
   @@map("master_organizations")
-}
-
-model MasterTargetAudience {
-  id        String            @id @default(cuid()) @map("id")
-  name      String            @unique @map("name")
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @updatedAt @map("updated_at")
-  programs  ProgramAudience[]
-
-  @@map("master_target_audiences")
 }
 
 model MasterEquipment {
@@ -327,8 +319,10 @@ model Program {
   id                         String                 @id @default(cuid()) @map("id")
   title                      String                 @map("title")
   slug                       String                 @unique @map("slug")
+  batchNumber                Int?                   @map("batch_number")
   description                String                 @map("description")
   coverImagePath             String?                @map("cover_image_path")
+  introVideoUrl              String?                @map("intro_video_url")
   difficultyLevel            ProgramDifficultyLevel @default(INTERMEDIATE) @map("difficulty_level")
   durationDays               Int                    @default(21) @map("duration_days")
 
@@ -344,13 +338,12 @@ model Program {
   locationType               ProgramLocationType    @default(ONLINE) @map("location_type")
   city                       String?                @map("city")
   venueAddress               String?                @map("venue_address")
-  isVirtualFallbackAvailable Boolean                @default(true) @map("is_virtual_fallback_available")
 
-  // Schedule Timestamps
-  startAt                    DateTime               @default(now()) @map("start_at")
-  endAt                      DateTime               @default(now()) @map("end_at")
+  // Schedule Timestamps (Required for HYBRID cohorts; NULL for anytime ONLINE programs)
+  startAt                    DateTime?              @map("start_at")
+  endAt                      DateTime?              @map("end_at")
   registrationOpenAt         DateTime?              @map("registration_open_at")
-  registrationDeadlineAt     DateTime               @default(now()) @map("registration_deadline_at")
+  registrationDeadlineAt     DateTime?              @map("registration_deadline_at")
 
   // Publication Status (Single Authoritative Enum)
   status                     ProgramStatus          @default(DRAFT) @map("status")
@@ -361,16 +354,13 @@ model Program {
   organizationId             String?                @map("organization_id")
   organization               MasterOrganization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  // Blueprint, T&C, & Localization (Native jsonb)
-  termsType                  String                 @default("STANDARD") @map("terms_type")
+  // Blueprint & Custom Terms (Native jsonb)
   customTerms                String?                @map("custom_terms")
   targetState                String?                @map("target_state")
   methodology                String?                @map("methodology")
   expectedBenefitsJson       Json?                  @map("expected_benefits_json")
   scientificReferencesJson   Json?                  @map("scientific_references_json")
   programGuidelinesJson      Json?                  @map("program_guidelines_json")
-  language                   String                 @default("id") @map("language")
-  translationsJson           Json?                  @map("translations_json")
 
   // Concurrency & Lifecycle
   version                    Int                    @default(1) @map("version")
@@ -381,7 +371,6 @@ model Program {
 
   categories                 ProgramCategory[]
   coaches                    ProgramCoach[]
-  audiences                  ProgramAudience[]
   equipments                 ProgramEquipment[]
   days                       ProgramDay[]
   enrollments                ProgramEnrollment[]
@@ -391,6 +380,10 @@ model Program {
 
   @@index([status, startAt])
   @@index([status, createdAt])
+  @@index([status, deletedAt, createdAt])
+  @@index([status, deletedAt, price])
+  @@index([status, deletedAt, startAt])
+  @@index([organizationId, deletedAt, createdAt])
   @@index([locationType, status])
   @@index([dailyCommitmentId])
   @@index([organizationId])
@@ -428,19 +421,6 @@ model ProgramCoach {
   @@map("program_coaches")
 }
 
-model ProgramAudience {
-  programId  String               @map("program_id")
-  audienceId String               @map("audience_id")
-  createdAt  DateTime             @default(now()) @map("created_at")
-
-  program  Program              @relation(fields: [programId], references: [id], onDelete: Cascade)
-  audience MasterTargetAudience @relation(fields: [audienceId], references: [id], onDelete: Restrict)
-
-  @@id([programId, audienceId])
-  @@index([audienceId])
-  @@map("program_audiences")
-}
-
 model ProgramEquipment {
   programId   String          @map("program_id")
   equipmentId String          @map("equipment_id")
@@ -458,6 +438,29 @@ model ProgramEquipment {
 // 5. PROGRAM CURRICULUM & CUSTOM TASKS
 // ============================================================================
 
+enum ProgramTemplateType {
+  PROGRAM_HEADER
+  DAY_ROUTINE
+}
+
+model ProgramTemplate {
+  id             String              @id @default(cuid()) @map("id")
+  organizationId String?             @map("organization_id")
+  templateType   ProgramTemplateType @map("template_type")
+  name           String              @map("name")
+  description    String?             @map("description")
+  payloadJson    Json                @map("payload_json")
+  createdById    String?             @map("created_by_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  organization MasterOrganization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, templateType])
+  @@index([templateType])
+  @@map("program_templates")
+}
+
 model ProgramDay {
   id                   String         @id @default(cuid()) @map("id")
   programId            String         @map("program_id")
@@ -470,9 +473,6 @@ model ProgramDay {
   videoUrl             String?        @map("video_url")
   videoChecklistJson   Json?          @map("video_checklist_json")
   mealRecommendation   String?        @map("meal_recommendation")
-  dailyAssessment      String?        @map("daily_assessment")
-  pendingReminder      String?        @map("pending_reminder")
-  completedReminder    String?        @map("completed_reminder")
   meetupLink           String?        @map("meetup_link")
   mapLink              String?        @map("map_link")
   onsiteVenue          String?        @map("onsite_venue")
@@ -481,9 +481,6 @@ model ProgramDay {
   eventHost            String?        @map("event_host")
   eventDetails         String?        @map("event_details")
   restInstructions     String?        @map("rest_instructions")
-  coachName            String?        @map("coach_name")
-  recommendedFor       String?        @map("recommended_for")
-  translationsJson     Json?          @map("translations_json")
   version              Int            @default(1) @map("version")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
@@ -598,6 +595,7 @@ model ProgramEnrollment {
   @@unique([userId, programId])
   @@index([programId, status])
   @@index([userId, status])
+  @@index([userId, createdAt])
   @@index([status, invoiceExpiresAt])
   @@index([createdAt])
   @@map("program_enrollments")
@@ -632,8 +630,11 @@ model PaymentTransaction {
   program    Program           @relation(fields: [programId], references: [id], onDelete: Restrict)
 
   @@index([enrollmentId])
+  @@index([enrollmentId, status, createdAt])
   @@index([userId, createdAt])
   @@index([status, expiresAt])
+  @@index([status, createdAt])
+  @@index([programId, status])
   @@map("payment_transactions")
 }
 
@@ -693,7 +694,9 @@ model ProgramDayProgress {
 
   @@unique([userId, programDayId])
   @@index([programDayId])
+  @@index([programDayId, completedAt])
   @@index([userId, isCompleted])
+  @@index([userId, completedAt])
   @@map("program_day_progresses")
 }
 

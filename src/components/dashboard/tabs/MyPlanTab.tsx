@@ -212,7 +212,8 @@ export function MyPlanOverview({
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
-  const locked = !day || !day.isCalendarUnlocked || day.isPast2359;
+  const isOnlineProgram = (program?.locationType || "ONLINE").toUpperCase() === "ONLINE";
+  const locked = isOnlineProgram ? false : !day || !day.isCalendarUnlocked || day.isPast2359;
   const fullProgramDays = allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays;
 
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
@@ -292,6 +293,28 @@ export function MyPlanOverview({
           >
             <div className="space-y-3">
               <div>
+                {(program?.organizationName || program?.batchNumber) && (
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    {program.organizationName && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-wider text-white/95">
+                        {program.organizationLogo && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={program.organizationLogo}
+                            alt={program.organizationName}
+                            className="w-4 h-4 rounded-full object-contain bg-white shrink-0"
+                          />
+                        )}
+                        <span>{program.organizationName}</span>
+                      </span>
+                    )}
+                    {program.batchNumber ? (
+                      <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] font-mono font-semibold uppercase text-white">
+                        Batch {program.batchNumber}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
                 <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
                   {program?.title || t.myPlan.noActivePlanTitle}
                 </h2>
@@ -303,7 +326,9 @@ export function MyPlanOverview({
                       ? ` · ${t.myPlan.completedLabel}`
                       : isUpcoming
                         ? ` · ${formatStartsIn(program.startDate, locale).headline} (${formatStartsIn(program.startDate, locale).dateLabel})`
-                        : ""}
+                        : isOnlineProgram
+                          ? ` · ${t.explore.anytimeAccess}`
+                          : ""}
                   </p>
                 )}
               </div>
@@ -429,6 +454,7 @@ export function MyPlanOverview({
                       communityLink={program.communityLink}
                       programTitle={program.title}
                       locked={locked}
+                      isAnytime={isOnlineProgram}
                       activities={activities}
                       checks={checks}
                       initialDone={initialDone}

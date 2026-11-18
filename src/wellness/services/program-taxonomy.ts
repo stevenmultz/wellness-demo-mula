@@ -12,7 +12,6 @@ import {
 export const PROGRAM_TAXONOMY_INCLUDE = {
   categories: { include: { category: { select: { id: true, name: true } } } },
   coaches: { include: { coach: { select: { id: true, name: true, title: true } } } },
-  audiences: { include: { audience: { select: { id: true, name: true } } } },
   equipments: { include: { equipment: { select: { id: true, name: true } } } },
   dailyCommitmentRef: { select: { id: true, name: true } },
   organization: { select: { id: true, name: true, logoPath: true, isVerified: true } },
@@ -21,7 +20,6 @@ export const PROGRAM_TAXONOMY_INCLUDE = {
 export interface ProgramWithTaxonomyRelations {
   categories?: Array<{ category: { name: string } }>;
   coaches?: Array<{ coach: { name: string; title: string } }>;
-  audiences?: Array<{ audience: { name: string } }>;
   equipments?: Array<{ equipment: { name: string } }>;
   dailyCommitmentRef?: { name: string } | null;
   organization?: { name: string; logoPath: string | null; isVerified: boolean } | null;
@@ -30,14 +28,12 @@ export interface ProgramWithTaxonomyRelations {
 export function serializeProgramTaxonomy(program: ProgramWithTaxonomyRelations) {
   const categoryNames = (program.categories ?? []).map((c) => c.category.name).filter(Boolean);
   const coachList = (program.coaches ?? []).map((c) => c.coach).filter(Boolean);
-  const audienceNames = (program.audiences ?? []).map((a) => a.audience.name).filter(Boolean);
   const equipmentNames = (program.equipments ?? []).map((e) => e.equipment.name).filter(Boolean);
 
   return {
     category: categoryNames.join(", ") || "Pilates",
     coachName: coachList.map((c) => c.name).join(", ") || "Head Wellness Coach",
     coachTitle: coachList[0]?.title ?? null,
-    recommendedFor: audienceNames.join(", ") || "All Levels",
     equipment: equipmentNames.length > 0 ? equipmentNames.join(", ") : null,
     dailyCommitment: program.dailyCommitmentRef?.name ?? null,
     organizationName: program.organization?.name ?? null,
@@ -65,26 +61,21 @@ export async function syncProgramTaxonomyRelations(
   meta: {
     category?: string | null;
     coachName?: string | null;
-    recommendedFor?: string | null;
     equipment?: string | null;
     dailyCommitment?: string | null;
   }
 ) {
   const categoryNames = splitCsvValues(meta.category);
   const coachNames = splitCsvValues(meta.coachName);
-  const audienceNames = splitCsvValues(meta.recommendedFor);
   const equipmentNames = splitCsvValues(meta.equipment);
   const commitmentName = meta.dailyCommitment?.trim() || "";
 
-  const [categories, coaches, audiences, equipments, commitment] = await Promise.all([
+  const [categories, coaches, equipments, commitment] = await Promise.all([
     categoryNames.length > 0
       ? tx.masterCategory.findMany({ where: { name: { in: categoryNames } } })
       : Promise.resolve([]),
     coachNames.length > 0
       ? tx.masterCoach.findMany({ where: { name: { in: coachNames } } })
-      : Promise.resolve([]),
-    audienceNames.length > 0
-      ? tx.masterTargetAudience.findMany({ where: { name: { in: audienceNames } } })
       : Promise.resolve([]),
     equipmentNames.length > 0
       ? tx.masterEquipment.findMany({ where: { name: { in: equipmentNames } } })
@@ -97,7 +88,6 @@ export async function syncProgramTaxonomyRelations(
   await Promise.all([
     tx.programCategory.deleteMany({ where: { programId } }),
     tx.programCoach.deleteMany({ where: { programId } }),
-    tx.programAudience.deleteMany({ where: { programId } }),
     tx.programEquipment.deleteMany({ where: { programId } }),
   ]);
 
@@ -109,11 +99,6 @@ export async function syncProgramTaxonomyRelations(
   if (coaches.length > 0) {
     await tx.programCoach.createMany({
       data: coaches.map((coach) => ({ programId, coachId: coach.id })),
-    });
-  }
-  if (audiences.length > 0) {
-    await tx.programAudience.createMany({
-      data: audiences.map((aud) => ({ programId, audienceId: aud.id })),
     });
   }
   if (equipments.length > 0) {

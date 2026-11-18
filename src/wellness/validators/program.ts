@@ -82,9 +82,6 @@ export const ProgramDayInputSchema = z.object({
     .or(z.literal("")),
   videoChecklist: z.array(z.string().max(300)).max(50).default([]),
   mealRecommendation: z.string().max(4000).optional().or(z.literal("")),
-  dailyAssessment: z.string().max(1000).optional().or(z.literal("")),
-  pendingReminder: z.string().max(500).optional().or(z.literal("")),
-  completedReminder: z.string().max(500).optional().or(z.literal("")),
   meetupLink: z
     .string()
     .max(2000)
@@ -103,9 +100,6 @@ export const ProgramDayInputSchema = z.object({
   eventHost: z.string().max(120).optional().or(z.literal("")),
   eventDetails: z.string().max(2000).optional().or(z.literal("")),
   restInstructions: z.string().max(2000).optional().or(z.literal("")),
-  coachName: z.string().max(200).optional().or(z.literal("")),
-  recommendedFor: z.string().max(300).optional().or(z.literal("")),
-  translations: z.string().max(20000).optional().nullable(),
   customTasks: z.array(ProgramDayCustomTaskInputSchema).max(20).optional(),
 });
 
@@ -126,6 +120,7 @@ export const SaveSingleDaySchema = ProgramDayInputSchema.extend({
 export const CreateProgramSchema = z
   .object({
     title: z.string().min(3, "Program title must be at least 3 characters").max(120),
+    batchNumber: z.number().int().min(1).max(999).optional().nullable(),
     description: z
       .string()
       .optional()
@@ -141,29 +136,28 @@ export const CreateProgramSchema = z
       .refine((val) => isSafePhotoUrl(val), "Invalid cover image URL format")
       .optional()
       .or(z.literal("")),
+    introVideoUrl: z
+      .string()
+      .max(2000)
+      .refine(isSafeOptionalHttpUrl, "Introduction video URL must be a valid http(s) URL")
+      .optional()
+      .or(z.literal("")),
     difficultyLevel: z
       .enum(["BEGINNER", "MODERATE", "INTERMEDIATE", "ADVANCED", "HIGH_INTENSITY"])
       .default("INTERMEDIATE"),
     category: z.string().default("Pilates"),
     equipment: z.string().optional().or(z.literal("")),
     dailyCommitment: z.string().optional().or(z.literal("")),
-    recommendedFor: z
-      .string()
-      .max(400)
-      .default("All Levels")
-      .optional(),
     coachName: z.string().max(300).default("TBA").optional(),
     coachTitle: z.string().optional().or(z.literal("")),
     organizationId: z.string().optional().nullable().or(z.literal("")),
     organizationCache: z.string().max(120).optional().nullable().or(z.literal("")),
-    language: z.enum(["id", "en", "bilingual"]).optional().default("id"),
-    translations: z.string().optional().nullable(),
     durationDays: z
       .number()
       .int()
-      .min(1, "Program must be at least 1 day")
+      .min(1, "Program must have at least 1 module")
       .max(90, "Program cannot exceed 90 days")
-      .default(21),
+      .default(1),
     actualPrice: z.number().min(0, "Actual price must be 0 or higher").default(0),
     discountPercentage: z.number().int().min(0).max(100).default(0),
     price: z.number().min(0, "Price must be 0 or higher").default(0),
@@ -175,21 +169,21 @@ export const CreateProgramSchema = z
       .refine(isSafeOptionalHttpUrl, "Community link must be a valid http(s) URL")
       .optional()
       .or(z.literal("")),
-    locationType: z.enum(["ONLINE", "ONSITE", "HYBRID"]).default("ONLINE"),
+    locationType: z.enum(["ONLINE", "HYBRID"]).default("ONLINE"),
     city: z.string().optional().or(z.literal("")),
     venueAddress: z.string().optional().or(z.literal("")),
-    virtualFallbackAvailable: z.boolean().default(true),
-    termsType: z.enum(["STANDARD", "CUSTOM"]).default("CUSTOM").optional(),
     customTerms: z.string().optional().or(z.literal("")),
     termsList: z.array(z.string()).optional(),
     startDate: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid start date")
-      .optional(),
+      .optional()
+      .nullable(),
     endDate: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid end date")
-      .optional(),
+      .optional()
+      .nullable(),
     registrationOpenDate: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid registration open date")
@@ -198,7 +192,8 @@ export const CreateProgramSchema = z
     registrationDeadline: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid registration deadline")
-      .optional(),
+      .optional()
+      .nullable(),
     status: z
       .enum([
         "DRAFT",
@@ -217,7 +212,7 @@ export const CreateProgramSchema = z
   })
   .refine(
     (data) => {
-      if (data.startDate && data.endDate) {
+      if (data.locationType === "HYBRID" && data.startDate && data.endDate) {
         return new Date(data.startDate) <= new Date(data.endDate);
       }
       return true;
@@ -239,6 +234,7 @@ export const UpdateProgramMetaSchema = z
   .object({
     programId: z.string().min(1, "Program ID is required"),
     title: z.string().min(3, "Program title must be at least 3 characters").max(120),
+    batchNumber: z.number().int().min(1).max(999).optional().nullable(),
     description: z
       .string()
       .default("Program description will be configured soon.")
@@ -255,18 +251,18 @@ export const UpdateProgramMetaSchema = z
       .refine((val) => isSafePhotoUrl(val), "Invalid cover image URL format")
       .optional()
       .or(z.literal("")),
+    introVideoUrl: z
+      .string()
+      .max(2000)
+      .refine(isSafeOptionalHttpUrl, "Introduction video URL must be a valid http(s) URL")
+      .optional()
+      .or(z.literal("")),
     difficultyLevel: z
       .enum(["BEGINNER", "MODERATE", "INTERMEDIATE", "ADVANCED", "HIGH_INTENSITY"])
       .default("INTERMEDIATE"),
     category: z.string().default("Pilates").optional().or(z.literal("")),
     equipment: z.string().optional().or(z.literal("")),
     dailyCommitment: z.string().optional().or(z.literal("")),
-    recommendedFor: z
-      .string()
-      .max(400)
-      .default("All Levels")
-      .optional()
-      .or(z.literal("")),
     coachName: z
       .string()
       .max(300)
@@ -276,9 +272,7 @@ export const UpdateProgramMetaSchema = z
     coachTitle: z.string().optional().or(z.literal("")),
     organizationId: z.string().optional().nullable().or(z.literal("")),
     organizationCache: z.string().max(120).optional().nullable().or(z.literal("")),
-    language: z.enum(["id", "en", "bilingual"]).optional().default("id"),
-    translations: z.string().optional().nullable(),
-    durationDays: z.number().int().min(1).max(90).default(21),
+    durationDays: z.number().int().min(1).max(90).default(1),
     actualPrice: z.number().min(0, "Actual price must be 0 or higher").default(0),
     discountPercentage: z.number().int().min(0).max(100).default(0),
     price: z.number().min(0, "Price must be 0 or higher").default(0),
@@ -290,21 +284,21 @@ export const UpdateProgramMetaSchema = z
       .refine(isSafeOptionalHttpUrl, "Community link must be a valid http(s) URL")
       .optional()
       .or(z.literal("")),
-    locationType: z.enum(["ONLINE", "ONSITE", "HYBRID"]).default("ONLINE"),
+    locationType: z.enum(["ONLINE", "HYBRID"]).default("ONLINE"),
     city: z.string().optional().or(z.literal("")),
     venueAddress: z.string().optional().or(z.literal("")),
-    virtualFallbackAvailable: z.boolean().default(true),
-    termsType: z.enum(["STANDARD", "CUSTOM"]).default("CUSTOM").optional(),
     customTerms: z.string().optional().or(z.literal("")),
     termsList: z.array(z.string()).optional(),
     startDate: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid start date")
-      .optional(),
+      .optional()
+      .nullable(),
     endDate: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid end date")
-      .optional(),
+      .optional()
+      .nullable(),
     registrationOpenDate: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid registration open date")
@@ -313,7 +307,8 @@ export const UpdateProgramMetaSchema = z
     registrationDeadline: z
       .union([z.string(), z.date()])
       .refine(isValidOptionalDate, "Invalid registration deadline")
-      .optional(),
+      .optional()
+      .nullable(),
     status: z
       .enum([
         "DRAFT",
@@ -331,7 +326,7 @@ export const UpdateProgramMetaSchema = z
   })
   .refine(
     (data) => {
-      if (data.startDate && data.endDate) {
+      if (data.locationType === "HYBRID" && data.startDate && data.endDate) {
         return new Date(data.startDate) <= new Date(data.endDate);
       }
       return true;
@@ -505,7 +500,6 @@ export function isProgramHeaderComplete(program?: {
   category?: string | null;
   dailyCommitment?: string | null;
   coachName?: string | null;
-  recommendedFor?: string | null;
   startDate?: Date | string | null;
   endDate?: Date | string | null;
   registrationDeadline?: Date | string | null;
@@ -542,77 +536,65 @@ export function isProgramHeaderComplete(program?: {
     });
   }
 
-  // Point 2: Purpose & Methodology
-  const hasTargetState = !!program.targetState && program.targetState.trim().length >= 5;
-  const hasMethodology = !!program.methodology && program.methodology.trim().length >= 5;
-  let benefitsCount = 0;
-  if (Array.isArray(program.expectedBenefits)) {
-    benefitsCount = program.expectedBenefits.filter((b) => b && b.trim().length > 0).length;
-  }
-  if (!hasTargetState || !hasMethodology || benefitsCount === 0) {
-    missing.push({
-      point: 2,
-      title: "Purpose & Methodology",
-      reason: "Requires target physical/mental condition, methodology, and at least 1 key benefit.",
-    });
-  }
+  // Point 2: Purpose & Methodology (Optional / Template-backed)
 
-  // Point 3: Classification & Coaches
-  const hasCategory = !!program.category && program.category.trim().length > 0;
+  // Point 3: Sports & Coaches
+  const hasSport = !!program.category && program.category.trim().length > 0;
   const coach = (program.coachName || "").trim();
   const hasCoach = coach.length >= 2 && coach.toUpperCase() !== "TBA";
-  const hasAudience = !!program.recommendedFor && program.recommendedFor.trim().length > 0;
-  if (!hasCategory || !hasCoach || !hasAudience) {
+  if (!hasSport || !hasCoach) {
     missing.push({
       point: 3,
-      title: "Classification & Coaches",
-      reason: "Requires category taxonomy, assigned lead coach (cannot be TBA), and target audience persona.",
+      title: "Sports & Coaches",
+      reason: "Requires at least 1 Sport category and an assigned lead coach (cannot be TBA).",
     });
   }
 
-  // Point 4: Schedule & Registration Dates
-  const startD = program.startDate ? new Date(program.startDate) : null;
-  const endD = program.endDate ? new Date(program.endDate) : null;
-  const regDeadline = program.registrationDeadline ? new Date(program.registrationDeadline) : null;
-  const hasValidDates =
-    startD &&
-    endD &&
-    regDeadline &&
-    !isNaN(startD.getTime()) &&
-    !isNaN(endD.getTime()) &&
-    !isNaN(regDeadline.getTime()) &&
-    startD <= endD &&
-    regDeadline <= startD;
+  // Point 4: Schedule & Registration Dates (Required for HYBRID; ONLINE is anytime with no date range)
+  if (program.locationType !== "ONLINE") {
+    const startD = program.startDate ? new Date(program.startDate) : null;
+    const endD = program.endDate ? new Date(program.endDate) : null;
+    const regDeadline = program.registrationDeadline ? new Date(program.registrationDeadline) : null;
+    const hasValidDates =
+      startD &&
+      endD &&
+      regDeadline &&
+      !isNaN(startD.getTime()) &&
+      !isNaN(endD.getTime()) &&
+      !isNaN(regDeadline.getTime()) &&
+      startD <= endD &&
+      regDeadline <= startD;
 
-  if (!hasValidDates) {
-    missing.push({
-      point: 4,
-      title: "Schedule & Registration Dates",
-      reason: "Requires valid Start Date, End Date, and Cutoff Deadline (WIB).",
-    });
+    if (!hasValidDates) {
+      missing.push({
+        point: 4,
+        title: "Schedule & Registration Dates",
+        reason: "Hybrid cohorts require valid Start Date, End Date, and Cutoff Deadline (WIB).",
+      });
+    }
   }
 
   // Point 5: Attendance Mode & Location
   const hasLocationType =
-    !!program.locationType && ["ONLINE", "ONSITE", "HYBRID"].includes(program.locationType);
+    !!program.locationType && ["ONLINE", "HYBRID"].includes(program.locationType);
 
   if (!hasLocationType) {
     missing.push({
       point: 5,
       title: "Attendance Mode & Location",
-      reason: "Requires selecting an attendance format (Online, On-Site, or Hybrid).",
+      reason: "Requires selecting a delivery format (Full Online or Hybrid).",
     });
   } else if (program.locationType === "ONLINE") {
-    // Online cohorts do not require a physical city or studio venue address. Automatically valid!
+    // Full Online programs do not require a physical city or studio venue address.
   } else {
-    // ONSITE or HYBRID: Requires physical studio venue address and city
+    // HYBRID: Requires physical studio venue address and city
     const hasCity = !!program.city && program.city.trim().length >= 2;
     const hasVenue = !!program.venueAddress && program.venueAddress.trim().length >= 5;
     if (!hasCity || !hasVenue) {
       missing.push({
         point: 5,
         title: "Attendance Mode & Location",
-        reason: "On-Site / Hybrid delivery requires primary city and physical studio venue address.",
+        reason: "Hybrid delivery requires primary city and physical studio venue address.",
       });
     }
   }

@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { EmptyState, PullToRefreshBanner } from "../shared";
-import type { ExploreProgram, LoadState } from "./exploreFilters";
+import { splitCoachTokens, type ExploreProgram, type LoadState } from "./exploreFilters";
 
 interface ExploreCoachesViewProps {
   availableCoaches: Array<{ name: string; avatar: string }>;
@@ -75,8 +75,10 @@ export function ExploreCoachesView({
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {paginatedCoaches.map(({ name, avatar }) => {
-              const count = catalog.filter(
-                (p) => p.coachName.trim().toLowerCase() === name.toLowerCase()
+              const count = catalog.filter((p) =>
+                splitCoachTokens(p.coachName).some(
+                  (c) => c.toLowerCase() === name.toLowerCase()
+                )
               ).length;
               return (
                 <button

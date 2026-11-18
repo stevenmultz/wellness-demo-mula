@@ -127,7 +127,9 @@ export function MyPlanAllPage({
                         ? formatStartsIn(p.startDate, locale).headline
                         : `${t.myPlan.dayLabel} ${p.currentDayNumber || 1} ${t.myPlan.ofLabel} ${total || 1}`;
                     const subText = p.isCompleted
-                      ? `${t.myPlan.endedOnLabel} ${formatDateWib(p.endDate)}`
+                      ? p.endDate
+                        ? `${t.myPlan.endedOnLabel} ${formatDateWib(p.endDate)}`
+                        : t.myPlan.completedLabel
                       : p.isUpcoming
                         ? `${t.myPlan.startsOnLabel} ${formatDateWib(p.startDate)}`
                         : formatDayTypeLabel(p.todayDayType, locale) || p.dailyCommitment || "";
@@ -157,11 +159,32 @@ export function MyPlanAllPage({
                           />
                           <div className="p-4 flex-1 flex flex-col justify-between gap-3">
                             <div>
+                              {(p.organizationName || p.batchNumber) && (
+                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                  {p.organizationName && (
+                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                                      {p.organizationLogo && (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={p.organizationLogo}
+                                          alt={p.organizationName}
+                                          className="w-4 h-4 rounded-full object-contain bg-white border border-zinc-200/80 shrink-0"
+                                        />
+                                      )}
+                                      <span>{p.organizationName}</span>
+                                    </span>
+                                  )}
+                                  {p.batchNumber ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase text-zinc-700 dark:text-zinc-200">
+                                      Batch {p.batchNumber}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
                               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-1">
                                 {p.title}
                               </h3>
                               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-                                {p.organizationName ? `${p.organizationName} • ` : ""}
                                 Coach {p.coachName || BRAND.facultyFallback}
                               </p>
                             </div>

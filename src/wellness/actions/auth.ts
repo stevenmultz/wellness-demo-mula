@@ -16,7 +16,7 @@ import {
   ForgotPasswordSchema,
   ResetPasswordSchema,
 } from "../validators/auth";
-import { sendTransactionalEmail } from "../integrations/email-service";
+import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { recordAuditLog } from "../integrations/audit-log";
 import {
   checkDistributedRateLimit,
@@ -30,16 +30,16 @@ import {
   RATE_LIMITS,
 } from "../config";
 
-function getClientIpKey(): string {
+async function getClientIpKey(): Promise<string> {
   try {
-    const h = headers();
+    const h = await headers();
+    const realIp = h.get("x-real-ip")?.trim();
+    if (realIp) return realIp.slice(0, 64);
     const xff = h.get("x-forwarded-for");
     if (xff) {
       const first = xff.split(",")[0]?.trim();
       if (first) return first.slice(0, 64);
     }
-    const realIp = h.get("x-real-ip")?.trim();
-    if (realIp) return realIp.slice(0, 64);
   } catch {
     // Outside Next.js request context
   }
@@ -88,7 +88,7 @@ async function issueEmailVerificationForUser(user: {
   const emailRes = await sendTransactionalEmail({
     to: user.email,
     subject: `${BRAND.fullName} — Verify your email address`,
-    html: `<p>Hi ${user.fullName},</p><p>Please verify your email address to activate your account (valid for 24 hours):</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    html: `<p>Hi ${escapeHtml(user.fullName)},</p><p>Please verify your email address to activate your account (valid for 24 hours):</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
     text: `Verify your email (valid 24 hours): ${verifyUrl}`,
   });
 
@@ -112,10 +112,12 @@ export async function wellnessSignUp(
     }
 
     const { fullName, email, phone, password } = validation.data;
-    const ip = getClientIpKey();
+    const ip = await getClientIpKey();
 
-    const ipRl = await checkDistributedRateLimit(`signup-ip:${ip}`, RATE_LIMITS.signupIp);
-    const emailRl = await checkDistributedRateLimit(`signup:${email}`, RATE_LIMITS.signupEmail);
+    const [ipRl, emailRl] = await Promise.all([
+      checkDistributedRateLimit(`signup-ip:${ip}`, RATE_LIMITS.signupIp),
+      checkDistributedRateLimit(`signup:${email}`, RATE_LIMITS.signupEmail),
+    ]);
     if (!ipRl.allowed || !emailRl.allowed) {
       return {
         success: false,
@@ -282,9 +284,11 @@ export async function wellnessResendVerificationEmail(
     }
 
     const { email } = parsed.data;
-    const ip = getClientIpKey();
-    const ipRl = await checkDistributedRateLimit(`verify-ip:${ip}`, RATE_LIMITS.pwdResetIp);
-    const emailRl = await checkDistributedRateLimit(`verify:${email}`, RATE_LIMITS.pwdResetEmail);
+    const ip = await getClientIpKey();
+    const [ipRl, emailRl] = await Promise.all([
+      checkDistributedRateLimit(`verify-ip:${ip}`, RATE_LIMITS.pwdResetIp),
+      checkDistributedRateLimit(`verify:${email}`, RATE_LIMITS.pwdResetEmail),
+    ]);
     if (!ipRl.allowed || !emailRl.allowed) {
       return {
         success: false,
@@ -336,12 +340,16 @@ export async function wellnessSignIn(
     }
 
     const { email, password } = validation.data;
-    const ip = getClientIpKey();
+    const ip = await getClientIpKey();
     const accountBucket = `signin:${ip}:${email}`;
+    const emailBucket = `signin-email:${email}`;
 
-    const ipRl = await checkDistributedRateLimit(`signin-ip:${ip}`, RATE_LIMITS.signinIp);
-    const rl = await checkDistributedRateLimit(accountBucket, RATE_LIMITS.signinAccount);
-    if (!ipRl.allowed || !rl.allowed) {
+    const [ipRl, rl, emailRl] = await Promise.all([
+      checkDistributedRateLimit(`signin-ip:${ip}`, RATE_LIMITS.signinIp),
+      checkDistributedRateLimit(accountBucket, RATE_LIMITS.signinAccount),
+      checkDistributedRateLimit(emailBucket, { maxRequests: 12, windowMs: 15 * 60 * 1000 }),
+    ]);
+    if (!ipRl.allowed || !rl.allowed || !emailRl.allowed) {
       return {
         success: false,
         message: "Too many sign-in attempts. Please try again after 15 minutes.",
@@ -449,10 +457,12 @@ export async function wellnessRequestPasswordReset(
     }
 
     const { email } = validation.data;
-    const ip = getClientIpKey();
+    const ip = await getClientIpKey();
 
-    const ipRl = await checkDistributedRateLimit(`pwdreset-ip:${ip}`, RATE_LIMITS.pwdResetIp);
-    const rl = await checkDistributedRateLimit(`pwdreset:${email}`, RATE_LIMITS.pwdResetEmail);
+    const [ipRl, rl] = await Promise.all([
+      checkDistributedRateLimit(`pwdreset-ip:${ip}`, RATE_LIMITS.pwdResetIp),
+      checkDistributedRateLimit(`pwdreset:${email}`, RATE_LIMITS.pwdResetEmail),
+    ]);
     if (!ipRl.allowed || !rl.allowed) {
       return {
         success: false,

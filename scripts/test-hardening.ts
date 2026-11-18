@@ -27,6 +27,33 @@ async function main() {
   assert.equal(digest, crypto.createHash("sha256").update(raw).digest("hex"));
   console.log("[PASS] 3. Reset token digest check");
 
+  // 4. Out-of-order Midtrans webhooks must not regress settled/refunded payments.
+  const { isAllowedPaymentTransition: ok } = await import("../src/wellness/integrations/payment-gateway");
+  for (const to of ["PENDING", "EXPIRE", "CANCEL", "DENY"] as const) {
+    assert.equal(ok("SETTLEMENT", to), false, `SETTLEMENT -> ${to} must be rejected`);
+  }
+  assert.equal(ok("SETTLEMENT", "REFUND"), true);
+  assert.equal(ok("SETTLEMENT", "SETTLEMENT"), true);
+  assert.equal(ok("MANUAL_APPROVED", "EXPIRE"), false);
+  assert.equal(ok("MANUAL_APPROVED", "REFUND"), true);
+  assert.equal(ok("REFUND_REQUESTED", "SETTLEMENT"), false);
+  assert.equal(ok("REFUND_REQUESTED", "REFUND"), true);
+  assert.equal(ok("REFUND", "SETTLEMENT"), false);
+  assert.equal(ok("REFUND", "PENDING"), false);
+  assert.equal(ok("EXPIRE", "PENDING"), false);
+  assert.equal(ok("PENDING", "SETTLEMENT"), true);
+  assert.equal(ok("PENDING", "EXPIRE"), true);
+  console.log("[PASS] 4. Payment status transition guard rejects stale webhooks");
+
+  // 5. Google linking to an unverified local account must revoke its unproven password + sessions.
+  const { buildOAuthLinkUserUpdate } = await import("../src/wellness/security/oauth-linking");
+  assert.equal(buildOAuthLinkUserUpdate({ emailVerifiedAt: new Date() }), null);
+  const upd = buildOAuthLinkUserUpdate({ emailVerifiedAt: null });
+  assert.ok(upd && upd.emailVerifiedAt instanceof Date);
+  assert.equal(upd.passwordHash, null);
+  assert.deepEqual(upd.tokenVersion, { increment: 1 });
+  console.log("[PASS] 5. OAuth link to unverified account revokes password and sessions");
+
   console.log("=== ALL HARDENING TESTS PASSED ===");
 }
 main().catch((e) => { console.error(e); process.exit(1); });

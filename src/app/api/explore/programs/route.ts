@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
-import { getServerLocale } from "@/wellness/i18n/server";
-import { resolveLocalizedField } from "@/wellness/i18n/types";
 import {
   getPublicBadgeMeta,
   normalizeProgramStatus,
@@ -26,15 +24,16 @@ function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
 interface ExploreProgramItem {
   id: string;
   title: string;
+  batchNumber: number | null;
   coverImage: string | null;
+  introVideoUrl: string | null;
   coachName: string;
   organizationName: string | null;
   organizationLogo: string | null;
   organizationVerified: boolean;
-  language: string;
-  startDate: string;
-  endDate: string;
-  registrationDeadline: string;
+  startDate: string | null;
+  endDate: string | null;
+  registrationDeadline: string | null;
   price: number;
   actualPrice: number;
   discountPercentage: number;
@@ -49,7 +48,6 @@ interface ExploreProgramItem {
   enrollmentStatus: "ACTIVE" | "PENDING" | null;
   difficultyLevel: string;
   category: string;
-  recommendedFor: string;
   dailyCommitment: string | null;
   trainingDaysTotal: number;
   connectDaysTotal: number;
@@ -77,8 +75,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number.parseInt(sp.get("page") || "1", 10) || 1);
     const limit = Math.min(100, Math.max(1, Number.parseInt(sp.get("limit") || "50", 10) || 50));
 
-    const locale = getServerLocale(session.preferredLocale);
-    const [programs, enrollments, organizations, categories] = await Promise.all([
+    const [programs, enrollments] = await Promise.all([
       prisma.program.findMany({
         take: 100,
         where: {
@@ -91,32 +88,11 @@ export async function GET(req: NextRequest) {
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
           days: { select: { dayType: true } },
         },
-        orderBy: sort === "price" ? { price: dir } : { startAt: dir },
+        orderBy: sort === "price" ? { price: dir } : [{ startAt: dir }, { createdAt: "desc" }],
       }),
       prisma.programEnrollment.findMany({
         where: { userId: session.userId },
         select: { programId: true, status: true },
-      }),
-      prisma.masterOrganization.findMany({
-        where: {
-          OR: [
-            { isVerified: true },
-            { programs: { some: { status: "PUBLISHED", deletedAt: null } } },
-          ],
-        },
-        select: {
-          id: true,
-          name: true,
-          tagline: true,
-          logoPath: true,
-          websiteUrl: true,
-          isVerified: true,
-        },
-        orderBy: { name: "asc" },
-      }),
-      prisma.masterCategory.findMany({
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
       }),
     ]);
 
@@ -136,6 +112,7 @@ export async function GET(req: NextRequest) {
         const badge =
           resolvePublicBadge({
             status: p.status,
+            locationType: p.locationType,
             registrationOpenDate: p.registrationOpenAt,
             registrationDeadline: p.registrationDeadlineAt,
             startDate: p.startAt,
@@ -143,16 +120,17 @@ export async function GET(req: NextRequest) {
             maxQuota: p.maxQuota,
             enrolledCount: p._count.enrollments,
             now,
-          }) ?? "Coming Soon";
+          }) ?? "Open Registration";
         const enrollStatus = enrollmentByProgram.get(p.id);
         const enrollmentStatus =
           enrollStatus === "ACTIVE" || enrollStatus === "PENDING" ? enrollStatus : null;
 
         const trainingDaysTotal = p.days.filter((d) => d.dayType === "TRAINING_DAY").length;
         const restDaysTotal = p.days.filter((d) => d.dayType === "REST_DAY").length;
-        const connectDaysTotal = p.days.filter(
-          (d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY"
-        ).length;
+        const connectDaysTotal =
+          p.locationType === "HYBRID"
+            ? p.days.filter((d) => d.dayType !== "TRAINING_DAY" && d.dayType !== "REST_DAY").length
+            : 0;
 
         const effectiveActualPrice = p.actualPrice && p.actualPrice > p.price ? p.actualPrice : p.price;
         const effectiveDiscount =
@@ -164,16 +142,20 @@ export async function GET(req: NextRequest) {
 
         return {
           id: p.id,
-          title: resolveLocalizedField(p.title, p.translationsJson, locale, "title"),
+          title: p.title,
+          batchNumber: p.batchNumber ?? null,
           coverImage: toClientMediaUrl(p.coverImagePath),
+          introVideoUrl: p.introVideoUrl || null,
           coachName: tax.coachName,
           organizationName: tax.organizationName || null,
           organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
           organizationVerified: tax.organizationVerified ?? false,
-          language: p.language || "id",
-          startDate: p.startAt.toISOString(),
-          endDate: p.endAt.toISOString(),
-          registrationDeadline: p.registrationDeadlineAt.toISOString(),
+          startDate: p.locationType === "HYBRID" && p.startAt ? p.startAt.toISOString() : null,
+          endDate: p.locationType === "HYBRID" && p.endAt ? p.endAt.toISOString() : null,
+          registrationDeadline:
+            p.locationType === "HYBRID" && p.registrationDeadlineAt
+              ? p.registrationDeadlineAt.toISOString()
+              : null,
           price: p.price,
           actualPrice: effectiveActualPrice,
           discountPercentage: effectiveDiscount,
@@ -188,7 +170,6 @@ export async function GET(req: NextRequest) {
           enrollmentStatus,
           difficultyLevel: p.difficultyLevel,
           category: tax.category,
-          recommendedFor: tax.recommendedFor,
           dailyCommitment: tax.dailyCommitment || null,
           trainingDaysTotal,
           connectDaysTotal,
@@ -205,14 +186,15 @@ export async function GET(req: NextRequest) {
     }
 
     const factor = dir === "desc" ? -1 : 1;
+    const sortDateMs = (d: string | null) => (d ? new Date(d).getTime() : Number.MAX_SAFE_INTEGER);
     items.sort((a, b) => {
       const primary =
         sort === "price"
           ? a.price - b.price
-          : new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+          : sortDateMs(a.startDate) - sortDateMs(b.startDate);
       if (primary !== 0) return primary * factor;
       return (
-        new Date(a.startDate).getTime() - new Date(b.startDate).getTime() ||
+        sortDateMs(a.startDate) - sortDateMs(b.startDate) ||
         a.title.localeCompare(b.title) ||
         a.id.localeCompare(b.id)
       );
@@ -226,18 +208,6 @@ export async function GET(req: NextRequest) {
       {
         success: true,
         programs: pagedItems,
-        organizations: organizations.map((org) => ({
-          id: org.id,
-          name: org.name,
-          tagline: org.tagline,
-          logoUrl: toClientMediaUrl(org.logoPath),
-          websiteUrl: org.websiteUrl,
-          isVerified: org.isVerified,
-        })),
-        categories: categories.map((cat) => ({
-          id: cat.id,
-          name: cat.name,
-        })),
         pagination: {
           page,
           limit,

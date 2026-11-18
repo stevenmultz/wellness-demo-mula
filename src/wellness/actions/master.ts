@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
-import { requireAdminAccess, requireSuperadmin } from "../security/guards";
+import { requireAdminAccess, requireSuperadmin, WellnessForbiddenError } from "../security/guards";
 import { isSafePhotoUrl, safeHttpUrl, safeMediaUrl } from "../utils/url-safety";
 import { recordAuditLog } from "../integrations/audit-log";
 import type { WellnessActionResult } from "./auth";
@@ -29,7 +29,6 @@ export interface MasterOrganizationItem {
 
 export interface MasterDataPayload {
   coaches: Array<{ id: string; name: string; title: string; organizationId?: string | null }>;
-  targetAudiences: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
   equipment: Array<{ id: string; name: string }>;
   dailyCommitments: Array<{ id: string; name: string }>;
@@ -66,14 +65,13 @@ export async function wellnessGetMasterData(): Promise<{
           ? { id: session.organizationId }
           : { id: "__unassigned_scope__" };
 
-    const [coaches, targetAudiences, categories, equipment, dailyCommitments, organizations] =
+    const [coaches, categories, equipment, dailyCommitments, organizations] =
       await Promise.all([
-        prisma.masterCoach.findMany({ where: coachWhere, orderBy: { name: "asc" } }),
-        prisma.masterTargetAudience.findMany({ orderBy: { name: "asc" } }),
-        prisma.masterCategory.findMany({ orderBy: { name: "asc" } }),
-        prisma.masterEquipment.findMany({ orderBy: { name: "asc" } }),
-        prisma.masterDailyCommitment.findMany({ orderBy: { name: "asc" } }),
-        prisma.masterOrganization.findMany({ where: orgWhere, orderBy: { name: "asc" } }),
+        prisma.masterCoach.findMany({ where: coachWhere, take: 500, orderBy: { name: "asc" } }),
+        prisma.masterCategory.findMany({ take: 500, orderBy: { name: "asc" } }),
+        prisma.masterEquipment.findMany({ take: 500, orderBy: { name: "asc" } }),
+        prisma.masterDailyCommitment.findMany({ take: 200, orderBy: { name: "asc" } }),
+        prisma.masterOrganization.findMany({ where: orgWhere, take: 500, orderBy: { name: "asc" } }),
       ]);
 
     const effectiveCoaches =
@@ -94,17 +92,7 @@ export async function wellnessGetMasterData(): Promise<{
             { id: "cat-2", name: "Strength & Conditioning" },
             { id: "cat-3", name: "Mobility & Recovery" },
             { id: "cat-4", name: "Breathwork & Mindfulness" },
-            { id: "cat-5", name: "Holistic Longevity" },
-          ];
-
-    const effectiveAudiences =
-      targetAudiences.length > 0
-        ? targetAudiences
-        : [
-            { id: "ta-1", name: "Beginner Friendly" },
-            { id: "ta-2", name: "Intermediate Practitioners" },
-            { id: "ta-3", name: "Desk Workers & Sedentary" },
-            { id: "ta-4", name: "Athletes & High Performers" },
+            { id: "cat-5", name: "Volleyball" },
           ];
 
     const effectiveEquipment =
@@ -134,7 +122,6 @@ export async function wellnessGetMasterData(): Promise<{
       success: true,
       data: {
         coaches: effectiveCoaches,
-        targetAudiences: effectiveAudiences,
         categories: effectiveCategories,
         equipment: effectiveEquipment,
         dailyCommitments: effectiveCommitments,
@@ -155,7 +142,6 @@ export async function wellnessGetMasterData(): Promise<{
       success: false,
       data: {
         coaches: [],
-        targetAudiences: [],
         categories: [],
         equipment: [],
         dailyCommitments: [],
@@ -236,13 +222,6 @@ export async function wellnessUpdateMasterCoach(input: {
       data: { name, title },
     });
 
-    if (oldCoach.name !== name) {
-      await tx.programDay.updateMany({
-        where: { coachName: oldCoach.name },
-        data: { coachName: name },
-      });
-    }
-
     await recordAuditLog(
       {
         actorUserId: admin.userId,
@@ -271,7 +250,10 @@ async function createMasterTaxonomyItem(
   nameInput: string,
   labels: { minLengthMsg: string; duplicatePrefix: string; addedPrefix: string }
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  const session = await requireAdminAccess();
+  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+    throw new WellnessForbiddenError("Only Superadmin or Community Admin can add taxonomy tags.");
+  }
   const name = nameInput?.trim();
   if (!name || name.length < 2) {
     return { success: false, message: labels.minLengthMsg };
@@ -303,62 +285,6 @@ async function deleteMasterTaxonomyItem(
   }
 }
 
-export async function wellnessCreateMasterTargetAudience(nameInput: string): Promise<WellnessActionResult> {
-  return createMasterTaxonomyItem(
-    {
-      findByName: (name) => prisma.masterTargetAudience.findUnique({ where: { name } }),
-      create: (name) => prisma.masterTargetAudience.create({ data: { name } }),
-    },
-    nameInput,
-    {
-      minLengthMsg: "Target audience must be at least 2 characters.",
-      duplicatePrefix: "Target audience",
-      addedPrefix: "Target audience",
-    }
-  );
-}
-
-export async function wellnessDeleteMasterTargetAudience(id: string): Promise<WellnessActionResult> {
-  return deleteMasterTaxonomyItem(
-    async (tx) => {
-      const usedCount = await tx.programAudience.count({ where: { audienceId: id } });
-      if (usedCount > 0) {
-        return { blocked: `Cannot delete this Target Audience because it is used by ${usedCount} program(s).` };
-      }
-      await tx.masterTargetAudience.delete({ where: { id } });
-      return { blocked: null };
-    },
-    { titleCase: "Target Audience", removedMsg: "Target audience removed." }
-  );
-}
-
-export async function wellnessUpdateMasterTargetAudience(input: {
-  id: string;
-  name: string;
-}): Promise<WellnessActionResult> {
-  await requireSuperadmin();
-  const name = input.name?.trim();
-  if (!name || name.length < 2) {
-    return { success: false, message: "Target audience must be at least 2 characters." };
-  }
-  const oldItem = await prisma.masterTargetAudience.findUnique({ where: { id: input.id } });
-  if (!oldItem) return { success: false, message: "Target audience not found." };
-
-  const item = await prisma.$transaction(async (tx) => {
-    const updated = await tx.masterTargetAudience.update({ where: { id: input.id }, data: { name } });
-    if (oldItem.name !== name) {
-      await tx.programDay.updateMany({
-        where: { recommendedFor: oldItem.name },
-        data: { recommendedFor: name },
-      });
-    }
-    return updated;
-  });
-
-  revalidateAdminMasterRoutes();
-  return { success: true, message: `Target audience "${item.name}" updated.`, data: item };
-}
-
 export async function wellnessCreateMasterCategory(nameInput: string): Promise<WellnessActionResult> {
   return createMasterTaxonomyItem(
     {
@@ -367,9 +293,9 @@ export async function wellnessCreateMasterCategory(nameInput: string): Promise<W
     },
     nameInput,
     {
-      minLengthMsg: "Category name must be at least 2 characters.",
-      duplicatePrefix: "Category",
-      addedPrefix: "Category",
+      minLengthMsg: "Sport name must be at least 2 characters.",
+      duplicatePrefix: "Sport",
+      addedPrefix: "Sport",
     }
   );
 }
@@ -379,12 +305,12 @@ export async function wellnessDeleteMasterCategory(id: string): Promise<Wellness
     async (tx) => {
       const usedCount = await tx.programCategory.count({ where: { categoryId: id } });
       if (usedCount > 0) {
-        return { blocked: `Cannot delete this Category because it is used by ${usedCount} program(s).` };
+        return { blocked: `Cannot delete this Sport because it is used by ${usedCount} program(s).` };
       }
       await tx.masterCategory.delete({ where: { id } });
       return { blocked: null };
     },
-    { titleCase: "Category", removedMsg: "Category removed." }
+    { titleCase: "Sport", removedMsg: "Sport removed." }
   );
 }
 
@@ -395,14 +321,14 @@ export async function wellnessUpdateMasterCategory(input: {
   await requireSuperadmin();
   const name = input.name?.trim();
   if (!name || name.length < 2) {
-    return { success: false, message: "Category name must be at least 2 characters." };
+    return { success: false, message: "Sport name must be at least 2 characters." };
   }
   const existing = await prisma.masterCategory.findUnique({ where: { id: input.id } });
-  if (!existing) return { success: false, message: "Category not found." };
+  if (!existing) return { success: false, message: "Sport not found." };
 
   const item = await prisma.masterCategory.update({ where: { id: input.id }, data: { name } });
   revalidateAdminMasterRoutes();
-  return { success: true, message: `Category "${item.name}" updated.`, data: item };
+  return { success: true, message: `Sport "${item.name}" updated.`, data: item };
 }
 
 export async function wellnessCreateMasterEquipment(nameInput: string): Promise<WellnessActionResult> {
@@ -563,7 +489,17 @@ export async function wellnessUpdateMasterOrganization(input: {
   websiteUrl?: string | null;
   isVerified?: boolean;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  const session = await requireAdminAccess();
+  if (session.role === "SUPERADMIN") {
+    // Allowed across any community organization
+  } else if (session.role === "PARTNER_ADMIN") {
+    if (!session.organizationId || input.id !== session.organizationId) {
+      throw new WellnessForbiddenError("You can only update your own Community profile & branding.");
+    }
+  } else {
+    throw new WellnessForbiddenError("Only Superadmin or Community Admin can update Community profiles.");
+  }
+
   const name = input.name?.trim();
   if (!name || name.length < 2 || name.length > 120) {
     return { success: false, message: "Community / Brand name must be between 2 and 120 characters." };
@@ -594,7 +530,10 @@ export async function wellnessUpdateMasterOrganization(input: {
           input.websiteUrl !== undefined
             ? (input.websiteUrl?.trim() ? safeHttpUrl(input.websiteUrl) : null)
             : oldItem.websiteUrl,
-        isVerified: input.isVerified !== undefined ? input.isVerified : oldItem.isVerified,
+        isVerified:
+          session.role === "SUPERADMIN" && input.isVerified !== undefined
+            ? input.isVerified
+            : oldItem.isVerified,
       },
     });
 

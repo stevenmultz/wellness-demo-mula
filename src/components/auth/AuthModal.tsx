@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
@@ -78,8 +78,11 @@ export function AuthGatewayCard({
     setErrorMsg(map[authError] || "Google Sign-In failed. Please try again.");
   }, []);
 
+  const prevTabOverrideRef = useRef<AuthTabMode | undefined>(activeTabOverride);
+
   useEffect(() => {
-    if (activeTabOverride) {
+    if (activeTabOverride && activeTabOverride !== prevTabOverrideRef.current) {
+      prevTabOverrideRef.current = activeTabOverride;
       setErrorMsg(null);
       setSuccessMsg(null);
       setDevResetUrl(null);

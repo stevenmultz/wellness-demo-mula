@@ -189,12 +189,18 @@ export function ExploreFilterDialog({
             selected={draft.schedule}
             onToggle={(v) => onToggle("schedule", v)}
           />
+          <ChipGroup
+            label={t.explore.filterStatus}
+            options={supported.availability}
+            selected={draft.availability}
+            onToggle={(v) => onToggle("availability", v)}
+          />
         </div>
 
         <div className="flex items-center gap-3 px-5 py-4 border-t border-zinc-100 dark:border-white/10">
           <button
             type="button"
-            disabled={countActive(draft) === 0 && countActive(applied) === 0}
+            disabled={countActive(draft) === 0}
             onClick={onReset}
             className="px-4 py-2.5 rounded-[2px] border border-zinc-300 dark:border-white/20 text-xs font-semibold disabled:opacity-40 active:scale-95 transition"
           >

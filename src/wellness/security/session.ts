@@ -46,7 +46,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
  * Set HttpOnly, Secure, SameSite Cookie di browser pengguna.
  */
 export async function setSessionCookie(token: string) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProductionEnv(),
@@ -60,7 +60,7 @@ export async function setSessionCookie(token: string) {
  * Hapus Cookie sesi saat logout / hapus akun.
  */
 export async function clearSessionCookie() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   try {
     cookieStore.delete(SESSION_COOKIE_NAME);
   } catch {
@@ -112,7 +112,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
   createdAt: Date;
 } | null> => {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
     if (!token) return null;
 

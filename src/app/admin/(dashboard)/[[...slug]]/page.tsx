@@ -16,6 +16,7 @@ import {
   DEFAULT_METHODOLOGY,
 } from "@/wellness/utils/json";
 import { wellnessGetMasterData } from "@/wellness/actions/master";
+import { wellnessGetProgramTemplates } from "@/wellness/actions/templates";
 import {
   PROGRAM_TAXONOMY_INCLUDE,
   serializeProgramTaxonomy,
@@ -44,19 +45,18 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 interface AdminCatchAllPageProps {
-  params: {
+  params: Promise<{
     slug?: string[];
-  };
-  searchParams?: {
+  }>;
+  searchParams?: Promise<{
     tab?: string;
     day?: string;
-  };
+  }>;
 }
 
-export default async function AdminPage({
-  params,
-  searchParams,
-}: AdminCatchAllPageProps) {
+export default async function AdminPage(props: AdminCatchAllPageProps) {
+  const params = await props.params;
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
   // 1. Strict Real-Time Database Session & Role Verification on EVERY Route Load / Refresh
   const session = await getWellnessSession();
 
@@ -98,6 +98,11 @@ export default async function AdminPage({
     if (secondarySegment) {
       requestedCustomerIdentifier = secondarySegment;
     }
+  } else if (primarySegment === "community" || primarySegment === "profile") {
+    if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+      redirect("/admin");
+    }
+    activeMenu = "community";
   } else if (primarySegment === "team" || primarySegment === "coaches") {
     if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
       redirect("/admin");
@@ -119,6 +124,7 @@ export default async function AdminPage({
     programsData,
     enrollmentStats,
     masterDataResult,
+    templatesResult,
     supportRequestsRaw,
   ] = await Promise.all([
     prisma.user.findMany({
@@ -208,6 +214,7 @@ export default async function AdminPage({
       _count: { id: true },
     }),
     wellnessGetMasterData(),
+    wellnessGetProgramTemplates(),
     session.role === "SUPERADMIN"
       ? prisma.cohortSupportRequest.findMany({
           include: {
@@ -238,20 +245,19 @@ export default async function AdminPage({
     return {
       id: p.id,
       title: p.title,
+      batchNumber: p.batchNumber ?? null,
       slug: p.slug,
       description: p.description,
       coverImage: toClientMediaUrl(p.coverImagePath),
+      introVideoUrl: p.introVideoUrl || null,
       difficultyLevel: p.difficultyLevel || "INTERMEDIATE",
       category: tax.category || "Pilates",
       equipment: tax.equipment || null,
       dailyCommitment: tax.dailyCommitment || null,
-      recommendedFor: tax.recommendedFor,
       coachName: tax.coachName,
       coachTitle: tax.coachTitle || null,
       organizationId: p.organizationId || null,
       organizationCache: tax.organizationName || null,
-      language: p.language || "id",
-      translations: toJsonString(p.translationsJson),
       durationDays: p.durationDays,
       actualPrice: p.actualPrice,
       discountPercentage: p.discountPercentage,
@@ -261,8 +267,6 @@ export default async function AdminPage({
       locationType: p.locationType,
       city: p.city,
       venueAddress: p.venueAddress,
-      virtualFallbackAvailable: p.isVirtualFallbackAvailable,
-      termsType: ((p.termsType as "STANDARD" | "CUSTOM") || "CUSTOM"),
       customTerms: p.customTerms || null,
       termsList: parseTermsList(p.customTerms),
       targetState: p.targetState || DEFAULT_TARGET_STATE,
@@ -293,9 +297,6 @@ export default async function AdminPage({
         videoUrl: d.videoUrl,
         videoChecklist: safeJsonParse<string[]>(d.videoChecklistJson, []),
         mealRecommendation: d.mealRecommendation,
-        dailyAssessment: d.dailyAssessment,
-        pendingReminder: d.pendingReminder,
-        completedReminder: d.completedReminder,
         meetupLink: d.meetupLink,
         mapLink: d.mapLink,
         onsiteVenue: d.onsiteVenue,
@@ -304,9 +305,6 @@ export default async function AdminPage({
         eventHost: d.eventHost,
         eventDetails: d.eventDetails,
         restInstructions: d.restInstructions,
-        coachName: d.coachName,
-        recommendedFor: d.recommendedFor,
-        translations: toJsonString(d.translationsJson),
         customTasks: d.customTasks.map((ct) => ({
           id: ct.id,
           programDayId: ct.programDayId,
@@ -477,7 +475,7 @@ export default async function AdminPage({
   const selectedDayNum =
     parsedDay && !Number.isNaN(parsedDay) && parsedDay >= 1 ? parsedDay : undefined;
 
-  const validMasterTabs = ["coaches", "organizations", "audience", "categories", "equipment", "commitments"] as const;
+  const validMasterTabs = ["coaches", "organizations", "categories", "equipment", "commitments"] as const;
   const masterTab = validMasterTabs.includes(rawTab as (typeof validMasterTabs)[number])
     ? (rawTab as (typeof validMasterTabs)[number])
     : "coaches";
@@ -498,6 +496,7 @@ export default async function AdminPage({
       initialUsers={users}
       initialPrograms={programs}
       initialMasterData={masterDataResult.data}
+      initialTemplates={templatesResult.data || []}
       initialSupportRequests={supportRequests}
       currentAdminId={session.userId}
       currentAdminRole={session.role}

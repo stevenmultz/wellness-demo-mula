@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { getWellnessSession } from "@/wellness/security/session";
+import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { sendWebPushNotification, VAPID_PUBLIC_KEY } from "@/wellness/integrations/web-push";
 import { BRAND } from "@/wellness/brand";
+
+const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10;
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +45,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Unauthorized. Please sign in." }, { status: 401 });
     }
 
+    const contentLength = Number(req.headers.get("content-length") || "0");
+    if (contentLength > 8192) {
+      return NextResponse.json({ success: false, message: "Payload too large." }, { status: 413 });
+    }
+
+    const rl = await checkDistributedRateLimit(`push-sub:${session.userId}`, {
+      maxRequests: 12,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, message: "Too many push subscription requests. Please try again shortly." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { endpoint, keys } = body || {};
 
@@ -75,6 +94,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Malformed push endpoint URL." }, { status: 400 });
     }
 
+    if (endpointUrl.port || endpointUrl.username || endpointUrl.password) {
+      return NextResponse.json(
+        { success: false, message: "Push endpoint URL must not include custom ports or credentials." },
+        { status: 400 }
+      );
+    }
+
     const hostname = endpointUrl.hostname.toLowerCase();
     const isAllowedPushProvider =
       hostname === "fcm.googleapis.com" ||
@@ -100,6 +126,22 @@ export async function POST(req: NextRequest) {
         { success: false, message: "Push endpoint is already registered to another account." },
         { status: 403 }
       );
+    }
+
+    if (!existing) {
+      const currentSubCount = await prisma.userPushSubscription.count({
+        where: { userId: session.userId },
+      });
+      if (currentSubCount >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+        const oldest = await prisma.userPushSubscription.findFirst({
+          where: { userId: session.userId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+        if (oldest) {
+          await prisma.userPushSubscription.delete({ where: { id: oldest.id } }).catch(() => null);
+        }
+      }
     }
 
     // Upsert subscription for current user

@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Calendar,
   ChevronDown,
+  Copy,
   HardDrive,
   Plus,
   Search,
@@ -50,6 +51,8 @@ interface AdminProgramsListProps {
   setIsCreatingProgram: (val: boolean) => void;
   setSelectedProgramId: (id: string | null) => void;
   isSuperadminUser?: boolean;
+  duplicatingId?: string | null;
+  handleDuplicateProgram?: (prog: AdminProgram, asNextBatch?: boolean) => void;
   openProgramDetail: (
     prog: AdminProgram,
     defaultDay?: number,
@@ -75,29 +78,13 @@ export function AdminProgramsList({
   setIsCreatingProgram,
   setSelectedProgramId,
   isSuperadminUser = false,
+  duplicatingId = null,
+  handleDuplicateProgram,
   openProgramDetail,
 }: AdminProgramsListProps) {
   const router = useRouter();
-  const publishedFreeCount = programs.filter((p) => p.isPublished && p.price === 0).length;
-
   return (
     <div className="space-y-6">
-      {!isSuperadminUser && (
-        <div
-          className={`rounded-2xl px-4 py-3 text-xs border flex flex-wrap items-center justify-between gap-2 ${
-            publishedFreeCount >= 2
-              ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200"
-              : "bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200"
-          }`}
-        >
-          <span>
-            <strong>Free Intro Programs ({publishedFreeCount}/2 Published):</strong>{" "}
-            {publishedFreeCount >= 2
-              ? "Requirement met. You may publish paid cohorts."
-              : "Publish at least 2 free (Rp 0) introductory programs before publishing paid programs."}
-          </span>
-        </div>
-      )}
       {/* MIDDLE WIDGET: Search & New Program (Top Row) + Filters (Bottom Row - Stacked) */}
       <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-5 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-4">
         {/* Row 1: Search Bar (Left) side-by-side with New Program Button (Right) */}
@@ -227,18 +214,28 @@ export function AdminProgramsList({
         ) : (
           <div className="space-y-5">
             {paginatedPrograms.map((prog, idx) => {
-              const targetDays = prog.durationDays || 21;
+              const isOnlineProg = (prog.locationType || "ONLINE") === "ONLINE";
+              const targetDays = isOnlineProg
+                ? Math.max(1, prog.days.length)
+                : prog.durationDays || 21;
               let filledCount = 0;
-              for (let d = 1; d <= targetDays; d++) {
-                const dayObj = prog.days.find((x) => x.dayNumber === d);
-                if (isDayFilled(dayObj)) filledCount++;
+              if (isOnlineProg) {
+                filledCount = prog.days.filter((x) => isDayFilled(x)).length;
+              } else {
+                for (let d = 1; d <= targetDays; d++) {
+                  const dayObj = prog.days.find((x) => x.dayNumber === d);
+                  if (isDayFilled(dayObj)) filledCount++;
+                }
               }
 
               const headerCheck = isProgramHeaderComplete(prog);
-              const isCurriculumComplete = filledCount === targetDays;
+              const isCurriculumComplete = isOnlineProg
+                ? prog.days.length >= 1 && filledCount === prog.days.length
+                : filledCount === targetDays;
               const statusRes = resolveProgramStatus({
                 isPublished: prog.isPublished,
                 status: prog.status,
+                locationType: prog.locationType,
                 startDate: prog.startDate,
                 endDate: prog.endDate,
                 registrationOpenDate: prog.registrationOpenDate,
@@ -317,10 +314,27 @@ export function AdminProgramsList({
 
                   {/* MIDDLE: Compact Program Title + Schedule Dates */}
                   <div className="relative z-10 py-3 my-auto space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {prog.batchNumber ? (
+                        <span className="px-2 py-0.5 rounded bg-white text-zinc-950 text-[10px] font-mono font-bold uppercase shadow-xs">
+                          Batch {prog.batchNumber}
+                        </span>
+                      ) : null}
+                      {prog.organizationCache && (
+                        <span className="px-2 py-0.5 rounded bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-mono text-white/90">
+                          {prog.organizationCache}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-base sm:text-lg font-geometric font-semibold text-white tracking-tight drop-shadow-md leading-snug line-clamp-2 max-w-2xl">
                       {prog.title}
                     </h3>
-                    {prog.startDate && prog.endDate ? (
+                    {isOnlineProg ? (
+                      <div className="flex items-center gap-1.5 text-zinc-300 font-mono text-[11px] drop-shadow-sm">
+                        <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                        <span>Full Online · Anytime Access ({prog.days.length} Modules)</span>
+                      </div>
+                    ) : prog.startDate && prog.endDate ? (
                       <div className="flex items-center gap-1.5 text-zinc-300 font-mono text-[11px] drop-shadow-sm">
                         <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         <span>
@@ -372,6 +386,20 @@ export function AdminProgramsList({
 
                     {/* Right: Action Buttons */}
                     <div className="flex items-center gap-2 shrink-0">
+                      {handleDuplicateProgram && (
+                        <button
+                          type="button"
+                          disabled={duplicatingId === prog.id}
+                          onClick={() => handleDuplicateProgram(prog, true)}
+                          className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-zinc-200 hover:text-white text-xs font-medium inline-flex items-center gap-1 transition"
+                          title={isOnlineProg ? "Duplicate Program" : "Create Next Batch"}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">
+                            {duplicatingId === prog.id ? "..." : isOnlineProg ? "Duplicate" : "Next Batch"}
+                          </span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={isResponseDisabled}

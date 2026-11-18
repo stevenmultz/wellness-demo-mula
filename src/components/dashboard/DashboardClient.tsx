@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { QrisCheckoutModal, QrisInvoiceData } from "@/components/checkout/QrisCheckoutModal";
 import { wellnessEnrollProgram } from "@/wellness/actions/account";
@@ -46,7 +46,16 @@ export type {
   UserProfile,
 };
 
-function isCohortEnded(startDate?: string | Date | null, endDate?: string | Date | null, dayCount?: number) {
+function isCohortEnded(
+  startDate?: string | Date | null,
+  endDate?: string | Date | null,
+  dayCount?: number,
+  locationType?: string | null,
+  days?: ProgramItem["days"]
+) {
+  if (locationType === "ONLINE" || (!startDate && !endDate)) {
+    return Boolean(days && days.length > 0 && days.every((d) => !!d.userProgress?.isCompleted));
+  }
   const nowMs = Date.now();
   if (endDate) {
     const { year, month, date } = getWibCalendarDate(endDate);
@@ -61,8 +70,8 @@ function isCohortEnded(startDate?: string | Date | null, endDate?: string | Date
   return false;
 }
 
-function isCohortUpcoming(startDate?: string | Date | null) {
-  if (!startDate) return false;
+function isCohortUpcoming(startDate?: string | Date | null, locationType?: string | null) {
+  if (locationType === "ONLINE" || !startDate) return false;
   const { year, month, date } = getWibCalendarDate(startDate);
   const startWibMs = Date.UTC(year, month, date, 0, 0, 0, 0) - WIB_OFFSET_MS;
   return Date.now() < startWibMs;
@@ -85,9 +94,23 @@ export function DashboardClient({
 }: DashboardProps) {
   const router = useRouter();
   const { t } = useLocale();
-  const hasInitialActivePlan = myPrograms.some(
-    (e) => e.status === "ACTIVE" && !isCohortEnded(e.startDate, e.endDate, e.dayCount)
+  const programById = useMemo(
+    () => new Map<string, ProgramItem>(allPrograms.map((p) => [p.id, p])),
+    [allPrograms]
   );
+  const hasInitialActivePlan = myPrograms.some((e) => {
+    const fullProg = programById.get(e.programId);
+    return (
+      e.status === "ACTIVE" &&
+      !isCohortEnded(
+        e.startDate,
+        e.endDate,
+        e.dayCount,
+        e.locationType || fullProg?.locationType,
+        fullProg?.days
+      )
+    );
+  });
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">(
     hasInitialActivePlan ? "my_plan" : "all_plan"
   );
@@ -132,9 +155,16 @@ export function DashboardClient({
   const myEnrolledPrograms = allPrograms.filter((p) => enrolledProgramIds.has(p.id));
 
   const allActiveEnrollments = myPrograms.filter((e) => e.status === "ACTIVE");
-  const ongoingOrUpcomingEnrollment = allActiveEnrollments.find(
-    (e) => !isCohortEnded(e.startDate, e.endDate, e.dayCount)
-  );
+  const ongoingOrUpcomingEnrollment = allActiveEnrollments.find((e) => {
+    const fullProg = programById.get(e.programId);
+    return !isCohortEnded(
+      e.startDate,
+      e.endDate,
+      e.dayCount,
+      e.locationType || fullProg?.locationType,
+      fullProg?.days
+    );
+  });
   const defaultProgramId = ongoingOrUpcomingEnrollment?.programId || allActiveEnrollments[0]?.programId || "";
   const [selectedProgId, setSelectedProgId] = useState<string>(defaultProgramId);
   const [bodyMetricLogs, setBodyMetricLogs] = useState<BodyMetricPoint[]>(initialBodyMetricLogs);
@@ -182,7 +212,30 @@ export function DashboardClient({
     myEnrolledPrograms.find((p) => p.id === selectedProgId) ||
     myEnrolledPrograms[0] ||
     null;
-  const todayIndex = currentProgram?.days?.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359) ?? -1;
+  const isCurrentProgramOnline = currentProgram?.locationType === "ONLINE";
+  const todayIndex = currentProgram?.days
+    ? isCurrentProgramOnline
+      ? (() => {
+          const incompleteIdx = currentProgram.days.findIndex(
+            (d) => !d.userProgress?.isCompleted
+          );
+          return incompleteIdx >= 0
+            ? incompleteIdx
+            : currentProgram.days.length > 0
+              ? currentProgram.days.length - 1
+              : -1;
+        })()
+      : (() => {
+          const liveIdx = currentProgram.days.findIndex(
+            (d) => d.isCalendarUnlocked && !d.isPast2359
+          );
+          if (liveIdx >= 0) return liveIdx;
+          for (let i = currentProgram.days.length - 1; i >= 0; i--) {
+            if (currentProgram.days[i].isCalendarUnlocked) return i;
+          }
+          return -1;
+        })()
+    : -1;
   const currentDay = todayIndex >= 0 ? currentProgram?.days?.[todayIndex] || null : null;
   const calendarDay = currentDay;
 
@@ -233,6 +286,7 @@ export function DashboardClient({
     if (targetProg) {
       const publicBadge = resolvePublicBadge({
         status: targetProg.status,
+        locationType: targetProg.locationType,
         registrationOpenDate: targetProg.registrationOpenDate,
         registrationDeadline: targetProg.registrationDeadline,
         startDate: targetProg.startDate,
@@ -272,7 +326,7 @@ export function DashboardClient({
     if (errorParam === "unauthorized_admin") {
       setActionNotice({
         type: "error",
-        text: "Access denied: Superadmin privileges required to access the Admin Console.",
+        text: "Access denied: Admin privileges required to access the Admin Console.",
       });
       setTimeout(() => setActionNotice(null), 5000);
     }
@@ -333,32 +387,69 @@ export function DashboardClient({
     currentProgram?.days?.filter((d) => d.isSkipped && !d.userProgress?.isCompleted).length || 0;
 
   // Separate completed/ended cohorts from active/upcoming cohorts
-  const completedEnrollments = allActiveEnrollments.filter((e) =>
-    isCohortEnded(e.startDate, e.endDate, e.dayCount)
-  );
+  const completedEnrollments = allActiveEnrollments.filter((e) => {
+    const fullProg = programById.get(e.programId);
+    return isCohortEnded(
+      e.startDate,
+      e.endDate,
+      e.dayCount,
+      e.locationType || fullProg?.locationType,
+      fullProg?.days
+    );
+  });
 
   // My Plan tab: includes all active-status enrollments (ongoing, upcoming, and completed)
-  const activeEnrollments = allActiveEnrollments.filter(
-    (e) => !isCohortEnded(e.startDate, e.endDate, e.dayCount)
-  );
+  const activeEnrollments = allActiveEnrollments.filter((e) => {
+    const fullProg = programById.get(e.programId);
+    return !isCohortEnded(
+      e.startDate,
+      e.endDate,
+      e.dayCount,
+      e.locationType || fullProg?.locationType,
+      fullProg?.days
+    );
+  });
   const planOptions = allActiveEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
   const myPlanIndexItems = allActiveEnrollments.map((e) => {
-    const fullProg = myEnrolledPrograms.find((p) => p.id === e.programId);
+    const fullProg = programById.get(e.programId);
     const days = fullProg?.days || [];
     const totalDays = days.length || e.dayCount || 0;
     const completedDays = days.filter((d) => !!d.userProgress?.isCompleted).length;
-    const liveIdx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
+    const locType = e.locationType || fullProg?.locationType;
+    const liveIdx =
+      locType === "ONLINE"
+        ? (() => {
+            const idx = days.findIndex((d) => !d.userProgress?.isCompleted);
+            return idx >= 0 ? idx : days.length > 0 ? days.length - 1 : -1;
+          })()
+        : (() => {
+            const idx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
+            if (idx >= 0) return idx;
+            for (let i = days.length - 1; i >= 0; i--) {
+              if (days[i].isCalendarUnlocked) return i;
+            }
+            return -1;
+          })();
     const liveDay = liveIdx >= 0 ? days[liveIdx] : null;
     const currentDayNumber = liveDay?.dayNumber || 0;
-    const isCompleted = isCohortEnded(e.startDate, e.endDate, e.dayCount);
-    const isUpcoming = !isCompleted && isCohortUpcoming(e.startDate || fullProg?.startDate);
+    const isCompleted = isCohortEnded(
+      e.startDate,
+      e.endDate,
+      e.dayCount,
+      locType,
+      days
+    );
+    const isUpcoming =
+      !isCompleted && isCohortUpcoming(e.startDate || fullProg?.startDate, locType);
     const pendingTasksCount =
       !isCompleted && !isUpcoming && liveDay ? evaluateDayTaskState(liveDay).pendingTasksCount : 0;
     return {
       programId: e.programId,
       title: e.title,
+      batchNumber: e.batchNumber ?? fullProg?.batchNumber ?? null,
       coachName: e.coachName || fullProg?.coachName || "",
       organizationName: e.organizationName || fullProg?.organizationName || null,
+      organizationLogo: e.organizationLogo || fullProg?.organizationLogo || null,
       coverImage: fullProg?.coverImage || e.coverImage || null,
       dayCount: e.dayCount,
       startDate: e.startDate,
@@ -636,6 +727,7 @@ export function DashboardClient({
                   ? {
                       id: currentProgram.id,
                       title: currentProgram.title,
+                      batchNumber: currentProgram.batchNumber ?? overviewEnrollment.batchNumber ?? null,
                       coachName: currentProgram.coachName,
                       coachTitle: currentProgram.coachTitle,
                       organizationName: currentProgram.organizationName,
@@ -649,6 +741,7 @@ export function DashboardClient({
                       equipment: currentProgram.equipment,
                       durationDays: currentProgram.durationDays,
                       coverImage: currentProgram.coverImage || overviewEnrollment.coverImage || null,
+                      introVideoUrl: currentProgram.introVideoUrl || null,
                       startDate: overviewEnrollment.startDate,
                       endDate: overviewEnrollment.endDate,
                       communityLink: overviewEnrollment.communityLink,
@@ -657,20 +750,26 @@ export function DashboardClient({
                       isCompleted: isCohortEnded(
                         overviewEnrollment.startDate,
                         overviewEnrollment.endDate,
-                        overviewEnrollment.dayCount
+                        overviewEnrollment.dayCount,
+                        overviewEnrollment.locationType || currentProgram.locationType,
+                        currentProgram.days
                       ),
                       isUpcoming:
                         !isCohortEnded(
                           overviewEnrollment.startDate,
                           overviewEnrollment.endDate,
-                          overviewEnrollment.dayCount
-                        ) && isCohortUpcoming(overviewEnrollment.startDate || currentProgram.startDate),
+                          overviewEnrollment.dayCount,
+                          overviewEnrollment.locationType || currentProgram.locationType,
+                          currentProgram.days
+                        ) &&
+                        isCohortUpcoming(
+                          overviewEnrollment.startDate || currentProgram.startDate,
+                          overviewEnrollment.locationType || currentProgram.locationType
+                        ),
                       targetState: currentProgram.targetState || null,
                       methodology: currentProgram.methodology || null,
                       expectedBenefits: currentProgram.expectedBenefits || [],
                       programGuidelines: currentProgram.programGuidelines || [],
-                      recommendedFor: currentProgram.recommendedFor || null,
-                      audience: currentProgram.audience || null,
                       dailyCommitment: currentProgram.dailyCommitment || null,
                     }
                   : null
@@ -680,15 +779,22 @@ export function DashboardClient({
               stats={{
                 completed: completedDaysCount,
                 skipped: skippedDaysCount,
-                remaining: currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted).length || 0,
+                remaining:
+                  (isCurrentProgramOnline
+                    ? currentProgram?.days.filter((d) => !d.userProgress?.isCompleted).length
+                    : currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted).length) || 0,
                 segments: (currentProgram?.days || []).map((d) =>
                   d.userProgress?.isCompleted
                     ? ("done" as const)
-                    : d.isCalendarUnlocked && !d.isPast2359
-                      ? ("today" as const)
-                      : d.isPast2359
-                        ? ("skipped" as const)
+                    : isCurrentProgramOnline
+                      ? d.id === currentDay?.id
+                        ? ("today" as const)
                         : ("upcoming" as const)
+                      : d.isCalendarUnlocked && !d.isPast2359
+                        ? ("today" as const)
+                        : d.isPast2359
+                          ? ("skipped" as const)
+                          : ("upcoming" as const)
                 ),
               }}
               onOpenDetails={() => {

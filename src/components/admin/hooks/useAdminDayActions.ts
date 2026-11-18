@@ -10,7 +10,6 @@ import {
   DEFAULT_WORKOUT_OPTION_GROUPS,
   parseDayVideoLinks,
   parseWorkoutOptionGroups,
-  safeJsonParse,
   serializeDayVideoLinks,
   serializeWorkoutOptionGroups,
 } from "@/wellness/utils/json";
@@ -23,7 +22,6 @@ import {
   type AdminProgram,
   type AdminProgramDay,
 } from "../adminTypes";
-import { parseTagList } from "../adminUtils";
 
 interface UseAdminDayActionsArgs {
   initialRoute?: AdminInitialRoute;
@@ -35,8 +33,6 @@ interface UseAdminDayActionsArgs {
 const DEFAULT_DAY_FORM: AdminDayFormState = {
   title: "",
   dayType: "TRAINING_DAY",
-  coachName: "",
-  recommendedFor: "",
   workoutOptions: ["Workout", "Pilates", "Yoga"],
   workoutGroups: DEFAULT_WORKOUT_OPTION_GROUPS.map((g) => ({
     optionName: g.optionName,
@@ -57,7 +53,6 @@ const DEFAULT_DAY_FORM: AdminDayFormState = {
     "[Workout] Pull-up = 10 reps",
   ],
   mealRecommendation: "",
-  dailyAssessment: "",
   restInstructions: "",
   onsiteVenue: "Jakarta",
   onsiteSchedule: "09:00 – 11:00 WIB",
@@ -66,9 +61,6 @@ const DEFAULT_DAY_FORM: AdminDayFormState = {
   eventTitle: "",
   eventHost: "",
   eventDetails: "",
-  pendingReminder: "",
-  completedReminder: "",
-  titleEn: "",
   customTasks: [],
 };
 
@@ -110,8 +102,6 @@ export function useAdminDayActions({
 
   const loadDayIntoForm = (prog: AdminProgram, dayNumber: number) => {
     const existing = prog.days.find((d) => d.dayNumber === dayNumber);
-    const progCoaches = parseTagList(prog.coachName);
-    const progRecommended = parseTagList(prog.recommendedFor);
 
     if (existing) {
       const normalizedType =
@@ -131,8 +121,6 @@ export function useAdminDayActions({
       setDayForm({
         title: existing.title,
         dayType: normalizedType,
-        coachName: existing.coachName || progCoaches[0] || "",
-        recommendedFor: existing.recommendedFor || progRecommended[0] || "",
         workoutOptions: serializedGroups.workoutOptions,
         workoutGroups: parsedWorkoutGroups,
         sleepRecommendation:
@@ -150,7 +138,6 @@ export function useAdminDayActions({
         mealRecommendation:
           existing.mealRecommendation ||
           "High-protein breakfast, balanced lunch with greens, and light dinner before 19:30 WIB.",
-        dailyAssessment: existing.dailyAssessment || "",
         restInstructions: existing.restInstructions || "",
         onsiteVenue: existing.onsiteVenue || prog.city || "Jakarta",
         onsiteSchedule: existing.onsiteSchedule || "09:00 – 11:00 WIB",
@@ -159,11 +146,6 @@ export function useAdminDayActions({
         eventTitle: existing.eventTitle || "",
         eventHost: existing.eventHost || "",
         eventDetails: existing.eventDetails || "",
-        pendingReminder: existing.pendingReminder || "",
-        completedReminder: existing.completedReminder || "",
-        titleEn:
-          safeJsonParse<{ en?: { title?: string } }>(existing.translations, {})?.en?.title ||
-          "",
         customTasks: normalizeCustomTaskDrafts(existing.customTasks),
       });
     } else {
@@ -174,10 +156,8 @@ export function useAdminDayActions({
       const serializedDefaultGroups = serializeWorkoutOptionGroups(defaultGroups);
 
       setDayForm({
-        title: `Day ${dayNumber}: Daily Session`,
+        title: `${(prog.locationType || "ONLINE") === "ONLINE" ? "Module" : "Day"} ${dayNumber}: Daily Session`,
         dayType: "TRAINING_DAY",
-        coachName: progCoaches[0] || "",
-        recommendedFor: progRecommended[0] || "",
         workoutOptions: serializedDefaultGroups.workoutOptions,
         workoutGroups: defaultGroups,
         sleepRecommendation: "Target 8 Hours • Wind down before 22:30 WIB",
@@ -192,7 +172,6 @@ export function useAdminDayActions({
         videoChecklist: serializedDefaultGroups.videoChecklist,
         mealRecommendation:
           "High-protein breakfast, balanced lunch with greens, and light dinner before 19:30 WIB.",
-        dailyAssessment: "How did your body feel during today's session?",
         restInstructions: "",
         onsiteVenue: prog.city || "Jakarta",
         onsiteSchedule: "09:00 – 11:00 WIB",
@@ -201,9 +180,6 @@ export function useAdminDayActions({
         eventTitle: "",
         eventHost: "",
         eventDetails: "",
-        pendingReminder: `Day ${dayNumber} is ready. Complete your session before 23:59 WIB.`,
-        completedReminder: `Well done on completing Day ${dayNumber}! Rest well tonight.`,
-        titleEn: "",
         customTasks: [],
       });
     }
@@ -237,13 +213,10 @@ export function useAdminDayActions({
           dayForm.dayType === "TRAINING_DAY" ? serializedWorkouts.workoutOptions : [],
         sleepRecommendation: dayForm.sleepRecommendation,
         dayNotifications: dayForm.dayNotifications,
-        coachName: dayForm.dayType === "REST_DAY" ? "" : dayForm.coachName,
-        recommendedFor: dayForm.dayType === "REST_DAY" ? "" : dayForm.recommendedFor,
         videoUrl: dayForm.dayType === "TRAINING_DAY" ? serializedVideos : "",
         videoChecklist:
           dayForm.dayType === "TRAINING_DAY" ? serializedWorkouts.videoChecklist : [],
         mealRecommendation: dayForm.mealRecommendation,
-        dailyAssessment: dayForm.dailyAssessment,
         restInstructions:
           dayForm.dayType === "REST_DAY" ? dayForm.restInstructions : "",
         onsiteVenue: isConnect ? dayForm.onsiteVenue : "",
@@ -253,11 +226,6 @@ export function useAdminDayActions({
         eventTitle: isConnect ? dayForm.eventTitle : "",
         eventHost: isConnect ? dayForm.eventHost : "",
         eventDetails: isConnect ? dayForm.eventDetails : "",
-        pendingReminder: dayForm.pendingReminder,
-        completedReminder: dayForm.completedReminder,
-        translations: dayForm.titleEn.trim()
-          ? JSON.stringify({ en: { title: dayForm.titleEn.trim() } })
-          : null,
         customTasks: dayForm.customTasks.map((ct, idx) => ({
           id: ct.id,
           sortOrder: idx,
@@ -279,28 +247,34 @@ export function useAdminDayActions({
           const nextDays = [...otherDays, savedDay].sort(
             (a, b) => a.dayNumber - b.dayNumber
           );
+          const nextDuration =
+            (p.locationType || "ONLINE") === "ONLINE"
+              ? Math.max(1, ...nextDays.map((d) => d.dayNumber))
+              : p.durationDays;
           return {
             ...p,
             days: nextDays,
             dayCount: nextDays.length,
+            durationDays: nextDuration,
           };
         });
         setPrograms(updatedPrograms);
         const updatedProg = updatedPrograms.find((p) => p.id === prog.id)!;
+        const isOnlineProg = (updatedProg.locationType || "ONLINE") === "ONLINE";
 
-        if (moveNext && selectedDayNum < updatedProg.durationDays) {
+        if (moveNext && (isOnlineProg ? selectedDayNum < 90 : selectedDayNum < updatedProg.durationDays)) {
           const nextDay = selectedDayNum + 1;
           setSelectedDayNum(nextDay);
           loadDayIntoForm(updatedProg, nextDay);
           setFeedback({
             type: "success",
-            text: `Day ${selectedDayNum} saved. Moved to Day ${nextDay}.`,
+            text: `${isOnlineProg ? "Module" : "Day"} ${selectedDayNum} saved. Moved to ${isOnlineProg ? "Module" : "Day"} ${nextDay}.`,
           });
           router.push(`/admin/programs/${prog.id}?tab=schedule&day=${nextDay}`);
         } else {
           setFeedback({
             type: "success",
-            text: `Day ${selectedDayNum} saved.`,
+            text: `${isOnlineProg ? "Module" : "Day"} ${selectedDayNum} saved.`,
           });
           router.refresh();
         }
@@ -327,10 +301,15 @@ export function useAdminDayActions({
         const updatedPrograms = programs.map((p) => {
           if (p.id !== prog.id) return p;
           const nextDays = p.days.filter((d) => d.dayNumber !== selectedDayNum);
+          const nextDuration =
+            (p.locationType || "ONLINE") === "ONLINE"
+              ? Math.max(1, ...(nextDays.length ? nextDays.map((d) => d.dayNumber) : [1]))
+              : p.durationDays;
           return {
             ...p,
             days: nextDays,
             dayCount: nextDays.length,
+            durationDays: nextDuration,
             isPublished: false,
           };
         });

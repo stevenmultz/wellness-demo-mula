@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getWellnessSession } from "@/wellness/security/session";
@@ -47,6 +48,11 @@ function toJsonString(val: unknown): string | null {
 
 export const dynamic = "force-dynamic";
 
+export const viewport: Viewport = {
+  themeColor: "#f6f6f4",
+  colorScheme: "light",
+};
+
 export default function DashboardPage() {
   return (
     <Suspense fallback={<ZeraLogoLoading />}>
@@ -61,7 +67,7 @@ async function DashboardContent() {
     redirect("/?auth=signin&target=dashboard");
   }
 
-  const locale = getServerLocale(session.preferredLocale);
+  const locale = await getServerLocale(session.preferredLocale);
 
   // Fetch enrollments, published programs, and body metric logs concurrently
   const [enrollments, allProgramsData, bodyMetricLogsRaw] = await Promise.all([
@@ -83,16 +89,20 @@ async function DashboardContent() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.program.findMany({
-      take: 100,
+      take: 250,
       where: {
         deletedAt: null,
         OR: [
-          { status: { in: ["OPEN", "PUBLISHED", "DONE"] } },
-          { enrollments: { some: { userId: session.userId } } },
+          { status: "PUBLISHED" },
+          {
+            enrollments: {
+              some: {
+                userId: session.userId,
+                status: "ACTIVE",
+              },
+            },
+          },
         ],
-        NOT: {
-          status: { in: ["ARCHIVED", "DRAFT"] },
-        },
       },
       include: {
         ...PROGRAM_TAXONOMY_INCLUDE,
@@ -138,26 +148,21 @@ async function DashboardContent() {
     return {
       enrollmentId: e.id,
       programId: e.program.id,
-      title: resolveLocalizedField(e.program.title, e.program.translationsJson, locale, "title"),
+      title: e.program.title,
+      batchNumber: e.program.batchNumber ?? null,
       slug: e.program.slug,
-      description: resolveLocalizedField(
-        e.program.description,
-        e.program.translationsJson,
-        locale,
-        "description"
-      ),
+      description: e.program.description,
       coverImage: toClientMediaUrl(e.program.coverImagePath),
+      introVideoUrl: e.program.introVideoUrl || null,
       coachName: tax.coachName,
       organizationName: tax.organizationName || null,
       organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
       organizationVerified: tax.organizationVerified ?? false,
-      language: e.program.language || "id",
       price: e.program.price,
       maxQuota: e.program.maxQuota,
       locationType: e.program.locationType,
       city: e.program.city,
       venueAddress: e.program.venueAddress,
-      virtualFallbackAvailable: e.program.isVirtualFallbackAvailable,
       communityLink: e.program.communityLink,
       dayCount: e.program._count.days,
       startDate: e.program.startAt,
@@ -188,21 +193,11 @@ async function DashboardContent() {
           return {
             id: d.id,
             dayNumber: d.dayNumber,
-            title: resolveLocalizedField(d.title, d.translationsJson, locale, "title"),
+            title: d.title,
             dayType: d.dayType,
             videoUrl: d.videoUrl,
-            mealRecommendation: resolveLocalizedField(
-              d.mealRecommendation,
-              d.translationsJson,
-              locale,
-              "mealRecommendation"
-            ) || null,
-            restInstructions: resolveLocalizedField(
-              d.restInstructions,
-              d.translationsJson,
-              locale,
-              "restInstructions"
-            ) || null,
+            mealRecommendation: d.mealRecommendation || null,
+            restInstructions: d.restInstructions || null,
             eventTitle: d.eventTitle,
             eventDetails: d.eventDetails,
             customTasks: d.customTasks.map((ct) => ({
@@ -232,7 +227,8 @@ async function DashboardContent() {
               : null,
           };
         }),
-        now
+        now,
+        p.locationType
       )
     );
 
@@ -248,17 +244,17 @@ async function DashboardContent() {
 
     return {
       id: p.id,
-      title: resolveLocalizedField(p.title, p.translationsJson, locale, "title"),
+      title: p.title,
+      batchNumber: p.batchNumber ?? null,
       slug: p.slug,
-      description: resolveLocalizedField(p.description, p.translationsJson, locale, "description"),
+      description: p.description,
       coverImage: toClientMediaUrl(p.coverImagePath),
-      recommendedFor: tax.recommendedFor,
+      introVideoUrl: p.introVideoUrl || null,
       coachName: tax.coachName,
       coachTitle: tax.coachTitle,
       organizationName: tax.organizationName || null,
       organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
       organizationVerified: tax.organizationVerified ?? false,
-      language: p.language || "id",
       category: tax.category,
       difficultyLevel: p.difficultyLevel,
       dailyCommitment: tax.dailyCommitment,
@@ -269,12 +265,9 @@ async function DashboardContent() {
       minQuota: p.minQuota,
       maxQuota: p.maxQuota,
       equipment: tax.equipment || "No Equipment",
-      audience: tax.recommendedFor || "All Levels",
-      termsType: p.termsType || "STANDARD",
       locationType: p.locationType,
       city: p.city,
       venueAddress: p.venueAddress,
-      virtualFallbackAvailable: p.isVirtualFallbackAvailable,
       enrolledCount: p._count.enrollments,
       communityLink: p.communityLink,
       status: normalizedStatus,
@@ -292,10 +285,12 @@ async function DashboardContent() {
       scientificReferences: parseReferencesList(p.scientificReferencesJson, DEFAULT_PROGRAM_REFERENCES),
       programGuidelines: parseStringList(p.programGuidelinesJson, DEFAULT_PROGRAM_GUIDELINES),
       days: p.days.map((d) => {
-        // SOW 5.3 Strict Calendar Drip Content normalized to Western Indonesia Time (WIB / UTC+7):
-        // Day N unlocks at 00:00 WIB on batchStart + (dayNumber - 1) days
-        const { unlockDate, isCalendarUnlocked, isPast2359 } =
-          getProgramDayWibWindow(p.startAt, d.dayNumber, now);
+        const isAnytime = p.locationType === "ONLINE" || !p.startAt;
+        // HYBRID cohorts use strict WIB calendar drip (00:00 WIB on batchStart + (dayNumber - 1) days).
+        // Full ONLINE programs have no date range and unlock all days immediately for anytime access.
+        const { unlockDate, isCalendarUnlocked, isPast2359 } = isAnytime
+          ? { unlockDate: null, isCalendarUnlocked: true, isPast2359: false }
+          : getProgramDayWibWindow(p.startAt!, d.dayNumber, now);
 
         const progRecord = d.progresses[0] || null;
         const checklistItems: string[] = safeJsonParse<string[]>(d.videoChecklistJson, []);
@@ -345,37 +340,30 @@ async function DashboardContent() {
               (checklistItems.length === 0 || completedChecklist.length > 0))) &&
           allRequiredCustomDone;
 
-        // SOW 5.3 Skip Day Logic:
-        // Automatically recorded as "Skipped Day" if user has not completed both workout video & daily assessment checklist by 23:59 on that day
-        const isSkipped = isPast2359 && !isFullyCompleted;
+        // SOW 5.3 Skip Day Logic (HYBRID scheduled cohorts only; ONLINE is anytime)
+        const isSkipped = !isAnytime && isPast2359 && !isFullyCompleted;
 
         // SOW 5.7 Content & Video Protection:
-        // Restrict media URLs strictly to verified paying members on unlocked calendar days
+        // Restrict media URLs strictly to verified paying members on unlocked days
         const canAccessMedia = isPaidMember && isCalendarUnlocked;
 
         return {
           id: d.id,
           dayNumber: d.dayNumber,
-          title: resolveLocalizedField(d.title, d.translationsJson, locale, "title"),
+          title: d.title,
           dayType: d.dayType,
           workoutOptions: canAccessMedia ? safeJsonParse<string[]>(d.workoutOptionsJson, []) : [],
-          sleepRecommendation: canAccessMedia
-            ? d.sleepRecommendation || "Target 8 Hours • Wind down before 22:30 WIB"
-            : null,
+          sleepRecommendation: canAccessMedia ? d.sleepRecommendation || null : null,
           dayNotifications: canAccessMedia
             ? safeJsonParse<Array<{ time: string; message: string; label?: string }>>(d.dayNotificationsJson, [])
             : [],
-          unlockDate: unlockDate.toISOString(),
+          unlockDate: unlockDate ? unlockDate.toISOString() : "",
           isCalendarUnlocked,
           isPast2359,
           isSkipped,
           videoUrl: canAccessMedia ? d.videoUrl : null,
           videoChecklist: canAccessMedia ? checklistItems : [],
-          mealRecommendation:
-            resolveLocalizedField(d.mealRecommendation, d.translationsJson, locale, "mealRecommendation") || null,
-          dailyAssessment: canAccessMedia ? d.dailyAssessment : null,
-          pendingReminder: canAccessMedia ? d.pendingReminder : null,
-          completedReminder: canAccessMedia ? d.completedReminder : null,
+          mealRecommendation: d.mealRecommendation || null,
           meetupLink: isPaidMember ? d.meetupLink : null,
           mapLink: d.mapLink,
           eventTitle: d.eventTitle,
@@ -383,11 +371,7 @@ async function DashboardContent() {
           eventDetails: isPaidMember ? d.eventDetails : null,
           onsiteVenue: d.onsiteVenue,
           onsiteSchedule: d.onsiteSchedule,
-          restInstructions: canAccessMedia
-            ? resolveLocalizedField(d.restInstructions, d.translationsJson, locale, "restInstructions") || null
-            : null,
-          coachName: d.coachName,
-          recommendedFor: d.recommendedFor,
+          restInstructions: canAccessMedia ? d.restInstructions || null : null,
           customTasks: canAccessMedia
             ? d.customTasks.map((ct) => {
                 const sub = ct.submissions[0] || null;

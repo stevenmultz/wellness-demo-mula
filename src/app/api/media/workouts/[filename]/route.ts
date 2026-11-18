@@ -27,14 +27,14 @@ const MIME_BY_EXT: Record<string, string> = {
  */
 export async function GET(
   req: NextRequest,
-  context: { params: { filename: string } }
+  context: { params: Promise<{ filename: string }> }
 ) {
   const session = await getWellnessSession();
   if (!session) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const filename = context.params?.filename || "";
+  const filename = (await context.params)?.filename || "";
   const match = SAFE_FILENAME_RE.exec(filename);
   if (!match) {
     return NextResponse.json({ success: false, message: "Invalid media filename." }, { status: 400 });
@@ -52,6 +52,7 @@ export async function GET(
       const hasScopedAccess = await prisma.programEnrollment.count({
         where: {
           userId: ownerUserId,
+          status: { in: ["ACTIVE", "EXPIRED"] },
           program: buildProgramScopeWhere(session),
         },
       });

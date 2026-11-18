@@ -158,15 +158,40 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
 }
 
 /**
- * Resolves today's / tomorrow's day for a program. A day belongs to a calendar date when its
- * 00:00 WIB unlock instant equals that date's WIB window start.
+ * Resolves today's / tomorrow's day for a program.
+ * - HYBRID cohorts resolve by WIB calendar date (00:00 WIB window).
+ * - ONLINE anytime programs have no fixed dates and surface the next uncompleted day.
  */
 export function resolveProgramDailyPlan(
   programId: string,
-  startDate: Date | string,
+  startDate: Date | string | null | undefined,
   days: DailyTaskDayInput[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  locationType?: string | null
 ): ProgramDailyPlan {
+  if (locationType === "ONLINE" || !startDate) {
+    const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+    const todayDay =
+      sorted.find((d) => !d.progress?.isCompleted) || sorted[sorted.length - 1] || null;
+    const tomorrowDay = todayDay
+      ? sorted.find((d) => d.dayNumber === todayDay.dayNumber + 1) || null
+      : null;
+
+    return {
+      programId,
+      today: todayDay
+        ? { dayNumber: todayDay.dayNumber, title: todayDay.title, tasks: buildDayTasks(todayDay) }
+        : null,
+      tomorrow: tomorrowDay
+        ? {
+            dayNumber: tomorrowDay.dayNumber,
+            title: tomorrowDay.title,
+            tasks: buildDayTasks(tomorrowDay),
+          }
+        : null,
+    };
+  }
+
   const todayStart = getWibDayStartMs(now);
   const tomorrowStart = todayStart + DAY_MS;
 

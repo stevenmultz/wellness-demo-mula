@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { formatDate, isDayFilled } from "../adminUtils";
 import type { AdminDayFormState, AdminProgram } from "../adminTypes";
 
@@ -20,9 +20,14 @@ export function AdminDaySelectorBar({
 }: AdminDaySelectorBarProps) {
   const [scheduleWeekView, setScheduleWeekView] = useState<number | "ALL">("ALL");
 
-  const targetDays = selectedProgram.durationDays || 21;
+  const isOnline = (selectedProgram.locationType || "ONLINE") === "ONLINE";
+  const maxSavedDay = selectedProgram.days.reduce((m, d) => Math.max(m, d.dayNumber), 0);
+  const targetDays = isOnline
+    ? Math.max(selectedDayNum, maxSavedDay, 1)
+    : selectedProgram.durationDays || 21;
   const allDays = Array.from({ length: targetDays }, (_, i) => i + 1);
   const totalWeeks = Math.ceil(targetDays / 7);
+  const unitLabel = isOnline ? "Module" : "Day";
 
   let filledCount = 0;
   for (let d = 1; d <= targetDays; d++) {
@@ -32,6 +37,7 @@ export function AdminDaySelectorBar({
   }
 
   const getDayDateLabel = (dayNum: number): string => {
+    if (isOnline) return "Self-Paced";
     if (!selectedProgram.startDate) return "TBA";
     const base = new Date(selectedProgram.startDate);
     if (isNaN(base.getTime())) return "TBA";
@@ -45,7 +51,7 @@ export function AdminDaySelectorBar({
       ? allDays
       : allDays.filter((d) => Math.ceil(d / 7) === scheduleWeekView);
 
-  const percentFilled = Math.round((filledCount / targetDays) * 100);
+  const percentFilled = Math.round((filledCount / Math.max(1, targetDays)) * 100);
 
   return (
     <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-5 sm:p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-4">
@@ -54,18 +60,30 @@ export function AdminDaySelectorBar({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
-              Daily Schedule
+              {isOnline ? "Module Curriculum" : "Daily Schedule"}
             </h3>
             <span className="text-[10px] font-semibold font-mono px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10">
-              {filledCount}/{targetDays} Days Complete ({percentFilled}%)
+              {filledCount}/{targetDays} {isOnline ? "Modules" : "Days"} Complete ({percentFilled}%)
             </span>
           </div>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            Select any day card to edit its daily protocol or use previous/next navigation below.
+            {isOnline
+              ? "Select a module to edit or click + Add Module to grow your anytime curriculum."
+              : "Select any day card to edit its daily protocol or use previous/next navigation below."}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isOnline && targetDays < 90 && (
+            <button
+              type="button"
+              onClick={() => handleSelectDay(selectedProgram, maxSavedDay + 1 === selectedDayNum ? selectedDayNum + 1 : Math.max(maxSavedDay, selectedDayNum) + 1)}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 hover:opacity-90 transition shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Module {Math.max(maxSavedDay, selectedDayNum) + 1}</span>
+            </button>
+          )}
           {/* Week Filter Pills (if program has more than 1 week) */}
           {totalWeeks > 1 && (
             <div className="flex items-center p-1 rounded-xl bg-zinc-100 dark:bg-white/5 border border-zinc-200/80 dark:border-white/10 gap-1 font-mono text-[11px]">
@@ -128,7 +146,7 @@ export function AdminDaySelectorBar({
                     value={d}
                     className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white"
                   >
-                    Day {d} {isFilled ? "✓" : "—"}
+                    {unitLabel} {d} {isFilled ? "✓" : "—"}
                   </option>
                 );
               })}
@@ -187,7 +205,7 @@ export function AdminDaySelectorBar({
             >
               <div className="flex items-center justify-between gap-1 w-full">
                 <span className="text-xs font-bold whitespace-nowrap">
-                  Day {dayNum}
+                  {unitLabel} {dayNum}
                 </span>
                 {filled ? (
                   <span
@@ -251,7 +269,7 @@ export function AdminDaySelectorBar({
 
         <div className="flex items-center gap-2.5 self-center text-center">
           <span className="text-xs font-semibold text-zinc-900 dark:text-white">
-            Editing Day {selectedDayNum} of {targetDays}
+            Editing {unitLabel} {selectedDayNum} of {targetDays}
           </span>
           <span className="text-zinc-300 dark:text-zinc-700">&bull;</span>
           <span className="text-xs text-zinc-500 font-mono">

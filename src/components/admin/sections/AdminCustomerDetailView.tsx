@@ -199,7 +199,7 @@ return (
                   >
                     <option value="USER">Role: USER</option>
                     <option value="COACH">Role: COACH</option>
-                    <option value="PARTNER_ADMIN">Role: PARTNER_ADMIN</option>
+                    <option value="PARTNER_ADMIN">Role: COMMUNITY_ADMIN</option>
                   </select>
 
                   {u.role === "COACH" && (

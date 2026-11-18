@@ -119,6 +119,7 @@ export function CustomTaskSection({
   if (!customTasks || customTasks.length === 0) return null;
 
   const openTaskModal = (task: ProgramDayCustomTaskDTO) => {
+    if (locked) return;
     setErrorMsg(null);
     setFormValues({ ...(task.submission?.values || {}) });
     setActiveTask(task);
@@ -231,6 +232,10 @@ export function CustomTaskSection({
               <div className="shrink-0 mt-1">
                 {isDone ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                ) : locked ? (
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-400">
+                    {locale === "id" ? "Terkunci" : "Locked"}
+                  </span>
                 ) : (
                   <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
                     {locale === "id" ? "Isi" : "Log"}

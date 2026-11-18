@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProgramsPage() {
   const { sessionUser, programs } = await getPublicSanctuaryData();
-  const locale = getServerLocale();
+  const locale = await getServerLocale();
   const t = getDictionary(locale);
   const recentPrograms = programs.slice(0, 5);
 
@@ -49,6 +49,7 @@ export default async function ProgramsPage() {
             const publicBadge: PublicProgramBadge =
               resolvePublicBadge({
                 status: prog.status,
+                locationType: prog.locationType,
                 registrationOpenDate: prog.registrationOpenDate,
                 registrationDeadline: prog.registrationDeadline,
                 startDate: prog.startDate,
@@ -60,10 +61,8 @@ export default async function ProgramsPage() {
             const isEnrollable = publicBadge === "Open Registration";
             const attendanceLabel =
               prog.locationType === "ONLINE"
-                ? "Online"
-                : prog.locationType === "ONSITE"
-                  ? prog.city || "On-Site"
-                  : `Hybrid • ${prog.city || "Jakarta"}`;
+                ? "Online · Anytime"
+                : `Hybrid • ${prog.city || "Jakarta"}`;
 
             return (
               <article
