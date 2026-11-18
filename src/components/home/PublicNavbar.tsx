@@ -44,18 +44,27 @@ export function PublicMobileBackdrop() {
  */
 export function PublicTopBrand() {
   return (
-    <header className="w-full flex items-center justify-between shrink-0">
+    <header
+      style={{
+        paddingTop: "max(env(safe-area-inset-top, 0px), 1.5rem)",
+      }}
+      className="w-full flex items-center justify-between gap-3 pb-2.5 sm:pb-3 border-b border-zinc-200/60 dark:border-white/10 shrink-0"
+    >
       <Link
         href="/"
         className="flex items-center text-left group shrink-0"
         title={BRAND.fullName}
       >
-        <BrandLogo size="md" />
+        <BrandLogo size="sm" className="sm:hidden" />
+        <BrandLogo size="md" className="hidden sm:inline-flex" />
       </Link>
 
-      <div className="flex items-center gap-4">
-        <LocaleToggle />
-        <ThemeToggle />
+      <div className="flex items-center gap-2.5 sm:gap-3.5 text-[11px] sm:text-xs">
+        <LocaleToggle className="text-[11px] sm:text-xs" />
+        <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600 select-none">
+          •
+        </span>
+        <ThemeToggle className="text-[11px] sm:text-xs" />
       </div>
     </header>
   );
@@ -73,10 +82,10 @@ export function PublicPageShell({
     <div className="relative min-h-[100dvh] flex flex-col justify-between bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
       <PublicMobileBackdrop />
 
-      <div className="relative z-10 max-w-4xl w-full mx-auto px-6 sm:px-10 py-6 sm:py-10 flex-1 flex flex-col justify-between gap-12 sm:gap-16">
+      <div className="relative z-10 max-w-4xl w-full mx-auto px-5 sm:px-10 pt-2 pb-4 sm:py-8 flex-1 flex flex-col justify-between gap-8 sm:gap-14">
         <PublicTopBrand />
 
-        <main className="my-auto w-full space-y-10 sm:space-y-14">
+        <main className="my-auto w-full space-y-8 sm:space-y-12">
           {children}
         </main>
 
@@ -132,11 +141,14 @@ export function PublicBottomNavbar() {
   const { t } = useLocale();
 
   return (
-    <nav
+    <footer
+      style={{
+        paddingBottom: "max(env(safe-area-inset-bottom, 0px), 0.5rem)",
+      }}
       aria-label="Public navigation"
-      className="w-full flex flex-wrap items-center justify-between gap-y-2 gap-x-4 text-[11px] sm:text-xs pt-4 shrink-0"
+      className="w-full border-t border-zinc-200/60 dark:border-white/10 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] sm:text-xs shrink-0"
     >
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+      <div className="flex items-center justify-between sm:justify-start gap-x-4 sm:gap-x-5">
         {PUBLIC_NAV_KEYS.map(({ href, key }) => {
           const isActive = pathname === href;
           return (
@@ -155,9 +167,9 @@ export function PublicBottomNavbar() {
         })}
       </div>
 
-      <span className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+      <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 text-center sm:text-right">
         {BRAND.copyright}
       </span>
-    </nav>
+    </footer>
   );
 }

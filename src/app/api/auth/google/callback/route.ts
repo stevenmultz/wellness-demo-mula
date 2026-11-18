@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { prisma } from "@/wellness/db";
 import {
-  getAppUrl,
   getGoogleOAuthConfig,
   getJwtSecretKey,
   GOOGLE_OAUTH_COOKIE,
@@ -21,23 +20,24 @@ const GOOGLE_JWKS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/oauth2/v3/certs")
 );
 
-function redirectWithError(code: string) {
-  return NextResponse.redirect(new URL(`/?authError=${encodeURIComponent(code)}`, getAppUrl()));
+function redirectWithError(request: NextRequest, code: string) {
+  return NextResponse.redirect(new URL(`/?authError=${encodeURIComponent(code)}`, request.url));
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const { searchParams } = requestUrl;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const oauthError = searchParams.get("error");
 
   if (oauthError || !code || !state) {
-    return redirectWithError(oauthError || "google_oauth_cancelled");
+    return redirectWithError(request, oauthError || "google_oauth_cancelled");
   }
 
   const cookieToken = request.cookies.get(GOOGLE_OAUTH_COOKIE)?.value;
   if (!cookieToken) {
-    return redirectWithError("google_oauth_state_missing");
+    return redirectWithError(request, "google_oauth_state_missing");
   }
 
   let savedState = "";
@@ -49,16 +49,16 @@ export async function GET(request: NextRequest) {
     savedState = typeof payload.state === "string" ? payload.state : "";
     codeVerifier = typeof payload.codeVerifier === "string" ? payload.codeVerifier : "";
   } catch {
-    return redirectWithError("google_oauth_state_invalid");
+    return redirectWithError(request, "google_oauth_state_invalid");
   }
 
   if (!savedState || savedState !== state || !codeVerifier) {
-    return redirectWithError("google_oauth_state_mismatch");
+    return redirectWithError(request, "google_oauth_state_mismatch");
   }
 
-  const { clientId, clientSecret, redirectUri } = getGoogleOAuthConfig();
+  const { clientId, clientSecret, redirectUri } = getGoogleOAuthConfig(requestUrl.origin);
   if (!clientId || !clientSecret) {
-    return redirectWithError("google_not_configured");
+    return redirectWithError(request, "google_not_configured");
   }
 
   try {
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     } | null;
 
     if (!tokenRes.ok || !tokenJson?.id_token) {
-      return redirectWithError("google_token_exchange_failed");
+      return redirectWithError(request, "google_token_exchange_failed");
     }
 
     const { payload: idClaims } = await jwtVerify(tokenJson.id_token, GOOGLE_JWKS, {
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         : email.split("@")[0] || "Wellness Member";
 
     if (!sub || !email || !emailVerified) {
-      return redirectWithError("google_email_not_verified");
+      return redirectWithError(request, "google_email_not_verified");
     }
 
     const user = await prisma.$transaction(async (tx) => {
@@ -210,14 +210,14 @@ export async function GET(request: NextRequest) {
     await setSessionCookie(sessionJwt);
 
     const dest = isAdminRole(user.role) ? "/admin" : "/dashboard";
-    const response = NextResponse.redirect(new URL(dest, getAppUrl()));
+    const response = NextResponse.redirect(new URL(dest, request.url));
     response.cookies.delete(GOOGLE_OAUTH_COOKIE);
     return response;
   } catch (err) {
     if (err instanceof Error && err.message === "ACCOUNT_DISABLED") {
-      return redirectWithError("account_suspended");
+      return redirectWithError(request, "account_suspended");
     }
     console.error("[Google OAuth Callback Error]:", err);
-    return redirectWithError("google_oauth_failed");
+    return redirectWithError(request, "google_oauth_failed");
   }
 }

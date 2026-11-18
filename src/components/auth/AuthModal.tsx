@@ -272,13 +272,13 @@ export function AuthGatewayCard({
   };
 
   const inputBaseCls =
-    "w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl bg-white/90 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border-0 text-base sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
+    "w-full h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl bg-white/95 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border border-zinc-200/80 lg:border-0 dark:border-white/10 text-[15px] sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-400 focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
   const labelBaseCls =
     "block text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1";
 
   return (
     <div
-      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-3.5 sm:space-y-5 ${
+      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-3 sm:space-y-4 ${
         isModal
           ? "rounded-3xl bg-[#f6f6f4] dark:bg-[#141414] p-5 sm:p-8 shadow-2xl"
           : ""
@@ -313,9 +313,9 @@ export function AuthGatewayCard({
 
       {/* Clean Unboxed Heading & Mode Tabs */}
       {tab !== "forgot" ? (
-        <div className="space-y-2.5 sm:space-y-3.5">
-          <div className="space-y-1">
-            <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+        <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-0.5 sm:space-y-1">
+            <h1 className="text-lg sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
               {tab === "signin" ? t.auth.signInTitle : t.auth.signUpTitle}
             </h1>
             <p className="hidden sm:block text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
@@ -329,14 +329,14 @@ export function AuthGatewayCard({
           <div
             role="tablist"
             aria-label="Authentication mode"
-            className="inline-flex items-center gap-6 border-b border-zinc-300/80 dark:border-white/15 w-full"
+            className="inline-flex items-center gap-5 border-b border-zinc-300/80 dark:border-white/15 w-full"
           >
             <button
               type="button"
               role="tab"
               aria-selected={tab === "signin"}
               onClick={() => switchTab("signin")}
-              className={`pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
+              className={`pb-1.5 sm:pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
                 tab === "signin"
                   ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -349,7 +349,7 @@ export function AuthGatewayCard({
               role="tab"
               aria-selected={tab === "signup"}
               onClick={() => switchTab("signup")}
-              className={`pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
+              className={`pb-1.5 sm:pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
                 tab === "signup"
                   ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -361,7 +361,7 @@ export function AuthGatewayCard({
         </div>
       ) : (
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-lg sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
             {t.auth.forgotTitle}
           </h1>
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
@@ -430,7 +430,7 @@ export function AuthGatewayCard({
       {/* TAB 1: SIGN IN (SIMPLE LABEL + INPUT, ALL REQUIRED)                 */}
       {/* =================================================================== */}
       {tab === "signin" && (
-        <form onSubmit={handleSignIn} className="space-y-3 sm:space-y-3.5">
+        <form onSubmit={handleSignIn} className="space-y-2.5 sm:space-y-3">
           <div>
             <label className={labelBaseCls}>Email</label>
             <input
@@ -486,11 +486,11 @@ export function AuthGatewayCard({
             </div>
           </div>
 
-          <div className="pt-1.5">
+          <div className="pt-1">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-10 sm:h-11 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -622,11 +622,11 @@ export function AuthGatewayCard({
             </div>
           </div>
 
-          <div className="pt-1.5">
+          <div className="pt-1">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-10 sm:h-11 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>

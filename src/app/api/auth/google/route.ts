@@ -1,8 +1,7 @@
 import crypto from "crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import {
-  getAppUrl,
   getGoogleOAuthConfig,
   getJwtSecretKey,
   GOOGLE_OAUTH_COOKIE,
@@ -15,11 +14,12 @@ function toBase64Url(buf: Buffer): string {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-export async function GET() {
-  const { clientId, redirectUri } = getGoogleOAuthConfig();
+export async function GET(request: NextRequest) {
+  const requestOrigin = new URL(request.url).origin;
+  const { clientId, redirectUri } = getGoogleOAuthConfig(requestOrigin);
   if (!clientId) {
     return NextResponse.redirect(
-      new URL("/?authError=google_not_configured", getAppUrl())
+      new URL("/?authError=google_not_configured", request.url)
     );
   }
 

@@ -106,12 +106,12 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
       {/* =================================================================== */}
       {/* LEFT COLUMN: LOGO + THEME ICON AT TOP, FORM IN CENTER, NAV AT BOTTOM*/}
       {/* =================================================================== */}
-      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-[100dvh] flex flex-col justify-between px-5 sm:px-12 lg:px-14 xl:px-16 py-5 sm:py-8">
-        {/* TOP: LOGO + BORDERLESS THEME ICON */}
+      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-[100dvh] flex flex-col justify-between px-5 sm:px-12 lg:px-14 xl:px-16 pt-2 pb-3 sm:py-8">
+        {/* TOP: LOGO + COMPACT LOCALE & THEME CONTROLS (SAFE-AREA CLEARANCE) */}
         <PublicTopBrand />
 
         {/* CENTER: SIGN IN / SIGN UP FORM (BALANCED MOBILE VERTICAL SPACING) */}
-        <main className="my-auto py-4 sm:py-8 w-full max-w-md mx-auto lg:mx-0">
+        <main className="my-auto py-3 sm:py-6 w-full max-w-sm sm:max-w-md mx-auto lg:mx-0">
           <div className="animate-in fade-in duration-150">
             {!sessionUser ? (
               <AuthGatewayCard

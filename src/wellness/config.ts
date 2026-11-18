@@ -76,7 +76,15 @@ export function getDatabaseUrl(): string | undefined {
 }
 
 export function getAppUrl(): string {
-  return (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const configured =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "") ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    "http://localhost:3000";
+  return configured.replace(/\/+$/, "");
 }
 
 export function getCronSecret(): string {
@@ -131,16 +139,17 @@ export function getSupabaseConfig(): {
   };
 }
 
-export function getGoogleOAuthConfig(): {
+export function getGoogleOAuthConfig(requestOrigin?: string): {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
 } {
-  const appUrl = getAppUrl();
+  const explicitAppUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  const baseOrigin = (explicitAppUrl || requestOrigin || getAppUrl()).replace(/\/+$/, "");
   return {
     clientId: process.env.GOOGLE_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    redirectUri: process.env.GOOGLE_REDIRECT_URI || `${appUrl}/api/auth/google/callback`,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || `${baseOrigin}/api/auth/google/callback`,
   };
 }
 
