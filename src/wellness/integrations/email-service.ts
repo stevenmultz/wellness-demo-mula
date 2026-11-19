@@ -11,6 +11,7 @@ import {
   getEmailConfig,
   isProductionEnv,
 } from "../config";
+import { reportCriticalIncident, reportServerError } from "../observability";
 
 export function escapeHtml(input: string | null | undefined): string {
   if (!input) return "";
@@ -59,13 +60,19 @@ export async function sendTransactionalEmail(
 
         const errorText = await res.text().catch(() => "");
         const retryable = res.status === 429 || res.status >= 500;
-        console.error(`[Email Adapter Error - Resend]: HTTP ${res.status}: ${errorText}`);
+        reportCriticalIncident(
+          "email",
+          "resend_http_failure",
+          `Resend HTTP ${res.status} on attempt ${attempt}`,
+          retryable && attempt < EMAIL_MAX_ATTEMPTS ? "warning" : "error",
+          { status: res.status, attempt, errorSnippet: errorText.slice(0, 200) }
+        );
 
         if (!retryable || attempt >= EMAIL_MAX_ATTEMPTS) {
           return { delivered: false, provider: "RESEND" };
         }
       } catch (err) {
-        console.error(`[Email Adapter Error - Resend Exception attempt ${attempt}]:`, err);
+        reportServerError("email", "resend_exception", err, { attempt });
         if (attempt >= EMAIL_MAX_ATTEMPTS) {
           return { delivered: false, provider: "RESEND" };
         }
@@ -79,7 +86,13 @@ export async function sendTransactionalEmail(
   }
 
   if (isProductionEnv()) {
-    console.error("[Email Adapter]: Transactional email provider is not configured in production.");
+    reportCriticalIncident(
+      "email",
+      "provider_unconfigured_in_prod",
+      "Transactional email provider is not configured in production.",
+      "error",
+      { provider }
+    );
     return { delivered: false, provider: "UNCONFIGURED" };
   }
 

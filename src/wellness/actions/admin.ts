@@ -13,6 +13,7 @@ import { deleteStorageObjects } from "../integrations/supabase-storage";
 import { recordAuditLog } from "../integrations/audit-log";
 import { AdminUpdateCustomerProfileSchema, calculateAgeFromDob } from "../validators/auth";
 import { cleanupUserUploadedFiles } from "../utils/image-processor";
+import { reportServerError } from "../observability";
 import type { WellnessActionResult } from "./auth";
 
 const AdminTargetUserIdSchema = z.string().trim().min(1, "User ID is required").max(128);
@@ -550,7 +551,7 @@ export async function wellnessAdminResetUserPassword(
       data: { temporaryPassword: tempPassword },
     };
   } catch (err) {
-    console.error("[Admin Reset Password Error]:", err);
+    reportServerError("admin", "reset_user_password", err, { targetUserId });
     return {
       success: false,
       message: "Failed to reset user password.",
@@ -617,7 +618,7 @@ export async function wellnessAdminUpdateCustomerProfile(
       message: "Customer profile saved successfully.",
     };
   } catch (error: unknown) {
-    console.error("[Admin Update Customer Profile Error]:", error);
+    reportServerError("admin", "update_customer_profile", error, { targetUserId: data.userId });
     return {
       success: false,
       message: "Failed to save customer profile.",

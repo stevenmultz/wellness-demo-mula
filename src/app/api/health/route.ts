@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,8 @@ export async function GET() {
         headers: { "Cache-Control": "no-store, max-age=0" },
       }
     );
-  } catch {
+  } catch (err) {
+    reportServerError("health", "db_health_check", err, { latencyMs: Date.now() - startedAt });
     return NextResponse.json(
       {
         status: "degraded",

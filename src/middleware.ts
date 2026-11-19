@@ -64,10 +64,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 2. Proteksi Interface User Dashboard PWA: /dashboard/*
-  if (pathname.startsWith("/dashboard")) {
+  // 2. Proteksi Interface User Dashboard & Onboarding PWA: /dashboard/*, /onboarding/*
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding")) {
     if (!sessionCookie) {
-      return NextResponse.redirect(new URL("/?auth=signin&target=dashboard", request.url));
+      const target = pathname.startsWith("/dashboard") ? "&target=dashboard" : "";
+      return NextResponse.redirect(new URL(`/?auth=signin${target}`, request.url));
     }
 
     try {
@@ -88,5 +89,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard/:path*"],
+  matcher: ["/admin/:path*", "/dashboard/:path*", "/onboarding/:path*"],
 };

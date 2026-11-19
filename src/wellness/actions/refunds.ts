@@ -7,6 +7,7 @@ import { requireSuperadmin } from "../security/guards";
 import { refundMidtransTransactionAdapter } from "../integrations/payment-gateway";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { recordAuditLog } from "../integrations/audit-log";
+import { reportCriticalIncident, reportServerError } from "../observability";
 import type { WellnessActionResult } from "./auth";
 
 export interface UnderQuotaProgramItem {
@@ -276,6 +277,13 @@ export async function wellnessAdminCancelBatchAndRefund(
           });
           autoRefundedCount++;
         } else {
+          reportCriticalIncident(
+            "payment",
+            "midtrans_auto_refund_fallback",
+            `Midtrans auto-refund fell back to manual queue for order ${ptx.orderId}`,
+            "warning",
+            { orderId: ptx.orderId, programId, errorMessage: gwRes.errorMessage }
+          );
           await prisma.paymentTransaction.update({
             where: { id: ptx.id },
             data: {
@@ -319,6 +327,7 @@ export async function wellnessAdminCancelBatchAndRefund(
       },
     };
   } catch (err) {
+    reportServerError("payment", "batch_cancel_refund", err, { programId });
     return {
       success: false,
       message: err instanceof Error ? err.message : "Failed to cancel batch and process refunds.",
@@ -429,6 +438,7 @@ export async function wellnessAdminRecordManualRefund(
       message: `Refund of Rp ${refundAmount.toLocaleString("id-ID")} recorded for ${updated.row.orderId}.`,
     };
   } catch (err) {
+    reportServerError("payment", "manual_refund", err, { transactionId });
     return {
       success: false,
       message: err instanceof Error ? err.message : "Failed to record refund.",

@@ -14,6 +14,7 @@ import {
   MAX_UPLOAD_BYTES,
   RATE_LIMITS,
 } from "@/wellness/config";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       url: `/api/media/signed?path=${encodeURIComponent(storageUri)}`,
     });
   } catch (error) {
-    console.error("[Upload API Error]:", error);
+    reportServerError("media", "upload_asset", error, { userId: session.userId });
     return NextResponse.json(
       { success: false, message: "Failed to process photo upload" },
       { status: 500 }

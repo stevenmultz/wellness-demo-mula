@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
+  wellnessRequestEmailSignIn,
+  wellnessVerifyEmailOtp,
   wellnessSignIn,
-  wellnessSignUp,
   wellnessRequestPasswordReset,
   wellnessResendVerificationEmail,
 } from "@/wellness/actions/auth";
@@ -21,9 +22,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Mail,
+  KeyRound,
+  RefreshCw,
 } from "lucide-react";
 
 export type AuthTabMode = "signin" | "signup" | "forgot";
+type AuthFlowStep = "choice" | "email" | "otp" | "password" | "forgot";
 
 interface AuthGatewayCardProps {
   initialTab?: AuthTabMode;
@@ -32,6 +36,32 @@ interface AuthGatewayCardProps {
   onClose?: () => void;
   isModal?: boolean;
   contextProgramTitle?: string | null;
+}
+
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_SEC = 30;
+
+function GoogleIcon() {
+  return (
+    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+      />
+    </svg>
+  );
 }
 
 export function AuthGatewayCard({
@@ -43,25 +73,29 @@ export function AuthGatewayCard({
   contextProgramTitle = null,
 }: AuthGatewayCardProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<AuthTabMode>(initialTab);
+  const { locale, t } = useLocale();
+  const isId = locale === "id";
+
+  const [step, setStep] = useState<AuthFlowStep>(
+    initialTab === "forgot" ? "forgot" : "choice"
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
   const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
+  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const [isResendingVerify, setIsResendingVerify] = useState(false);
 
-  const [signInData, setSignInData] = useState({ email: "", password: "" });
-  const [signUpData, setSignUpData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    password: "",
-  });
-  const [forgotEmail, setForgotEmail] = useState("");
+  const [email, setEmail] = useState("");
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [password, setPassword] = useState("");
   const [peekPassword, setPeekPassword] = useState(false);
-  const { t } = useLocale();
+
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const verifyingOtpRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -79,7 +113,6 @@ export function AuthGatewayCard({
   }, []);
 
   const prevTabOverrideRef = useRef<AuthTabMode | undefined>(activeTabOverride);
-
   useEffect(() => {
     if (activeTabOverride && activeTabOverride !== prevTabOverrideRef.current) {
       prevTabOverrideRef.current = activeTabOverride;
@@ -87,23 +120,236 @@ export function AuthGatewayCard({
       setSuccessMsg(null);
       setDevResetUrl(null);
       setDevVerifyUrl(null);
+      setDevOtpCode(null);
       setPendingVerificationEmail(null);
-      setTab(activeTabOverride);
+      if (activeTabOverride === "forgot") {
+        setStep("forgot");
+      } else {
+        setStep("choice");
+      }
     }
   }, [activeTabOverride]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const resetStatus = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
     setDevResetUrl(null);
     setDevVerifyUrl(null);
+    setDevOtpCode(null);
   };
 
-  const switchTab = (newTab: AuthTabMode) => {
+  const goToStep = (next: AuthFlowStep) => {
     resetStatus();
     setPendingVerificationEmail(null);
-    setTab(newTab);
-    onTabChange?.(newTab);
+    setStep(next);
+    if (next === "forgot") {
+      onTabChange?.("forgot");
+    } else {
+      onTabChange?.("signin");
+    }
+  };
+
+  const navigateAfterAuth = (role?: string, needsOnboarding?: boolean) => {
+    setTimeout(() => {
+      onClose?.();
+      const searchParams = new URLSearchParams(window.location.search);
+      const target = searchParams.get("target");
+      const isStaffRole = isAdminRole(role);
+
+      if (target === "admin" && isStaffRole) {
+        router.push("/admin");
+      } else if (isStaffRole) {
+        router.push("/admin");
+      } else if (needsOnboarding) {
+        router.push("/onboarding");
+      } else {
+        router.push("/dashboard");
+      }
+      router.refresh();
+    }, 300);
+  };
+
+  const handleRequestEmailCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetStatus();
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setErrorMsg(
+        isId ? "Masukkan alamat email yang valid." : "Please enter a valid email address."
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await wellnessRequestEmailSignIn({ email: trimmedEmail });
+      if (result.success) {
+        setEmail(result.data?.email || trimmedEmail);
+        setOtpDigits(Array(OTP_LENGTH).fill(""));
+        setResendCooldown(RESEND_COOLDOWN_SEC);
+        if (result.devOtpCode) setDevOtpCode(result.devOtpCode);
+        if (result.devVerifyUrl) setDevVerifyUrl(result.devVerifyUrl);
+        setSuccessMsg(
+          isId
+            ? "Kode verifikasi 6 digit telah dikirim ke email Anda."
+            : result.message || "A 6-digit verification code has been sent to your email."
+        );
+        setStep("otp");
+        setTimeout(() => otpInputRefs.current[0]?.focus(), 80);
+      } else {
+        setErrorMsg(result.message || "Could not send verification email.");
+      }
+    } catch {
+      setErrorMsg("Connection error. Please try again in a moment.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitOtpCode = async (codeValue: string) => {
+    if (verifyingOtpRef.current) return;
+    const cleanCode = codeValue.replace(/\D/g, "");
+    if (cleanCode.length !== OTP_LENGTH) {
+      setErrorMsg(
+        isId
+          ? "Masukkan 6 digit kode verifikasi dari email Anda."
+          : "Please enter all 6 digits from your email."
+      );
+      return;
+    }
+
+    verifyingOtpRef.current = true;
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsLoading(true);
+
+    try {
+      const result = await wellnessVerifyEmailOtp({
+        email: email.trim().toLowerCase(),
+        code: cleanCode,
+      });
+
+      if (result.success && result.data) {
+        setSuccessMsg(
+          result.data.needsOnboarding
+            ? isId
+              ? "Email terverifikasi! Menyiapkan profil Anda..."
+              : "Email verified! Setting up your profile..."
+            : isId
+              ? "Berhasil masuk! Mengalihkan ke dashboard..."
+              : "Signed in! Redirecting..."
+        );
+        navigateAfterAuth(result.data.role, result.data.needsOnboarding);
+      } else {
+        setErrorMsg(result.message || "Invalid or expired verification code.");
+      }
+    } catch {
+      setErrorMsg("Connection error. Please try again in a moment.");
+    } finally {
+      setIsLoading(false);
+      verifyingOtpRef.current = false;
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitOtpCode(otpDigits.join(""));
+  };
+
+  const handleOtpDigitChange = (index: number, rawVal: string) => {
+    const digitsOnly = rawVal.replace(/\D/g, "");
+    if (!digitsOnly) {
+      const next = [...otpDigits];
+      next[index] = "";
+      setOtpDigits(next);
+      return;
+    }
+
+    // Handle paste / multi-char input inside a single box
+    if (digitsOnly.length > 1) {
+      const next = [...otpDigits];
+      for (let i = 0; i < OTP_LENGTH - index && i < digitsOnly.length; i++) {
+        next[index + i] = digitsOnly[i];
+      }
+      setOtpDigits(next);
+      const nextEmpty = next.findIndex((d) => !d);
+      const focusIdx = nextEmpty === -1 ? OTP_LENGTH - 1 : nextEmpty;
+      otpInputRefs.current[focusIdx]?.focus();
+      if (next.every((d) => d.length === 1)) {
+        void submitOtpCode(next.join(""));
+      }
+      return;
+    }
+
+    const next = [...otpDigits];
+    next[index] = digitsOnly;
+    setOtpDigits(next);
+    if (index < OTP_LENGTH - 1) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+    if (next.every((d) => d.length === 1)) {
+      void submitOtpCode(next.join(""));
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    if (!pasted) return;
+    const next = Array(OTP_LENGTH).fill("");
+    for (let i = 0; i < pasted.length; i++) {
+      next[i] = pasted[i];
+    }
+    setOtpDigits(next);
+    const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
+    otpInputRefs.current[focusIdx]?.focus();
+    if (pasted.length === OTP_LENGTH) {
+      void submitOtpCode(pasted);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || isResendingVerify) return;
+    setIsResendingVerify(true);
+    setErrorMsg(null);
+    try {
+      const res = await wellnessRequestEmailSignIn({ email: email.trim().toLowerCase() });
+      if (res.success) {
+        setResendCooldown(RESEND_COOLDOWN_SEC);
+        setOtpDigits(Array(OTP_LENGTH).fill(""));
+        if (res.devOtpCode) setDevOtpCode(res.devOtpCode);
+        if (res.devVerifyUrl) setDevVerifyUrl(res.devVerifyUrl);
+        setSuccessMsg(
+          isId
+            ? "Kode verifikasi baru telah dikirim ke email Anda."
+            : "A fresh 6-digit verification code has been sent."
+        );
+        setTimeout(() => otpInputRefs.current[0]?.focus(), 80);
+      } else {
+        setErrorMsg(res.message || "Could not resend verification code.");
+      }
+    } catch {
+      setErrorMsg("Could not resend verification code. Please try again.");
+    } finally {
+      setIsResendingVerify(false);
+    }
   };
 
   const handleResendVerification = async () => {
@@ -114,8 +360,7 @@ export function AuthGatewayCard({
       const res = await wellnessResendVerificationEmail(pendingVerificationEmail);
       if (res.success) {
         setSuccessMsg(res.message || "Verification email sent.");
-        const extra = res as { devVerifyUrl?: string };
-        if (extra.devVerifyUrl) setDevVerifyUrl(extra.devVerifyUrl);
+        if (res.devVerifyUrl) setDevVerifyUrl(res.devVerifyUrl);
       } else {
         setErrorMsg(res.message || "Could not resend verification email.");
       }
@@ -126,46 +371,24 @@ export function AuthGatewayCard({
     }
   };
 
-  const validatePassword = (pass: string) => {
-    return pass.length >= 8 && /[A-Z]/.test(pass) && /\d/.test(pass);
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     resetStatus();
 
-    if (!signInData.email.trim() || !signInData.password) {
+    if (!email.trim() || !password) {
       setErrorMsg("Please fill in your email and password.");
       return;
     }
 
     setIsLoading(true);
-
     try {
-      const result = await wellnessSignIn(signInData);
+      const result = await wellnessSignIn({ email, password });
       if (result.success && result.data) {
         setSuccessMsg("Signed in successfully. Redirecting...");
-        setTimeout(() => {
-          onClose?.();
-          const searchParams = new URLSearchParams(window.location.search);
-          const target = searchParams.get("target");
-
-          const isStaffRole = isAdminRole(result.data?.role);
-          if (target === "admin" && isStaffRole) {
-            router.push("/admin");
-          } else if (target === "dashboard") {
-            router.push("/dashboard");
-          } else if (isStaffRole) {
-            router.push("/admin");
-          } else {
-            router.push("/dashboard");
-          }
-          router.refresh();
-        }, 300);
+        navigateAfterAuth(result.data.role, result.data.needsOnboarding);
       } else {
-        const extra = result as { requiresVerification?: boolean };
-        if (extra.requiresVerification) {
-          setPendingVerificationEmail(signInData.email.trim().toLowerCase());
+        if (result.requiresVerification) {
+          setPendingVerificationEmail(email.trim().toLowerCase());
         }
         if (result.errors) {
           const detail = Object.values(result.errors).flat().join(". ");
@@ -181,86 +404,21 @@ export function AuthGatewayCard({
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    resetStatus();
-    setPendingVerificationEmail(null);
-
-    if (signUpData.fullName.trim().length < 3) {
-      setErrorMsg("Full name must be at least 3 characters.");
-      return;
-    }
-    if (!signUpData.email.trim()) {
-      setErrorMsg("Email is required.");
-      return;
-    }
-    if (signUpData.phone.trim().length < 10) {
-      setErrorMsg("WhatsApp number must be at least 10 digits.");
-      return;
-    }
-    if (!validatePassword(signUpData.password)) {
-      setErrorMsg(
-        "Password must be at least 8 characters and include at least 1 uppercase letter and 1 number."
-      );
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const result = await wellnessSignUp(signUpData);
-      const extra = result as { requiresVerification?: boolean; devVerifyUrl?: string };
-      if (result.success) {
-        if (extra.requiresVerification) {
-          setPendingVerificationEmail(signUpData.email.trim().toLowerCase());
-          if (extra.devVerifyUrl) setDevVerifyUrl(extra.devVerifyUrl);
-          setSuccessMsg(
-            result.message || "Account created! Please check your email to verify your address before signing in."
-          );
-        } else if (result.data) {
-          setSuccessMsg("Account created! Entering Sanctuary...");
-          setTimeout(() => {
-            onClose?.();
-            router.push("/dashboard");
-            router.refresh();
-          }, 400);
-        }
-      } else {
-        if (result.errors) {
-          const detail = Object.values(result.errors).flat().join(". ");
-          setErrorMsg(detail || result.message || "Registration failed.");
-        } else {
-          setErrorMsg(result.message || "Registration failed.");
-        }
-      }
-    } catch {
-      setErrorMsg("Connection error. Please try again in a moment.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     resetStatus();
 
-    if (!forgotEmail.trim()) {
+    if (!email.trim()) {
       setErrorMsg("Please enter your registered email.");
       return;
     }
 
     setIsLoading(true);
-
     try {
-      const result = await wellnessRequestPasswordReset(forgotEmail);
+      const result = await wellnessRequestPasswordReset(email);
       if (result.success) {
-        setSuccessMsg(
-          result.message || "Password recovery instructions sent."
-        );
-        const extra = result as { devResetUrl?: string };
-        if (extra.devResetUrl) {
-          setDevResetUrl(extra.devResetUrl);
-        }
+        setSuccessMsg(result.message || "Password recovery instructions sent.");
+        if (result.devResetUrl) setDevResetUrl(result.devResetUrl);
       } else {
         setErrorMsg(result.message || "Unable to process password reset.");
       }
@@ -272,19 +430,19 @@ export function AuthGatewayCard({
   };
 
   const inputBaseCls =
-    "w-full h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl bg-white/95 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border border-zinc-200/80 lg:border-0 dark:border-white/10 text-[15px] sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-400 focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
+    "w-full h-11 sm:h-12 px-4 rounded-2xl bg-white/95 lg:bg-zinc-200/65 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border border-zinc-200/80 lg:border-0 dark:border-white/10 text-[15px] sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-400 focus:bg-white lg:focus:bg-zinc-200/95 dark:focus:bg-zinc-900 lg:dark:focus:bg-white/[0.12] transition";
   const labelBaseCls =
-    "block text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1";
+    "block text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5";
 
   return (
     <div
-      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-3 sm:space-y-4 ${
+      className={`w-full text-zinc-900 dark:text-zinc-100 space-y-4 sm:space-y-5 ${
         isModal
           ? "rounded-3xl bg-[#f6f6f4] dark:bg-[#141414] p-5 sm:p-8 shadow-2xl"
           : ""
       }`}
     >
-      {/* Modal Close Button (Only when rendered as popup) */}
+      {/* Modal Close Button */}
       {isModal && onClose && (
         <div className="flex items-center justify-between">
           <BrandLogo size="sm" />
@@ -299,7 +457,7 @@ export function AuthGatewayCard({
         </div>
       )}
 
-      {/* Selected Cohort Context (Unboxed) */}
+      {/* Selected Cohort Context */}
       {contextProgramTitle && (
         <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
           <span className="font-mono text-[10px] uppercase tracking-widest shrink-0">
@@ -311,57 +469,94 @@ export function AuthGatewayCard({
         </div>
       )}
 
-      {/* Clean Unboxed Heading & Mode Tabs */}
-      {tab !== "forgot" ? (
-        <div className="space-y-2 sm:space-y-3">
-          <div className="space-y-0.5 sm:space-y-1">
-            <h1 className="text-lg sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
-              {tab === "signin" ? t.auth.signInTitle : t.auth.signUpTitle}
+      {/* Heading per Step */}
+      {step === "choice" && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
+            {t.auth.signInTitle}
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+            {isId
+              ? "Masuk atau daftar otomatis dengan email maupun akun Google Anda."
+              : "Sign in or get started instantly with your email or Google account."}
+          </p>
+        </div>
+      )}
+
+      {step === "email" && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => goToStep("choice")}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{t.common.back}</span>
+          </button>
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
+              {isId ? "Masuk dengan Email" : "Sign in with Email"}
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              {tab === "signin"
-                ? t.auth.signInSubtitle
-                : t.auth.signUpSubtitle}
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              {isId
+                ? "Kami akan langsung mengirimkan kode verifikasi ke email Anda."
+                : "We will send a 6-digit verification code straight to your inbox."}
             </p>
           </div>
+        </div>
+      )}
 
-          {/* Unboxed Minimal Tab Switcher */}
-          <div
-            role="tablist"
-            aria-label="Authentication mode"
-            className="inline-flex items-center gap-5 border-b border-zinc-300/80 dark:border-white/15 w-full"
+      {step === "otp" && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => goToStep("email")}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "signin"}
-              onClick={() => switchTab("signin")}
-              className={`pb-1.5 sm:pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
-                tab === "signin"
-                  ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
-                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              {t.auth.signInTab}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "signup"}
-              onClick={() => switchTab("signup")}
-              className={`pb-1.5 sm:pb-2 text-[11px] sm:text-xs font-semibold tracking-wide uppercase transition relative ${
-                tab === "signup"
-                  ? "text-zinc-950 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-zinc-950 dark:after:bg-white"
-                  : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              {t.auth.signUpTab}
-            </button>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{isId ? "Ganti email" : "Change email"}</span>
+          </button>
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
+              {isId ? "Cek email Anda" : "Check your email"}
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              {isId ? "Masukkan kode 6 digit yang dikirim ke " : "Enter the 6-digit code sent to "}
+              <span className="font-semibold text-zinc-950 dark:text-white break-all">{email}</span>
+              {isId
+                ? " atau klik tautan di dalam email."
+                : ", or tap the verification link inside."}
+            </p>
           </div>
         </div>
-      ) : (
+      )}
+
+      {step === "password" && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => goToStep("email")}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{isId ? "Pakai kode email saja" : "Use email code instead"}</span>
+          </button>
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
+              {isId ? "Masuk dengan Kata Sandi" : "Sign in with Password"}
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              {isId
+                ? "Masukkan email dan kata sandi akun Anda."
+                : "Enter your registered email and password."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {step === "forgot" && (
         <div className="space-y-1">
-          <h1 className="text-lg sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
             {t.auth.forgotTitle}
           </h1>
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300">
@@ -370,11 +565,11 @@ export function AuthGatewayCard({
         </div>
       )}
 
-      {/* Validation & Feedback Notices (Only shown on error or submit) */}
+      {/* Alerts */}
       {errorMsg && (
         <div
           role="alert"
-          className="py-2 px-3 rounded-xl bg-red-500/15 text-red-700 dark:text-red-300 text-xs flex items-start gap-2 leading-relaxed"
+          className="py-2.5 px-3.5 rounded-2xl bg-red-500/12 text-red-700 dark:text-red-300 text-xs flex items-start gap-2 leading-relaxed"
         >
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
@@ -384,23 +579,41 @@ export function AuthGatewayCard({
       {successMsg && (
         <div
           role="status"
-          className="py-2 px-3 rounded-xl bg-zinc-900/10 dark:bg-white/15 text-zinc-950 dark:text-white text-xs flex items-start gap-2 leading-relaxed font-mono"
+          className="py-2.5 px-3.5 rounded-2xl bg-zinc-900/8 dark:bg-white/12 text-zinc-950 dark:text-white text-xs flex items-start gap-2 leading-relaxed"
         >
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-          <div className="space-y-1">
+          <div className="space-y-1.5 min-w-0">
             <p>{successMsg}</p>
+            {devOtpCode && (
+              <div className="flex flex-wrap items-center gap-2 pt-0.5 font-mono">
+                <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                  Dev OTP: <strong className="text-zinc-950 dark:text-white tracking-widest">{devOtpCode}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const digits = devOtpCode.split("").slice(0, OTP_LENGTH);
+                    setOtpDigits(digits);
+                    void submitOtpCode(devOtpCode);
+                  }}
+                  className="text-[11px] underline font-semibold text-zinc-950 dark:text-white hover:opacity-80"
+                >
+                  Auto-fill & verify &rarr;
+                </button>
+              </div>
+            )}
             {devVerifyUrl && (
               <a
                 href={devVerifyUrl}
-                className="underline font-semibold text-zinc-950 dark:text-white block"
+                className="underline font-mono font-semibold text-[11px] text-zinc-950 dark:text-white block"
               >
-                Verify email now (Dev link) &rarr;
+                Verify via magic link (Dev) &rarr;
               </a>
             )}
             {devResetUrl && (
               <a
                 href={devResetUrl}
-                className="underline font-semibold text-zinc-950 dark:text-white block"
+                className="underline font-mono font-semibold text-[11px] text-zinc-950 dark:text-white block"
               >
                 Open password reset link &rarr;
               </a>
@@ -410,7 +623,7 @@ export function AuthGatewayCard({
       )}
 
       {pendingVerificationEmail && (
-        <div className="py-2 px-3 rounded-xl bg-zinc-200/70 dark:bg-white/10 text-xs flex items-center justify-between gap-2">
+        <div className="py-2.5 px-3.5 rounded-2xl bg-zinc-200/70 dark:bg-white/10 text-xs flex items-center justify-between gap-2">
           <span className="text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
             <Mail className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Didn&apos;t receive the link?</span>
@@ -427,47 +640,197 @@ export function AuthGatewayCard({
       )}
 
       {/* =================================================================== */}
-      {/* TAB 1: SIGN IN (SIMPLE LABEL + INPUT, ALL REQUIRED)                 */}
+      {/* STEP 1: CLEAN 2-BUTTON ENTRY (EMAIL & GOOGLE ONLY)                  */}
       {/* =================================================================== */}
-      {tab === "signin" && (
-        <form onSubmit={handleSignIn} className="space-y-2.5 sm:space-y-3">
+      {step === "choice" && (
+        <div className="space-y-3 pt-1">
+          <button
+            type="button"
+            onClick={() => goToStep("email")}
+            className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs sm:text-sm font-semibold tracking-wide flex items-center justify-center gap-2.5 transition active:scale-[0.99] cursor-pointer"
+          >
+            <Mail className="w-4 h-4 shrink-0" />
+            <span>Sign in with Email</span>
+          </button>
+
+          <a
+            href="/api/auth/google"
+            className="w-full h-12 rounded-full border border-zinc-300 dark:border-white/20 bg-white/90 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] text-zinc-900 dark:text-white text-xs sm:text-sm font-medium flex items-center justify-center gap-2.5 transition active:scale-[0.99]"
+          >
+            <GoogleIcon />
+            <span>Sign in with Google</span>
+          </a>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* STEP 2: EMAIL INPUT (SENDS VERIFICATION OTP + MAGIC LINK)           */}
+      {/* =================================================================== */}
+      {step === "email" && (
+        <form onSubmit={handleRequestEmailCode} className="space-y-3.5">
           <div>
-            <label className={labelBaseCls}>Email</label>
+            <label htmlFor="auth-email-input" className={labelBaseCls}>
+              Email
+            </label>
             <input
+              id="auth-email-input"
+              type="email"
+              required
+              autoFocus
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              className={inputBaseCls}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{isId ? "Mengirim kode..." : "Sending code..."}</span>
+              </>
+            ) : (
+              <>
+                <span>{isId ? "Kirim Kode Verifikasi" : "Continue"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </>
+            )}
+          </button>
+
+          <div className="pt-1 text-center">
+            <button
+              type="button"
+              onClick={() => goToStep("password")}
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>{isId ? "Gunakan kata sandi" : "Use password instead"}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* =================================================================== */}
+      {/* STEP 3: 6-DIGIT EMAIL OTP VERIFICATION                              */}
+      {/* =================================================================== */}
+      {step === "otp" && (
+        <form onSubmit={handleOtpSubmit} className="space-y-4">
+          <div
+            className="grid grid-cols-6 gap-2 sm:gap-2.5"
+            aria-label="6-digit verification code"
+          >
+            {otpDigits.map((digit, idx) => (
+              <input
+                key={idx}
+                ref={(el) => {
+                  otpInputRefs.current[idx] = el;
+                }}
+                type="text"
+                inputMode="numeric"
+                autoComplete={idx === 0 ? "one-time-code" : "off"}
+                aria-label={`Digit ${idx + 1}`}
+                maxLength={OTP_LENGTH}
+                value={digit}
+                onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                onPaste={handleOtpPaste}
+                disabled={isLoading}
+                className="w-full h-12 sm:h-14 text-center text-lg sm:text-xl font-mono font-semibold rounded-2xl bg-white/95 lg:bg-zinc-200/70 dark:bg-zinc-900/90 lg:dark:bg-white/[0.08] border border-zinc-300/90 dark:border-white/15 text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white focus:ring-1 focus:ring-zinc-950 dark:focus:ring-white transition"
+              />
+            ))}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading || otpDigits.join("").length < OTP_LENGTH}
+            className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{isId ? "Memverifikasi..." : "Verifying..."}</span>
+              </>
+            ) : (
+              <>
+                <span>{isId ? "Verifikasi & Lanjut" : "Verify & Continue"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </>
+            )}
+          </button>
+
+          <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 pt-0.5">
+            <span>{isId ? "Belum menerima kode?" : "Didn't receive the code?"}</span>
+            <button
+              type="button"
+              disabled={resendCooldown > 0 || isResendingVerify}
+              onClick={handleResendOtp}
+              className="inline-flex items-center gap-1 font-semibold text-zinc-950 dark:text-white hover:opacity-80 disabled:opacity-50 transition"
+            >
+              <RefreshCw className={`w-3 h-3 ${isResendingVerify ? "animate-spin" : ""}`} />
+              <span>
+                {resendCooldown > 0
+                  ? `${isId ? "Kirim ulang" : "Resend"} (${resendCooldown}s)`
+                  : isId
+                    ? "Kirim ulang kode"
+                    : "Resend code"}
+              </span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* =================================================================== */}
+      {/* STEP 4: PASSWORD SIGN IN (ADMIN / STAFF / EXISTING PASSWORD USERS)  */}
+      {/* =================================================================== */}
+      {step === "password" && (
+        <form onSubmit={handlePasswordSignIn} className="space-y-3">
+          <div>
+            <label htmlFor="auth-pwd-email" className={labelBaseCls}>
+              Email
+            </label>
+            <input
+              id="auth-pwd-email"
               type="email"
               required
               autoComplete="email"
-              value={signInData.email}
-              onChange={(e) =>
-                setSignInData({ ...signInData, email: e.target.value })
-              }
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               className={inputBaseCls}
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="auth-pwd-input"
+                className="text-[11px] sm:text-xs font-medium text-zinc-700 dark:text-zinc-300"
+              >
                 Password
               </label>
               <button
                 type="button"
-                onClick={() => switchTab("forgot")}
+                onClick={() => goToStep("forgot")}
                 className="text-[11px] sm:text-xs text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
               >
-                Forgot password?
+                {t.auth.forgotLink}
               </button>
             </div>
             <div className="relative">
               <input
+                id="auth-pwd-input"
                 type={peekPassword ? "text" : "password"}
                 required
+                autoFocus={Boolean(email.trim())}
                 autoComplete="current-password"
-                value={signInData.password}
-                onChange={(e) =>
-                  setSignInData({ ...signInData, password: e.target.value })
-                }
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 className={`${inputBaseCls} pr-10`}
               />
@@ -477,11 +840,7 @@ export function AuthGatewayCard({
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
                 aria-label={peekPassword ? "Hide password" : "Show password"}
               >
-                {peekPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {peekPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -490,7 +849,7 @@ export function AuthGatewayCard({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-10 sm:h-11 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -505,191 +864,25 @@ export function AuthGatewayCard({
               )}
             </button>
           </div>
-
-          <div className="relative py-1 flex items-center gap-3">
-            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-              or
-            </span>
-            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
-          </div>
-
-          <a
-            href="/api/auth/google"
-            className="w-full h-10 sm:h-11 rounded-full border border-zinc-300 dark:border-white/20 bg-white/80 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] text-zinc-900 dark:text-white text-[11px] sm:text-xs font-medium flex items-center justify-center gap-2 transition active:scale-[0.99]"
-          >
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
-              />
-            </svg>
-            <span>Continue with Google</span>
-          </a>
         </form>
       )}
 
       {/* =================================================================== */}
-      {/* TAB 2: SIGN UP (SIMPLE LABEL + INPUT, ALL REQUIRED)                 */}
+      {/* STEP 5: FORGOT PASSWORD                                             */}
       {/* =================================================================== */}
-      {tab === "signup" && (
-        <form onSubmit={handleSignUp} className="space-y-2.5 sm:space-y-3">
+      {step === "forgot" && (
+        <form onSubmit={handleForgotPassword} className="space-y-3.5">
           <div>
-            <label className={labelBaseCls}>Full Name</label>
+            <label htmlFor="auth-forgot-email" className={labelBaseCls}>
+              Registered Email
+            </label>
             <input
-              type="text"
-              required
-              autoComplete="name"
-              value={signUpData.fullName}
-              onChange={(e) =>
-                setSignUpData({ ...signUpData, fullName: e.target.value })
-              }
-              placeholder="Enter your full name"
-              className={inputBaseCls}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-            <div>
-              <label className={labelBaseCls}>Email</label>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={signUpData.email}
-                onChange={(e) =>
-                  setSignUpData({ ...signUpData, email: e.target.value })
-                }
-                placeholder="Enter your email"
-                className={inputBaseCls}
-              />
-            </div>
-
-            <div>
-              <label className={labelBaseCls}>WhatsApp</label>
-              <input
-                type="tel"
-                required
-                autoComplete="tel"
-                value={signUpData.phone}
-                onChange={(e) =>
-                  setSignUpData({ ...signUpData, phone: e.target.value })
-                }
-                placeholder="Enter your WhatsApp number"
-                className={inputBaseCls}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelBaseCls}>Password</label>
-            <div className="relative">
-              <input
-                type={peekPassword ? "text" : "password"}
-                required
-                autoComplete="new-password"
-                value={signUpData.password}
-                onChange={(e) =>
-                  setSignUpData({ ...signUpData, password: e.target.value })
-                }
-                placeholder="Enter your password"
-                className={`${inputBaseCls} pr-10`}
-              />
-              <button
-                type="button"
-                onClick={() => setPeekPassword(!peekPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
-                aria-label={peekPassword ? "Hide password" : "Show password"}
-              >
-                {peekPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-1">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-10 sm:h-11 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Creating Account...</span>
-                </>
-              ) : (
-                <>
-                  <span>Create Account</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="relative py-1 flex items-center gap-3">
-            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-              or
-            </span>
-            <div className="h-px flex-1 bg-zinc-300/70 dark:bg-white/15" />
-          </div>
-
-          <a
-            href="/api/auth/google"
-            className="w-full h-10 sm:h-11 rounded-full border border-zinc-300 dark:border-white/20 bg-white/80 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] text-zinc-900 dark:text-white text-[11px] sm:text-xs font-medium flex items-center justify-center gap-2 transition active:scale-[0.99]"
-          >
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
-              />
-            </svg>
-            <span>Sign Up with Google</span>
-          </a>
-        </form>
-      )}
-
-      {/* =================================================================== */}
-      {/* TAB 3: FORGOT PASSWORD (SIMPLE LABEL + INPUT, REQUIRED)             */}
-      {/* =================================================================== */}
-      {tab === "forgot" && (
-        <form onSubmit={handleForgotPassword} className="space-y-3 sm:space-y-4">
-          <div>
-            <label className={labelBaseCls}>Registered Email</label>
-            <input
+              id="auth-forgot-email"
               type="email"
               required
               autoFocus
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               className={inputBaseCls}
             />
@@ -699,7 +892,7 @@ export function AuthGatewayCard({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-10 sm:h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[11px] sm:text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -708,7 +901,7 @@ export function AuthGatewayCard({
                 </>
               ) : (
                 <>
-                  <span>Send Reset Link</span>
+                  <span>{t.auth.sendResetLink}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
@@ -716,11 +909,11 @@ export function AuthGatewayCard({
 
             <button
               type="button"
-              onClick={() => switchTab("signin")}
+              onClick={() => goToStep("password")}
               className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Sign In</span>
+              <span>{t.auth.backToSignIn}</span>
             </button>
           </div>
         </form>

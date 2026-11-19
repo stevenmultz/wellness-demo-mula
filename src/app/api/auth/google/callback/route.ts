@@ -14,6 +14,8 @@ import {
 } from "@/wellness/security/session";
 import { recordAuditLog } from "@/wellness/integrations/audit-log";
 import { buildOAuthLinkUserUpdate } from "@/wellness/security/oauth-linking";
+import { isUserOnboardingComplete } from "@/wellness/validators/auth";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -241,7 +243,11 @@ export async function GET(request: NextRequest) {
     });
     await setSessionCookie(sessionJwt);
 
-    const dest = isAdminRole(user.role) ? "/admin" : "/dashboard";
+    const dest = isAdminRole(user.role)
+      ? "/admin"
+      : isUserOnboardingComplete(user)
+        ? "/dashboard"
+        : "/onboarding";
     const response = NextResponse.redirect(new URL(dest, request.url));
     response.cookies.delete(GOOGLE_OAUTH_COOKIE);
     return response;
@@ -249,7 +255,7 @@ export async function GET(request: NextRequest) {
     if (err instanceof Error && err.message === "ACCOUNT_DISABLED") {
       return redirectWithError(request, "account_suspended");
     }
-    console.error("[Google OAuth Callback Error]:", err);
+    reportServerError("auth", "google_oauth_callback", err);
     return redirectWithError(request, "google_oauth_failed");
   }
 }

@@ -10,6 +10,7 @@ import {
   PROGRAM_TAXONOMY_INCLUDE,
   serializeProgramTaxonomy,
 } from "@/wellness/services/program-taxonomy";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -218,7 +219,7 @@ export async function GET(req: NextRequest) {
       { headers: { "Cache-Control": "private, no-store, max-age=0" } }
     );
   } catch (error) {
-    console.error("[Explore Programs Error]:", error);
+    reportServerError("program", "explore_programs", error, { userId: session.userId });
     return NextResponse.json(
       { success: false, message: "Failed to load programs." },
       { status: 500 }

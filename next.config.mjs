@@ -1,3 +1,6 @@
+import sentryConfig from "@sentry/nextjs/config";
+
+const { withSentryConfig } = sentryConfig;
 const isDev = process.env.NODE_ENV !== "production";
 
 /** @type {import('next').NextConfig} */
@@ -101,4 +104,13 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+});

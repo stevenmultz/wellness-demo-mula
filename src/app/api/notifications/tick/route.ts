@@ -4,6 +4,7 @@ import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { dispatchDueNotifications } from "@/wellness/integrations/dispatch-due-notifications";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { RATE_LIMITS } from "@/wellness/config";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error: unknown) {
-    console.error("[Notification Tick Error]:", error);
+    reportServerError("cron", "notifications_tick", error, { userId: session.userId });
     return NextResponse.json({ success: false, message: "Failed to dispatch notifications." }, { status: 500 });
   }
 }

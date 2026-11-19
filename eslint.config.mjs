@@ -12,7 +12,7 @@ const config = [
       "react-hooks/purity": "warn",
     },
   },
-  { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
+  { ignores: [".next/**", "node_modules/**", "coverage/**", "playwright-report/**", "test-results/**", "next-env.d.ts"] },
 ];
 
 export default config;

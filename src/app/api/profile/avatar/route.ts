@@ -16,6 +16,7 @@ import {
   MAX_AVATAR_BYTES,
   RATE_LIMITS,
 } from "@/wellness/config";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       avatarUrl: clientAvatarUrl,
     });
   } catch (error) {
-    console.error("[Avatar Upload Error]:", error);
+    reportServerError("media", "avatar_upload", error, { userId: session.userId });
     return NextResponse.json(
       { success: false, message: "Failed to save profile picture." },
       { status: 500 }
@@ -157,7 +158,7 @@ export async function DELETE(req: NextRequest) {
     }
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[Avatar Delete Error]:", error);
+    reportServerError("media", "avatar_delete", error, { userId: session.userId });
     return NextResponse.json(
       { success: false, message: "Failed to remove profile picture." },
       { status: 500 }

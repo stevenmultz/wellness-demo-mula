@@ -4,8 +4,8 @@ import { BRAND } from "@/wellness/brand";
 export interface BrandLogoProps {
   /** Visual size preset */
   size?: "sm" | "md" | "lg";
-  /** Color tone: "auto" adapts to light/dark theme; "light" forces white text for dark/image overlays */
-  tone?: "auto" | "light";
+  /** Color tone: "auto" adapts to light/dark theme; "light" forces white text; "dark" forces black text */
+  tone?: "auto" | "light" | "dark";
   /** Optional additional classes */
   className?: string;
   /** Optional inline styles */
@@ -45,7 +45,11 @@ export function BrandLogo({
 }: BrandLogoProps) {
   const preset = SIZE_CLASSES[size];
   const toneClass =
-    tone === "light" ? "text-white" : "text-zinc-950 dark:text-white";
+    tone === "light"
+      ? "text-white"
+      : tone === "dark"
+        ? "text-zinc-950"
+        : "text-zinc-950 dark:text-white";
 
   return (
     <span

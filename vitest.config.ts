@@ -1,0 +1,67 @@
+import path from "path";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  test: {
+    environment: "node",
+    testTimeout: 30_000,
+    setupFiles: ["./vitest.setup.ts"],
+    include: ["src/__tests__/**/*.test.{ts,tsx}"],
+    clearMocks: true,
+    restoreMocks: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "json-summary"],
+      reportsDirectory: "./coverage",
+      include: [
+        "src/middleware.ts",
+        "src/wellness/brand.ts",
+        "src/wellness/config.ts",
+        "src/wellness/observability.ts",
+        "src/wellness/security/**/*.ts",
+        "src/wellness/utils/**/*.ts",
+        "src/wellness/validators/**/*.ts",
+        "src/wellness/actions/account.ts",
+        "src/wellness/actions/auth.ts",
+        "src/wellness/actions/custom-tasks.ts",
+        "src/wellness/actions/refunds.ts",
+        "src/wellness/actions/share-progress.ts",
+        "src/wellness/services/program-progress.ts",
+        "src/wellness/integrations/payment-gateway.ts",
+        "src/wellness/integrations/video-provider.ts",
+        "src/wellness/integrations/email-service.ts",
+        "src/wellness/integrations/supabase-storage.ts",
+        "src/app/api/health/route.ts",
+        "src/app/api/cron/dispatch-notifications/route.ts",
+        "src/app/api/webhooks/midtrans/route.ts",
+        "src/app/api/media/signed/route.ts",
+        "src/app/api/media/workouts/[filename]/route.ts",
+        "src/app/api/profile/avatar/route.ts",
+        "src/app/api/push/subscribe/route.ts",
+        "src/app/api/upload/route.ts",
+        "src/app/api/auth/google/callback/route.ts",
+        "src/app/api/explore/programs/route.ts",
+        "src/components/dashboard/tabs/explore/exploreFilters.ts",
+        "src/components/dashboard/tabs/explore/ExploreFilterDialog.tsx",
+        "src/components/dashboard/tabs/my-plan/myPlanUtils.ts",
+        "src/components/admin/adminListUtils.ts",
+        "src/components/theme/ThemeProvider.tsx",
+        "src/components/theme/ThemeToggle.tsx",
+      ],
+      exclude: ["**/*.d.ts", "**/*.test.{ts,tsx}"],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 75,
+        branches: 70,
+      },
+    },
+  },
+});

@@ -5,6 +5,7 @@ import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { sendWebPushNotification, VAPID_PUBLIC_KEY } from "@/wellness/integrations/web-push";
 import { BRAND } from "@/wellness/brand";
+import { reportServerError } from "@/wellness/observability";
 
 const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10;
 
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, publicKey: VAPID_PUBLIC_KEY, subscribed });
   } catch (error: unknown) {
-    console.error("[WebPush Status Error]:", error);
+    reportServerError("cron", "push_status", error);
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
   }
 }
@@ -188,7 +189,7 @@ export async function POST(req: NextRequest) {
       subscriptionId: saved.id,
     });
   } catch (error: unknown) {
-    console.error("[WebPush Subscribe Error]:", error);
+    reportServerError("cron", "push_subscribe", error);
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
   }
 }
@@ -219,7 +220,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Push subscription removed." });
   } catch (error: unknown) {
-    console.error("[WebPush Unsubscribe Error]:", error);
+    reportServerError("cron", "push_unsubscribe", error);
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
   }
 }

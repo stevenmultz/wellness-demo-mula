@@ -7,7 +7,13 @@ import { requireAuth } from "../security/guards";
 import { checkDistributedRateLimit } from "../security/rate-limit";
 import { hashPassword, verifyPassword } from "../security/password";
 import { createSessionToken, setSessionCookie, clearSessionCookie } from "../security/session";
-import { UpdateProfileSchema, ChangePasswordSchema, DeleteAccountSchema, calculateAgeFromDob } from "../validators/auth";
+import {
+  UpdateProfileSchema,
+  CompleteOnboardingSchema,
+  ChangePasswordSchema,
+  DeleteAccountSchema,
+  calculateAgeFromDob,
+} from "../validators/auth";
 import { createQrisInvoiceAdapter, generateQrisOrderId } from "../integrations/payment-gateway";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { deleteStorageObjects } from "../integrations/supabase-storage";
@@ -16,6 +22,7 @@ import { isRegistrationClosedInWib } from "../utils/timezone";
 import { normalizeProgramStatus, resolvePublicBadge } from "../utils/timeline";
 import { cleanupUserUploadedFiles } from "../utils/image-processor";
 import { getPaymentProvider, isPaymentSimulationAllowed, QRIS_INVOICE_TTL_MS } from "../config";
+import { reportServerError } from "../observability";
 import type { WellnessActionResult } from "./auth";
 
 export async function wellnessGetProfile() {
@@ -138,6 +145,80 @@ export async function wellnessUpdateProfile(
       dateOfBirth: updatedUser.birthDate,
     },
   };
+}
+
+/**
+ * Complete the mandatory step-by-step member onboarding (fullName, dateOfBirth, gender, phone, city).
+ */
+export async function wellnessCompleteOnboarding(
+  rawInput: unknown
+): Promise<WellnessActionResult> {
+  try {
+    const session = await requireAuth();
+
+    const validation = CompleteOnboardingSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return {
+        success: false,
+        message: "Please complete all required onboarding steps.",
+        errors: validation.error.flatten().fieldErrors,
+      };
+    }
+
+    const { fullName, dateOfBirth, gender, phone, city } = validation.data;
+    const dobValue = new Date(`${dateOfBirth}T00:00:00.000Z`);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: { id: session.userId, deletedAt: null, status: "ACTIVE" },
+        data: {
+          fullName,
+          birthDate: dobValue,
+          gender,
+          phone,
+          city,
+        },
+      });
+      if (result.count !== 1) return null;
+
+      await recordAuditLog(
+        {
+          actorUserId: session.userId,
+          action: "ONBOARDING_COMPLETED",
+          entityType: "User",
+          entityId: session.userId,
+        },
+        tx
+      );
+      return true;
+    });
+
+    if (!updated) {
+      return {
+        success: false,
+        message: "Account is no longer active.",
+      };
+    }
+
+    try {
+      revalidatePath("/dashboard");
+      revalidatePath("/onboarding");
+      revalidatePath("/admin", "layout");
+    } catch {
+      // Ignore outside Next.js request context
+    }
+
+    return {
+      success: true,
+      message: "Welcome to zera.id! Your profile is ready.",
+    };
+  } catch (error) {
+    reportServerError("auth", "complete_onboarding", error);
+    return {
+      success: false,
+      message: "Failed to save your onboarding details. Please try again.",
+    };
+  }
 }
 
 export async function wellnessChangePassword(
@@ -570,6 +651,11 @@ export async function wellnessEnrollProgram(
           }),
         ]);
       } catch (gwErr) {
+        reportServerError("payment", "qris_gateway_charge_rollback", gwErr, {
+          orderId: paymentTx.orderId,
+          enrollmentId: enrollment.id,
+          programId: program.id,
+        });
         await prisma.$transaction([
           prisma.paymentTransaction.update({
             where: { id: paymentTx.id },

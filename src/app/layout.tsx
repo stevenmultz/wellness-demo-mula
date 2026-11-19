@@ -56,7 +56,6 @@ export default async function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="preload" as="image" href="/image.webp" />
         <style
           dangerouslySetInnerHTML={{
             __html: `
@@ -77,27 +76,11 @@ export default async function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #0e0e0e;
-                color: #ffffff;
+                background-color: #ffffff;
+                color: #09090b;
                 user-select: none;
                 overflow: hidden;
                 transition: opacity 0.25s ease-out;
-              }
-              #zera-pwa-splash .zera-splash-bg {
-                position: absolute;
-                inset: 0;
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                object-position: center;
-                opacity: 1;
-                pointer-events: none;
-              }
-              #zera-pwa-splash .zera-splash-scrim {
-                position: absolute;
-                inset: 0;
-                background: rgba(0, 0, 0, 0.28);
-                pointer-events: none;
               }
               #zera-pwa-splash .zera-splash-brand {
                 position: relative;
@@ -110,8 +93,7 @@ export default async function RootLayout({
               #zera-pwa-splash .zera-splash-title {
                 display: flex;
                 align-items: baseline;
-                gap: 1px;
-                text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+                gap: 0px;
               }
             `,
           }}
@@ -126,21 +108,12 @@ export default async function RootLayout({
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-clip antialiased`}
       >
         <div id="zera-pwa-splash" aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/image.webp"
-            alt=""
-            decoding="sync"
-            fetchPriority="high"
-            className="zera-splash-bg"
-          />
-          <div className="zera-splash-scrim" />
           <div className="zera-splash-brand">
             <div className="zera-splash-title">
-              <span style={{ fontWeight: 600, fontSize: "0.95rem", letterSpacing: "0.16em", textTransform: "lowercase", lineHeight: 1, color: "#ffffff" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.95rem", letterSpacing: "0.16em", textTransform: "lowercase", lineHeight: 1, color: "#09090b" }}>
                 {BRAND.wordmarkPrimary}
               </span>
-              <span style={{ fontWeight: 300, fontSize: "0.95rem", letterSpacing: "0.08em", textTransform: "lowercase", lineHeight: 1, opacity: 0.78, color: "#ffffff" }}>
+              <span style={{ fontWeight: 300, fontSize: "0.95rem", letterSpacing: "0.08em", textTransform: "lowercase", lineHeight: 1, opacity: 0.72, color: "#09090b" }}>
                 {BRAND.wordmarkAccent}
               </span>
             </div>

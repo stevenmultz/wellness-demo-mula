@@ -10,6 +10,7 @@ import {
   isProductionEnv,
   MAX_CRON_BODY_BYTES,
 } from "@/wellness/config";
+import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,7 @@ async function handleCronDispatch(req: NextRequest) {
 
     return NextResponse.json({ success: true, ...summary, retentionCleanup });
   } catch (error: unknown) {
-    console.error("[Cron Dispatch Error]:", error);
+    reportServerError("cron", "dispatch_notifications", error);
     return NextResponse.json({ success: false, error: "Server error during cron dispatch" }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@ import { getMidtransConfig } from "@/wellness/config";
 import { isAllowedPaymentTransition, verifyMidtransWebhookSignature } from "@/wellness/integrations/payment-gateway";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { recordAuditLog } from "@/wellness/integrations/audit-log";
+import { reportCriticalIncident } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,13 @@ export async function POST(request: NextRequest) {
       entityId: txRecord.id,
       metadata: { orderId, expected: txRecord.grossAmount, received: grossAmount },
     });
+    reportCriticalIncident(
+      "payment",
+      "midtrans_amount_mismatch",
+      `Midtrans webhook gross amount mismatch for order ${orderId}`,
+      "error",
+      { orderId, txId: txRecord.id, expected: txRecord.grossAmount, received: grossAmount }
+    );
     return NextResponse.json({ message: "Gross amount mismatch" }, { status: 400 });
   }
 
@@ -268,6 +276,13 @@ export async function POST(request: NextRequest) {
       },
     ]);
   } else if (outcome.quotaOverflow) {
+    reportCriticalIncident(
+      "payment",
+      "midtrans_quota_overflow",
+      `QRIS payment settled after cohort quota filled for order ${orderId}`,
+      "warning",
+      { orderId, programId: txRecord.programId, enrollmentId: txRecord.enrollmentId }
+    );
     await createUserNotifications([
       {
         userId: txRecord.userId,

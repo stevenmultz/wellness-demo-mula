@@ -127,7 +127,9 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
                     Active Session • {sessionUser.role}
                   </span>
                   <h1 className="text-xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white">
-                    {t.public.welcomeBack}, {sessionUser.fullName}
+                    {sessionUser.fullName.trim()
+                      ? `${t.public.welcomeBack}, ${sessionUser.fullName}`
+                      : t.public.welcomeBack}
                   </h1>
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-mono">
                     {sessionUser.email}

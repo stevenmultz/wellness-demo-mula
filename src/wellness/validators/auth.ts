@@ -49,6 +49,26 @@ export const ForgotPasswordSchema = z.object({
     .trim(),
 });
 
+export const EmailAuthRequestSchema = z.object({
+  email: z
+    .string({ error: (iss) => (iss.input === undefined ? "Email is required" : undefined) })
+    .trim()
+    .email("Please enter a valid email address")
+    .toLowerCase(),
+});
+
+export const EmailOtpVerifySchema = z.object({
+  email: z
+    .string({ error: (iss) => (iss.input === undefined ? "Email is required" : undefined) })
+    .trim()
+    .email("Please enter a valid email address")
+    .toLowerCase(),
+  code: z
+    .string({ error: (iss) => (iss.input === undefined ? "Verification code is required" : undefined) })
+    .trim()
+    .regex(/^\d{6}$/, "Please enter the 6-digit verification code"),
+});
+
 export const ResetPasswordSchema = z
   .object({
     token: z.string({ error: (iss) => (iss.input === undefined ? "Reset token is missing" : undefined) }).min(1),
@@ -170,3 +190,54 @@ export const AdminUpdateCustomerProfileSchema = z.object({
   emergencyContactName: OptionalTrimmedString(100, "Emergency contact name"),
   emergencyContactPhone: OptionalEmergencyPhoneSchema,
 });
+
+export const CompleteOnboardingSchema = z.object({
+  fullName: z
+    .string({ error: (iss) => (iss.input === undefined ? "Full name is required" : undefined) })
+    .trim()
+    .min(3, "Full name must be at least 3 characters")
+    .max(60, "Full name cannot exceed 60 characters"),
+  dateOfBirth: DateOfBirthSchema,
+  gender: z.enum(GENDER_OPTIONS, {
+    error: () => "Please select your gender",
+  }),
+  phone: z
+    .string({ error: (iss) => (iss.input === undefined ? "Phone number is required" : undefined) })
+    .trim()
+    .regex(/^[0-9+\s\-]*$/, "Phone number may only contain digits, +, spaces, or hyphens")
+    .min(10, "Phone number must be at least 10 digits")
+    .max(18, "Phone number cannot exceed 18 digits"),
+  city: z
+    .string({ error: (iss) => (iss.input === undefined ? "City is required" : undefined) })
+    .trim()
+    .min(2, "Please enter your city")
+    .max(100, "City cannot exceed 100 characters"),
+});
+
+/**
+ * Checks whether a member user has completed the mandatory initial onboarding profile.
+ * Staff roles (SUPERADMIN, PARTNER_ADMIN, COACH) bypass member onboarding.
+ */
+export function isUserOnboardingComplete(user: {
+  role?: string | null;
+  fullName?: string | null;
+  birthDate?: Date | string | null;
+  dateOfBirth?: Date | string | null;
+  gender?: string | null;
+  phone?: string | null;
+  city?: string | null;
+}): boolean {
+  if (user.role && user.role !== "USER") return true;
+  const dob = user.birthDate ?? user.dateOfBirth;
+  return Boolean(
+    user.fullName &&
+      user.fullName.trim().length >= 2 &&
+      dob &&
+      user.gender &&
+      user.gender.trim().length > 0 &&
+      user.phone &&
+      user.phone.trim().length >= 8 &&
+      user.city &&
+      user.city.trim().length >= 2
+  );
+}

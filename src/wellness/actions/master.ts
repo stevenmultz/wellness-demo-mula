@@ -5,6 +5,7 @@ import { prisma } from "../db";
 import { requireAdminAccess, requireSuperadmin, WellnessForbiddenError } from "../security/guards";
 import { isSafePhotoUrl, safeHttpUrl, safeMediaUrl } from "../utils/url-safety";
 import { recordAuditLog } from "../integrations/audit-log";
+import { reportServerError } from "../observability";
 import type { WellnessActionResult } from "./auth";
 
 function revalidateAdminMasterRoutes() {
@@ -137,7 +138,7 @@ export async function wellnessGetMasterData(): Promise<{
       },
     };
   } catch (error) {
-    console.error("Failed to fetch master data:", error);
+    reportServerError("admin", "fetch_master_data", error);
     return {
       success: false,
       data: {
@@ -476,7 +477,7 @@ export async function wellnessCreateMasterOrganization(input: {
       data: { ...org, logoUrl: org.logoPath },
     };
   } catch (error) {
-    console.error("Failed to create master organization:", error);
+    reportServerError("admin", "create_organization", error);
     return { success: false, message: "Failed to add Community / Brand." };
   }
 }
@@ -544,7 +545,7 @@ export async function wellnessUpdateMasterOrganization(input: {
       data: { ...org, logoUrl: org.logoPath },
     };
   } catch (error) {
-    console.error("Failed to update master organization:", error);
+    reportServerError("admin", "update_organization", error);
     return { success: false, message: "Failed to update Community / Brand." };
   }
 }

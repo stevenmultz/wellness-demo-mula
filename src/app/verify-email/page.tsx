@@ -2,12 +2,13 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { wellnessVerifyEmailToken } from "@/wellness/actions/auth";
 import { isAdminRole } from "@/wellness/security/roles";
 
 function VerifyEmailContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = (searchParams.get("token") || "").trim();
   const [state, setState] = useState<{
@@ -15,6 +16,7 @@ function VerifyEmailContent() {
     success: boolean;
     message: string;
     role?: string;
+    needsOnboarding?: boolean;
   }>(() =>
     token
       ? { loading: true, success: false, message: "Verifying your email address..." }
@@ -27,16 +29,31 @@ function VerifyEmailContent() {
     calledRef.current = true;
     wellnessVerifyEmailToken(token)
       .then((res) => {
+        const nextRole = res.data?.role;
+        const needsOnboarding = Boolean(res.data?.needsOnboarding);
         setState({
           loading: false,
           success: res.success,
           message:
             res.message ||
             (res.success
-              ? "Email verified successfully! Your account is active."
+              ? "Email verified successfully! Redirecting..."
               : "Verification failed."),
-          role: res.data?.role,
+          role: nextRole,
+          needsOnboarding,
         });
+
+        if (res.success) {
+          const dest = isAdminRole(nextRole)
+            ? "/admin"
+            : needsOnboarding
+              ? "/onboarding"
+              : "/dashboard";
+          setTimeout(() => {
+            router.replace(dest);
+            router.refresh();
+          }, 500);
+        }
       })
       .catch(() => {
         setState({
@@ -45,13 +62,23 @@ function VerifyEmailContent() {
           message: "Failed to verify email address. Please try again.",
         });
       });
-  }, [token]);
+  }, [token, router]);
 
   const targetHref = state.success
     ? isAdminRole(state.role)
       ? "/admin"
-      : "/dashboard"
+      : state.needsOnboarding
+        ? "/onboarding"
+        : "/dashboard"
     : "/";
+
+  const ctaLabel = state.success
+    ? isAdminRole(state.role)
+      ? "Go to Admin Console"
+      : state.needsOnboarding
+        ? "Complete Your Profile"
+        : "Go to Dashboard"
+    : "Back to Sign In";
 
   return (
     <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-8 shadow-sm space-y-5 text-center">
@@ -83,11 +110,7 @@ function VerifyEmailContent() {
             href={targetHref}
             className="w-full py-3 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold transition hover:opacity-90"
           >
-            {state.success
-              ? isAdminRole(state.role)
-                ? "Go to Admin Console"
-                : "Go to Dashboard"
-              : "Back to Sign In"}
+            {ctaLabel}
           </Link>
         </div>
       )}

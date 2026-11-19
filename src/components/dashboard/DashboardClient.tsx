@@ -27,6 +27,7 @@ import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
 import { ProgramDetailView } from "./tabs/ProgramDetailView";
 import { DeleteAccountModal } from "./DeleteAccountModal";
+import { FirstTimeAppTour } from "./FirstTimeAppTour";
 import { useDashboardProgress } from "./useDashboardProgress";
 import type {
   EnrollmentItem,
@@ -198,6 +199,7 @@ export function DashboardClient({
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [showFirstTimeTour, setShowFirstTimeTour] = useState(false);
 
   // Program Detail Explanation Modal
   const [detailedProgram, setDetailedProgram] = useState<ProgramItem | null>(null);
@@ -334,8 +336,41 @@ export function DashboardClient({
     if (enrollId) {
       handleOpenQrisCheckout(enrollId);
     }
+    const welcomeParam = searchParams.get("welcome");
+    try {
+      const tourKey = `zera_app_tour_v1:${user.id}`;
+      const seenTour = localStorage.getItem(tourKey) === "done";
+      if (welcomeParam === "1" || (!seenTour && myPrograms.length === 0)) {
+        setShowFirstTimeTour(true);
+      }
+    } catch {
+      if (welcomeParam === "1") {
+        setShowFirstTimeTour(true);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  const handleFinishFirstTimeTour = (
+    targetTab?: "my_plan" | "all_plan" | "notifications" | "profile"
+  ) => {
+    setShowFirstTimeTour(false);
+    try {
+      localStorage.setItem(`zera_app_tour_v1:${user.id}`, "done");
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("welcome")) {
+          url.searchParams.delete("welcome");
+          window.history.replaceState({}, "", url.pathname + url.search);
+        }
+      }
+    } catch {
+      // Ignore storage or history errors
+    }
+    if (targetTab && !hasInitialActivePlan) {
+      setActiveTab(targetTab);
+    }
+  };
 
   // Hobby cron runs once a day. While this session is visible in foreground, ask the server (WIB clock) for due alerts.
   useEffect(() => {
@@ -936,6 +971,13 @@ export function DashboardClient({
           </div>
         )}
       </main>
+
+      {/* First-Time App Walkthrough Tutorial */}
+      <FirstTimeAppTour
+        isOpen={showFirstTimeTour}
+        userName={user.fullName}
+        onFinish={handleFinishFirstTimeTour}
+      />
 
       {/* Delete Account Modal */}
       <DeleteAccountModal

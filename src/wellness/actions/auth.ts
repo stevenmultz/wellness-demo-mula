@@ -16,6 +16,9 @@ import {
   SignInSchema,
   ForgotPasswordSchema,
   ResetPasswordSchema,
+  EmailAuthRequestSchema,
+  EmailOtpVerifySchema,
+  isUserOnboardingComplete,
 } from "../validators/auth";
 import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { recordAuditLog } from "../integrations/audit-log";
@@ -26,11 +29,13 @@ import {
 import {
   EMAIL_VERIFICATION_TTL_MS,
   getAppUrl,
+  getJwtSecretKey,
   getSuperadminConfig,
   isProductionEnv,
   PASSWORD_RESET_TTL_MS,
   RATE_LIMITS,
 } from "../config";
+import { reportCriticalIncident, reportServerError } from "../observability";
 
 async function getClientIpKey(): Promise<string> {
   try {
@@ -52,6 +57,19 @@ function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function generateSixDigitOtp(): string {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+function hashEmailOtp(email: string, code: string): string {
+  return crypto
+    .createHmac("sha256", Buffer.from(getJwtSecretKey()))
+    .update(`email-otp:${email.trim().toLowerCase()}:${code.trim()}`)
+    .digest("hex");
+}
+
+const EMAIL_OTP_TTL_MS = 15 * 60 * 1000;
+
 const DUMMY_PASSWORD_HASH = "$2a$12$NwraF30b7JtZAOkOowU0BeV33h.hq1PxXvyFm0ZJ.dc0ibqkVg.kW";
 
 export interface WellnessActionResult<T = unknown> {
@@ -61,6 +79,7 @@ export interface WellnessActionResult<T = unknown> {
   errors?: Record<string, string[]>;
   devResetUrl?: string;
   devVerifyUrl?: string;
+  devOtpCode?: string;
   requiresVerification?: boolean;
 }
 
@@ -95,6 +114,350 @@ async function issueEmailVerificationForUser(user: {
   });
 
   return { verifyUrl, delivered: emailRes.delivered };
+}
+
+/**
+ * Passwordless Email Auth Step 1:
+ * Accepts an email address, creates a pending member account if new,
+ * and sends BOTH a 6-digit OTP code AND a one-click verification link (valid 15 minutes).
+ */
+export async function wellnessRequestEmailSignIn(
+  rawInput: unknown
+): Promise<WellnessActionResult<{ email: string }>> {
+  try {
+    const normalizedInput =
+      typeof rawInput === "string" ? { email: rawInput } : rawInput;
+    const validation = EmailAuthRequestSchema.safeParse(normalizedInput);
+    if (!validation.success) {
+      return {
+        success: false,
+        message: "Please enter a valid email address.",
+        errors: validation.error.flatten().fieldErrors,
+      };
+    }
+
+    const { email } = validation.data;
+    const ip = await getClientIpKey();
+
+    const [ipRl, emailRl] = await Promise.all([
+      checkDistributedRateLimit(`email-otp-req-ip:${ip}`, {
+        maxRequests: 15,
+        windowMs: 15 * 60 * 1000,
+      }),
+      checkDistributedRateLimit(`email-otp-req:${email}`, {
+        maxRequests: 5,
+        windowMs: 15 * 60 * 1000,
+      }),
+    ]);
+
+    if (!ipRl.allowed || !emailRl.allowed) {
+      return {
+        success: false,
+        message: "Too many verification requests. Please wait a few minutes before trying again.",
+      };
+    }
+
+    let user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    if (user && user.status !== "ACTIVE") {
+      return {
+        success: false,
+        message: "Your account is currently suspended. Please contact the Wellness Administrator.",
+      };
+    }
+
+    const superadminEnv = getSuperadminConfig();
+    const isSuperadminEmail =
+      Boolean(superadminEnv.email) && email.toLowerCase() === superadminEnv.email;
+
+    if (!user && isSuperadminEmail) {
+      return {
+        success: false,
+        message: "Please use password sign-in for administrator access.",
+      };
+    }
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          fullName: "",
+          passwordHash: null,
+          emailVerifiedAt: null,
+          role: "USER",
+          status: "ACTIVE",
+          tokenVersion: 0,
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          status: true,
+        },
+      });
+    }
+
+    const otpCode = generateSixDigitOtp();
+    const rawLinkToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.userEmailVerificationToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      await tx.userEmailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashEmailOtp(user.email, otpCode),
+          expiresAt,
+        },
+      });
+      await tx.userEmailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashToken(rawLinkToken),
+          expiresAt,
+        },
+      });
+    });
+
+    const verifyUrl = `${getAppUrl()}/verify-email?token=${rawLinkToken}`;
+    const greeting = user.fullName.trim()
+      ? `Hi ${escapeHtml(user.fullName.trim())},`
+      : "Hi,";
+
+    const emailRes = await sendTransactionalEmail({
+      to: user.email,
+      subject: `${otpCode} is your ${BRAND.fullName} verification code`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #09090b; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <p style="font-size: 14px; margin: 0 0 12px;">${greeting}</p>
+          <p style="font-size: 14px; color: #52525b; margin: 0 0 20px;">Use this 6-digit verification code to sign in to ${escapeHtml(BRAND.fullName)} (valid for 15 minutes):</p>
+          <div style="font-size: 32px; font-weight: 700; letter-spacing: 0.25em; text-align: center; padding: 16px; background: #f4f4f5; border-radius: 12px; margin: 0 0 20px;">${otpCode}</div>
+          <p style="font-size: 13px; color: #52525b; margin: 0 0 12px;">Or tap the button below to verify directly:</p>
+          <p style="margin: 0 0 20px;"><a href="${verifyUrl}" style="display: inline-block; background: #09090b; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; padding: 12px 24px; border-radius: 999px;">Continue to ${escapeHtml(BRAND.name)}</a></p>
+          <p style="font-size: 11px; color: #a1a1aa; margin: 0;">If you didn't request this code, you can safely ignore this email.</p>
+        </div>
+      `,
+      text: `Your ${BRAND.fullName} verification code is: ${otpCode} (valid 15 minutes). Or verify via link: ${verifyUrl}`,
+    });
+
+    if (!emailRes.delivered) {
+      reportCriticalIncident(
+        "email",
+        "email_otp_delivery_failed",
+        "Failed to deliver email OTP verification",
+        "error",
+        { userId: user.id, provider: emailRes.provider }
+      );
+      return {
+        success: false,
+        message: "We could not send the verification email right now. Please try again in a moment.",
+      };
+    }
+
+    return {
+      success: true,
+      requiresVerification: true,
+      message: "Verification code sent! Check your email inbox.",
+      data: { email: user.email },
+      devOtpCode: !isProductionEnv() ? otpCode : undefined,
+      devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
+    };
+  } catch (error) {
+    reportServerError("auth", "request_email_signin", error);
+    return {
+      success: false,
+      message: "Failed to send verification code. Please try again.",
+    };
+  }
+}
+
+/**
+ * Passwordless Email Auth Step 2:
+ * Verifies the 6-digit OTP code atomically, issues session cookie,
+ * and signals whether the member must complete onboarding first.
+ */
+export async function wellnessVerifyEmailOtp(
+  rawInput: unknown
+): Promise<
+  WellnessActionResult<{
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    needsOnboarding: boolean;
+  }>
+> {
+  try {
+    const validation = EmailOtpVerifySchema.safeParse(rawInput);
+    if (!validation.success) {
+      return {
+        success: false,
+        message: "Please enter a valid 6-digit verification code.",
+        errors: validation.error.flatten().fieldErrors,
+      };
+    }
+
+    const { email, code } = validation.data;
+    const ip = await getClientIpKey();
+    const emailBucket = `email-otp-verify:${email}`;
+    const ipBucket = `email-otp-verify-ip:${ip}`;
+
+    const [ipRl, emailRl] = await Promise.all([
+      checkDistributedRateLimit(ipBucket, { maxRequests: 20, windowMs: 15 * 60 * 1000 }),
+      checkDistributedRateLimit(emailBucket, { maxRequests: 6, windowMs: 15 * 60 * 1000 }),
+    ]);
+    if (!ipRl.allowed || !emailRl.allowed) {
+      return {
+        success: false,
+        message: "Too many invalid attempts. Please wait 15 minutes or request a new code.",
+      };
+    }
+
+    const tokenRecord = await prisma.userEmailVerificationToken.findUnique({
+      where: { tokenHash: hashEmailOtp(email, code) },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            birthDate: true,
+            gender: true,
+            phone: true,
+            city: true,
+            emailVerifiedAt: true,
+            role: true,
+            status: true,
+            deletedAt: true,
+            tokenVersion: true,
+          },
+        },
+      },
+    });
+
+    if (
+      !tokenRecord ||
+      tokenRecord.user.deletedAt !== null ||
+      tokenRecord.user.email.toLowerCase() !== email ||
+      tokenRecord.usedAt !== null ||
+      new Date() > tokenRecord.expiresAt
+    ) {
+      return {
+        success: false,
+        message: "Invalid or expired verification code. Please check your email or request a new code.",
+      };
+    }
+
+    if (tokenRecord.user.status !== "ACTIVE") {
+      return {
+        success: false,
+        message: "Your account is currently suspended. Please contact the Wellness Administrator.",
+      };
+    }
+
+    const verifiedUser = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const claim = await tx.userEmailVerificationToken.updateMany({
+        where: { id: tokenRecord.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (claim.count !== 1) return null;
+
+      // Invalidate any sibling tokens (such as the paired magic link) for this user
+      await tx.userEmailVerificationToken.updateMany({
+        where: { userId: tokenRecord.userId, usedAt: null },
+        data: { usedAt: now },
+      });
+
+      const updated = await tx.user.update({
+        where: { id: tokenRecord.userId },
+        data: { emailVerifiedAt: tokenRecord.user.emailVerifiedAt ?? now },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          birthDate: true,
+          gender: true,
+          phone: true,
+          city: true,
+          role: true,
+          status: true,
+          tokenVersion: true,
+        },
+      });
+
+      await tx.userProgressShare.updateMany({
+        where: {
+          viewerEmail: updated.email.trim().toLowerCase(),
+          viewerUserId: null,
+          status: "ACTIVE",
+        },
+        data: { viewerUserId: updated.id },
+      });
+
+      await recordAuditLog(
+        {
+          actorUserId: updated.id,
+          action: "EMAIL_OTP_SIGN_IN",
+          entityType: "User",
+          entityId: updated.id,
+        },
+        tx
+      );
+
+      return updated;
+    });
+
+    if (!verifiedUser) {
+      return {
+        success: false,
+        message: "This verification code has already been used. Please request a new code.",
+      };
+    }
+
+    await resetDistributedRateLimit(emailBucket);
+
+    const sessionJwt = await createSessionToken({
+      userId: verifiedUser.id,
+      email: verifiedUser.email,
+      role: verifiedUser.role,
+      tokenVersion: verifiedUser.tokenVersion,
+    });
+    await setSessionCookie(sessionJwt);
+
+    const needsOnboarding = !isUserOnboardingComplete(verifiedUser);
+
+    return {
+      success: true,
+      message: "Email verified! Signing you in...",
+      data: {
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        fullName: verifiedUser.fullName,
+        role: verifiedUser.role,
+        needsOnboarding,
+      },
+    };
+  } catch (error) {
+    reportServerError("auth", "verify_email_otp", error);
+    return {
+      success: false,
+      message: "Failed to verify code. Please try again.",
+    };
+  }
 }
 
 /**
@@ -135,7 +498,7 @@ export async function wellnessSignUp(
       if (!existingUser.emailVerifiedAt) {
         const { verifyUrl, delivered } = await issueEmailVerificationForUser(existingUser);
         if (!delivered) {
-          console.error(`[wellnessSignUp] Failed to deliver verification email for userId=${existingUser.id}`);
+          reportCriticalIncident("email", "verification_email_failed", "Failed to deliver verification email on re-signup", "error", { userId: existingUser.id });
         }
         return {
           success: false,
@@ -185,7 +548,7 @@ export async function wellnessSignUp(
 
     const { verifyUrl, delivered } = await issueEmailVerificationForUser(newUser);
     if (!delivered) {
-      console.error(`[wellnessSignUp] Failed to deliver verification email for userId=${newUser.id}`);
+      reportCriticalIncident("email", "verification_email_failed", "Failed to deliver verification email on signup", "error", { userId: newUser.id });
     }
 
     return {
@@ -201,7 +564,7 @@ export async function wellnessSignUp(
       },
     };
   } catch (error) {
-    console.error("[wellnessSignUp Error]:", error);
+    reportServerError("auth", "signup", error);
     return {
       success: false,
       message: "Failed to create account due to a server error. Please try again.",
@@ -214,7 +577,7 @@ export async function wellnessSignUp(
  */
 export async function wellnessVerifyEmailToken(
   rawToken: string
-): Promise<WellnessActionResult<{ email: string; role: string }>> {
+): Promise<WellnessActionResult<{ email: string; role: string; needsOnboarding?: boolean }>> {
   const token = (rawToken || "").trim();
   if (!token) {
     return { success: false, message: "Verification token is missing." };
@@ -228,6 +591,11 @@ export async function wellnessVerifyEmailToken(
           select: {
             id: true,
             email: true,
+            fullName: true,
+            birthDate: true,
+            gender: true,
+            phone: true,
+            city: true,
             emailVerifiedAt: true,
             role: true,
             status: true,
@@ -265,7 +633,11 @@ export async function wellnessVerifyEmailToken(
         return {
           success: true,
           message: "Email verified successfully! Your account is active.",
-          data: { email: tokenRecord.user.email, role: tokenRecord.user.role },
+          data: {
+            email: tokenRecord.user.email,
+            role: tokenRecord.user.role,
+            needsOnboarding: !isUserOnboardingComplete(tokenRecord.user),
+          },
         };
       }
       return {
@@ -289,10 +661,26 @@ export async function wellnessVerifyEmailToken(
       });
       if (claim.count !== 1) return null;
 
+      await tx.userEmailVerificationToken.updateMany({
+        where: { userId: tokenRecord.userId, usedAt: null },
+        data: { usedAt: now },
+      });
+
       const updated = await tx.user.update({
         where: { id: tokenRecord.userId },
-        data: { emailVerifiedAt: now },
-        select: { id: true, email: true, role: true, status: true, tokenVersion: true },
+        data: { emailVerifiedAt: tokenRecord.user.emailVerifiedAt ?? now },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          birthDate: true,
+          gender: true,
+          phone: true,
+          city: true,
+          role: true,
+          status: true,
+          tokenVersion: true,
+        },
       });
 
       await tx.userProgressShare.updateMany({
@@ -321,7 +709,11 @@ export async function wellnessVerifyEmailToken(
       return {
         success: true,
         message: "Email verified successfully! Your account is active.",
-        data: { email: tokenRecord.user.email, role: tokenRecord.user.role },
+        data: {
+          email: tokenRecord.user.email,
+          role: tokenRecord.user.role,
+          needsOnboarding: !isUserOnboardingComplete(tokenRecord.user),
+        },
       };
     }
 
@@ -342,10 +734,14 @@ export async function wellnessVerifyEmailToken(
     return {
       success: true,
       message: "Email verified successfully! Your account is now active.",
-      data: { email: verifiedUser.email, role: verifiedUser.role },
+      data: {
+        email: verifiedUser.email,
+        role: verifiedUser.role,
+        needsOnboarding: !isUserOnboardingComplete(verifiedUser),
+      },
     };
   } catch (error) {
-    console.error("[wellnessVerifyEmailToken Error]:", error);
+    reportServerError("auth", "verify_email", error);
     return {
       success: false,
       message: "Failed to verify email address. Please try again.",
@@ -392,7 +788,7 @@ export async function wellnessResendVerificationEmail(
 
     const { verifyUrl, delivered } = await issueEmailVerificationForUser(user);
     if (!delivered) {
-      console.error(`[wellnessResendVerificationEmail] Failed to deliver verification email for userId=${user.id}`);
+      reportCriticalIncident("email", "verification_email_failed", "Failed to resend verification email", "error", { userId: user.id });
     }
     return {
       success: true,
@@ -400,7 +796,7 @@ export async function wellnessResendVerificationEmail(
       devVerifyUrl: !isProductionEnv() ? verifyUrl : undefined,
     };
   } catch (error) {
-    console.error("[wellnessResendVerificationEmail Error]:", error);
+    reportServerError("auth", "resend_verification", error);
     return {
       success: false,
       message: "Failed to resend verification email. Please try again.",
@@ -413,7 +809,15 @@ export async function wellnessResendVerificationEmail(
  */
 export async function wellnessSignIn(
   rawInput: unknown
-): Promise<WellnessActionResult<{ id: string; email: string; fullName: string; role: string }>> {
+): Promise<
+  WellnessActionResult<{
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    needsOnboarding?: boolean;
+  }>
+> {
   try {
     const validation = SignInSchema.safeParse(rawInput);
     if (!validation.success) {
@@ -573,11 +977,11 @@ export async function wellnessSignIn(
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        needsOnboarding: !isUserOnboardingComplete(user),
       },
     };
   } catch (error) {
-    const errText = error instanceof Error ? `${error.message}\n${error.stack}` : String(error);
-    console.error("[wellnessSignIn Error]:", errText);
+    reportServerError("auth", "signin", error);
     return {
       success: false,
       message: "An unexpected error occurred during sign in. Please try again.",
@@ -683,7 +1087,7 @@ export async function wellnessRequestPasswordReset(
     });
 
     if (!emailRes.delivered) {
-      console.error(`[wellnessRequestPasswordReset] Failed to deliver email via ${emailRes.provider} for userId=${user.id}`);
+      reportCriticalIncident("email", "password_reset_email_failed", `Failed to deliver password reset email via ${emailRes.provider}`, "error", { userId: user.id, provider: emailRes.provider });
     }
 
     return {
@@ -692,7 +1096,7 @@ export async function wellnessRequestPasswordReset(
       devResetUrl: !isProductionEnv() ? resetUrl : undefined,
     };
   } catch (error) {
-    console.error("[wellnessRequestPasswordReset Error]:", error);
+    reportServerError("auth", "request_password_reset", error);
     return {
       success: false,
       message: "An error occurred while generating password reset request. Please try again.",
@@ -771,7 +1175,7 @@ export async function wellnessConfirmPasswordReset(
       message: "Your password has been updated. Please sign in with your new password.",
     };
   } catch (error) {
-    console.error("[wellnessConfirmPasswordReset Error]:", error);
+    reportServerError("auth", "confirm_password_reset", error);
     return {
       success: false,
       message: "Failed to update password due to a server error. Please try again.",
