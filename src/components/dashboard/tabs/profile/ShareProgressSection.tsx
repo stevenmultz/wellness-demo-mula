@@ -256,7 +256,7 @@ export function ShareProgressSection({
                         )}
                       </div>
                       <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        {share.programs.length} active plan{share.programs.length === 1 ? "" : "s"}
+                        {share.programs.length} active program{share.programs.length === 1 ? "" : "s"}
                       </p>
                     </div>
 

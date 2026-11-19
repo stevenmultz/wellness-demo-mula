@@ -294,7 +294,7 @@ export function GuideAccordionModal({
           ? "Commitment, methodology, gear, and clinical references."
           : activePage === "rules"
             ? "Daily cadence, medical safety, and cohort conduct."
-            : `${coachesList.length} specialists guiding this plan.`;
+            : `${coachesList.length} specialists guiding this program.`;
 
   return createPortal(
     <div
@@ -395,7 +395,7 @@ export function GuideAccordionModal({
               </>
             ) : (
               <div className="py-12 border-y border-zinc-200/80 dark:border-white/10 text-center text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                No live sessions scheduled for this plan.
+                No live sessions scheduled for this program.
               </div>
             )}
           </div>
@@ -549,7 +549,7 @@ export function GuideAccordionModal({
                 </div>
               ) : (
                 <p className="py-5 border-b border-zinc-200/80 dark:border-white/10 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                  No clinical references cited for this plan.
+                  No clinical references cited for this program.
                 </p>
               )}
             </GuideAccordion>

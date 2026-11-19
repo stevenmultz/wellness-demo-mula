@@ -17,23 +17,23 @@ const SIZE_CLASSES: Record<
   { text: string; accent: string; gap: string }
 > = {
   sm: {
-    text: "font-semibold text-xs tracking-[0.14em] leading-none",
-    accent: "font-light text-xs tracking-[0.08em] leading-none opacity-75",
+    text: "font-semibold text-xs tracking-[-0.01em] leading-none",
+    accent: "font-normal text-xs tracking-[-0.01em] leading-none text-zinc-500 dark:text-zinc-400",
     gap: "gap-0",
   },
   md: {
-    text: "font-semibold text-sm tracking-[0.16em] leading-none",
-    accent: "font-light text-sm tracking-[0.08em] leading-none opacity-75",
+    text: "font-semibold text-sm tracking-[-0.01em] leading-none",
+    accent: "font-normal text-sm tracking-[-0.01em] leading-none text-zinc-500 dark:text-zinc-400",
     gap: "gap-0",
   },
   lg: {
-    text: "font-semibold text-base tracking-[0.18em] leading-none",
-    accent: "font-light text-base tracking-[0.08em] leading-none opacity-75",
+    text: "font-semibold text-base tracking-[-0.01em] leading-none",
+    accent: "font-normal text-base tracking-[-0.01em] leading-none text-zinc-500 dark:text-zinc-400",
     gap: "gap-0",
   },
   xl: {
-    text: "font-semibold text-[1.75rem] tracking-[0.16em] leading-none",
-    accent: "font-light text-[1.75rem] tracking-[0.08em] leading-none opacity-70",
+    text: "font-bold text-[1.75rem] tracking-[-0.01em] leading-none",
+    accent: "font-normal text-[1.75rem] tracking-[-0.01em] leading-none text-zinc-500 dark:text-zinc-400",
     gap: "gap-0",
   },
 };
@@ -58,7 +58,7 @@ export function BrandLogo({
 
   return (
     <span
-      className={`select-none inline-flex items-baseline font-geometric lowercase ${preset.gap} ${toneClass} ${className}`}
+      className={`select-none inline-flex items-center font-geometric lowercase ${preset.gap} ${toneClass} ${className}`}
       style={style}
     >
       <span className={preset.text}>{BRAND.wordmarkPrimary}</span>

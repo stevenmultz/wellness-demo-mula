@@ -260,12 +260,12 @@ export function ProgramPreparationWidgets({
         <div className="w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-              Plan Guides
+              Program Guides
             </h2>
             <button
               type="button"
               onClick={() => setShowGuidesInfo(true)}
-              aria-label="Plan guides overview"
+              aria-label="Program guides overview"
               className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
             >
               <Info className="w-3.5 h-3.5" />
@@ -275,24 +275,24 @@ export function ProgramPreparationWidgets({
 
         <InfoPopupModal
           open={showGuidesInfo}
-          title="Plan Guides"
+          title="Program Guides"
           subtitle="Meals, sessions, overview, rules & coaches"
           onClose={() => setShowGuidesInfo(false)}
         >
           <p className="font-semibold text-zinc-950 dark:text-white">
-            What Plan Guides Cover:
+            What Program Guides Cover:
           </p>
           <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
             <li>
               <strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily
-              nutrition principles, hydration targets, and dietary guidance for each plan day.
+              nutrition principles, hydration targets, and dietary guidance for each program day.
             </li>
             <li>
               <strong className="text-zinc-900 dark:text-white">Meetups &amp; Live:</strong>{" "}
               Scheduled Zoom clinics, live coaching sessions, and community meetups.
             </li>
             <li>
-              <strong className="text-zinc-900 dark:text-white">Overview:</strong> Plan
+              <strong className="text-zinc-900 dark:text-white">Overview:</strong> Program
               logistics, methodology, outcomes, required gear, and scientific references.
             </li>
             <li>

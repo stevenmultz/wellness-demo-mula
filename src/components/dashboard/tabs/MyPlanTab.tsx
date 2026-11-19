@@ -226,7 +226,7 @@ export function MyPlanOverview({
   const destinationCommunityUrl =
     communityUrl ||
     buildConciergeWhatsAppUrl(
-      `Hello Concierge, I would like to join the community group for: ${program?.title || "Plan"}`
+      `Hello Concierge, I would like to join the community group for: ${program?.title || "Program"}`
     );
 
   const handleConfirmCommunityProceed = () => {
@@ -358,7 +358,7 @@ export function MyPlanOverview({
             {showSubtabs && (
               <div
                 role="tablist"
-                aria-label="Plan sections"
+                aria-label="Program sections"
                 className={`rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid gap-1 ${
                   isUpcoming ? "grid-cols-1" : "grid-cols-3"
                 }`}

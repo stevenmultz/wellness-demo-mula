@@ -174,7 +174,7 @@ export function MyPlanIndex({
               <div
                 className="flex items-center gap-1.5"
                 role="tablist"
-                aria-label="Active plans switcher"
+                aria-label="Active programs switcher"
               >
                 {visiblePlans.map((pl, idx) => {
                   const isCurrent = idx === safeSlide;
@@ -184,7 +184,7 @@ export function MyPlanIndex({
                       type="button"
                       role="tab"
                       aria-selected={isCurrent}
-                      aria-label={`Plan ${idx + 1}: ${pl.title}`}
+                      aria-label={`Program ${idx + 1}: ${pl.title}`}
                       onClick={() => scrollToSlide(idx)}
                       className={`h-1.5 rounded-full transition-all duration-300 ${
                         isCurrent

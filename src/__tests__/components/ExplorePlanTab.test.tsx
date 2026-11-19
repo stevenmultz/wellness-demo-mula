@@ -131,22 +131,27 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     const pilatesBtn = await screen.findByRole("button", { name: "Pilates" });
     expect(pilatesBtn.textContent?.trim()).toBe("Pilates");
 
-    // Full Online card shows image + title + price only (no Coach Sarah)
+    // Full Online card shows badges (Full Online, commitment, category) + title + price
     const onlineHeading = screen.getByRole("heading", { name: "Morning Pilates Reset" });
     const onlineCard = onlineHeading.closest("button");
     expect(onlineCard?.querySelector("img")).not.toBeNull();
     expect(onlineCard?.textContent).toContain("Morning Pilates Reset");
     expect(onlineCard?.textContent).toContain("250.000");
+    expect(onlineCard?.textContent).toContain("Full Online");
+    expect(onlineCard?.textContent).toContain("20m/day");
+    expect(onlineCard?.textContent).toContain("Pilates");
     expect(onlineCard?.textContent).not.toContain("Coach Sarah");
 
-    // Hybrid card shows image + title + price only (no Coach Dimas or city)
+    // Hybrid card shows badges (Hybrid, city, category) + title + price
     const hybridHeading = screen.getByRole("heading", { name: "Senopati Padel Cohort" });
     const hybridCard = hybridHeading.closest("button");
     expect(hybridCard?.querySelector("img")).not.toBeNull();
     expect(hybridCard?.textContent).toContain("Senopati Padel Cohort");
     expect(hybridCard?.textContent).toContain("650.000");
+    expect(hybridCard?.textContent).toContain("Hybrid");
+    expect(hybridCard?.textContent).toContain("Jakarta Selatan");
+    expect(hybridCard?.textContent).toContain("Padel");
     expect(hybridCard?.textContent).not.toContain("Coach Dimas");
-    expect(hybridCard?.textContent).not.toContain("Jakarta Selatan");
 
     // Community card shows ONLY logo without visible community name text
     const commBtn = screen.getByRole("button", { name: "ZERA Sanctuary" });
@@ -154,9 +159,11 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     expect(commBtn.textContent?.trim()).toBe("");
 
     await waitFor(() => {
+      expect(screen.getByText("Explore All Programs")).toBeDefined();
       expect(screen.getByText("See all sports category")).toBeDefined();
-      expect(screen.getByText("See all full online")).toBeDefined();
-      expect(screen.getByText("See all hybrid")).toBeDefined();
+      expect(screen.getAllByText(/See all/i).length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText("Online Programs").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("Hybrid Programs").length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText("See all community")).toBeDefined();
     });
   });

@@ -99,8 +99,9 @@ export default async function RootLayout({
               }
               #zera-pwa-splash .zera-splash-title {
                 display: inline-flex;
-                align-items: baseline;
-                gap: 0px;
+                align-items: center;
+                justify-content: center;
+                line-height: 1;
               }
             `,
           }}
@@ -119,9 +120,9 @@ export default async function RootLayout({
             <div className="zera-splash-title">
               <span
                 style={{
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: "28px",
-                  letterSpacing: "0.16em",
+                  letterSpacing: "-0.01em",
                   textTransform: "lowercase",
                   lineHeight: 1,
                   color: "#09090b",
@@ -131,12 +132,12 @@ export default async function RootLayout({
               </span>
               <span
                 style={{
-                  fontWeight: 300,
+                  fontWeight: 400,
                   fontSize: "28px",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "-0.01em",
                   textTransform: "lowercase",
                   lineHeight: 1,
-                  color: "#52525b",
+                  color: "#71717a",
                 }}
               >
                 {BRAND.wordmarkAccent}

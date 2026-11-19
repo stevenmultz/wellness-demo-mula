@@ -63,7 +63,7 @@ export function MyPlanIntro({
                     {t.myPlan.filterAll}
                   </span>
                   <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                    {totalCount} {totalCount === 1 ? "plan" : "plans"}
+                    {totalCount} {totalCount === 1 ? t.explore.planSingular : t.explore.planPlural}
                   </span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -79,7 +79,7 @@ export function MyPlanIntro({
                     {t.myPlan.filterOngoing}
                   </span>
                   <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                    {ongoingCount} {ongoingCount === 1 ? "plan" : "plans"}
+                    {ongoingCount} {ongoingCount === 1 ? t.explore.planSingular : t.explore.planPlural}
                   </span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -95,7 +95,7 @@ export function MyPlanIntro({
                     {t.myPlan.filterUpcoming}
                   </span>
                   <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                    {upcomingCount} {upcomingCount === 1 ? "plan" : "plans"}
+                    {upcomingCount} {upcomingCount === 1 ? t.explore.planSingular : t.explore.planPlural}
                   </span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -111,7 +111,7 @@ export function MyPlanIntro({
                     {t.myPlan.filterCompleted}
                   </span>
                   <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                    {completedCount} {completedCount === 1 ? "plan" : "plans"}
+                    {completedCount} {completedCount === 1 ? t.explore.planSingular : t.explore.planPlural}
                   </span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />

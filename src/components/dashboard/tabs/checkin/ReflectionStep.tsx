@@ -417,7 +417,7 @@ export function LockedTaskSummaryView({
             className="py-1.5 text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Plan Dashboard</span>
+            <span>Back to Program Dashboard</span>
           </button>
         </div>
       </div>

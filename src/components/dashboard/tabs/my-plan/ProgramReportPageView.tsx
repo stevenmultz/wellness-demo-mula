@@ -13,14 +13,14 @@ const ISSUE_OPTIONS = [
   "Curriculum or Exercise Difficulty",
   "Audio or Sound Playback Error",
   "Payment / Access Inquiries",
-  "Other Plan Issue",
+  "Other Program Issue",
 ];
 
 const QUIT_OPTIONS = [
   "Schedule / Time Conflict",
   "Injury or Medical Reason",
   "Curriculum Intensity Not a Good Fit",
-  "Switching to Another Plan",
+  "Switching to Another Program",
   "Personal / Other Reason",
 ];
 
@@ -99,7 +99,7 @@ export function ProgramReportPageView({
         className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center">
-          <HeaderBackButton onClick={onClose} ariaLabel="Back to My Plan" />
+          <HeaderBackButton onClick={onClose} ariaLabel="Back to My Program" />
         </div>
       </header>
 
@@ -118,7 +118,7 @@ export function ProgramReportPageView({
               </h2>
               <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-sm mx-auto">
                 {activeTab === "quit"
-                  ? "Your withdrawal request has been received. Our concierge support will review your plan status and reach out within 24 hours."
+                  ? "Your withdrawal request has been received. Our concierge support will review your program status and reach out within 24 hours."
                   : "Thank you for sharing this with us. Our team has logged your report and is reviewing the issue."}
               </p>
             </div>
@@ -135,7 +135,7 @@ export function ProgramReportPageView({
                 onClick={onClose}
                 className="h-11 px-6 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs sm:text-sm font-medium active:scale-[0.98] transition"
               >
-                Back to My Plan
+                Back to My Program
               </button>
             </div>
           </div>
@@ -143,13 +143,13 @@ export function ProgramReportPageView({
           <div className="space-y-6">
             <div className="space-y-2 pb-5 border-b border-zinc-200/80 dark:border-white/10">
               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block truncate">
-                {programTitle || "Plan Support"}
+                {programTitle || "Program Support"}
               </span>
               <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.15]">
                 How can we help you?
               </h1>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Submit a technical or curriculum report, or request a withdrawal from this plan.
+                Submit a technical or curriculum report, or request a withdrawal from this program.
               </p>
             </div>
 
@@ -182,7 +182,7 @@ export function ProgramReportPageView({
                     : "text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                 }`}
               >
-                Quit Plan
+                Quit Program
               </button>
             </div>
 

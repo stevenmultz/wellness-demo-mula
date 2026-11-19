@@ -149,7 +149,7 @@ export function ExplorePlanTab({
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/explore/programs?${params.toString()}`, { signal, cache: "no-store" });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load plans.");
+      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load programs.");
       if (Array.isArray(json.categories)) {
         setMasterCategories(json.categories as string[]);
       }
@@ -159,7 +159,7 @@ export function ExplorePlanTab({
       setState((prev) =>
         prev.status === "ready"
           ? prev
-          : { status: "error", message: err instanceof Error ? err.message : "Failed to load plans." }
+          : { status: "error", message: err instanceof Error ? err.message : "Failed to load programs." }
       );
     } finally {
       if (!signal.aborted) setRefreshing(false);
@@ -239,6 +239,15 @@ export function ExplorePlanTab({
     [catalog]
   );
   const isIntroLoading = state.status === "loading";
+
+  const availableCommunitiesForCategory = useMemo(() => {
+    if (applied.category.length === 0) return [];
+    const selectedCatLower = applied.category.map((c) => c.toLowerCase());
+    const scopedPrograms = catalog.filter((p) =>
+      categoriesOf(p).some((c) => selectedCatLower.includes(c.toLowerCase()))
+    );
+    return buildExploreCommunities(scopedPrograms);
+  }, [catalog, applied.category]);
 
   const coachScopedCatalog = useMemo(() => {
     let list = catalog;
@@ -476,14 +485,14 @@ export function ExplorePlanTab({
             ) : (
               <>
                 {/* =============================================================== */}
-                {/* SECTION 1: EXPLORE ALL PLANS + COMPACT SPORTS CATEGORY SWIPE    */}
+                {/* SECTION 1: EXPLORE ALL PROGRAMS + COMPACT SPORTS CATEGORY SWIPE */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-all-heading" className="space-y-3.5">
                   <h1
                     id="explore-all-heading"
                     className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 leading-tight"
                   >
-                    Explore All Plans
+                    Explore All Programs
                   </h1>
 
                   {/* Horizontal Swipe: 5 Compact Sports Categories + See All */}
@@ -544,21 +553,33 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 2: FULL ONLINE PLANS — IMAGE BG + NAME + PRICE          */}
+                {/* SECTION 2: FULL ONLINE PROGRAMS — IMAGE BG + LABELS + NAME      */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-online-heading" className="space-y-3.5">
-                  <div className="space-y-1">
-                    <h2
-                      id="explore-online-heading"
-                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="space-y-1">
+                      <h2
+                        id="explore-online-heading"
+                        className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                      >
+                        Full Online Programs
+                      </h2>
+                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                        {isId
+                          ? "Latihan 100% online. Mulai kapan saja dan atur jadwal sendiri tanpa terikat lokasi."
+                          : "100% online training. Start anytime and follow at your own pace from anywhere."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
+                      }
+                      className="shrink-0 text-xs font-semibold text-zinc-900 hover:text-zinc-600 inline-flex items-center gap-1 transition cursor-pointer"
                     >
-                      Full Online Plans
-                    </h2>
-                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                      {isId
-                        ? "Latihan 100% online. Mulai kapan saja dan atur jadwal sendiri tanpa terikat lokasi."
-                        : "100% online training. Start anytime and follow at your own pace from anywhere."}
-                    </p>
+                      <span>{isId ? "Lihat Semua" : "See All"}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div
@@ -579,7 +600,7 @@ export function ExplorePlanTab({
                         ))}
                         <div
                           aria-hidden="true"
-                          className="w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
+                          className="w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
                         />
                       </>
                     ) : (
@@ -600,6 +621,22 @@ export function ExplorePlanTab({
                               className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+
+                            {/* Top Badges: Full Online, Commitment Time, Sport Category */}
+                            <div className="absolute top-3 inset-x-3 flex flex-wrap items-center gap-1.5 z-10">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
+                                Full Online
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                                {p.dailyCommitment || `${p.durationDays}d`}
+                              </span>
+                              {p.category && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                                  {p.category}
+                                </span>
+                              )}
+                            </div>
+
                             <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
                               <h3 className="text-sm sm:text-[15px] font-geometric font-semibold text-white leading-snug line-clamp-2">
                                 {p.title}
@@ -617,14 +654,19 @@ export function ExplorePlanTab({
                           onClick={() =>
                             openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
                           }
-                          className="group w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 text-left flex flex-col justify-between active:scale-[0.98] transition cursor-pointer"
+                          className="group w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl border border-zinc-200/90 bg-white hover:bg-zinc-50 p-4 flex flex-col items-center justify-center text-center gap-2.5 active:scale-[0.98] transition cursor-pointer"
                         >
-                          <span className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug block">
-                            See all full online
+                          <span className="w-10 h-10 rounded-full bg-zinc-100 group-hover:bg-zinc-200 flex items-center justify-center transition">
+                            <ArrowRight className="w-4 h-4 text-zinc-900 group-hover:translate-x-0.5 transition-transform" />
                           </span>
-                          <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
-                            <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                          </span>
+                          <div>
+                            <span className="text-xs font-geometric font-semibold text-zinc-900 block">
+                              {isId ? "Lihat Semua" : "See All"}
+                            </span>
+                            <span className="text-[11px] font-mono text-zinc-500 block">
+                              Online Programs
+                            </span>
+                          </div>
                         </button>
                       </>
                     )}
@@ -632,21 +674,33 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 3: HYBRID PLANS — IMAGE BG + NAME + PRICE               */}
+                {/* SECTION 3: HYBRID PROGRAMS — IMAGE BG + LABELS + NAME + PRICE   */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-hybrid-heading" className="space-y-3.5">
-                  <div className="space-y-1">
-                    <h2
-                      id="explore-hybrid-heading"
-                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="space-y-1">
+                      <h2
+                        id="explore-hybrid-heading"
+                        className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                      >
+                        Hybrid Programs
+                      </h2>
+                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                        {isId
+                          ? "Gabungan latihan online dan sesi tatap muka. Cek tanggal mulai dan lokasi sebelum mendaftar."
+                          : "Online training paired with in-person sessions. Check the start date and venue before joining."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
+                      }
+                      className="shrink-0 text-xs font-semibold text-zinc-900 hover:text-zinc-600 inline-flex items-center gap-1 transition cursor-pointer"
                     >
-                      Hybrid Plans
-                    </h2>
-                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                      {isId
-                        ? "Gabungan latihan online dan sesi tatap muka. Cek tanggal mulai dan lokasi sebelum mendaftar."
-                        : "Online training paired with in-person sessions. Check the start date and venue before joining."}
-                    </p>
+                      <span>{isId ? "Lihat Semua" : "See All"}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div
@@ -667,7 +721,7 @@ export function ExplorePlanTab({
                         ))}
                         <div
                           aria-hidden="true"
-                          className="w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
+                          className="w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
                         />
                       </>
                     ) : (
@@ -688,6 +742,22 @@ export function ExplorePlanTab({
                               className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+
+                            {/* Top Badges: Hybrid, City/Location, Sport Category */}
+                            <div className="absolute top-3 inset-x-3 flex flex-wrap items-center gap-1.5 z-10">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
+                                Hybrid
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                                {p.city || "Onsite"}
+                              </span>
+                              {p.category && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                                  {p.category}
+                                </span>
+                              )}
+                            </div>
+
                             <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
                               <h3 className="text-sm sm:text-[15px] font-geometric font-semibold text-white leading-snug line-clamp-2">
                                 {p.title}
@@ -705,14 +775,19 @@ export function ExplorePlanTab({
                           onClick={() =>
                             openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
                           }
-                          className="group w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 text-left flex flex-col justify-between active:scale-[0.98] transition cursor-pointer"
+                          className="group w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl border border-zinc-200/90 bg-white hover:bg-zinc-50 p-4 flex flex-col items-center justify-center text-center gap-2.5 active:scale-[0.98] transition cursor-pointer"
                         >
-                          <span className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug block">
-                            See all hybrid
+                          <span className="w-10 h-10 rounded-full bg-zinc-100 group-hover:bg-zinc-200 flex items-center justify-center transition">
+                            <ArrowRight className="w-4 h-4 text-zinc-900 group-hover:translate-x-0.5 transition-transform" />
                           </span>
-                          <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
-                            <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                          </span>
+                          <div>
+                            <span className="text-xs font-geometric font-semibold text-zinc-900 block">
+                              {isId ? "Lihat Semua" : "See All"}
+                            </span>
+                            <span className="text-[11px] font-mono text-zinc-500 block">
+                              Hybrid Programs
+                            </span>
+                          </div>
                         </button>
                       </>
                     )}
@@ -866,113 +941,111 @@ export function ExplorePlanTab({
           refreshing={refreshing && state.status === "ready"}
         />
 
-        {/* MINIMAL COMPACT COACH FILTER STRIP */}
+        {/* SPORTS CATEGORY FILTER STRIP */}
         <div
           className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-1 pb-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           <button
             type="button"
-            onClick={() => setSelectedCoach(null)}
-            className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
-              !selectedCoach
+            onClick={() => {
+              setApplied((f) => ({ ...f, category: [] }));
+              setDraft((f) => ({ ...f, category: [] }));
+              setSelectedCommunity(null);
+              setPage(1);
+            }}
+            className={`shrink-0 h-8 px-4 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
+              applied.category.length === 0
                 ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                 : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
             }`}
           >
-            {t.explore.allCoaches}
+            {isId ? "Semua Kategori" : "All Categories"}
           </button>
-
-          {availableCoaches.map(({ name, avatar }) => {
-            const isSelected = selectedCoach?.toLowerCase() === name.toLowerCase();
+          {sportsCategoriesWithCounts.map((cat) => {
+            const isSelected = applied.category.some(
+              (c) => c.toLowerCase() === cat.name.toLowerCase()
+            );
             return (
               <button
-                key={name}
+                key={cat.name}
                 type="button"
-                onClick={() => setSelectedCoach(isSelected ? null : name)}
-                className={`shrink-0 h-8 pl-1 pr-3 rounded-full inline-flex items-center gap-2 text-xs font-geometric font-medium transition focus:outline-none ${
+                onClick={() => {
+                  const nextCats = isSelected ? [] : [cat.name];
+                  setApplied((f) => ({ ...f, category: nextCats }));
+                  setDraft((f) => ({ ...f, category: nextCats }));
+                  setSelectedCommunity(null);
+                  setPage(1);
+                }}
+                className={`shrink-0 h-8 px-4 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
                   isSelected
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                     : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatar}
-                  alt={name}
-                  className="w-6 h-6 rounded-full object-cover object-top shrink-0 bg-zinc-200 dark:bg-zinc-800"
-                />
-                <span className="whitespace-nowrap">{name}</span>
+                <span>{cat.name}</span>
               </button>
             );
           })}
+        </div>
 
-          {availableCoaches.length > 0 && (
+        {/* DYNAMIC COMMUNITY FILTER STRIP (SHOWN WHEN SPORTS CATEGORY IS SELECTED) */}
+        {applied.category.length > 0 && availableCommunitiesForCategory.length > 0 && (
+          <div
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-0.5 pb-1 scroll-smooth"
+            style={{ scrollbarWidth: "none" }}
+          >
+            <span className="shrink-0 text-[11px] font-mono uppercase text-zinc-500 pl-1">
+              {isId ? "Komunitas:" : "Community:"}
+            </span>
             <button
               type="button"
               onClick={() => {
-                setCoachSearch("");
-                setCoachPage(1);
-                setMode("coaches");
+                setSelectedCommunity(null);
+                setPage(1);
               }}
-              className="shrink-0 h-8 px-3.5 rounded-full bg-zinc-200/80 hover:bg-zinc-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-geometric font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5 transition active:scale-95"
+              className={`shrink-0 h-7 px-3 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
+                !selectedCommunity
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
+                  : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950"
+              }`}
             >
-              <span>{locale === "id" ? "Lainnya" : "And more"}</span>
-              <ArrowRight className="w-3 h-3" />
+              {isId ? "Semua Komunitas" : "All Communities"}
             </button>
-          )}
-        </div>
-
-          {supported.category.length > 0 && (
-            <div
-              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5 scroll-smooth"
-              style={{ scrollbarWidth: "none" }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setApplied((f) => ({ ...f, category: [] }));
-                  setDraft((f) => ({ ...f, category: [] }));
-                  setPage(1);
-                }}
-                className={`shrink-0 h-7 px-3 rounded-full text-[11px] font-geometric font-medium transition ${
-                  applied.category.length === 0
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
-                    : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
-                }`}
-              >
-                {t.explore.allCategories}
-              </button>
-              {supported.category.map((cat) => {
-                const isSelected = applied.category.some(
-                  (c) => c.toLowerCase() === cat.toLowerCase()
-                );
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      const nextCats = isSelected
-                        ? applied.category.filter(
-                            (c) => c.toLowerCase() !== cat.toLowerCase()
-                          )
-                        : [...applied.category, cat];
-                      setApplied((f) => ({ ...f, category: nextCats }));
-                      setDraft((f) => ({ ...f, category: nextCats }));
-                      setPage(1);
-                    }}
-                    className={`shrink-0 h-7 px-3 rounded-full text-[11px] font-geometric font-medium transition ${
-                      isSelected
-                        ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
-                        : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+            {availableCommunitiesForCategory.map((comm) => {
+              const isSelected = selectedCommunity?.toLowerCase() === comm.name.toLowerCase();
+              return (
+                <button
+                  key={comm.name}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCommunity(isSelected ? null : comm.name);
+                    setPage(1);
+                  }}
+                  className={`shrink-0 h-7 pl-1.5 pr-3 rounded-full inline-flex items-center gap-1.5 text-xs font-geometric font-medium transition focus:outline-none ${
+                    isSelected
+                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
+                      : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/15"
+                  }`}
+                >
+                  {comm.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={comm.logo}
+                      alt={comm.name}
+                      className="w-4 h-4 rounded-full object-cover shrink-0 bg-white"
+                    />
+                  ) : (
+                    <span className="w-4 h-4 rounded-full bg-zinc-300 text-zinc-700 text-[9px] font-bold flex items-center justify-center shrink-0">
+                      {communityMonogram(comm.name)}
+                    </span>
+                  )}
+                  <span className="whitespace-nowrap">{comm.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -1049,230 +1122,59 @@ export function ExplorePlanTab({
 
         {state.status === "ready" && visible.length > 0 && (
           <>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {visible.map((p) => {
-                const meta = getPublicBadgeMeta(p.badge as PublicProgramBadge);
                 const isOnline = p.locationType === "ONLINE";
-                const locLabel = isOnline ? "Online" : "Hybrid";
-                const cityLabel = isOnline ? "Anytime" : p.city;
-                const isExpanded = !!expandedIds[p.id];
 
                 return (
-                  <li
+                  <button
                     key={p.id}
-                    className="rounded-2xl overflow-hidden bg-white dark:bg-[#141414] border border-zinc-300/90 dark:border-white/15 shadow-xs flex flex-col transition-all"
+                    type="button"
+                    onClick={() => onViewDetails(p.id)}
+                    className="group relative w-full h-[240px] sm:h-[260px] rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
                   >
-                    {/* Program Banner Image with Commitment Label */}
-                    <div className="relative h-44 bg-zinc-200 dark:bg-zinc-800 border-b border-zinc-200/80 dark:border-white/10">
-                      <Image
-                        src={p.coverImage || "/image.webp"}
-                        alt=""
-                        fill
-                        sizes="(max-width: 640px) 100vw, 50vw"
-                        unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+                    <Image
+                      src={p.coverImage || (isOnline ? "/test.webp" : "/pic.webp")}
+                      alt={p.title}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 50vw"
+                      unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
-                      {/* Top Badges: Status and Daily Commitment */}
-                      <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-sm">
-                          {meta.label}
+                    {/* Top Badges: Format, Commitment/City, Sport Category */}
+                    <div className="absolute top-3 inset-x-3 flex flex-wrap items-center gap-1.5 z-10">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
+                        {isOnline ? "Full Online" : "Hybrid"}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                        {isOnline
+                          ? p.dailyCommitment || `${p.durationDays}d`
+                          : p.city || "Onsite"}
+                      </span>
+                      {p.category && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                          {p.category}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase bg-black/60 backdrop-blur-md text-white border border-white/20 inline-flex items-center gap-1 shadow-2xs">
-                          <Clock className="w-2.5 h-2.5 text-white/80" />
-                          <span>{p.dailyCommitment || "20–30m/day"}</span>
-                        </span>
-                      </div>
-
-                      {/* Bottom Banner Labels: Location Type, City, and Intensity */}
-                      <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-1.5 flex-wrap text-[10px] font-mono uppercase text-white/95">
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-2.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
-                            {locLabel}
-                          </span>
-                          {cityLabel && (
-                            <span className="px-2.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 inline-flex items-center gap-1">
-                              <MapPin className="w-2.5 h-2.5 text-white/70" />
-                              <span>{cityLabel}</span>
-                            </span>
-                          )}
-                        </div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20">
-                          {intensityOf(p.difficultyLevel)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Card Content with Expandable Dropdown Arrow */}
-                    <div className="p-4 flex-1 flex flex-col justify-between gap-3.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          {(p.organizationName || p.batchNumber) && (
-                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                              {p.organizationName && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                                  {p.organizationLogo && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={p.organizationLogo}
-                                      alt={p.organizationName}
-                                      className="w-4 h-4 rounded-full object-contain bg-white border border-zinc-200/80 shrink-0"
-                                    />
-                                  )}
-                                  <span>{p.organizationName}</span>
-                                </span>
-                              )}
-                              {p.batchNumber ? (
-                                <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase text-zinc-700 dark:text-zinc-200">
-                                  Batch {p.batchNumber}
-                                </span>
-                              ) : null}
-                            </div>
-                          )}
-                          <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-2 leading-snug">
-                            {p.title}
-                          </h3>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">
-                            Coach {p.coachName}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedIds((prev) => ({ ...prev, [p.id]: !prev[p.id] }))
-                          }
-                          aria-expanded={isExpanded}
-                          aria-label={
-                            isExpanded
-                              ? `Hide details for ${p.title}`
-                              : `Show schedule and details for ${p.title}`
-                          }
-                          className="shrink-0 w-8 h-8 rounded-full border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-zinc-600 dark:text-zinc-300 inline-flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-950 dark:hover:text-white transition active:scale-95"
-                        >
-                          <ChevronDown
-                            className={`w-4 h-4 transition-transform duration-200 ${
-                              isExpanded ? "rotate-180 text-zinc-950 dark:text-white" : ""
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/80 dark:bg-white/[0.03] p-3.5 space-y-3 text-xs">
-                          <dl className="space-y-2">
-                            <div className="flex items-start justify-between gap-3">
-                              <dt className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
-                                <Calendar className="w-3.5 h-3.5 shrink-0" />
-                                <span>Schedule</span>
-                              </dt>
-                              <dd className="text-right font-mono tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
-                                {isOnline || !p.startDate
-                                  ? `${t.explore.anytimeAccess} · ${p.durationDays} Modules`
-                                  : `${formatDateWib(p.startDate)} – ${formatDateWib(p.endDate)} · ${p.durationDays}d`}
-                              </dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <dt className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 shrink-0">
-                                <Users className="w-3.5 h-3.5 shrink-0" />
-                                <span>Availability</span>
-                              </dt>
-                              <dd className="text-right font-mono tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
-                                {p.seatsLeft} / {p.maxQuota || p.seatsLeft} spots left
-                                {(p.minQuota ?? 1) > 1 ? ` · Min ${p.minQuota}` : ""}
-                              </dd>
-                            </div>
-                            {p.category && (
-                              <div className="flex items-start justify-between gap-3">
-                                <dt className="text-zinc-500 dark:text-zinc-400 shrink-0">
-                                  {t.explore.categoryPrefix}
-                                </dt>
-                                <dd className="text-right font-medium text-zinc-900 dark:text-zinc-100">
-                                  {p.category}
-                                </dd>
-                              </div>
-                            )}
-                          </dl>
-
-                          <div
-                            className={`grid ${isOnline ? "grid-cols-2" : "grid-cols-3"} gap-2 pt-2.5 border-t border-zinc-200/80 dark:border-white/10 text-center`}
-                          >
-                            <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
-                              <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
-                                {p.trainingDaysTotal ?? 0}
-                              </span>
-                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Training</span>
-                            </div>
-                            {!isOnline && (
-                              <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
-                                <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
-                                  {p.connectDaysTotal ?? 0}
-                                </span>
-                                <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Connect</span>
-                              </div>
-                            )}
-                            <div className="rounded-lg bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 py-1.5 px-2">
-                              <span className="block text-xs font-mono font-semibold tabular-nums text-zinc-950 dark:text-white">
-                                {p.restDaysTotal ?? 0}
-                              </span>
-                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">Rest</span>
-                            </div>
-                          </div>
-                        </div>
                       )}
-
-                      {/* Pricing & Action Buttons */}
-                      <div className="mt-auto pt-3.5 border-t border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-base font-bold text-zinc-950 dark:text-white">
-                              {p.price > 0 ? formatIdr(p.price) : t.common.free}
-                            </span>
-                            {p.discountPercentage && p.discountPercentage > 0 && p.actualPrice && p.actualPrice > p.price ? (
-                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
-                                -{p.discountPercentage}%
-                              </span>
-                            ) : null}
-                          </div>
-                          {p.actualPrice && p.actualPrice > p.price && (
-                            <span className="text-[11px] text-zinc-400 line-through block">
-                              {formatIdr(p.actualPrice)}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onViewDetails(p.id)}
-                            className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-white/20 text-[11px] font-semibold active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
-                          >
-                            {t.common.view}
-                          </button>
-                          {p.canEnroll ? (
-                            <button
-                              type="button"
-                              disabled={registeringId === p.id}
-                              onClick={() => onRegister(p.id)}
-                              className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase disabled:opacity-50 active:scale-95 transition hover:opacity-90"
-                            >
-                              {p.enrollmentStatus === "PENDING"
-                                ? t.common.payNow
-                                : registeringId === p.id
-                                  ? "..."
-                                  : t.common.register}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
                     </div>
-                  </li>
+
+                    {/* Bottom Content: Title & Price */}
+                    <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
+                      <h3 className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-2">
+                        {p.title}
+                      </h3>
+                      <span className="text-xs sm:text-sm font-mono font-medium text-white/95">
+                        {p.price > 0 ? formatIdr(p.price) : t.common.free}
+                      </span>
+                    </div>
+                  </button>
                 );
               })}
-            </ul>
+            </div>
             {pages > 1 && (
-              <nav aria-label="Plan pages" className="flex items-center justify-center gap-1.5 pt-2">
+              <nav aria-label="Program pages" className="flex items-center justify-center gap-1.5 pt-2">
                 <button type="button" disabled={safePage === 1} onClick={() => setPage(safePage - 1)} className="h-9 px-3 rounded-full border border-zinc-200 dark:border-white/15 text-xs disabled:opacity-40 inline-flex items-center gap-1">
                   <ChevronLeft className="w-3.5 h-3.5" /> {t.common.previous}
                 </button>

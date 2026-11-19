@@ -5,7 +5,7 @@ export interface AppleSplashSpec {
   dpr: number;
 }
 
-const SPLASH_VERSION = "v3";
+const SPLASH_VERSION = "v4";
 
 const APPLE_SPLASH_DEVICES: AppleSplashSpec[] = [
   // iPhone SE 2/3, 8, 7, 6s

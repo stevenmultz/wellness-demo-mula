@@ -230,9 +230,9 @@ export function CohortPerformanceCard({
             missed reflections.
           </li>
           <li>
-            <strong className="text-zinc-900 dark:text-white">Plan Consistency:</strong>{" "}
+            <strong className="text-zinc-900 dark:text-white">Program Consistency:</strong>{" "}
             Starts at 100% and decreases proportionally for each skipped or inactive past
-            plan day.
+            program day.
           </li>
         </ul>
       </InfoPopupModal>
@@ -265,7 +265,7 @@ export function CohortPerformanceCard({
         <div className="border-t border-zinc-100 dark:border-white/10" />
         <MetricRow
           icon={<Target className="w-3.5 h-3.5 text-zinc-400" />}
-          label="Plan Consistency"
+          label="Program Consistency"
           pct={consistencyPct}
         />
       </div>

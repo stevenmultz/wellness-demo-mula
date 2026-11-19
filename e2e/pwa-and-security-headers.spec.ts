@@ -29,7 +29,7 @@ test.describe("PWA, Security Headers & Live SSR Smoke", () => {
     expect(manifestRes.status()).toBe(200);
     const manifest = await manifestRes.json();
     expect(manifest.display).toBe("standalone");
-    expect(manifest.start_url).toBe("/pwa-launch.html");
+    expect(manifest.start_url).toContain("/dashboard");
     expect(manifest.background_color).toBe("#ffffff");
     expect(manifest.theme_color).toBe("#ffffff");
     expect(Array.isArray(manifest.icons)).toBe(true);

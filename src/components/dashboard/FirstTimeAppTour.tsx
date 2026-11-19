@@ -61,10 +61,10 @@ export function FirstTimeAppTour({
           icon: Compass,
         },
         {
-          eyebrow: "Langkah 2 • My Plan",
+          eyebrow: "Langkah 2 • Programku",
           title: "Jalankan Check-In Harian Anda",
           description:
-            "Semua program aktif Anda ada di tab My Plan. Di setiap hari, Anda bisa memutar video panduan, mencentang gerakan, mencatat makanan, jam tidur, dan Dear Diary.",
+            "Semua program aktif Anda ada di tab Programku. Di setiap hari, Anda bisa memutar video panduan, mencentang gerakan, mencatat makanan, jam tidur, dan Dear Diary.",
           highlights: [
             "Centang progres harian langsung dari satu layar",
             "Isi checkpoint & pengukuran tubuh yang diminta coach",
@@ -116,15 +116,15 @@ export function FirstTimeAppTour({
           highlights: [
             "Filter by category, intensity, and your city",
             "Preview the syllabus, coaches, and schedule before joining",
-            "Instant QRIS checkout unlocks your plan immediately",
+            "Instant QRIS checkout unlocks your program immediately",
           ],
           icon: Compass,
         },
         {
-          eyebrow: "Step 2 • My Plan",
+          eyebrow: "Step 2 • My Program",
           title: "Complete Your Daily Check-In",
           description:
-            "Your active programs live in My Plan. Follow each day's guided video, workout checklist, meal compliance, sleep log, and Dear Diary.",
+            "Your active programs live in My Program. Follow each day's guided video, workout checklist, meal compliance, sleep log, and Dear Diary.",
           highlights: [
             "Track every daily discipline in one clean flow",
             "Submit coach checkpoints and body measurements",

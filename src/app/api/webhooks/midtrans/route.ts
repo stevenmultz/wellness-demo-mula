@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
         userId: txRecord.userId,
         type: "PAYMENT",
         title: "Payment confirmed",
-        body: `Your QRIS payment for "${txRecord.enrollment.program.title}" is confirmed. Your plan is now active.`,
+        body: `Your QRIS payment for "${txRecord.enrollment.program.title}" is confirmed. Your program is now active.`,
         url: "/dashboard",
         dedupeKey: `payment-active:${txRecord.enrollmentId}`,
       },

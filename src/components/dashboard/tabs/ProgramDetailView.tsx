@@ -208,7 +208,7 @@ export function ProgramDetailView({
         onClick={onOpenPlan}
         className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-medium tracking-wide active:scale-95 transition shadow-sm"
       >
-        Open Plan
+        Open Program
       </button>
     );
   } else if (enrollmentStatus === "PENDING" || badge === "Open Registration") {
@@ -218,7 +218,7 @@ export function ProgramDetailView({
         onClick={onEnroll}
         className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-medium tracking-wide active:scale-95 transition shadow-sm"
       >
-        {enrollmentStatus === "PENDING" ? "Complete Payment" : program.price > 0 ? "Enroll Now" : "Join Plan"}
+        {enrollmentStatus === "PENDING" ? "Complete Payment" : program.price > 0 ? "Enroll Now" : "Join Program"}
       </button>
     );
   } else if (badge === "Coming Soon") {
@@ -270,7 +270,7 @@ export function ProgramDetailView({
 
   const conciergeUrl =
     community ||
-    buildConciergeWhatsAppUrl(`Hello Concierge, I would like to inquire about plan: ${program.title}`);
+    buildConciergeWhatsAppUrl(`Hello Concierge, I would like to inquire about program: ${program.title}`);
 
   const [headerVisible, setHeaderVisible] = useState(true);
   const [overHero, setOverHero] = useState(true);
@@ -379,7 +379,7 @@ export function ProgramDetailView({
       <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-8 sm:pt-10 px-6 sm:px-10 pb-36 max-w-2xl mx-auto w-full flex-1 space-y-4">
         <div className="flex items-center justify-between pb-1">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Plan Overview &amp; Curriculum
+            Program Overview &amp; Curriculum
           </span>
           <button
             type="button"
@@ -391,9 +391,9 @@ export function ProgramDetailView({
         </div>
 
         <div className="space-y-4">
-          {/* 1. PLAN OVERVIEW */}
+          {/* 1. PROGRAM OVERVIEW */}
           <ProgramAccordion
-            title="Plan Overview"
+            title="Program Overview"
             open={openSections.overview}
             onToggle={() => toggleSection("overview")}
           >
@@ -483,7 +483,7 @@ export function ProgramDetailView({
                 <span className="text-zinc-500 dark:text-zinc-400">Cohort Support &amp; Form Feedback</span>
                 <a
                   href={buildConciergeWhatsAppUrl(
-                    `Hello Concierge, I have a question for Coach ${program.coachName} regarding plan: ${program.title}`
+                    `Hello Concierge, I have a question for Coach ${program.coachName} regarding program: ${program.title}`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -513,7 +513,7 @@ export function ProgramDetailView({
                   </dd>
                 </div>
                 <div className="py-3 flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Plan Dates</dt>
+                  <dt className="text-zinc-500 dark:text-zinc-400 text-[11px] font-mono uppercase tracking-wider">Program Dates</dt>
                   <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
                     {isOnline || !program.startDate
                       ? `Flexible · Access Anytime (${totalDays} modules)`
@@ -753,7 +753,7 @@ export function ProgramDetailView({
               {program.programGuidelines && program.programGuidelines.length > 0 && (
                 <div className="pt-3 border-t border-zinc-200/80 dark:border-white/10 space-y-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
-                    Plan Guidelines
+                    Program Guidelines
                   </span>
                   <ol className="space-y-1.5 text-zinc-600 dark:text-zinc-300">
                     {program.programGuidelines.map((guide, idx) => (

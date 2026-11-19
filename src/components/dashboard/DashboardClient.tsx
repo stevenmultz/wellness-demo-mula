@@ -300,7 +300,7 @@ export function DashboardClient({
       if (publicBadge && publicBadge !== "Open Registration") {
         setActionNotice({
           type: "error",
-          text: `Registration is not open for this plan (Status: ${publicBadge}).`,
+          text: `Registration is not open for this program (Status: ${publicBadge}).`,
         });
         setTimeout(() => setActionNotice(null), 4000);
         return;
