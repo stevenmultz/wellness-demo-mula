@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LocaleToggle } from "@/components/common/LocaleToggle";
@@ -18,24 +17,14 @@ const PUBLIC_NAV_KEYS = [
 ] as const;
 
 /**
- * Full-screen mobile background image (< lg) tuned for generous negative space
- * and clean text contrast in both Light Theme and Dark Theme.
+ * Clean solid Light Theme mobile backdrop (no background image).
  */
 export function PublicMobileBackdrop() {
   return (
     <div
       aria-hidden="true"
       className="fixed inset-0 z-0 lg:hidden pointer-events-none bg-[#f6f6f4] dark:bg-[#0e0e0e]"
-    >
-      <Image
-        src="/pic.webp"
-        alt=""
-        fill
-        priority
-        className="object-cover object-center grayscale contrast-[1.04] opacity-[0.10] dark:opacity-[0.15]"
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#f6f6f4]/90 via-[#f6f6f4]/75 to-[#f6f6f4]/95 dark:from-[#0e0e0e]/90 dark:via-[#0e0e0e]/75 dark:to-[#0e0e0e]/95" />
-    </div>
+    />
   );
 }
 

@@ -56,11 +56,13 @@ export function HeaderProfileButton({
   fullName,
   email,
   onClick,
+  light = false,
 }: {
   avatarUrl?: string | null;
   fullName?: string | null;
   email?: string | null;
   onClick: () => void;
+  light?: boolean;
 }) {
   const { t } = useLocale();
   const displayText = email?.trim() || fullName?.trim() || t.nav.profile;
@@ -70,9 +72,17 @@ export function HeaderProfileButton({
       onClick={onClick}
       aria-label={t.nav.profile}
       title={email ? `${t.nav.profile} (${email})` : t.nav.profile}
-      className="shrink-0 max-w-[62vw] sm:max-w-[260px] h-8 pl-1 pr-3 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+      className={`shrink-0 max-w-[62vw] sm:max-w-[260px] h-8 pl-1 pr-3 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition ${
+        light
+          ? "bg-white/15 hover:bg-white/25 backdrop-blur-md border-white/25 text-white drop-shadow-xs"
+          : "bg-white hover:bg-zinc-50 border-zinc-200/90 text-zinc-900 shadow-2xs"
+      }`}
     >
-      <span className="w-6 h-6 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shrink-0">
+      <span
+        className={`w-6 h-6 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${
+          light ? "bg-white/20" : "bg-zinc-100"
+        }`}
+      >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -81,7 +91,7 @@ export function HeaderProfileButton({
             className="w-full h-full object-cover"
           />
         ) : (
-          <User className="w-3.5 h-3.5 text-white" />
+          <User className={`w-3.5 h-3.5 ${light ? "text-white" : "text-zinc-600"}`} />
         )}
       </span>
       <span className="truncate">{displayText}</span>

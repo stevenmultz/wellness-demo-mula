@@ -3,7 +3,7 @@ import { BRAND } from "@/wellness/brand";
 
 export interface BrandLogoProps {
   /** Visual size preset */
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   /** Color tone: "auto" adapts to light/dark theme; "light" forces white text; "dark" forces black text */
   tone?: "auto" | "light" | "dark";
   /** Optional additional classes */
@@ -29,6 +29,11 @@ const SIZE_CLASSES: Record<
   lg: {
     text: "font-semibold text-base tracking-[0.18em] leading-none",
     accent: "font-light text-base tracking-[0.08em] leading-none opacity-75",
+    gap: "gap-0",
+  },
+  xl: {
+    text: "font-semibold text-[1.75rem] tracking-[0.16em] leading-none",
+    accent: "font-light text-[1.75rem] tracking-[0.08em] leading-none opacity-70",
     gap: "gap-0",
   },
 };

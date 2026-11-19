@@ -27,89 +27,94 @@ export function MyPlanIntro({
 
   return (
     <div className="relative flex-1 flex flex-col">
-      {/* True Full-Viewport Background Image */}
-      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none bg-zinc-950">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/test.webp"
-          alt=""
-          className="w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/25" />
-      </div>
-
       <div
         style={{ minHeight: "100dvh" }}
-        className="relative z-10 w-full flex-1 flex flex-col justify-end gap-8 pt-[calc(4.75rem+env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+        className="relative z-10 w-full flex-1 flex flex-col justify-center gap-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))]"
       >
-        <div className="space-y-6 max-w-md">
+        <div className="space-y-6 max-w-lg">
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
-              <span className="w-5 h-px bg-white/50" />
-              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
+              <span className="w-5 h-px bg-zinc-400" />
+              <span className="text-[11px] font-mono font-medium uppercase tracking-[0.14em] text-zinc-500">
                 {t.myPlan.eyebrow}
               </span>
             </div>
-            <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
+            <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-zinc-950 leading-[1.08]">
               {t.myPlan.helloPrefix}, {firstName}
             </h1>
-            <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
+            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-sm">
               {totalCount > 0
                 ? t.myPlan.heroSubtitleActive
                 : t.myPlan.heroSubtitleEmpty}
             </p>
           </div>
 
-          <div className="w-10 h-px bg-white/30" />
+          <div className="w-10 h-px bg-zinc-300" />
 
           {totalCount > 0 ? (
-            <div className="flex flex-col items-start gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => onSelectFilter("all")}
-                className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
+                className="group p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-zinc-400 text-left flex items-center justify-between gap-3 active:scale-[0.99] transition shadow-2xs"
               >
-                <span>{t.myPlan.filterAll}</span>
-                <span className="text-xs font-mono text-white/60 tabular-nums">
-                  ({totalCount})
-                </span>
-                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                <div>
+                  <span className="text-sm font-geometric font-semibold text-zinc-950 block">
+                    {t.myPlan.filterAll}
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
+                    {totalCount} {totalCount === 1 ? "plan" : "plans"}
+                  </span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectFilter("ongoing")}
-                className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                className="group p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-zinc-400 text-left flex items-center justify-between gap-3 active:scale-[0.99] transition shadow-2xs"
               >
-                <span>{t.myPlan.filterOngoing}</span>
-                <span className="text-[11px] font-mono text-white/55 tabular-nums">
-                  ({ongoingCount})
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                <div>
+                  <span className="text-sm font-geometric font-semibold text-zinc-950 block">
+                    {t.myPlan.filterOngoing}
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
+                    {ongoingCount} {ongoingCount === 1 ? "plan" : "plans"}
+                  </span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectFilter("upcoming")}
-                className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                className="group p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-zinc-400 text-left flex items-center justify-between gap-3 active:scale-[0.99] transition shadow-2xs"
               >
-                <span>{t.myPlan.filterUpcoming}</span>
-                <span className="text-[11px] font-mono text-white/55 tabular-nums">
-                  ({upcomingCount})
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                <div>
+                  <span className="text-sm font-geometric font-semibold text-zinc-950 block">
+                    {t.myPlan.filterUpcoming}
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
+                    {upcomingCount} {upcomingCount === 1 ? "plan" : "plans"}
+                  </span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectFilter("completed")}
-                className="group py-1 text-white/85 hover:text-white text-xs sm:text-sm font-geometric font-normal inline-flex items-center gap-2 active:scale-95 transition drop-shadow-xs"
+                className="group p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-zinc-400 text-left flex items-center justify-between gap-3 active:scale-[0.99] transition shadow-2xs"
               >
-                <span>{t.myPlan.filterCompleted}</span>
-                <span className="text-[11px] font-mono text-white/55 tabular-nums">
-                  ({completedCount})
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                <div>
+                  <span className="text-sm font-geometric font-semibold text-zinc-950 block">
+                    {t.myPlan.filterCompleted}
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
+                    {completedCount} {completedCount === 1 ? "plan" : "plans"}
+                  </span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
             </div>
           ) : (
@@ -117,7 +122,7 @@ export function MyPlanIntro({
               <button
                 type="button"
                 onClick={onExplore}
-                className="group px-5 py-2.5 rounded-full bg-white text-zinc-950 hover:bg-white/90 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 shadow-sm active:scale-95 transition"
+                className="group px-5 py-3 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2 shadow-sm active:scale-95 transition"
               >
                 <Compass className="w-4 h-4" />
                 <span>{t.myPlan.explorePlans}</span>

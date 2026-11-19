@@ -295,7 +295,7 @@ export function ProfileTab({
 
   return (
     <>
-      <FloatingHeader visible={headerVisible} transparent={!view && mode === "intro"}>
+      <FloatingHeader visible={headerVisible}>
         {view ? (
           <HeaderBackButton
             onClick={() => {
@@ -305,7 +305,7 @@ export function ProfileTab({
           />
         ) : mode === "intro" ? (
           <>
-            <BrandWordmark light />
+            <BrandWordmark />
             <HeaderProfileButton
               avatarUrl={avatarUrl}
               fullName={form.fullName || user.fullName}
@@ -323,44 +323,33 @@ export function ProfileTab({
 
       {!view && mode === "intro" && (
         <div className="relative flex-1 flex flex-col">
-          {/* True Full-Viewport Background Image */}
-          <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none bg-zinc-950">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/coach3.webp"
-              alt=""
-              className="w-full h-full object-cover object-top"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/25" />
-          </div>
-
           <div
             style={{ minHeight: "100dvh" }}
-            className="relative z-10 w-full flex-1 flex flex-col justify-end gap-8 pt-[calc(4.75rem+env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+            className="relative z-10 w-full flex-1 flex flex-col justify-center gap-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))]"
           >
-            <div className="space-y-6 max-w-md">
+            <div className="space-y-6 max-w-lg">
               <div className="space-y-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-5 h-px bg-white/50" />
-                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
+                  <span className="w-5 h-px bg-zinc-400" />
+                  <span className="text-[11px] font-mono font-medium uppercase tracking-[0.14em] text-zinc-500">
                     {t.profile.eyebrow}
                   </span>
                 </div>
-                <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-white leading-[1.08] drop-shadow-xs">
+                <h1 className="text-4xl sm:text-5xl font-geometric font-light tracking-tight text-zinc-950 leading-[1.08]">
                   {t.profile.title}
                 </h1>
-                <p className="text-xs sm:text-sm text-white/75 leading-relaxed max-w-sm">
+                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-sm">
                   {t.profile.subtitle}
                 </p>
               </div>
 
-              <div className="w-10 h-px bg-white/30" />
+              <div className="w-10 h-px bg-zinc-300" />
 
               <div>
                 <button
                   type="button"
                   onClick={() => setMode("menu")}
-                  className="group py-1 text-white hover:text-white/85 text-sm sm:text-base font-geometric font-medium inline-flex items-center gap-2.5 active:scale-95 transition drop-shadow-xs"
+                  className="group px-5 py-3 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs sm:text-sm font-geometric font-semibold inline-flex items-center gap-2.5 shadow-sm active:scale-95 transition"
                 >
                   <span>{t.profile.openSettings}</span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />

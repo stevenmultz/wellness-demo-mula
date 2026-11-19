@@ -9,7 +9,7 @@ export function ZeraLogoLoading() {
       className="fixed inset-0 w-full h-full z-50 flex flex-col items-center justify-center bg-white text-zinc-950 select-none overflow-hidden"
     >
       <div className="relative z-10 flex items-center justify-center">
-        <BrandLogo size="md" tone="dark" />
+        <BrandLogo size="xl" tone="dark" />
       </div>
     </div>
   );

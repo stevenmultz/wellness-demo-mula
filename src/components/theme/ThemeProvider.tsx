@@ -19,12 +19,14 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLightOnlyRoute = pathname?.startsWith("/dashboard") ?? false;
+  const isLightOnlyRoute =
+    (pathname?.startsWith("/dashboard") ?? false) ||
+    (pathname?.startsWith("/onboarding") ?? false);
   const [theme, setThemeState] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
   const syncThemeMeta = (next: Theme) => {
-    const color = next === "dark" ? "#0e0e0e" : "#f6f6f4";
+    const color = next === "dark" ? "#0e0e0e" : "#ffffff";
     document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
       el.setAttribute("content", color);
     });
@@ -39,11 +41,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
 
     const saved = localStorage.getItem("wellness-theme") as Theme | null;
-    const isDark =
-      saved === "dark" ||
-      (!saved &&
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark = saved === "dark";
 
     if (isDark) {
       setThemeState("dark");

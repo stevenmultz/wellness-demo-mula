@@ -101,9 +101,9 @@ export function MyPlanHeader({
   const showDetailBack = mode === "detail" && !!current;
 
   return (
-    <FloatingHeader visible={visible} transparent={isIntro || overlay}>
+    <FloatingHeader visible={visible} transparent={overlay && !isIntro}>
       {isIntro ? (
-        <BrandWordmark light />
+        <BrandWordmark />
       ) : showDetailBack ? (
         <HeaderBackButton
           onClick={() => onBackToIndex?.()}

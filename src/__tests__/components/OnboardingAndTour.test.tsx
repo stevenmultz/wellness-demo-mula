@@ -30,6 +30,8 @@ import { LocaleProvider } from "@/wellness/i18n/LocaleContext";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { FirstTimeAppTour } from "@/components/dashboard/FirstTimeAppTour";
 import { ZeraLogoLoading } from "@/components/common/ZeraLogoLoading";
+import { buildExploreCommunities } from "@/components/dashboard/tabs/explore/ExploreCommunitiesView";
+import type { ExploreProgram } from "@/components/dashboard/tabs/explore/exploreFilters";
 
 describe("UI Components: Sequential Onboarding Wizard, First-Time App Tour & White Loading Screen", () => {
   beforeEach(() => {
@@ -118,5 +120,68 @@ describe("UI Components: Sequential Onboarding Wizard, First-Time App Tour & Whi
     expect(screen.getByText(/track body progress & preferences/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /start using app/i }));
     expect(onFinish).toHaveBeenCalledWith("all_plan");
+  });
+
+  it("aggregates partner communities accurately for Explore Community section", () => {
+    const sample: ExploreProgram[] = [
+      {
+        id: "p1",
+        title: "Pilates Online",
+        coverImage: null,
+        coachName: "Coach Sarah",
+        organizationName: "ZERA Sanctuary",
+        organizationLogo: "/icon-192.png",
+        organizationVerified: true,
+        startDate: null,
+        endDate: null,
+        registrationDeadline: null,
+        price: 200000,
+        durationDays: 14,
+        locationType: "ONLINE",
+        city: null,
+        seatsLeft: 10,
+        badge: "Open Registration",
+        canEnroll: true,
+        enrollmentStatus: null,
+        difficultyLevel: "BEGINNER",
+        category: "Pilates",
+        dailyCommitment: "20m/day",
+      },
+      {
+        id: "p2",
+        title: "Hybrid Mobility",
+        coverImage: null,
+        coachName: "Coach Elena",
+        organizationName: "ZERA Sanctuary",
+        organizationLogo: null,
+        organizationVerified: true,
+        startDate: "2026-12-01T00:00:00Z",
+        endDate: "2026-12-21T00:00:00Z",
+        registrationDeadline: "2026-11-28T00:00:00Z",
+        price: 350000,
+        durationDays: 21,
+        locationType: "HYBRID",
+        city: "Jakarta Selatan",
+        seatsLeft: 5,
+        badge: "Open Registration",
+        canEnroll: true,
+        enrollmentStatus: null,
+        difficultyLevel: "INTERMEDIATE",
+        category: "Mobility",
+        dailyCommitment: "30m/day",
+      },
+    ];
+
+    const communities = buildExploreCommunities(sample);
+    expect(communities).toHaveLength(1);
+    expect(communities[0]).toMatchObject({
+      name: "ZERA Sanctuary",
+      verified: true,
+      totalPlans: 2,
+      onlineCount: 1,
+      hybridCount: 1,
+      cities: ["Jakarta Selatan"],
+      coaches: ["Coach Sarah", "Coach Elena"],
+    });
   });
 });

@@ -1,14 +1,14 @@
 // ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Single Loading Pipeline)
-const CACHE_NAME = "zera-wellness-pwa-v12";
+const CACHE_NAME = "zera-wellness-pwa-v13";
 
 const STATIC_ASSETS = [
   "/offline.html",
   "/manifest.json",
   "/favicon.svg",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/apple-touch-icon.png",
-  "/image.webp",
+  "/icon-v2-192.png",
+  "/icon-v2-512.png",
+  "/icon-maskable-v2-512.png",
+  "/apple-touch-icon-v2.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -60,13 +60,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Instant Cache-First for splash wallpaper & icons (background-updated when online)
+  // Instant Cache-First for splash & icons (background-updated when online)
   if (
     url.origin === self.location.origin &&
-    (url.pathname === "/image.webp" ||
-      url.pathname === "/icon-192.png" ||
-      url.pathname === "/icon-512.png" ||
-      url.pathname === "/apple-touch-icon.png")
+    (url.pathname.startsWith("/splash/") ||
+      url.pathname === "/icon-v2-192.png" ||
+      url.pathname === "/icon-v2-512.png" ||
+      url.pathname === "/icon-maskable-v2-512.png" ||
+      url.pathname === "/apple-touch-icon-v2.png")
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {

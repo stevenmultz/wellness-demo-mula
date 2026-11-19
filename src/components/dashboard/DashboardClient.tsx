@@ -558,17 +558,13 @@ export function DashboardClient({
         />
       )}
 
-      {/* Bottom Navigation: fixed uniform geometry across all tabs & detail pages; border box strictly on active tab button */}
+      {/* Bottom Navigation: fixed uniform geometry across all tabs & detail pages; clean Light Theme surface */}
       <nav
         aria-label="Primary"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
-        className={`dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 ${
-          isFullBleedFirstPage
-            ? "bg-transparent"
-            : "bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
-        }`}
+        className="dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 bg-[#f6f6f4]/95 backdrop-blur-md border-t border-zinc-200/70"
       >
         <div className="max-w-md mx-auto px-4">
           <div className="h-14 flex items-center gap-1.5">
@@ -581,13 +577,9 @@ export function DashboardClient({
               ] as const
             ).map(({ key, label }) => {
               const active = activeTab === key;
-              const btnStateClass = isFullBleedFirstPage
-                ? active
-                  ? "border-white/50 bg-white/20 text-white font-semibold"
-                  : "border-transparent bg-transparent text-white/75 hover:text-white font-medium"
-                : active
-                  ? "border-zinc-300 dark:border-white/25 bg-white dark:bg-white/15 text-zinc-950 dark:text-white font-semibold shadow-xs"
-                  : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium";
+              const btnStateClass = active
+                ? "border-zinc-300 bg-white text-zinc-950 font-semibold shadow-xs"
+                : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-900 font-medium";
 
               return (
                 <button
