@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
-  BadgeCheck,
   Building2,
   Calendar,
   ChevronDown,
@@ -27,7 +26,6 @@ import {
   FloatingHeader,
   HeaderBackButton,
   HeaderProfileButton,
-  LoadingState,
   PullToRefreshBanner,
   formatDateWib,
   formatIdr,
@@ -57,7 +55,6 @@ import {
 } from "./explore/ExploreCommunitiesView";
 import {
   ExploreCategoriesView,
-  getSportTagline,
   type SportCategoryItem,
 } from "./explore/ExploreCategoriesView";
 
@@ -242,8 +239,7 @@ export function ExplorePlanTab({
     () => catalog.filter((p) => p.locationType === "HYBRID"),
     [catalog]
   );
-  const onlinePlansCount = onlinePrograms.length;
-  const hybridPlansCount = hybridPrograms.length;
+  const isIntroLoading = state.status === "loading";
 
   const coachScopedCatalog = useMemo(() => {
     let list = catalog;
@@ -466,438 +462,383 @@ export function ExplorePlanTab({
       </FloatingHeader>
 
       {mode === "intro" ? (
-        <div className="relative flex-1 flex flex-col">
-          <div className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col gap-9 pt-[calc(5rem+env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+        <div className="relative flex-1 flex flex-col" aria-busy={isIntroLoading}>
+          <div className="relative z-10 w-full flex-1 flex flex-col gap-8 pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))]">
             <PullToRefreshBanner
               pullDistance={pullDistance}
               refreshing={refreshing && state.status === "ready"}
             />
 
-            {/* =============================================================== */}
-            {/* SECTION 1: EXPLORE ALL PLANS + SWIPE 5 SPORTS CATEGORY + SEE ALL*/}
-            {/* =============================================================== */}
-            <section aria-labelledby="explore-all-heading" className="space-y-4">
-              <div className="flex items-end justify-between gap-3">
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block">
-                    {t.explore.eyebrow}
-                  </span>
-                  <h1
-                    id="explore-all-heading"
-                    className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 leading-tight"
-                  >
-                    Explore All Plans
-                  </h1>
-                  <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                    {isId
-                      ? "Jelajahi seluruh program latihan berdasarkan cabang olahraga favorit Anda — pilih kategori di bawah atau lihat semua program sekaligus."
-                      : "Explore structured training plans by your favorite sport — pick a category below or browse all active plans at once."}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => openCatalogWith()}
-                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-zinc-950 hover:opacity-70 transition cursor-pointer pb-0.5"
-                >
-                  <span>{isId ? "Semua Plan" : "All Plans"}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Horizontal Swipe: 5 Sports Categories + See All Sports Category */}
-              <div
-                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
-                style={{ scrollbarWidth: "none" }}
-              >
-                {sportsCategoriesWithCounts.slice(0, 5).map((cat) => (
-                  <button
-                    key={cat.name}
-                    type="button"
-                    onClick={() =>
-                      openCatalogWith({ filters: { ...EMPTY, category: [cat.name] } })
-                    }
-                    className="group w-[156px] sm:w-[172px] shrink-0 snap-start rounded-2xl bg-white border border-zinc-200/85 hover:border-zinc-400 p-4 text-left flex flex-col justify-between gap-4 shadow-2xs active:scale-[0.98] transition cursor-pointer"
-                  >
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                        {cat.count}{" "}
-                        {cat.count === 1 ? t.explore.planSingular : t.explore.planPlural}
+            {state.status === "error" ? (
+              <ErrorState
+                message={state.message}
+                onRetry={() => setReloadKey((k) => k + 1)}
+              />
+            ) : (
+              <>
+                {/* =============================================================== */}
+                {/* SECTION 1: EXPLORE ALL PLANS + SWIPE 5 SPORTS CATEGORY + SEE ALL*/}
+                {/* =============================================================== */}
+                <section aria-labelledby="explore-all-heading" className="space-y-4">
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block">
+                        {t.explore.eyebrow}
                       </span>
-                      <h2 className="text-base font-geometric font-semibold text-zinc-950 leading-snug">
-                        {cat.name}
-                      </h2>
-                      <p className="text-[11px] text-zinc-500 leading-snug line-clamp-2">
-                        {getSportTagline(cat.name, isId)}
+                      <h1
+                        id="explore-all-heading"
+                        className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 leading-tight"
+                      >
+                        Explore All Plans
+                      </h1>
+                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                        {isId
+                          ? "Jelajahi seluruh program latihan berdasarkan cabang olahraga favorit Anda — pilih kategori di bawah atau lihat semua program sekaligus."
+                          : "Explore structured training plans by your favorite sport — pick a category below or browse all active plans at once."}
                       </p>
                     </div>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-900">
-                      <span>{isId ? "Pilih" : "Explore"}</span>
-                      <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </span>
-                  </button>
-                ))}
 
-                {/* Card 6: See All Sports Category */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCategorySearch("");
-                    setMode("categories");
-                  }}
-                  className="group w-[164px] sm:w-[176px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
-                >
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                      {sportsCategoriesWithCounts.length} {isId ? "Cabang" : "Sports"}
-                    </span>
-                    <span className="text-sm font-geometric font-semibold text-white leading-snug block">
-                      See all sports category
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openCatalogWith()}
+                      className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-zinc-950 hover:opacity-70 transition cursor-pointer pb-0.5"
+                    >
+                      <span>{isId ? "Semua Plan" : "All Plans"}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <span className="w-8 h-8 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
-                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              </div>
-            </section>
 
-            {/* =============================================================== */}
-            {/* SECTION 2: FULL ONLINE PLANS — SWIPE 5 + SEE ALL FULL ONLINE    */}
-            {/* =============================================================== */}
-            <section aria-labelledby="explore-online-heading" className="space-y-4">
-              <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                  <Globe className="w-3 h-3" />
-                  <span>{isId ? "Fleksibel • Kapan Saja" : "Flexible • Anytime"}</span>
-                </div>
-                <h2
-                  id="explore-online-heading"
-                  className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                >
-                  Full Online Plans
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                  {isId
-                    ? "100% online, tidak terikat waktu maupun tempat. Semua modul terbuka fleksibel sehingga Anda bebas mulai dan latihan kapan saja sesuai ritme sendiri."
-                    : "100% online with no fixed dates or location. Modules unlock flexibly so you can start and train anytime at your own pace."}
-                </p>
-              </div>
-
-              <div
-                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
-                style={{ scrollbarWidth: "none" }}
-              >
-                {onlinePrograms.slice(0, 5).map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => onViewDetails(p.id)}
-                    className="group w-[252px] sm:w-[272px] shrink-0 snap-start rounded-2xl overflow-hidden bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex flex-col shadow-2xs active:scale-[0.99] transition cursor-pointer"
+                  {/* Horizontal Swipe: 5 Sports Categories (Name Only) + See All */}
+                  <div
+                    role={isIntroLoading ? "status" : undefined}
+                    aria-label={isIntroLoading ? t.explore.loadingPlans : undefined}
+                    className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
+                    style={{ scrollbarWidth: "none" }}
                   >
-                    <div className="relative h-32 w-full bg-zinc-100">
-                      <Image
-                        src={p.coverImage || "/test.webp"}
-                        alt=""
-                        fill
-                        sizes="272px"
-                        unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full bg-white text-zinc-950 text-[9px] font-mono font-semibold uppercase">
-                          {p.category || "Online"}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono uppercase">
-                          {p.durationDays}d · Anytime
-                        </span>
-                      </div>
-                    </div>
+                    {isIntroLoading ? (
+                      <>
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            aria-hidden="true"
+                            className="w-[136px] sm:w-[148px] h-[56px] shrink-0 snap-start rounded-2xl skeleton-block"
+                          />
+                        ))}
+                        <div
+                          aria-hidden="true"
+                          className="w-[196px] sm:w-[208px] h-[56px] shrink-0 snap-start rounded-2xl skeleton-block"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {sportsCategoriesWithCounts.slice(0, 5).map((cat) => (
+                          <button
+                            key={cat.name}
+                            type="button"
+                            onClick={() =>
+                              openCatalogWith({ filters: { ...EMPTY, category: [cat.name] } })
+                            }
+                            className="w-[136px] sm:w-[148px] h-[56px] shrink-0 snap-start rounded-2xl bg-white hover:bg-zinc-100 p-4 flex items-center justify-center text-center active:scale-[0.98] transition cursor-pointer"
+                          >
+                            <span className="text-sm font-geometric font-semibold text-zinc-950 truncate">
+                              {cat.name}
+                            </span>
+                          </button>
+                        ))}
 
-                    <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
-                      <div className="space-y-1">
-                        {p.organizationName && (
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block truncate">
-                            {p.organizationName}
+                        {/* Card 6: See All Sports Category */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCategorySearch("");
+                            setMode("categories");
+                          }}
+                          className="group w-[196px] sm:w-[208px] h-[56px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 flex items-center justify-between gap-2 active:scale-[0.98] transition cursor-pointer"
+                        >
+                          <span className="text-xs sm:text-sm font-geometric font-semibold text-white whitespace-nowrap">
+                            See all sports category
                           </span>
-                        )}
-                        <h3 className="text-sm font-semibold text-zinc-950 line-clamp-2 leading-snug">
-                          {p.title}
-                        </h3>
-                        <p className="text-[11px] text-zinc-500 truncate">
-                          Coach {p.coachName}
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-zinc-950">
-                          {p.price > 0 ? formatIdr(p.price) : t.common.free}
-                        </span>
-                        <span className="text-[10px] font-mono text-zinc-500">
-                          {intensityOf(p.difficultyLevel)}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                          <ArrowRight className="w-4 h-4 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </section>
 
-                {/* Card 6: See All Full Online */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
-                  }
-                  className="group w-[172px] sm:w-[188px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-5 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
-                >
+                {/* =============================================================== */}
+                {/* SECTION 2: FULL ONLINE PLANS — IMAGE BG + NAME + PRICE          */}
+                {/* =============================================================== */}
+                <section aria-labelledby="explore-online-heading" className="space-y-4">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                      {onlinePlansCount}{" "}
-                      {onlinePlansCount === 1 ? t.explore.planSingular : t.explore.planPlural}
-                    </span>
-                    <span className="text-base font-geometric font-semibold text-white leading-snug block">
-                      See all full online
-                    </span>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      {isId ? "Semua program online fleksibel." : "All anytime online plans."}
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                      <Globe className="w-3 h-3" />
+                      <span>{isId ? "Fleksibel • Kapan Saja" : "Flexible • Anytime"}</span>
+                    </div>
+                    <h2
+                      id="explore-online-heading"
+                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                    >
+                      Full Online Plans
+                    </h2>
+                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                      {isId
+                        ? "100% online, tidak terikat waktu maupun tempat. Semua modul terbuka fleksibel sehingga Anda bebas mulai dan latihan kapan saja sesuai ritme sendiri."
+                        : "100% online with no fixed dates or location. Modules unlock flexibly so you can start and train anytime at your own pace."}
                     </p>
                   </div>
-                  <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
-                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              </div>
-            </section>
 
-            {/* =============================================================== */}
-            {/* SECTION 3: HYBRID PLANS — SWIPE 5 + SEE ALL HYBRID              */}
-            {/* =============================================================== */}
-            <section aria-labelledby="explore-hybrid-heading" className="space-y-4">
-              <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                  <MapPin className="w-3 h-3" />
-                  <span>{isId ? "Terjadwal & Tatap Muka" : "Scheduled & Onsite"}</span>
-                </div>
-                <h2
-                  id="explore-hybrid-heading"
-                  className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                >
-                  Hybrid Plans
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                  {isId
-                    ? "Gabungan panduan harian online dan sesi tatap muka bersama coach & cohort. Pastikan cek tanggal mulai, jadwal 00:00 WIB, serta lokasi kota/venue agar tidak terlewat."
-                    : "Combines daily online tracking with live in-person sessions. Check the start date, 00:00 WIB schedule, and city/venue carefully so you don't miss a session."}
-                </p>
-              </div>
-
-              <div
-                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
-                style={{ scrollbarWidth: "none" }}
-              >
-                {hybridPrograms.slice(0, 5).map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => onViewDetails(p.id)}
-                    className="group w-[252px] sm:w-[272px] shrink-0 snap-start rounded-2xl overflow-hidden bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex flex-col shadow-2xs active:scale-[0.99] transition cursor-pointer"
+                  <div
+                    className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
+                    style={{ scrollbarWidth: "none" }}
                   >
-                    <div className="relative h-32 w-full bg-zinc-100">
-                      <Image
-                        src={p.coverImage || "/pic.webp"}
-                        alt=""
-                        fill
-                        sizes="272px"
-                        unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full bg-white text-zinc-950 text-[9px] font-mono font-semibold uppercase">
-                          {p.category || "Hybrid"}
-                        </span>
-                        {p.city && (
-                          <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono inline-flex items-center gap-1 max-w-[130px] truncate">
-                            <MapPin className="w-2.5 h-2.5 shrink-0" />
-                            <span className="truncate">{p.city}</span>
-                          </span>
-                        )}
-                      </div>
-                      {p.startDate && (
-                        <div className="absolute bottom-2 left-2.5">
-                          <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono inline-flex items-center gap-1">
-                            <Calendar className="w-2.5 h-2.5" />
-                            <span>{formatDateWib(p.startDate)}</span>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
-                      <div className="space-y-1">
-                        {p.organizationName && (
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block truncate">
-                            {p.organizationName}
-                          </span>
-                        )}
-                        <h3 className="text-sm font-semibold text-zinc-950 line-clamp-2 leading-snug">
-                          {p.title}
-                        </h3>
-                        <p className="text-[11px] text-zinc-500 truncate">
-                          Coach {p.coachName}
-                        </p>
-                      </div>
-                      <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-zinc-950">
-                          {p.price > 0 ? formatIdr(p.price) : t.common.free}
-                        </span>
-                        <span className="text-[10px] font-mono text-zinc-500">
-                          {p.seatsLeft} {isId ? "slot" : "spots"}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-
-                {/* Card 6: See All Hybrid */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
-                  }
-                  className="group w-[172px] sm:w-[188px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-5 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
-                >
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                      {hybridPlansCount}{" "}
-                      {hybridPlansCount === 1 ? t.explore.planSingular : t.explore.planPlural}
-                    </span>
-                    <span className="text-base font-geometric font-semibold text-white leading-snug block">
-                      See all hybrid
-                    </span>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      {isId ? "Cek tanggal & lokasi tiap cohort." : "Check dates & venues per cohort."}
-                    </p>
-                  </div>
-                  <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
-                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              </div>
-            </section>
-
-            {/* =============================================================== */}
-            {/* SECTION 4: EXPLORE COMMUNITY — SWIPE 5 + SEE ALL COMMUNITY      */}
-            {/* =============================================================== */}
-            <section aria-labelledby="explore-community-heading" className="space-y-4">
-              <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                  <Building2 className="w-3 h-3" />
-                  <span>{isId ? "Komunitas & Studio Resmi" : "Verified Communities & Studios"}</span>
-                </div>
-                <h2
-                  id="explore-community-heading"
-                  className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                >
-                  Explore Community
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                  {isId
-                    ? "Kenali komunitas olahraga, studio partner, dan penyelenggara resmi di balik setiap program agar Anda dapat berlatih bersama ekosistem yang tepat."
-                    : "Discover verified sports communities, partner studios, and official hosts behind every plan so you train with the right circle."}
-                </p>
-              </div>
-
-              <div
-                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
-                style={{ scrollbarWidth: "none" }}
-              >
-                {availableCommunities.slice(0, 5).map((comm) => (
-                  <button
-                    key={comm.name}
-                    type="button"
-                    onClick={() => openCatalogWith({ community: comm.name })}
-                    className="group w-[228px] sm:w-[248px] shrink-0 snap-start rounded-2xl bg-white border border-zinc-200/85 hover:border-zinc-400 p-4 text-left flex flex-col justify-between gap-3.5 shadow-2xs active:scale-[0.98] transition cursor-pointer"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200/80 overflow-hidden flex items-center justify-center shrink-0">
-                          {comm.logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={comm.logo}
-                              alt={comm.name}
-                              className="w-full h-full object-cover"
+                    {isIntroLoading ? (
+                      <>
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            aria-hidden="true"
+                            className="w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex flex-col justify-end gap-2"
+                          >
+                            <div className="h-4 w-4/5 rounded-md bg-zinc-300/70" />
+                            <div className="h-3.5 w-2/5 rounded-md bg-zinc-300/60" />
+                          </div>
+                        ))}
+                        <div
+                          aria-hidden="true"
+                          className="w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {onlinePrograms.slice(0, 5).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => onViewDetails(p.id)}
+                            className="group relative w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
+                          >
+                            <Image
+                              src={p.coverImage || "/test.webp"}
+                              alt={p.title}
+                              fill
+                              sizes="(max-width: 640px) 224px, 244px"
+                              unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
+                              className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
-                          ) : (
-                            <Building2 className="w-4 h-4 text-zinc-500" />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1">
-                            <h3 className="text-sm font-geometric font-semibold text-zinc-950 truncate">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
+                              <h3 className="text-sm sm:text-[15px] font-geometric font-semibold text-white leading-snug line-clamp-2">
+                                {p.title}
+                              </h3>
+                              <span className="text-xs font-mono font-medium text-white/90">
+                                {p.price > 0 ? formatIdr(p.price) : t.common.free}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+
+                        {/* Card 6: See All Full Online */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
+                          }
+                          className="group w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 text-left flex flex-col justify-between active:scale-[0.98] transition cursor-pointer"
+                        >
+                          <span className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug block">
+                            See all full online
+                          </span>
+                          <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
+                            <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
+                          </span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </section>
+
+                {/* =============================================================== */}
+                {/* SECTION 3: HYBRID PLANS — IMAGE BG + NAME + PRICE               */}
+                {/* =============================================================== */}
+                <section aria-labelledby="explore-hybrid-heading" className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                      <MapPin className="w-3 h-3" />
+                      <span>{isId ? "Terjadwal & Tatap Muka" : "Scheduled & Onsite"}</span>
+                    </div>
+                    <h2
+                      id="explore-hybrid-heading"
+                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                    >
+                      Hybrid Plans
+                    </h2>
+                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                      {isId
+                        ? "Gabungan panduan harian online dan sesi tatap muka bersama coach & cohort. Pastikan cek tanggal mulai, jadwal 00:00 WIB, serta lokasi kota/venue agar tidak terlewat."
+                        : "Combines daily online tracking with live in-person sessions. Check the start date, 00:00 WIB schedule, and city/venue carefully so you don't miss a session."}
+                    </p>
+                  </div>
+
+                  <div
+                    className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
+                    style={{ scrollbarWidth: "none" }}
+                  >
+                    {isIntroLoading ? (
+                      <>
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            aria-hidden="true"
+                            className="w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex flex-col justify-end gap-2"
+                          >
+                            <div className="h-4 w-4/5 rounded-md bg-zinc-300/70" />
+                            <div className="h-3.5 w-2/5 rounded-md bg-zinc-300/60" />
+                          </div>
+                        ))}
+                        <div
+                          aria-hidden="true"
+                          className="w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {hybridPrograms.slice(0, 5).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => onViewDetails(p.id)}
+                            className="group relative w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
+                          >
+                            <Image
+                              src={p.coverImage || "/pic.webp"}
+                              alt={p.title}
+                              fill
+                              sizes="(max-width: 640px) 224px, 244px"
+                              unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
+                              className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
+                              <h3 className="text-sm sm:text-[15px] font-geometric font-semibold text-white leading-snug line-clamp-2">
+                                {p.title}
+                              </h3>
+                              <span className="text-xs font-mono font-medium text-white/90">
+                                {p.price > 0 ? formatIdr(p.price) : t.common.free}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+
+                        {/* Card 6: See All Hybrid */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
+                          }
+                          className="group w-[164px] sm:w-[176px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 text-left flex flex-col justify-between active:scale-[0.98] transition cursor-pointer"
+                        >
+                          <span className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug block">
+                            See all hybrid
+                          </span>
+                          <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
+                            <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
+                          </span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </section>
+
+                {/* =============================================================== */}
+                {/* SECTION 4: EXPLORE COMMUNITY — LOGO + COMMUNITY NAME ONLY       */}
+                {/* =============================================================== */}
+                <section aria-labelledby="explore-community-heading" className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                      <Building2 className="w-3 h-3" />
+                      <span>{isId ? "Komunitas & Studio Resmi" : "Verified Communities & Studios"}</span>
+                    </div>
+                    <h2
+                      id="explore-community-heading"
+                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                    >
+                      Explore Community
+                    </h2>
+                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                      {isId
+                        ? "Kenali komunitas olahraga, studio partner, dan penyelenggara resmi di balik setiap program agar Anda dapat berlatih bersama ekosistem yang tepat."
+                        : "Discover verified sports communities, partner studios, and official hosts behind every plan so you train with the right circle."}
+                    </p>
+                  </div>
+
+                  <div
+                    className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
+                    style={{ scrollbarWidth: "none" }}
+                  >
+                    {isIntroLoading ? (
+                      <>
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            aria-hidden="true"
+                            className="w-[200px] sm:w-[216px] h-[76px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex items-center gap-3"
+                          >
+                            <div className="w-11 h-11 rounded-xl bg-zinc-300/70 shrink-0" />
+                            <div className="h-3.5 flex-1 rounded-md bg-zinc-300/70" />
+                          </div>
+                        ))}
+                        <div
+                          aria-hidden="true"
+                          className="w-[176px] sm:w-[188px] h-[76px] shrink-0 snap-start rounded-2xl skeleton-block"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {availableCommunities.slice(0, 5).map((comm) => (
+                          <button
+                            key={comm.name}
+                            type="button"
+                            onClick={() => openCatalogWith({ community: comm.name })}
+                            className="w-[200px] sm:w-[216px] h-[76px] shrink-0 snap-start rounded-2xl bg-white hover:bg-zinc-100 p-4 text-left flex items-center gap-3 active:scale-[0.98] transition cursor-pointer"
+                          >
+                            <div className="w-11 h-11 rounded-xl bg-zinc-100 overflow-hidden flex items-center justify-center shrink-0">
+                              {comm.logo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={comm.logo}
+                                  alt={comm.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Building2 className="w-5 h-5 text-zinc-500" />
+                              )}
+                            </div>
+                            <h3 className="text-sm font-geometric font-semibold text-zinc-950 leading-snug line-clamp-2 min-w-0">
                               {comm.name}
                             </h3>
-                            {comm.verified && (
-                              <BadgeCheck className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
-                            )}
-                          </div>
-                          <span className="text-[10px] font-mono text-zinc-500 block">
-                            {comm.totalPlans}{" "}
-                            {comm.totalPlans === 1 ? t.explore.planSingular : t.explore.planPlural}
-                          </span>
-                        </div>
-                      </div>
+                          </button>
+                        ))}
 
-                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono text-zinc-600">
-                        {comm.onlineCount > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-zinc-100">
-                            {comm.onlineCount} Online
+                        {/* Card 6: See All Community */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCommunitySearch("");
+                            setMode("communities");
+                          }}
+                          className="group w-[176px] sm:w-[188px] h-[76px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 flex items-center justify-between gap-2 active:scale-[0.98] transition cursor-pointer"
+                        >
+                          <span className="text-xs sm:text-sm font-geometric font-semibold text-white leading-snug">
+                            See all community
                           </span>
-                        )}
-                        {comm.hybridCount > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-zinc-100">
-                            {comm.hybridCount} Hybrid
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
-                      <span className="truncate">
-                        {comm.cities[0] || (isId ? "Online · Nasional" : "Online · Anywhere")}
-                      </span>
-                      <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-950 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </div>
-                  </button>
-                ))}
-
-                {/* Card 6: See All Community */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCommunitySearch("");
-                    setMode("communities");
-                  }}
-                  className="group w-[172px] sm:w-[188px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-5 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
-                >
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-                      {availableCommunities.length}{" "}
-                      {isId ? "Komunitas" : availableCommunities.length === 1 ? "Community" : "Communities"}
-                    </span>
-                    <span className="text-base font-geometric font-semibold text-white leading-snug block">
-                      See all community
-                    </span>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      {isId ? "Semua studio & komunitas partner." : "All partner studios & clubs."}
-                    </p>
+                          <ArrowRight className="w-4 h-4 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
-                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              </div>
-            </section>
+                </section>
+              </>
+            )}
           </div>
         </div>
       ) : mode === "categories" ? (
@@ -964,7 +905,7 @@ export function ExplorePlanTab({
         }}
       />
 
-      <div className="space-y-4">
+      <div className="w-full space-y-4">
         <PullToRefreshBanner
           pullDistance={pullDistance}
           refreshing={refreshing && state.status === "ready"}
@@ -972,7 +913,7 @@ export function ExplorePlanTab({
 
         {/* MINIMAL COMPACT COACH FILTER STRIP */}
         <div
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 pb-0.5 scroll-smooth"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-1 pb-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           <button
@@ -1029,7 +970,7 @@ export function ExplorePlanTab({
 
           {supported.category.length > 0 && (
             <div
-              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 scroll-smooth"
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5 scroll-smooth"
               style={{ scrollbarWidth: "none" }}
             >
               <button
@@ -1093,7 +1034,31 @@ export function ExplorePlanTab({
           </div>
         )}
 
-        {state.status === "loading" && <LoadingState label={t.explore.loadingPlans} />}
+        {state.status === "loading" && (
+          <div
+            role="status"
+            aria-label={t.explore.loadingPlans}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+          >
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={idx}
+                aria-hidden="true"
+                className="rounded-2xl overflow-hidden skeleton-block flex flex-col"
+              >
+                <div className="h-44 w-full bg-zinc-300/60" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 w-3/4 rounded-md bg-zinc-300/70" />
+                  <div className="h-3 w-1/3 rounded-md bg-zinc-300/60" />
+                  <div className="pt-2 flex items-center justify-between gap-2">
+                    <div className="h-4 w-24 rounded-md bg-zinc-300/70" />
+                    <div className="h-7 w-20 rounded-full bg-zinc-300/70" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {state.status === "error" && <ErrorState message={state.message} onRetry={() => setReloadKey((k) => k + 1)} />}
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
@@ -1185,7 +1150,7 @@ export function ExplorePlanTab({
                     </div>
 
                     {/* Card Content with Expandable Dropdown Arrow */}
-                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
+                    <div className="p-4 flex-1 flex flex-col justify-between gap-3.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           {(p.organizationName || p.batchNumber) && (

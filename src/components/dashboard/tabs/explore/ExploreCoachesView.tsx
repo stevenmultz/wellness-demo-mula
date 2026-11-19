@@ -45,7 +45,7 @@ export function ExploreCoachesView({
   );
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto pt-2">
+    <div className="w-full space-y-6 pt-2 pb-10">
       <PullToRefreshBanner
         pullDistance={pullDistance}
         refreshing={refreshing && loadStatus === "ready"}
@@ -57,7 +57,21 @@ export function ExploreCoachesView({
         </h1>
       </div>
 
-      {filteredCoaches.length === 0 ? (
+      {loadStatus === "loading" ? (
+        <div
+          role="status"
+          aria-label={t.explore.loadingPlans}
+          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+        >
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="aspect-[3/4] w-full rounded-2xl skeleton-block"
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+      ) : filteredCoaches.length === 0 ? (
         <EmptyState
           title={t.explore.noCoachesTitle}
           description={t.explore.noCoachesDesc}
