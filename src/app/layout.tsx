@@ -7,6 +7,7 @@ import { AuraBackground } from "@/components/ui/AuraBackground";
 import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
 import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
 import { BRAND } from "@/wellness/brand";
+import { APPLE_SPLASH_LINKS } from "@/wellness/pwa/appleSplash";
 import { LocaleProvider } from "@/wellness/i18n/LocaleContext";
 import { getServerLocale } from "@/wellness/i18n/server";
 
@@ -25,31 +26,6 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: BRAND.title,
   description: "Curated daily physical vitality protocols, anti-inflammatory nutrition, and mindful habit tracking.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: BRAND.name,
-    startupImage: [
-      { url: "/splash/splash-750x1334.png", media: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-828x1792.png", media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-1125x2436.png", media: "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1170x2532.png", media: "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1179x2556.png", media: "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1206x2622.png", media: "(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1242x2208.png", media: "(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1242x2688.png", media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1284x2778.png", media: "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1290x2796.png", media: "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1320x2868.png", media: "(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/splash-1488x2266.png", media: "(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-1536x2048.png", media: "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-1640x2360.png", media: "(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-1668x2224.png", media: "(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-1668x2388.png", media: "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/splash-2048x2732.png", media: "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-    ],
-  },
 };
 
 export const viewport: Viewport = {
@@ -70,12 +46,25 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        {/* Static first-byte PWA & Apple splash tags (bypassing Next.js 16 streaming metadata) */}
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="only light" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content={BRAND.name} />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="manifest" href="/manifest.json?v=3" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon-v2.png" />
-        <link rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png?v=3" />
+        {APPLE_SPLASH_LINKS.map((item) => (
+          <link
+            key={item.key}
+            rel="apple-touch-startup-image"
+            href={item.href}
+            media={item.media}
+          />
+        ))}
         <style
           dangerouslySetInnerHTML={{
             __html: `
@@ -83,11 +72,7 @@ export default async function RootLayout({
                 margin: 0;
                 padding: 0;
                 background-color: #ffffff;
-                color-scheme: light;
-              }
-              html.dark, html.dark body {
-                background-color: #0e0e0e;
-                color-scheme: dark;
+                color-scheme: only light;
               }
               #zera-pwa-splash {
                 position: fixed;
@@ -98,8 +83,8 @@ export default async function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #ffffff;
-                color: #09090b;
+                background-color: #ffffff !important;
+                color: #09090b !important;
                 user-select: none;
                 overflow: hidden;
                 transition: opacity 0.28s ease-out;
@@ -122,12 +107,12 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const p=window.location.pathname;const isLightOnly=p.startsWith("/dashboard")||p.startsWith("/onboarding");const t=localStorage.getItem("wellness-theme");const d=!isLightOnly&&t==="dark";if(d){document.documentElement.classList.add("dark")}else{document.documentElement.classList.remove("dark")}const m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",d?"#0e0e0e":"#ffffff")}}catch(e){}`,
+            __html: `try{document.documentElement.classList.remove("dark");localStorage.setItem("wellness-theme","light");var metas=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<metas.length;i++){metas[i].setAttribute("content","#ffffff")}}catch(e){}`,
           }}
         />
       </head>
       <body
-        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] dark:bg-[#0e0e0e] relative overflow-x-clip antialiased`}
+        className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] relative overflow-x-clip antialiased`}
       >
         <div id="zera-pwa-splash" aria-hidden="true">
           <div className="zera-splash-brand">

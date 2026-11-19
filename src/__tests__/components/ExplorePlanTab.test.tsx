@@ -103,7 +103,7 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     expect(screen.queryByText("See all full online")).toBeNull();
   });
 
-  it("renders simple category names, image+name+price plan cards, and logo+name community cards when ready", async () => {
+  it("renders compact category names, image+name+price plan cards, logo-only community cards, and omits removed eyebrows/descriptions", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => samplePayload,
@@ -121,11 +121,17 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
       </LocaleProvider>
     );
 
-    // Sports Category card shows ONLY category name (no plan count, no tagline/caption)
+    // Removed headers/eyebrows/buttons are not rendered
+    expect(screen.queryByText("All Plans")).toBeNull();
+    expect(screen.queryByText(/Flexible • Anytime/i)).toBeNull();
+    expect(screen.queryByText(/Scheduled & Onsite/i)).toBeNull();
+    expect(screen.queryByText(/Verified Communities/i)).toBeNull();
+
+    // Sports Category card shows ONLY category name (compact chip)
     const pilatesBtn = await screen.findByRole("button", { name: "Pilates" });
     expect(pilatesBtn.textContent?.trim()).toBe("Pilates");
 
-    // Full Online card shows image + title + price only (no Coach Sarah or duration badge)
+    // Full Online card shows image + title + price only (no Coach Sarah)
     const onlineHeading = screen.getByRole("heading", { name: "Morning Pilates Reset" });
     const onlineCard = onlineHeading.closest("button");
     expect(onlineCard?.querySelector("img")).not.toBeNull();
@@ -133,7 +139,7 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     expect(onlineCard?.textContent).toContain("250.000");
     expect(onlineCard?.textContent).not.toContain("Coach Sarah");
 
-    // Hybrid card shows image + title + price only (no Coach Dimas, city, or spots count)
+    // Hybrid card shows image + title + price only (no Coach Dimas or city)
     const hybridHeading = screen.getByRole("heading", { name: "Senopati Padel Cohort" });
     const hybridCard = hybridHeading.closest("button");
     expect(hybridCard?.querySelector("img")).not.toBeNull();
@@ -142,11 +148,10 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     expect(hybridCard?.textContent).not.toContain("Coach Dimas");
     expect(hybridCard?.textContent).not.toContain("Jakarta Selatan");
 
-    // Community card shows logo + community name only (no plan counts or badges)
-    const commHeading = screen.getByRole("heading", { name: "ZERA Sanctuary" });
-    const commCard = commHeading.closest("button");
-    expect(commCard?.querySelector("img")).not.toBeNull();
-    expect(commCard?.textContent?.trim()).toBe("ZERA Sanctuary");
+    // Community card shows ONLY logo without visible community name text
+    const commBtn = screen.getByRole("button", { name: "ZERA Sanctuary" });
+    expect(commBtn.querySelector("img")).not.toBeNull();
+    expect(commBtn.textContent?.trim()).toBe("");
 
     await waitFor(() => {
       expect(screen.getByText("See all sports category")).toBeDefined();

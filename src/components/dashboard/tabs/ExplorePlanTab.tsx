@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
-  Building2,
   Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Globe,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -51,6 +49,7 @@ import { ExploreFilterDialog } from "./explore/ExploreFilterDialog";
 import { ExploreCoachesView } from "./explore/ExploreCoachesView";
 import {
   buildExploreCommunities,
+  communityMonogram,
   ExploreCommunitiesView,
 } from "./explore/ExploreCommunitiesView";
 import {
@@ -477,42 +476,21 @@ export function ExplorePlanTab({
             ) : (
               <>
                 {/* =============================================================== */}
-                {/* SECTION 1: EXPLORE ALL PLANS + SWIPE 5 SPORTS CATEGORY + SEE ALL*/}
+                {/* SECTION 1: EXPLORE ALL PLANS + COMPACT SPORTS CATEGORY SWIPE    */}
                 {/* =============================================================== */}
-                <section aria-labelledby="explore-all-heading" className="space-y-4">
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block">
-                        {t.explore.eyebrow}
-                      </span>
-                      <h1
-                        id="explore-all-heading"
-                        className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 leading-tight"
-                      >
-                        Explore All Plans
-                      </h1>
-                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                        {isId
-                          ? "Jelajahi seluruh program latihan berdasarkan cabang olahraga favorit Anda — pilih kategori di bawah atau lihat semua program sekaligus."
-                          : "Explore structured training plans by your favorite sport — pick a category below or browse all active plans at once."}
-                      </p>
-                    </div>
+                <section aria-labelledby="explore-all-heading" className="space-y-3.5">
+                  <h1
+                    id="explore-all-heading"
+                    className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 leading-tight"
+                  >
+                    Explore All Plans
+                  </h1>
 
-                    <button
-                      type="button"
-                      onClick={() => openCatalogWith()}
-                      className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-zinc-950 hover:opacity-70 transition cursor-pointer pb-0.5"
-                    >
-                      <span>{isId ? "Semua Plan" : "All Plans"}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Horizontal Swipe: 5 Sports Categories (Name Only) + See All */}
+                  {/* Horizontal Swipe: 5 Compact Sports Categories + See All */}
                   <div
                     role={isIntroLoading ? "status" : undefined}
                     aria-label={isIntroLoading ? t.explore.loadingPlans : undefined}
-                    className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
+                    className="flex items-center gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
                     style={{ scrollbarWidth: "none" }}
                   >
                     {isIntroLoading ? (
@@ -521,12 +499,12 @@ export function ExplorePlanTab({
                           <div
                             key={idx}
                             aria-hidden="true"
-                            className="w-[136px] sm:w-[148px] h-[56px] shrink-0 snap-start rounded-2xl skeleton-block"
+                            className="w-[88px] sm:w-[96px] h-10 shrink-0 snap-start rounded-xl skeleton-block"
                           />
                         ))}
                         <div
                           aria-hidden="true"
-                          className="w-[196px] sm:w-[208px] h-[56px] shrink-0 snap-start rounded-2xl skeleton-block"
+                          className="w-[168px] h-10 shrink-0 snap-start rounded-xl skeleton-block"
                         />
                       </>
                     ) : (
@@ -538,9 +516,9 @@ export function ExplorePlanTab({
                             onClick={() =>
                               openCatalogWith({ filters: { ...EMPTY, category: [cat.name] } })
                             }
-                            className="w-[136px] sm:w-[148px] h-[56px] shrink-0 snap-start rounded-2xl bg-white hover:bg-zinc-100 p-4 flex items-center justify-center text-center active:scale-[0.98] transition cursor-pointer"
+                            className="h-10 px-4 shrink-0 snap-start rounded-xl bg-white hover:bg-zinc-100 inline-flex items-center justify-center text-center active:scale-[0.98] transition cursor-pointer"
                           >
-                            <span className="text-sm font-geometric font-semibold text-zinc-950 truncate">
+                            <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 whitespace-nowrap">
                               {cat.name}
                             </span>
                           </button>
@@ -553,12 +531,12 @@ export function ExplorePlanTab({
                             setCategorySearch("");
                             setMode("categories");
                           }}
-                          className="group w-[196px] sm:w-[208px] h-[56px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 flex items-center justify-between gap-2 active:scale-[0.98] transition cursor-pointer"
+                          className="group h-10 px-4 shrink-0 snap-start rounded-xl bg-zinc-950 text-white hover:bg-zinc-900 inline-flex items-center gap-1.5 active:scale-[0.98] transition cursor-pointer"
                         >
                           <span className="text-xs sm:text-sm font-geometric font-semibold text-white whitespace-nowrap">
                             See all sports category
                           </span>
-                          <ArrowRight className="w-4 h-4 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+                          <ArrowRight className="w-3.5 h-3.5 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
                         </button>
                       </>
                     )}
@@ -568,12 +546,8 @@ export function ExplorePlanTab({
                 {/* =============================================================== */}
                 {/* SECTION 2: FULL ONLINE PLANS — IMAGE BG + NAME + PRICE          */}
                 {/* =============================================================== */}
-                <section aria-labelledby="explore-online-heading" className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                      <Globe className="w-3 h-3" />
-                      <span>{isId ? "Fleksibel • Kapan Saja" : "Flexible • Anytime"}</span>
-                    </div>
+                <section aria-labelledby="explore-online-heading" className="space-y-3.5">
+                  <div className="space-y-1">
                     <h2
                       id="explore-online-heading"
                       className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
@@ -582,8 +556,8 @@ export function ExplorePlanTab({
                     </h2>
                     <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
                       {isId
-                        ? "100% online, tidak terikat waktu maupun tempat. Semua modul terbuka fleksibel sehingga Anda bebas mulai dan latihan kapan saja sesuai ritme sendiri."
-                        : "100% online with no fixed dates or location. Modules unlock flexibly so you can start and train anytime at your own pace."}
+                        ? "Latihan 100% online. Mulai kapan saja dan atur jadwal sendiri tanpa terikat lokasi."
+                        : "100% online training. Start anytime and follow at your own pace from anywhere."}
                     </p>
                   </div>
 
@@ -660,12 +634,8 @@ export function ExplorePlanTab({
                 {/* =============================================================== */}
                 {/* SECTION 3: HYBRID PLANS — IMAGE BG + NAME + PRICE               */}
                 {/* =============================================================== */}
-                <section aria-labelledby="explore-hybrid-heading" className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                      <MapPin className="w-3 h-3" />
-                      <span>{isId ? "Terjadwal & Tatap Muka" : "Scheduled & Onsite"}</span>
-                    </div>
+                <section aria-labelledby="explore-hybrid-heading" className="space-y-3.5">
+                  <div className="space-y-1">
                     <h2
                       id="explore-hybrid-heading"
                       className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
@@ -674,8 +644,8 @@ export function ExplorePlanTab({
                     </h2>
                     <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
                       {isId
-                        ? "Gabungan panduan harian online dan sesi tatap muka bersama coach & cohort. Pastikan cek tanggal mulai, jadwal 00:00 WIB, serta lokasi kota/venue agar tidak terlewat."
-                        : "Combines daily online tracking with live in-person sessions. Check the start date, 00:00 WIB schedule, and city/venue carefully so you don't miss a session."}
+                        ? "Gabungan latihan online dan sesi tatap muka. Cek tanggal mulai dan lokasi sebelum mendaftar."
+                        : "Online training paired with in-person sessions. Check the start date and venue before joining."}
                     </p>
                   </div>
 
@@ -750,26 +720,15 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 4: EXPLORE COMMUNITY — LOGO + COMMUNITY NAME ONLY       */}
+                {/* SECTION 4: EXPLORE COMMUNITY — LOGO ONLY                        */}
                 {/* =============================================================== */}
-                <section aria-labelledby="explore-community-heading" className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
-                      <Building2 className="w-3 h-3" />
-                      <span>{isId ? "Komunitas & Studio Resmi" : "Verified Communities & Studios"}</span>
-                    </div>
-                    <h2
-                      id="explore-community-heading"
-                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                    >
-                      Explore Community
-                    </h2>
-                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                      {isId
-                        ? "Kenali komunitas olahraga, studio partner, dan penyelenggara resmi di balik setiap program agar Anda dapat berlatih bersama ekosistem yang tepat."
-                        : "Discover verified sports communities, partner studios, and official hosts behind every plan so you train with the right circle."}
-                    </p>
-                  </div>
+                <section aria-labelledby="explore-community-heading" className="space-y-3.5">
+                  <h2
+                    id="explore-community-heading"
+                    className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                  >
+                    Explore Community
+                  </h2>
 
                   <div
                     className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
@@ -781,15 +740,12 @@ export function ExplorePlanTab({
                           <div
                             key={idx}
                             aria-hidden="true"
-                            className="w-[200px] sm:w-[216px] h-[76px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex items-center gap-3"
-                          >
-                            <div className="w-11 h-11 rounded-xl bg-zinc-300/70 shrink-0" />
-                            <div className="h-3.5 flex-1 rounded-md bg-zinc-300/70" />
-                          </div>
+                            className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] shrink-0 snap-start rounded-2xl skeleton-block"
+                          />
                         ))}
                         <div
                           aria-hidden="true"
-                          className="w-[176px] sm:w-[188px] h-[76px] shrink-0 snap-start rounded-2xl skeleton-block"
+                          className="w-[164px] h-[72px] sm:h-[80px] shrink-0 snap-start rounded-2xl skeleton-block"
                         />
                       </>
                     ) : (
@@ -799,23 +755,22 @@ export function ExplorePlanTab({
                             key={comm.name}
                             type="button"
                             onClick={() => openCatalogWith({ community: comm.name })}
-                            className="w-[200px] sm:w-[216px] h-[76px] shrink-0 snap-start rounded-2xl bg-white hover:bg-zinc-100 p-4 text-left flex items-center gap-3 active:scale-[0.98] transition cursor-pointer"
+                            aria-label={comm.name}
+                            title={comm.name}
+                            className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] shrink-0 snap-start rounded-2xl bg-white hover:bg-zinc-100 p-2.5 flex items-center justify-center overflow-hidden active:scale-[0.97] transition cursor-pointer"
                           >
-                            <div className="w-11 h-11 rounded-xl bg-zinc-100 overflow-hidden flex items-center justify-center shrink-0">
-                              {comm.logo ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={comm.logo}
-                                  alt={comm.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Building2 className="w-5 h-5 text-zinc-500" />
-                              )}
-                            </div>
-                            <h3 className="text-sm font-geometric font-semibold text-zinc-950 leading-snug line-clamp-2 min-w-0">
-                              {comm.name}
-                            </h3>
+                            {comm.logo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={comm.logo}
+                                alt={comm.name}
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <span className="text-base sm:text-lg font-geometric font-bold tracking-wider text-zinc-900">
+                                {communityMonogram(comm.name)}
+                              </span>
+                            )}
                           </button>
                         ))}
 
@@ -826,9 +781,9 @@ export function ExplorePlanTab({
                             setCommunitySearch("");
                             setMode("communities");
                           }}
-                          className="group w-[176px] sm:w-[188px] h-[76px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 flex items-center justify-between gap-2 active:scale-[0.98] transition cursor-pointer"
+                          className="group h-[72px] sm:h-[80px] px-4 shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 flex items-center justify-between gap-2 active:scale-[0.98] transition cursor-pointer"
                         >
-                          <span className="text-xs sm:text-sm font-geometric font-semibold text-white leading-snug">
+                          <span className="text-xs sm:text-sm font-geometric font-semibold text-white whitespace-nowrap">
                             See all community
                           </span>
                           <ArrowRight className="w-4 h-4 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />

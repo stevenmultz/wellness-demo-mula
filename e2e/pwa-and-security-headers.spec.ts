@@ -39,6 +39,9 @@ test.describe("PWA, Security Headers & Live SSR Smoke", () => {
     expect(launchRes.status()).toBe(200);
     const launchHtml = await launchRes.text();
     expect(launchHtml).toContain("background-color: #ffffff");
+    expect(launchHtml).toContain("color-scheme: only light");
+    expect(launchHtml).toContain("apple-touch-startup-image");
+    expect(launchHtml).toContain("prefers-color-scheme: dark");
     expect(launchHtml).toContain("zera");
     expect(launchHtml).toContain(".id");
 

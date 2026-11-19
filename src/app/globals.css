@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: only light;
   /* 60% Primary Neutral Canvas */
   --background: #f6f6f4;
   --surface-60: #f6f6f4;

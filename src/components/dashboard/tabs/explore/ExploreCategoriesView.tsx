@@ -44,25 +44,20 @@ export function ExploreCategoriesView({
         refreshing={refreshing && loadStatus === "ready"}
       />
 
-      <div className="space-y-1.5">
-        <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-zinc-500 block">
-          {isId ? "Semua Cabang Olahraga" : "All Sports Categories"}
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950">
-          Sports Category
-        </h1>
-      </div>
+      <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950">
+        Sports Category
+      </h1>
 
       {loadStatus === "loading" ? (
         <div
           role="status"
           aria-label={t.explore.loadingPlans}
-          className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
         >
           {Array.from({ length: 6 }).map((_, idx) => (
             <div
               key={idx}
-              className="h-[56px] rounded-2xl skeleton-block"
+              className="h-10 rounded-xl skeleton-block"
               aria-hidden="true"
             />
           ))}
@@ -88,15 +83,15 @@ export function ExploreCategoriesView({
           }
         />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {filtered.map((cat) => (
             <button
               key={cat.name}
               type="button"
               onClick={() => onSelectCategory(cat.name)}
-              className="h-[56px] p-4 rounded-2xl bg-white hover:bg-zinc-100 flex items-center justify-center text-center transition active:scale-[0.98] cursor-pointer"
+              className="h-10 px-4 rounded-xl bg-white hover:bg-zinc-100 flex items-center justify-center text-center transition active:scale-[0.98] cursor-pointer"
             >
-              <span className="text-sm font-geometric font-semibold text-zinc-950 truncate">
+              <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 truncate">
                 {cat.name}
               </span>
             </button>

@@ -1,9 +1,14 @@
 "use client";
 
-import { Building2 } from "lucide-react";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { EmptyState, PullToRefreshBanner } from "../shared";
 import { splitCoachTokens, type ExploreProgram, type LoadState } from "./exploreFilters";
+
+export function communityMonogram(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  return name.trim().slice(0, 2).toUpperCase() || "Z";
+}
 
 export interface ExploreCommunityItem {
   name: string;
@@ -114,30 +119,22 @@ export function ExploreCommunitiesView({
         refreshing={refreshing && loadStatus === "ready"}
       />
 
-      <div className="space-y-1.5">
-        <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-zinc-500 block">
-          {isId ? "Komunitas & Partner Resmi" : "Verified Communities & Partners"}
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950">
-          {isId ? "Jelajahi Komunitas" : "Explore Community"}
-        </h1>
-      </div>
+      <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950">
+        Explore Community
+      </h1>
 
       {loadStatus === "loading" ? (
         <div
           role="status"
           aria-label={t.explore.loadingPlans}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+          className="grid grid-cols-4 sm:grid-cols-6 gap-3"
         >
-          {Array.from({ length: 6 }).map((_, idx) => (
+          {Array.from({ length: 8 }).map((_, idx) => (
             <div
               key={idx}
-              className="h-[76px] p-4 rounded-2xl skeleton-block flex items-center gap-3"
+              className="aspect-square rounded-2xl skeleton-block"
               aria-hidden="true"
-            >
-              <div className="w-11 h-11 rounded-xl bg-zinc-300/70 shrink-0" />
-              <div className="h-3.5 w-1/2 rounded-md bg-zinc-300/70" />
-            </div>
+            />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -165,29 +162,28 @@ export function ExploreCommunitiesView({
           }
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
           {filtered.map((comm) => (
             <button
               key={comm.name}
               type="button"
               onClick={() => onSelectCommunity(comm.name)}
-              className="h-[76px] p-4 rounded-2xl bg-white hover:bg-zinc-100 text-left flex items-center gap-3 transition active:scale-[0.98] cursor-pointer"
+              aria-label={comm.name}
+              title={comm.name}
+              className="aspect-square p-3 rounded-2xl bg-white hover:bg-zinc-100 flex items-center justify-center overflow-hidden transition active:scale-[0.97] cursor-pointer"
             >
-              <div className="w-11 h-11 rounded-xl bg-zinc-100 overflow-hidden flex items-center justify-center shrink-0">
-                {comm.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={comm.logo}
-                    alt={comm.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Building2 className="w-5 h-5 text-zinc-500" />
-                )}
-              </div>
-              <h2 className="text-sm font-geometric font-semibold text-zinc-950 leading-snug line-clamp-2 min-w-0">
-                {comm.name}
-              </h2>
+              {comm.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={comm.logo}
+                  alt={comm.name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <span className="text-base sm:text-lg font-geometric font-bold tracking-wider text-zinc-900">
+                  {communityMonogram(comm.name)}
+                </span>
+              )}
             </button>
           ))}
         </div>
