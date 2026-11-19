@@ -70,9 +70,12 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon-v2.png" />
+        <link rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png" />
         <style
           dangerouslySetInnerHTML={{
             __html: `
@@ -107,7 +110,7 @@ export default async function RootLayout({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-family: var(--font-geometric), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
               }
               #zera-pwa-splash .zera-splash-title {
                 display: inline-flex;
@@ -132,7 +135,7 @@ export default async function RootLayout({
               <span
                 style={{
                   fontWeight: 600,
-                  fontSize: "1.75rem",
+                  fontSize: "28px",
                   letterSpacing: "0.16em",
                   textTransform: "lowercase",
                   lineHeight: 1,
@@ -144,12 +147,11 @@ export default async function RootLayout({
               <span
                 style={{
                   fontWeight: 300,
-                  fontSize: "1.75rem",
+                  fontSize: "28px",
                   letterSpacing: "0.08em",
                   textTransform: "lowercase",
                   lineHeight: 1,
-                  opacity: 0.7,
-                  color: "#09090b",
+                  color: "#52525b",
                 }}
               >
                 {BRAND.wordmarkAccent}

@@ -69,7 +69,25 @@ const nextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=3600, must-revalidate",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/pwa-launch.html",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/splash/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
           },
         ],
       },
@@ -83,7 +101,7 @@ const nextConfig = {
         ],
       },
       {
-        source: "/:asset(coach\\.webp|coach2\\.webp|coach3\\.webp|image\\.webp|pic\\.webp|test\\.webp|icon-192\\.png|icon-512\\.png|apple-touch-icon\\.png|favicon\\.ico|favicon\\.svg)",
+        source: "/:asset(coach\\.webp|coach2\\.webp|coach3\\.webp|image\\.webp|pic\\.webp|test\\.webp|icon-192\\.png|icon-512\\.png|icon-v2-192\\.png|icon-v2-512\\.png|icon-maskable-v2-512\\.png|apple-touch-icon\\.png|apple-touch-icon-v2\\.png|favicon\\.ico|favicon\\.svg)",
         headers: [
           {
             key: "Cache-Control",

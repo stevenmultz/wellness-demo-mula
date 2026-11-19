@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { mockGetSession, mockFindPrograms, mockFindEnrollments } = vi.hoisted(() => ({
+const { mockGetSession, mockFindPrograms, mockFindEnrollments, mockFindCategories } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockFindPrograms: vi.fn(),
   mockFindEnrollments: vi.fn(),
+  mockFindCategories: vi.fn(async () => [{ name: "Pilates" }, { name: "Padel" }]),
 }));
 
 vi.mock("@/wellness/security/session", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/wellness/db", () => ({
   prisma: {
     program: { findMany: mockFindPrograms },
     programEnrollment: { findMany: mockFindEnrollments },
+    masterCategory: { findMany: mockFindCategories },
   },
 }));
 

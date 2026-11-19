@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
+  BadgeCheck,
   Building2,
   Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Compass,
   Globe,
   MapPin,
   Search,
@@ -55,8 +55,13 @@ import {
   buildExploreCommunities,
   ExploreCommunitiesView,
 } from "./explore/ExploreCommunitiesView";
+import {
+  ExploreCategoriesView,
+  getSportTagline,
+  type SportCategoryItem,
+} from "./explore/ExploreCategoriesView";
 
-export type ExploreViewMode = "intro" | "catalog" | "coaches" | "communities";
+export type ExploreViewMode = "intro" | "catalog" | "categories" | "coaches" | "communities";
 
 export function ExplorePlanTab({
   headerVisible,
@@ -97,7 +102,9 @@ export function ExplorePlanTab({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [coachSearch, setCoachSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
   const [communitySearch, setCommunitySearch] = useState("");
+  const [masterCategories, setMasterCategories] = useState<string[]>([]);
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -147,6 +154,9 @@ export function ExplorePlanTab({
       const res = await fetch(`/api/explore/programs?${params.toString()}`, { signal, cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to load plans.");
+      if (Array.isArray(json.categories)) {
+        setMasterCategories(json.categories as string[]);
+      }
       setState({ status: "ready", programs: json.programs as ExploreProgram[] });
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
@@ -193,32 +203,47 @@ export function ExplorePlanTab({
 
   const availableCommunities = useMemo(() => buildExploreCommunities(catalog), [catalog]);
 
-  const sportsCategoriesWithCounts = useMemo(() => {
-    const map = new Map<string, { name: string; count: number }>();
+  const sportsCategoriesWithCounts = useMemo<SportCategoryItem[]>(() => {
+    const map = new Map<string, SportCategoryItem>();
+    for (const rawName of masterCategories) {
+      const name = rawName.trim();
+      if (!name) continue;
+      map.set(name.toLowerCase(), { name, count: 0, onlineCount: 0, hybridCount: 0 });
+    }
     for (const p of catalog) {
+      const isOnline = p.locationType === "ONLINE";
       for (const cat of categoriesOf(p)) {
         const key = cat.toLowerCase();
         const existing = map.get(key);
         if (existing) {
           existing.count += 1;
+          if (isOnline) existing.onlineCount += 1;
+          else existing.hybridCount += 1;
         } else {
-          map.set(key, { name: cat, count: 1 });
+          map.set(key, {
+            name: cat,
+            count: 1,
+            onlineCount: isOnline ? 1 : 0,
+            hybridCount: isOnline ? 0 : 1,
+          });
         }
       }
     }
     return Array.from(map.values()).sort(
       (a, b) => b.count - a.count || a.name.localeCompare(b.name)
     );
-  }, [catalog]);
+  }, [catalog, masterCategories]);
 
-  const onlinePlansCount = useMemo(
-    () => catalog.filter((p) => p.locationType === "ONLINE").length,
+  const onlinePrograms = useMemo(
+    () => catalog.filter((p) => p.locationType === "ONLINE"),
     [catalog]
   );
-  const hybridPlansCount = useMemo(
-    () => catalog.filter((p) => p.locationType === "HYBRID").length,
+  const hybridPrograms = useMemo(
+    () => catalog.filter((p) => p.locationType === "HYBRID"),
     [catalog]
   );
+  const onlinePlansCount = onlinePrograms.length;
+  const hybridPlansCount = hybridPrograms.length;
 
   const coachScopedCatalog = useMemo(() => {
     let list = catalog;
@@ -332,6 +357,26 @@ export function ExplorePlanTab({
               onClick={() => onOpenProfile?.()}
             />
           </>
+        ) : mode === "categories" ? (
+          <div className="w-full flex items-center gap-2">
+            <HeaderBackButton
+              onClick={() => setMode("intro")}
+              ariaLabel={t.common.back}
+            />
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-zinc-100 border border-zinc-200 px-3 h-9">
+              <Search className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <input
+                type="search"
+                inputMode="search"
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                placeholder={isId ? "Cari cabang olahraga..." : "Search sports category..."}
+                aria-label={isId ? "Cari cabang olahraga" : "Search sports category"}
+                maxLength={100}
+                className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 placeholder:text-xs placeholder:text-zinc-500"
+              />
+            </div>
+          </div>
         ) : mode === "communities" ? (
           <div className="w-full flex items-center gap-2">
             <HeaderBackButton
@@ -422,239 +467,451 @@ export function ExplorePlanTab({
 
       {mode === "intro" ? (
         <div className="relative flex-1 flex flex-col">
-          <div className="relative z-10 w-full max-w-3xl mx-auto flex-1 flex flex-col gap-7 pt-[calc(5rem+env(safe-area-inset-top))] pb-[calc(6.25rem+env(safe-area-inset-bottom))]">
+          <div className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col gap-9 pt-[calc(5rem+env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
             <PullToRefreshBanner
               pullDistance={pullDistance}
               refreshing={refreshing && state.status === "ready"}
             />
 
-            {/* Clean Light Header */}
-            <header className="space-y-2">
-              <div className="flex items-center gap-2.5">
-                <span className="w-5 h-px bg-zinc-400" />
-                <span className="text-[11px] font-mono font-medium uppercase tracking-[0.14em] text-zinc-500">
-                  {t.explore.eyebrow}
-                </span>
+            {/* =============================================================== */}
+            {/* SECTION 1: EXPLORE ALL PLANS + SWIPE 5 SPORTS CATEGORY + SEE ALL*/}
+            {/* =============================================================== */}
+            <section aria-labelledby="explore-all-heading" className="space-y-4">
+              <div className="flex items-end justify-between gap-3">
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block">
+                    {t.explore.eyebrow}
+                  </span>
+                  <h1
+                    id="explore-all-heading"
+                    className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 leading-tight"
+                  >
+                    Explore All Plans
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                    {isId
+                      ? "Jelajahi seluruh program latihan berdasarkan cabang olahraga favorit Anda — pilih kategori di bawah atau lihat semua program sekaligus."
+                      : "Explore structured training plans by your favorite sport — pick a category below or browse all active plans at once."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openCatalogWith()}
+                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-zinc-950 hover:opacity-70 transition cursor-pointer pb-0.5"
+                >
+                  <span>{isId ? "Semua Plan" : "All Plans"}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-geometric font-light tracking-tight text-zinc-950 leading-[1.1]">
-                {t.explore.title}
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-lg">
-                {isId
-                  ? "Temukan program latihan, nutrisi, dan pemulihan sesuai ritme harian Anda — fleksibel secara online maupun terjadwal bersama komunitas."
-                  : "Discover movement, nutrition, and recovery programs built around your rhythm — flexible online or scheduled with a live cohort."}
-              </p>
-            </header>
 
-            {/* =============================================================== */}
-            {/* SECTION 1: EXPLORE ALL PLANS + SPORTS CATEGORY                  */}
-            {/* =============================================================== */}
-            <section aria-labelledby="explore-sec-1" className="space-y-3.5">
-              <span
-                id="explore-sec-1"
-                className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block"
+              {/* Horizontal Swipe: 5 Sports Categories + See All Sports Category */}
+              <div
+                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
+                style={{ scrollbarWidth: "none" }}
               >
-                {isId ? "01 • Semua Program & Kategori" : "01 • All Plans & Sports Category"}
-              </span>
+                {sportsCategoriesWithCounts.slice(0, 5).map((cat) => (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() =>
+                      openCatalogWith({ filters: { ...EMPTY, category: [cat.name] } })
+                    }
+                    className="group w-[156px] sm:w-[172px] shrink-0 snap-start rounded-2xl bg-white border border-zinc-200/85 hover:border-zinc-400 p-4 text-left flex flex-col justify-between gap-4 shadow-2xs active:scale-[0.98] transition cursor-pointer"
+                  >
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                        {cat.count}{" "}
+                        {cat.count === 1 ? t.explore.planSingular : t.explore.planPlural}
+                      </span>
+                      <h2 className="text-base font-geometric font-semibold text-zinc-950 leading-snug">
+                        {cat.name}
+                      </h2>
+                      <p className="text-[11px] text-zinc-500 leading-snug line-clamp-2">
+                        {getSportTagline(cat.name, isId)}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-900">
+                      <span>{isId ? "Pilih" : "Explore"}</span>
+                      <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </span>
+                  </button>
+                ))}
 
-              <button
-                type="button"
-                onClick={() => openCatalogWith()}
-                className="group w-full p-5 sm:p-6 rounded-3xl bg-zinc-950 text-white hover:bg-zinc-900 text-left flex items-start justify-between gap-4 shadow-sm active:scale-[0.99] transition cursor-pointer"
-              >
-                <div className="space-y-2 max-w-xl">
-                  <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-zinc-300">
-                    <Compass className="w-3.5 h-3.5" />
-                    <span>
-                      {state.status === "ready"
-                        ? `${catalog.length} ${catalog.length === 1 ? t.explore.planSingular : t.explore.planPlural}`
-                        : t.common.loading}
+                {/* Card 6: See All Sports Category */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategorySearch("");
+                    setMode("categories");
+                  }}
+                  className="group w-[164px] sm:w-[176px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-4 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
+                >
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                      {sportsCategoriesWithCounts.length} {isId ? "Cabang" : "Sports"}
+                    </span>
+                    <span className="text-sm font-geometric font-semibold text-white leading-snug block">
+                      See all sports category
                     </span>
                   </div>
-                  <h2 className="text-lg sm:text-xl font-geometric font-medium tracking-tight text-white">
-                    {isId ? "Explore All Plans" : "Explore All Plans"}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                    {isId
-                      ? "Lihat seluruh katalog program aktif sekaligus — bandingkan durasi, tingkat intensitas, coach, dan jadwal dalam satu tempat."
-                      : "Browse the complete catalog of active programs at once — compare duration, intensity, coaches, and formats in one place."}
-                  </p>
-                </div>
-                <span className="w-9 h-9 rounded-full bg-white/10 group-hover:bg-white/20 flex items-center justify-center shrink-0 mt-1 transition">
-                  <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
-                </span>
-              </button>
-
-              {/* Sports Category right below Explore All Plans */}
-              <div className="rounded-2xl bg-white border border-zinc-200/85 p-4 sm:p-5 space-y-3 shadow-2xs">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-geometric font-semibold text-zinc-950">
-                    {isId ? "Sports Category" : "Sports Category"}
-                  </h3>
-                  <p className="text-xs text-zinc-500 leading-relaxed">
-                    {isId
-                      ? "Pilih kategori olahraga atau fokus kebugaran untuk langsung melihat program yang relevan."
-                      : "Pick a sport or wellness focus to jump straight to matching programs."}
-                  </p>
-                </div>
-
-                {sportsCategoriesWithCounts.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {sportsCategoriesWithCounts.map(({ name, count }) => (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() =>
-                          openCatalogWith({ filters: { ...EMPTY, category: [name] } })
-                        }
-                        className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#f6f6f4] hover:bg-zinc-950 hover:text-white border border-zinc-200/90 hover:border-zinc-950 text-xs font-medium text-zinc-800 transition active:scale-95 cursor-pointer"
-                      >
-                        <span>{name}</span>
-                        <span className="text-[10px] font-mono opacity-65 tabular-nums">
-                          {count}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-400 font-mono">
-                    {state.status === "loading"
-                      ? t.explore.loadingPlans
-                      : isId
-                        ? "Belum ada kategori yang tersedia."
-                        : "No categories available yet."}
-                  </p>
-                )}
+                  <span className="w-8 h-8 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
+                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </span>
+                </button>
               </div>
             </section>
 
             {/* =============================================================== */}
-            {/* SECTION 2: ONLINE PLANS & HYBRID PLANS                          */}
+            {/* SECTION 2: FULL ONLINE PLANS — SWIPE 5 + SEE ALL FULL ONLINE    */}
             {/* =============================================================== */}
-            <section aria-labelledby="explore-sec-2" className="space-y-3.5">
-              <span
-                id="explore-sec-2"
-                className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block"
-              >
-                {isId ? "02 • Format Program" : "02 • Choose Your Format"}
-              </span>
+            <section aria-labelledby="explore-online-heading" className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                  <Globe className="w-3 h-3" />
+                  <span>{isId ? "Fleksibel • Kapan Saja" : "Flexible • Anytime"}</span>
+                </div>
+                <h2
+                  id="explore-online-heading"
+                  className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                >
+                  Full Online Plans
+                </h2>
+                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                  {isId
+                    ? "100% online, tidak terikat waktu maupun tempat. Semua modul terbuka fleksibel sehingga Anda bebas mulai dan latihan kapan saja sesuai ritme sendiri."
+                    : "100% online with no fixed dates or location. Modules unlock flexibly so you can start and train anytime at your own pace."}
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Explore All Online Plans */}
+              <div
+                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
+                style={{ scrollbarWidth: "none" }}
+              >
+                {onlinePrograms.slice(0, 5).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onViewDetails(p.id)}
+                    className="group w-[252px] sm:w-[272px] shrink-0 snap-start rounded-2xl overflow-hidden bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex flex-col shadow-2xs active:scale-[0.99] transition cursor-pointer"
+                  >
+                    <div className="relative h-32 w-full bg-zinc-100">
+                      <Image
+                        src={p.coverImage || "/test.webp"}
+                        alt=""
+                        fill
+                        sizes="272px"
+                        unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full bg-white text-zinc-950 text-[9px] font-mono font-semibold uppercase">
+                          {p.category || "Online"}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono uppercase">
+                          {p.durationDays}d · Anytime
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+                      <div className="space-y-1">
+                        {p.organizationName && (
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block truncate">
+                            {p.organizationName}
+                          </span>
+                        )}
+                        <h3 className="text-sm font-semibold text-zinc-950 line-clamp-2 leading-snug">
+                          {p.title}
+                        </h3>
+                        <p className="text-[11px] text-zinc-500 truncate">
+                          Coach {p.coachName}
+                        </p>
+                      </div>
+                      <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-zinc-950">
+                          {p.price > 0 ? formatIdr(p.price) : t.common.free}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          {intensityOf(p.difficultyLevel)}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Card 6: See All Full Online */}
                 <button
                   type="button"
                   onClick={() =>
                     openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
                   }
-                  className="group p-5 rounded-3xl bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex flex-col justify-between gap-4 shadow-2xs active:scale-[0.99] transition cursor-pointer"
+                  className="group w-[172px] sm:w-[188px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-5 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
                 >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 text-[10px] font-mono uppercase tracking-wider font-medium">
-                        <Globe className="w-3 h-3" />
-                        <span>{isId ? "Fleksibel • Kapan Saja" : "Flexible • Anytime"}</span>
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-400 tabular-nums">
-                        {onlinePlansCount}
-                      </span>
-                    </div>
-
-                    <h2 className="text-base sm:text-lg font-geometric font-semibold text-zinc-950">
-                      Explore All Online Plans
-                    </h2>
-                    <p className="text-xs text-zinc-600 leading-relaxed">
-                      {isId
-                        ? "Full online, tidak terikat waktu maupun tempat. Semua modul terbuka fleksibel sehingga Anda bebas mulai dan latihan kapan saja sesuai jadwal sendiri."
-                        : "100% online with no fixed dates or location. Modules unlock flexibly so you can start and train whenever it fits your schedule."}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                      {onlinePlansCount}{" "}
+                      {onlinePlansCount === 1 ? t.explore.planSingular : t.explore.planPlural}
+                    </span>
+                    <span className="text-base font-geometric font-semibold text-white leading-snug block">
+                      See all full online
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      {isId ? "Semua program online fleksibel." : "All anytime online plans."}
                     </p>
                   </div>
-
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-950 pt-1">
-                    <span>{isId ? "Lihat Online Plans" : "Browse Online Plans"}</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                  </div>
-                </button>
-
-                {/* Explore All Hybrid Plans */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
-                  }
-                  className="group p-5 rounded-3xl bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex flex-col justify-between gap-4 shadow-2xs active:scale-[0.99] transition cursor-pointer"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 text-[10px] font-mono uppercase tracking-wider font-medium">
-                        <MapPin className="w-3 h-3" />
-                        <span>{isId ? "Terjadwal & Tatap Muka" : "Scheduled & Onsite"}</span>
-                      </span>
-                      <span className="text-[11px] font-mono text-zinc-400 tabular-nums">
-                        {hybridPlansCount}
-                      </span>
-                    </div>
-
-                    <h2 className="text-base sm:text-lg font-geometric font-semibold text-zinc-950">
-                      Explore All Hybrid Plans
-                    </h2>
-                    <p className="text-xs text-zinc-600 leading-relaxed">
-                      {isId
-                        ? "Gabungan panduan harian online dan sesi tatap muka bersama coach & cohort. Pastikan cek tanggal mulai, batas waktu 00:00 WIB, serta lokasi kota/venue agar tidak terlewat."
-                        : "Combines daily online tracking with live in-person sessions. Check the start date, 00:00 WIB schedule, and city/venue carefully so you don't miss a session."}
-                    </p>
-                  </div>
-
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-950 pt-1">
-                    <span>{isId ? "Lihat Hybrid Plans" : "Browse Hybrid Plans"}</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                  </div>
+                  <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
+                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </span>
                 </button>
               </div>
             </section>
 
             {/* =============================================================== */}
-            {/* SECTION 3: EXPLORE COMMUNITY                                    */}
+            {/* SECTION 3: HYBRID PLANS — SWIPE 5 + SEE ALL HYBRID              */}
             {/* =============================================================== */}
-            <section aria-labelledby="explore-sec-3" className="space-y-3.5">
-              <span
-                id="explore-sec-3"
-                className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-400 block"
-              >
-                {isId ? "03 • Komunitas & Ekosistem" : "03 • Community & Partners"}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCommunitySearch("");
-                  setMode("communities");
-                }}
-                className="group w-full p-5 sm:p-6 rounded-3xl bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex items-start justify-between gap-4 shadow-2xs active:scale-[0.99] transition cursor-pointer"
-              >
-                <div className="space-y-2 max-w-xl">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 text-[10px] font-mono uppercase tracking-wider font-medium">
-                    <Building2 className="w-3 h-3" />
-                    <span>
-                      {availableCommunities.length}{" "}
-                      {isId ? "Komunitas Aktif" : availableCommunities.length === 1 ? "Community" : "Communities"}
-                    </span>
-                  </div>
-                  <h2 className="text-base sm:text-lg font-geometric font-semibold text-zinc-950">
-                    Explore Community
-                  </h2>
-                  <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-                    {isId
-                      ? "Kenali komunitas, studio partner, dan penyelenggara resmi di balik setiap program agar Anda dapat berlatih bersama lingkungan yang paling sesuai."
-                      : "Explore verified partner studios, wellness communities, and official hosts behind each program to train with the right circle."}
-                  </p>
+            <section aria-labelledby="explore-hybrid-heading" className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                  <MapPin className="w-3 h-3" />
+                  <span>{isId ? "Terjadwal & Tatap Muka" : "Scheduled & Onsite"}</span>
                 </div>
-                <span className="w-9 h-9 rounded-full bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-700 flex items-center justify-center shrink-0 mt-1 transition">
-                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </span>
-              </button>
+                <h2
+                  id="explore-hybrid-heading"
+                  className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                >
+                  Hybrid Plans
+                </h2>
+                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                  {isId
+                    ? "Gabungan panduan harian online dan sesi tatap muka bersama coach & cohort. Pastikan cek tanggal mulai, jadwal 00:00 WIB, serta lokasi kota/venue agar tidak terlewat."
+                    : "Combines daily online tracking with live in-person sessions. Check the start date, 00:00 WIB schedule, and city/venue carefully so you don't miss a session."}
+                </p>
+              </div>
+
+              <div
+                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
+                style={{ scrollbarWidth: "none" }}
+              >
+                {hybridPrograms.slice(0, 5).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onViewDetails(p.id)}
+                    className="group w-[252px] sm:w-[272px] shrink-0 snap-start rounded-2xl overflow-hidden bg-white border border-zinc-200/85 hover:border-zinc-400 text-left flex flex-col shadow-2xs active:scale-[0.99] transition cursor-pointer"
+                  >
+                    <div className="relative h-32 w-full bg-zinc-100">
+                      <Image
+                        src={p.coverImage || "/pic.webp"}
+                        alt=""
+                        fill
+                        sizes="272px"
+                        unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full bg-white text-zinc-950 text-[9px] font-mono font-semibold uppercase">
+                          {p.category || "Hybrid"}
+                        </span>
+                        {p.city && (
+                          <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono inline-flex items-center gap-1 max-w-[130px] truncate">
+                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate">{p.city}</span>
+                          </span>
+                        )}
+                      </div>
+                      {p.startDate && (
+                        <div className="absolute bottom-2 left-2.5">
+                          <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono inline-flex items-center gap-1">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span>{formatDateWib(p.startDate)}</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+                      <div className="space-y-1">
+                        {p.organizationName && (
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block truncate">
+                            {p.organizationName}
+                          </span>
+                        )}
+                        <h3 className="text-sm font-semibold text-zinc-950 line-clamp-2 leading-snug">
+                          {p.title}
+                        </h3>
+                        <p className="text-[11px] text-zinc-500 truncate">
+                          Coach {p.coachName}
+                        </p>
+                      </div>
+                      <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-zinc-950">
+                          {p.price > 0 ? formatIdr(p.price) : t.common.free}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          {p.seatsLeft} {isId ? "slot" : "spots"}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Card 6: See All Hybrid */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
+                  }
+                  className="group w-[172px] sm:w-[188px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-5 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
+                >
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                      {hybridPlansCount}{" "}
+                      {hybridPlansCount === 1 ? t.explore.planSingular : t.explore.planPlural}
+                    </span>
+                    <span className="text-base font-geometric font-semibold text-white leading-snug block">
+                      See all hybrid
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      {isId ? "Cek tanggal & lokasi tiap cohort." : "Check dates & venues per cohort."}
+                    </p>
+                  </div>
+                  <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
+                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            {/* =============================================================== */}
+            {/* SECTION 4: EXPLORE COMMUNITY — SWIPE 5 + SEE ALL COMMUNITY      */}
+            {/* =============================================================== */}
+            <section aria-labelledby="explore-community-heading" className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500">
+                  <Building2 className="w-3 h-3" />
+                  <span>{isId ? "Komunitas & Studio Resmi" : "Verified Communities & Studios"}</span>
+                </div>
+                <h2
+                  id="explore-community-heading"
+                  className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                >
+                  Explore Community
+                </h2>
+                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                  {isId
+                    ? "Kenali komunitas olahraga, studio partner, dan penyelenggara resmi di balik setiap program agar Anda dapat berlatih bersama ekosistem yang tepat."
+                    : "Discover verified sports communities, partner studios, and official hosts behind every plan so you train with the right circle."}
+                </p>
+              </div>
+
+              <div
+                className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
+                style={{ scrollbarWidth: "none" }}
+              >
+                {availableCommunities.slice(0, 5).map((comm) => (
+                  <button
+                    key={comm.name}
+                    type="button"
+                    onClick={() => openCatalogWith({ community: comm.name })}
+                    className="group w-[228px] sm:w-[248px] shrink-0 snap-start rounded-2xl bg-white border border-zinc-200/85 hover:border-zinc-400 p-4 text-left flex flex-col justify-between gap-3.5 shadow-2xs active:scale-[0.98] transition cursor-pointer"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200/80 overflow-hidden flex items-center justify-center shrink-0">
+                          {comm.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={comm.logo}
+                              alt={comm.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Building2 className="w-4 h-4 text-zinc-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <h3 className="text-sm font-geometric font-semibold text-zinc-950 truncate">
+                              {comm.name}
+                            </h3>
+                            {comm.verified && (
+                              <BadgeCheck className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
+                            )}
+                          </div>
+                          <span className="text-[10px] font-mono text-zinc-500 block">
+                            {comm.totalPlans}{" "}
+                            {comm.totalPlans === 1 ? t.explore.planSingular : t.explore.planPlural}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono text-zinc-600">
+                        {comm.onlineCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-zinc-100">
+                            {comm.onlineCount} Online
+                          </span>
+                        )}
+                        {comm.hybridCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-zinc-100">
+                            {comm.hybridCount} Hybrid
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
+                      <span className="truncate">
+                        {comm.cities[0] || (isId ? "Online · Nasional" : "Online · Anywhere")}
+                      </span>
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-950 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </div>
+                  </button>
+                ))}
+
+                {/* Card 6: See All Community */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommunitySearch("");
+                    setMode("communities");
+                  }}
+                  className="group w-[172px] sm:w-[188px] shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 p-5 text-left flex flex-col justify-between gap-4 shadow-xs active:scale-[0.98] transition cursor-pointer"
+                >
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+                      {availableCommunities.length}{" "}
+                      {isId ? "Komunitas" : availableCommunities.length === 1 ? "Community" : "Communities"}
+                    </span>
+                    <span className="text-base font-geometric font-semibold text-white leading-snug block">
+                      See all community
+                    </span>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      {isId ? "Semua studio & komunitas partner." : "All partner studios & clubs."}
+                    </p>
+                  </div>
+                  <span className="w-9 h-9 rounded-full bg-white/15 group-hover:bg-white/25 inline-flex items-center justify-center transition">
+                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </span>
+                </button>
+              </div>
             </section>
           </div>
         </div>
+      ) : mode === "categories" ? (
+        <ExploreCategoriesView
+          categories={sportsCategoriesWithCounts}
+          search={categorySearch}
+          onResetSearch={() => setCategorySearch("")}
+          onSelectCategory={(name) =>
+            openCatalogWith({ filters: { ...EMPTY, category: [name] } })
+          }
+          pullDistance={pullDistance}
+          refreshing={refreshing}
+          loadStatus={state.status}
+        />
       ) : mode === "communities" ? (
         <ExploreCommunitiesView
           communities={availableCommunities}

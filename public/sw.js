@@ -1,7 +1,8 @@
-// ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Single Loading Pipeline)
-const CACHE_NAME = "zera-wellness-pwa-v13";
+// ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Instant Launch Shell)
+const CACHE_NAME = "zera-wellness-pwa-v14";
 
 const STATIC_ASSETS = [
+  "/pwa-launch.html",
   "/offline.html",
   "/manifest.json",
   "/favicon.svg",
@@ -46,6 +47,28 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/api/") ||
     request.headers.has("next-action")
   ) {
+    return;
+  }
+
+  // Instant 0ms Cache-First for static public PWA launch shell (white screen + zera.id logo)
+  if (url.origin === self.location.origin && url.pathname === "/pwa-launch.html") {
+    event.respondWith(
+      caches.match("/pwa-launch.html").then((cached) => {
+        const networkFetch = fetch(request)
+          .then((res) => {
+            if (res && res.status === 200) {
+              const copy = res.clone();
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put("/pwa-launch.html", copy))
+                .catch(() => {});
+            }
+            return res;
+          })
+          .catch(() => cached || caches.match("/offline.html"));
+        return cached || networkFetch;
+      })
+    );
     return;
   }
 

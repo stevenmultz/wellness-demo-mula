@@ -159,12 +159,20 @@ async function main() {
   // 3. Seed Master Data
   console.log("📦 Seeding Master Directories (Sports, Coaches, Communities, Equipment)...");
   const catPilates = await prisma.masterCategory.create({ data: { name: "Pilates" } });
+  const catYoga = await prisma.masterCategory.create({ data: { name: "Yoga" } });
   const catVolleyball = await prisma.masterCategory.create({ data: { name: "Volleyball" } });
-  const catMobility = await prisma.masterCategory.create({ data: { name: "Mobility & Longevity" } });
-  const catNutrition = await prisma.masterCategory.create({ data: { name: "Nutrition & Gut Health" } });
-  const catBreathwork = await prisma.masterCategory.create({ data: { name: "Breathwork & Sleep" } });
-  const catStrength = await prisma.masterCategory.create({ data: { name: "Strength & Conditioning" } });
-  void catVolleyball;
+  const catBadminton = await prisma.masterCategory.create({ data: { name: "Badminton" } });
+  const catTennis = await prisma.masterCategory.create({ data: { name: "Tennis" } });
+  const catPadel = await prisma.masterCategory.create({ data: { name: "Padel" } });
+  const catBoxing = await prisma.masterCategory.create({ data: { name: "Boxing" } });
+  const catMuayThai = await prisma.masterCategory.create({ data: { name: "Muay Thai" } });
+  const catWorkout = await prisma.masterCategory.create({ data: { name: "Workout" } });
+  const catRunning = await prisma.masterCategory.create({ data: { name: "Running" } });
+  const catMobility = catYoga;
+  const catNutrition = catWorkout;
+  const catBreathwork = catRunning;
+  const catStrength = catBoxing;
+  void [catVolleyball, catBadminton, catTennis, catPadel, catMuayThai];
 
   const coachSarah = await prisma.masterCoach.create({
     data: { name: "Coach Sarah Jenkins, CPT", title: "Senior Mobility & Pilates Specialist" },

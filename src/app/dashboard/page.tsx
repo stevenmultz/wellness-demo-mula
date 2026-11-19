@@ -2,6 +2,7 @@ import type { Viewport } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getWellnessSession } from "@/wellness/security/session";
+import { isUserOnboardingComplete } from "@/wellness/validators/auth";
 import { prisma } from "@/wellness/db";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { ZeraLogoLoading } from "@/components/common/ZeraLogoLoading";
@@ -65,6 +66,9 @@ async function DashboardContent() {
   const session = await getWellnessSession();
   if (!session) {
     redirect("/?auth=signin&target=dashboard");
+  }
+  if (!isUserOnboardingComplete(session)) {
+    redirect("/onboarding");
   }
 
   const locale = await getServerLocale(session.preferredLocale);

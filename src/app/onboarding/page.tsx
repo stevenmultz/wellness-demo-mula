@@ -1,12 +1,22 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getWellnessSession } from "@/wellness/security/session";
 import { isAdminRole } from "@/wellness/security/roles";
 import { isUserOnboardingComplete } from "@/wellness/validators/auth";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { ZeraLogoLoading } from "@/components/common/ZeraLogoLoading";
 
 export const dynamic = "force-dynamic";
 
-export default async function OnboardingPage() {
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<ZeraLogoLoading />}>
+      <OnboardingContent />
+    </Suspense>
+  );
+}
+
+async function OnboardingContent() {
   const session = await getWellnessSession();
 
   if (!session) {

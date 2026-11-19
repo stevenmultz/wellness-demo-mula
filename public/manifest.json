@@ -2,7 +2,7 @@
   "name": "zera.id — Wellness & Movement Community",
   "short_name": "zera.id",
   "description": "Cohort-based wellness community platform with sequential daily curriculum, anti-inflammatory nutrition, and habit tracking.",
-  "start_url": "/dashboard",
+  "start_url": "/pwa-launch.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",

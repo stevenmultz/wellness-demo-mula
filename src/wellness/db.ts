@@ -1,7 +1,30 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { getDatabaseUrl, isDevelopmentEnv } from "./config";
 
-const dbUrl = getDatabaseUrl();
+/**
+ * Ensures PgBouncer-backed serverless URLs do not deadlock on `Promise.all`
+ * queries when `connection_limit=1` is set in env.
+ */
+function normalizePoolUrl(rawUrl: string | undefined): string | undefined {
+  if (!rawUrl) return undefined;
+  try {
+    const parsed = new URL(rawUrl);
+    const isPgBouncer = parsed.searchParams.get("pgbouncer") === "true";
+    const limit = Number.parseInt(parsed.searchParams.get("connection_limit") || "", 10);
+    if (isPgBouncer && (!Number.isFinite(limit) || limit < 5)) {
+      parsed.searchParams.set("connection_limit", "5");
+      if (!parsed.searchParams.has("pool_timeout")) {
+        parsed.searchParams.set("pool_timeout", "20");
+      }
+      return parsed.toString();
+    }
+    return rawUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
+const dbUrl = normalizePoolUrl(getDatabaseUrl());
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;

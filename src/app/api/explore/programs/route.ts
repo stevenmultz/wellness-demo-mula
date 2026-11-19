@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number.parseInt(sp.get("page") || "1", 10) || 1);
     const limit = Math.min(100, Math.max(1, Number.parseInt(sp.get("limit") || "50", 10) || 50));
 
-    const [programs, enrollments] = await Promise.all([
+    const [programs, enrollments, masterCategories] = await Promise.all([
       prisma.program.findMany({
         take: 100,
         where: {
@@ -95,6 +95,12 @@ export async function GET(req: NextRequest) {
         where: { userId: session.userId },
         select: { programId: true, status: true },
       }),
+      prisma.masterCategory
+        ? prisma.masterCategory.findMany({
+            select: { name: true },
+            orderBy: { name: "asc" },
+          })
+        : Promise.resolve([] as Array<{ name: string }>),
     ]);
 
     const enrollmentByProgram = new Map(enrollments.map((e) => [e.programId, e.status]));
@@ -209,6 +215,7 @@ export async function GET(req: NextRequest) {
       {
         success: true,
         programs: pagedItems,
+        categories: masterCategories.map((c) => c.name),
         pagination: {
           page,
           limit,

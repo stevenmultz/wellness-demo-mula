@@ -45,11 +45,16 @@ export const FORMAT_OPTIONS = [
 
 export const INTENSITY_OPTIONS = ["Low", "Moderate", "High", "Very High"] as const;
 export const CATEGORY_OPTIONS = [
-  "Fitness",
-  "Nutrition",
-  "Mental Wellness",
-  "Lifestyle",
-  "Personal Development",
+  "Pilates",
+  "Yoga",
+  "Volleyball",
+  "Badminton",
+  "Tennis",
+  "Padel",
+  "Boxing",
+  "Muay Thai",
+  "Workout",
+  "Running",
 ] as const;
 export const DURATION_OPTIONS = [
   "7 Days",

@@ -22,15 +22,25 @@ test.describe("PWA, Security Headers & Live SSR Smoke", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("serves valid PWA manifest.json, uncached sw.js, and offline.html fallback", async ({
+  test("serves valid PWA manifest.json, instant white pwa-launch.html shell, uncached sw.js, and offline.html fallback", async ({
     request,
   }) => {
     const manifestRes = await request.get("/manifest.json");
     expect(manifestRes.status()).toBe(200);
     const manifest = await manifestRes.json();
     expect(manifest.display).toBe("standalone");
+    expect(manifest.start_url).toBe("/pwa-launch.html");
+    expect(manifest.background_color).toBe("#ffffff");
+    expect(manifest.theme_color).toBe("#ffffff");
     expect(Array.isArray(manifest.icons)).toBe(true);
     expect(manifest.icons.length).toBeGreaterThan(0);
+
+    const launchRes = await request.get("/pwa-launch.html");
+    expect(launchRes.status()).toBe(200);
+    const launchHtml = await launchRes.text();
+    expect(launchHtml).toContain("background-color: #ffffff");
+    expect(launchHtml).toContain("zera");
+    expect(launchHtml).toContain(".id");
 
     const swRes = await request.get("/sw.js");
     expect(swRes.status()).toBe(200);

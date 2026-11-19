@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="color-scheme" content="light" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>zera.id</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #ffffff;
+      color: #09090b;
+      color-scheme: light;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    .splash {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #ffffff;
+    }
+    .wordmark {
+      display: inline-flex;
+      align-items: baseline;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 28px;
+      line-height: 1;
+      text-transform: lowercase;
+      color: #09090b;
+    }
+    .wordmark-primary {
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      color: #09090b;
+    }
+    .wordmark-accent {
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      color: #52525b;
+    }
+  </style>
+</head>
+<body>
+  <div class="splash" role="status" aria-label="Loading zera.id">
+    <span class="wordmark">
+      <span class="wordmark-primary">zera</span><span class="wordmark-accent">.id</span>
+    </span>
+  </div>
+  <script>
+    (function () {
+      var target = "/dashboard";
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          window.location.replace(target);
+        });
+      });
+    })();
+  </script>
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=/dashboard" />
+  </noscript>
+</body>
+</html>
