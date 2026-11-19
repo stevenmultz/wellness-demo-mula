@@ -18,6 +18,7 @@ import {
   FloatingHeader,
   HeaderBackButton,
   HeaderProfileButton,
+  type HeaderProfileMenuActions,
 } from "./shared";
 import type { UserProfile } from "../types";
 import {
@@ -69,6 +70,8 @@ export function ProfileTab({
   headerVisible,
   viewMode,
   onChangeViewMode,
+  targetSection,
+  profileMenuActions,
   onLogout,
   onDeleteAccount,
 }: {
@@ -76,6 +79,8 @@ export function ProfileTab({
   headerVisible: boolean;
   viewMode?: "intro" | "menu";
   onChangeViewMode?: (next: "intro" | "menu") => void;
+  targetSection?: { view: ProfileView; nonce: number } | null;
+  profileMenuActions?: HeaderProfileMenuActions;
   onLogout: () => void;
   onDeleteAccount: () => void;
 }) {
@@ -90,6 +95,12 @@ export function ProfileTab({
       setMsg(null);
     }
   }, [viewMode]);
+  useEffect(() => {
+    if (targetSection?.view) {
+      setView(targetSection.view);
+      setMsg(null);
+    }
+  }, [targetSection]);
   const setMode = (next: "intro" | "menu") => {
     setInternalMode(next);
     onChangeViewMode?.(next);
@@ -311,6 +322,7 @@ export function ProfileTab({
               fullName={form.fullName || user.fullName}
               email={user.email}
               onClick={() => setMode("menu")}
+              menuActions={profileMenuActions}
             />
           </>
         ) : (

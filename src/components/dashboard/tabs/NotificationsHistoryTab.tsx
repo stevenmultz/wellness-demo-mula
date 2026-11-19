@@ -19,6 +19,7 @@ import {
   FloatingHeader,
   HeaderBackButton,
   HeaderProfileButton,
+  type HeaderProfileMenuActions,
   LoadingState,
   PullToRefreshBanner,
   formatDateTimeWib,
@@ -53,6 +54,7 @@ export function NotificationsHistoryTab({
   profileName,
   profileEmail,
   onOpenProfile,
+  profileMenuActions,
 }: {
   headerVisible: boolean;
   isActive?: boolean;
@@ -65,6 +67,7 @@ export function NotificationsHistoryTab({
   profileName?: string | null;
   profileEmail?: string | null;
   onOpenProfile?: () => void;
+  profileMenuActions?: HeaderProfileMenuActions;
 }) {
   const { locale, t } = useLocale();
   const [internalMode, setInternalMode] = useState<"intro" | "feed">("intro");
@@ -192,6 +195,7 @@ export function NotificationsHistoryTab({
               fullName={profileName}
               email={profileEmail}
               onClick={() => onOpenProfile?.()}
+              menuActions={profileMenuActions}
             />
           </>
         ) : (

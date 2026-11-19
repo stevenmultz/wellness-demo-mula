@@ -1,4 +1,4 @@
-import { BrandLogo } from "./BrandLogo";
+import { ZeraSplashWordmark } from "./ZeraSplashWordmark";
 
 export function ZeraLogoLoading() {
   return (
@@ -20,18 +20,15 @@ export function ZeraLogoLoading() {
         color: "#09090b",
       }}
     >
-      <div className="relative z-10 flex items-center justify-center">
-        <BrandLogo
-          size="xl"
-          tone="dark"
-          style={{
-            fontFamily:
-              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-            fontSize: "28px",
-            lineHeight: 1,
-            color: "#09090b",
-          }}
-        />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ZeraSplashWordmark />
+        <span className="sr-only">zera.id</span>
       </div>
     </div>
   );

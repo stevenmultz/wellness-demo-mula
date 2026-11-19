@@ -21,6 +21,7 @@ import {
   FloatingHeader,
   HeaderBackButton,
   HeaderProfileButton,
+  type HeaderProfileMenuActions,
   safeHttpUrl,
 } from "./shared";
 import { MyPlanIndex } from "./my-plan/MyPlanIndex";
@@ -77,6 +78,7 @@ export function MyPlanHeader({
   onBackToIndex,
   onExplore,
   onOpenProfile,
+  profileMenuActions,
 }: {
   visible: boolean;
   overlay?: boolean;
@@ -91,6 +93,7 @@ export function MyPlanHeader({
   onBackToIndex?: () => void;
   onExplore: () => void;
   onOpenProfile?: () => void;
+  profileMenuActions?: HeaderProfileMenuActions;
 }) {
   void _onSelect;
   const { t } = useLocale();
@@ -126,6 +129,7 @@ export function MyPlanHeader({
             fullName={userName}
             email={userEmail}
             onClick={() => onOpenProfile?.()}
+            menuActions={profileMenuActions}
           />
         ) : isListSubPage ? (
           plans.length > 0 ? null : (

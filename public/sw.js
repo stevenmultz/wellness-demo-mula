@@ -1,16 +1,16 @@
 // ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Instant Launch Shell)
-const CACHE_NAME = "zera-wellness-pwa-v16";
+const CACHE_NAME = "zera-wellness-pwa-v17";
 
 const STATIC_ASSETS = [
   "/pwa-launch.html",
   "/offline.html",
   "/manifest.json",
-  "/manifest.json?v=4",
+  "/manifest.json?v=5",
   "/favicon.svg",
-  "/icon-v2-192.png?v=4",
-  "/icon-v2-512.png?v=4",
-  "/icon-maskable-v2-512.png?v=4",
-  "/apple-touch-icon-v2.png?v=4",
+  "/icon-v2-192.png?v=5",
+  "/icon-v2-512.png?v=5",
+  "/icon-maskable-v2-512.png?v=5",
+  "/apple-touch-icon-v2.png?v=5",
 ];
 
 self.addEventListener("install", (event) => {
@@ -170,8 +170,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body,
-    icon: "/icon-v2-192.png?v=3",
-    badge: "/icon-v2-192.png?v=3",
+    icon: "/icon-v2-192.png?v=5",
+    badge: "/icon-v2-192.png?v=5",
     tag: data.tag || undefined,
     data: {
       url: data.url || "/dashboard",

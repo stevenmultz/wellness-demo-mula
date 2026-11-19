@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuraBackground } from "@/components/ui/AuraBackground";
 import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
 import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
+import { ZeraSplashWordmark } from "@/components/common/ZeraSplashWordmark";
 import { BRAND } from "@/wellness/brand";
 import { APPLE_SPLASH_LINKS } from "@/wellness/pwa/appleSplash";
 import { LocaleProvider } from "@/wellness/i18n/LocaleContext";
@@ -53,10 +54,10 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content={BRAND.name} />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <link rel="manifest" href="/manifest.json?v=3" />
+        <link rel="manifest" href="/manifest.json?v=5" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png?v=3" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png?v=5" />
         {APPLE_SPLASH_LINKS.map((item) => (
           <link
             key={item.key}
@@ -87,21 +88,7 @@ export default async function RootLayout({
                 color: #09090b !important;
                 user-select: none;
                 overflow: hidden;
-                transition: opacity 0.28s ease-out;
-              }
-              #zera-pwa-splash .zera-splash-brand {
-                position: relative;
-                z-index: 10;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-              }
-              #zera-pwa-splash .zera-splash-title {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                line-height: 1;
+                transition: opacity 0.24s ease-out;
               }
             `,
           }}
@@ -116,34 +103,7 @@ export default async function RootLayout({
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] relative overflow-x-clip antialiased`}
       >
         <div id="zera-pwa-splash" aria-hidden="true">
-          <div className="zera-splash-brand">
-            <div className="zera-splash-title">
-              <span
-                style={{
-                  fontWeight: 700,
-                  fontSize: "28px",
-                  letterSpacing: "-0.01em",
-                  textTransform: "lowercase",
-                  lineHeight: 1,
-                  color: "#09090b",
-                }}
-              >
-                {BRAND.wordmarkPrimary}
-              </span>
-              <span
-                style={{
-                  fontWeight: 400,
-                  fontSize: "28px",
-                  letterSpacing: "-0.01em",
-                  textTransform: "lowercase",
-                  lineHeight: 1,
-                  color: "#71717a",
-                }}
-              >
-                {BRAND.wordmarkAccent}
-              </span>
-            </div>
-          </div>
+          <ZeraSplashWordmark />
         </div>
         <ThemeProvider>
           <LocaleProvider initialLocale={locale}>

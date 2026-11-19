@@ -25,6 +25,8 @@ import {
 import { ExplorePlanTab, type ExploreViewMode } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
 import { ProfileTab } from "./tabs/ProfileTab";
+import type { HeaderProfileMenuActions } from "./tabs/shared";
+import type { ProfileView } from "./tabs/profile/ProfileSectionForms";
 import { ProgramDetailView } from "./tabs/ProgramDetailView";
 import { DeleteAccountModal } from "./DeleteAccountModal";
 import { FirstTimeAppTour } from "./FirstTimeAppTour";
@@ -120,6 +122,10 @@ export function DashboardClient({
   const [exploreView, setExploreView] = useState<ExploreViewMode>("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
+  const [profileTargetSection, setProfileTargetSection] = useState<{
+    view: ProfileView;
+    nonce: number;
+  } | null>(null);
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({
     [hasInitialActivePlan ? "my_plan" : "all_plan"]: true,
@@ -207,6 +213,12 @@ export function DashboardClient({
   const handleSignOut = async () => {
     await wellnessSignOut();
     router.push("/");
+    router.refresh();
+  };
+
+  const handleAddAccount = async () => {
+    await wellnessSignOut();
+    router.push("/?auth=signin");
     router.refresh();
   };
 
@@ -519,7 +531,25 @@ export function DashboardClient({
   const openProfileFromHeader = () => {
     setActiveTab("profile");
     setProfileViewMode("menu");
+    setProfileTargetSection(null);
     window.scrollTo({ top: 0 });
+  };
+
+  const profileMenuActions: HeaderProfileMenuActions = {
+    onEditProfile: () => {
+      setActiveTab("profile");
+      setProfileViewMode("menu");
+      setProfileTargetSection({ view: "basic", nonce: Date.now() });
+      window.scrollTo({ top: 0 });
+    },
+    onShareProgress: () => {
+      setActiveTab("profile");
+      setProfileViewMode("menu");
+      setProfileTargetSection({ view: "share_progress", nonce: Date.now() });
+      window.scrollTo({ top: 0 });
+    },
+    onAddAccount: handleAddAccount,
+    onLogout: handleSignOut,
   };
 
   return (
@@ -555,6 +585,7 @@ export function DashboardClient({
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
           onOpenProfile={openProfileFromHeader}
+          profileMenuActions={profileMenuActions}
         />
       )}
 
@@ -903,6 +934,7 @@ export function DashboardClient({
               profileName={user.fullName}
               profileEmail={user.email}
               onOpenProfile={openProfileFromHeader}
+              profileMenuActions={profileMenuActions}
               onRegister={(id) => handleOpenQrisCheckout(id)}
               onViewDetails={(id) => {
                 const prog = allPrograms.find((p) => p.id === id);
@@ -932,6 +964,7 @@ export function DashboardClient({
               profileName={user.fullName}
               profileEmail={user.email}
               onOpenProfile={openProfileFromHeader}
+              profileMenuActions={profileMenuActions}
               completedPrograms={completedEnrollments.map((e) => ({
                 programId: e.programId,
                 title: e.title,
@@ -957,6 +990,8 @@ export function DashboardClient({
               headerVisible={isHeaderVisible}
               viewMode={profileViewMode}
               onChangeViewMode={setProfileViewMode}
+              targetSection={profileTargetSection}
+              profileMenuActions={profileMenuActions}
               onLogout={handleSignOut}
               onDeleteAccount={() => setDeleteModalOpen(true)}
             />

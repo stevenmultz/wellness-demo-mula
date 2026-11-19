@@ -2,7 +2,19 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowDown, ArrowLeft, Info, Loader2, User, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowLeft,
+  ChevronDown,
+  Info,
+  Loader2,
+  LogOut,
+  Share2,
+  User,
+  UserPlus,
+  X,
+} from "lucide-react";
 
 /** App timezone: Western Indonesia Time. All user-facing dates use it (SSR and browser agree). */
 export const APP_TIMEZONE = "Asia/Jakarta";
@@ -50,52 +62,192 @@ export function BrandWordmark({ light = false }: { light?: boolean }) {
   );
 }
 
-/** First-page header profile shortcut displayed on the top-right opposite zera.id. */
+export interface HeaderProfileMenuActions {
+  onEditProfile?: () => void;
+  onShareProgress?: () => void;
+  onAddAccount?: () => void;
+  onLogout?: () => void;
+}
+
+/** First-page header profile pill displayed on the top-right opposite zera.id with a simple dropdown menu. */
 export function HeaderProfileButton({
   avatarUrl,
   fullName,
   email,
   onClick,
+  menuActions,
   light = false,
 }: {
   avatarUrl?: string | null;
   fullName?: string | null;
   email?: string | null;
-  onClick: () => void;
+  onClick?: () => void;
+  menuActions?: HeaderProfileMenuActions;
   light?: boolean;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const isId = locale === "id";
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const displayText = email?.trim() || fullName?.trim() || t.nav.profile;
+  const hasMenu = Boolean(
+    menuActions &&
+      (menuActions.onEditProfile ||
+        menuActions.onShareProgress ||
+        menuActions.onAddAccount ||
+        menuActions.onLogout)
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={t.nav.profile}
-      title={email ? `${t.nav.profile} (${email})` : t.nav.profile}
-      className={`shrink-0 max-w-[62vw] sm:max-w-[260px] h-8 pl-1 pr-3 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-2 active:scale-95 transition ${
-        light
-          ? "bg-white/15 hover:bg-white/25 backdrop-blur-md border-white/25 text-white drop-shadow-xs"
-          : "bg-white hover:bg-zinc-50 border-zinc-200/90 text-zinc-900 shadow-2xs"
-      }`}
-    >
-      <span
-        className={`w-6 h-6 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${
-          light ? "bg-white/20" : "bg-zinc-100"
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => {
+          if (hasMenu) {
+            setOpen((prev) => !prev);
+          } else {
+            onClick?.();
+          }
+        }}
+        aria-label={t.nav.profile}
+        aria-haspopup={hasMenu ? "menu" : undefined}
+        aria-expanded={hasMenu ? open : undefined}
+        title={email ? `${t.nav.profile} (${email})` : t.nav.profile}
+        className={`shrink-0 max-w-[62vw] sm:max-w-[260px] h-8 pl-1 pr-2.5 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
+          light
+            ? "bg-white/15 hover:bg-white/25 backdrop-blur-md border-white/25 text-white drop-shadow-xs"
+            : "bg-white hover:bg-zinc-50 border-zinc-200/90 text-zinc-900 shadow-2xs"
         }`}
       >
-        {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={avatarUrl}
-            alt={displayText}
-            className="w-full h-full object-cover"
+        <span
+          className={`w-6 h-6 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${
+            light ? "bg-white/20" : "bg-zinc-100"
+          }`}
+        >
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt={displayText}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <User className={`w-3.5 h-3.5 ${light ? "text-white" : "text-zinc-600"}`} />
+          )}
+        </span>
+        <span className="truncate">{displayText}</span>
+        {hasMenu && (
+          <ChevronDown
+            className={`w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-150 ${
+              open ? "rotate-180" : ""
+            }`}
           />
-        ) : (
-          <User className={`w-3.5 h-3.5 ${light ? "text-white" : "text-zinc-600"}`} />
         )}
-      </span>
-      <span className="truncate">{displayText}</span>
-    </button>
+      </button>
+
+      {hasMenu && open && (
+        <div
+          role="menu"
+          aria-label={t.nav.profile}
+          className="dashboard-nav-boxed absolute right-0 top-[calc(100%+0.5rem)] w-56 rounded-2xl bg-white border border-zinc-200/90 shadow-xl py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="px-3.5 py-2 border-b border-zinc-100">
+            {fullName?.trim() && (
+              <p className="text-xs font-geometric font-semibold text-zinc-950 truncate">
+                {fullName}
+              </p>
+            )}
+            {email?.trim() && (
+              <p className="text-[11px] font-mono text-zinc-500 truncate mt-0.5">
+                {email}
+              </p>
+            )}
+          </div>
+
+          <div className="py-1">
+            {menuActions?.onEditProfile && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  menuActions.onEditProfile?.();
+                }}
+                className="w-full px-3.5 py-2 text-left text-xs font-geometric font-medium text-zinc-800 hover:bg-zinc-100/80 flex items-center gap-2.5 transition"
+              >
+                <User className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                <span>{t.profile.editProfile}</span>
+              </button>
+            )}
+            {menuActions?.onShareProgress && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  menuActions.onShareProgress?.();
+                }}
+                className="w-full px-3.5 py-2 text-left text-xs font-geometric font-medium text-zinc-800 hover:bg-zinc-100/80 flex items-center gap-2.5 transition"
+              >
+                <Share2 className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                <span>{t.profile.shareProgressTitle}</span>
+              </button>
+            )}
+            {menuActions?.onAddAccount && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  menuActions.onAddAccount?.();
+                }}
+                className="w-full px-3.5 py-2 text-left text-xs font-geometric font-medium text-zinc-800 hover:bg-zinc-100/80 flex items-center gap-2.5 transition"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                <span>{isId ? "Tambah Akun" : "Add Account"}</span>
+              </button>
+            )}
+          </div>
+
+          {menuActions?.onLogout && (
+            <div className="pt-1 border-t border-zinc-100">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  menuActions.onLogout?.();
+                }}
+                className="w-full px-3.5 py-2 text-left text-xs font-geometric font-medium text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition"
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span>{isId ? "Keluar" : "Log Out"}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const MIN_SPLASH_VISIBLE_MS = 420;
+const MIN_SPLASH_VISIBLE_MS = 180;
 
 export function PwaSplashDismiss() {
   useEffect(() => {

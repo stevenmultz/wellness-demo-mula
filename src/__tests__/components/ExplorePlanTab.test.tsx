@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -161,10 +161,86 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     await waitFor(() => {
       expect(screen.getByText("Explore All Programs")).toBeDefined();
       expect(screen.getByText("See all sports category")).toBeDefined();
-      expect(screen.getAllByText(/See all/i).length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText("Online Programs").length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText("Hybrid Programs").length).toBeGreaterThanOrEqual(1);
+      // Only the 2 top header "See All" buttons (trailing cards removed)
+      expect(screen.getAllByRole("button", { name: /^See All$/i }).length).toBe(2);
+      expect(screen.queryByText("Online Programs")).toBeNull();
       expect(screen.getByText("See all community")).toBeDefined();
     });
+  });
+
+  it("supports Sort by dropdown, Full Online/Hybrid format filters, and clean community strip without 'Community:' prefix in catalog mode", async () => {
+    window.scrollTo = vi.fn();
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => samplePayload,
+    } as Response);
+
+    const onEditProfile = vi.fn();
+    const onShareProgress = vi.fn();
+    const onAddAccount = vi.fn();
+    const onLogout = vi.fn();
+
+    render(
+      <LocaleProvider initialLocale="en">
+        <ExplorePlanTab
+          headerVisible={true}
+          profileName="Steven"
+          profileEmail="steven@zera.id"
+          profileMenuActions={{
+            onEditProfile,
+            onShareProgress,
+            onAddAccount,
+            onLogout,
+          }}
+          onRegister={vi.fn()}
+          onViewDetails={vi.fn()}
+          onOpenPlan={vi.fn()}
+          registeringId={null}
+        />
+      </LocaleProvider>
+    );
+
+    // Header profile dropdown opens standard options
+    const profileTrigger = await screen.findByRole("button", { name: /Profile/i });
+    fireEvent.click(profileTrigger);
+    expect(screen.getByRole("menuitem", { name: /Edit Profile/i })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: /Share Progress/i })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: /Add Account/i })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: /Log Out/i })).toBeDefined();
+    fireEvent.click(screen.getByRole("menuitem", { name: /Share Progress/i }));
+    expect(onShareProgress).toHaveBeenCalledTimes(1);
+
+    // Open catalog via "See All" on Full Online Programs
+    const seeAllButtons = screen.getAllByRole("button", { name: /^See All$/i });
+    fireEvent.click(seeAllButtons[0]);
+
+    // Header has "Sort by" button instead of "Filters"
+    const sortBtn = await screen.findByRole("button", { name: /Sort by/i });
+    expect(screen.queryByRole("button", { name: /^Filters$/i })).toBeNull();
+
+    // Format filter buttons: All, Full Online, Hybrid
+    const allFormatBtn = screen.getByRole("button", { name: /^All$/i });
+    const fullOnlineFormatBtn = screen.getByRole("button", { name: /^Full Online$/i });
+    const hybridFormatBtn = screen.getByRole("button", { name: /^Hybrid$/i });
+    expect(fullOnlineFormatBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Morning Pilates Reset" })).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Senopati Padel Cohort" })).toBeNull();
+
+    // Switch format filter to Hybrid
+    fireEvent.click(hybridFormatBtn);
+    expect(screen.getByRole("heading", { name: "Senopati Padel Cohort" })).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Morning Pilates Reset" })).toBeNull();
+
+    // Switch to All and sort by Price: High to Low
+    fireEvent.click(allFormatBtn);
+    fireEvent.click(sortBtn);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Price: High to Low/i }));
+    const headingsDesc = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(headingsDesc).toEqual(["Senopati Padel Cohort", "Morning Pilates Reset"]);
+
+    // Select Pilates category -> community strip appears WITHOUT "Community:" prefix
+    fireEvent.click(screen.getByRole("button", { name: "Pilates" }));
+    expect(screen.getByRole("button", { name: /ZERA Sanctuary/i })).toBeDefined();
+    expect(screen.queryByText(/Community:/i)).toBeNull();
   });
 });

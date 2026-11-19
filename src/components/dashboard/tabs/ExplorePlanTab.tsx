@@ -1,21 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
-  Calendar,
-  ChevronDown,
+  ArrowUpDown,
+  Check,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  MapPin,
   Search,
-  SlidersHorizontal,
-  Users,
   X,
 } from "lucide-react";
-import { getPublicBadgeMeta, PublicProgramBadge } from "@/wellness/utils/timeline";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
   BrandWordmark,
@@ -24,28 +19,23 @@ import {
   FloatingHeader,
   HeaderBackButton,
   HeaderProfileButton,
+  type HeaderProfileMenuActions,
   PullToRefreshBanner,
-  formatDateWib,
   formatIdr,
   usePullToRefresh,
 } from "./shared";
 import {
   categoriesOf,
   coachAvatarFor,
-  computeSupportedFilterOptions,
   countActive,
   EMPTY,
-  FORMAT_OPTIONS,
-  intensityOf,
   matches,
   PAGE_SIZE,
-  PRICE_BANDS,
   splitCoachTokens,
   type ExploreProgram,
   type Filters,
   type LoadState,
 } from "./explore/exploreFilters";
-import { ExploreFilterDialog } from "./explore/ExploreFilterDialog";
 import { ExploreCoachesView } from "./explore/ExploreCoachesView";
 import {
   buildExploreCommunities,
@@ -59,19 +49,28 @@ import {
 
 export type ExploreViewMode = "intro" | "catalog" | "categories" | "coaches" | "communities";
 
+type ExploreSortBy =
+  | "recommended"
+  | "price_asc"
+  | "price_desc"
+  | "duration_asc"
+  | "duration_desc"
+  | "title_asc";
+
 export function ExplorePlanTab({
   headerVisible,
   isActive = true,
   viewMode,
   onChangeViewMode,
-  onRegister,
+  onRegister: _onRegister,
   onViewDetails,
   onOpenPlan: _onOpenPlan,
-  registeringId,
+  registeringId: _registeringId,
   profileAvatarUrl,
   profileName,
   profileEmail,
   onOpenProfile,
+  profileMenuActions,
 }: {
   headerVisible: boolean;
   isActive?: boolean;
@@ -85,8 +84,11 @@ export function ExplorePlanTab({
   profileName?: string | null;
   profileEmail?: string | null;
   onOpenProfile?: () => void;
+  profileMenuActions?: HeaderProfileMenuActions;
 }) {
   void _onOpenPlan;
+  void _onRegister;
+  void _registeringId;
   const { locale, t } = useLocale();
   const [internalMode, setInternalMode] = useState<ExploreViewMode>("intro");
   const mode = viewMode ?? internalMode;
@@ -103,9 +105,9 @@ export function ExplorePlanTab({
   const [masterCategories, setMasterCategories] = useState<string[]>([]);
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [draft, setDraft] = useState<Filters>(EMPTY);
+  const [sortBy, setSortBy] = useState<ExploreSortBy>("recommended");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
   const [coachPage, setCoachPage] = useState(1);
@@ -120,21 +122,27 @@ export function ExplorePlanTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, applied, selectedCoach, selectedCommunity]);
+  }, [debouncedSearch, applied, selectedCoach, selectedCommunity, sortBy]);
 
   useEffect(() => {
-    if (!filtersOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFiltersOpen(false);
+    if (!sortOpen) return;
+    const onOutside = (e: MouseEvent | TouchEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
     };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSortOpen(false);
+    };
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("touchstart", onOutside);
     window.addEventListener("keydown", onKey);
     return () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("touchstart", onOutside);
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
     };
-  }, [filtersOpen]);
+  }, [sortOpen]);
 
   const load = useCallback(async (signal: AbortSignal, isBackgroundRefresh = false) => {
     if (isBackgroundRefresh) {
@@ -240,14 +248,22 @@ export function ExplorePlanTab({
   );
   const isIntroLoading = state.status === "loading";
 
-  const availableCommunitiesForCategory = useMemo(() => {
-    if (applied.category.length === 0) return [];
-    const selectedCatLower = applied.category.map((c) => c.toLowerCase());
-    const scopedPrograms = catalog.filter((p) =>
-      categoriesOf(p).some((c) => selectedCatLower.includes(c.toLowerCase()))
-    );
-    return buildExploreCommunities(scopedPrograms);
-  }, [catalog, applied.category]);
+  const availableCommunitiesForFilter = useMemo(() => {
+    if (applied.category.length > 0) {
+      const selectedCatLower = applied.category.map((c) => c.toLowerCase());
+      const scopedPrograms = catalog.filter((p) => {
+        if (applied.format.length > 0 && !applied.format.includes(p.locationType)) {
+          return false;
+        }
+        return categoriesOf(p).some((c) => selectedCatLower.includes(c.toLowerCase()));
+      });
+      return buildExploreCommunities(scopedPrograms);
+    }
+    if (selectedCommunity) {
+      return availableCommunities;
+    }
+    return [];
+  }, [catalog, applied.category, applied.format, selectedCommunity, availableCommunities]);
 
   const coachScopedCatalog = useMemo(() => {
     let list = catalog;
@@ -267,72 +283,40 @@ export function ExplorePlanTab({
     }
     return list;
   }, [catalog, selectedCoach, selectedCommunity]);
-  const supported = useMemo(
-    () => computeSupportedFilterOptions(coachScopedCatalog),
-    [coachScopedCatalog]
-  );
 
-  const filtered = coachScopedCatalog.filter((p) => matches(p, applied));
+  const filtered = useMemo(() => {
+    const list = coachScopedCatalog.filter((p) => matches(p, applied));
+    if (sortBy === "recommended") return list;
+    const sorted = [...list];
+    if (sortBy === "price_asc") {
+      sorted.sort((a, b) => a.price - b.price || a.title.localeCompare(b.title));
+    } else if (sortBy === "price_desc") {
+      sorted.sort((a, b) => b.price - a.price || a.title.localeCompare(b.title));
+    } else if (sortBy === "duration_asc") {
+      sorted.sort((a, b) => a.durationDays - b.durationDays || a.title.localeCompare(b.title));
+    } else if (sortBy === "duration_desc") {
+      sorted.sort((a, b) => b.durationDays - a.durationDays || a.title.localeCompare(b.title));
+    } else if (sortBy === "title_asc") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return sorted;
+  }, [coachScopedCatalog, applied, sortBy]);
+
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages);
   const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const activeCount = countActive(applied);
 
-  const toggle = (key: keyof Filters, value: string) => {
-    setDraft((f) => {
-      const list = f[key];
-      if (!Array.isArray(list)) return f;
-      return { ...f, [key]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] };
-    });
-  };
-
-  const removeChip = (key: string, value?: string) => {
-    if (key === "coach") {
-      setSelectedCoach(null);
-      setPage(1);
-      return;
-    }
-    if (key === "community") {
-      setSelectedCommunity(null);
-      setPage(1);
-      return;
-    }
-    setApplied((f) => {
-      const list = f[key as keyof Filters];
-      if (!Array.isArray(list) || !value) return f;
-      return { ...f, [key]: list.filter((v) => v !== value) };
-    });
-    setPage(1);
-  };
-
-  const chips: { key: string; value: string; label: string }[] = [
-    ...(selectedCommunity
-      ? [
-          {
-            key: "community",
-            value: selectedCommunity,
-            label: `${locale === "id" ? "Komunitas" : "Community"}: ${selectedCommunity}`,
-          },
-        ]
-      : []),
-    ...(selectedCoach
-      ? [{ key: "coach", value: selectedCoach, label: `${t.explore.coachPrefix}: ${selectedCoach}` }]
-      : []),
-    ...applied.format.map((value) => ({ key: "format", value, label: FORMAT_OPTIONS.find((o) => o.id === value)?.label || value })),
-    ...applied.intensity.map((value) => ({ key: "intensity", value, label: value })),
-    ...applied.category.map((value) => ({ key: "category", value, label: `${t.explore.categoryPrefix}: ${value}` })),
-    ...applied.duration.map((value) => ({ key: "duration", value, label: value })),
-    ...applied.price.map((value) => ({
-      key: "price",
-      value,
-      label: value === "free" ? t.explore.priceFree : PRICE_BANDS.find((b) => b.id === value)?.label || value,
-    })),
-    ...applied.experience.map((value) => ({ key: "experience", value, label: value })),
-    ...applied.schedule.map((value) => ({ key: "schedule", value, label: value })),
-    ...applied.availability.map((value) => ({ key: "availability", value, label: value })),
-  ];
-
   const isId = locale === "id";
+
+  const sortOptions: Array<{ id: ExploreSortBy; label: string }> = [
+    { id: "recommended", label: isId ? "Paling Relevan" : "Recommended" },
+    { id: "price_asc", label: isId ? "Harga: Termurah" : "Price: Low to High" },
+    { id: "price_desc", label: isId ? "Harga: Termahal" : "Price: High to Low" },
+    { id: "duration_asc", label: isId ? "Durasi: Tersingkat" : "Duration: Shortest" },
+    { id: "duration_desc", label: isId ? "Durasi: Terlama" : "Duration: Longest" },
+    { id: "title_asc", label: isId ? "Nama: A–Z" : "Name: A–Z" },
+  ];
 
   const openCatalogWith = (opts?: {
     filters?: Filters;
@@ -343,7 +327,7 @@ export function ExplorePlanTab({
     setSelectedCoach(opts?.coach ?? null);
     setSelectedCommunity(opts?.community ?? null);
     setApplied(nextFilters);
-    setDraft(nextFilters);
+    setSortOpen(false);
     setPage(1);
     setMode("catalog");
   };
@@ -359,6 +343,7 @@ export function ExplorePlanTab({
               fullName={profileName}
               email={profileEmail}
               onClick={() => onOpenProfile?.()}
+              menuActions={profileMenuActions}
             />
           </>
         ) : mode === "categories" ? (
@@ -443,28 +428,55 @@ export function ExplorePlanTab({
                 className="w-full bg-transparent outline-none text-xs sm:text-sm text-zinc-950 placeholder:text-xs placeholder:text-zinc-500"
               />
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(applied);
-                setFiltersOpen(true);
-              }}
-              aria-haspopup="dialog"
-              aria-expanded={filtersOpen}
-              className={`shrink-0 h-9 px-3 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
-                activeCount > 0
-                  ? "border-zinc-950 bg-zinc-100 text-zinc-950"
-                  : "border-zinc-300 bg-white text-zinc-900"
-              }`}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>{t.explore.filterTitle}</span>
-              {activeCount > 0 && (
-                <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-950 text-white text-[9px] font-bold inline-flex items-center justify-center">
-                  {activeCount}
-                </span>
+            <div ref={sortMenuRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setSortOpen((prev) => !prev)}
+                aria-haspopup="menu"
+                aria-expanded={sortOpen}
+                className={`shrink-0 h-9 px-3 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition ${
+                  sortBy !== "recommended"
+                    ? "border-zinc-950 bg-zinc-950 text-white"
+                    : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50"
+                }`}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                <span>{isId ? "Urutkan" : "Sort by"}</span>
+              </button>
+
+              {sortOpen && (
+                <div
+                  role="menu"
+                  aria-label={isId ? "Urutkan program" : "Sort programs"}
+                  className="dashboard-nav-boxed absolute right-0 top-[calc(100%+0.5rem)] w-52 rounded-2xl bg-white border border-zinc-200/90 shadow-xl py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150"
+                >
+                  {sortOptions.map((opt) => {
+                    const active = sortBy === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        onClick={() => {
+                          setSortBy(opt.id);
+                          setSortOpen(false);
+                          setPage(1);
+                        }}
+                        className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                          active
+                            ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                            : "font-medium text-zinc-700 hover:bg-zinc-50"
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {active && <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            </button>
+            </div>
           </div>
         )}
       </FloatingHeader>
@@ -553,33 +565,33 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 2: FULL ONLINE PROGRAMS — IMAGE BG + LABELS + NAME      */}
+                {/* SECTION 2: FULL ONLINE PROGRAMS — WIDE BANNER CARDS             */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-online-heading" className="space-y-3.5">
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="space-y-1">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-3">
                       <h2
                         id="explore-online-heading"
                         className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
                       >
                         Full Online Programs
                       </h2>
-                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                        {isId
-                          ? "Latihan 100% online. Mulai kapan saja dan atur jadwal sendiri tanpa terikat lokasi."
-                          : "100% online training. Start anytime and follow at your own pace from anywhere."}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
+                        }
+                        className="shrink-0 h-8 px-3 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-xs font-geometric font-medium text-zinc-900 inline-flex items-center gap-1 active:scale-95 transition cursor-pointer"
+                      >
+                        <span>{isId ? "Lihat Semua" : "See All"}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
-                      }
-                      className="shrink-0 text-xs font-semibold text-zinc-900 hover:text-zinc-600 inline-flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <span>{isId ? "Lihat Semua" : "See All"}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                      {isId
+                        ? "Latihan 100% online. Mulai kapan saja dan atur jadwal sendiri tanpa terikat lokasi."
+                        : "100% online training. Start anytime and follow at your own pace from anywhere."}
+                    </p>
                   </div>
 
                   <div
@@ -592,16 +604,12 @@ export function ExplorePlanTab({
                           <div
                             key={idx}
                             aria-hidden="true"
-                            className="w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex flex-col justify-end gap-2"
+                            className="w-[300px] sm:w-[344px] h-[168px] sm:h-[186px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex flex-col justify-end gap-2"
                           >
-                            <div className="h-4 w-4/5 rounded-md bg-zinc-300/70" />
-                            <div className="h-3.5 w-2/5 rounded-md bg-zinc-300/60" />
+                            <div className="h-4 w-3/4 rounded-md bg-zinc-300/70" />
+                            <div className="h-3.5 w-1/3 rounded-md bg-zinc-300/60" />
                           </div>
                         ))}
-                        <div
-                          aria-hidden="true"
-                          className="w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
-                        />
                       </>
                     ) : (
                       <>
@@ -610,20 +618,20 @@ export function ExplorePlanTab({
                             key={p.id}
                             type="button"
                             onClick={() => onViewDetails(p.id)}
-                            className="group relative w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
+                            className="group relative w-[300px] sm:w-[344px] h-[168px] sm:h-[186px] shrink-0 snap-start rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
                           >
                             <Image
                               src={p.coverImage || "/test.webp"}
                               alt={p.title}
                               fill
-                              sizes="(max-width: 640px) 224px, 244px"
+                              sizes="(max-width: 640px) 300px, 344px"
                               unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
                               className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
                             {/* Top Badges: Full Online, Commitment Time, Sport Category */}
-                            <div className="absolute top-3 inset-x-3 flex flex-wrap items-center gap-1.5 z-10">
+                            <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
                                 Full Online
                               </span>
@@ -637,8 +645,8 @@ export function ExplorePlanTab({
                               )}
                             </div>
 
-                            <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
-                              <h3 className="text-sm sm:text-[15px] font-geometric font-semibold text-white leading-snug line-clamp-2">
+                            <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 flex flex-col justify-end gap-0.5">
+                              <h3 className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-1">
                                 {p.title}
                               </h3>
                               <span className="text-xs font-mono font-medium text-white/90">
@@ -647,60 +655,39 @@ export function ExplorePlanTab({
                             </div>
                           </button>
                         ))}
-
-                        {/* Card 6: See All Full Online */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
-                          }
-                          className="group w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl border border-zinc-200/90 bg-white hover:bg-zinc-50 p-4 flex flex-col items-center justify-center text-center gap-2.5 active:scale-[0.98] transition cursor-pointer"
-                        >
-                          <span className="w-10 h-10 rounded-full bg-zinc-100 group-hover:bg-zinc-200 flex items-center justify-center transition">
-                            <ArrowRight className="w-4 h-4 text-zinc-900 group-hover:translate-x-0.5 transition-transform" />
-                          </span>
-                          <div>
-                            <span className="text-xs font-geometric font-semibold text-zinc-900 block">
-                              {isId ? "Lihat Semua" : "See All"}
-                            </span>
-                            <span className="text-[11px] font-mono text-zinc-500 block">
-                              Online Programs
-                            </span>
-                          </div>
-                        </button>
                       </>
                     )}
                   </div>
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 3: HYBRID PROGRAMS — IMAGE BG + LABELS + NAME + PRICE   */}
+                {/* SECTION 3: HYBRID PROGRAMS — WIDE BANNER CARDS                  */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-hybrid-heading" className="space-y-3.5">
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="space-y-1">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-3">
                       <h2
                         id="explore-hybrid-heading"
                         className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
                       >
                         Hybrid Programs
                       </h2>
-                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                        {isId
-                          ? "Gabungan latihan online dan sesi tatap muka. Cek tanggal mulai dan lokasi sebelum mendaftar."
-                          : "Online training paired with in-person sessions. Check the start date and venue before joining."}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
+                        }
+                        className="shrink-0 h-8 px-3 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-xs font-geometric font-medium text-zinc-900 inline-flex items-center gap-1 active:scale-95 transition cursor-pointer"
+                      >
+                        <span>{isId ? "Lihat Semua" : "See All"}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
-                      }
-                      className="shrink-0 text-xs font-semibold text-zinc-900 hover:text-zinc-600 inline-flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <span>{isId ? "Lihat Semua" : "See All"}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
+                      {isId
+                        ? "Gabungan latihan online dan sesi tatap muka. Cek tanggal mulai dan lokasi sebelum mendaftar."
+                        : "Online training paired with in-person sessions. Check the start date and venue before joining."}
+                    </p>
                   </div>
 
                   <div
@@ -713,16 +700,12 @@ export function ExplorePlanTab({
                           <div
                             key={idx}
                             aria-hidden="true"
-                            className="w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex flex-col justify-end gap-2"
+                            className="w-[300px] sm:w-[344px] h-[168px] sm:h-[186px] shrink-0 snap-start rounded-2xl skeleton-block p-4 flex flex-col justify-end gap-2"
                           >
-                            <div className="h-4 w-4/5 rounded-md bg-zinc-300/70" />
-                            <div className="h-3.5 w-2/5 rounded-md bg-zinc-300/60" />
+                            <div className="h-4 w-3/4 rounded-md bg-zinc-300/70" />
+                            <div className="h-3.5 w-1/3 rounded-md bg-zinc-300/60" />
                           </div>
                         ))}
-                        <div
-                          aria-hidden="true"
-                          className="w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl skeleton-block"
-                        />
                       </>
                     ) : (
                       <>
@@ -731,20 +714,20 @@ export function ExplorePlanTab({
                             key={p.id}
                             type="button"
                             onClick={() => onViewDetails(p.id)}
-                            className="group relative w-[224px] sm:w-[244px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
+                            className="group relative w-[300px] sm:w-[344px] h-[168px] sm:h-[186px] shrink-0 snap-start rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
                           >
                             <Image
                               src={p.coverImage || "/pic.webp"}
                               alt={p.title}
                               fill
-                              sizes="(max-width: 640px) 224px, 244px"
+                              sizes="(max-width: 640px) 300px, 344px"
                               unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
                               className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
                             {/* Top Badges: Hybrid, City/Location, Sport Category */}
-                            <div className="absolute top-3 inset-x-3 flex flex-wrap items-center gap-1.5 z-10">
+                            <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
                                 Hybrid
                               </span>
@@ -758,8 +741,8 @@ export function ExplorePlanTab({
                               )}
                             </div>
 
-                            <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
-                              <h3 className="text-sm sm:text-[15px] font-geometric font-semibold text-white leading-snug line-clamp-2">
+                            <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 flex flex-col justify-end gap-0.5">
+                              <h3 className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-1">
                                 {p.title}
                               </h3>
                               <span className="text-xs font-mono font-medium text-white/90">
@@ -768,27 +751,6 @@ export function ExplorePlanTab({
                             </div>
                           </button>
                         ))}
-
-                        {/* Card 6: See All Hybrid */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
-                          }
-                          className="group w-[150px] sm:w-[160px] h-[248px] sm:h-[264px] shrink-0 snap-start rounded-2xl border border-zinc-200/90 bg-white hover:bg-zinc-50 p-4 flex flex-col items-center justify-center text-center gap-2.5 active:scale-[0.98] transition cursor-pointer"
-                        >
-                          <span className="w-10 h-10 rounded-full bg-zinc-100 group-hover:bg-zinc-200 flex items-center justify-center transition">
-                            <ArrowRight className="w-4 h-4 text-zinc-900 group-hover:translate-x-0.5 transition-transform" />
-                          </span>
-                          <div>
-                            <span className="text-xs font-geometric font-semibold text-zinc-900 block">
-                              {isId ? "Lihat Semua" : "See All"}
-                            </span>
-                            <span className="text-[11px] font-mono text-zinc-500 block">
-                              Hybrid Programs
-                            </span>
-                          </div>
-                        </button>
                       </>
                     )}
                   </div>
@@ -915,42 +877,62 @@ export function ExplorePlanTab({
         />
       ) : (
         <>
-
-      <ExploreFilterDialog
-        open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        catalog={coachScopedCatalog}
-        supported={supported}
-        draft={draft}
-        setDraft={setDraft}
-        applied={applied}
-        onToggle={toggle}
-        onReset={() => {
-          setDraft(EMPTY);
-        }}
-        onApply={() => {
-          setApplied(draft);
-          setPage(1);
-          setFiltersOpen(false);
-        }}
-      />
-
-      <div className="w-full space-y-4">
+      <div className="w-full space-y-3.5">
         <PullToRefreshBanner
           pullDistance={pullDistance}
           refreshing={refreshing && state.status === "ready"}
         />
 
+        {/* FORMAT FILTER STRIP: ALL / FULL ONLINE / HYBRID */}
+        <div
+          role="group"
+          aria-label={isId ? "Filter format program" : "Filter program format"}
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-1 scroll-smooth"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {(
+            [
+              { id: "ALL", label: isId ? "Semua" : "All" },
+              { id: "ONLINE", label: "Full Online" },
+              { id: "HYBRID", label: "Hybrid" },
+            ] as const
+          ).map((fmt) => {
+            const isSelected =
+              fmt.id === "ALL"
+                ? applied.format.length === 0
+                : applied.format.includes(fmt.id);
+            return (
+              <button
+                key={fmt.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => {
+                  const nextFormat =
+                    fmt.id === "ALL" ? [] : isSelected ? [] : [fmt.id];
+                  setApplied((f) => ({ ...f, format: nextFormat }));
+                  setPage(1);
+                }}
+                className={`shrink-0 h-8 px-4 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
+                  isSelected
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
+                }`}
+              >
+                {fmt.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* SPORTS CATEGORY FILTER STRIP */}
         <div
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-1 pb-0.5 scroll-smooth"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5 scroll-smooth"
           style={{ scrollbarWidth: "none" }}
         >
           <button
             type="button"
             onClick={() => {
               setApplied((f) => ({ ...f, category: [] }));
-              setDraft((f) => ({ ...f, category: [] }));
               setSelectedCommunity(null);
               setPage(1);
             }}
@@ -973,7 +955,6 @@ export function ExplorePlanTab({
                 onClick={() => {
                   const nextCats = isSelected ? [] : [cat.name];
                   setApplied((f) => ({ ...f, category: nextCats }));
-                  setDraft((f) => ({ ...f, category: nextCats }));
                   setSelectedCommunity(null);
                   setPage(1);
                 }}
@@ -989,15 +970,12 @@ export function ExplorePlanTab({
           })}
         </div>
 
-        {/* DYNAMIC COMMUNITY FILTER STRIP (SHOWN WHEN SPORTS CATEGORY IS SELECTED) */}
-        {applied.category.length > 0 && availableCommunitiesForCategory.length > 0 && (
+        {/* DYNAMIC COMMUNITY FILTER STRIP (CLEAN PILLS, NO "COMMUNITY:" PREFIX) */}
+        {availableCommunitiesForFilter.length > 0 && (
           <div
-            className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-0.5 pb-1 scroll-smooth"
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
             style={{ scrollbarWidth: "none" }}
           >
-            <span className="shrink-0 text-[11px] font-mono uppercase text-zinc-500 pl-1">
-              {isId ? "Komunitas:" : "Community:"}
-            </span>
             <button
               type="button"
               onClick={() => {
@@ -1012,7 +990,7 @@ export function ExplorePlanTab({
             >
               {isId ? "Semua Komunitas" : "All Communities"}
             </button>
-            {availableCommunitiesForCategory.map((comm) => {
+            {availableCommunitiesForFilter.map((comm) => {
               const isSelected = selectedCommunity?.toLowerCase() === comm.name.toLowerCase();
               return (
                 <button
@@ -1047,18 +1025,18 @@ export function ExplorePlanTab({
           </div>
         )}
 
-        {chips.length > 0 && (
+        {selectedCoach && (
           <div className="flex flex-wrap gap-2">
-            {chips.map((chip) => (
-              <button
-                key={`${chip.key}-${chip.value}`}
-                type="button"
-                onClick={() => removeChip(chip.key, chip.value)}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-[2px] bg-zinc-100 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 transition hover:bg-zinc-200 dark:hover:bg-white/20"
-              >
-                {chip.label} <X className="w-3 h-3 text-zinc-400" />
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCoach(null);
+                setPage(1);
+              }}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 transition hover:bg-zinc-200 dark:hover:bg-white/20"
+            >
+              {t.explore.coachPrefix}: {selectedCoach} <X className="w-3 h-3 text-zinc-400" />
+            </button>
           </div>
         )}
 
@@ -1072,17 +1050,10 @@ export function ExplorePlanTab({
               <div
                 key={idx}
                 aria-hidden="true"
-                className="rounded-2xl overflow-hidden skeleton-block flex flex-col"
+                className="h-[188px] sm:h-[200px] rounded-2xl overflow-hidden skeleton-block p-4 flex flex-col justify-end gap-2"
               >
-                <div className="h-44 w-full bg-zinc-300/60" />
-                <div className="p-4 space-y-3">
-                  <div className="h-4 w-3/4 rounded-md bg-zinc-300/70" />
-                  <div className="h-3 w-1/3 rounded-md bg-zinc-300/60" />
-                  <div className="pt-2 flex items-center justify-between gap-2">
-                    <div className="h-4 w-24 rounded-md bg-zinc-300/70" />
-                    <div className="h-7 w-20 rounded-full bg-zinc-300/70" />
-                  </div>
-                </div>
+                <div className="h-4 w-3/4 rounded-md bg-zinc-300/70" />
+                <div className="h-3.5 w-1/3 rounded-md bg-zinc-300/60" />
               </div>
             ))}
           </div>
@@ -1109,9 +1080,9 @@ export function ExplorePlanTab({
                     setSelectedCoach(null);
                     setSelectedCommunity(null);
                     setApplied(EMPTY);
-                    setDraft(EMPTY);
+                    setSortBy("recommended");
                   }}
-                  className="px-4 py-1.5 rounded-[2px] bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase"
+                  className="px-4 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-bold uppercase"
                 >
                   {t.common.clearAll}
                 </button>
@@ -1131,7 +1102,7 @@ export function ExplorePlanTab({
                     key={p.id}
                     type="button"
                     onClick={() => onViewDetails(p.id)}
-                    className="group relative w-full h-[240px] sm:h-[260px] rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
+                    className="group relative w-full h-[188px] sm:h-[200px] rounded-2xl overflow-hidden bg-zinc-200 text-left active:scale-[0.98] transition cursor-pointer"
                   >
                     <Image
                       src={p.coverImage || (isOnline ? "/test.webp" : "/pic.webp")}
@@ -1141,10 +1112,10 @@ export function ExplorePlanTab({
                       unoptimized={!!p.coverImage && /^https?:/i.test(p.coverImage)}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
                     {/* Top Badges: Format, Commitment/City, Sport Category */}
-                    <div className="absolute top-3 inset-x-3 flex flex-wrap items-center gap-1.5 z-10">
+                    <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
                         {isOnline ? "Full Online" : "Hybrid"}
                       </span>
@@ -1161,8 +1132,8 @@ export function ExplorePlanTab({
                     </div>
 
                     {/* Bottom Content: Title & Price */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 flex flex-col justify-end gap-1">
-                      <h3 className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-2">
+                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 flex flex-col justify-end gap-0.5">
+                      <h3 className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-1">
                         {p.title}
                       </h3>
                       <span className="text-xs sm:text-sm font-mono font-medium text-white/95">
