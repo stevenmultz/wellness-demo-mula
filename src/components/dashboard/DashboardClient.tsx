@@ -597,12 +597,12 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingBottom: "max(calc(env(safe-area-inset-bottom) - 16px), 2px)",
         }}
         className="dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 bg-[#f6f6f4]/95 backdrop-blur-md border-t border-zinc-200/70"
       >
-        <div className="max-w-md mx-auto px-4 py-1.5">
-          <div className="h-11 flex items-center gap-1.5">
+        <div className="max-w-md mx-auto px-4 pt-1.5 pb-0.5">
+          <div className="h-10 flex items-center gap-1.5">
             {(
               [
                 { key: "my_plan", label: "Home", Icon: Home },
@@ -637,7 +637,7 @@ export function DashboardClient({
                     setIsOverHero(true);
                     window.scrollTo({ top: 0 });
                   }}
-                  className={`flex-1 h-10 rounded-xl border flex items-center justify-center transition active:scale-95 ${btnStateClass}`}
+                  className={`flex-1 h-9 rounded-xl border flex items-center justify-center transition active:scale-95 ${btnStateClass}`}
                 >
                   <Icon
                     className="w-5 h-5"
@@ -660,7 +660,7 @@ export function DashboardClient({
               : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: isFullBleedFirstPage
             ? "0px"
-            : "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
+            : "calc(3.5rem + env(safe-area-inset-bottom, 0px))",
         }}
         className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full flex flex-col"
       >

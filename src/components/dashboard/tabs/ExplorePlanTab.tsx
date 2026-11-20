@@ -10,10 +10,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Compass,
   MapPin,
   Search,
-  Users,
   X,
 } from "lucide-react";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
@@ -62,7 +60,7 @@ type ExploreSortBy =
   | "duration_desc"
   | "title_asc";
 
-type PromoBannerAction = "catalog" | "communities" | "online";
+type PromoBannerAction = "catalog" | "communities" | "online" | "hybrid";
 
 const EXPLORE_PROMO_BANNERS: ReadonlyArray<{
   id: string;
@@ -76,37 +74,37 @@ const EXPLORE_PROMO_BANNERS: ReadonlyArray<{
   action: PromoBannerAction;
 }> = [
   {
-    id: "promo-early-bird",
-    tagEn: "Promo",
-    tagId: "Promo",
-    titleEn: "Early Bird Cohort Pass",
-    titleId: "Promo Early Bird Cohort",
-    subtitleEn: "Save on upcoming hybrid & online training batches.",
-    subtitleId: "Hemat untuk pendaftaran batch hybrid & online terbaru.",
+    id: "promo-free-online",
+    tagEn: "Online",
+    tagId: "Online",
+    titleEn: "Explore Free Online Programs",
+    titleId: "Explore Free Online Programs",
+    subtitleEn: "Start structured digital movement and mindful recovery at no cost.",
+    subtitleId: "Mulai program latihan online terstruktur tanpa biaya.",
     image: "/image.webp",
-    action: "catalog",
+    action: "online",
   },
   {
-    id: "news-community-partners",
-    tagEn: "News",
-    tagId: "Berita",
-    titleEn: "New Verified Community Partners",
-    titleId: "Partner Komunitas & Studio Baru",
-    subtitleEn: "Explore newly joined studios, clubs, and coaching hubs.",
-    subtitleId: "Jelajahi studio, klub, dan komunitas terbaru di zera.id.",
+    id: "news-new-community",
+    tagEn: "Community",
+    tagId: "Komunitas",
+    titleEn: "New Community",
+    titleId: "New Community",
+    subtitleEn: "Discover newly verified studios, clubs, and training groups.",
+    subtitleId: "Temukan studio, klub, dan komunitas partner terbaru.",
     image: "/pic.webp",
     action: "communities",
   },
   {
-    id: "highlight-online-training",
-    tagEn: "Highlight",
-    tagId: "Sorotan",
-    titleEn: "Flexible Online Programs",
-    titleId: "Program Online Fleksibel",
-    subtitleEn: "Train anytime with structured daily movement & recovery.",
-    subtitleId: "Latihan kapan saja dengan panduan gerak & pemulihan harian.",
+    id: "highlight-top-hybrid",
+    tagEn: "Hybrid",
+    tagId: "Hybrid",
+    titleEn: "Top Hybrid Programs",
+    titleId: "Top Hybrid Programs",
+    subtitleEn: "High-engagement in-person cohort sessions with elite coaches.",
+    subtitleId: "Sesi cohort tatap muka eksklusif bersama pelatih terbaik.",
     image: "/test.webp",
-    action: "online",
+    action: "hybrid",
   },
 ];
 
@@ -868,7 +866,7 @@ export function ExplorePlanTab({
                       id="explore-hybrid-cities-heading"
                       className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
                     >
-                      {isId ? "Kota Hybrid" : "Hybrid Cities"}
+                      Hybrid Programs Available In
                     </h2>
                     <div
                       className="flex items-center gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
@@ -911,26 +909,12 @@ export function ExplorePlanTab({
                 {/* SECTION 5: COMMUNITY (LOGO BOXES)                               */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-community-heading" className="space-y-3.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2
-                      id="explore-community-heading"
-                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                    >
-                      Community
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCommunitySearch("");
-                        setMode("communities");
-                      }}
-                      aria-label={isId ? "Lihat semua komunitas" : "See all communities"}
-                      title={isId ? "Lihat semua komunitas" : "See all communities"}
-                      className="shrink-0 w-8 h-8 rounded-full text-zinc-500 hover:text-zinc-950 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
-                    >
-                      <ArrowUpRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <h2
+                    id="explore-community-heading"
+                    className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                  >
+                    Community
+                  </h2>
 
                   <div
                     className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
@@ -984,67 +968,6 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 5b: QUICK DISCOVER WIDGETS                               */}
-                {/* =============================================================== */}
-                {!isIntroLoading && (
-                  <section aria-label={isId ? "Temukan lebih banyak" : "Discover more"} className="space-y-2.5">
-                    {(
-                      [
-                        {
-                          title: isId ? "Explore Free Online Programs" : "Explore Free Online Programs",
-                          subtitle: isId
-                            ? `${onlinePrograms.filter((p) => p.price === 0).length} program · Tanpa biaya`
-                            : `${onlinePrograms.filter((p) => p.price === 0).length} programs · No cost`,
-                          action: () =>
-                            openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } }),
-                          icon: <Compass className="w-4 h-4" />,
-                        },
-                        {
-                          title: isId ? "Komunitas Baru" : "New Community",
-                          subtitle: isId
-                            ? "Temukan komunitas partner terbaru"
-                            : "Discover newest community partners",
-                          action: () => {
-                            setCommunitySearch("");
-                            setMode("communities");
-                          },
-                          icon: <Users className="w-4 h-4" />,
-                        },
-                        {
-                          title: isId ? "Top Hybrid Programs" : "Top Hybrid Programs",
-                          subtitle: isId
-                            ? `${hybridPrograms.length} program · Tatap muka`
-                            : `${hybridPrograms.length} programs · In-person`,
-                          action: () =>
-                            openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } }),
-                          icon: <MapPin className="w-4 h-4" />,
-                        },
-                      ] as const
-                    ).map((w) => (
-                      <button
-                        key={w.title}
-                        type="button"
-                        onClick={w.action}
-                        className="w-full p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-zinc-300 flex items-center justify-between gap-3 text-left active:scale-[0.99] transition cursor-pointer shadow-2xs"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 shrink-0">
-                            {w.icon}
-                          </span>
-                          <div>
-                            <p className="text-sm font-geometric font-semibold text-zinc-950">
-                              {w.title}
-                            </p>
-                            <p className="text-xs text-zinc-500 mt-0.5">{w.subtitle}</p>
-                          </div>
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-zinc-400 shrink-0" />
-                      </button>
-                    ))}
-                  </section>
-                )}
-
-                {/* =============================================================== */}
                 {/* SECTION 6: 3 STACKED PROMO / NEWS BANNERS (NO SECTION HEADING)  */}
                 {/* =============================================================== */}
                 <section
@@ -1072,6 +995,8 @@ export function ExplorePlanTab({
                             setMode("communities");
                           } else if (banner.action === "online") {
                             openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } });
+                          } else if (banner.action === "hybrid") {
+                            openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } });
                           } else {
                             openCatalogWith();
                           }
