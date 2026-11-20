@@ -11,6 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    console.error("[GlobalError Boundary]:", error);
     Sentry.captureException(error);
   }, [error]);
   return (
@@ -29,7 +30,12 @@ export default function GlobalError({
           <div className="pt-2">
             <button
               type="button"
-              onClick={() => reset()}
+              onClick={() => {
+                reset();
+                if (typeof window !== "undefined") {
+                  window.location.reload();
+                }
+              }}
               className="px-5 py-2.5 rounded-full bg-zinc-950 text-white text-xs font-semibold"
             >
               Reload

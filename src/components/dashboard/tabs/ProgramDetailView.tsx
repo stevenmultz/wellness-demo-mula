@@ -89,7 +89,7 @@ function difficultyLabel(level?: string) {
 
 function formatLabel(type?: string) {
   if (type === "HYBRID") return "Hybrid (Onsite + Online)";
-  return "Full Online (Anytime)";
+  return "Online (Anytime)";
 }
 
 function dayLabel(type: string) {

@@ -52,7 +52,7 @@ export function FirstTimeAppTour({
           eyebrow: "Langkah 1 • Explore",
           title: "Pilih Program yang Sesuai Ritme Anda",
           description:
-            "Buka tab Explore untuk menjelajahi program Full Online (akses kapan saja) maupun Hybrid (cohort terjadwal dengan sesi tatap muka bersama coach).",
+            "Buka tab Explore untuk menjelajahi program Online (akses kapan saja) maupun Hybrid (cohort terjadwal dengan sesi tatap muka bersama coach).",
           highlights: [
             "Filter berdasarkan kategori, level, dan lokasi kota Anda",
             "Lihat silabus, profil coach, serta jadwal sebelum mendaftar",
@@ -112,7 +112,7 @@ export function FirstTimeAppTour({
           eyebrow: "Step 1 • Explore",
           title: "Pick a Program That Fits Your Rhythm",
           description:
-            "Open the Explore tab to browse Full Online (anytime access) and Hybrid cohorts (scheduled groups with live sessions).",
+            "Open the Explore tab to browse Online (anytime access) and Hybrid cohorts (scheduled groups with live sessions).",
           highlights: [
             "Filter by category, intensity, and your city",
             "Preview the syllabus, coaches, and schedule before joining",

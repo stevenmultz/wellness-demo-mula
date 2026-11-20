@@ -39,8 +39,8 @@ export type LoadState =
 export const PAGE_SIZE = 8;
 
 export const FORMAT_OPTIONS = [
-  { id: "ONLINE", label: "Full Online" },
-  { id: "HYBRID", label: "Hybrid (Online + Onsite)" },
+  { id: "ONLINE", label: "Online" },
+  { id: "HYBRID", label: "Hybrid" },
 ] as const;
 
 export const INTENSITY_OPTIONS = ["Low", "Moderate", "High", "Very High"] as const;

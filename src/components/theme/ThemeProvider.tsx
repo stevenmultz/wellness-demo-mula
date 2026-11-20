@@ -26,7 +26,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   const syncThemeMeta = (next: Theme) => {
-    const color = next === "dark" ? "#0e0e0e" : "#ffffff";
+    const color = next === "dark" ? "#0e0e0e" : "#f6f6f4";
     document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
       el.setAttribute("content", color);
     });

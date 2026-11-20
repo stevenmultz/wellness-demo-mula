@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
@@ -660,6 +661,46 @@ export function AuthGatewayCard({
             <GoogleIcon />
             <span>Sign in with Google</span>
           </a>
+
+          <p className="pt-2 text-[11px] leading-relaxed text-zinc-500 text-center">
+            {isId ? (
+              <>
+                Dengan mendaftar atau melanjutkan, Anda menyetujui{" "}
+                <Link
+                  href="/terms"
+                  className="text-zinc-800 underline underline-offset-2 hover:text-zinc-950 font-medium"
+                >
+                  Ketentuan Layanan
+                </Link>{" "}
+                dan{" "}
+                <Link
+                  href="/privacy"
+                  className="text-zinc-800 underline underline-offset-2 hover:text-zinc-950 font-medium"
+                >
+                  Kebijakan Privasi
+                </Link>{" "}
+                kami.
+              </>
+            ) : (
+              <>
+                By signing up or continuing, you agree to our{" "}
+                <Link
+                  href="/terms"
+                  className="text-zinc-800 underline underline-offset-2 hover:text-zinc-950 font-medium"
+                >
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="/privacy"
+                  className="text-zinc-800 underline underline-offset-2 hover:text-zinc-950 font-medium"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </>
+            )}
+          </p>
         </div>
       )}
 

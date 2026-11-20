@@ -112,8 +112,8 @@ describe("UI Component: ExploreFilterDialog", () => {
     const resetBtn = screen.getByRole("button", { name: /reset/i });
     expect(resetBtn).toBeDisabled();
 
-    // Select "Full Online" format chip -> preview narrows to 1 singular result
-    const onlineChip = screen.getByRole("button", { name: "Full Online" });
+    // Select "Online" format chip -> preview narrows to 1 singular result
+    const onlineChip = screen.getByRole("button", { name: "Online" });
     expect(onlineChip).toHaveAttribute("aria-pressed", "false");
     await user.click(onlineChip);
 

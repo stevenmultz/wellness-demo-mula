@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LocaleToggle } from "@/components/common/LocaleToggle";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { BRAND } from "@/wellness/brand";
@@ -17,50 +16,46 @@ const PUBLIC_NAV_KEYS = [
 ] as const;
 
 /**
- * Clean solid Light Theme mobile backdrop (no background image).
+ * Clean solid Light Theme mobile backdrop extending full-bleed across the entire viewport.
  */
 export function PublicMobileBackdrop() {
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-0 z-0 lg:hidden pointer-events-none bg-[#f6f6f4] dark:bg-[#0e0e0e]"
+      className="fixed inset-0 z-0 lg:hidden pointer-events-none bg-[#f6f6f4]"
     />
   );
 }
 
 /**
- * Top bar: ZERA + logo on top-left and text-only theme toggle ("Dark" / "Light") on top-right.
+ * Top bar: zera.id logo on top-left and language toggle on top-right (Light-only, safe-area flush).
  */
 export function PublicTopBrand() {
   return (
     <header
       style={{
-        paddingTop: "max(env(safe-area-inset-top, 0px), 1.5rem)",
+        paddingTop: "max(0.75rem, env(safe-area-inset-top))",
       }}
-      className="w-full flex items-center justify-between gap-3 pb-2.5 sm:pb-3 border-b border-zinc-200/60 dark:border-white/10 shrink-0"
+      className="w-full min-h-14 flex items-center justify-between gap-3 pb-3 border-b border-zinc-200/70 shrink-0"
     >
       <Link
         href="/"
         className="flex items-center text-left group shrink-0"
         title={BRAND.fullName}
       >
-        <BrandLogo size="sm" className="sm:hidden" />
-        <BrandLogo size="md" className="hidden sm:inline-flex" />
+        <BrandLogo size="sm" tone="dark" className="sm:hidden" />
+        <BrandLogo size="md" tone="dark" className="hidden sm:inline-flex" />
       </Link>
 
-      <div className="flex items-center gap-2.5 sm:gap-3.5 text-[11px] sm:text-xs">
+      <div className="flex items-center text-[11px] sm:text-xs">
         <LocaleToggle className="text-[11px] sm:text-xs" />
-        <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600 select-none">
-          •
-        </span>
-        <ThemeToggle className="text-[11px] sm:text-xs" />
       </div>
     </header>
   );
 }
 
 /**
- * Consistent spacing shell across every public information page.
+ * Consistent spacing shell across every public information page (Light-only, full-screen safe-area).
  */
 export function PublicPageShell({
   children,
@@ -68,13 +63,13 @@ export function PublicPageShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-[100dvh] flex flex-col justify-between bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
+    <div className="relative min-h-[100dvh] flex flex-col justify-between bg-[#f6f6f4] text-zinc-900 selection:bg-zinc-900 selection:text-white font-sans overflow-x-clip">
       <PublicMobileBackdrop />
 
-      <div className="relative z-10 max-w-4xl w-full mx-auto px-5 sm:px-10 pt-2 pb-4 sm:py-8 flex-1 flex flex-col justify-between gap-8 sm:gap-14">
+      <div className="relative z-10 max-w-4xl w-full mx-auto px-5 sm:px-8 pt-0 pb-4 flex-1 flex flex-col justify-between gap-8 sm:gap-12">
         <PublicTopBrand />
 
-        <main className="my-auto w-full space-y-8 sm:space-y-12">
+        <main className="my-auto py-4 sm:py-6 w-full space-y-8 sm:space-y-12">
           {children}
         </main>
 
@@ -103,19 +98,19 @@ export function PublicPageActions({
     >
       <Link
         href="/"
-        className="h-8 sm:h-10 px-3.5 sm:px-5 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-[10px] sm:text-xs font-medium tracking-wide inline-flex items-center justify-center gap-1.5 transition shrink-0"
+        className="h-9 sm:h-10 px-4 sm:px-5 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-[11px] sm:text-xs font-medium tracking-wide inline-flex items-center justify-center gap-1.5 transition shrink-0"
       >
-        <ArrowLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+        <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
         <span>{t.common.signIn}</span>
       </Link>
 
       {nextHref && nextLabel && (
         <Link
           href={nextHref}
-          className="h-8 sm:h-10 px-3.5 sm:px-5 rounded-full bg-zinc-900/10 hover:bg-zinc-900/15 text-zinc-950 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white text-[10px] sm:text-xs font-medium tracking-wide inline-flex items-center justify-center gap-1.5 transition shrink-0"
+          className="h-9 sm:h-10 px-4 sm:px-5 rounded-full bg-zinc-900/10 hover:bg-zinc-900/15 text-zinc-950 text-[11px] sm:text-xs font-medium tracking-wide inline-flex items-center justify-center gap-1.5 transition shrink-0"
         >
           <span>{nextLabel}</span>
-          <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
         </Link>
       )}
     </section>
@@ -123,21 +118,25 @@ export function PublicPageActions({
 }
 
 /**
- * Single Bottom Navbar for the public website.
+ * Stacked public footer with consistent global spacing and copyright at the very bottom.
  */
 export function PublicBottomNavbar() {
   const pathname = usePathname();
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const isId = locale === "id";
 
   return (
     <footer
       style={{
-        paddingBottom: "max(env(safe-area-inset-bottom, 0px), 0.5rem)",
+        paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label="Public navigation"
-      className="w-full border-t border-zinc-200/60 dark:border-white/10 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] sm:text-xs shrink-0"
+      className="w-full border-t border-zinc-200/70 pt-5 flex flex-col items-center gap-3 text-center shrink-0"
     >
-      <div className="flex items-center justify-between sm:justify-start gap-x-4 sm:gap-x-5">
+      <nav
+        aria-label="Footer navigation"
+        className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs"
+      >
         {PUBLIC_NAV_KEYS.map(({ href, key }) => {
           const isActive = pathname === href;
           return (
@@ -146,17 +145,39 @@ export function PublicBottomNavbar() {
               href={href}
               className={`shrink-0 transition ${
                 isActive
-                  ? "text-zinc-950 dark:text-white font-semibold underline underline-offset-4"
-                  : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+                  ? "text-zinc-950 font-semibold underline underline-offset-4"
+                  : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
               {t.nav[key]}
             </Link>
           );
         })}
+      </nav>
+
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-zinc-500">
+        <Link
+          href="/terms"
+          className={`transition hover:text-zinc-950 ${
+            pathname === "/terms" ? "text-zinc-950 font-medium underline underline-offset-4" : ""
+          }`}
+        >
+          {isId ? "Ketentuan Layanan" : "Terms of Service"}
+        </Link>
+        <span aria-hidden="true" className="text-zinc-300">
+          ·
+        </span>
+        <Link
+          href="/privacy"
+          className={`transition hover:text-zinc-950 ${
+            pathname === "/privacy" ? "text-zinc-950 font-medium underline underline-offset-4" : ""
+          }`}
+        >
+          {isId ? "Kebijakan Privasi" : "Privacy Policy"}
+        </Link>
       </div>
 
-      <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 text-center sm:text-right">
+      <span className="text-[10px] font-mono text-zinc-400 pt-0.5">
         {BRAND.copyright}
       </span>
     </footer>

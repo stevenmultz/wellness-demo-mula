@@ -441,7 +441,7 @@ export function GuideAccordionModal({
                   <dd className="font-medium text-zinc-950 dark:text-white sm:text-right">
                     {program.locationType === "HYBRID"
                       ? `Hybrid${program.city ? ` · ${program.city}` : ""}`
-                      : "Full Online · Anytime Access"}
+                      : "Online · Anytime Access"}
                   </dd>
                 </div>
               </dl>

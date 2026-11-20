@@ -50,7 +50,7 @@ function toJsonString(val: unknown): string | null {
 export const dynamic = "force-dynamic";
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#f6f6f4",
   colorScheme: "light",
 };
 

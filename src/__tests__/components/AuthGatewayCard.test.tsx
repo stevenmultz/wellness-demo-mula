@@ -69,6 +69,9 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
       "href",
       "/api/auth/google"
     );
+    expect(screen.getByText(/by signing up or continuing, you agree/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /terms of service/i })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: /privacy policy/i })).toHaveAttribute("href", "/privacy");
     expect(screen.queryByPlaceholderText(/enter your email/i)).not.toBeInTheDocument();
   });
 

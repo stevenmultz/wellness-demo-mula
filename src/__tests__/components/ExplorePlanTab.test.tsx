@@ -121,8 +121,12 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
       </LocaleProvider>
     );
 
-    // Removed headers/eyebrows/buttons are not rendered
+    // Removed headers/eyebrows/descriptions/buttons are not rendered
     expect(screen.queryByText("All Plans")).toBeNull();
+    expect(screen.queryByText("Full Online Programs")).toBeNull();
+    expect(screen.queryByText("Explore Community")).toBeNull();
+    expect(screen.queryByText(/100% online training/i)).toBeNull();
+    expect(screen.queryByText(/Online training paired with in-person/i)).toBeNull();
     expect(screen.queryByText(/Flexible • Anytime/i)).toBeNull();
     expect(screen.queryByText(/Scheduled & Onsite/i)).toBeNull();
     expect(screen.queryByText(/Verified Communities/i)).toBeNull();
@@ -131,44 +135,47 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     const pilatesBtn = await screen.findByRole("button", { name: "Pilates" });
     expect(pilatesBtn.textContent?.trim()).toBe("Pilates");
 
-    // Full Online card shows badges (Full Online, commitment, category) + title + price
+    // Online card shows ONLY Online + category badges + title + price (no commitment badge, no "Full")
     const onlineHeading = screen.getByRole("heading", { name: "Morning Pilates Reset" });
     const onlineCard = onlineHeading.closest("button");
     expect(onlineCard?.querySelector("img")).not.toBeNull();
     expect(onlineCard?.textContent).toContain("Morning Pilates Reset");
     expect(onlineCard?.textContent).toContain("250.000");
-    expect(onlineCard?.textContent).toContain("Full Online");
-    expect(onlineCard?.textContent).toContain("20m/day");
+    expect(onlineCard?.textContent).toContain("Online");
+    expect(onlineCard?.textContent).not.toContain("Full Online");
+    expect(onlineCard?.textContent).not.toContain("20m/day");
     expect(onlineCard?.textContent).toContain("Pilates");
     expect(onlineCard?.textContent).not.toContain("Coach Sarah");
 
-    // Hybrid card shows badges (Hybrid, city, category) + title + price
+    // Hybrid card shows ONLY Hybrid + category badges + title + price (no city badge)
     const hybridHeading = screen.getByRole("heading", { name: "Senopati Padel Cohort" });
     const hybridCard = hybridHeading.closest("button");
     expect(hybridCard?.querySelector("img")).not.toBeNull();
     expect(hybridCard?.textContent).toContain("Senopati Padel Cohort");
     expect(hybridCard?.textContent).toContain("650.000");
     expect(hybridCard?.textContent).toContain("Hybrid");
-    expect(hybridCard?.textContent).toContain("Jakarta Selatan");
+    expect(hybridCard?.textContent).not.toContain("Jakarta Selatan");
     expect(hybridCard?.textContent).toContain("Padel");
     expect(hybridCard?.textContent).not.toContain("Coach Dimas");
 
-    // Community card shows ONLY logo without visible community name text
+    // Community card uses logo as box background (no overlaid inner img, no visible text)
     const commBtn = screen.getByRole("button", { name: "ZERA Sanctuary" });
-    expect(commBtn.querySelector("img")).not.toBeNull();
+    expect(commBtn.style.backgroundImage).toContain("/logo-zera.png");
+    expect(commBtn.querySelector("img")).toBeNull();
     expect(commBtn.textContent?.trim()).toBe("");
 
     await waitFor(() => {
       expect(screen.getByText("Explore All Programs")).toBeDefined();
+      expect(screen.getByText("Online Programs")).toBeDefined();
+      expect(screen.getByText("Hybrid Programs")).toBeDefined();
       expect(screen.getByText("See all sports category")).toBeDefined();
       // Only the 2 top header "See All" buttons (trailing cards removed)
       expect(screen.getAllByRole("button", { name: /^See All$/i }).length).toBe(2);
-      expect(screen.queryByText("Online Programs")).toBeNull();
       expect(screen.getByText("See all community")).toBeDefined();
     });
   });
 
-  it("supports Sort by dropdown, Full Online/Hybrid format filters, and clean community strip without 'Community:' prefix in catalog mode", async () => {
+  it("supports Sort by dropdown and compact Type, Sports, Community, and City filter dropdowns in catalog mode", async () => {
     window.scrollTo = vi.fn();
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
@@ -210,7 +217,7 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /Share Progress/i }));
     expect(onShareProgress).toHaveBeenCalledTimes(1);
 
-    // Open catalog via "See All" on Full Online Programs
+    // Open catalog via "See All" on Online Programs
     const seeAllButtons = screen.getAllByRole("button", { name: /^See All$/i });
     fireEvent.click(seeAllButtons[0]);
 
@@ -218,29 +225,35 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     const sortBtn = await screen.findByRole("button", { name: /Sort by/i });
     expect(screen.queryByRole("button", { name: /^Filters$/i })).toBeNull();
 
-    // Format filter buttons: All, Full Online, Hybrid
-    const allFormatBtn = screen.getByRole("button", { name: /^All$/i });
-    const fullOnlineFormatBtn = screen.getByRole("button", { name: /^Full Online$/i });
-    const hybridFormatBtn = screen.getByRole("button", { name: /^Hybrid$/i });
-    expect(fullOnlineFormatBtn.getAttribute("aria-pressed")).toBe("true");
+    // Type dropdown is pre-set to "Online"
+    const typeDropdownBtn = screen.getByRole("button", { name: /^Online$/i });
     expect(screen.getByRole("heading", { name: "Morning Pilates Reset" })).toBeDefined();
     expect(screen.queryByRole("heading", { name: "Senopati Padel Cohort" })).toBeNull();
 
-    // Switch format filter to Hybrid
-    fireEvent.click(hybridFormatBtn);
+    // Switch Type dropdown to Hybrid
+    fireEvent.click(typeDropdownBtn);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /^Hybrid$/i }));
     expect(screen.getByRole("heading", { name: "Senopati Padel Cohort" })).toBeDefined();
     expect(screen.queryByRole("heading", { name: "Morning Pilates Reset" })).toBeNull();
 
-    // Switch to All and sort by Price: High to Low
-    fireEvent.click(allFormatBtn);
+    // Filter by City dropdown
+    fireEvent.click(screen.getByRole("button", { name: /^City$/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Jakarta Selatan" }));
+    expect(screen.getByRole("heading", { name: "Senopati Padel Cohort" })).toBeDefined();
+
+    // Reset all filters and sort by Price: High to Low
+    fireEvent.click(screen.getByRole("button", { name: /Reset/i }));
     fireEvent.click(sortBtn);
     fireEvent.click(screen.getByRole("menuitemradio", { name: /Price: High to Low/i }));
     const headingsDesc = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(headingsDesc).toEqual(["Senopati Padel Cohort", "Morning Pilates Reset"]);
 
-    // Select Pilates category -> community strip appears WITHOUT "Community:" prefix
-    fireEvent.click(screen.getByRole("button", { name: "Pilates" }));
-    expect(screen.getByRole("button", { name: /ZERA Sanctuary/i })).toBeDefined();
-    expect(screen.queryByText(/Community:/i)).toBeNull();
+    // Filter by Sports dropdown -> Pilates, then Community dropdown -> ZERA Sanctuary
+    fireEvent.click(screen.getByRole("button", { name: /^Sports$/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Pilates" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Community$/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /ZERA Sanctuary/i }));
+    expect(screen.getByRole("heading", { name: "Morning Pilates Reset" })).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Senopati Padel Cohort" })).toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArrowUpDown,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -105,6 +106,11 @@ export function ExplorePlanTab({
   const [masterCategories, setMasterCategories] = useState<string[]>([]);
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [openFilterMenu, setOpenFilterMenu] = useState<
+    "type" | "sports" | "community" | "city" | null
+  >(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
   const [sortBy, setSortBy] = useState<ExploreSortBy>("recommended");
   const [sortOpen, setSortOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
@@ -122,17 +128,24 @@ export function ExplorePlanTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, applied, selectedCoach, selectedCommunity, sortBy]);
+  }, [debouncedSearch, applied, selectedCoach, selectedCommunity, selectedCity, sortBy]);
 
   useEffect(() => {
-    if (!sortOpen) return;
+    if (!sortOpen && !openFilterMenu) return;
     const onOutside = (e: MouseEvent | TouchEvent) => {
-      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (sortOpen && sortMenuRef.current && !sortMenuRef.current.contains(target)) {
         setSortOpen(false);
+      }
+      if (openFilterMenu && filterBarRef.current && !filterBarRef.current.contains(target)) {
+        setOpenFilterMenu(null);
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSortOpen(false);
+      if (e.key === "Escape") {
+        setSortOpen(false);
+        setOpenFilterMenu(null);
+      }
     };
     document.addEventListener("mousedown", onOutside);
     document.addEventListener("touchstart", onOutside);
@@ -142,7 +155,7 @@ export function ExplorePlanTab({
       document.removeEventListener("touchstart", onOutside);
       window.removeEventListener("keydown", onKey);
     };
-  }, [sortOpen]);
+  }, [sortOpen, openFilterMenu]);
 
   const load = useCallback(async (signal: AbortSignal, isBackgroundRefresh = false) => {
     if (isBackgroundRefresh) {
@@ -249,21 +262,40 @@ export function ExplorePlanTab({
   const isIntroLoading = state.status === "loading";
 
   const availableCommunitiesForFilter = useMemo(() => {
-    if (applied.category.length > 0) {
-      const selectedCatLower = applied.category.map((c) => c.toLowerCase());
-      const scopedPrograms = catalog.filter((p) => {
-        if (applied.format.length > 0 && !applied.format.includes(p.locationType)) {
+    const scopedPrograms = catalog.filter((p) => {
+      if (applied.format.length > 0 && !applied.format.includes(p.locationType)) {
+        return false;
+      }
+      if (applied.category.length > 0) {
+        const selectedCatLower = applied.category.map((c) => c.toLowerCase());
+        if (!categoriesOf(p).some((c) => selectedCatLower.includes(c.toLowerCase()))) {
           return false;
         }
-        return categoriesOf(p).some((c) => selectedCatLower.includes(c.toLowerCase()));
-      });
-      return buildExploreCommunities(scopedPrograms);
+      }
+      return true;
+    });
+    return buildExploreCommunities(scopedPrograms);
+  }, [catalog, applied.category, applied.format]);
+
+  const availableCitiesForFilter = useMemo(() => {
+    const cityMap = new Map<string, string>();
+    for (const p of catalog) {
+      if (applied.format.length > 0 && !applied.format.includes(p.locationType)) {
+        continue;
+      }
+      if (applied.category.length > 0) {
+        const selectedCatLower = applied.category.map((c) => c.toLowerCase());
+        if (!categoriesOf(p).some((c) => selectedCatLower.includes(c.toLowerCase()))) {
+          continue;
+        }
+      }
+      const rawCity = (p.city || "").trim();
+      if (!rawCity) continue;
+      const key = rawCity.toLowerCase();
+      if (!cityMap.has(key)) cityMap.set(key, rawCity);
     }
-    if (selectedCommunity) {
-      return availableCommunities;
-    }
-    return [];
-  }, [catalog, applied.category, applied.format, selectedCommunity, availableCommunities]);
+    return Array.from(cityMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [catalog, applied.category, applied.format]);
 
   const coachScopedCatalog = useMemo(() => {
     let list = catalog;
@@ -274,6 +306,11 @@ export function ExplorePlanTab({
           selectedCommunity.trim().toLowerCase()
       );
     }
+    if (selectedCity) {
+      list = list.filter(
+        (p) => (p.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
+      );
+    }
     if (selectedCoach) {
       list = list.filter((p) =>
         splitCoachTokens(p.coachName).some(
@@ -282,7 +319,7 @@ export function ExplorePlanTab({
       );
     }
     return list;
-  }, [catalog, selectedCoach, selectedCommunity]);
+  }, [catalog, selectedCoach, selectedCommunity, selectedCity]);
 
   const filtered = useMemo(() => {
     const list = coachScopedCatalog.filter((p) => matches(p, applied));
@@ -306,6 +343,9 @@ export function ExplorePlanTab({
   const safePage = Math.min(page, pages);
   const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const activeCount = countActive(applied);
+  const hasAnyCatalogFilter = Boolean(
+    activeCount || selectedCommunity || selectedCity || selectedCoach
+  );
 
   const isId = locale === "id";
 
@@ -322,12 +362,15 @@ export function ExplorePlanTab({
     filters?: Filters;
     community?: string | null;
     coach?: string | null;
+    city?: string | null;
   }) => {
     const nextFilters = opts?.filters ?? EMPTY;
     setSelectedCoach(opts?.coach ?? null);
     setSelectedCommunity(opts?.community ?? null);
+    setSelectedCity(opts?.city ?? null);
     setApplied(nextFilters);
     setSortOpen(false);
+    setOpenFilterMenu(null);
     setPage(1);
     setMode("catalog");
   };
@@ -565,33 +608,26 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 2: FULL ONLINE PROGRAMS — WIDE BANNER CARDS             */}
+                {/* SECTION 2: ONLINE PROGRAMS — WIDE BANNER CARDS                  */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-online-heading" className="space-y-3.5">
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2
-                        id="explore-online-heading"
-                        className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                      >
-                        Full Online Programs
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
-                        }
-                        className="shrink-0 h-8 px-3 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-xs font-geometric font-medium text-zinc-900 inline-flex items-center gap-1 active:scale-95 transition cursor-pointer"
-                      >
-                        <span>{isId ? "Lihat Semua" : "See All"}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-                      </button>
-                    </div>
-                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                      {isId
-                        ? "Latihan 100% online. Mulai kapan saja dan atur jadwal sendiri tanpa terikat lokasi."
-                        : "100% online training. Start anytime and follow at your own pace from anywhere."}
-                    </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2
+                      id="explore-online-heading"
+                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                    >
+                      Online Programs
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } })
+                      }
+                      className="shrink-0 h-8 px-3 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-xs font-geometric font-medium text-zinc-900 inline-flex items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <span>{isId ? "Lihat Semua" : "See All"}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                    </button>
                   </div>
 
                   <div
@@ -630,13 +666,10 @@ export function ExplorePlanTab({
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
-                            {/* Top Badges: Full Online, Commitment Time, Sport Category */}
+                            {/* Top Badges: Online + Sport Category */}
                             <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
-                                Full Online
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
-                                {p.dailyCommitment || `${p.durationDays}d`}
+                                Online
                               </span>
                               {p.category && (
                                 <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
@@ -664,30 +697,23 @@ export function ExplorePlanTab({
                 {/* SECTION 3: HYBRID PROGRAMS — WIDE BANNER CARDS                  */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-hybrid-heading" className="space-y-3.5">
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2
-                        id="explore-hybrid-heading"
-                        className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                      >
-                        Hybrid Programs
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
-                        }
-                        className="shrink-0 h-8 px-3 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-xs font-geometric font-medium text-zinc-900 inline-flex items-center gap-1 active:scale-95 transition cursor-pointer"
-                      >
-                        <span>{isId ? "Lihat Semua" : "See All"}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-                      </button>
-                    </div>
-                    <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
-                      {isId
-                        ? "Gabungan latihan online dan sesi tatap muka. Cek tanggal mulai dan lokasi sebelum mendaftar."
-                        : "Online training paired with in-person sessions. Check the start date and venue before joining."}
-                    </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2
+                      id="explore-hybrid-heading"
+                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                    >
+                      Hybrid Programs
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } })
+                      }
+                      className="shrink-0 h-8 px-3 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-xs font-geometric font-medium text-zinc-900 inline-flex items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <span>{isId ? "Lihat Semua" : "See All"}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                    </button>
                   </div>
 
                   <div
@@ -726,13 +752,10 @@ export function ExplorePlanTab({
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
-                            {/* Top Badges: Hybrid, City/Location, Sport Category */}
+                            {/* Top Badges: Hybrid + Sport Category */}
                             <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
                                 Hybrid
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
-                                {p.city || "Onsite"}
                               </span>
                               {p.category && (
                                 <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
@@ -757,16 +780,9 @@ export function ExplorePlanTab({
                 </section>
 
                 {/* =============================================================== */}
-                {/* SECTION 4: EXPLORE COMMUNITY — LOGO ONLY                        */}
+                {/* SECTION 4: COMMUNITY LOGOS (FULL-BLEED BOX BACKGROUND, NO TITLE)*/}
                 {/* =============================================================== */}
-                <section aria-labelledby="explore-community-heading" className="space-y-3.5">
-                  <h2
-                    id="explore-community-heading"
-                    className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                  >
-                    Explore Community
-                  </h2>
-
+                <section aria-label="Communities" className="space-y-3.5">
                   <div
                     className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
                     style={{ scrollbarWidth: "none" }}
@@ -794,17 +810,24 @@ export function ExplorePlanTab({
                             onClick={() => openCatalogWith({ community: comm.name })}
                             aria-label={comm.name}
                             title={comm.name}
-                            className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] shrink-0 snap-start rounded-2xl bg-white hover:bg-zinc-100 p-2.5 flex items-center justify-center overflow-hidden active:scale-[0.97] transition cursor-pointer"
+                            style={
+                              comm.logo
+                                ? {
+                                    backgroundImage: `url("${comm.logo.replace(/"/g, '\\"')}")`,
+                                    backgroundSize: "cover",
+                                    backgroundPosition: "center",
+                                    backgroundRepeat: "no-repeat",
+                                  }
+                                : undefined
+                            }
+                            className={`relative w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] shrink-0 snap-start rounded-2xl overflow-hidden flex items-center justify-center active:scale-[0.97] transition cursor-pointer ${
+                              comm.logo
+                                ? "bg-zinc-200"
+                                : "bg-zinc-900 text-white hover:bg-zinc-800"
+                            }`}
                           >
-                            {comm.logo ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={comm.logo}
-                                alt={comm.name}
-                                className="w-full h-full object-contain"
-                              />
-                            ) : (
-                              <span className="text-base sm:text-lg font-geometric font-bold tracking-wider text-zinc-900">
+                            {!comm.logo && (
+                              <span className="text-base sm:text-lg font-geometric font-bold tracking-wider">
                                 {communityMonogram(comm.name)}
                               </span>
                             )}
@@ -883,147 +906,375 @@ export function ExplorePlanTab({
           refreshing={refreshing && state.status === "ready"}
         />
 
-        {/* FORMAT FILTER STRIP: ALL / FULL ONLINE / HYBRID */}
+        {/* COMPACT DROPDOWN FILTER BAR: TYPE, SPORTS, COMMUNITY, CITY */}
         <div
+          ref={filterBarRef}
           role="group"
-          aria-label={isId ? "Filter format program" : "Filter program format"}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pt-1 scroll-smooth"
-          style={{ scrollbarWidth: "none" }}
+          aria-label={isId ? "Filter program" : "Filter programs"}
+          className="flex flex-wrap items-center gap-2 pt-1"
         >
-          {(
-            [
-              { id: "ALL", label: isId ? "Semua" : "All" },
-              { id: "ONLINE", label: "Full Online" },
-              { id: "HYBRID", label: "Hybrid" },
-            ] as const
-          ).map((fmt) => {
-            const isSelected =
-              fmt.id === "ALL"
-                ? applied.format.length === 0
-                : applied.format.includes(fmt.id);
-            return (
-              <button
-                key={fmt.id}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => {
-                  const nextFormat =
-                    fmt.id === "ALL" ? [] : isSelected ? [] : [fmt.id];
-                  setApplied((f) => ({ ...f, format: nextFormat }));
-                  setPage(1);
-                }}
-                className={`shrink-0 h-8 px-4 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
-                  isSelected
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                    : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
+          {/* 1. BY TYPE DROPDOWN */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenFilterMenu((prev) => (prev === "type" ? null : "type"))
+              }
+              aria-haspopup="menu"
+              aria-expanded={openFilterMenu === "type"}
+              className={`h-8 px-3 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-1.5 transition active:scale-95 ${
+                applied.format.length > 0
+                  ? "bg-zinc-950 text-white border-zinc-950"
+                  : "bg-white text-zinc-700 border-zinc-200/90 hover:border-zinc-400"
+              }`}
+            >
+              <span>
+                {applied.format[0] === "ONLINE"
+                  ? "Online"
+                  : applied.format[0] === "HYBRID"
+                    ? "Hybrid"
+                    : isId
+                      ? "Tipe"
+                      : "Type"}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 opacity-70 transition-transform duration-150 ${
+                  openFilterMenu === "type" ? "rotate-180" : ""
                 }`}
-              >
-                {fmt.label}
-              </button>
-            );
-          })}
-        </div>
+              />
+            </button>
 
-        {/* SPORTS CATEGORY FILTER STRIP */}
-        <div
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5 scroll-smooth"
-          style={{ scrollbarWidth: "none" }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setApplied((f) => ({ ...f, category: [] }));
-              setSelectedCommunity(null);
-              setPage(1);
-            }}
-            className={`shrink-0 h-8 px-4 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
-              applied.category.length === 0
-                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
-            }`}
-          >
-            {isId ? "Semua Kategori" : "All Categories"}
-          </button>
-          {sportsCategoriesWithCounts.map((cat) => {
-            const isSelected = applied.category.some(
-              (c) => c.toLowerCase() === cat.name.toLowerCase()
-            );
-            return (
-              <button
-                key={cat.name}
-                type="button"
-                onClick={() => {
-                  const nextCats = isSelected ? [] : [cat.name];
-                  setApplied((f) => ({ ...f, category: nextCats }));
-                  setSelectedCommunity(null);
-                  setPage(1);
-                }}
-                className={`shrink-0 h-8 px-4 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
-                  isSelected
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                    : "bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-white/30"
+            {openFilterMenu === "type" && (
+              <div
+                role="menu"
+                aria-label={isId ? "Filter berdasarkan tipe" : "Filter by type"}
+                className="dashboard-nav-boxed absolute left-0 top-[calc(100%+0.4rem)] min-w-[168px] rounded-2xl bg-white border border-zinc-200/90 shadow-xl py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150"
+              >
+                {(
+                  [
+                    { id: "ALL", label: isId ? "Semua Tipe" : "All Types" },
+                    { id: "ONLINE", label: "Online" },
+                    { id: "HYBRID", label: "Hybrid" },
+                  ] as const
+                ).map((opt) => {
+                  const active =
+                    opt.id === "ALL"
+                      ? applied.format.length === 0
+                      : applied.format.includes(opt.id);
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setApplied((f) => ({
+                          ...f,
+                          format: opt.id === "ALL" ? [] : [opt.id],
+                        }));
+                        setOpenFilterMenu(null);
+                        setPage(1);
+                      }}
+                      className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                        active
+                          ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                          : "font-medium text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {active && <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 2. BY SPORTS DROPDOWN */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenFilterMenu((prev) => (prev === "sports" ? null : "sports"))
+              }
+              aria-haspopup="menu"
+              aria-expanded={openFilterMenu === "sports"}
+              className={`h-8 px-3 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-1.5 transition active:scale-95 ${
+                applied.category.length > 0
+                  ? "bg-zinc-950 text-white border-zinc-950"
+                  : "bg-white text-zinc-700 border-zinc-200/90 hover:border-zinc-400"
+              }`}
+            >
+              <span className="max-w-[120px] truncate">
+                {applied.category[0] || (isId ? "Olahraga" : "Sports")}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 opacity-70 transition-transform duration-150 ${
+                  openFilterMenu === "sports" ? "rotate-180" : ""
                 }`}
-              >
-                <span>{cat.name}</span>
-              </button>
-            );
-          })}
-        </div>
+              />
+            </button>
 
-        {/* DYNAMIC COMMUNITY FILTER STRIP (CLEAN PILLS, NO "COMMUNITY:" PREFIX) */}
-        {availableCommunitiesForFilter.length > 0 && (
-          <div
-            className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 scroll-smooth"
-            style={{ scrollbarWidth: "none" }}
-          >
+            {openFilterMenu === "sports" && (
+              <div
+                role="menu"
+                aria-label={isId ? "Filter berdasarkan olahraga" : "Filter by sports"}
+                className="dashboard-nav-boxed absolute left-0 top-[calc(100%+0.4rem)] min-w-[184px] max-h-64 overflow-y-auto rounded-2xl bg-white border border-zinc-200/90 shadow-xl py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150"
+              >
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={applied.category.length === 0}
+                  onClick={() => {
+                    setApplied((f) => ({ ...f, category: [] }));
+                    setSelectedCommunity(null);
+                    setOpenFilterMenu(null);
+                    setPage(1);
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                    applied.category.length === 0
+                      ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                      : "font-medium text-zinc-700 hover:bg-zinc-50"
+                  }`}
+                >
+                  <span>{isId ? "Semua Olahraga" : "All Sports"}</span>
+                  {applied.category.length === 0 && (
+                    <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+                  )}
+                </button>
+                {sportsCategoriesWithCounts.map((cat) => {
+                  const active = applied.category.some(
+                    (c) => c.toLowerCase() === cat.name.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={cat.name}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setApplied((f) => ({ ...f, category: [cat.name] }));
+                        setSelectedCommunity(null);
+                        setOpenFilterMenu(null);
+                        setPage(1);
+                      }}
+                      className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                        active
+                          ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                          : "font-medium text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      <span className="truncate">{cat.name}</span>
+                      {active && <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 3. BY COMMUNITY DROPDOWN */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenFilterMenu((prev) =>
+                  prev === "community" ? null : "community"
+                )
+              }
+              aria-haspopup="menu"
+              aria-expanded={openFilterMenu === "community"}
+              className={`h-8 px-3 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-1.5 transition active:scale-95 ${
+                selectedCommunity
+                  ? "bg-zinc-950 text-white border-zinc-950"
+                  : "bg-white text-zinc-700 border-zinc-200/90 hover:border-zinc-400"
+              }`}
+            >
+              <span className="max-w-[130px] truncate">
+                {selectedCommunity || (isId ? "Komunitas" : "Community")}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 opacity-70 transition-transform duration-150 ${
+                  openFilterMenu === "community" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {openFilterMenu === "community" && (
+              <div
+                role="menu"
+                aria-label={isId ? "Filter berdasarkan komunitas" : "Filter by community"}
+                className="dashboard-nav-boxed absolute left-0 top-[calc(100%+0.4rem)] min-w-[208px] max-w-[250px] max-h-64 overflow-y-auto rounded-2xl bg-white border border-zinc-200/90 shadow-xl py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150"
+              >
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={!selectedCommunity}
+                  onClick={() => {
+                    setSelectedCommunity(null);
+                    setOpenFilterMenu(null);
+                    setPage(1);
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                    !selectedCommunity
+                      ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                      : "font-medium text-zinc-700 hover:bg-zinc-50"
+                  }`}
+                >
+                  <span>{isId ? "Semua Komunitas" : "All Communities"}</span>
+                  {!selectedCommunity && (
+                    <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+                  )}
+                </button>
+                {availableCommunitiesForFilter.map((comm) => {
+                  const active =
+                    selectedCommunity?.toLowerCase() === comm.name.toLowerCase();
+                  return (
+                    <button
+                      key={comm.name}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setSelectedCommunity(comm.name);
+                        setOpenFilterMenu(null);
+                        setPage(1);
+                      }}
+                      className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                        active
+                          ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                          : "font-medium text-zinc-700 hover:bg-zinc-50"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2 min-w-0">
+                        {comm.logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={comm.logo}
+                            alt=""
+                            className="w-4 h-4 rounded-full object-cover shrink-0 bg-zinc-100"
+                          />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-zinc-200 text-zinc-700 text-[9px] font-bold flex items-center justify-center shrink-0">
+                            {communityMonogram(comm.name)}
+                          </span>
+                        )}
+                        <span className="truncate">{comm.name}</span>
+                      </span>
+                      {active && <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 4. BY CITY DROPDOWN */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenFilterMenu((prev) => (prev === "city" ? null : "city"))
+              }
+              aria-haspopup="menu"
+              aria-expanded={openFilterMenu === "city"}
+              className={`h-8 px-3 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-1.5 transition active:scale-95 ${
+                selectedCity
+                  ? "bg-zinc-950 text-white border-zinc-950"
+                  : "bg-white text-zinc-700 border-zinc-200/90 hover:border-zinc-400"
+              }`}
+            >
+              <span className="max-w-[120px] truncate">
+                {selectedCity || (isId ? "Kota" : "City")}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 opacity-70 transition-transform duration-150 ${
+                  openFilterMenu === "city" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {openFilterMenu === "city" && (
+              <div
+                role="menu"
+                aria-label={isId ? "Filter berdasarkan kota" : "Filter by city"}
+                className="dashboard-nav-boxed absolute right-0 sm:left-0 sm:right-auto top-[calc(100%+0.4rem)] min-w-[184px] max-h-64 overflow-y-auto rounded-2xl bg-white border border-zinc-200/90 shadow-xl py-1.5 z-[70] animate-in fade-in zoom-in-95 duration-150"
+              >
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={!selectedCity}
+                  onClick={() => {
+                    setSelectedCity(null);
+                    setOpenFilterMenu(null);
+                    setPage(1);
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                    !selectedCity
+                      ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                      : "font-medium text-zinc-700 hover:bg-zinc-50"
+                  }`}
+                >
+                  <span>{isId ? "Semua Kota" : "All Cities"}</span>
+                  {!selectedCity && (
+                    <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+                  )}
+                </button>
+                {availableCitiesForFilter.length === 0 ? (
+                  <p className="px-3.5 py-2 text-[11px] text-zinc-400">
+                    {isId ? "Tidak ada kota tersedia" : "No cities available"}
+                  </p>
+                ) : (
+                  availableCitiesForFilter.map((cityName) => {
+                    const active =
+                      selectedCity?.toLowerCase() === cityName.toLowerCase();
+                    return (
+                      <button
+                        key={cityName}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        onClick={() => {
+                          setSelectedCity(cityName);
+                          setOpenFilterMenu(null);
+                          setPage(1);
+                        }}
+                        className={`w-full px-3.5 py-2 text-left text-xs font-geometric flex items-center justify-between gap-2 transition ${
+                          active
+                            ? "font-semibold text-zinc-950 bg-zinc-100/80"
+                            : "font-medium text-zinc-700 hover:bg-zinc-50"
+                        }`}
+                      >
+                        <span className="truncate">{cityName}</span>
+                        {active && (
+                          <Check className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {hasAnyCatalogFilter && (
             <button
               type="button"
               onClick={() => {
+                setApplied(EMPTY);
                 setSelectedCommunity(null);
+                setSelectedCity(null);
+                setSelectedCoach(null);
+                setOpenFilterMenu(null);
                 setPage(1);
               }}
-              className={`shrink-0 h-7 px-3 rounded-full text-xs font-geometric font-medium transition focus:outline-none ${
-                !selectedCommunity
-                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
-                  : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950"
-              }`}
+              className="h-8 px-2.5 rounded-full text-xs font-geometric font-medium text-zinc-500 hover:text-zinc-950 inline-flex items-center gap-1 transition"
             >
-              {isId ? "Semua Komunitas" : "All Communities"}
+              <X className="w-3 h-3" />
+              <span>{t.common.reset}</span>
             </button>
-            {availableCommunitiesForFilter.map((comm) => {
-              const isSelected = selectedCommunity?.toLowerCase() === comm.name.toLowerCase();
-              return (
-                <button
-                  key={comm.name}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCommunity(isSelected ? null : comm.name);
-                    setPage(1);
-                  }}
-                  className={`shrink-0 h-7 pl-1.5 pr-3 rounded-full inline-flex items-center gap-1.5 text-xs font-geometric font-medium transition focus:outline-none ${
-                    isSelected
-                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950"
-                      : "bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/15"
-                  }`}
-                >
-                  {comm.logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={comm.logo}
-                      alt={comm.name}
-                      className="w-4 h-4 rounded-full object-cover shrink-0 bg-white"
-                    />
-                  ) : (
-                    <span className="w-4 h-4 rounded-full bg-zinc-300 text-zinc-700 text-[9px] font-bold flex items-center justify-center shrink-0">
-                      {communityMonogram(comm.name)}
-                    </span>
-                  )}
-                  <span className="whitespace-nowrap">{comm.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+          )}
+        </div>
 
         {selectedCoach && (
           <div className="flex flex-wrap gap-2">
@@ -1062,23 +1313,24 @@ export function ExplorePlanTab({
         {state.status === "ready" && filtered.length === 0 && (
           <EmptyState
             title={
-              debouncedSearch || activeCount || selectedCoach || selectedCommunity
+              debouncedSearch || hasAnyCatalogFilter
                 ? t.explore.noPlansMatch
                 : t.explore.noPlansYet
             }
             description={
-              debouncedSearch || activeCount || selectedCoach || selectedCommunity
+              debouncedSearch || hasAnyCatalogFilter
                 ? t.explore.noPlansMatchDesc
                 : t.explore.noPlansYetDesc
             }
             action={
-              activeCount || debouncedSearch || selectedCoach || selectedCommunity ? (
+              hasAnyCatalogFilter || debouncedSearch ? (
                 <button
                   type="button"
                   onClick={() => {
                     setSearch("");
                     setSelectedCoach(null);
                     setSelectedCommunity(null);
+                    setSelectedCity(null);
                     setApplied(EMPTY);
                     setSortBy("recommended");
                   }}
@@ -1114,15 +1366,10 @@ export function ExplorePlanTab({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
-                    {/* Top Badges: Format, Commitment/City, Sport Category */}
+                    {/* Top Badges: Online / Hybrid + Sport Category */}
                     <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
-                        {isOnline ? "Full Online" : "Hybrid"}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
-                        {isOnline
-                          ? p.dailyCommitment || `${p.durationDays}d`
-                          : p.city || "Onsite"}
+                        {isOnline ? "Online" : "Hybrid"}
                       </span>
                       {p.category && (
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">

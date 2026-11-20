@@ -80,13 +80,13 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
   };
 
   return (
-    <div className="relative min-h-[100dvh] flex flex-col lg:flex-row bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-950 font-sans transition-colors duration-200 overflow-x-clip">
-      {/* MOBILE FULL-SCREEN IMAGE BACKGROUND (< lg) */}
+    <div className="relative min-h-[100dvh] flex flex-col lg:flex-row bg-[#f6f6f4] text-zinc-900 selection:bg-zinc-900 selection:text-white font-sans overflow-x-clip">
+      {/* MOBILE FULL-SCREEN BACKDROP (< lg) */}
       <PublicMobileBackdrop />
 
       {/* Account Deletion Notice */}
       {deletedNotice && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 py-2.5 px-5 text-xs flex items-center justify-between shadow-xl font-mono">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm rounded-full bg-zinc-900 text-white py-2.5 px-5 text-xs flex items-center justify-between shadow-xl font-mono">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{t.public.accountDeleted}</span>
@@ -103,14 +103,14 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
       )}
 
       {/* =================================================================== */}
-      {/* LEFT COLUMN: LOGO + THEME ICON AT TOP, FORM IN CENTER, NAV AT BOTTOM*/}
+      {/* LEFT COLUMN: LOGO AT TOP, FORM IN CENTER, STACKED FOOTER AT BOTTOM  */}
       {/* =================================================================== */}
-      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-[100dvh] flex flex-col justify-between px-5 sm:px-12 lg:px-14 xl:px-16 pt-2 pb-3 sm:py-8">
-        {/* TOP: LOGO + COMPACT LOCALE & THEME CONTROLS (SAFE-AREA CLEARANCE) */}
+      <div className="relative z-10 w-full lg:w-[48%] xl:w-[44%] min-h-[100dvh] flex flex-col justify-between px-5 sm:px-8 lg:px-14 xl:px-16 pt-0 pb-4 sm:pb-6">
+        {/* TOP: LOGO + LOCALE TOGGLE (SAFE-AREA FLUSH) */}
         <PublicTopBrand />
 
-        {/* CENTER: SIGN IN / SIGN UP FORM (BALANCED MOBILE VERTICAL SPACING) */}
-        <main className="my-auto py-3 sm:py-6 w-full max-w-sm sm:max-w-md mx-auto lg:mx-0">
+        {/* CENTER: SIGN IN / SIGN UP FORM (CONSISTENT VERTICAL SPACING) */}
+        <main className="my-auto py-8 w-full max-w-sm sm:max-w-md mx-auto lg:mx-0">
           <div className="animate-in fade-in duration-150">
             {!sessionUser ? (
               <AuthGatewayCard
@@ -223,7 +223,7 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
         </div>
 
         <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500 dark:text-zinc-400 border-t border-zinc-300/60 dark:border-white/10 pt-5">
-          <span>Full Online · Hybrid Cohorts</span>
+          <span>Online · Hybrid Cohorts</span>
           <span>00:00 – 23:59 WIB</span>
         </div>
       </div>
