@@ -10,8 +10,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Compass,
   MapPin,
   Search,
+  Users,
   X,
 } from "lucide-react";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
@@ -631,13 +633,13 @@ export function ExplorePlanTab({
                       onClick={() => openCatalogWith()}
                       aria-label={isId ? "Lihat semua program" : "See all programs"}
                       title={isId ? "Lihat semua program" : "See all programs"}
-                      className="shrink-0 w-9 h-9 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-zinc-900 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                      className="shrink-0 w-8 h-8 rounded-full text-zinc-500 hover:text-zinc-950 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
                     >
                       <ArrowUpRight className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Horizontal Swipe: 5 Compact Sports Categories + See All */}
+                  {/* Horizontal Swipe: Compact Sports Categories */}
                   <div
                     role={isIntroLoading ? "status" : undefined}
                     aria-label={isIntroLoading ? t.explore.loadingPlans : undefined}
@@ -653,10 +655,6 @@ export function ExplorePlanTab({
                             className="w-[88px] sm:w-[96px] h-10 shrink-0 snap-start rounded-xl skeleton-block"
                           />
                         ))}
-                        <div
-                          aria-hidden="true"
-                          className="w-[168px] h-10 shrink-0 snap-start rounded-xl skeleton-block"
-                        />
                       </>
                     ) : (
                       <>
@@ -674,21 +672,6 @@ export function ExplorePlanTab({
                             </span>
                           </button>
                         ))}
-
-                        {/* Card 6: See All Sports Category */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCategorySearch("");
-                            setMode("categories");
-                          }}
-                          className="group h-10 px-4 shrink-0 snap-start rounded-xl bg-zinc-950 text-white hover:bg-zinc-900 inline-flex items-center gap-1.5 active:scale-[0.98] transition cursor-pointer"
-                        >
-                          <span className="text-xs sm:text-sm font-geometric font-semibold text-white whitespace-nowrap">
-                            See all sports category
-                          </span>
-                          <ArrowRight className="w-3.5 h-3.5 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
-                        </button>
                       </>
                     )}
                   </div>
@@ -716,7 +699,7 @@ export function ExplorePlanTab({
                       title={
                         isId ? "Lihat semua Online Programs" : "See all Online Programs"
                       }
-                      className="shrink-0 w-8 h-8 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-zinc-900 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                      className="shrink-0 w-8 h-8 rounded-full text-zinc-500 hover:text-zinc-950 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
                     >
                       <ArrowUpRight className="w-4 h-4" />
                     </button>
@@ -807,7 +790,7 @@ export function ExplorePlanTab({
                       title={
                         isId ? "Lihat semua Hybrid Programs" : "See all Hybrid Programs"
                       }
-                      className="shrink-0 w-8 h-8 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200/90 text-zinc-900 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                      className="shrink-0 w-8 h-8 rounded-full text-zinc-500 hover:text-zinc-950 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
                     >
                       <ArrowUpRight className="w-4 h-4" />
                     </button>
@@ -885,7 +868,7 @@ export function ExplorePlanTab({
                       id="explore-hybrid-cities-heading"
                       className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
                     >
-                      {isId ? "Hybrid Tersedia di Kota" : "Hybrid Available In"}
+                      {isId ? "Kota Hybrid" : "Hybrid Cities"}
                     </h2>
                     <div
                       className="flex items-center gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
@@ -897,7 +880,7 @@ export function ExplorePlanTab({
                             <div
                               key={idx}
                               aria-hidden="true"
-                              className="w-[126px] h-10 shrink-0 snap-start rounded-xl skeleton-block"
+                              className="w-[88px] sm:w-[96px] h-10 shrink-0 snap-start rounded-xl skeleton-block"
                             />
                           ))}
                         </>
@@ -912,14 +895,10 @@ export function ExplorePlanTab({
                                 city: city.name,
                               })
                             }
-                            className="h-10 px-3.5 shrink-0 snap-start rounded-xl bg-white hover:bg-zinc-100 border border-zinc-200/80 inline-flex items-center gap-2 active:scale-[0.98] transition cursor-pointer"
+                            className="h-10 px-4 shrink-0 snap-start rounded-xl bg-white hover:bg-zinc-100 border border-zinc-200/80 inline-flex items-center justify-center active:scale-[0.98] transition cursor-pointer"
                           >
-                            <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                             <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 whitespace-nowrap">
                               {city.name}
-                            </span>
-                            <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-600">
-                              {city.count}
                             </span>
                           </button>
                         ))
@@ -929,37 +908,47 @@ export function ExplorePlanTab({
                 )}
 
                 {/* =============================================================== */}
-                {/* SECTION 5: COMMUNITY PARTNERS (FULL-BLEED LOGO BOXES)           */}
+                {/* SECTION 5: COMMUNITY (LOGO BOXES)                               */}
                 {/* =============================================================== */}
                 <section aria-labelledby="explore-community-heading" className="space-y-3.5">
-                  <h2
-                    id="explore-community-heading"
-                    className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
-                  >
-                    Community Partners
-                  </h2>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2
+                      id="explore-community-heading"
+                      className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950"
+                    >
+                      Community
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCommunitySearch("");
+                        setMode("communities");
+                      }}
+                      aria-label={isId ? "Lihat semua komunitas" : "See all communities"}
+                      title={isId ? "Lihat semua komunitas" : "See all communities"}
+                      className="shrink-0 w-8 h-8 rounded-full text-zinc-500 hover:text-zinc-950 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                    >
+                      <ArrowUpRight className="w-4 h-4" />
+                    </button>
+                  </div>
 
                   <div
-                    className="flex items-stretch gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
+                    className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 scroll-px-4 sm:scroll-px-0 scroll-smooth"
                     style={{ scrollbarWidth: "none" }}
                   >
                     {isIntroLoading ? (
                       <>
-                        {Array.from({ length: 5 }).map((_, idx) => (
+                        {Array.from({ length: 6 }).map((_, idx) => (
                           <div
                             key={idx}
                             aria-hidden="true"
-                            className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] shrink-0 snap-start rounded-2xl skeleton-block"
+                            className="w-[52px] h-[52px] sm:w-[60px] sm:h-[60px] shrink-0 snap-start rounded-xl skeleton-block"
                           />
                         ))}
-                        <div
-                          aria-hidden="true"
-                          className="w-[164px] h-[72px] sm:h-[80px] shrink-0 snap-start rounded-2xl skeleton-block"
-                        />
                       </>
                     ) : (
                       <>
-                        {availableCommunities.slice(0, 5).map((comm) => (
+                        {availableCommunities.slice(0, 8).map((comm) => (
                           <button
                             key={comm.name}
                             type="button"
@@ -976,38 +965,84 @@ export function ExplorePlanTab({
                                   }
                                 : undefined
                             }
-                            className={`relative w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] shrink-0 snap-start rounded-2xl overflow-hidden flex items-center justify-center active:scale-[0.97] transition cursor-pointer ${
+                            className={`relative w-[52px] h-[52px] sm:w-[60px] sm:h-[60px] shrink-0 snap-start rounded-xl overflow-hidden flex items-center justify-center active:scale-[0.97] transition cursor-pointer ${
                               comm.logo
                                 ? "bg-zinc-200"
                                 : "bg-zinc-900 text-white hover:bg-zinc-800"
                             }`}
                           >
                             {!comm.logo && (
-                              <span className="text-base sm:text-lg font-geometric font-bold tracking-wider">
+                              <span className="text-sm font-geometric font-bold tracking-wider">
                                 {communityMonogram(comm.name)}
                               </span>
                             )}
                           </button>
                         ))}
-
-                        {/* Card 6: See All Community */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCommunitySearch("");
-                            setMode("communities");
-                          }}
-                          className="group h-[72px] sm:h-[80px] px-4 shrink-0 snap-start rounded-2xl bg-zinc-950 text-white hover:bg-zinc-900 flex items-center justify-between gap-2 active:scale-[0.98] transition cursor-pointer"
-                        >
-                          <span className="text-xs sm:text-sm font-geometric font-semibold text-white whitespace-nowrap">
-                            See all community
-                          </span>
-                          <ArrowRight className="w-4 h-4 text-white shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
-                        </button>
                       </>
                     )}
                   </div>
                 </section>
+
+                {/* =============================================================== */}
+                {/* SECTION 5b: QUICK DISCOVER WIDGETS                               */}
+                {/* =============================================================== */}
+                {!isIntroLoading && (
+                  <section aria-label={isId ? "Temukan lebih banyak" : "Discover more"} className="space-y-2.5">
+                    {(
+                      [
+                        {
+                          title: isId ? "Explore Free Online Programs" : "Explore Free Online Programs",
+                          subtitle: isId
+                            ? `${onlinePrograms.filter((p) => p.price === 0).length} program · Tanpa biaya`
+                            : `${onlinePrograms.filter((p) => p.price === 0).length} programs · No cost`,
+                          action: () =>
+                            openCatalogWith({ filters: { ...EMPTY, format: ["ONLINE"] } }),
+                          icon: <Compass className="w-4 h-4" />,
+                        },
+                        {
+                          title: isId ? "Komunitas Baru" : "New Community",
+                          subtitle: isId
+                            ? "Temukan komunitas partner terbaru"
+                            : "Discover newest community partners",
+                          action: () => {
+                            setCommunitySearch("");
+                            setMode("communities");
+                          },
+                          icon: <Users className="w-4 h-4" />,
+                        },
+                        {
+                          title: isId ? "Top Hybrid Programs" : "Top Hybrid Programs",
+                          subtitle: isId
+                            ? `${hybridPrograms.length} program · Tatap muka`
+                            : `${hybridPrograms.length} programs · In-person`,
+                          action: () =>
+                            openCatalogWith({ filters: { ...EMPTY, format: ["HYBRID"] } }),
+                          icon: <MapPin className="w-4 h-4" />,
+                        },
+                      ] as const
+                    ).map((w) => (
+                      <button
+                        key={w.title}
+                        type="button"
+                        onClick={w.action}
+                        className="w-full p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-zinc-300 flex items-center justify-between gap-3 text-left active:scale-[0.99] transition cursor-pointer shadow-2xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 shrink-0">
+                            {w.icon}
+                          </span>
+                          <div>
+                            <p className="text-sm font-geometric font-semibold text-zinc-950">
+                              {w.title}
+                            </p>
+                            <p className="text-xs text-zinc-500 mt-0.5">{w.subtitle}</p>
+                          </div>
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-zinc-400 shrink-0" />
+                      </button>
+                    ))}
+                  </section>
+                )}
 
                 {/* =============================================================== */}
                 {/* SECTION 6: 3 STACKED PROMO / NEWS BANNERS (NO SECTION HEADING)  */}

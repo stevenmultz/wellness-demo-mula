@@ -168,25 +168,32 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
       expect(screen.getByText("Explore All Programs")).toBeDefined();
       expect(screen.getByText("Online Programs")).toBeDefined();
       expect(screen.getByText("Hybrid Programs")).toBeDefined();
-      expect(screen.getByText("Hybrid Available In")).toBeDefined();
-      expect(screen.getByText("Community Partners")).toBeDefined();
-      expect(screen.getByText("See all sports category")).toBeDefined();
-      expect(screen.getByText("See all community")).toBeDefined();
+      expect(screen.getByText("Hybrid Cities")).toBeDefined();
+      expect(screen.getByText("Community")).toBeDefined();
+      expect(screen.queryByText("See all sports category")).toBeNull();
+      expect(screen.queryByText("See all community")).toBeNull();
     });
 
-    // Icon-only ArrowUpRight buttons on Explore All Programs, Online Programs, and Hybrid Programs
+    // Icon-only ArrowUpRight buttons on Explore All Programs, Online Programs, Hybrid Programs, and Community
     const seeAllAllBtn = screen.getByRole("button", { name: /^See all programs$/i });
     const seeAllOnlineBtn = screen.getByRole("button", { name: /^See all Online Programs$/i });
     const seeAllHybridBtn = screen.getByRole("button", { name: /^See all Hybrid Programs$/i });
+    const seeAllCommBtn = screen.getByRole("button", { name: /^See all communities$/i });
     expect(seeAllAllBtn.textContent?.trim()).toBe("");
     expect(seeAllOnlineBtn.textContent?.trim()).toBe("");
     expect(seeAllHybridBtn.textContent?.trim()).toBe("");
+    expect(seeAllCommBtn.textContent?.trim()).toBe("");
 
-    // Hybrid available city pill is shown under Hybrid Available In
-    const cityBtn = screen.getByRole("button", { name: /Jakarta Selatan/i });
-    expect(cityBtn).toBeDefined();
+    // Hybrid available city pill shows only the city name (no icon, no count)
+    const cityBtn = screen.getByRole("button", { name: /^Jakarta Selatan$/i });
+    expect(cityBtn.textContent?.trim()).toBe("Jakarta Selatan");
 
-    // 3 stacked promo/news banners rendered below Community Partners with no heading above
+    // Quick discover widgets rendered below Community
+    expect(screen.getByText("Explore Free Online Programs")).toBeDefined();
+    expect(screen.getByText("New Community")).toBeDefined();
+    expect(screen.getByText("Top Hybrid Programs")).toBeDefined();
+
+    // 3 stacked promo/news banners rendered below with no heading above
     const promoSection = screen.getByRole("region", { name: /Promotions and News/i });
     expect(promoSection.querySelector("h2")).toBeNull();
     expect(promoSection.querySelectorAll("button").length).toBe(3);

@@ -597,12 +597,12 @@ export function DashboardClient({
       <nav
         aria-label="Primary"
         style={{
-          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
         className="dashboard-nav-boxed fixed bottom-0 left-0 right-0 z-50 font-geometric transition-colors duration-200 bg-[#f6f6f4]/95 backdrop-blur-md border-t border-zinc-200/70"
       >
-        <div className="max-w-md mx-auto px-4">
-          <div className="h-14 flex items-center gap-1.5">
+        <div className="max-w-md mx-auto px-4 py-1.5">
+          <div className="h-11 flex items-center gap-1.5">
             {(
               [
                 { key: "my_plan", label: "Home", Icon: Home },
@@ -660,7 +660,7 @@ export function DashboardClient({
               : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: isFullBleedFirstPage
             ? "0px"
-            : "calc(5.5rem + env(safe-area-inset-bottom))",
+            : "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
         }}
         className="max-w-5xl mx-auto px-4 sm:px-8 flex-1 w-full flex flex-col"
       >
