@@ -40,6 +40,10 @@ import type {
 import {
   CheckCircle,
   AlertTriangle,
+  Compass,
+  Home,
+  MessageCircle,
+  User,
 } from "lucide-react";
 
 export type {
@@ -118,7 +122,7 @@ export function DashboardClient({
     hasInitialActivePlan ? "my_plan" : "all_plan"
   );
   const [myPlanView, setMyPlanView] = useState<MyPlanSubView>("intro");
-  const [lastMyPlanPage, setLastMyPlanPage] = useState<"all" | "ongoing" | "upcoming" | "done">("all");
+  const [lastMyPlanPage, setLastMyPlanPage] = useState<"intro" | "all" | "ongoing" | "upcoming" | "done">("intro");
   const [exploreView, setExploreView] = useState<ExploreViewMode>("intro");
   const [historyView, setHistoryView] = useState<"intro" | "feed">("intro");
   const [profileViewMode, setProfileViewMode] = useState<"intro" | "menu">("intro");
@@ -589,7 +593,7 @@ export function DashboardClient({
         />
       )}
 
-      {/* Bottom Navigation: fixed uniform geometry across all tabs & detail pages; clean Light Theme surface */}
+      {/* Bottom Navigation: fixed uniform icon-only dock across all tabs & detail pages; clean Light Theme surface */}
       <nav
         aria-label="Primary"
         style={{
@@ -601,22 +605,23 @@ export function DashboardClient({
           <div className="h-14 flex items-center gap-1.5">
             {(
               [
-                { key: "my_plan", label: t.nav.myPlan },
-                { key: "all_plan", label: t.nav.explore },
-                { key: "notifications", label: t.nav.activity },
-                { key: "profile", label: t.nav.profile },
+                { key: "my_plan", label: "Home", Icon: Home },
+                { key: "all_plan", label: t.nav.explore, Icon: Compass },
+                { key: "notifications", label: "Message", Icon: MessageCircle },
+                { key: "profile", label: t.nav.profile, Icon: User },
               ] as const
-            ).map(({ key, label }) => {
+            ).map(({ key, label, Icon }) => {
               const active = activeTab === key;
               const btnStateClass = active
-                ? "border-zinc-300 bg-white text-zinc-950 font-semibold shadow-xs"
-                : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-900 font-medium";
+                ? "border-zinc-300 bg-white text-zinc-950 shadow-xs"
+                : "border-transparent bg-transparent text-zinc-400 hover:text-zinc-900";
 
               return (
                 <button
                   key={key}
                   type="button"
                   aria-label={label}
+                  title={label}
                   aria-current={active ? "page" : undefined}
                   onClick={() => {
                     setActiveTab(key);
@@ -632,14 +637,13 @@ export function DashboardClient({
                     setIsOverHero(true);
                     window.scrollTo({ top: 0 });
                   }}
-                  className={`flex-1 h-10 px-2 rounded-xl border flex items-center justify-center gap-1 text-xs whitespace-nowrap tracking-wide transition active:scale-95 ${btnStateClass}`}
+                  className={`flex-1 h-10 rounded-xl border flex items-center justify-center transition active:scale-95 ${btnStateClass}`}
                 >
-                  <span>{label}</span>
-                  {key === "my_plan" && activeEnrollments.length > 0 && (
-                    <span className="text-[10px] font-mono tabular-nums opacity-75">
-                      {activeEnrollments.length}
-                    </span>
-                  )}
+                  <Icon
+                    className="w-5 h-5"
+                    strokeWidth={active ? 2.2 : 1.75}
+                    aria-hidden="true"
+                  />
                 </button>
               );
             })}
@@ -690,23 +694,25 @@ export function DashboardClient({
         <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
           {myPlanView === "intro" ? (
             <MyPlanIntro
+              userId={user.id}
               userName={user.fullName}
-              totalCount={myPlanIndexItems.length}
-              ongoingCount={myPlanIndexItems.filter((p) => !p.isUpcoming && !p.isCompleted).length}
-              upcomingCount={myPlanIndexItems.filter((p) => p.isUpcoming && !p.isCompleted).length}
-              completedCount={myPlanIndexItems.filter((p) => !!p.isCompleted).length}
-              onSelectFilter={(filter) => {
-                const targetPage = filter === "completed" ? "done" : filter;
-                setLastMyPlanPage(targetPage);
-                setMyPlanView(targetPage);
+              userEmail={user.email}
+              userAvatarUrl={user.avatarUrl}
+              userSubtitle={[user.occupation, user.city].filter(Boolean).join(" · ") || null}
+              plans={myPlanIndexItems}
+              onSelectPlan={(programId) => {
+                setLastMyPlanPage("intro");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
                 setIsOverHero(true);
                 window.scrollTo({ top: 0 });
               }}
               onExplore={() => {
-                setExploreView("catalog");
+                setExploreView("intro");
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
+              onEditProfile={() => profileMenuActions.onEditProfile?.()}
             />
           ) : myPlanView === "all" ? (
             <MyPlanAllPage

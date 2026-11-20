@@ -168,14 +168,31 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
       expect(screen.getByText("Explore All Programs")).toBeDefined();
       expect(screen.getByText("Online Programs")).toBeDefined();
       expect(screen.getByText("Hybrid Programs")).toBeDefined();
+      expect(screen.getByText("Hybrid Available In")).toBeDefined();
+      expect(screen.getByText("Community Partners")).toBeDefined();
       expect(screen.getByText("See all sports category")).toBeDefined();
-      // Only the 2 top header "See All" buttons (trailing cards removed)
-      expect(screen.getAllByRole("button", { name: /^See All$/i }).length).toBe(2);
       expect(screen.getByText("See all community")).toBeDefined();
     });
+
+    // Icon-only ArrowUpRight buttons on Explore All Programs, Online Programs, and Hybrid Programs
+    const seeAllAllBtn = screen.getByRole("button", { name: /^See all programs$/i });
+    const seeAllOnlineBtn = screen.getByRole("button", { name: /^See all Online Programs$/i });
+    const seeAllHybridBtn = screen.getByRole("button", { name: /^See all Hybrid Programs$/i });
+    expect(seeAllAllBtn.textContent?.trim()).toBe("");
+    expect(seeAllOnlineBtn.textContent?.trim()).toBe("");
+    expect(seeAllHybridBtn.textContent?.trim()).toBe("");
+
+    // Hybrid available city pill is shown under Hybrid Available In
+    const cityBtn = screen.getByRole("button", { name: /Jakarta Selatan/i });
+    expect(cityBtn).toBeDefined();
+
+    // 3 stacked promo/news banners rendered below Community Partners with no heading above
+    const promoSection = screen.getByRole("region", { name: /Promotions and News/i });
+    expect(promoSection.querySelector("h2")).toBeNull();
+    expect(promoSection.querySelectorAll("button").length).toBe(3);
   });
 
-  it("supports Sort by dropdown and compact Type, Sports, Community, and City filter dropdowns in catalog mode", async () => {
+  it("supports Sort by dropdown and Type, Sports, City (hidden for Online), and Community filter dropdowns in catalog mode", async () => {
     window.scrollTo = vi.fn();
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
@@ -217,24 +234,30 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /Share Progress/i }));
     expect(onShareProgress).toHaveBeenCalledTimes(1);
 
-    // Open catalog via "See All" on Online Programs
-    const seeAllButtons = screen.getAllByRole("button", { name: /^See All$/i });
-    fireEvent.click(seeAllButtons[0]);
+    // Open catalog via icon-only arrow on Online Programs
+    fireEvent.click(screen.getByRole("button", { name: /^See all Online Programs$/i }));
 
     // Header has "Sort by" button instead of "Filters"
     const sortBtn = await screen.findByRole("button", { name: /Sort by/i });
     expect(screen.queryByRole("button", { name: /^Filters$/i })).toBeNull();
 
-    // Type dropdown is pre-set to "Online"
+    // Type dropdown is pre-set to "Online" and City filter is hidden for Online type
     const typeDropdownBtn = screen.getByRole("button", { name: /^Online$/i });
+    expect(screen.queryByRole("button", { name: /^City$/i })).toBeNull();
     expect(screen.getByRole("heading", { name: "Morning Pilates Reset" })).toBeDefined();
     expect(screen.queryByRole("heading", { name: "Senopati Padel Cohort" })).toBeNull();
 
-    // Switch Type dropdown to Hybrid
+    // Switch Type dropdown to Hybrid -> City filter appears in order: Type, Sports, City, Community
     fireEvent.click(typeDropdownBtn);
     fireEvent.click(screen.getByRole("menuitemradio", { name: /^Hybrid$/i }));
     expect(screen.getByRole("heading", { name: "Senopati Padel Cohort" })).toBeDefined();
     expect(screen.queryByRole("heading", { name: "Morning Pilates Reset" })).toBeNull();
+
+    const filterGroup = screen.getByRole("group", { name: /Filter programs/i });
+    const filterButtons = Array.from(filterGroup.querySelectorAll("button")).map((b) =>
+      b.textContent?.trim()
+    );
+    expect(filterButtons.slice(0, 4)).toEqual(["Hybrid", "Sports", "City", "Community"]);
 
     // Filter by City dropdown
     fireEvent.click(screen.getByRole("button", { name: /^City$/i }));

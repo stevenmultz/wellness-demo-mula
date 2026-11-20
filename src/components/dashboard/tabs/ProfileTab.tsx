@@ -22,6 +22,11 @@ import {
 } from "./shared";
 import type { UserProfile } from "../types";
 import {
+  DEFAULT_PROFILE_BANNER,
+  loadSavedProfileBanner,
+  PROFILE_BANNER_EVENT,
+} from "../profileBannerStorage";
+import {
   Banner,
   ProfileSectionView,
   type Msg,
@@ -109,7 +114,20 @@ export function ProfileTab({
     window.scrollTo({ top: 0 });
   };
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl ?? null);
+  const [bannerUrl, setBannerUrl] = useState<string>(DEFAULT_PROFILE_BANNER);
   const [avatarBusy, setAvatarBusy] = useState(false);
+
+  useEffect(() => {
+    setBannerUrl(loadSavedProfileBanner(user.id));
+    const onBannerChanged = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ userId?: string; banner?: string }>).detail;
+      if (detail?.userId === user.id && detail.banner) {
+        setBannerUrl(detail.banner);
+      }
+    };
+    window.addEventListener(PROFILE_BANNER_EVENT, onBannerChanged);
+    return () => window.removeEventListener(PROFILE_BANNER_EVENT, onBannerChanged);
+  }, [user.id]);
   const [msg, setMsg] = useState<Msg>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -381,7 +399,7 @@ export function ProfileTab({
               <div className="absolute inset-0 z-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/image.webp"
+                  src={bannerUrl}
                   alt=""
                   className="w-full h-full object-cover opacity-55 scale-105 transition-transform duration-700"
                 />
