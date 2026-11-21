@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  CheckCircle2,
-  Dumbbell,
-  Moon,
-  Target,
-  Utensils,
-  XCircle,
-} from "lucide-react";
+import { Dumbbell, Moon, Utensils } from "lucide-react";
 import {
   calcSleepMins,
   checkedList,
@@ -42,7 +35,60 @@ function FiftyBarMeter({ percent }: { percent: number }) {
   );
 }
 
-// ─── 1. Sleep Widget ─────────────────────────────────────────────────────────
+// ─── ThinCircleProgress (Lingkaran tipis) ─────────────────────────────────────
+function ThinCircleProgress({
+  percent,
+  size = 64,
+  strokeWidth = 2.5,
+}: {
+  percent: number;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (safePercent / 100) * circumference;
+
+  return (
+    <div
+      className="relative flex items-center justify-center shrink-0"
+      style={{ width: size, height: size }}
+    >
+      <svg
+        className="w-full h-full -rotate-90 transform"
+        viewBox={`0 0 ${size} ${size}`}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          className="text-zinc-200 dark:text-white/10"
+          strokeWidth={strokeWidth}
+          stroke="currentColor"
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          className="text-zinc-900 dark:text-white transition-all duration-500"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          stroke="currentColor"
+          fill="none"
+        />
+      </svg>
+      <span className="absolute text-xs font-mono font-medium text-zinc-900 dark:text-white">
+        {safePercent}%
+      </span>
+    </div>
+  );
+}
+
+// ─── 1. Sleep Widget (Grafik tipis) ──────────────────────────────────────────
 function SleepWidget({ days }: { days: PlanDay[] }) {
   const MAX_BARS = 30;
   const sorted = [...days]
@@ -66,7 +112,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-transparent dark:border-white/5">
-      {/* Sleep header inside card */}
+      {/* Sleep header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Moon className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -75,7 +121,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
           </span>
         </div>
         {avgMins > 0 ? (
-          <span className="text-xs font-mono font-semibold text-zinc-900 dark:text-white">
+          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
             {formatSleepHours(avgMins)} avg
           </span>
         ) : (
@@ -85,7 +131,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
         )}
       </div>
 
-      {/* Daily Sleep Bar chart */}
+      {/* Daily Sleep Bar chart (garis tipis) */}
       {validSleeps.length === 0 ? (
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center py-4">
           No sleep data recorded yet
@@ -98,25 +144,25 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
               className="absolute left-0 right-0 border-t border-dashed border-zinc-400/50 dark:border-white/20 pointer-events-none"
               style={{ bottom: `${(TARGET / CEILING) * 56}px` }}
             />
-            <div className="flex items-end gap-[2px] h-14">
+            <div className="flex items-end gap-1 sm:gap-1.5 h-14 justify-between">
               {sleepData.map((s) => {
                 const heightPct = s.mins > 0 ? Math.min(1, s.mins / CEILING) : 0;
                 const isGood = s.mins >= TARGET;
                 return (
                   <div
                     key={s.day}
-                    className="flex-1 flex flex-col justify-end"
+                    className="flex-1 flex flex-col items-center justify-end h-full"
                     title={s.mins > 0 ? `Day ${s.day}: ${formatSleepHours(s.mins)}` : `Day ${s.day}: —`}
                   >
                     <div
-                      className={`w-full rounded-t-sm transition-all ${
+                      className={`w-[2px] rounded-full transition-all ${
                         s.mins === 0
-                          ? "bg-zinc-300 dark:bg-white/10"
+                          ? "bg-zinc-300/60 dark:bg-white/10"
                           : isGood
-                          ? "bg-zinc-800 dark:bg-white"
-                          : "bg-zinc-400 dark:bg-white/50"
+                          ? "bg-zinc-900 dark:bg-white"
+                          : "bg-zinc-400 dark:bg-white/40"
                       }`}
-                      style={{ height: s.mins === 0 ? "3px" : `${heightPct * 56}px` }}
+                      style={{ height: s.mins === 0 ? "2px" : `${Math.max(4, heightPct * 56)}px` }}
                     />
                   </div>
                 );
@@ -154,7 +200,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
   );
 }
 
-// ─── 2. Training Widget ──────────────────────────────────────────────────────
+// ─── 2. Training Widget (Simple + Bar Lingkaran Tipis) ────────────────────────
 function TrainingWidget({
   completed,
   skipped,
@@ -166,111 +212,41 @@ function TrainingWidget({
   total: number;
   pct: number;
 }) {
-  const completedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const skippedPct = total > 0 ? Math.round((skipped / total) * 100) : 0;
-
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-transparent dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-zinc-900/5 dark:bg-white/10 flex items-center justify-center text-zinc-900 dark:text-white">
-            <Dumbbell className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white leading-tight">
-              Training Performance
-            </h3>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Workout sessions adherence
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="text-base sm:text-lg font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
-            {pct}%
-          </span>
-          <span className="block text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-            {pct >= 80 ? "High Consistency" : pct >= 50 ? "Steady Progress" : "Keep Pushing"}
-          </span>
-        </div>
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-transparent dark:border-white/5">
+      <div className="flex items-center gap-2">
+        <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+        <span className="text-sm font-semibold text-zinc-950 dark:text-white">
+          Training
+        </span>
       </div>
 
-      {/* Visual adherence ratio bar */}
-      {total > 0 && (
-        <div className="space-y-1.5">
-          <div className="h-2 w-full rounded-full bg-zinc-300/80 dark:bg-white/10 overflow-hidden flex gap-0.5 p-0.5">
-            {completedPct > 0 && (
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                style={{ width: `${completedPct}%` }}
-                title={`Completed: ${completed} (${completedPct}%)`}
-              />
-            )}
-            {skippedPct > 0 && (
-              <div
-                className="h-full rounded-full bg-rose-400/80 dark:bg-rose-400/60 transition-all duration-500"
-                style={{ width: `${skippedPct}%` }}
-                title={`Skipped: ${skipped} (${skippedPct}%)`}
-              />
-            )}
-          </div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 dark:text-zinc-400 px-0.5">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-              Completed ({completedPct}%)
-            </span>
-            {skipped > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400/80 inline-block" />
-                Skipped ({skippedPct}%)
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+      <div className="flex items-center gap-6 pt-1">
+        {/* Bar lingkaran tipis */}
+        <ThinCircleProgress percent={pct} size={64} strokeWidth={2.5} />
 
-      {/* 3 stat cards: Completed, Skipped, Total */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {/* Completed */}
-        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Completed</span>
-            <CheckCircle2 className="w-3.5 h-3.5" />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+        {/* Stats sederhana: completed, skipped, total */}
+        <div className="space-y-1.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-zinc-500 dark:text-zinc-400">Completed:</span>
+            <span className="font-mono font-medium text-zinc-900 dark:text-white">
               {completed}
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">sessions</span>
           </div>
-        </div>
-
-        {/* Skipped */}
-        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-zinc-400 dark:text-zinc-500">
-            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Skipped</span>
-            <XCircle className="w-3.5 h-3.5" />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 shrink-0" />
+            <span className="text-zinc-500 dark:text-zinc-400">Skipped:</span>
+            <span className="font-mono font-medium text-zinc-900 dark:text-white">
               {skipped}
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">missed</span>
           </div>
-        </div>
-
-        {/* Total */}
-        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Total</span>
-            <Target className="w-3.5 h-3.5" />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-white/20 shrink-0" />
+            <span className="text-zinc-500 dark:text-zinc-400">Total:</span>
+            <span className="font-mono font-medium text-zinc-900 dark:text-white">
               {total}
             </span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">workouts</span>
           </div>
         </div>
       </div>
@@ -368,10 +344,10 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. Grafik sleep */}
+      {/* 1. Grafik sleep (garis tipis) */}
       <SleepWidget days={sorted} />
 
-      {/* 2. Training (Completed, Skipped, Total) */}
+      {/* 2. Training (simple + bar lingkaran tipis) */}
       <TrainingWidget
         completed={trainingCompleted}
         skipped={trainingMissed}

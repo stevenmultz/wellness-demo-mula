@@ -253,20 +253,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   type="button"
                   onClick={() => setSelectedDayId(d.id)}
                   className={`shrink-0 w-[84px] py-1.5 px-2 rounded-xl text-center transition active:scale-95 select-none flex flex-col items-center justify-center ${
-                    isActiveSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                      : isTodayItem
-                        ? "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white border border-zinc-950 dark:border-white"
-                        : isDoneItem
-                          ? "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/20"
-                          : isPastItem || isAnytime
-                            ? "bg-white dark:bg-[#141414] text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10"
-                            : "bg-zinc-100/60 dark:bg-white/[0.03] text-zinc-400 dark:text-zinc-500 border border-transparent opacity-60"
+                    isTodayItem
+                      ? isActiveSelected
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-2 ring-zinc-950 dark:ring-white opacity-100 font-semibold"
+                        : "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white shadow-xs opacity-100 font-semibold"
+                      : isPastItem
+                        ? isActiveSelected
+                          ? "bg-zinc-200/90 dark:bg-white/15 text-zinc-900 dark:text-white border border-zinc-400 dark:border-white/30 opacity-75 shadow-2xs"
+                          : "bg-zinc-100/70 dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-white/5 opacity-40 hover:opacity-70"
+                        : isActiveSelected
+                          ? "bg-zinc-200/70 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-white/20 opacity-65"
+                          : "bg-zinc-100/40 dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-600 border border-zinc-200/30 dark:border-white/5 opacity-30 hover:opacity-55"
                   }`}
                 >
                   <span className="text-[11px] font-semibold leading-tight inline-flex items-center justify-center gap-1">
                     <span>{dateStr}</span>
-                    {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0" />}
+                    {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0 opacity-70" />}
                   </span>
                   <span className="text-[10px] opacity-75 leading-tight mt-0.5 font-medium">
                     {dayTypeWord}
