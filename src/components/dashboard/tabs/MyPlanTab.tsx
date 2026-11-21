@@ -300,45 +300,42 @@ export function MyPlanOverview({
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
       {/* 0. 3 Program buttons + See all my programs button */}
-      <div className="w-full flex items-center justify-between gap-2 flex-wrap pb-0.5 px-0.5">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          {programButtons.map((btn, idx) => {
-            const isActive =
-              btn.programId === (selectedProgramId || program?.id) ||
-              (!selectedProgramId && idx === 0) ||
-              (currentIndex === idx);
+      <div className="w-full flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 px-0.5">
+        {programButtons.map((btn, idx) => {
+          const isActive =
+            btn.programId === (selectedProgramId || program?.id) ||
+            (!selectedProgramId && idx === 0) ||
+            (currentIndex === idx);
 
-            return (
-              <button
-                key={btn.programId || idx}
-                type="button"
-                onClick={() => {
-                  if (btn.isAvailable) {
-                    onSelectPlan?.(btn.programId);
-                  } else if (onViewAllPrograms) {
-                    onViewAllPrograms();
-                  }
-                }}
-                className={`h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
-                  isActive
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white"
-                    : "bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
-                }`}
-              >
-                <span>{btn.title}</span>
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={btn.programId || idx}
+              type="button"
+              onClick={() => {
+                if (btn.isAvailable) {
+                  onSelectPlan?.(btn.programId);
+                } else if (onViewAllPrograms) {
+                  onViewAllPrograms();
+                }
+              }}
+              className={`h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
+                isActive
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white"
+                  : "bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
+              }`}
+            >
+              <span>{btn.title}</span>
+            </button>
+          );
+        })}
 
-        {/* See all my programs button */}
+        {/* See all my programs button (same button style) */}
         <button
           type="button"
           onClick={onViewAllPrograms || onExplore}
-          className="h-8 px-3 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/90 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-white/10 transition active:scale-95 cursor-pointer shrink-0 ml-auto inline-flex items-center gap-1 shadow-2xs"
+          className="h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
         >
           <span>See all my programs</span>
-          <ChevronRight className="w-3.5 h-3.5 opacity-60" />
         </button>
       </div>
 
