@@ -10,6 +10,7 @@ import {
   Compass,
   ExternalLink,
   Shield,
+  User as UserIcon,
   Users,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
@@ -215,6 +216,8 @@ export function MyPlanOverview({
   onCompleteDay,
   bodyMetricLogs = [],
   onCustomTaskSubmitted,
+  userName,
+  userAvatarUrl,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -242,6 +245,8 @@ export function MyPlanOverview({
     customTaskId: string,
     submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
   ) => void;
+  userName?: string | null;
+  userAvatarUrl?: string | null;
 }) {
   void onOpenDetails;
   const { locale, t } = useLocale();
@@ -310,19 +315,15 @@ export function MyPlanOverview({
         { index: 2, label: t.myPlan.subtabMetrics, count: 0 },
       ] as const);
 
+  const displayName = (userName || "Member").trim() || "Member";
+
   return (
     <div>
       <section className="relative left-1/2 -translate-x-1/2 w-screen overflow-hidden bg-zinc-900">
-        <div
-          className={`relative w-full flex flex-col justify-end ${
-            showSubtabs
-              ? "min-h-[430px] sm:min-h-[490px]"
-              : "min-h-[370px] sm:min-h-[430px]"
-          }`}
-        >
+        <div className="relative w-full flex flex-col justify-end min-h-[270px] sm:min-h-[300px]">
           {program?.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
           ) : (
             <div className="absolute inset-0 bg-zinc-800" />
           )}
@@ -330,71 +331,51 @@ export function MyPlanOverview({
 
           <div
             style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
-            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-12 space-y-9 text-white"
+            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-10 space-y-5 text-white"
           >
-            <div className="space-y-3">
-              <div>
-                {(program?.organizationName || program?.batchNumber) && (
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    {program.organizationName && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-wider text-white/95">
-                        {program.organizationLogo && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={program.organizationLogo}
-                            alt={program.organizationName}
-                            className="w-4 h-4 rounded-full object-contain bg-white shrink-0"
-                          />
-                        )}
-                        <span>{program.organizationName}</span>
-                      </span>
-                    )}
-                    {program.batchNumber ? (
-                      <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] font-mono font-semibold uppercase text-white">
-                        Batch {program.batchNumber}
-                      </span>
-                    ) : null}
-                  </div>
-                )}
-                <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-tight truncate">
-                  {program?.title || t.myPlan.noActivePlanTitle}
-                </h2>
-                {program && (
-                  <p className="mt-1 text-xs text-white/80 truncate">
-                    {program.organizationName ? `${program.organizationName} • ` : ""}
-                    {program.coachName || "—"}
-                    {program.isCompleted
-                      ? ` · ${t.myPlan.completedLabel}`
-                      : isUpcoming
-                        ? ` · ${formatStartsIn(program.startDate, locale).headline} (${formatStartsIn(program.startDate, locale).dateLabel})`
-                        : isOnlineProgram
-                          ? ` · ${t.explore.anytimeAccess}`
-                          : ""}
-                  </p>
+            {/* User profile photo + user name */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border-2 border-white/30 bg-zinc-700 flex items-center justify-center">
+                {userAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={userAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <UserIcon className="w-4 h-4 text-white/70" />
                 )}
               </div>
-
-              {program && (
-                <div className="flex flex-wrap items-center gap-5 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowCommunityModal(true)}
-                    className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs"
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{t.myPlan.joinCommunity}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowReportModal(true)}
-                    className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs"
-                  >
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{t.myPlan.report}</span>
-                  </button>
-                </div>
-              )}
+              <span className="text-sm font-geometric font-medium text-white truncate">
+                {displayName}
+              </span>
             </div>
+
+            {/* Program title */}
+            <div>
+              <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
+                {program?.title || t.myPlan.noActivePlanTitle}
+              </h1>
+            </div>
+
+            {/* Action buttons (Join Community & Report) */}
+            {program && (
+              <div className="flex items-center gap-5 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCommunityModal(true)}
+                  className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{t.myPlan.joinCommunity}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>{t.myPlan.report}</span>
+                </button>
+              </div>
+            )}
 
             {showSubtabs && (
               <div

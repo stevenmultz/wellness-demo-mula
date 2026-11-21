@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AuthGatewayCard,
   AuthModal,
@@ -174,55 +175,65 @@ export function LandingClient({ sessionUser }: LandingClientProps) {
       </div>
 
       {/* =================================================================== */}
-      {/* RIGHT COLUMN: DESKTOP CLEAN SOLID LIGHT SHOWCASE (NO BG IMAGE)      */}
+      {/* RIGHT COLUMN: DESKTOP IMAGE SHOWCASE NEXT TO SIGN IN                */}
       {/* =================================================================== */}
-      <div className="hidden lg:flex lg:w-[52%] xl:w-[56%] relative min-h-screen flex-col justify-between p-12 xl:p-16 bg-[#ecece7] dark:bg-[#141414] border-l border-zinc-200/80 dark:border-white/10">
-        <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+      <div className="hidden lg:flex lg:w-[52%] xl:w-[56%] relative min-h-screen overflow-hidden flex-col justify-between p-12 xl:p-16 bg-zinc-950 border-l border-zinc-200/80 dark:border-white/10">
+        <Image
+          src="/pic.webp"
+          alt={BRAND.fullName}
+          fill
+          priority
+          sizes="(min-width: 1024px) 56vw, 100vw"
+          className="object-cover object-center grayscale contrast-[1.08] brightness-[0.75] transition-all duration-700"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/30 pointer-events-none" />
+
+        <div className="relative z-10 flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.2em] text-white/80">
           <span>{BRAND.fullName}</span>
           <span>{t.public.heroLocationTag}</span>
         </div>
 
-        <div className="max-w-lg space-y-6">
-          <span className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.22em] text-zinc-600 dark:text-zinc-400">
-            <span className="w-6 h-px bg-zinc-400 dark:bg-zinc-600" />
+        <div className="relative z-10 max-w-lg space-y-6 text-white">
+          <span className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.22em] text-white/70">
+            <span className="w-6 h-px bg-white/40" />
             <span>{t.public.heroCaptionTag}</span>
           </span>
-          <h2 className="text-4xl xl:text-5xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.1]">
+          <h2 className="text-4xl xl:text-5xl font-geometric font-light tracking-tight text-white leading-[1.1]">
             {t.public.heroCaptionTitle}
           </h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-md">
+          <p className="text-sm text-white/80 leading-relaxed max-w-md">
             {t.public.curriculumIntro}
           </p>
 
           <div className="pt-2 grid grid-cols-3 gap-3 max-w-md">
-            <div className="rounded-2xl bg-white/80 dark:bg-white/[0.05] border border-zinc-200/80 dark:border-white/10 p-3.5 space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            <div className="rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 p-3.5 space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-white/60 block">
                 01
               </span>
-              <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+              <span className="text-xs font-semibold text-white block">
                 Movement
               </span>
             </div>
-            <div className="rounded-2xl bg-white/80 dark:bg-white/[0.05] border border-zinc-200/80 dark:border-white/10 p-3.5 space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            <div className="rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 p-3.5 space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-white/60 block">
                 02
               </span>
-              <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+              <span className="text-xs font-semibold text-white block">
                 Nutrition
               </span>
             </div>
-            <div className="rounded-2xl bg-white/80 dark:bg-white/[0.05] border border-zinc-200/80 dark:border-white/10 p-3.5 space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            <div className="rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 p-3.5 space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-white/60 block">
                 03
               </span>
-              <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
+              <span className="text-xs font-semibold text-white block">
                 Recovery
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500 dark:text-zinc-400 border-t border-zinc-300/60 dark:border-white/10 pt-5">
+        <div className="relative z-10 flex items-center justify-between text-[11px] font-mono text-white/70 border-t border-white/15 pt-5">
           <span>Online · Hybrid Cohorts</span>
           <span>00:00 – 23:59 WIB</span>
         </div>

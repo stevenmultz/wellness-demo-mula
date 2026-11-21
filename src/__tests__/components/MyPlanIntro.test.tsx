@@ -77,10 +77,9 @@ describe("MyPlanIntro redesigned Home first page", () => {
       </LocaleProvider>
     );
 
-    // Banner renders current program image, title, coach, organization, and index 1 / 2
+    // Banner renders user name, program title, program image, and index 1 / 2
     expect(screen.getByRole("heading", { name: "Morning Mobility Protocol" })).toBeDefined();
-    expect(screen.getByText(/ZERA Sanctuary/i)).toBeDefined();
-    expect(screen.getByText(/Sarah/i)).toBeDefined();
+    expect(screen.getByText("Steven Tan")).toBeDefined();
     expect(screen.getByAltText("Morning Mobility Protocol").getAttribute("src")).toBe("/test.webp");
     expect(screen.getByTestId("home-program-index").textContent?.trim()).toBe("1 / 2");
 

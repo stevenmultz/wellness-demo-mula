@@ -878,6 +878,8 @@ export function DashboardClient({
               onSaveAttendance={handleSaveEventFeedback}
               onCompleteDay={handleCompleteProgramDay}
               bodyMetricLogs={bodyMetricLogs}
+              userName={user.fullName}
+              userAvatarUrl={user.avatarUrl}
               onCustomTaskSubmitted={(dayId, customTaskId, submission) => {
                 setCustomSubmissionsByTaskId((prev) => ({
                   ...prev,
