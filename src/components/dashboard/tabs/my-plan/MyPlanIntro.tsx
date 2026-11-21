@@ -3,23 +3,15 @@
 import { useState } from "react";
 import {
   AlertCircle,
-  CheckCircle,
   ChevronLeft,
   ChevronRight,
-  Clock,
   ExternalLink,
-  Flame,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
   User as UserIcon,
   Users,
 } from "lucide-react";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
-  formatDayTypeLabel,
-  formatStartsIn,
   type MyPlanIndexItem,
 } from "./myPlanUtils";
 import { MyPlanNoPlanPage } from "./MyPlanNoPlanPage";
@@ -70,17 +62,6 @@ export function MyPlanIntro({
   const [showReportModal, setShowReportModal] = useState(false);
 
   const total = Math.max(1, currentPlan.totalDays || currentPlan.dayCount || 1);
-  const completed = Math.min(total, Math.max(0, currentPlan.completedDays || 0));
-  const progressPct = currentPlan.isCompleted
-    ? 100
-    : currentPlan.isUpcoming
-      ? 0
-      : Math.round((completed / total) * 100);
-  const startsIn = currentPlan.isUpcoming ? formatStartsIn(currentPlan.startDate, locale) : null;
-  const todayTypeLabel =
-    !currentPlan.isUpcoming && !currentPlan.isCompleted
-      ? formatDayTypeLabel(currentPlan.todayDayType, locale)
-      : null;
   const pendingTasks =
     !currentPlan.isUpcoming && !currentPlan.isCompleted ? currentPlan.pendingTasksCount ?? 0 : 0;
 
@@ -255,201 +236,7 @@ export function MyPlanIntro({
         })}
       </div>
 
-      {/* 4. Widgets below subtabs */}
-      <div className="space-y-5">
-
-          {/* Subtab 0: GUIDES */}
-          {widgetIndex === 0 && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <h3 className="text-base font-geometric font-semibold text-zinc-950 dark:text-white">
-                    {isId ? "Panduan & Protokol Program" : "Program Guidelines & Overview"}
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-1">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                      {isId ? "Komitmen Harian" : "Daily Commitment"}
-                    </span>
-                    <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
-                      {currentPlan.dailyCommitment || "15–20 Mins / Day"}
-                    </p>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-1">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                      {isId ? "Durasi Total" : "Total Duration"}
-                    </span>
-                    <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
-                      {total} {isId ? "Hari" : "Days"}
-                    </p>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-1">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                      {isId ? "Hari Ini" : "Today"}
-                    </span>
-                    <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
-                      {currentPlan.isCompleted
-                        ? (isId ? "Selesai" : "Completed")
-                        : currentPlan.isUpcoming
-                          ? startsIn
-                            ? `${startsIn.headline}`
-                            : (isId ? "Akan Datang" : "Upcoming")
-                          : `${t.myPlan.dayLabel} ${currentPlan.currentDayNumber || 1}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    {isId
-                      ? "Ikuti seluruh rangkaian latihan, checklist habit harian, serta protokol tidur dan nutrisi yang telah disiapkan secara terstruktur oleh coach untuk mendapatkan hasil maksimal."
-                      : "Follow the scheduled daily workouts, habit checklists, and nutrition protocols prepared by your coach to achieve maximum wellness results."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Subtab 1: TASKS */}
-          {widgetIndex === 1 && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-2xs">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <div>
-                      <h3 className="text-base font-geometric font-semibold text-zinc-950 dark:text-white">
-                        {isId ? "Tugas & Check-in Hari Ini" : "Today's Tasks & Check-in"}
-                      </h3>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {t.myPlan.dayLabel} {currentPlan.currentDayNumber || 1} {t.myPlan.ofLabel} {total}
-                        {todayTypeLabel ? ` · ${todayTypeLabel}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onSelectPlan(currentPlan.programId)}
-                    className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-geometric font-semibold hover:opacity-90 active:scale-95 transition cursor-pointer"
-                  >
-                    {isId ? "Buka Task" : "Open Tasks"}
-                  </button>
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle className="w-4 h-4 text-zinc-400" />
-                      <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                        {isId ? "Latihan / Workout Harian" : "Daily Movement / Workout"}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Protokol" : "Protocol"}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <Clock className="w-4 h-4 text-zinc-400" />
-                      <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                        {isId ? "Catat Tidur & Pemulihan" : "Sleep & Recovery Log"}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Tidur" : "Sleep"}
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <Sparkles className="w-4 h-4 text-zinc-400" />
-                      <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                        {isId ? "Kepatuhan Nutrisi & Refleksi" : "Nutrition Compliance & Reflection"}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Nutrisi" : "Nutrition"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Subtab 2: METRICS */}
-          {widgetIndex === 2 && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-2xs">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <div>
-                      <h3 className="text-base font-geometric font-semibold text-zinc-950 dark:text-white">
-                        {isId ? "Metrik & Progres Penyelesaian" : "Metrics & Completion Progress"}
-                      </h3>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {completed}/{total} {isId ? "hari selesai" : "days done"}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-mono font-bold text-zinc-950 dark:text-white tabular-nums">
-                    {progressPct}%
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div
-                  role="progressbar"
-                  aria-valuenow={progressPct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`${currentPlan.title} progress`}
-                  className="h-2.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"
-                >
-                  <div
-                    style={{ width: `${progressPct}%` }}
-                    className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-0.5">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Hari Selesai" : "Completed"}
-                    </span>
-                    <p className="text-base font-mono font-bold text-zinc-950 dark:text-white tabular-nums">
-                      {completed} <span className="text-xs font-normal text-zinc-500">/ {total}</span>
-                    </p>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-0.5">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Tugas Pending" : "Pending Tasks"}
-                    </span>
-                    <p className="text-base font-mono font-bold text-zinc-950 dark:text-white tabular-nums">
-                      {pendingTasks}
-                    </p>
-                  </div>
-                  <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-0.5">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Status" : "Status"}
-                    </span>
-                    <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
-                      {currentPlan.isCompleted
-                        ? isId ? "Selesai" : "Completed"
-                        : currentPlan.isUpcoming
-                          ? isId ? "Akan Datang" : "Upcoming"
-                          : isId ? "Aktif Berjalan" : "Ongoing"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
+      {/* 4. Widgets below subtabs — intentionally empty on intro page (user taps plan to open detail) */}
 
       {/* Community Disclaimer Modal */}
       {showCommunityModal && (
