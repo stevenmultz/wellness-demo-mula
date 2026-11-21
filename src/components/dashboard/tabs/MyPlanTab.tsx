@@ -337,6 +337,26 @@ export function MyPlanOverview({
             {program?.title || t.myPlan.noActivePlanTitle}
           </h1>
 
+          {/* Day progress bar */}
+          {program && !program.isUpcoming && currentDayNumber > 0 && program.totalDays > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-white/70">
+                  {locale === "id" ? `Hari ${currentDayNumber} dari ${program.totalDays}` : `Day ${currentDayNumber} of ${program.totalDays}`}
+                </span>
+                <span className="text-[11px] font-mono text-white/60">
+                  {Math.round((currentDayNumber / program.totalDays) * 100)}%
+                </span>
+              </div>
+              <div className="w-full h-1 rounded-full bg-white/20 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-white transition-all"
+                  style={{ width: `${Math.min(100, Math.round((currentDayNumber / program.totalDays) * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Action buttons (Community & Report - without "Join") */}
           {program && (
             <div className="flex items-center gap-4 pt-0.5">
