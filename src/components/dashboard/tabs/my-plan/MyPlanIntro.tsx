@@ -1,25 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   AlertCircle,
-  Calendar,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Compass,
   ExternalLink,
   Flame,
-  Layers,
-  MapPin,
   ShieldCheck,
   Sparkles,
   TrendingUp,
-  User,
+  User as UserIcon,
   Users,
 } from "lucide-react";
-import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
+import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import {
   formatDayTypeLabel,
@@ -34,9 +30,9 @@ export { MyPlanNoPlanPage };
 
 export function MyPlanIntro({
   userId: _userId,
-  userName: _userName,
+  userName,
   userEmail: _userEmail,
-  userAvatarUrl: _userAvatarUrl,
+  userAvatarUrl,
   userSubtitle: _userSubtitle,
   plans,
   onSelectPlan,
@@ -55,8 +51,9 @@ export function MyPlanIntro({
 }) {
   const { locale, t } = useLocale();
   const isId = locale === "id";
+  const displayName = (userName || "Member").trim() || "Member";
 
-  // If user has 0 plans, immediately render dedicated No Plan page instructing them to go to Explore
+  // If user has 0 plans, immediately render dedicated No Plan page
   if (plans.length === 0) {
     return <MyPlanNoPlanPage onExplore={onExplore} />;
   }
@@ -69,7 +66,6 @@ export function MyPlanIntro({
   // Subtabs: Guides (0), Tasks (1), Metrics (2)
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
 
-  // Community modal disclaimer state
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
@@ -80,7 +76,6 @@ export function MyPlanIntro({
     : currentPlan.isUpcoming
       ? 0
       : Math.round((completed / total) * 100);
-  const isOnline = (currentPlan.locationType || "ONLINE").toUpperCase() === "ONLINE";
   const startsIn = currentPlan.isUpcoming ? formatStartsIn(currentPlan.startDate, locale) : null;
   const todayTypeLabel =
     !currentPlan.isUpcoming && !currentPlan.isCompleted
@@ -100,13 +95,17 @@ export function MyPlanIntro({
   );
 
   return (
-    <div className="relative flex-1 flex flex-col -mt-[calc(4.5rem+env(safe-area-inset-top))]">
-      {/* =============================================================== */}
-      {/* 1. PROGRAM IMAGE BANNER OF CURRENT INDEX PLAN                   */}
-      {/* =============================================================== */}
+    <div className="relative flex-1 flex flex-col">
+      {/* ================================================================ */}
+      {/* COMPACT BANNER: program cover image, user identity, plan title,  */}
+      {/* join community & report buttons, subtab selector                 */}
+      {/* ================================================================ */}
       <section className="relative left-1/2 -translate-x-1/2 w-screen overflow-hidden bg-zinc-900">
-        <div className="relative w-full flex flex-col justify-end min-h-[430px] sm:min-h-[490px]">
-          {/* Program cover image */}
+        <div
+          className="relative w-full flex flex-col justify-end"
+          style={{ minHeight: "280px" }}
+        >
+          {/* Program cover image — behind everything */}
           {currentPlan.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -117,120 +116,102 @@ export function MyPlanIntro({
           ) : (
             <div className="absolute inset-0 bg-zinc-800" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/85" />
+          {/* Gradient overlay so text is always readable */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
 
           {/* Banner content */}
           <div
             style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
-            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-12 space-y-7 text-white"
+            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-10 space-y-5 text-white"
           >
-            <div className="space-y-3">
-              {/* Badges row & Index indicator */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  {currentPlan.organizationName && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-[10px] font-mono uppercase tracking-wider text-white/95">
-                      {currentPlan.organizationLogo && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={currentPlan.organizationLogo}
-                          alt={currentPlan.organizationName}
-                          className="w-4 h-4 rounded-full object-contain bg-white shrink-0"
-                        />
-                      )}
-                      <span>{currentPlan.organizationName}</span>
-                    </span>
+            {/* Row 1: User avatar + name  |  plan index switcher */}
+            <div className="flex items-center justify-between gap-3">
+              {/* User identity */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border-2 border-white/30 bg-zinc-700 flex items-center justify-center">
+                  {userAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={userAvatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="w-4 h-4 text-white/70" />
                   )}
-                  {currentPlan.batchNumber ? (
-                    <span className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[10px] font-mono font-semibold uppercase text-white">
-                      Batch {currentPlan.batchNumber}
-                    </span>
-                  ) : null}
-                  <span className="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[10px] font-mono uppercase text-white/90">
-                    {isOnline ? "Online" : currentPlan.city || "Hybrid"}
-                  </span>
                 </div>
-
-                {plans.length > 1 && (
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      data-testid="home-program-index"
-                      className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
-                    >
-                      {safeSlide + 1} / {plans.length}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextIdx = Math.max(0, safeSlide - 1);
-                          setActiveSlide(nextIdx);
-                          onSelectPlan(plans[nextIdx].programId);
-                        }}
-                        disabled={safeSlide === 0}
-                        aria-label="Previous plan"
-                        className="w-7 h-7 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextIdx = Math.min(plans.length - 1, safeSlide + 1);
-                          setActiveSlide(nextIdx);
-                          onSelectPlan(plans[nextIdx].programId);
-                        }}
-                        disabled={safeSlide >= plans.length - 1}
-                        aria-label="Next plan"
-                        className="w-7 h-7 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <span className="text-sm font-geometric font-medium text-white truncate">
+                  {displayName}
+                </span>
               </div>
 
-              {/* Title & Coach row */}
-              <div>
-                <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
-                  {currentPlan.title}
-                </h1>
-                <p className="mt-1 text-xs text-white/80 truncate">
-                  {currentPlan.organizationName ? `${currentPlan.organizationName} • ` : ""}
-                  Coach {currentPlan.coachName || BRAND.facultyFallback}
-                  {currentPlan.isCompleted
-                    ? ` · ${t.myPlan.completedLabel}`
-                    : startsIn
-                      ? ` · ${startsIn.headline} (${startsIn.dateLabel})`
-                      : isOnline
-                        ? ` · ${t.explore.anytimeAccess}`
-                        : ""}
-                </p>
-              </div>
-
-              {/* Quick action buttons */}
-              <div className="flex flex-wrap items-center gap-5 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setShowCommunityModal(true)}
-                  className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>{t.myPlan.joinCommunity}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(true)}
-                  className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-                >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{t.myPlan.report}</span>
-                </button>
-              </div>
+              {/* Plan index switcher (only shown when >1 plan) */}
+              {plans.length > 1 && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextIdx = Math.max(0, safeSlide - 1);
+                      setActiveSlide(nextIdx);
+                      onSelectPlan(plans[nextIdx].programId);
+                    }}
+                    disabled={safeSlide === 0}
+                    aria-label="Previous plan"
+                    className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span
+                    data-testid="home-program-index"
+                    className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
+                  >
+                    {safeSlide + 1} / {plans.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextIdx = Math.min(plans.length - 1, safeSlide + 1);
+                      setActiveSlide(nextIdx);
+                      onSelectPlan(plans[nextIdx].programId);
+                    }}
+                    disabled={safeSlide >= plans.length - 1}
+                    aria-label="Next plan"
+                    className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Subtabs selector: Guides | Tasks | Metrics */}
+            {/* Row 2: Program title */}
+            <div>
+              <h1 className="text-lg sm:text-xl font-geometric font-semibold tracking-tight text-white leading-snug line-clamp-2">
+                {currentPlan.title}
+              </h1>
+            </div>
+
+            {/* Row 3: Join Community + Report action buttons */}
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setShowCommunityModal(true)}
+                className="py-1 text-xs font-medium text-white/90 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{t.myPlan.joinCommunity}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(true)}
+                className="py-1 text-xs font-medium text-white/70 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>{t.myPlan.report}</span>
+              </button>
+            </div>
+
+            {/* Subtabs: Guides | Tasks | Metrics */}
             <div
               role="tablist"
               aria-label="Program sections"
@@ -254,7 +235,7 @@ export function MyPlanIntro({
                     <span>{label}</span>
                     {count > 0 && (
                       <span
-                        className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                        className={`font-mono text-[10px] tabular-nums px-1.5 rounded-full ${
                           active
                             ? "bg-zinc-950/15 text-zinc-950 font-bold"
                             : "bg-white/20 text-white font-semibold"
@@ -271,11 +252,12 @@ export function MyPlanIntro({
         </div>
       </section>
 
-      {/* =============================================================== */}
-      {/* 2. DIRECT GUIDES, TASKS, METRICS WIDGETS BELOW BANNER           */}
-      {/* =============================================================== */}
+      {/* ================================================================ */}
+      {/* WIDGETS: Guides / Tasks / Metrics                                */}
+      {/* ================================================================ */}
       <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
+
           {/* Subtab 0: GUIDES */}
           {widgetIndex === 0 && (
             <div className="space-y-4 animate-in fade-in duration-200">
@@ -287,14 +269,6 @@ export function MyPlanIntro({
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-1">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                      {isId ? "Format" : "Format"}
-                    </span>
-                    <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
-                      {isOnline ? "100% Online" : currentPlan.city || "Hybrid In-person"}
-                    </p>
-                  </div>
                   <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-1">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
                       {isId ? "Komitmen Harian" : "Daily Commitment"}
@@ -309,6 +283,20 @@ export function MyPlanIntro({
                     </span>
                     <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
                       {total} {isId ? "Hari" : "Days"}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-1">
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+                      {isId ? "Hari Ini" : "Today"}
+                    </span>
+                    <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
+                      {currentPlan.isCompleted
+                        ? (isId ? "Selesai" : "Completed")
+                        : currentPlan.isUpcoming
+                          ? startsIn
+                            ? `${startsIn.headline}`
+                            : (isId ? "Akan Datang" : "Upcoming")
+                          : `${t.myPlan.dayLabel} ${currentPlan.currentDayNumber || 1}`}
                     </p>
                   </div>
                 </div>
@@ -446,7 +434,7 @@ export function MyPlanIntro({
                   </div>
                   <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-white/5 space-y-0.5">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                      {isId ? "Status Cohort" : "Cohort Status"}
+                      {isId ? "Status" : "Status"}
                     </span>
                     <p className="text-xs font-geometric font-semibold text-zinc-900 dark:text-zinc-100">
                       {currentPlan.isCompleted
@@ -460,6 +448,7 @@ export function MyPlanIntro({
               </div>
             </div>
           )}
+
         </div>
       </div>
 
