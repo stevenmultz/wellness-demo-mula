@@ -165,16 +165,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   return (
     <section className="w-full space-y-4">
-      <div className="w-full flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Daily Tasks
-          </h2>
-        </div>
-        <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-          {isAnytime ? resetCountdown : resetCountdown}
-        </span>
-      </div>
+
 
       <InfoPopupModal
         open={showDailyTasksInfo}

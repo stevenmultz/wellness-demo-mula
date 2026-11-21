@@ -454,7 +454,6 @@ export function MyPlanOverview({
             </div>
 
             <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
-              <BodyProgressWidget logs={bodyMetricLogs} programId={program.id} />
               <CohortPerformanceCard
                 days={fullProgramDays}
                 currentDayNumber={currentDayNumber}
