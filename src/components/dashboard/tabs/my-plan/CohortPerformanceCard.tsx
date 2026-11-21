@@ -1,6 +1,13 @@
 "use client";
 
-import { Dumbbell, Moon, Utensils } from "lucide-react";
+import {
+  CheckCircle2,
+  Dumbbell,
+  Moon,
+  Target,
+  Utensils,
+  XCircle,
+} from "lucide-react";
 import {
   calcSleepMins,
   checkedList,
@@ -159,45 +166,112 @@ function TrainingWidget({
   total: number;
   pct: number;
 }) {
+  const completedPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const skippedPct = total > 0 ? Math.round((skipped / total) * 100) : 0;
+
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-transparent dark:border-white/5">
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-transparent dark:border-white/5">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Training
+          <div className="w-7 h-7 rounded-lg bg-zinc-900/5 dark:bg-white/10 flex items-center justify-center text-zinc-900 dark:text-white">
+            <Dumbbell className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-950 dark:text-white leading-tight">
+              Training Performance
+            </h3>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              Workout sessions adherence
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-base sm:text-lg font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+            {pct}%
+          </span>
+          <span className="block text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+            {pct >= 80 ? "High Consistency" : pct >= 50 ? "Steady Progress" : "Keep Pushing"}
           </span>
         </div>
-        <span className="text-xs font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
-          {pct}%
-        </span>
       </div>
 
-      {/* 3 cards: Diikuti, Di-skip, Total */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
-        <div className="rounded-xl bg-white/70 dark:bg-white/[0.05] p-3 text-center border border-zinc-200/60 dark:border-white/5">
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-            Diikuti
-          </p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-zinc-900 dark:text-white mt-0.5">
-            {completed}
-          </p>
+      {/* Visual adherence ratio bar */}
+      {total > 0 && (
+        <div className="space-y-1.5">
+          <div className="h-2 w-full rounded-full bg-zinc-300/80 dark:bg-white/10 overflow-hidden flex gap-0.5 p-0.5">
+            {completedPct > 0 && (
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${completedPct}%` }}
+                title={`Completed: ${completed} (${completedPct}%)`}
+              />
+            )}
+            {skippedPct > 0 && (
+              <div
+                className="h-full rounded-full bg-rose-400/80 dark:bg-rose-400/60 transition-all duration-500"
+                style={{ width: `${skippedPct}%` }}
+                title={`Skipped: ${skipped} (${skippedPct}%)`}
+              />
+            )}
+          </div>
+          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 dark:text-zinc-400 px-0.5">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              Completed ({completedPct}%)
+            </span>
+            {skipped > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400/80 inline-block" />
+                Skipped ({skippedPct}%)
+              </span>
+            )}
+          </div>
         </div>
-        <div className="rounded-xl bg-white/70 dark:bg-white/[0.05] p-3 text-center border border-zinc-200/60 dark:border-white/5">
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-            Di-skip
-          </p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-zinc-900 dark:text-white mt-0.5">
-            {skipped}
-          </p>
+      )}
+
+      {/* 3 stat cards: Completed, Skipped, Total */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {/* Completed */}
+        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/5 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Completed</span>
+            <CheckCircle2 className="w-3.5 h-3.5" />
+          </div>
+          <div className="mt-2">
+            <span className="text-xl sm:text-2xl font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+              {completed}
+            </span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">sessions</span>
+          </div>
         </div>
-        <div className="rounded-xl bg-white/70 dark:bg-white/[0.05] p-3 text-center border border-zinc-200/60 dark:border-white/5">
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-            Total
-          </p>
-          <p className="text-lg sm:text-xl font-bold font-mono text-zinc-900 dark:text-white mt-0.5">
-            {total}
-          </p>
+
+        {/* Skipped */}
+        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/5 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-zinc-400 dark:text-zinc-500">
+            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Skipped</span>
+            <XCircle className="w-3.5 h-3.5" />
+          </div>
+          <div className="mt-2">
+            <span className="text-xl sm:text-2xl font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+              {skipped}
+            </span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">missed</span>
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/5 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
+            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">Total</span>
+            <Target className="w-3.5 h-3.5" />
+          </div>
+          <div className="mt-2">
+            <span className="text-xl sm:text-2xl font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+              {total}
+            </span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 block">workouts</span>
+          </div>
         </div>
       </div>
     </div>
@@ -297,7 +371,7 @@ export function CohortPerformanceCard({
       {/* 1. Grafik sleep */}
       <SleepWidget days={sorted} />
 
-      {/* 2. Training (diikuti, di-skip, total) */}
+      {/* 2. Training (Completed, Skipped, Total) */}
       <TrainingWidget
         completed={trainingCompleted}
         skipped={trainingMissed}

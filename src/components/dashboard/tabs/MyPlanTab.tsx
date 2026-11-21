@@ -277,53 +277,62 @@ export function MyPlanOverview({
       ] as const);
 
   const displayName = (userName || "Member").trim() || "Member";
-  const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
-  const displayDayNumber = currentDayNumber > 0 ? currentDayNumber : 1;
-  const dayProgressPct =
-    totalProgramDays > 0
-      ? Math.min(100, Math.max(4, Math.round((displayDayNumber / totalProgramDays) * 100)))
-      : 0;
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
       {/* 0. Plan index switcher above banner */}
       {plans && plans.length > 0 && (
-        <div className="w-full flex items-center justify-end gap-1.5 pb-0.5">
-          {plans.length > 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={handlePrevPlan}
-                disabled={currentIndex === 0}
-                aria-label="Previous plan"
-                className="w-7 h-7 rounded-full bg-zinc-200/80 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 border border-zinc-300/80 dark:border-white/10 text-zinc-800 dark:text-zinc-200 inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
+        <div className="w-full flex items-center justify-between gap-3 px-1">
+          {/* Active plan status */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold text-zinc-900 dark:text-white">Active Plan</span>
+              <span className="text-zinc-400 dark:text-zinc-500">·</span>
+              <span className="truncate max-w-[150px] sm:max-w-xs text-zinc-600 dark:text-zinc-300">
+                {program?.title || "Wellness Program"}
+              </span>
+            </div>
+          </div>
+
+          {/* Index controller */}
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-full border border-zinc-200/80 dark:border-white/10 shadow-2xs shrink-0">
+            {plans.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevPlan}
+                  disabled={currentIndex === 0}
+                  aria-label="Previous plan"
+                  className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span
+                  data-testid="home-program-index"
+                  className="px-2 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white tabular-nums select-none"
+                >
+                  {currentIndex + 1} / {totalPlans}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextPlan}
+                  disabled={currentIndex >= totalPlans - 1}
+                  aria-label="Next plan"
+                  className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
               <span
                 data-testid="home-program-index"
-                className="px-2.5 py-1 rounded-full bg-zinc-200/80 dark:bg-zinc-800 border border-zinc-300/80 dark:border-white/10 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white tabular-nums"
+                className="px-2.5 py-0.5 text-[11px] font-mono font-medium text-zinc-600 dark:text-zinc-400 tabular-nums select-none"
               >
-                {currentIndex + 1} / {totalPlans}
+                1 / 1
               </span>
-              <button
-                type="button"
-                onClick={handleNextPlan}
-                disabled={currentIndex >= totalPlans - 1}
-                aria-label="Next plan"
-                className="w-7 h-7 rounded-full bg-zinc-200/80 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 border border-zinc-300/80 dark:border-white/10 text-zinc-800 dark:text-zinc-200 inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </>
-          ) : (
-            <span
-              data-testid="home-program-index"
-              className="px-2.5 py-1 rounded-full bg-zinc-200/80 dark:bg-zinc-800 border border-zinc-300/80 dark:border-white/10 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white tabular-nums"
-            >
-              1 / 1
-            </span>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -342,25 +351,6 @@ export function MyPlanOverview({
           <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
             {program?.title || t.myPlan.noActivePlanTitle}
           </h1>
-
-          {/* Day progress bar */}
-          {program && !program.isUpcoming && totalProgramDays > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-medium text-white/90">
-                  {locale === "id"
-                    ? `Hari ${displayDayNumber} dari ${totalProgramDays}`
-                    : `Day ${displayDayNumber} of ${totalProgramDays}`}
-                </span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-white/20 border border-white/15 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-white transition-all duration-300"
-                  style={{ width: `${dayProgressPct}%` }}
-                />
-              </div>
-            </div>
-          )}
 
           {/* Action buttons (Community & Report - without "Join") */}
           {program && (
