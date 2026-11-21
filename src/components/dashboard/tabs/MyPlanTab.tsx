@@ -290,20 +290,20 @@ export function MyPlanOverview({
         <button
           type="button"
           onClick={onViewAllPrograms || onExplore}
-          className="h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
+          className="h-8 px-3.5 rounded-xl bg-white dark:bg-[#161616] border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-900 dark:text-white hover:border-zinc-400 dark:hover:border-white/40 shadow-xs transition active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
         >
           <span>See all my programs</span>
         </button>
 
         {/* Index previous / next controller */}
         {plans && plans.length > 0 && (
-          <div className="inline-flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-full border border-zinc-200/80 dark:border-white/10 shadow-2xs">
+          <div className="inline-flex items-center gap-1 bg-white dark:bg-[#161616] p-0.5 rounded-xl border border-zinc-300 dark:border-white/20 shadow-xs">
             <button
               type="button"
               onClick={handlePrevPlan}
               disabled={currentIndex === 0 || plans.length <= 1}
               aria-label="Previous plan"
-              className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+              className="w-6 h-6 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -318,7 +318,7 @@ export function MyPlanOverview({
               onClick={handleNextPlan}
               disabled={currentIndex >= totalPlans - 1 || plans.length <= 1}
               aria-label="Next plan"
-              className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+              className="w-6 h-6 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
