@@ -553,6 +553,88 @@ export function GuideAccordionModal({
                 </p>
               )}
             </GuideAccordion>
+
+            {/* Practical Guidelines in Overview */}
+            {program.programGuidelines && program.programGuidelines.length > 0 && (
+              <GuideAccordion
+                title="Practical Guidelines"
+                count={program.programGuidelines.length}
+                open={!!openSections["ov-guidelines"]}
+                onToggle={() => toggleSection("ov-guidelines")}
+              >
+                <ul className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                  {program.programGuidelines.map((g, i) => (
+                    <li
+                      key={i}
+                      className="py-3.5 flex items-start gap-3 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed"
+                    >
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mt-1 shrink-0">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span>{g}</span>
+                    </li>
+                  ))}
+                </ul>
+              </GuideAccordion>
+            )}
+
+            {/* Rules & Conduct in Overview */}
+            <GuideAccordion
+              title="Code of Conduct & Rules"
+              count={conductRules.length}
+              open={!!openSections["ov-conduct"]}
+              onToggle={() => toggleSection("ov-conduct")}
+            >
+              <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                {conductRules.map((rule, idx) => (
+                  <div key={idx} className="py-3.5 space-y-1">
+                    <p className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white">
+                      {rule.title}
+                    </p>
+                    <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                      {rule.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </GuideAccordion>
+
+            {/* Faculty & Coaches in Overview */}
+            <GuideAccordion
+              title="Faculty & Coaches"
+              count={coachesList.length}
+              open={!!openSections["ov-coaches"]}
+              onToggle={() => toggleSection("ov-coaches")}
+            >
+              <div className="divide-y divide-zinc-200/80 dark:divide-white/10 border-b border-zinc-200/80 dark:border-white/10">
+                {coachesList.map((coach) => (
+                  <div key={coach.id} className="py-3.5 flex items-start gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={coach.photo}
+                      alt={coach.alt}
+                      className="w-10 h-10 rounded-xl object-cover object-top shrink-0 bg-zinc-200 dark:bg-zinc-800"
+                    />
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white">
+                          {coach.name}
+                        </p>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-200/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
+                          {coach.role}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {coach.title}
+                      </p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed pt-1">
+                        {coach.bio}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </GuideAccordion>
           </div>
         )}
 

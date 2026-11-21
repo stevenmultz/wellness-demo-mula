@@ -279,7 +279,10 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
 // ─── 2. Training Widget (GitLab-Style Activity Heatmap 7 Columns) ─────────────
 type TrainingStatus = "full" | "partial" | "rest" | "skipped" | "future";
 
-function getTrainingDayStatus(d: PlanDay): TrainingStatus {
+function getTrainingDayStatus(
+  d: PlanDay,
+  currentDayNumber?: number
+): TrainingStatus {
   const p = d.userProgress;
   const isCompleted = Boolean(p && p.isCompleted);
   const hasWorkout = Boolean(
@@ -293,8 +296,16 @@ function getTrainingDayStatus(d: PlanDay): TrainingStatus {
   if (isCompleted) return "full";
   if (hasWorkout) return "partial";
   if (d.dayType === "REST_DAY") return "rest";
-  if (d.isPast2359) return "skipped";
-  if (!d.isCalendarUnlocked) return "future";
+
+  const isFuture =
+    Boolean(
+      currentDayNumber &&
+        currentDayNumber > 0 &&
+        d.dayNumber > currentDayNumber
+    ) ||
+    (!d.isCalendarUnlocked && !d.isPast2359);
+  if (isFuture) return "future";
+
   return "skipped";
 }
 
@@ -311,7 +322,9 @@ function TrainingWidget({
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
   const selectedDay =
     sortedDays.find((d) => d.dayNumber === selectedDayNum) || null;
-  const selectedStatus = selectedDay ? getTrainingDayStatus(selectedDay) : null;
+  const selectedStatus = selectedDay
+    ? getTrainingDayStatus(selectedDay, currentDayNumber)
+    : null;
 
   // 7 columns: Sun to Sat
   const dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -348,23 +361,16 @@ function TrainingWidget({
           ))}
         </div>
 
-        {/* 7-Column Boxes: Kotak HANYA ada di hari program berjalan */}
+        {/* 7-Column Boxes: 3 Tones (Tone 1 Full, Tone 2 Partial, Tone 3 Dim Upcoming/Skip, Rest X) */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {Array.from({ length: totalSlots }, (_, i) => {
             const dayIndex = i - startDayOfWeek;
-            const d = dayIndex >= 0 ? sortedDays[dayIndex] : undefined;
-            const isProgramDayRunning =
-              Boolean(d) &&
-              (Boolean(d?.isCalendarUnlocked) ||
-                (Boolean(currentDayNumber && currentDayNumber > 0) &&
-                  (d?.dayNumber as number) <= (currentDayNumber as number)) ||
-                Boolean(
-                  d?.userProgress?.isCompleted ||
-                    d?.userProgress?.videoWatched ||
-                    d?.isPast2359
-                ));
+            const d =
+              dayIndex >= 0 && dayIndex < sortedDays.length
+                ? sortedDays[dayIndex]
+                : undefined;
 
-            if (!d || !isProgramDayRunning) {
+            if (!d) {
               return (
                 <div
                   key={`slot-${i}`}
@@ -373,7 +379,7 @@ function TrainingWidget({
               );
             }
 
-            const status = getTrainingDayStatus(d);
+            const status = getTrainingDayStatus(d, currentDayNumber);
             const isSelected = selectedDayNum === d.dayNumber;
 
             return (
@@ -387,11 +393,13 @@ function TrainingWidget({
                 }
                 title={`Day ${d.dayNumber}: ${
                   status === "full"
-                    ? "Active"
+                    ? "Completed"
                     : status === "partial"
                     ? "Partial"
                     : status === "rest"
-                    ? "Rest"
+                    ? "Rest Day"
+                    : status === "future"
+                    ? "Upcoming"
                     : "Skipped"
                 }`}
                 className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer ${
@@ -404,8 +412,8 @@ function TrainingWidget({
                     : status === "partial"
                     ? "bg-zinc-400 dark:bg-white/50 text-white dark:text-zinc-900"
                     : status === "rest"
-                    ? "bg-zinc-200/70 dark:bg-white/10 text-zinc-400 dark:text-zinc-500"
-                    : "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/5"
+                    ? "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10"
+                    : "bg-zinc-200/70 dark:bg-white/[0.08] border border-zinc-300/40 dark:border-white/5"
                 }`}
               >
                 {status === "rest" && (
@@ -413,13 +421,13 @@ function TrainingWidget({
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.2"
+                    strokeWidth="1"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="w-3 h-3 text-zinc-400 dark:text-zinc-500"
+                    className="w-full h-full p-1.5 text-zinc-500 dark:text-zinc-400"
                   >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="19" y1="5" x2="5" y2="19" />
+                    <line x1="5" y1="5" x2="19" y2="19" />
                   </svg>
                 )}
               </button>
@@ -446,17 +454,21 @@ function TrainingWidget({
                   ? "Partially completed"
                   : selectedStatus === "rest"
                   ? "Rest day"
+                  : selectedStatus === "future"
+                  ? "Upcoming session"
                   : "Workout skipped"}
               </p>
             </div>
             <div className="text-right">
               <span className="text-xs font-mono font-semibold text-zinc-950 dark:text-white uppercase">
                 {selectedStatus === "full"
-                  ? "Active"
+                  ? "Completed"
                   : selectedStatus === "partial"
                   ? "Partial"
                   : selectedStatus === "rest"
                   ? "Rest"
+                  : selectedStatus === "future"
+                  ? "Upcoming"
                   : "Skipped"}
               </span>
             </div>

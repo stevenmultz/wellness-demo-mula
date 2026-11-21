@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Check, ChevronRight, Clock, Info, Lock } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Clock, Info, Lock } from "lucide-react";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
@@ -339,34 +339,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   </div>
                 </div>
 
-                <div className="relative z-10 shrink-0 flex justify-end">
+                <div className="relative z-10 shrink-0 flex items-center justify-end">
                   {isSelectedFuture ? (
                     <span className="py-1 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
                       <Lock className="w-3 h-3" />
                       <span>Locked</span>
                     </span>
-                  ) : isSelectedPast ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDetail(index);
-                      }}
-                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition"
-                    >
-                      <span>View</span>
-                    </button>
-                  ) : isDone ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDetail(index);
-                      }}
-                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition"
-                    >
-                      <span>{selectedLocked ? "View" : "Edit"}</span>
-                    </button>
                   ) : (
                     <button
                       type="button"
@@ -375,9 +353,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="py-1 text-xs font-semibold text-zinc-950 dark:text-white hover:opacity-75 disabled:opacity-40 active:scale-95 transition"
+                      aria-label="Open task detail"
+                      className="w-7 h-7 rounded-lg bg-zinc-200/50 dark:bg-white/[0.06] hover:bg-zinc-300/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer"
                     >
-                      <span>Do Task</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>

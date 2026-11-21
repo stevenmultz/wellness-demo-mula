@@ -59,40 +59,40 @@ export function getTasksForDay(dayType: string) {
 
   return [
     {
-      title: "Sleep Protocol",
-      description: "Bedtime, wake time & recovery score",
+      title: "Sleep Log",
+      description: "Bedtime, wake time & recovery",
       Icon: Moon,
       image: "/test.webp",
     },
     isRest
       ? {
-          title: "Rest & Recovery",
-          description: "Active recovery guidelines & body check-in",
+          title: "Rest Day",
+          description: "Recovery guidelines & body check-in",
           Icon: Heart,
           image: "/coach2.webp",
         }
       : isConnect
         ? {
-            title: "Community Connect",
-            description: "Session takeaways & attendance feedback",
+            title: "Community Session",
+            description: "Session takeaways & attendance",
             Icon: Users,
             image: "/coach.webp",
           }
         : {
-            title: "Movement Routine",
-            description: "Session checklist & guided video",
+            title: "Online Training",
+            description: "Daily workout & exercise checklist",
             Icon: Dumbbell,
             image: "/image.webp",
           },
     {
-      title: "Nutrition & Meal",
-      description: "Meal adherence & hydration guidelines",
+      title: "Meal Notes",
+      description: "Daily food intake & nutrition log",
       Icon: Utensils,
       image: "/pic.webp",
     },
     {
-      title: "Daily Reflection",
-      description: "Energy rating & mindset journal",
+      title: "Daily Notes",
+      description: "Daily energy rating & reflection",
       Icon: Sparkles,
       image: "/coach3.webp",
     },

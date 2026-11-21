@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowUpRight,
   BookOpen,
   ChevronRight,
   Info,
@@ -214,7 +215,7 @@ export function ProgramPreparationWidgets({
       icon: Utensils,
       badge: `${totalDaysCount} days`,
       title: "Meal Guide",
-      subtitle: "Daily nutrition",
+      subtitle: "Daily nutrition & hydration",
     },
     ...(!isOnlineProgram
       ? [
@@ -224,7 +225,7 @@ export function ProgramPreparationWidgets({
             icon: Users,
             badge: `${meetupDays.length} ${meetupDays.length === 1 ? "session" : "sessions"}`,
             title: "Meetups & Live",
-            subtitle: "Zoom & calls",
+            subtitle: "Zoom clinics & sessions",
           },
         ]
       : []),
@@ -233,24 +234,8 @@ export function ProgramPreparationWidgets({
       img: "/coach3.webp",
       icon: Target,
       badge: `${program.durationDays || totalDaysCount} days focus`,
-      title: "Overview",
-      subtitle: "Blueprint, gear & studies",
-    },
-    {
-      key: "rules",
-      img: "/coach2.webp",
-      icon: BookOpen,
-      badge: "Code & policy",
-      title: "Rules",
-      subtitle: "Guidelines & conduct",
-    },
-    {
-      key: "coach",
-      img: "/coach.webp",
-      icon: Users,
-      badge: "Guide team",
-      title: "Coaches",
-      subtitle: "Faculty & mentors",
+      title: "Program Overview",
+      subtitle: "Blueprint, rules, coaches & gear",
     },
   ];
 
@@ -262,7 +247,7 @@ export function ProgramPreparationWidgets({
         <InfoPopupModal
           open={showGuidesInfo}
           title="Program Guides"
-          subtitle="Meals, sessions, overview, rules & coaches"
+          subtitle="Meals, sessions, and comprehensive overview"
           onClose={() => setShowGuidesInfo(false)}
         >
           <p className="font-semibold text-zinc-950 dark:text-white">
@@ -271,23 +256,15 @@ export function ProgramPreparationWidgets({
           <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
             <li>
               <strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily
-              nutrition principles, hydration targets, and dietary guidance for each program day.
+              nutrition principles, hydration targets, and dietary guidance.
             </li>
             <li>
               <strong className="text-zinc-900 dark:text-white">Meetups &amp; Live:</strong>{" "}
               Scheduled Zoom clinics, live coaching sessions, and community meetups.
             </li>
             <li>
-              <strong className="text-zinc-900 dark:text-white">Overview:</strong> Program
-              logistics, methodology, outcomes, required gear, and scientific references.
-            </li>
-            <li>
-              <strong className="text-zinc-900 dark:text-white">Rules:</strong> Practical
-              guidelines, daily logging cutoffs, and cohort safety standards.
-            </li>
-            <li>
-              <strong className="text-zinc-900 dark:text-white">Coaches:</strong> Dedicated
-              faculty and clinical specialists guiding this cohort.
+              <strong className="text-zinc-900 dark:text-white">Overview, Rules &amp; Faculty:</strong> Program
+              methodology, rules of conduct, coaching faculty, required gear, and scientific references.
             </li>
           </ul>
         </InfoPopupModal>
@@ -300,15 +277,18 @@ export function ProgramPreparationWidgets({
                 key={card.key}
                 type="button"
                 onClick={() => setActivePage(card.key)}
-                className="group relative overflow-hidden rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] border border-transparent dark:border-white/5 shadow-2xs"
+                className="group relative overflow-hidden rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] border border-transparent dark:border-white/5 shadow-2xs cursor-pointer"
               >
                 <div className="relative z-10 flex items-center justify-between w-full">
                   <div className="w-8 h-8 rounded-xl bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
                     <Icon className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-                    {card.badge}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+                      {card.badge}
+                    </span>
+                    <ArrowUpRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white transition" />
+                  </div>
                 </div>
 
                 <div className="relative z-10 pt-3 flex items-end justify-between w-full">
