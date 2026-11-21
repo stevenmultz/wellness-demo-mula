@@ -361,31 +361,7 @@ export function MyPlanOverview({
         </div>
       </section>
 
-      {/* 2. User Profile below banner */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#161616] border border-zinc-200/80 dark:border-white/10 shadow-2xs flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-white/20 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-            {userAvatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={userAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
-            ) : (
-              <UserIcon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-geometric font-semibold text-zinc-950 dark:text-white truncate">
-              {displayName}
-            </h2>
-            {(userSubtitle || userEmail) && (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                {userSubtitle || userEmail}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Subtabs below profile: Guides | Tasks | Metrics */}
+      {/* 3. Subtabs */}
       {showSubtabs && (
         <div
           role="tablist"

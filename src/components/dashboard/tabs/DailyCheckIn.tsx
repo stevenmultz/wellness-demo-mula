@@ -170,17 +170,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
             Daily Tasks
           </h2>
-          <button
-            type="button"
-            onClick={() => setShowDailyTasksInfo(true)}
-            aria-label="Daily tasks info"
-            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
-          >
-            <Info className="w-3.5 h-3.5" />
-          </button>
         </div>
         <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-          {isAnytime ? "Anytime Access" : resetCountdown}
+          {isAnytime ? resetCountdown : resetCountdown}
         </span>
       </div>
 

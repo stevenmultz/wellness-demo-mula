@@ -184,21 +184,6 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      <div className="w-full flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Performance Metrics
-          </h2>
-          <button
-            type="button"
-            onClick={() => setShowMetricsInfo(true)}
-            aria-label="Metrics calculation info"
-            className="w-5 h-5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-white/10 transition"
-          >
-            <Info className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
 
       <InfoPopupModal
         open={showMetricsInfo}
