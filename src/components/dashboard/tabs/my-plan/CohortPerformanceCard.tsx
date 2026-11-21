@@ -361,7 +361,7 @@ function TrainingWidget({
           ))}
         </div>
 
-        {/* 7-Column Boxes: 3 Tones (Tone 1 Full, Tone 2 Partial, Tone 3 Dim Upcoming/Skip, Rest X) */}
+        {/* 7-Column Boxes: 4 Tones (T1=Full, T2=Partial, T3=Rest light, T4=Upcoming/Skipped palest) */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {Array.from({ length: totalSlots }, (_, i) => {
             const dayIndex = i - startDayOfWeek;
@@ -408,28 +408,14 @@ function TrainingWidget({
                     : ""
                 }${
                   status === "full"
-                    ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
+                    ? "bg-zinc-900 dark:bg-white"
                     : status === "partial"
-                    ? "bg-zinc-400 dark:bg-white/50 text-white dark:text-zinc-900"
+                    ? "bg-zinc-500 dark:bg-white/55"
                     : status === "rest"
-                    ? "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10"
-                    : "bg-zinc-200/70 dark:bg-white/[0.08] border border-zinc-300/40 dark:border-white/5"
+                    ? "bg-zinc-200 dark:bg-white/[0.15]"
+                    : "bg-zinc-100/80 dark:bg-white/[0.05] border border-zinc-200/40 dark:border-white/[0.05]"
                 }`}
               >
-                {status === "rest" && (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-full h-full p-1.5 text-zinc-500 dark:text-zinc-400"
-                  >
-                    <line x1="19" y1="5" x2="5" y2="19" />
-                    <line x1="5" y1="5" x2="19" y2="19" />
-                  </svg>
-                )}
               </button>
             );
           })}

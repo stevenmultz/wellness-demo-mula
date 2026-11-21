@@ -35,9 +35,8 @@ export function ReflectionStepView({
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader
-          eyebrow={`Day ${dayNumber} · Daily Reflection`}
-          title="Reflect on your day"
-          subtitle="Write freely in your own words — log today's journal, vent about anything on your mind, or capture whatever stood out today."
+          eyebrow={`Day ${dayNumber} · Daily Notes`}
+          title="How was your day?"
         />
 
         <textarea
@@ -51,7 +50,7 @@ export function ReflectionStepView({
           }}
           rows={5}
           maxLength={2000}
-          placeholder="Write your journal, vent, or share any thoughts from today..."
+          placeholder="Write anything on your mind — thoughts, wins, struggles, or just how you feel..."
           className={areaCls}
         />
 
@@ -64,26 +63,15 @@ export function ReflectionStepView({
               : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
           }`}
         >
-          <div className="min-w-0">
-            <p
-              className={`text-sm font-semibold ${
-                preferNotAnswer
-                  ? "text-white dark:text-zinc-950"
-                  : "text-zinc-950 dark:text-white"
-              }`}
-            >
-              Prefer not to answer
-            </p>
-            <p
-              className={`text-xs mt-0.5 leading-relaxed ${
-                preferNotAnswer
-                  ? "text-white/80 dark:text-zinc-950/80"
-                  : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              Keep today&apos;s journal private and continue to your mood rating.
-            </p>
-          </div>
+          <p
+            className={`text-sm font-semibold ${
+              preferNotAnswer
+                ? "text-white dark:text-zinc-950"
+                : "text-zinc-950 dark:text-white"
+            }`}
+          >
+            Prefer not to answer
+          </p>
           {preferNotAnswer && <Check className="w-4 h-4 shrink-0" />}
         </button>
       </div>

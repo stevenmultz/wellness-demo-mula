@@ -184,7 +184,7 @@ export function TaskForm({
   }, [isTraining, hasMultipleOptions, videos, activeOptionIdx, activeWorkout]);
 
   const subSteps = useMemo<SubStepId[]>(() => {
-    if (step === 0) return ["wake", "bed", "sleep_mood"];
+    if (step === 0) return ["wake", "bed"];
     if (step === 1) {
       if (isConnect) {
         return connectAttendance === "cannot_attend"
@@ -192,24 +192,17 @@ export function TaskForm({
           : ["connect_attendance", "connect_rating"];
       }
       if (isRest) {
-        return restLines.length > 0 ? ["rest_checklist", "rest_mood"] : ["rest_mood"];
+        return restLines.length > 0 ? ["rest_checklist"] : ["rest_mood"];
       }
       const list: SubStepId[] = [];
       if (groups.length > 0) list.push("training_option");
-      if (videos.length > 0) list.push("training_video");
       if (movements.length > 0 || groups.length > 0) list.push("training_movements");
-      list.push("training_mood");
-      return list;
+      return list.length > 0 ? list : ["training_mood"];
     }
     if (step === 2) {
-      const count = mealDraft.mealsCount > 0 ? mealDraft.mealsCount : 1;
-      const list: SubStepId[] = ["meal_count", "meal_entry_1"];
-      if (count >= 2) list.push("meal_entry_2");
-      if (count >= 3) list.push("meal_entry_3");
-      list.push("meal_mood");
-      return list;
+      return ["meal_count"];
     }
-    return ["reflection_journal", "reflection_mood"];
+    return ["reflection_journal"];
   }, [
     step,
     isConnect,
@@ -217,9 +210,7 @@ export function TaskForm({
     connectAttendance,
     restLines.length,
     groups.length,
-    videos.length,
     movements.length,
-    mealDraft.mealsCount,
   ]);
 
   const safeSubIndex = Math.min(subStepIndex, Math.max(0, subSteps.length - 1));
@@ -358,7 +349,7 @@ export function TaskForm({
           ? null
           : "Please select the time you went to sleep last night (HH:MM).";
       case "sleep_mood":
-        return sleepFeeling ? null : "Please select how you feel after waking up.";
+        return null; // step removed — no validation needed
       case "training_option":
         return !hasMultipleOptions || activeWorkout
           ? null
@@ -371,14 +362,14 @@ export function TaskForm({
         }
         return null;
       case "training_mood":
-        return trainingFeeling ? null : "Please select how you feel after training.";
+        return null; // step removed — no validation needed
       case "rest_checklist":
         if (movements.length > 0 && !movements.every(isChecked)) {
           return `Please complete all recovery items (${movements.length - checkedCount} remaining).`;
         }
         return null;
       case "rest_mood":
-        return trainingFeeling ? null : "Please select how your body feels today.";
+        return null; // step removed — no validation needed
       case "connect_attendance":
         return connectAttendance
           ? null
@@ -388,9 +379,7 @@ export function TaskForm({
           ? null
           : "Please rate your session experience from 1 to 5 stars.";
       case "meal_count":
-        return mealDraft.mealsCount > 0
-          ? null
-          : "Please select how many meals you ate today (1, 2, or 3).";
+        return null; // meal note textarea — no required validation
       case "meal_entry_1":
         return mealDraft.mealEntries[0]?.status
           ? null
@@ -408,11 +397,9 @@ export function TaskForm({
           ? null
           : "Please select how you feel after your meals.";
       case "reflection_journal":
-        return review === REFLECTION_DECLINED || review.trim().length >= 3
-          ? null
-          : 'Please write a brief reflection or select "Prefer not to answer".';
+        return null; // optional — allow saving blank
       case "reflection_mood":
-        return score > 0 ? null : "Please select your overall mood & energy rating.";
+        return null; // step removed
       default:
         return null;
     }
@@ -449,42 +436,16 @@ export function TaskForm({
       return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
     }
     if (step === 2) {
-      const mealCount = mealDraft.mealsCount || 1;
-      const activeEntries = mealDraft.mealEntries.slice(0, mealCount);
-      const checkedMeals = Array.from(
-        new Set(
-          activeEntries
-            .filter((e) => e.status === "followed" && e.mealItem)
-            .map((e) => e.mealItem!)
-        )
-      );
-      const allFollowed =
-        activeEntries.length === mealCount &&
-        activeEntries.every((e) => e.status === "followed");
-      const allSimilar =
-        activeEntries.length === mealCount &&
-        activeEntries.every((e) => e.status === "similar");
-      const allOffTrack =
-        activeEntries.length === mealCount &&
-        activeEntries.every((e) => e.status === "off_track");
-      const compliance = allFollowed
-        ? "FULL"
-        : allSimilar
-          ? "SIMILAR"
-          : allOffTrack
-            ? "OFF_TRACK"
-            : "PARTIAL";
-
+      // Simple meal note - save as plain text note with FULL compliance
+      const noteText = mealDraft.mealFeeling.trim() || "Meal logged";
       const mealPayload = {
         v: 4,
-        mode: compliance.toLowerCase(),
-        checkedMeals,
-        mealsCount: mealCount,
-        mealEntries: activeEntries,
-        mealFeeling: mealDraft.mealFeeling,
+        mode: "noted",
+        mealNote: noteText,
+        mealFeeling: noteText,
       };
       return (
-        (await props.onSaveMeal(compliance, JSON.stringify(mealPayload), day.id)) !== false
+        (await props.onSaveMeal("FULL", JSON.stringify(mealPayload), day.id)) !== false
       );
     }
     return (await props.onSaveReflection(review.trim(), score || 3, day.id)) !== false;

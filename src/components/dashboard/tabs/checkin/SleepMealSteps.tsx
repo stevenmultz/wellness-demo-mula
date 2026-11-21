@@ -270,11 +270,8 @@ export function SleepStepView({
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader
-          eyebrow={`Day ${dayNumber} · Sleep Routine`}
+          eyebrow={`Day ${dayNumber} · Sleep Log`}
           title="What time did you wake up today?"
-          subtitle={
-            sleepRecommendation || "Select or enter the exact time you woke up this morning."
-          }
         />
         <TimeInputField
           idPrefix="wake-time"
@@ -292,9 +289,8 @@ export function SleepStepView({
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader
-          eyebrow={`Woke up at ${wake}`}
+          eyebrow={wake ? `Woke up at ${wake}` : `Day ${dayNumber} · Sleep Log`}
           title="What time did you go to sleep last night?"
-          subtitle="Used to calculate total circadian recovery duration."
         />
         <TimeInputField
           idPrefix="bed-time"
@@ -307,7 +303,7 @@ export function SleepStepView({
         {totalSleepMins > 0 && (
           <div className="pt-3 border-t border-zinc-200/90 dark:border-white/10 flex items-center justify-between gap-3 text-xs">
             <span className="text-zinc-600 dark:text-zinc-400 font-medium">
-              Calculated Rest
+              Total Sleep
             </span>
             <div className="flex items-center gap-2">
               <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
@@ -362,47 +358,20 @@ export function MealStepView({
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader
-          eyebrow={`Day ${dayNumber} · Daily Intake Frequency`}
-          title="How many meals did you eat today?"
-          subtitle="Select your meal count first — you will review each meal next."
+          eyebrow={`Day ${dayNumber} · Meal Notes`}
+          title="How was your meal today?"
         />
-        <div className="grid grid-cols-3 gap-3 pt-1">
-          {([1, 2, 3] as const).map((count) => {
-            const active = mealDraft.mealsCount === count;
-            return (
-              <button
-                key={count}
-                type="button"
-                onClick={() => {
-                  clearError();
-                  setMealDraft((prev) => ({
-                    ...prev,
-                    mealsCount: count,
-                    mealEntries: prev.mealEntries.slice(0, count),
-                  }));
-                }}
-                className={`py-5 px-2 rounded-2xl border text-center transition active:scale-95 ${
-                  active
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-                }`}
-              >
-                <span className="block text-2xl font-geometric font-medium tabular-nums leading-none">
-                  {count}
-                </span>
-                <span
-                  className={`block text-xs font-medium mt-2 ${
-                    active
-                      ? "text-white/80 dark:text-zinc-950/80"
-                      : "text-zinc-500 dark:text-zinc-400"
-                  }`}
-                >
-                  {count === 1 ? "Meal" : "Meals"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <textarea
+          value={mealDraft.mealFeeling}
+          onChange={(e) => {
+            clearError();
+            setMealDraft((prev) => ({ ...prev, mealFeeling: e.target.value }));
+          }}
+          rows={5}
+          maxLength={1000}
+          placeholder="e.g. Had rice and grilled chicken for lunch, light dinner around 7pm..."
+          className="w-full px-4 py-3.5 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-base sm:text-sm leading-relaxed text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition resize-none"
+        />
       </div>
     );
   }
