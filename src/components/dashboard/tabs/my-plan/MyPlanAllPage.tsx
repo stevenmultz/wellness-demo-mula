@@ -1,20 +1,19 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, Clock, Flame } from "lucide-react";
+import { useState } from "react";
 import { BRAND } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
-import { formatDateWib } from "../shared";
-import { formatDayTypeLabel, formatStartsIn, type MyPlanIndexItem } from "./myPlanUtils";
-import { MyPlanPageEmpty, MyPlanPageShell, PlanCardMedia } from "./MyPlanPageShell";
+import { EmptyState } from "../shared";
+import { formatStartsIn, type MyPlanIndexItem } from "./myPlanUtils";
 import type { MyPlanFilter } from "./MyPlanIntro";
 
 /**
- * Dedicated "All My Plans" overview page grouping On Going, Upcoming, and Done cohorts.
+ * Clean "All My Programs" page styled consistently with Tab 2 Explore catalog.
  */
 export function MyPlanAllPage({
   plans,
   onSelectPlan,
-  onOpenSection,
+  onOpenSection: _onOpenSection,
   onExplore,
 }: {
   plans: MyPlanIndexItem[];
@@ -23,187 +22,136 @@ export function MyPlanAllPage({
   onExplore: () => void;
 }) {
   const { locale, t } = useLocale();
+  const [filter, setFilter] = useState<"all" | "ongoing" | "upcoming" | "completed">("all");
+
   const ongoing = plans.filter((p) => !p.isUpcoming && !p.isCompleted);
   const upcoming = plans.filter((p) => p.isUpcoming && !p.isCompleted);
-  const done = plans.filter((p) => !!p.isCompleted);
+  const completed = plans.filter((p) => !!p.isCompleted);
 
-  const sections: Array<{
-    key: Exclude<MyPlanFilter, "all">;
-    heading: string;
-    items: MyPlanIndexItem[];
-    statusIcon: JSX.Element;
-  }> = [
-    {
-      key: "ongoing",
-      heading: t.myPlan.filterOngoing,
-      items: ongoing,
-      statusIcon: <Flame className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-200" />,
-    },
-    {
-      key: "upcoming",
-      heading: t.myPlan.filterUpcoming,
-      items: upcoming,
-      statusIcon: <Clock className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-200" />,
-    },
-    {
-      key: "completed",
-      heading: t.myPlan.filterCompleted,
-      items: done,
-      statusIcon: <CheckCircle2 className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-200" />,
-    },
+  const filteredPlans =
+    filter === "ongoing"
+      ? ongoing
+      : filter === "upcoming"
+      ? upcoming
+      : filter === "completed"
+      ? completed
+      : plans;
+
+  const filterTabs = [
+    { id: "all" as const, label: locale === "id" ? "Semua" : "All", count: plans.length },
+    { id: "ongoing" as const, label: t.myPlan.filterOngoing, count: ongoing.length },
+    { id: "upcoming" as const, label: t.myPlan.filterUpcoming, count: upcoming.length },
+    { id: "completed" as const, label: t.myPlan.filterCompleted, count: completed.length },
   ];
 
   return (
-    <MyPlanPageShell
-      eyebrow={t.myPlan.eyebrow}
-      title={t.myPlan.headingAll}
-      subtitle={t.myPlan.allPageSub}
-      count={plans.length}
-    >
-      {plans.length === 0 ? (
-        <MyPlanPageEmpty
+    <div className="w-full space-y-5 pb-16 pt-2">
+      {/* Heading */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-tight">
+            {locale === "id" ? "Semua Program Saya" : "All My Programs"}
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            {locale === "id"
+              ? "Daftar seluruh program yang Anda ikuti"
+              : "All enrolled cohorts and active programs"}
+          </p>
+        </div>
+      </div>
+
+      {/* Filter Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        {filterTabs.map((tab) => {
+          const active = filter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setFilter(tab.id)}
+              className={`h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
+                active
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                  : "bg-white dark:bg-[#141414] text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span className="opacity-60 text-[11px] font-mono">({tab.count})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Programs Grid — Same Style as Tab 2 Explore */}
+      {filteredPlans.length === 0 ? (
+        <EmptyState
           title={t.myPlan.emptyAllTitle}
           description={t.myPlan.emptyAllDesc}
-          onExplore={onExplore}
+          action={
+            <button
+              type="button"
+              onClick={onExplore}
+              className="px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider"
+            >
+              {locale === "id" ? "Jelajahi Program" : "Explore Programs"}
+            </button>
+          }
         />
       ) : (
-        <div className="space-y-8">
-          {/* Quick stage counters linking to each dedicated page */}
-          <div className="grid grid-cols-3 gap-2.5">
-            {sections.map((sec) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {filteredPlans.map((p) => {
+            const isOnline = (p.locationType || "ONLINE").toUpperCase() === "ONLINE";
+            const total = p.totalDays || p.dayCount || 0;
+            const statusLabel = p.isCompleted
+              ? t.myPlan.filterCompleted
+              : p.isUpcoming
+              ? formatStartsIn(p.startDate, locale).headline
+              : `Day ${p.currentDayNumber || 1} of ${total || 1}`;
+
+            return (
               <button
-                key={sec.key}
+                key={p.programId}
                 type="button"
-                onClick={() => onOpenSection?.(sec.key)}
-                className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 p-3.5 text-left transition active:scale-[0.98]"
+                onClick={() => onSelectPlan(p.programId)}
+                className="group relative w-full h-[188px] sm:h-[200px] rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 text-left active:scale-[0.98] transition cursor-pointer shadow-xs border border-transparent dark:border-white/5"
               >
-                <div className="flex items-center justify-between gap-1 text-zinc-500 dark:text-zinc-400">
-                  {sec.statusIcon}
-                  <ArrowRight className="w-3 h-3 opacity-60" />
+                {/* Background Cover Image */}
+                {p.coverImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.coverImage}
+                    alt={p.title}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-zinc-800" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
+
+                {/* Top Badges: Format (Online/Hybrid) + Status */}
+                <div className="absolute top-3 inset-x-3.5 flex flex-wrap items-center gap-1.5 z-10">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold font-mono uppercase bg-white text-zinc-950 shadow-xs">
+                    {isOnline ? "Online" : "Hybrid"}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs">
+                    {statusLabel}
+                  </span>
                 </div>
-                <p className="mt-2 text-lg sm:text-xl font-mono font-semibold tabular-nums text-zinc-950 dark:text-white leading-none">
-                  {sec.items.length}
-                </p>
-                <p className="mt-1 text-[11px] font-geometric font-medium text-zinc-500 dark:text-zinc-400 truncate">
-                  {sec.heading}
-                </p>
+
+                {/* Bottom Content: Title & Coach Name */}
+                <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 flex flex-col justify-end gap-0.5 z-10">
+                  <h3 className="text-base sm:text-lg font-geometric font-semibold text-white line-clamp-2 leading-snug drop-shadow-xs">
+                    {p.title}
+                  </h3>
+                  <p className="text-xs text-white/80 line-clamp-1">
+                    Coach {p.coachName || BRAND.facultyFallback}
+                  </p>
+                </div>
               </button>
-            ))}
-          </div>
-
-          {/* Grouped plan cards */}
-          {sections
-            .filter((sec) => sec.items.length > 0)
-            .map((sec) => (
-              <section key={sec.key} className="space-y-3">
-                <div className="flex items-center justify-between gap-2 px-0.5">
-                  <div className="flex items-center gap-2">
-                    {sec.statusIcon}
-                    <h2 className="text-sm font-geometric font-semibold text-zinc-950 dark:text-white">
-                      {sec.heading}
-                    </h2>
-                    <span className="text-xs font-mono text-zinc-400 tabular-nums">
-                      ({sec.items.length})
-                    </span>
-                  </div>
-                  {onOpenSection && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenSection(sec.key)}
-                      className="text-[11px] font-geometric font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-1 transition"
-                    >
-                      <span>{t.common.view}</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {sec.items.map((p) => {
-                    const total = p.totalDays || p.dayCount || 0;
-                    const badgeText = p.isCompleted
-                      ? t.myPlan.filterCompleted
-                      : p.isUpcoming
-                        ? formatStartsIn(p.startDate, locale).headline
-                        : `${t.myPlan.dayLabel} ${p.currentDayNumber || 1} ${t.myPlan.ofLabel} ${total || 1}`;
-                    const subText = p.isCompleted
-                      ? p.endDate
-                        ? `${t.myPlan.endedOnLabel} ${formatDateWib(p.endDate)}`
-                        : t.myPlan.completedLabel
-                      : p.isUpcoming
-                        ? `${t.myPlan.startsOnLabel} ${formatDateWib(p.startDate)}`
-                        : formatDayTypeLabel(p.todayDayType, locale) || p.dailyCommitment || "";
-
-                    return (
-                      <li key={p.programId}>
-                        <button
-                          type="button"
-                          onClick={() => onSelectPlan(p.programId)}
-                          className="group w-full text-left rounded-2xl overflow-hidden bg-white dark:bg-[#141414] border border-zinc-200/90 dark:border-white/15 hover:border-zinc-400 dark:hover:border-white/30 shadow-xs transition flex flex-col"
-                        >
-                          <PlanCardMedia
-                            coverImage={p.coverImage}
-                            title={p.title}
-                            topLeftBadge={
-                              <span className="px-2.5 py-0.5 rounded-full bg-white text-zinc-950 text-[10px] font-semibold shadow-sm">
-                                {badgeText}
-                              </span>
-                            }
-                            topRightBadge={
-                              p.dailyCommitment ? (
-                                <span className="px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-mono text-white">
-                                  {p.dailyCommitment}
-                                </span>
-                              ) : null
-                            }
-                          />
-                          <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                            <div>
-                              {(p.organizationName || p.batchNumber) && (
-                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                  {p.organizationName && (
-                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                                      {p.organizationLogo && (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                          src={p.organizationLogo}
-                                          alt={p.organizationName}
-                                          className="w-4 h-4 rounded-full object-contain bg-white border border-zinc-200/80 shrink-0"
-                                        />
-                                      )}
-                                      <span>{p.organizationName}</span>
-                                    </span>
-                                  )}
-                                  {p.batchNumber ? (
-                                    <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 text-[9px] font-mono font-semibold uppercase text-zinc-700 dark:text-zinc-200">
-                                      Batch {p.batchNumber}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              )}
-                              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white line-clamp-1">
-                                {p.title}
-                              </h3>
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-                                Coach {p.coachName || BRAND.facultyFallback}
-                              </p>
-                            </div>
-                            <div className="pt-2.5 border-t border-zinc-200/70 dark:border-white/10 flex items-center justify-between gap-2 text-xs">
-                              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
-                                {subText}
-                              </span>
-                              <ArrowRight className="w-3.5 h-3.5 text-zinc-900 dark:text-white shrink-0 transition-transform group-hover:translate-x-0.5" />
-                            </div>
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
+            );
+          })}
         </div>
       )}
-    </MyPlanPageShell>
+    </div>
   );
 }
