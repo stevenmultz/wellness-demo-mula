@@ -59,9 +59,8 @@ describe("MyPlanIntro redesigned Home first page", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders user profile card with editable banner, avatar, and immediate enrolled programs with index switcher", () => {
+  it("renders current program image banner and direct guides, tasks, metrics widgets with index switcher", () => {
     const onSelectPlan = vi.fn();
-    const onEditProfile = vi.fn();
 
     render(
       <LocaleProvider initialLocale="en">
@@ -74,41 +73,30 @@ describe("MyPlanIntro redesigned Home first page", () => {
           plans={samplePlans}
           onSelectPlan={onSelectPlan}
           onExplore={vi.fn()}
-          onEditProfile={onEditProfile}
         />
       </LocaleProvider>
     );
 
-    // Profile card renders user name, subtitle, avatar, and editable banner trigger
-    expect(screen.getByRole("heading", { name: "Steven Tan" })).toBeDefined();
-    expect(screen.getByText("Founder · Jakarta")).toBeDefined();
-    expect(screen.getByAltText("Steven Tan").getAttribute("src")).toBe("/coach.webp");
-
-    // Edit banner modal allows selecting a curated preset and persists it
-    fireEvent.click(screen.getByRole("button", { name: /Edit profile banner/i }));
-    expect(screen.getByRole("dialog", { name: /Edit Profile Banner/i })).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: /Movement/i }));
-    expect(window.localStorage.getItem("zera_profile_banner_v1:user-1")).toBe("/test.webp");
-
-    // Enrolled programs render immediately with titles, progress indicator, and 1 / 2 index
+    // Banner renders current program image, title, coach, organization, and index 1 / 2
     expect(screen.getByRole("heading", { name: "Morning Mobility Protocol" })).toBeDefined();
-    expect(screen.getByRole("heading", { name: "Senopati Padel Cohort" })).toBeDefined();
+    expect(screen.getByText(/ZERA Sanctuary/i)).toBeDefined();
+    expect(screen.getByText(/Sarah/i)).toBeDefined();
+    expect(screen.getByAltText("Morning Mobility Protocol").getAttribute("src")).toBe("/test.webp");
     expect(screen.getByTestId("home-program-index").textContent?.trim()).toBe("1 / 2");
-    expect(screen.getByText("50%")).toBeDefined();
-    expect(screen.getByText("7/14 days done")).toBeDefined();
 
-    // Switching slide via index tab updates index indicator to 2 / 2
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs.length).toBe(2);
-    fireEvent.click(tabs[1]);
+    // Guides, Tasks, Metrics subtabs are directly provided
+    expect(screen.getByRole("tab", { name: /Guides/i })).toBeDefined();
+    expect(screen.getByRole("tab", { name: /Tasks/i })).toBeDefined();
+    expect(screen.getByRole("tab", { name: /Metrics/i })).toBeDefined();
+
+    // Clicking next plan switches index to 2 / 2 and shows the second plan
+    fireEvent.click(screen.getByRole("button", { name: /Next plan/i }));
+    expect(onSelectPlan).toHaveBeenCalledWith("prog-2");
+    expect(screen.getByRole("heading", { name: "Senopati Padel Cohort" })).toBeDefined();
     expect(screen.getByTestId("home-program-index").textContent?.trim()).toBe("2 / 2");
-
-    // Clicking a program card opens it directly
-    fireEvent.click(screen.getByRole("heading", { name: "Morning Mobility Protocol" }));
-    expect(onSelectPlan).toHaveBeenCalledWith("prog-1");
   });
 
-  it("renders clean empty state CTA when user has no enrolled programs", () => {
+  it("renders dedicated no plan page instructing user to explore when user has no enrolled programs", () => {
     const onExplore = vi.fn();
 
     render(
@@ -124,9 +112,11 @@ describe("MyPlanIntro redesigned Home first page", () => {
       </LocaleProvider>
     );
 
-    expect(screen.getByRole("heading", { name: "New Member" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "No Active Plans Yet" })).toBeDefined();
+    expect(screen.getByText(/Visit the Explore tab to discover curated programs/i)).toBeDefined();
     expect(screen.queryByTestId("home-program-index")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Explore Programs/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Explore Plans/i }));
     expect(onExplore).toHaveBeenCalledTimes(1);
   });
 });

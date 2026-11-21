@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
   Compass,
   ExternalLink,
   Shield,
@@ -26,6 +28,7 @@ import {
 } from "./shared";
 import { MyPlanIndex } from "./my-plan/MyPlanIndex";
 import { MyPlanIntro } from "./my-plan/MyPlanIntro";
+import { MyPlanNoPlanPage } from "./my-plan/MyPlanNoPlanPage";
 import { MyPlanAllPage } from "./my-plan/MyPlanAllPage";
 import { MyPlanOngoingPage } from "./my-plan/MyPlanOngoingPage";
 import { MyPlanUpcomingPage } from "./my-plan/MyPlanUpcomingPage";
@@ -56,6 +59,7 @@ export {
   evaluateDayTaskState,
   MyPlanIndex,
   MyPlanIntro,
+  MyPlanNoPlanPage,
   MyPlanAllPage,
   MyPlanOngoingPage,
   MyPlanUpcomingPage,
@@ -70,19 +74,19 @@ export function MyPlanHeader({
   mode = "detail",
   plans,
   selectedProgramId,
-  avatarUrl,
-  userName,
-  userEmail,
-  onSelect: _onSelect,
+  avatarUrl: _avatarUrl,
+  userName: _userName,
+  userEmail: _userEmail,
+  onSelect,
   onBackToIntro,
-  onBackToIndex,
-  onExplore,
-  onOpenProfile,
-  profileMenuActions,
+  onBackToIndex: _onBackToIndex,
+  onExplore: _onExplore,
+  onOpenProfile: _onOpenProfile,
+  profileMenuActions: _profileMenuActions,
 }: {
   visible: boolean;
   overlay?: boolean;
-  mode?: MyPlanSubView;
+  mode?: MyPlanSubView | "empty" | "home";
   plans: PlanOption[];
   selectedProgramId: string;
   avatarUrl?: string | null;
@@ -95,25 +99,30 @@ export function MyPlanHeader({
   onOpenProfile?: () => void;
   profileMenuActions?: HeaderProfileMenuActions;
 }) {
-  void _onSelect;
   const { t } = useLocale();
-  const current = plans.find((p) => p.programId === selectedProgramId) || plans[0] || null;
-  const isIntro = mode === "intro";
+  const currentIndex = Math.max(
+    0,
+    plans.findIndex((p) => p.programId === selectedProgramId)
+  );
+  const totalPlans = plans.length;
   const isListSubPage =
     mode === "all" || mode === "ongoing" || mode === "upcoming" || mode === "done";
-  const showDetailBack = mode === "detail" && !!current;
+
+  const handlePrev = () => {
+    if (currentIndex > 0 && plans[currentIndex - 1]) {
+      onSelect(plans[currentIndex - 1].programId);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex < totalPlans - 1 && plans[currentIndex + 1]) {
+      onSelect(plans[currentIndex + 1].programId);
+    }
+  };
 
   return (
-    <FloatingHeader visible={visible} transparent={overlay && !isIntro}>
-      {isIntro ? (
-        <BrandWordmark />
-      ) : showDetailBack ? (
-        <HeaderBackButton
-          onClick={() => onBackToIndex?.()}
-          title={t.dashboard.backToPlans}
-          overlay={overlay}
-        />
-      ) : isListSubPage && onBackToIntro ? (
+    <FloatingHeader visible={visible} transparent={overlay}>
+      {isListSubPage && onBackToIntro ? (
         <HeaderBackButton
           onClick={onBackToIntro}
           ariaLabel={t.common.back}
@@ -123,38 +132,61 @@ export function MyPlanHeader({
       )}
 
       <div className="relative min-w-0">
-        {isIntro ? (
-          <HeaderProfileButton
-            avatarUrl={avatarUrl}
-            fullName={userName}
-            email={userEmail}
-            onClick={() => onOpenProfile?.()}
-            menuActions={profileMenuActions}
-          />
-        ) : isListSubPage ? (
-          plans.length > 0 ? null : (
-            <button
-              type="button"
-              onClick={onExplore}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+        {totalPlans > 0 ? (
+          totalPlans > 1 ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentIndex === 0}
+                aria-label="Previous plan"
+                className={`w-7 h-7 rounded-full inline-flex items-center justify-center transition active:scale-95 disabled:opacity-30 cursor-pointer ${
+                  overlay
+                    ? "bg-black/45 backdrop-blur-md border border-white/20 text-white hover:bg-black/60"
+                    : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100"
+                }`}
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelect(plans[(currentIndex + 1) % totalPlans].programId)}
+                data-testid="header-plan-index"
+                title="Switch plan"
+                className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold tabular-nums transition active:scale-95 cursor-pointer ${
+                  overlay
+                    ? "bg-black/45 backdrop-blur-md border border-white/20 text-white hover:bg-black/60"
+                    : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 shadow-2xs hover:bg-zinc-50"
+                }`}
+              >
+                {currentIndex + 1} / {totalPlans}
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={currentIndex >= totalPlans - 1}
+                aria-label="Next plan"
+                className={`w-7 h-7 rounded-full inline-flex items-center justify-center transition active:scale-95 disabled:opacity-30 cursor-pointer ${
+                  overlay
+                    ? "bg-black/45 backdrop-blur-md border border-white/20 text-white hover:bg-black/60"
+                    : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100"
+                }`}
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <span
+              data-testid="header-plan-index"
+              className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold tabular-nums ${
+                overlay
+                  ? "bg-black/45 backdrop-blur-md border border-white/20 text-white"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 shadow-2xs"
+              }`}
             >
-              <Compass className="w-3.5 h-3.5" />
-              <span>{t.dashboard.explorePlan}</span>
-            </button>
+              1 / 1
+            </span>
           )
-        ) : !current ? (
-          <button
-            type="button"
-            onClick={onExplore}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase flex items-center gap-1.5 active:scale-95 transition ${
-              overlay
-                ? "bg-white text-zinc-950 shadow-sm"
-                : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>{t.dashboard.explorePlan}</span>
-          </button>
         ) : null}
       </div>
     </FloatingHeader>
@@ -213,6 +245,11 @@ export function MyPlanOverview({
 }) {
   void onOpenDetails;
   const { locale, t } = useLocale();
+
+  if (!program) {
+    return <MyPlanNoPlanPage onExplore={onExplore} />;
+  }
+
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
@@ -405,50 +442,23 @@ export function MyPlanOverview({
 
       <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4">
         <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
-          {!program ? (
-            <EmptyState
-              title={t.myPlan.noActivePlanTitle}
-              description={t.myPlan.noActivePlanDesc}
-              action={
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onExplore}
-                    className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2"
-                  >
-                    <Compass className="w-3.5 h-3.5" /> {t.myPlan.explorePlans}
-                  </button>
-                  {onViewHistory && (
-                    <button
-                      type="button"
-                      onClick={onViewHistory}
-                      className="px-5 py-2.5 rounded-full border border-zinc-300 dark:border-white/15 bg-white dark:bg-zinc-900 text-xs font-semibold uppercase tracking-wider text-zinc-800 dark:text-zinc-200"
-                    >
-                      {t.myPlan.viewCompletedHistory}
-                    </button>
-                  )}
-                </div>
-              }
-            />
-          ) : (
-            <>
-              <div
-                onTouchStart={handleWidgetTouchStart}
-                onTouchEnd={handleWidgetTouchEnd}
-                className="transition-all duration-200"
-              >
-                <div className={activeWidget === 0 ? "block" : "hidden"}>
-                  <ProgramPreparationWidgets
-                    program={program}
-                    days={fullProgramDays}
-                    currentDayId={day?.id}
-                    onSwitchWidget={setWidgetIndex}
-                  />
-                </div>
+          <div
+            onTouchStart={handleWidgetTouchStart}
+            onTouchEnd={handleWidgetTouchEnd}
+            className="transition-all duration-200"
+          >
+            <div className={activeWidget === 0 ? "block" : "hidden"}>
+              <ProgramPreparationWidgets
+                program={program}
+                days={fullProgramDays}
+                currentDayId={day?.id}
+                onSwitchWidget={setWidgetIndex}
+              />
+            </div>
 
-                {!isUpcoming && (
-                  <>
-                    <div className={activeWidget === 1 ? "block" : "hidden"}>
+            {!isUpcoming && (
+              <>
+                <div className={activeWidget === 1 ? "block" : "hidden"}>
                   {day ? (
                     <DailyCheckIn
                       key={day.id}
@@ -489,11 +499,9 @@ export function MyPlanOverview({
                     onSwitchWidget={setWidgetIndex}
                   />
                 </div>
-                  </>
-                )}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 

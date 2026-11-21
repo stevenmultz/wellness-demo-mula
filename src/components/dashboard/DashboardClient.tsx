@@ -17,6 +17,7 @@ import {
   MyPlanDonePage,
   MyPlanHeader,
   MyPlanIntro,
+  MyPlanNoPlanPage,
   MyPlanOngoingPage,
   MyPlanOverview,
   MyPlanUpcomingPage,
@@ -562,8 +563,8 @@ export function DashboardClient({
       {activeTab === "my_plan" && (
         <MyPlanHeader
           visible={isHeaderVisible}
-          overlay={myPlanView === "detail" ? isOverHero : false}
-          mode={myPlanView}
+          overlay={allActiveEnrollments.length > 0 ? isOverHero : false}
+          mode={allActiveEnrollments.length === 0 ? "empty" : myPlanView}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
           avatarUrl={user.avatarUrl}
@@ -571,7 +572,8 @@ export function DashboardClient({
           userEmail={user.email}
           onSelect={(id) => {
             setSelectedProgId(id);
-            setMyPlanView("detail");
+            setIsOverHero(true);
+            window.scrollTo({ top: 0 });
           }}
           onBackToIntro={() => {
             setMyPlanView("intro");
@@ -692,27 +694,13 @@ export function DashboardClient({
         )}
 
         <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
-          {myPlanView === "intro" ? (
-            <MyPlanIntro
-              userId={user.id}
-              userName={user.fullName}
-              userEmail={user.email}
-              userAvatarUrl={user.avatarUrl}
-              userSubtitle={[user.occupation, user.city].filter(Boolean).join(" · ") || null}
-              plans={myPlanIndexItems}
-              onSelectPlan={(programId) => {
-                setLastMyPlanPage("intro");
-                setSelectedProgId(programId);
-                setMyPlanView("detail");
-                setIsOverHero(true);
-                window.scrollTo({ top: 0 });
-              }}
+          {allActiveEnrollments.length === 0 ? (
+            <MyPlanNoPlanPage
               onExplore={() => {
-                setExploreView("intro");
+                setExploreView("catalog");
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              onEditProfile={() => profileMenuActions.onEditProfile?.()}
             />
           ) : myPlanView === "all" ? (
             <MyPlanAllPage
