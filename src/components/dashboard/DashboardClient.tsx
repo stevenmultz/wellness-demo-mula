@@ -528,7 +528,6 @@ export function DashboardClient({
     : null;
 
   const isFullBleedFirstPage =
-    (activeTab === "my_plan" && myPlanView === "intro") ||
     (activeTab === "all_plan" && exploreView === "intro") ||
     (activeTab === "notifications" && historyView === "intro") ||
     (activeTab === "profile" && profileViewMode === "intro");
@@ -563,7 +562,7 @@ export function DashboardClient({
       {activeTab === "my_plan" && (
         <MyPlanHeader
           visible={isHeaderVisible}
-          overlay={allActiveEnrollments.length > 0 ? isOverHero : false}
+          overlay={false}
           mode={allActiveEnrollments.length === 0 ? "empty" : myPlanView}
           plans={planOptions}
           selectedProgramId={overviewEnrollment?.programId ?? ""}
@@ -880,6 +879,7 @@ export function DashboardClient({
               bodyMetricLogs={bodyMetricLogs}
               userName={user.fullName}
               userAvatarUrl={user.avatarUrl}
+              userEmail={user.email}
               onCustomTaskSubmitted={(dayId, customTaskId, submission) => {
                 setCustomSubmissionsByTaskId((prev) => ({
                   ...prev,

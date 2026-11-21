@@ -95,168 +95,157 @@ export function MyPlanIntro({
   );
 
   return (
-    <div className="relative flex-1 flex flex-col">
-      {/* ================================================================ */}
-      {/* COMPACT BANNER: program cover image, user identity, plan title,  */}
-      {/* join community & report buttons, subtab selector                 */}
-      {/* ================================================================ */}
-      <section className="relative left-1/2 -translate-x-1/2 w-screen overflow-hidden bg-zinc-900">
-        <div
-          className="relative w-full flex flex-col justify-end"
-          style={{ minHeight: "280px" }}
-        >
-          {/* Program cover image — behind everything */}
-          {currentPlan.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={currentPlan.coverImage}
-              alt={currentPlan.title}
-              className="absolute inset-0 w-full h-full object-cover object-center"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-zinc-800" />
-          )}
-          {/* Gradient overlay so text is always readable */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
+    <div className="w-full space-y-4 sm:space-y-5 pb-16">
+      {/* 1. Contained Image Banner */}
+      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[190px] sm:min-h-[220px] flex flex-col justify-end p-5 sm:p-7 text-white">
+        {/* Program cover image */}
+        {currentPlan.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={currentPlan.coverImage}
+            alt={currentPlan.title}
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-zinc-800" />
+        )}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
 
-          {/* Banner content */}
-          <div
-            style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
-            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-10 space-y-5 text-white"
-          >
-            {/* Row 1: User avatar + name  |  plan index switcher */}
-            <div className="flex items-center justify-between gap-3">
-              {/* User identity */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border-2 border-white/30 bg-zinc-700 flex items-center justify-center">
-                  {userAvatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={userAvatarUrl}
-                      alt={displayName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <UserIcon className="w-4 h-4 text-white/70" />
-                  )}
-                </div>
-                <span className="text-sm font-geometric font-medium text-white truncate">
-                  {displayName}
-                </span>
-              </div>
-
-              {/* Plan index switcher (only shown when >1 plan) */}
-              {plans.length > 1 && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextIdx = Math.max(0, safeSlide - 1);
-                      setActiveSlide(nextIdx);
-                      onSelectPlan(plans[nextIdx].programId);
-                    }}
-                    disabled={safeSlide === 0}
-                    aria-label="Previous plan"
-                    className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span
-                    data-testid="home-program-index"
-                    className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
-                  >
-                    {safeSlide + 1} / {plans.length}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextIdx = Math.min(plans.length - 1, safeSlide + 1);
-                      setActiveSlide(nextIdx);
-                      onSelectPlan(plans[nextIdx].programId);
-                    }}
-                    disabled={safeSlide >= plans.length - 1}
-                    aria-label="Next plan"
-                    className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Row 2: Program title */}
-            <div>
-              <h1 className="text-lg sm:text-xl font-geometric font-semibold tracking-tight text-white leading-snug line-clamp-2">
-                {currentPlan.title}
-              </h1>
-            </div>
-
-            {/* Row 3: Join Community + Report action buttons */}
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setShowCommunityModal(true)}
-                className="py-1 text-xs font-medium text-white/90 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>{t.myPlan.joinCommunity}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowReportModal(true)}
-                className="py-1 text-xs font-medium text-white/70 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-              >
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>{t.myPlan.report}</span>
-              </button>
-            </div>
-
-            {/* Subtabs: Guides | Tasks | Metrics */}
-            <div
-              role="tablist"
-              aria-label="Program sections"
-              className="rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid grid-cols-3 gap-1"
+        {/* Plan index switcher (only shown when >1 plan) */}
+        {plans.length > 1 && (
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const nextIdx = Math.max(0, safeSlide - 1);
+                setActiveSlide(nextIdx);
+                onSelectPlan(plans[nextIdx].programId);
+              }}
+              disabled={safeSlide === 0}
+              aria-label="Previous plan"
+              className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
             >
-              {subtabs.map(({ index, label, count }) => {
-                const active = widgetIndex === index;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setWidgetIndex(index)}
-                    className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer ${
-                      active
-                        ? "bg-white text-zinc-950 shadow-sm"
-                        : "text-white/75 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <span>{label}</span>
-                    {count > 0 && (
-                      <span
-                        className={`font-mono text-[10px] tabular-nums px-1.5 rounded-full ${
-                          active
-                            ? "bg-zinc-950/15 text-zinc-950 font-bold"
-                            : "bg-white/20 text-white font-semibold"
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span
+              data-testid="home-program-index"
+              className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
+            >
+              {safeSlide + 1} / {plans.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const nextIdx = Math.min(plans.length - 1, safeSlide + 1);
+                setActiveSlide(nextIdx);
+                onSelectPlan(plans[nextIdx].programId);
+              }}
+              disabled={safeSlide >= plans.length - 1}
+              aria-label="Next plan"
+              className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        <div className="relative z-10 space-y-3">
+          {/* Program title */}
+          <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
+            {currentPlan.title}
+          </h1>
+
+          {/* Action buttons (Community & Report - without "Join") */}
+          <div className="flex items-center gap-4 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setShowCommunityModal(true)}
+              className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>{isId ? "Komunitas" : "Community"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowReportModal(true)}
+              className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>{t.myPlan.report}</span>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ================================================================ */}
-      {/* WIDGETS: Guides / Tasks / Metrics                                */}
-      {/* ================================================================ */}
-      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
+      {/* 2. User Profile below banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#161616] border border-zinc-200/80 dark:border-white/10 shadow-2xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-white/20 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+            {userAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={userAvatarUrl}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <UserIcon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-geometric font-semibold text-zinc-950 dark:text-white truncate">
+              {displayName}
+            </h2>
+            {(_userSubtitle || _userEmail) && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                {_userSubtitle || _userEmail}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Subtabs below profile: Guides | Tasks | Metrics */}
+      <div
+        role="tablist"
+        aria-label="Program sections"
+        className="rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 grid grid-cols-3 gap-1"
+      >
+        {subtabs.map(({ index, label, count }) => {
+          const active = widgetIndex === index;
+          return (
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setWidgetIndex(index)}
+              className={`h-9 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer ${
+                active
+                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              }`}
+            >
+              <span>{label}</span>
+              {count > 0 && (
+                <span
+                  className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                    active
+                      ? "bg-zinc-950/10 dark:bg-white/15 text-zinc-950 dark:text-white font-bold"
+                      : "bg-zinc-300 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
+                  }`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 4. Widgets below subtabs */}
+      <div className="space-y-5">
 
           {/* Subtab 0: GUIDES */}
           {widgetIndex === 0 && (
@@ -450,7 +439,6 @@ export function MyPlanIntro({
           )}
 
         </div>
-      </div>
 
       {/* Community Disclaimer Modal */}
       {showCommunityModal && (

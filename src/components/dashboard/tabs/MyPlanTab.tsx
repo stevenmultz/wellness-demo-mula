@@ -218,6 +218,8 @@ export function MyPlanOverview({
   onCustomTaskSubmitted,
   userName,
   userAvatarUrl,
+  userSubtitle,
+  userEmail,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -247,6 +249,8 @@ export function MyPlanOverview({
   ) => void;
   userName?: string | null;
   userAvatarUrl?: string | null;
+  userSubtitle?: string | null;
+  userEmail?: string | null;
 }) {
   void onOpenDetails;
   const { locale, t } = useLocale();
@@ -318,172 +322,173 @@ export function MyPlanOverview({
   const displayName = (userName || "Member").trim() || "Member";
 
   return (
-    <div>
-      <section className="relative left-1/2 -translate-x-1/2 w-screen overflow-hidden bg-zinc-900">
-        <div className="relative w-full flex flex-col justify-end min-h-[270px] sm:min-h-[300px]">
-          {program?.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
-          ) : (
-            <div className="absolute inset-0 bg-zinc-800" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/85" />
+    <div className="w-full space-y-4 sm:space-y-5 pb-16">
+      {/* 1. Contained Image Banner */}
+      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[190px] sm:min-h-[220px] flex flex-col justify-end p-5 sm:p-7 text-white">
+        {program?.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
+        ) : (
+          <div className="absolute inset-0 bg-zinc-800" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
 
-          <div
-            style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
-            className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-8 pb-10 space-y-5 text-white"
-          >
-            {/* User profile photo + user name */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border-2 border-white/30 bg-zinc-700 flex items-center justify-center">
-                {userAvatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={userAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon className="w-4 h-4 text-white/70" />
-                )}
-              </div>
-              <span className="text-sm font-geometric font-medium text-white truncate">
-                {displayName}
-              </span>
-            </div>
+        <div className="relative z-10 space-y-3">
+          {/* Program title */}
+          <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
+            {program?.title || t.myPlan.noActivePlanTitle}
+          </h1>
 
-            {/* Program title */}
-            <div>
-              <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
-                {program?.title || t.myPlan.noActivePlanTitle}
-              </h1>
-            </div>
-
-            {/* Action buttons (Join Community & Report) */}
-            {program && (
-              <div className="flex items-center gap-5 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setShowCommunityModal(true)}
-                  className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>{t.myPlan.joinCommunity}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(true)}
-                  className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-                >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{t.myPlan.report}</span>
-                </button>
-              </div>
-            )}
-
-            {showSubtabs && (
-              <div
-                role="tablist"
-                aria-label="Program sections"
-                className={`rounded-xl p-1 bg-black/45 backdrop-blur-md border border-white/15 grid gap-1 ${
-                  isUpcoming ? "grid-cols-1" : "grid-cols-3"
-                }`}
+          {/* Action buttons (Community & Report - without "Join") */}
+          {program && (
+            <div className="flex items-center gap-4 pt-0.5">
+              <button
+                type="button"
+                onClick={() => setShowCommunityModal(true)}
+                className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
               >
-                {subtabs.map(({ index, label, count }) => {
-                  const active = activeWidget === index;
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => setWidgetIndex(index)}
-                      className={`h-8 px-2.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                        active
-                          ? "bg-white text-zinc-950 shadow-sm"
-                          : "text-white/75 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <span>{label}</span>
-                      {count > 0 && (
-                        <span
-                          className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
-                            active
-                              ? "bg-zinc-950/15 text-zinc-950 font-bold"
-                              : "bg-white/20 text-white font-semibold"
-                          }`}
-                        >
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                <Users className="w-3.5 h-3.5" />
+                <span>{locale === "id" ? "Komunitas" : "Community"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(true)}
+                className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>{t.myPlan.report}</span>
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
-      <div className="relative left-1/2 -translate-x-1/2 w-screen -mt-6 z-20 rounded-t-[32px] bg-[#f6f6f4] dark:bg-[#0e0e0e] pt-7 pb-4">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 space-y-5">
-          <div
-            onTouchStart={handleWidgetTouchStart}
-            onTouchEnd={handleWidgetTouchEnd}
-            className="transition-all duration-200"
-          >
-            <div className={activeWidget === 0 ? "block" : "hidden"}>
-              <ProgramPreparationWidgets
-                program={program}
-                days={fullProgramDays}
-                currentDayId={day?.id}
-                onSwitchWidget={setWidgetIndex}
-              />
-            </div>
-
-            {!isUpcoming && (
-              <>
-                <div className={activeWidget === 1 ? "block" : "hidden"}>
-                  {day ? (
-                    <DailyCheckIn
-                      key={day.id}
-                      day={day}
-                      pastDays={historyDays}
-                      allProgramDays={allProgramDays}
-                      communityLink={program.communityLink}
-                      programTitle={program.title}
-                      locked={locked}
-                      isAnytime={isOnlineProgram}
-                      activities={activities}
-                      checks={checks}
-                      initialDone={initialDone}
-                      onToggleCheck={onToggleCheck}
-                      onSyncChecklist={onSyncChecklist}
-                      onSelectWorkout={onSelectWorkout}
-                      onOpenVideo={onOpenVideo}
-                      onSaveSleep={onSaveSleep}
-                      onSaveAttendance={onSaveAttendance}
-                      onSaveWorkoutNotes={onSaveWorkoutNotes}
-                      onSaveMeal={onSaveMeal}
-                      onSaveReflection={onSaveReflection}
-                      onCompleteDay={onCompleteDay}
-                      onCustomTaskSubmitted={onCustomTaskSubmitted}
-                      widgetIndex={widgetIndex}
-                      onSwitchWidget={setWidgetIndex}
-                    />
-                  ) : (
-                    <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
-                  )}
-                </div>
-
-                <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
-                  <BodyProgressWidget logs={bodyMetricLogs} programId={program.id} />
-                  <CohortPerformanceCard
-                    days={fullProgramDays}
-                    currentDayNumber={currentDayNumber}
-                    onSwitchWidget={setWidgetIndex}
-                  />
-                </div>
-              </>
+      {/* 2. User Profile below banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#161616] border border-zinc-200/80 dark:border-white/10 shadow-2xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-white/20 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+            {userAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={userAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
+            ) : (
+              <UserIcon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-geometric font-semibold text-zinc-950 dark:text-white truncate">
+              {displayName}
+            </h2>
+            {(userSubtitle || userEmail) && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                {userSubtitle || userEmail}
+              </p>
             )}
           </div>
         </div>
+      </div>
+
+      {/* 3. Subtabs below profile: Guides | Tasks | Metrics */}
+      {showSubtabs && (
+        <div
+          role="tablist"
+          aria-label="Program sections"
+          className={`rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 grid gap-1 ${
+            isUpcoming ? "grid-cols-1" : "grid-cols-3"
+          }`}
+        >
+          {subtabs.map(({ index, label, count }) => {
+            const active = activeWidget === index;
+            return (
+              <button
+                key={label}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setWidgetIndex(index)}
+                className={`h-9 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer ${
+                  active
+                    ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <span>{label}</span>
+                {count > 0 && (
+                  <span
+                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
+                      active
+                        ? "bg-zinc-950/10 dark:bg-white/15 text-zinc-950 dark:text-white font-bold"
+                        : "bg-zinc-300 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 4. Respective content widgets */}
+      <div
+        onTouchStart={handleWidgetTouchStart}
+        onTouchEnd={handleWidgetTouchEnd}
+        className="transition-all duration-200"
+      >
+        <div className={activeWidget === 0 ? "block" : "hidden"}>
+          <ProgramPreparationWidgets
+            program={program}
+            days={fullProgramDays}
+            currentDayId={day?.id}
+            onSwitchWidget={setWidgetIndex}
+          />
+        </div>
+
+        {!isUpcoming && (
+          <>
+            <div className={activeWidget === 1 ? "block" : "hidden"}>
+              {day ? (
+                <DailyCheckIn
+                  key={day.id}
+                  day={day}
+                  pastDays={historyDays}
+                  allProgramDays={allProgramDays}
+                  communityLink={program.communityLink}
+                  programTitle={program.title}
+                  locked={locked}
+                  isAnytime={isOnlineProgram}
+                  activities={activities}
+                  checks={checks}
+                  initialDone={initialDone}
+                  onToggleCheck={onToggleCheck}
+                  onSyncChecklist={onSyncChecklist}
+                  onSelectWorkout={onSelectWorkout}
+                  onOpenVideo={onOpenVideo}
+                  onSaveSleep={onSaveSleep}
+                  onSaveAttendance={onSaveAttendance}
+                  onSaveWorkoutNotes={onSaveWorkoutNotes}
+                  onSaveMeal={onSaveMeal}
+                  onSaveReflection={onSaveReflection}
+                  onCompleteDay={onCompleteDay}
+                  onCustomTaskSubmitted={onCustomTaskSubmitted}
+                  widgetIndex={widgetIndex}
+                  onSwitchWidget={setWidgetIndex}
+                />
+              ) : (
+                <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
+              )}
+            </div>
+
+            <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
+              <BodyProgressWidget logs={bodyMetricLogs} programId={program.id} />
+              <CohortPerformanceCard
+                days={fullProgramDays}
+                currentDayNumber={currentDayNumber}
+                onSwitchWidget={setWidgetIndex}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* External Community Disclaimer Modal */}
