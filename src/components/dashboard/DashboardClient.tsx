@@ -880,6 +880,13 @@ export function DashboardClient({
               userName={user.fullName}
               userAvatarUrl={user.avatarUrl}
               userEmail={user.email}
+              plans={planOptions}
+              selectedProgramId={overviewEnrollment?.programId ?? ""}
+              onSelectPlan={(id) => {
+                setSelectedProgId(id);
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
               onCustomTaskSubmitted={(dayId, customTaskId, submission) => {
                 setCustomSubmissionsByTaskId((prev) => ({
                   ...prev,

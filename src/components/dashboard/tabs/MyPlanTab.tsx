@@ -73,17 +73,17 @@ export function MyPlanHeader({
   visible,
   overlay = false,
   mode = "detail",
-  plans,
-  selectedProgramId,
-  avatarUrl: _avatarUrl,
-  userName: _userName,
-  userEmail: _userEmail,
-  onSelect,
+  plans: _plans,
+  selectedProgramId: _selectedProgramId,
+  avatarUrl,
+  userName,
+  userEmail,
+  onSelect: _onSelect,
   onBackToIntro,
   onBackToIndex: _onBackToIndex,
   onExplore: _onExplore,
-  onOpenProfile: _onOpenProfile,
-  profileMenuActions: _profileMenuActions,
+  onOpenProfile,
+  profileMenuActions,
 }: {
   visible: boolean;
   overlay?: boolean;
@@ -101,25 +101,8 @@ export function MyPlanHeader({
   profileMenuActions?: HeaderProfileMenuActions;
 }) {
   const { t } = useLocale();
-  const currentIndex = Math.max(
-    0,
-    plans.findIndex((p) => p.programId === selectedProgramId)
-  );
-  const totalPlans = plans.length;
   const isListSubPage =
     mode === "all" || mode === "ongoing" || mode === "upcoming" || mode === "done";
-
-  const handlePrev = () => {
-    if (currentIndex > 0 && plans[currentIndex - 1]) {
-      onSelect(plans[currentIndex - 1].programId);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentIndex < totalPlans - 1 && plans[currentIndex + 1]) {
-      onSelect(plans[currentIndex + 1].programId);
-    }
-  };
 
   return (
     <FloatingHeader visible={visible} transparent={overlay}>
@@ -132,64 +115,14 @@ export function MyPlanHeader({
         <BrandWordmark light={overlay} />
       )}
 
-      <div className="relative min-w-0">
-        {totalPlans > 0 ? (
-          totalPlans > 1 ? (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-                aria-label="Previous plan"
-                className={`w-7 h-7 rounded-full inline-flex items-center justify-center transition active:scale-95 disabled:opacity-30 cursor-pointer ${
-                  overlay
-                    ? "bg-black/45 backdrop-blur-md border border-white/20 text-white hover:bg-black/60"
-                    : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100"
-                }`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelect(plans[(currentIndex + 1) % totalPlans].programId)}
-                data-testid="header-plan-index"
-                title="Switch plan"
-                className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold tabular-nums transition active:scale-95 cursor-pointer ${
-                  overlay
-                    ? "bg-black/45 backdrop-blur-md border border-white/20 text-white hover:bg-black/60"
-                    : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 shadow-2xs hover:bg-zinc-50"
-                }`}
-              >
-                {currentIndex + 1} / {totalPlans}
-              </button>
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={currentIndex >= totalPlans - 1}
-                aria-label="Next plan"
-                className={`w-7 h-7 rounded-full inline-flex items-center justify-center transition active:scale-95 disabled:opacity-30 cursor-pointer ${
-                  overlay
-                    ? "bg-black/45 backdrop-blur-md border border-white/20 text-white hover:bg-black/60"
-                    : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100"
-                }`}
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <span
-              data-testid="header-plan-index"
-              className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold tabular-nums ${
-                overlay
-                  ? "bg-black/45 backdrop-blur-md border border-white/20 text-white"
-                  : "bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/15 text-zinc-800 dark:text-zinc-200 shadow-2xs"
-              }`}
-            >
-              1 / 1
-            </span>
-          )
-        ) : null}
-      </div>
+      <HeaderProfileButton
+        avatarUrl={avatarUrl}
+        fullName={userName}
+        email={userEmail}
+        onClick={() => onOpenProfile?.()}
+        menuActions={profileMenuActions}
+        light={overlay}
+      />
     </FloatingHeader>
   );
 }
@@ -220,6 +153,9 @@ export function MyPlanOverview({
   userAvatarUrl,
   userSubtitle,
   userEmail,
+  plans,
+  selectedProgramId,
+  onSelectPlan,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -251,6 +187,9 @@ export function MyPlanOverview({
   userAvatarUrl?: string | null;
   userSubtitle?: string | null;
   userEmail?: string | null;
+  plans?: PlanOption[];
+  selectedProgramId?: string;
+  onSelectPlan?: (programId: string) => void;
 }) {
   void onOpenDetails;
   const { locale, t } = useLocale();
@@ -271,6 +210,24 @@ export function MyPlanOverview({
   const [showReportModal, setShowReportModal] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+
+  const currentIndex = Math.max(
+    0,
+    (plans || []).findIndex((p) => p.programId === (selectedProgramId || program.id))
+  );
+  const totalPlans = plans && plans.length > 0 ? plans.length : 1;
+
+  const handlePrevPlan = () => {
+    if (plans && currentIndex > 0 && plans[currentIndex - 1]) {
+      onSelectPlan?.(plans[currentIndex - 1].programId);
+    }
+  };
+
+  const handleNextPlan = () => {
+    if (plans && currentIndex < totalPlans - 1 && plans[currentIndex + 1]) {
+      onSelectPlan?.(plans[currentIndex + 1].programId);
+    }
+  };
 
   const communityUrl = safeHttpUrl(program?.communityLink);
   const destinationCommunityUrl =
@@ -332,6 +289,47 @@ export function MyPlanOverview({
           <div className="absolute inset-0 bg-zinc-800" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
+
+        {/* Plan index switcher in banner */}
+        {plans && plans.length > 0 && (
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+            {plans.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevPlan}
+                  disabled={currentIndex === 0}
+                  aria-label="Previous plan"
+                  className="w-7 h-7 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span
+                  data-testid="home-program-index"
+                  className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
+                >
+                  {currentIndex + 1} / {totalPlans}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextPlan}
+                  disabled={currentIndex >= totalPlans - 1}
+                  aria-label="Next plan"
+                  className="w-7 h-7 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <span
+                data-testid="home-program-index"
+                className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
+              >
+                1 / 1
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="relative z-10 space-y-3">
           {/* Program title */}

@@ -112,41 +112,52 @@ export function MyPlanIntro({
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
 
-        {/* Plan index switcher (only shown when >1 plan) */}
-        {plans.length > 1 && (
+        {/* Plan index switcher (only shown when plans exist) */}
+        {plans.length > 0 && (
           <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                const nextIdx = Math.max(0, safeSlide - 1);
-                setActiveSlide(nextIdx);
-                onSelectPlan(plans[nextIdx].programId);
-              }}
-              disabled={safeSlide === 0}
-              aria-label="Previous plan"
-              className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span
-              data-testid="home-program-index"
-              className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
-            >
-              {safeSlide + 1} / {plans.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const nextIdx = Math.min(plans.length - 1, safeSlide + 1);
-                setActiveSlide(nextIdx);
-                onSelectPlan(plans[nextIdx].programId);
-              }}
-              disabled={safeSlide >= plans.length - 1}
-              aria-label="Next plan"
-              className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            {plans.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = Math.max(0, safeSlide - 1);
+                    setActiveSlide(nextIdx);
+                    onSelectPlan(plans[nextIdx].programId);
+                  }}
+                  disabled={safeSlide === 0}
+                  aria-label="Previous plan"
+                  className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span
+                  data-testid="home-program-index"
+                  className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
+                >
+                  {safeSlide + 1} / {plans.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = Math.min(plans.length - 1, safeSlide + 1);
+                    setActiveSlide(nextIdx);
+                    onSelectPlan(plans[nextIdx].programId);
+                  }}
+                  disabled={safeSlide >= plans.length - 1}
+                  aria-label="Next plan"
+                  className="w-7 h-7 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <span
+                data-testid="home-program-index"
+                className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
+              >
+                1 / 1
+              </span>
+            )}
           </div>
         )}
 
