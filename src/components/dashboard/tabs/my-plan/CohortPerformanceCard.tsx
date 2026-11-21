@@ -202,7 +202,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
                         cx={pt.x}
                         cy={pt.y}
                         r={6.5}
-                        className="fill-none stroke-2 stroke-emerald-500 dark:stroke-emerald-400"
+                        className="fill-none stroke-2 stroke-zinc-950 dark:stroke-white"
                       />
                     )}
 
@@ -213,7 +213,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
                       r={isSelected ? 4 : isGood ? 3 : 2.5}
                       className={
                         isSelected
-                          ? "fill-emerald-500 dark:fill-emerald-400"
+                          ? "fill-zinc-950 dark:fill-white"
                           : isGood
                           ? "fill-zinc-950 dark:fill-white"
                           : "fill-zinc-400 dark:fill-white/50"
@@ -234,14 +234,14 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
             <span>Day {sleepData[sleepData.length - 1]?.day}</span>
           </div>
 
-          {/* X & Y Axis description (All English) */}
+          {/* X & Y Axis description (Monochrome English) */}
           <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono pt-1.5 px-0.5 border-t border-zinc-200/60 dark:border-white/5">
             <span>Y: Sleep Duration (Hours)</span>
             <span>X: Program Day</span>
             <span>Target: 7h 30m</span>
           </div>
 
-          {/* Detail card on clicking dot (All English) */}
+          {/* Detail card on clicking dot (Monochrome English) */}
           {selectedPoint && (
             <div className="rounded-xl bg-white/90 dark:bg-white/[0.08] p-2.5 sm:p-3 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 animate-in fade-in duration-150">
               <div className="space-y-0.5">
@@ -269,16 +269,10 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
                     ? formatSleepHours(selectedPoint.mins)
                     : "0h"}
                 </span>
-                <span
-                  className={`block text-[10px] font-medium ${
-                    selectedPoint.mins >= TARGET
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-amber-600 dark:text-amber-400"
-                  }`}
-                >
+                <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
                   {selectedPoint.mins >= TARGET
-                    ? "Target achieved ✓"
-                    : "< 7h 30m"}
+                    ? "Target achieved (≥ 7h 30m)"
+                    : "Below target (< 7h 30m)"}
                 </span>
               </div>
             </div>
@@ -313,18 +307,16 @@ function getTrainingDayStatus(d: PlanDay): TrainingStatus {
 
 function TrainingWidget({
   days,
-  completed,
-  skipped,
-  total,
   pct,
 }: {
   days: PlanDay[];
-  completed: number;
-  skipped: number;
-  total: number;
   pct: number;
 }) {
+  const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+  const selectedDay =
+    sortedDays.find((d) => d.dayNumber === selectedDayNum) || null;
+  const selectedStatus = selectedDay ? getTrainingDayStatus(selectedDay) : null;
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
@@ -341,45 +333,22 @@ function TrainingWidget({
         </span>
       </div>
 
-      {/* Stats summary row */}
-      <div className="flex items-center gap-4 text-xs font-mono">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-zinc-950 dark:bg-white shrink-0" />
-          <span className="text-zinc-500 dark:text-zinc-400">Completed:</span>
-          <span className="font-semibold text-zinc-900 dark:text-white">{completed}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500 shrink-0" />
-          <span className="text-zinc-500 dark:text-zinc-400">Skipped:</span>
-          <span className="font-semibold text-zinc-900 dark:text-white">{skipped}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-white/20 shrink-0" />
-          <span className="text-zinc-500 dark:text-zinc-400">Total:</span>
-          <span className="font-semibold text-zinc-900 dark:text-white">{total}</span>
-        </div>
-      </div>
-
       {/* GitLab-style 7-column grid */}
-      <div className="space-y-1.5 pt-1">
-        {/* Column Headers (Day 1 - Day 7) */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] font-mono text-zinc-400 dark:text-zinc-500 text-center">
-          <span>D1</span>
-          <span>D2</span>
-          <span>D3</span>
-          <span>D4</span>
-          <span>D5</span>
-          <span>D6</span>
-          <span>D7</span>
-        </div>
-
-        {/* 7 Columns Grid flowing downwards */}
+      <div className="space-y-3 pt-1">
+        {/* 7 Columns Grid */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {sortedDays.map((d) => {
             const status = getTrainingDayStatus(d);
+            const isSelected = selectedDayNum === d.dayNumber;
             return (
-              <div
+              <button
                 key={d.dayNumber}
+                type="button"
+                onClick={() =>
+                  setSelectedDayNum((prev) =>
+                    prev === d.dayNumber ? null : d.dayNumber
+                  )
+                }
                 title={`Day ${d.dayNumber}: ${
                   status === "full"
                     ? "Completed"
@@ -391,23 +360,80 @@ function TrainingWidget({
                     ? "Skipped"
                     : "Upcoming"
                 }`}
-                className={`aspect-square rounded-md sm:rounded-lg flex flex-col items-center justify-center transition-all text-[10px] font-mono font-medium ${
+                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  isSelected
+                    ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
+                    : ""
+                }${
                   status === "full"
-                    ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-2xs font-bold"
+                    ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
                     : status === "partial"
-                    ? "bg-zinc-400 dark:bg-white/50 text-white dark:text-zinc-900 font-semibold"
+                    ? "bg-zinc-400 dark:bg-white/50 text-white dark:text-zinc-900"
                     : status === "rest"
                     ? "bg-zinc-200/70 dark:bg-white/10 text-zinc-400 dark:text-zinc-500"
                     : status === "skipped"
-                    ? "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/5 text-zinc-400 dark:text-zinc-600"
-                    : "bg-transparent border border-dashed border-zinc-300/60 dark:border-white/10 text-zinc-300 dark:text-zinc-700"
+                    ? "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/5"
+                    : "bg-transparent border border-dashed border-zinc-300/60 dark:border-white/10"
                 }`}
               >
-                <span>{d.dayNumber}</span>
-              </div>
+                {status === "rest" && (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-3 h-3 text-zinc-400 dark:text-zinc-500"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                )}
+              </button>
             );
           })}
         </div>
+
+        {/* Detail card on clicking box (Monochrome English) */}
+        {selectedDay && (
+          <div className="rounded-xl bg-white/90 dark:bg-white/[0.08] p-2.5 sm:p-3 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                  Day {selectedDay.dayNumber}
+                </span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                  · {formatShortDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {selectedStatus === "full"
+                  ? "Workout completed"
+                  : selectedStatus === "partial"
+                  ? "Partially completed"
+                  : selectedStatus === "rest"
+                  ? "Rest day"
+                  : selectedStatus === "skipped"
+                  ? "Workout skipped"
+                  : "Upcoming day"}
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-mono font-semibold text-zinc-950 dark:text-white uppercase">
+                {selectedStatus === "full"
+                  ? "Completed"
+                  : selectedStatus === "partial"
+                  ? "Partial"
+                  : selectedStatus === "rest"
+                  ? "Rest"
+                  : selectedStatus === "skipped"
+                  ? "Skipped"
+                  : "Upcoming"}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 dark:text-zinc-400 pt-2 border-t border-zinc-200/60 dark:border-white/5 font-mono">
@@ -420,7 +446,20 @@ function TrainingWidget({
             <span>Partial</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-zinc-200/70 dark:bg-white/10 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-xs bg-zinc-200/70 dark:bg-white/10 flex items-center justify-center">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-2 h-2 text-zinc-400 dark:text-zinc-500"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </span>
             <span>Rest</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -480,18 +519,6 @@ export function CohortPerformanceCard({
   const trainingDays = sorted.filter((d) => d.dayType === "TRAINING_DAY");
   const trainingTotal = trainingDays.length;
 
-  const trainingCompleted = trainingDays.filter((d) => {
-    const p = d.userProgress;
-    return Boolean(
-      p &&
-        (p.isCompleted ||
-          p.videoWatched ||
-          (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
-          (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
-          checkedList(d, undefined).length > 0)
-    );
-  }).length;
-
   const trainingMissed = trainingDays.filter((d) => {
     const p = d.userProgress;
     const isCompleted = Boolean(
@@ -535,9 +562,6 @@ export function CohortPerformanceCard({
       {/* 2. Training (GitLab-Style 7-Column Heatmap Grid) */}
       <TrainingWidget
         days={sorted}
-        completed={trainingCompleted}
-        skipped={trainingMissed}
-        total={trainingTotal}
         pct={trainingPct}
       />
 
