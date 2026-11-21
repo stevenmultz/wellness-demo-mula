@@ -343,9 +343,6 @@ function MealControlWidget({ pct }: { pct: number }) {
         <FiftyBarMeter percent={pct} />
         <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 px-0.5">
           <span>0%</span>
-          <span className={pct >= 80 ? "text-zinc-900 dark:text-white font-medium" : ""}>
-            {pct >= 80 ? "On track 🎯" : pct >= 50 ? "Improving" : "Needs attention"}
-          </span>
           <span>100%</span>
         </div>
       </div>

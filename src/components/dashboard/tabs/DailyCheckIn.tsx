@@ -312,24 +312,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
               >
-                <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={t.image}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-r ${
-                      isDone
-                        ? "from-[#e5e5e2] via-[#e5e5e2]/85 to-transparent dark:from-[#1f1f1f] dark:via-[#1f1f1f]/85"
-                        : "from-[#ececea] via-[#ececea]/85 to-transparent dark:from-[#161616] dark:via-[#161616]/85"
-                    }`}
-                  />
-                </div>
-
                 <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
@@ -370,10 +352,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition inline-flex items-center gap-1"
+                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition"
                     >
                       <span>View</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   ) : isDone ? (
                     <button
@@ -382,10 +363,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition inline-flex items-center gap-1"
+                      className="py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white active:scale-95 transition"
                     >
                       <span>{selectedLocked ? "View" : "Edit"}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   ) : (
                     <button
@@ -395,10 +375,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         e.stopPropagation();
                         openDetail(index);
                       }}
-                      className="py-1 text-xs font-semibold text-zinc-950 dark:text-white hover:opacity-75 disabled:opacity-40 inline-flex items-center gap-1 active:scale-95 transition"
+                      className="py-1 text-xs font-semibold text-zinc-950 dark:text-white hover:opacity-75 disabled:opacity-40 active:scale-95 transition"
                     >
                       <span>Do Task</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>

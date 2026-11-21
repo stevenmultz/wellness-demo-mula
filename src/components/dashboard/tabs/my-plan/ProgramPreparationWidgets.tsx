@@ -302,18 +302,6 @@ export function ProgramPreparationWidgets({
                 onClick={() => setActivePage(card.key)}
                 className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
               >
-                <div className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden pointer-events-none">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={card.img}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover opacity-15 dark:opacity-25 transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#141414] to-transparent" />
-                </div>
-
                 <div className="relative z-10 flex items-center justify-between w-full">
                   <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
                     <Icon className="w-3.5 h-3.5" />
@@ -332,7 +320,6 @@ export function ProgramPreparationWidgets({
                       {card.subtitle}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors shrink-0" />
                 </div>
               </button>
             );
