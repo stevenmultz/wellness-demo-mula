@@ -313,36 +313,16 @@ function TrainingWidget({
     sortedDays.find((d) => d.dayNumber === selectedDayNum) || null;
   const selectedStatus = selectedDay ? getTrainingDayStatus(selectedDay) : null;
 
-  // 14 columns: Column headers for Mon, Tue, Wed, etc.
-  const colLabels = Array.from({ length: 14 }, (_, i) => {
-    if (sortedDays[i]?.unlockDate) {
-      const dt = new Date(sortedDays[i].unlockDate);
-      if (!isNaN(dt.getTime())) {
-        return new Intl.DateTimeFormat("en-US", {
-          weekday: "short",
-          timeZone: "Asia/Jakarta",
-        }).format(dt);
-      }
-    }
-    if (sortedDays[0]?.unlockDate) {
-      const startDt = new Date(sortedDays[0].unlockDate);
-      if (!isNaN(startDt.getTime())) {
-        const dt = new Date(startDt.getTime() + i * 86400000);
-        return new Intl.DateTimeFormat("en-US", {
-          weekday: "short",
-          timeZone: "Asia/Jakarta",
-        }).format(dt);
-      }
-    }
-    const defaultDays = [
-      "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
-      "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
-    ];
-    return defaultDays[i];
-  });
-
-  // Total slots: 14 columns per row
-  const totalSlots = Math.max(14, Math.ceil(sortedDays.length / 14) * 14);
+  // 7 columns: Sun to Sat
+  const dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const firstDay = sortedDays[0];
+  const firstDate = firstDay?.unlockDate ? new Date(firstDay.unlockDate) : null;
+  const startDayOfWeek =
+    firstDate && !isNaN(firstDate.getTime()) ? firstDate.getDay() : 0;
+  const totalSlots = Math.max(
+    7,
+    Math.ceil((startDayOfWeek + sortedDays.length) / 7) * 7
+  );
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
@@ -359,37 +339,36 @@ function TrainingWidget({
         </span>
       </div>
 
-      {/* 14-Column Grid */}
+      {/* 7-Column Grid (Sun to Sat) */}
       <div className="space-y-2 pt-1">
-        {/* Column Headers: Mon Tue Wed ... */}
-        <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1 sm:gap-1.5 text-[8px] sm:text-[9px] font-mono text-zinc-400 dark:text-zinc-500 text-center">
-          {colLabels.map((lbl, idx) => (
-            <span key={idx} className="truncate">
-              {lbl}
-            </span>
+        {/* Column Headers: Sun Mon Tue Wed Thu Fri Sat */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono text-zinc-400 dark:text-zinc-500 text-center">
+          {dayHeaders.map((day) => (
+            <span key={day}>{day}</span>
           ))}
         </div>
 
-        {/* 14-Column Boxes: Kotak HANYA ada di hari program berjalan */}
-        <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1 sm:gap-1.5">
+        {/* 7-Column Boxes: Kotak HANYA ada di hari program berjalan */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {Array.from({ length: totalSlots }, (_, i) => {
-            const d = sortedDays[i];
+            const dayIndex = i - startDayOfWeek;
+            const d = dayIndex >= 0 ? sortedDays[dayIndex] : undefined;
             const isProgramDayRunning =
               Boolean(d) &&
-              (Boolean(d.isCalendarUnlocked) ||
+              (Boolean(d?.isCalendarUnlocked) ||
                 (Boolean(currentDayNumber && currentDayNumber > 0) &&
-                  d.dayNumber <= (currentDayNumber as number)) ||
+                  (d?.dayNumber as number) <= (currentDayNumber as number)) ||
                 Boolean(
-                  d.userProgress?.isCompleted ||
-                    d.userProgress?.videoWatched ||
-                    d.isPast2359
+                  d?.userProgress?.isCompleted ||
+                    d?.userProgress?.videoWatched ||
+                    d?.isPast2359
                 ));
 
             if (!d || !isProgramDayRunning) {
               return (
                 <div
                   key={`slot-${i}`}
-                  className="aspect-square rounded-xs sm:rounded-sm bg-transparent"
+                  className="aspect-square rounded-md sm:rounded-lg bg-transparent"
                 />
               );
             }
@@ -415,7 +394,7 @@ function TrainingWidget({
                     ? "Rest"
                     : "Skipped"
                 }`}
-                className={`aspect-square rounded-xs sm:rounded-sm flex items-center justify-center transition-all cursor-pointer ${
+                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                   isSelected
                     ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
                     : ""
@@ -437,7 +416,7 @@ function TrainingWidget({
                     strokeWidth="1.2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500"
+                    className="w-3 h-3 text-zinc-400 dark:text-zinc-500"
                   >
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />

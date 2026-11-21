@@ -290,20 +290,20 @@ export function MyPlanOverview({
         <button
           type="button"
           onClick={onViewAllPrograms || onExplore}
-          className="h-8 px-3.5 rounded-xl bg-white dark:bg-[#161616] border border-zinc-300 dark:border-white/20 text-xs font-semibold text-zinc-900 dark:text-white hover:border-zinc-400 dark:hover:border-white/40 shadow-xs transition active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+          className="h-8 px-3.5 rounded-xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-300/80 dark:border-white/10 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-[#e4e4e1] dark:hover:bg-white/[0.08] shadow-xs transition active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
         >
           <span>See all my programs</span>
         </button>
 
         {/* Index previous / next controller */}
         {plans && plans.length > 0 && (
-          <div className="inline-flex items-center gap-1 bg-white dark:bg-[#161616] p-0.5 rounded-xl border border-zinc-300 dark:border-white/20 shadow-xs">
+          <div className="inline-flex items-center gap-1 bg-[#ececea] dark:bg-white/[0.04] p-0.5 rounded-xl border border-zinc-300/80 dark:border-white/10 shadow-xs">
             <button
               type="button"
               onClick={handlePrevPlan}
               disabled={currentIndex === 0 || plans.length <= 1}
               aria-label="Previous plan"
-              className="w-6 h-6 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+              className="w-6 h-6 rounded-lg hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -318,7 +318,7 @@ export function MyPlanOverview({
               onClick={handleNextPlan}
               disabled={currentIndex >= totalPlans - 1 || plans.length <= 1}
               aria-label="Next plan"
-              className="w-6 h-6 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+              className="w-6 h-6 rounded-lg hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -336,16 +336,16 @@ export function MyPlanOverview({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
 
-        {/* Progress bar on image banner bottom border (Strict Monochrome) */}
+        {/* Progress bar on image banner (Dark track with bright progress fill) */}
         {totalProgramDays > 0 && (
           <div
-            className="absolute bottom-0 left-0 right-0 h-2 bg-black/75 dark:bg-black/90 backdrop-blur-xs border-t border-white/20 z-20 overflow-hidden"
+            className="absolute bottom-2.5 inset-x-4 sm:inset-x-6 h-2 rounded-full bg-zinc-950/85 dark:bg-black/90 border border-white/20 z-20 overflow-hidden"
             title={`Day ${displayDayNumber} of ${totalProgramDays}`}
           >
             <div
-              className="h-full bg-white transition-all duration-500 rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+              className="h-full bg-white transition-all duration-500 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.7)]"
               style={{
-                width: `${Math.min(100, Math.max(3, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
+                width: `${Math.min(100, Math.max(4, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
               }}
             />
           </div>
