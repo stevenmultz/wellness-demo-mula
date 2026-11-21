@@ -234,13 +234,6 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
             <span>Day {sleepData[sleepData.length - 1]?.day}</span>
           </div>
 
-          {/* X & Y Axis description (Monochrome English) */}
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono pt-1.5 px-0.5 border-t border-zinc-200/60 dark:border-white/5">
-            <span>Y: Sleep Duration (Hours)</span>
-            <span>X: Program Day</span>
-            <span>Target: 7h 30m</span>
-          </div>
-
           {/* Detail card on clicking dot (Monochrome English) */}
           {selectedPoint && (
             <div className="rounded-xl bg-white/90 dark:bg-white/[0.08] p-2.5 sm:p-3 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 animate-in fade-in duration-150">
@@ -308,15 +301,48 @@ function getTrainingDayStatus(d: PlanDay): TrainingStatus {
 function TrainingWidget({
   days,
   pct,
+  currentDayNumber,
 }: {
   days: PlanDay[];
   pct: number;
+  currentDayNumber?: number;
 }) {
   const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
   const selectedDay =
     sortedDays.find((d) => d.dayNumber === selectedDayNum) || null;
   const selectedStatus = selectedDay ? getTrainingDayStatus(selectedDay) : null;
+
+  // 14 columns: Column headers for Mon, Tue, Wed, etc.
+  const colLabels = Array.from({ length: 14 }, (_, i) => {
+    if (sortedDays[i]?.unlockDate) {
+      const dt = new Date(sortedDays[i].unlockDate);
+      if (!isNaN(dt.getTime())) {
+        return new Intl.DateTimeFormat("en-US", {
+          weekday: "short",
+          timeZone: "Asia/Jakarta",
+        }).format(dt);
+      }
+    }
+    if (sortedDays[0]?.unlockDate) {
+      const startDt = new Date(sortedDays[0].unlockDate);
+      if (!isNaN(startDt.getTime())) {
+        const dt = new Date(startDt.getTime() + i * 86400000);
+        return new Intl.DateTimeFormat("en-US", {
+          weekday: "short",
+          timeZone: "Asia/Jakarta",
+        }).format(dt);
+      }
+    }
+    const defaultDays = [
+      "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+      "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+    ];
+    return defaultDays[i];
+  });
+
+  // Total slots: 14 columns per row
+  const totalSlots = Math.max(14, Math.ceil(sortedDays.length / 14) * 14);
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
@@ -333,13 +359,44 @@ function TrainingWidget({
         </span>
       </div>
 
-      {/* GitLab-style 7-column grid */}
-      <div className="space-y-3 pt-1">
-        {/* 7 Columns Grid */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-          {sortedDays.map((d) => {
+      {/* 14-Column Grid */}
+      <div className="space-y-2 pt-1">
+        {/* Column Headers: Mon Tue Wed ... */}
+        <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1 sm:gap-1.5 text-[8px] sm:text-[9px] font-mono text-zinc-400 dark:text-zinc-500 text-center">
+          {colLabels.map((lbl, idx) => (
+            <span key={idx} className="truncate">
+              {lbl}
+            </span>
+          ))}
+        </div>
+
+        {/* 14-Column Boxes: Kotak HANYA ada di hari program berjalan */}
+        <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1 sm:gap-1.5">
+          {Array.from({ length: totalSlots }, (_, i) => {
+            const d = sortedDays[i];
+            const isProgramDayRunning =
+              Boolean(d) &&
+              (Boolean(d.isCalendarUnlocked) ||
+                (Boolean(currentDayNumber && currentDayNumber > 0) &&
+                  d.dayNumber <= (currentDayNumber as number)) ||
+                Boolean(
+                  d.userProgress?.isCompleted ||
+                    d.userProgress?.videoWatched ||
+                    d.isPast2359
+                ));
+
+            if (!d || !isProgramDayRunning) {
+              return (
+                <div
+                  key={`slot-${i}`}
+                  className="aspect-square rounded-xs sm:rounded-sm bg-transparent"
+                />
+              );
+            }
+
             const status = getTrainingDayStatus(d);
             const isSelected = selectedDayNum === d.dayNumber;
+
             return (
               <button
                 key={d.dayNumber}
@@ -351,16 +408,14 @@ function TrainingWidget({
                 }
                 title={`Day ${d.dayNumber}: ${
                   status === "full"
-                    ? "Completed"
+                    ? "Active"
                     : status === "partial"
                     ? "Partial"
                     : status === "rest"
-                    ? "Rest Day"
-                    : status === "skipped"
-                    ? "Skipped"
-                    : "Upcoming"
+                    ? "Rest"
+                    : "Skipped"
                 }`}
-                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                className={`aspect-square rounded-xs sm:rounded-sm flex items-center justify-center transition-all cursor-pointer ${
                   isSelected
                     ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
                     : ""
@@ -371,9 +426,7 @@ function TrainingWidget({
                     ? "bg-zinc-400 dark:bg-white/50 text-white dark:text-zinc-900"
                     : status === "rest"
                     ? "bg-zinc-200/70 dark:bg-white/10 text-zinc-400 dark:text-zinc-500"
-                    : status === "skipped"
-                    ? "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/5"
-                    : "bg-transparent border border-dashed border-zinc-300/60 dark:border-white/10"
+                    : "bg-zinc-100 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/5"
                 }`}
               >
                 {status === "rest" && (
@@ -384,7 +437,7 @@ function TrainingWidget({
                     strokeWidth="1.2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="w-3 h-3 text-zinc-400 dark:text-zinc-500"
+                    className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500"
                   >
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -395,7 +448,7 @@ function TrainingWidget({
           })}
         </div>
 
-        {/* Detail card on clicking box (Monochrome English) */}
+        {/* Detail card on clicking box (Monochrome English - only appears when clicked) */}
         {selectedDay && (
           <div className="rounded-xl bg-white/90 dark:bg-white/[0.08] p-2.5 sm:p-3 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 animate-in fade-in duration-150">
             <div className="space-y-0.5">
@@ -414,59 +467,22 @@ function TrainingWidget({
                   ? "Partially completed"
                   : selectedStatus === "rest"
                   ? "Rest day"
-                  : selectedStatus === "skipped"
-                  ? "Workout skipped"
-                  : "Upcoming day"}
+                  : "Workout skipped"}
               </p>
             </div>
             <div className="text-right">
               <span className="text-xs font-mono font-semibold text-zinc-950 dark:text-white uppercase">
                 {selectedStatus === "full"
-                  ? "Completed"
+                  ? "Active"
                   : selectedStatus === "partial"
                   ? "Partial"
                   : selectedStatus === "rest"
                   ? "Rest"
-                  : selectedStatus === "skipped"
-                  ? "Skipped"
-                  : "Upcoming"}
+                  : "Skipped"}
               </span>
             </div>
           </div>
         )}
-
-        {/* Legend */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 dark:text-zinc-400 pt-2 border-t border-zinc-200/60 dark:border-white/5 font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-zinc-950 dark:bg-white inline-block" />
-            <span>Active</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-zinc-400 dark:bg-white/50 inline-block" />
-            <span>Partial</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-zinc-200/70 dark:bg-white/10 flex items-center justify-center">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-2 h-2 text-zinc-400 dark:text-zinc-500"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </span>
-            <span>Rest</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-zinc-100 dark:bg-white/[0.04] border border-zinc-300 dark:border-white/10 inline-block" />
-            <span>Skipped</span>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -504,14 +520,13 @@ function MealControlWidget({ pct }: { pct: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function CohortPerformanceCard({
   days,
-  currentDayNumber: _currentDayNumber,
+  currentDayNumber,
   onSwitchWidget: _onSwitchWidget,
 }: {
   days: PlanDay[];
   currentDayNumber: number;
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
-  void _currentDayNumber;
   void _onSwitchWidget;
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
 
@@ -559,10 +574,11 @@ export function CohortPerformanceCard({
       {/* 1. Sleep (Interactive Line Chart) */}
       <SleepWidget days={sorted} />
 
-      {/* 2. Training (GitLab-Style 7-Column Heatmap Grid) */}
+      {/* 2. Training (14-Column Heatmap Grid) */}
       <TrainingWidget
         days={sorted}
         pct={trainingPct}
+        currentDayNumber={currentDayNumber}
       />
 
       {/* 3. Meal Control (50 Garis + Status) */}

@@ -336,14 +336,14 @@ export function MyPlanOverview({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
 
-        {/* Progress bar on image banner bottom border */}
+        {/* Progress bar on image banner bottom border (Strict Monochrome) */}
         {totalProgramDays > 0 && (
           <div
-            className="absolute bottom-0 left-0 right-0 h-2 bg-black/60 dark:bg-black/80 backdrop-blur-xs border-t border-white/15 z-20 overflow-hidden"
+            className="absolute bottom-0 left-0 right-0 h-2 bg-black/75 dark:bg-black/90 backdrop-blur-xs border-t border-white/20 z-20 overflow-hidden"
             title={`Day ${displayDayNumber} of ${totalProgramDays}`}
           >
             <div
-              className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-500 rounded-r-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+              className="h-full bg-white transition-all duration-500 rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.7)]"
               style={{
                 width: `${Math.min(100, Math.max(3, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
               }}
