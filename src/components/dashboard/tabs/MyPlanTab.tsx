@@ -277,9 +277,56 @@ export function MyPlanOverview({
       ] as const);
 
   const displayName = (userName || "Member").trim() || "Member";
+  const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
+  const displayDayNumber = currentDayNumber > 0 ? currentDayNumber : 1;
+  const dayProgressPct =
+    totalProgramDays > 0
+      ? Math.min(100, Math.max(4, Math.round((displayDayNumber / totalProgramDays) * 100)))
+      : 0;
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
+      {/* 0. Plan index switcher above banner */}
+      {plans && plans.length > 0 && (
+        <div className="w-full flex items-center justify-end gap-1.5 pb-0.5">
+          {plans.length > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevPlan}
+                disabled={currentIndex === 0}
+                aria-label="Previous plan"
+                className="w-7 h-7 rounded-full bg-zinc-200/80 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 border border-zinc-300/80 dark:border-white/10 text-zinc-800 dark:text-zinc-200 inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span
+                data-testid="home-program-index"
+                className="px-2.5 py-1 rounded-full bg-zinc-200/80 dark:bg-zinc-800 border border-zinc-300/80 dark:border-white/10 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white tabular-nums"
+              >
+                {currentIndex + 1} / {totalPlans}
+              </span>
+              <button
+                type="button"
+                onClick={handleNextPlan}
+                disabled={currentIndex >= totalPlans - 1}
+                aria-label="Next plan"
+                className="w-7 h-7 rounded-full bg-zinc-200/80 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 border border-zinc-300/80 dark:border-white/10 text-zinc-800 dark:text-zinc-200 inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </>
+          ) : (
+            <span
+              data-testid="home-program-index"
+              className="px-2.5 py-1 rounded-full bg-zinc-200/80 dark:bg-zinc-800 border border-zinc-300/80 dark:border-white/10 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white tabular-nums"
+            >
+              1 / 1
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 1. Contained Image Banner */}
       <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[190px] sm:min-h-[220px] flex flex-col justify-end p-5 sm:p-7 text-white">
         {program?.coverImage ? (
@@ -290,47 +337,6 @@ export function MyPlanOverview({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
 
-        {/* Plan index switcher in banner */}
-        {plans && plans.length > 0 && (
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
-            {plans.length > 1 ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handlePrevPlan}
-                  disabled={currentIndex === 0}
-                  aria-label="Previous plan"
-                  className="w-7 h-7 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span
-                  data-testid="home-program-index"
-                  className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
-                >
-                  {currentIndex + 1} / {totalPlans}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleNextPlan}
-                  disabled={currentIndex >= totalPlans - 1}
-                  aria-label="Next plan"
-                  className="w-7 h-7 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-md border border-white/20 text-white inline-flex items-center justify-center disabled:opacity-30 transition cursor-pointer"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </>
-            ) : (
-              <span
-                data-testid="home-program-index"
-                className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-[11px] font-mono font-semibold text-white tabular-nums"
-              >
-                1 / 1
-              </span>
-            )}
-          </div>
-        )}
-
         <div className="relative z-10 space-y-3">
           {/* Program title */}
           <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
@@ -338,20 +344,19 @@ export function MyPlanOverview({
           </h1>
 
           {/* Day progress bar */}
-          {program && !program.isUpcoming && currentDayNumber > 0 && program.totalDays > 0 && (
-            <div className="space-y-1.5">
+          {program && !program.isUpcoming && totalProgramDays > 0 && (
+            <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-white/70">
-                  {locale === "id" ? `Hari ${currentDayNumber} dari ${program.totalDays}` : `Day ${currentDayNumber} of ${program.totalDays}`}
-                </span>
-                <span className="text-[11px] font-mono text-white/60">
-                  {Math.round((currentDayNumber / program.totalDays) * 100)}%
+                <span className="text-xs font-mono font-medium text-white/90">
+                  {locale === "id"
+                    ? `Hari ${displayDayNumber} dari ${totalProgramDays}`
+                    : `Day ${displayDayNumber} of ${totalProgramDays}`}
                 </span>
               </div>
-              <div className="w-full h-1 rounded-full bg-white/20 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-white/20 border border-white/15 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-white transition-all"
-                  style={{ width: `${Math.min(100, Math.round((currentDayNumber / program.totalDays) * 100))}%` }}
+                  className="h-full rounded-full bg-white transition-all duration-300"
+                  style={{ width: `${dayProgressPct}%` }}
                 />
               </div>
             </div>
