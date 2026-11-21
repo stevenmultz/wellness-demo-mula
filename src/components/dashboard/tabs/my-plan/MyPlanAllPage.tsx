@@ -45,21 +45,7 @@ export function MyPlanAllPage({
   ];
 
   return (
-    <div className="w-full space-y-5 pb-16 pt-2">
-      {/* Heading */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-tight">
-            {locale === "id" ? "Semua Program Saya" : "All My Programs"}
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            {locale === "id"
-              ? "Daftar seluruh program yang Anda ikuti"
-              : "All enrolled cohorts and active programs"}
-          </p>
-        </div>
-      </div>
-
+    <div className="w-full space-y-4 pb-16 pt-1">
       {/* Filter Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
         {filterTabs.map((tab) => {
