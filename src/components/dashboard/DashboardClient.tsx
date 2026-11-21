@@ -882,6 +882,11 @@ export function DashboardClient({
               userEmail={user.email}
               plans={planOptions}
               selectedProgramId={overviewEnrollment?.programId ?? ""}
+              onViewAllPrograms={() => {
+                setLastMyPlanPage("all");
+                setMyPlanView("all");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               onSelectPlan={(id) => {
                 setSelectedProgId(id);
                 setIsOverHero(true);

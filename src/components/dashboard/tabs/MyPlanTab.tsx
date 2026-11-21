@@ -156,6 +156,7 @@ export function MyPlanOverview({
   plans,
   selectedProgramId,
   onSelectPlan,
+  onViewAllPrograms,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -164,6 +165,7 @@ export function MyPlanOverview({
   checklist: string[] | undefined;
   onExplore: () => void;
   onViewHistory?: () => void;
+  onViewAllPrograms?: () => void;
   onOpenDetails: () => void;
   historyDays: PlanDay[];
   allProgramDays?: PlanDay[];
@@ -280,48 +282,65 @@ export function MyPlanOverview({
   const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
   const displayDayNumber = currentDayNumber > 0 ? currentDayNumber : 1;
 
+  // 3 program buttons (with first / current program active)
+  const programButtons = Array.from({ length: 3 }, (_, i) => {
+    const existing = plans && plans[i];
+    return {
+      index: i + 1,
+      programId: existing?.programId || `prog-${i + 1}`,
+      title: existing?.title
+        ? existing.title.length > 20
+          ? `${existing.title.slice(0, 18)}...`
+          : existing.title
+        : `Program ${i + 1}`,
+      isAvailable: Boolean(existing),
+    };
+  });
+
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Plan index switcher above banner (simple) */}
-      {plans && plans.length > 0 && (
-        <div className="w-full flex items-center justify-end pb-0.5 px-1">
-          {plans.length > 1 ? (
-            <div className="inline-flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-full border border-zinc-200/80 dark:border-white/10 shadow-2xs">
+      {/* 0. 3 Program buttons + See all my programs button */}
+      <div className="w-full flex items-center justify-between gap-2 flex-wrap pb-0.5 px-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          {programButtons.map((btn, idx) => {
+            const isActive =
+              btn.programId === (selectedProgramId || program?.id) ||
+              (!selectedProgramId && idx === 0) ||
+              (currentIndex === idx);
+
+            return (
               <button
+                key={btn.programId || idx}
                 type="button"
-                onClick={handlePrevPlan}
-                disabled={currentIndex === 0}
-                aria-label="Previous plan"
-                className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+                onClick={() => {
+                  if (btn.isAvailable) {
+                    onSelectPlan?.(btn.programId);
+                  } else if (onViewAllPrograms) {
+                    onViewAllPrograms();
+                  }
+                }}
+                className={`h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
+                  isActive
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white"
+                    : "bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
+                }`}
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>{btn.title}</span>
               </button>
-              <span
-                data-testid="home-program-index"
-                className="px-2 text-[11px] font-mono font-medium text-zinc-900 dark:text-white tabular-nums select-none"
-              >
-                {currentIndex + 1} / {totalPlans}
-              </span>
-              <button
-                type="button"
-                onClick={handleNextPlan}
-                disabled={currentIndex >= totalPlans - 1}
-                aria-label="Next plan"
-                className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <span
-              data-testid="home-program-index"
-              className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 text-[11px] font-mono font-medium text-zinc-600 dark:text-zinc-400 tabular-nums select-none"
-            >
-              1 / 1
-            </span>
-          )}
+            );
+          })}
         </div>
-      )}
+
+        {/* See all my programs button */}
+        <button
+          type="button"
+          onClick={onViewAllPrograms || onExplore}
+          className="h-8 px-3 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white bg-zinc-100/90 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700 border border-zinc-200/80 dark:border-white/10 transition active:scale-95 cursor-pointer shrink-0 ml-auto inline-flex items-center gap-1 shadow-2xs"
+        >
+          <span>See all my programs</span>
+          <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+        </button>
+      </div>
 
       {/* 1. Contained Image Banner */}
       <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[190px] sm:min-h-[220px] flex flex-col justify-end p-5 sm:p-7 text-white">
@@ -332,6 +351,21 @@ export function MyPlanOverview({
           <div className="absolute inset-0 bg-zinc-800" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
+
+        {/* Progress bar on image banner bottom border */}
+        {totalProgramDays > 0 && (
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20 z-20 overflow-hidden"
+            title={`Day ${displayDayNumber} of ${totalProgramDays}`}
+          >
+            <div
+              className="h-full bg-white transition-all duration-500 rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+              style={{
+                width: `${Math.min(100, Math.max(3, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
+              }}
+            />
+          </div>
+        )}
 
         <div className="relative z-10 space-y-2">
           {/* Day 1/10 above title */}

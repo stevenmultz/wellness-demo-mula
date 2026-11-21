@@ -88,21 +88,20 @@ function ThinCircleProgress({
   );
 }
 
-// ─── 1. Sleep Widget (Grafik tipis) ──────────────────────────────────────────
+// ─── 1. Sleep Widget (Grafik Garis / Line Chart) ──────────────────────────────
 function SleepWidget({ days }: { days: PlanDay[] }) {
-  const MAX_BARS = 30;
+  const MAX_POINTS = 30;
   const sorted = [...days]
     .sort((a, b) => a.dayNumber - b.dayNumber)
-    .slice(-MAX_BARS);
+    .slice(-MAX_POINTS);
 
   const sleepData = sorted.map((d) => ({
     day: d.dayNumber,
     mins: calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime),
   }));
 
-  // Target = 450 min (7h30m), chart ceiling = 600 min (10h)
-  const CEILING = 600;
-  const TARGET = 450;
+  const CEILING = 600; // 10h ceiling
+  const TARGET = 450; // 7h 30m target
 
   const validSleeps = sleepData.filter((s) => s.mins > 0);
   const avgMins =
@@ -110,9 +109,40 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
       ? Math.round(validSleeps.reduce((acc, s) => acc + s.mins, 0) / validSleeps.length)
       : 0;
 
+  // Chart coordinates
+  const svgW = 400;
+  const svgH = 64;
+  const padX = 10;
+  const padY = 8;
+  const usableW = svgW - padX * 2;
+  const usableH = svgH - padY * 2;
+
+  const points = sleepData.map((s, idx) => {
+    const x =
+      sleepData.length > 1
+        ? padX + (idx / (sleepData.length - 1)) * usableW
+        : svgW / 2;
+    const clampedMins = Math.max(0, Math.min(CEILING, s.mins));
+    const y = svgH - padY - (clampedMins / CEILING) * usableH;
+    return { x, y, mins: s.mins, day: s.day };
+  });
+
+  const pathD = points.reduce((acc, pt, idx) => {
+    return idx === 0
+      ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`
+      : `${acc} L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
+  }, "");
+
+  const areaD =
+    points.length > 0
+      ? `${pathD} L ${points[points.length - 1].x.toFixed(1)} ${svgH - padY} L ${points[0].x.toFixed(1)} ${svgH - padY} Z`
+      : "";
+
+  const targetY = (svgH - padY - (TARGET / CEILING) * usableH).toFixed(1);
+
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-transparent dark:border-white/5">
-      {/* Sleep header */}
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Moon className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -131,47 +161,83 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
         )}
       </div>
 
-      {/* Daily Sleep Bar chart (garis tipis) */}
+      {/* Body: Line Chart */}
       {validSleeps.length === 0 ? (
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center py-4">
           No sleep data recorded yet
         </p>
       ) : (
         <div className="space-y-2 pt-1">
-          <div className="relative">
-            {/* Target line at 7h30m */}
-            <div
-              className="absolute left-0 right-0 border-t border-dashed border-zinc-400/50 dark:border-white/20 pointer-events-none"
-              style={{ bottom: `${(TARGET / CEILING) * 56}px` }}
-            />
-            <div className="flex items-end gap-1 sm:gap-1.5 h-14 justify-between">
-              {sleepData.map((s) => {
-                const heightPct = s.mins > 0 ? Math.min(1, s.mins / CEILING) : 0;
-                const isGood = s.mins >= TARGET;
+          <div className="w-full h-16">
+            <svg
+              className="w-full h-full overflow-visible"
+              viewBox={`0 0 ${svgW} ${svgH}`}
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="sleepAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    stopColor="currentColor"
+                    className="text-zinc-900/15 dark:text-white/20"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="currentColor"
+                    stopOpacity="0"
+                  />
+                </linearGradient>
+              </defs>
+
+              {/* Target Line (7h 30m) */}
+              <line
+                x1={padX}
+                y1={targetY}
+                x2={svgW - padX}
+                y2={targetY}
+                className="stroke-zinc-400/60 dark:stroke-white/20"
+                strokeWidth="1"
+                strokeDasharray="4 3"
+              />
+
+              {/* Area fill under curve */}
+              {areaD && <path d={areaD} fill="url(#sleepAreaGrad)" />}
+
+              {/* Main Line graph */}
+              {pathD && (
+                <path
+                  d={pathD}
+                  fill="none"
+                  className="stroke-zinc-900 dark:stroke-white transition-all duration-300"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+
+              {/* Data points */}
+              {points.map((pt) => {
+                if (pt.mins === 0) return null;
+                const isGood = pt.mins >= TARGET;
                 return (
-                  <div
-                    key={s.day}
-                    className="flex-1 flex flex-col items-center justify-end h-full"
-                    title={s.mins > 0 ? `Day ${s.day}: ${formatSleepHours(s.mins)}` : `Day ${s.day}: —`}
-                  >
-                    <div
-                      className={`w-[2px] rounded-full transition-all ${
-                        s.mins === 0
-                          ? "bg-zinc-300/60 dark:bg-white/10"
-                          : isGood
-                          ? "bg-zinc-900 dark:bg-white"
-                          : "bg-zinc-400 dark:bg-white/40"
-                      }`}
-                      style={{ height: s.mins === 0 ? "2px" : `${Math.max(4, heightPct * 56)}px` }}
-                    />
-                  </div>
+                  <circle
+                    key={pt.day}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={isGood ? 3 : 2.5}
+                    className={
+                      isGood
+                        ? "fill-zinc-950 dark:fill-white"
+                        : "fill-zinc-400 dark:fill-white/50"
+                    }
+                  />
                 );
               })}
-            </div>
+            </svg>
           </div>
 
           {/* X-axis labels */}
-          <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-500 px-0.5">
+          <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-500 px-1">
             <span>D{sleepData[0]?.day}</span>
             {sleepData.length > 2 && (
               <span>D{sleepData[Math.floor(sleepData.length / 2)]?.day}</span>
@@ -180,18 +246,14 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-3 pt-1">
-            <span className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-              <span className="w-2 h-2 rounded-sm bg-zinc-800 dark:bg-white inline-block" />
-              ≥ 7h30m
+          <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 pt-0.5 px-0.5">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-zinc-900 dark:bg-white inline-block" />
+              Daily Sleep Trend
             </span>
-            <span className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-              <span className="w-2 h-2 rounded-sm bg-zinc-400 dark:bg-white/50 inline-block" />
-              &lt; 7h30m
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400 ml-auto">
-              <span className="border-t border-dashed border-zinc-400/70 w-4 inline-block" />
-              target (7h30m)
+            <span className="flex items-center gap-1.5">
+              <span className="border-t border-dashed border-zinc-400 dark:border-white/40 w-4 inline-block" />
+              Target (7h 30m)
             </span>
           </div>
         </div>
@@ -213,19 +275,24 @@ function TrainingWidget({
   pct: number;
 }) {
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-transparent dark:border-white/5">
-      <div className="flex items-center gap-2">
-        <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-        <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-          Training
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
+            Training
+          </span>
+        </div>
+        <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+          {pct}%
         </span>
       </div>
 
+      {/* Body: Thin Circle Progress + Stats */}
       <div className="flex items-center gap-6 pt-1">
-        {/* Bar lingkaran tipis */}
         <ThinCircleProgress percent={pct} size={64} strokeWidth={2.5} />
 
-        {/* Stats sederhana: completed, skipped, total */}
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -254,10 +321,11 @@ function TrainingWidget({
   );
 }
 
-// ─── 3. Meal Control Widget ──────────────────────────────────────────────────
+// ─── 3. Meal Control Widget (50 Garis + Status) ──────────────────────────────
 function MealControlWidget({ pct }: { pct: number }) {
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-transparent dark:border-white/5">
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Utensils className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -265,13 +333,21 @@ function MealControlWidget({ pct }: { pct: number }) {
             Meal Control
           </span>
         </div>
-        <span className="text-xs font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
+        <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
           {pct}%
         </span>
       </div>
 
-      <div className="pt-1">
+      {/* Body: 50-segment bar */}
+      <div className="space-y-2 pt-1">
         <FiftyBarMeter percent={pct} />
+        <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 px-0.5">
+          <span>0%</span>
+          <span className={pct >= 80 ? "text-zinc-900 dark:text-white font-medium" : ""}>
+            {pct >= 80 ? "On track 🎯" : pct >= 50 ? "Improving" : "Needs attention"}
+          </span>
+          <span>100%</span>
+        </div>
       </div>
     </div>
   );
@@ -344,10 +420,10 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. Grafik sleep (garis tipis) */}
+      {/* 1. Sleep (Grafik Garis / Line Chart) */}
       <SleepWidget days={sorted} />
 
-      {/* 2. Training (simple + bar lingkaran tipis) */}
+      {/* 2. Training (Lingkaran Tipis + Stats) */}
       <TrainingWidget
         completed={trainingCompleted}
         skipped={trainingMissed}
@@ -355,7 +431,7 @@ export function CohortPerformanceCard({
         pct={trainingPct}
       />
 
-      {/* 3. Meal control (bar 50 garis) */}
+      {/* 3. Meal Control (50 Garis + Status) */}
       <MealControlWidget pct={mealPct} />
     </section>
   );
