@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Dumbbell, Moon, Utensils } from "lucide-react";
 import {
   calcSleepMins,
   checkedList,
+  formatShortDayDate,
   formatSleepHours,
   type PlanDay,
 } from "./myPlanUtils";
@@ -88,8 +90,10 @@ function ThinCircleProgress({
   );
 }
 
-// ─── 1. Sleep Widget (Grafik Garis / Line Chart) ──────────────────────────────
+// ─── 1. Sleep Widget (Grafik Garis / Line Chart Interaktif) ───────────────────
 function SleepWidget({ days }: { days: PlanDay[] }) {
+  const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
+
   const MAX_POINTS = 30;
   const sorted = [...days]
     .sort((a, b) => a.dayNumber - b.dayNumber)
@@ -98,6 +102,9 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
   const sleepData = sorted.map((d) => ({
     day: d.dayNumber,
     mins: calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime),
+    unlockDate: d.unlockDate,
+    bedtime: d.userProgress?.bedtime,
+    wakeTime: d.userProgress?.wakeTime,
   }));
 
   const CEILING = 600; // 10h ceiling
@@ -124,7 +131,15 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
         : svgW / 2;
     const clampedMins = Math.max(0, Math.min(CEILING, s.mins));
     const y = svgH - padY - (clampedMins / CEILING) * usableH;
-    return { x, y, mins: s.mins, day: s.day };
+    return {
+      x,
+      y,
+      mins: s.mins,
+      day: s.day,
+      unlockDate: s.unlockDate,
+      bedtime: s.bedtime,
+      wakeTime: s.wakeTime,
+    };
   });
 
   const pathD = points.reduce((acc, pt, idx) => {
@@ -139,6 +154,8 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
       : "";
 
   const targetY = (svgH - padY - (TARGET / CEILING) * usableH).toFixed(1);
+
+  const selectedPoint = points.find((pt) => pt.day === selectedDayNum) || null;
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
@@ -167,7 +184,7 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
           No sleep data recorded yet
         </p>
       ) : (
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2.5 pt-1">
           <div className="w-full h-16">
             <svg
               className="w-full h-full overflow-visible"
@@ -215,22 +232,47 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
                 />
               )}
 
-              {/* Data points */}
+              {/* Clickable Data points */}
               {points.map((pt) => {
                 if (pt.mins === 0) return null;
                 const isGood = pt.mins >= TARGET;
+                const isSelected = selectedDayNum === pt.day;
+
                 return (
-                  <circle
+                  <g
                     key={pt.day}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={isGood ? 3 : 2.5}
-                    className={
-                      isGood
-                        ? "fill-zinc-950 dark:fill-white"
-                        : "fill-zinc-400 dark:fill-white/50"
+                    onClick={() =>
+                      setSelectedDayNum((prev) => (prev === pt.day ? null : pt.day))
                     }
-                  />
+                    className="cursor-pointer"
+                  >
+                    {/* Generous touch target */}
+                    <circle cx={pt.x} cy={pt.y} r={12} fill="transparent" />
+
+                    {/* Outer ring if selected */}
+                    {isSelected && (
+                      <circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={6.5}
+                        className="fill-none stroke-2 stroke-emerald-500 dark:stroke-emerald-400"
+                      />
+                    )}
+
+                    {/* Dot */}
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={isSelected ? 4 : isGood ? 3 : 2.5}
+                      className={
+                        isSelected
+                          ? "fill-emerald-500 dark:fill-emerald-400"
+                          : isGood
+                          ? "fill-zinc-950 dark:fill-white"
+                          : "fill-zinc-400 dark:fill-white/50"
+                      }
+                    />
+                  </g>
                 );
               })}
             </svg>
@@ -238,24 +280,66 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
 
           {/* X-axis labels */}
           <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 dark:text-zinc-500 px-1">
-            <span>D{sleepData[0]?.day}</span>
+            <span>Day {sleepData[0]?.day}</span>
             {sleepData.length > 2 && (
-              <span>D{sleepData[Math.floor(sleepData.length / 2)]?.day}</span>
+              <span>Day {sleepData[Math.floor(sleepData.length / 2)]?.day}</span>
             )}
-            <span>D{sleepData[sleepData.length - 1]?.day}</span>
+            <span>Day {sleepData[sleepData.length - 1]?.day}</span>
           </div>
 
-          {/* Legend */}
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 pt-0.5 px-0.5">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-zinc-900 dark:bg-white inline-block" />
-              Daily Sleep Trend
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="border-t border-dashed border-zinc-400 dark:border-white/40 w-4 inline-block" />
-              Target (7h 30m)
-            </span>
+          {/* X & Y Axis description */}
+          <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono pt-1.5 px-0.5 border-t border-zinc-200/60 dark:border-white/5">
+            <span>Y: Durasi Tidur (Jam)</span>
+            <span>X: Hari (Day)</span>
+            <span>Target: 7h 30m</span>
           </div>
+
+          {/* Detail card on clicking dot */}
+          {selectedPoint ? (
+            <div className="rounded-xl bg-white/90 dark:bg-white/[0.08] p-2.5 sm:p-3 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                    Day {selectedPoint.day}
+                  </span>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                    · {formatShortDayDate(selectedPoint.unlockDate, selectedPoint.day)}
+                  </span>
+                </div>
+                {selectedPoint.bedtime && selectedPoint.wakeTime ? (
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {selectedPoint.bedtime} – {selectedPoint.wakeTime}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Durasi tidur tercatat
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-sm font-mono font-bold text-zinc-950 dark:text-white">
+                  {selectedPoint.mins > 0
+                    ? formatSleepHours(selectedPoint.mins)
+                    : "0 jam"}
+                </span>
+                <span
+                  className={`block text-[10px] font-medium ${
+                    selectedPoint.mins >= TARGET
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {selectedPoint.mins >= TARGET
+                    ? "Target tercapai ✓"
+                    : "< 7h 30m"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center pt-0.5">
+              Klik titik pada grafik untuk melihat detail tanggal &amp; durasi tidur
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -276,7 +360,6 @@ function TrainingWidget({
 }) {
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -289,10 +372,11 @@ function TrainingWidget({
         </span>
       </div>
 
-      {/* Body: Thin Circle Progress + Stats */}
       <div className="flex items-center gap-6 pt-1">
+        {/* Bar lingkaran tipis */}
         <ThinCircleProgress percent={pct} size={64} strokeWidth={2.5} />
 
+        {/* Stats sederhana: completed, skipped, total */}
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -417,7 +501,7 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. Sleep (Grafik Garis / Line Chart) */}
+      {/* 1. Sleep (Grafik Garis / Line Chart Interaktif) */}
       <SleepWidget days={sorted} />
 
       {/* 2. Training (Lingkaran Tipis + Stats) */}

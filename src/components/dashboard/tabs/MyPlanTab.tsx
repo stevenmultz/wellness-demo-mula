@@ -282,54 +282,11 @@ export function MyPlanOverview({
   const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
   const displayDayNumber = currentDayNumber > 0 ? currentDayNumber : 1;
 
-  // 3 program buttons (with first / current program active)
-  const programButtons = Array.from({ length: 3 }, (_, i) => {
-    const existing = plans && plans[i];
-    return {
-      index: i + 1,
-      programId: existing?.programId || `prog-${i + 1}`,
-      title: existing?.title
-        ? existing.title.length > 20
-          ? `${existing.title.slice(0, 18)}...`
-          : existing.title
-        : `Program ${i + 1}`,
-      isAvailable: Boolean(existing),
-    };
-  });
-
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. 3 Program buttons + See all my programs button */}
-      <div className="w-full flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 px-0.5">
-        {programButtons.map((btn, idx) => {
-          const isActive =
-            btn.programId === (selectedProgramId || program?.id) ||
-            (!selectedProgramId && idx === 0) ||
-            (currentIndex === idx);
-
-          return (
-            <button
-              key={btn.programId || idx}
-              type="button"
-              onClick={() => {
-                if (btn.isAvailable) {
-                  onSelectPlan?.(btn.programId);
-                } else if (onViewAllPrograms) {
-                  onViewAllPrograms();
-                }
-              }}
-              className={`h-8 px-3.5 rounded-full text-xs font-medium transition active:scale-95 cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
-                isActive
-                  ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white"
-                  : "bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white border border-zinc-200/80 dark:border-white/10"
-              }`}
-            >
-              <span>{btn.title}</span>
-            </button>
-          );
-        })}
-
-        {/* See all my programs button (same button style) */}
+      {/* 0. See all my programs button + Previous/Next index */}
+      <div className="w-full flex items-center justify-between gap-2 pb-0.5 px-0.5">
+        {/* See all my programs button */}
         <button
           type="button"
           onClick={onViewAllPrograms || onExplore}
@@ -337,6 +294,36 @@ export function MyPlanOverview({
         >
           <span>See all my programs</span>
         </button>
+
+        {/* Index previous / next controller */}
+        {plans && plans.length > 0 && (
+          <div className="inline-flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-full border border-zinc-200/80 dark:border-white/10 shadow-2xs">
+            <button
+              type="button"
+              onClick={handlePrevPlan}
+              disabled={currentIndex === 0 || plans.length <= 1}
+              aria-label="Previous plan"
+              className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span
+              data-testid="home-program-index"
+              className="px-2 text-[11px] font-mono font-medium text-zinc-900 dark:text-white tabular-nums select-none"
+            >
+              {currentIndex + 1} / {totalPlans}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextPlan}
+              disabled={currentIndex >= totalPlans - 1 || plans.length <= 1}
+              aria-label="Next plan"
+              className="w-6 h-6 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 1. Contained Image Banner */}

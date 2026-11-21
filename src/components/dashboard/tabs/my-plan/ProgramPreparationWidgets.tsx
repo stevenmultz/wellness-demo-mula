@@ -300,10 +300,10 @@ export function ProgramPreparationWidgets({
                 key={card.key}
                 type="button"
                 onClick={() => setActivePage(card.key)}
-                className="group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] hover:border-zinc-300 dark:hover:border-white/20 shadow-sm"
+                className="group relative overflow-hidden rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] border border-transparent dark:border-white/5 shadow-2xs"
               >
                 <div className="relative z-10 flex items-center justify-between w-full">
-                  <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
                     <Icon className="w-3.5 h-3.5" />
                   </div>
                   <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
