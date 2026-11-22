@@ -543,6 +543,147 @@ export function MealStepView({
     );
   }
 
+  if (currentSubStep === "meal_nutrition") {
+    const waterPresets = [1500, 2000, 2500, 3000];
+    const updateMacro = (
+      field: "calories" | "carbsG" | "proteinG" | "fatG" | "waterMl",
+      raw: string
+    ) => {
+      clearError();
+      const num = raw.trim() === "" ? null : Math.max(0, Math.round(Number(raw)));
+      setMealDraft((prev) => {
+        const next = {
+          ...prev,
+          [field]: Number.isFinite(num as number) ? num : null,
+        };
+        if (field === "carbsG" || field === "proteinG" || field === "fatG") {
+          const c = next.carbsG || 0;
+          const p = next.proteinG || 0;
+          const f = next.fatG || 0;
+          if (c > 0 || p > 0 || f > 0) {
+            next.calories = Math.round(c * 4 + p * 4 + f * 9);
+          }
+        }
+        return next;
+      });
+    };
+
+    const inputCls =
+      "w-full px-3.5 py-3 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-sm font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+
+    return (
+      <div className="space-y-5 min-w-0">
+        <StepHeader title="What were your macros & water intake today?" />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Carbs (g)
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={1500}
+              placeholder="e.g. 200"
+              value={mealDraft.carbsG ?? ""}
+              onChange={(e) => updateMacro("carbsG", e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Protein (g)
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={1000}
+              placeholder="e.g. 140"
+              value={mealDraft.proteinG ?? ""}
+              onChange={(e) => updateMacro("proteinG", e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Fat (g)
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={500}
+              placeholder="e.g. 60"
+              value={mealDraft.fatG ?? ""}
+              onChange={(e) => updateMacro("fatG", e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Calories (kcal)
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={10000}
+              placeholder="e.g. 1900"
+              value={mealDraft.calories ?? ""}
+              onChange={(e) => updateMacro("calories", e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Water Intake (ml)
+            </label>
+            {mealDraft.waterMl ? (
+              <span className="text-xs font-mono font-semibold text-zinc-900 dark:text-white">
+                {(mealDraft.waterMl / 1000).toFixed(1)} L
+              </span>
+            ) : null}
+          </div>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={10000}
+            step={100}
+            placeholder="e.g. 2200"
+            value={mealDraft.waterMl ?? ""}
+            onChange={(e) => updateMacro("waterMl", e.target.value)}
+            className={inputCls}
+          />
+          <div className="grid grid-cols-4 gap-2 pt-1">
+            {waterPresets.map((ml) => {
+              const active = mealDraft.waterMl === ml;
+              return (
+                <button
+                  key={ml}
+                  type="button"
+                  onClick={() => updateMacro("waterMl", String(ml))}
+                  className={`py-2 px-2 rounded-xl border text-xs font-mono transition ${
+                    active
+                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"
+                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                  }`}
+                >
+                  {(ml / 1000).toFixed(1)}L
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 min-w-0">
       <StepHeader title="How do you feel after today's meals?" />

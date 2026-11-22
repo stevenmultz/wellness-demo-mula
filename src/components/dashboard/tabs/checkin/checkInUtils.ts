@@ -172,6 +172,7 @@ export type SubStepId =
   | "meal_entry_1"
   | "meal_entry_2"
   | "meal_entry_3"
+  | "meal_nutrition"
   | "meal_mood"
   | "reflection_journal"
   | "reflection_mood";
@@ -187,6 +188,11 @@ export interface MealDraft {
   mealsCount: 0 | 1 | 2 | 3;
   mealEntries: MealSlotEntry[];
   mealFeeling: string;
+  calories?: number | null;
+  carbsG?: number | null;
+  proteinG?: number | null;
+  fatG?: number | null;
+  waterMl?: number | null;
 }
 
 export function stripLeadingFeeling(raw?: string | null): string {
@@ -278,12 +284,24 @@ export function readMealDraft(
         mealsCount?: number;
         mealEntries?: MealSlotEntry[];
         mealFeeling?: string;
+        calories?: number | null;
+        carbsG?: number | null;
+        proteinG?: number | null;
+        fatG?: number | null;
+        waterMl?: number | null;
       };
       const mealsCount =
         parsed?.mealsCount === 1 || parsed?.mealsCount === 2 || parsed?.mealsCount === 3
           ? parsed.mealsCount
           : 0;
       const mealFeeling = typeof parsed?.mealFeeling === "string" ? parsed.mealFeeling : "";
+      const macros = {
+        calories: typeof parsed?.calories === "number" ? parsed.calories : null,
+        carbsG: typeof parsed?.carbsG === "number" ? parsed.carbsG : null,
+        proteinG: typeof parsed?.proteinG === "number" ? parsed.proteinG : null,
+        fatG: typeof parsed?.fatG === "number" ? parsed.fatG : null,
+        waterMl: typeof parsed?.waterMl === "number" ? parsed.waterMl : null,
+      };
       if (parsed && Array.isArray(parsed.mealEntries) && parsed.mealEntries.length > 0) {
         const sanitized = parsed.mealEntries
           .filter(
@@ -310,6 +328,7 @@ export function readMealDraft(
             mealsCount || (Math.min(3, Math.max(1, sanitized.length)) as 1 | 2 | 3),
           mealEntries: sanitized,
           mealFeeling,
+          ...macros,
         };
       }
       if (parsed && parsed.mode === "similar") {
@@ -319,6 +338,7 @@ export function readMealDraft(
           mealsCount,
           mealEntries: buildEntriesFromLegacy(mealsCount, [], "similar", recommended),
           mealFeeling,
+          ...macros,
         };
       }
       if (parsed && parsed.mode === "off_track") {
@@ -328,6 +348,7 @@ export function readMealDraft(
           mealsCount,
           mealEntries: buildEntriesFromLegacy(mealsCount, [], "off_track", recommended),
           mealFeeling,
+          ...macros,
         };
       }
       if (parsed && Array.isArray(parsed.checkedMeals)) {
@@ -342,6 +363,7 @@ export function readMealDraft(
             recommended
           ),
           mealFeeling,
+          ...macros,
         };
       }
     } catch {

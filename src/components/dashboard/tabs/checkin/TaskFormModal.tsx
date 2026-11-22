@@ -206,6 +206,7 @@ export function TaskForm({
       const list: SubStepId[] = ["meal_count", "meal_entry_1"];
       if (count >= 2) list.push("meal_entry_2");
       if (count >= 3) list.push("meal_entry_3");
+      list.push("meal_nutrition");
       list.push("meal_mood");
       return list;
     }
@@ -482,6 +483,11 @@ export function TaskForm({
         mealsCount: mealCount,
         mealEntries: activeEntries,
         mealFeeling: mealDraft.mealFeeling,
+        calories: mealDraft.calories ?? null,
+        carbsG: mealDraft.carbsG ?? null,
+        proteinG: mealDraft.proteinG ?? null,
+        fatG: mealDraft.fatG ?? null,
+        waterMl: mealDraft.waterMl ?? null,
       };
       return (
         (await props.onSaveMeal(compliance, JSON.stringify(mealPayload), day.id)) !== false

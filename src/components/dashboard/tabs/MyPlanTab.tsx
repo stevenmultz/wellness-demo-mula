@@ -485,6 +485,8 @@ export function MyPlanOverview({
               <CohortPerformanceCard
                 days={fullProgramDays}
                 currentDayNumber={currentDayNumber}
+                bodyMetricLogs={bodyMetricLogs}
+                programId={program.id}
                 onSwitchWidget={setWidgetIndex}
               />
             </div>

@@ -369,6 +369,28 @@ export function LockedTaskSummaryView({
                       </dd>
                     </div>
                   )}
+                  {(mealDraft.calories || mealDraft.carbsG || mealDraft.proteinG || mealDraft.fatG) && (
+                    <div className="py-4 flex items-center justify-between gap-4">
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        Calories &amp; Macros
+                      </dt>
+                      <dd className="font-mono font-semibold text-zinc-950 dark:text-white text-right text-xs">
+                        {mealDraft.calories ? `${mealDraft.calories} kcal` : "—"} · C:{" "}
+                        {mealDraft.carbsG ?? 0}g / P: {mealDraft.proteinG ?? 0}g / F:{" "}
+                        {mealDraft.fatG ?? 0}g
+                      </dd>
+                    </div>
+                  )}
+                  {mealDraft.waterMl && (
+                    <div className="py-4 flex items-center justify-between gap-4">
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        Water Intake
+                      </dt>
+                      <dd className="font-mono font-semibold text-zinc-950 dark:text-white text-right">
+                        {(mealDraft.waterMl / 1000).toFixed(1)} L ({mealDraft.waterMl} ml)
+                      </dd>
+                    </div>
+                  )}
                   <div className="py-4 flex items-center justify-between gap-4">
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Post-Meal Mood
