@@ -10,6 +10,29 @@ import {
   type PlanDay,
 } from "./myPlanUtils";
 
+// ─── MetricDeltaBadge ────────────────────────────────────────────────────────
+function MetricDeltaBadge({ delta }: { delta: number }) {
+  if (delta > 0) {
+    return (
+      <span className="text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+        +{delta}%
+      </span>
+    );
+  }
+  if (delta < 0) {
+    return (
+      <span className="text-[11px] font-mono font-semibold text-rose-600 dark:text-rose-400">
+        {delta}%
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500">
+      ±0%
+    </span>
+  );
+}
+
 // ─── FiftyBarMeter (50 segments) ─────────────────────────────────────────────
 function FiftyBarMeter({ percent }: { percent: number }) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
@@ -38,7 +61,13 @@ function FiftyBarMeter({ percent }: { percent: number }) {
 }
 
 // ─── 1. Sleep Widget (Line Chart Interactive) ─────────────────────────────────
-function SleepWidget({ days }: { days: PlanDay[] }) {
+function SleepWidget({
+  days,
+  deltaPct = 0,
+}: {
+  days: PlanDay[];
+  deltaPct?: number;
+}) {
   const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
 
   const MAX_POINTS = 30;
@@ -114,15 +143,18 @@ function SleepWidget({ days }: { days: PlanDay[] }) {
             Sleep Average
           </span>
         </div>
-        {avgMins > 0 ? (
-          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-            {formatSleepHours(avgMins)} avg
-          </span>
-        ) : (
-          <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
-            —
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {avgMins > 0 ? (
+            <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+              {formatSleepHours(avgMins)} avg
+            </span>
+          ) : (
+            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
+              —
+            </span>
+          )}
+          <MetricDeltaBadge delta={deltaPct} />
+        </div>
       </div>
 
       {/* Body: Line Chart */}
@@ -313,10 +345,12 @@ function TrainingWidget({
   days,
   pct,
   currentDayNumber,
+  deltaPct = 0,
 }: {
   days: PlanDay[];
   pct: number;
   currentDayNumber?: number;
+  deltaPct?: number;
 }) {
   const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
@@ -361,27 +395,30 @@ function TrainingWidget({
   );
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full rounded-2xl bg-[#F5F2EB] dark:bg-[#1C1A17] p-4 sm:p-5 space-y-3.5 border border-[#E7E2D6] dark:border-stone-800/80">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+          <Dumbbell className="w-4 h-4 text-stone-600 dark:text-stone-400" />
           <span className="text-sm font-semibold text-zinc-950 dark:text-white">
             Training
           </span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-stone-200/80 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-medium">
             Today: Day {todayDayNum} ({paceDeltaStr})
           </span>
         </div>
-        <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-          {pct}%
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+            {pct}%
+          </span>
+          <MetricDeltaBadge delta={deltaPct} />
+        </div>
       </div>
 
       {/* 7-Column Grid (Sun to Sat) */}
       <div className="space-y-2 pt-1">
         {/* Column Headers: Sun Mon Tue Wed Thu Fri Sat */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono text-zinc-400 dark:text-zinc-500 text-center">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono text-stone-500 dark:text-stone-400 text-center">
           {dayHeaders.map((day) => (
             <span key={day}>{day}</span>
           ))}
@@ -431,22 +468,22 @@ function TrainingWidget({
                 }${isToday ? " (Today)" : ""}`}
                 className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
                   isSelected
-                    ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
+                    ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#F5F2EB] dark:ring-offset-stone-900 "
                     : ""
                 }${
                   isToday && !isSelected
-                    ? "outline outline-1 outline-zinc-900/40 dark:outline-white/40 "
+                    ? "outline outline-1.5 outline-zinc-900/50 dark:outline-white/50 "
                     : ""
                 }${
                   status === "full"
                     ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
                     : status === "partial"
-                    ? "bg-zinc-500 dark:bg-zinc-300 text-white dark:text-zinc-950"
+                    ? "bg-stone-600 dark:bg-stone-300 text-white dark:text-zinc-950"
                     : status === "rest"
-                    ? "bg-zinc-300 dark:bg-zinc-600"
+                    ? "bg-[#DED7CB] dark:bg-stone-700 border border-stone-300/80 dark:border-stone-600/60"
                     : status === "skipped"
-                    ? "bg-zinc-200/40 dark:bg-white/[0.04] border border-zinc-300/80 dark:border-white/15"
-                    : "bg-transparent border border-dashed border-zinc-300/60 dark:border-white/10"
+                    ? "bg-stone-200/50 dark:bg-stone-800/40 border border-stone-300/90 dark:border-stone-700/80"
+                    : "bg-transparent border border-dashed border-stone-300/90 dark:border-stone-700/60"
                 }`}
               />
             );
@@ -455,18 +492,18 @@ function TrainingWidget({
 
         {/* Detail card on clicking box (Monochrome English - only appears when clicked) */}
         {selectedDay && (
-          <div className="rounded-xl bg-white/90 dark:bg-white/[0.08] p-2.5 sm:p-3 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+          <div className="rounded-xl bg-white/95 dark:bg-stone-900/90 p-2.5 sm:p-3 border border-stone-200/90 dark:border-stone-800 flex items-center justify-between gap-3 animate-in fade-in duration-150">
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-zinc-950 dark:text-white">
                   Day {selectedDay.dayNumber}
                   {selectedDay.dayNumber === todayDayNum ? " (Today)" : ""}
                 </span>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-mono">
                   · {formatShortDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              <p className="text-[11px] text-stone-600 dark:text-stone-400">
                 {selectedStatus === "full"
                   ? "Workout completed in full"
                   : selectedStatus === "partial"
@@ -499,7 +536,13 @@ function TrainingWidget({
 }
 
 // ─── 3. Meal Control Widget (50 Garis + Status) ──────────────────────────────
-function MealControlWidget({ pct }: { pct: number }) {
+function MealControlWidget({
+  pct,
+  deltaPct = 0,
+}: {
+  pct: number;
+  deltaPct?: number;
+}) {
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
       {/* Header */}
@@ -510,9 +553,12 @@ function MealControlWidget({ pct }: { pct: number }) {
             Meal Control
           </span>
         </div>
-        <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-          {pct}%
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+            {pct}%
+          </span>
+          <MetricDeltaBadge delta={deltaPct} />
+        </div>
       </div>
 
       {/* Body: 50-segment bar */}
@@ -539,6 +585,9 @@ export function CohortPerformanceCard({
 }) {
   void _onSwitchWidget;
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+  const todayDay = sorted.find((d) => d.dayNumber === todayDayNum);
 
   // ── Training Stats ──────────────────────────────────────────────────────────
   const trainingDays = sorted.filter((d) => d.dayType === "TRAINING_DAY");
@@ -565,7 +614,59 @@ export function CohortPerformanceCard({
       ? Math.max(0, Math.round(((trainingTotal - trainingMissed) / trainingTotal) * 100))
       : 100;
 
-  // ── Meal Stats ──────────────────────────────────────────────────────────────
+  // Training Delta (Today vs expected schedule pace)
+  const expectedTrainingUpToToday = sorted.filter(
+    (d) => d.dayType === "TRAINING_DAY" && d.dayNumber <= todayDayNum
+  ).length;
+  const completedTrainingUpToToday = sorted.filter(
+    (d) =>
+      d.dayType === "TRAINING_DAY" &&
+      d.dayNumber <= todayDayNum &&
+      Boolean(
+        d.userProgress?.isCompleted ||
+          d.userProgress?.videoWatched ||
+          (d.userProgress?.selectedWorkout &&
+            d.userProgress.selectedWorkout !== "SKIPPED") ||
+          (d.userProgress?.workoutNotes &&
+            d.userProgress.workoutNotes !== "SKIPPED") ||
+          checkedList(d, undefined).length > 0
+      )
+  ).length;
+  const paceDelta = completedTrainingUpToToday - expectedTrainingUpToToday;
+  let trainingDelta = 0;
+  if (expectedTrainingUpToToday > 0) {
+    trainingDelta = Math.round((paceDelta / expectedTrainingUpToToday) * 100);
+  } else if (todayDay?.dayType === "TRAINING_DAY") {
+    trainingDelta = completedTrainingUpToToday > 0 ? 5 : -5;
+  }
+
+  // ── Sleep Stats & Delta ────────────────────────────────────────────────────
+  const validSleeps = sorted
+    .map((d) => calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime))
+    .filter((m) => m > 0);
+  const avgSleepMins =
+    validSleeps.length > 0
+      ? Math.round(validSleeps.reduce((acc, m) => acc + m, 0) / validSleeps.length)
+      : 450;
+  const todaySleepMins = calcSleepMins(
+    todayDay?.userProgress?.bedtime,
+    todayDay?.userProgress?.wakeTime
+  );
+  let sleepDelta = 0;
+  if (todaySleepMins > 0) {
+    sleepDelta = Math.round(((todaySleepMins - avgSleepMins) / avgSleepMins) * 100);
+  } else {
+    const prevDay = sorted.find((d) => d.dayNumber === todayDayNum - 1);
+    const prevMins = calcSleepMins(
+      prevDay?.userProgress?.bedtime,
+      prevDay?.userProgress?.wakeTime
+    );
+    if (prevMins > 0) {
+      sleepDelta = Math.round(((prevMins - avgSleepMins) / avgSleepMins) * 100);
+    }
+  }
+
+  // ── Meal Stats & Delta ──────────────────────────────────────────────────────
   const mealTotal = sorted.length;
   const mealPenalty = sorted.reduce((acc, d) => {
     const mc = d.userProgress?.mealCompliance;
@@ -579,20 +680,50 @@ export function CohortPerformanceCard({
       ? Math.max(0, Math.round(((mealTotal - mealPenalty) / mealTotal) * 100))
       : 100;
 
+  // Meal Delta (Today's adherence rating)
+  const todayMealComp = todayDay?.userProgress?.mealCompliance;
+  let mealDelta = 0;
+  if (todayMealComp === "FULL" || todayMealComp === "YES") {
+    mealDelta = 2;
+  } else if (todayMealComp === "SIMILAR") {
+    mealDelta = 1;
+  } else if (todayMealComp === "PARTIAL") {
+    mealDelta = -1;
+  } else if (todayMealComp === "OFF_TRACK" || todayMealComp === "SKIPPED") {
+    mealDelta = -2;
+  } else if (todayDay?.isPast2359) {
+    mealDelta = -2;
+  } else {
+    const pastDays = sorted.filter((d) => d.dayNumber < todayDayNum);
+    const pastPenalties = pastDays.reduce((acc, d) => {
+      const c = d.userProgress?.mealCompliance;
+      if (c === "SKIPPED" || c === "OFF_TRACK") return acc + 1;
+      if (c === "PARTIAL") return acc + 0.5;
+      if (c === "FULL" || c === "YES" || c === "SIMILAR") return acc;
+      return d.isPast2359 ? acc + 1 : acc;
+    }, 0);
+    const pastPct =
+      pastDays.length > 0
+        ? Math.round(((pastDays.length - pastPenalties) / pastDays.length) * 100)
+        : mealPct;
+    mealDelta = pastPct - mealPct;
+  }
+
   return (
     <section className="w-full space-y-4">
       {/* 1. Sleep (Interactive Line Chart) */}
-      <SleepWidget days={sorted} />
+      <SleepWidget days={sorted} deltaPct={sleepDelta} />
 
-      {/* 2. Training (14-Column Heatmap Grid) */}
+      {/* 2. Training (Beige Heatmap Grid) */}
       <TrainingWidget
         days={sorted}
         pct={trainingPct}
         currentDayNumber={currentDayNumber}
+        deltaPct={trainingDelta}
       />
 
       {/* 3. Meal Control (50 Garis + Status) */}
-      <MealControlWidget pct={mealPct} />
+      <MealControlWidget pct={mealPct} deltaPct={mealDelta} />
     </section>
   );
 }
