@@ -74,11 +74,7 @@ export function ActivityStepView({
   if (currentSubStep === "training_option") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={`Day ${day.dayNumber} · Training Focus`}
-          title="Choose today's training option"
-          subtitle="Select the variation that fits your readiness level today."
-        />
+        <StepHeader title="Choose today's training option" />
         <div className="grid grid-cols-1 gap-3">
           {groups.map((g, idx) => {
             const isSelected = activeWorkout === g.optionName;
@@ -143,11 +139,7 @@ export function ActivityStepView({
     const safeVideoUrl = activeVideo ? safeHttpUrl(activeVideo.url) : null;
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={activeWorkout || `Day ${day.dayNumber} Training`}
-          title="Watch the guided session"
-          subtitle="Review form cues and pacing before logging your movements."
-        />
+        <StepHeader title="Watch the guided session" />
         {activeVideo && (
           <div className="space-y-3">
             <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
@@ -198,11 +190,7 @@ export function ActivityStepView({
   if (currentSubStep === "training_movements") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={activeWorkout || "Movement Checklist"}
-          rightLabel={`${checkedCount} / ${movements.length} Done`}
-          title="Log your completed movements"
-        />
+        <StepHeader title="Log completed movements" />
 
         {movements.length > 0 ? (
           <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
@@ -312,11 +300,7 @@ export function ActivityStepView({
   if (currentSubStep === "training_mood") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={activeWorkout || "Post-Session Check"}
-          title="How do you feel after training?"
-          subtitle="Capture how your body responded to today's session."
-        />
+        <StepHeader title="How do you feel after training?" />
         <FeelingSelector
           items={TRAINING_FEELINGS}
           selected={trainingFeeling}
@@ -329,11 +313,7 @@ export function ActivityStepView({
   if (currentSubStep === "rest_checklist") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={`Day ${day.dayNumber} · Active Recovery`}
-          title="Complete your recovery protocol"
-          subtitle="Focus on parasympathetic down-regulation, hydration, and light mobility."
-        />
+        <StepHeader title="Complete your recovery protocol" />
         <ul className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
           {restLines.map((line, idx) => {
             const checked = isChecked(line);
@@ -367,11 +347,7 @@ export function ActivityStepView({
   if (currentSubStep === "rest_mood") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={`Day ${day.dayNumber} · Recovery Check`}
-          title="How does your body feel today?"
-          subtitle="Select how recovered and energized your body feels on this rest day."
-        />
+        <StepHeader title="How does your body feel today?" />
         <FeelingSelector
           items={REST_FEELINGS}
           selected={trainingFeeling}
@@ -384,11 +360,7 @@ export function ActivityStepView({
   if (currentSubStep === "connect_attendance") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={day.onsiteSchedule || "Live Community Session"}
-          title={`Will you attend ${day.eventTitle || "this session"}?`}
-          subtitle={day.eventDetails}
-        />
+        <StepHeader title={`Will you attend ${day.eventTitle || "this session"}?`} />
 
         {(safeHttpUrl(day.meetupLink) || day.onsiteVenue) && (
           <div className="py-4 border-t border-b border-zinc-200/90 dark:border-white/10 space-y-2.5 text-xs">

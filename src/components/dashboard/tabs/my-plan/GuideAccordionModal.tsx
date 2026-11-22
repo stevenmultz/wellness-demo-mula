@@ -162,27 +162,26 @@ function renderMeetupRows(list: PlanDay[], isPast: boolean, program: PlanProgram
 
         return (
           <div key={d.id} className={`py-5 space-y-3 ${isPast ? "opacity-80" : ""}`}>
-            {/* Title row */}
-            <div className="space-y-1 min-w-0">
-              <h3 className="text-sm font-geometric font-medium leading-snug text-zinc-950 dark:text-white">
-                {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
-              </h3>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-[11px] text-zinc-400">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <div className="space-y-1 min-w-0">
+                <h3 className="text-sm font-geometric font-semibold leading-snug text-zinc-950 dark:text-white">
+                  {`Day ${d.dayNumber} · ${cleanSessionTitle}`}
+                </h3>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   {formatShortDayDate(d.unlockDate, d.dayNumber)}
-                  {hostName ? ` · ${hostName}` : ""}
+                  {hostName ? ` · Hosted by ${hostName}` : ""}
                 </p>
-                {d.onsiteSchedule && (
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{d.onsiteSchedule}</span>
-                  </span>
-                )}
               </div>
+              {d.onsiteSchedule && (
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 bg-zinc-200/70 dark:bg-white/10 px-2.5 py-1 rounded-lg shrink-0 self-start">
+                  <Clock className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+                  <span>{d.onsiteSchedule}</span>
+                </div>
+              )}
             </div>
 
             {d.eventDetails && (
-              <p className="text-xs leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
+              <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line text-zinc-600 dark:text-zinc-300">
                 {d.eventDetails}
               </p>
             )}
@@ -190,26 +189,26 @@ function renderMeetupRows(list: PlanDay[], isPast: boolean, program: PlanProgram
             {(d.onsiteVenue || program.venueAddress) && (
               <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span className="break-words min-w-0">{d.onsiteVenue || program.venueAddress}</span>
+                <span>{d.onsiteVenue || program.venueAddress}</span>
               </div>
             )}
 
             {(meetUrl || mapUrl) && (
-              <div className="flex flex-col gap-2 pt-0.5 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
                 {meetUrl && (
                   <a
                     href={meetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`h-8 px-4 rounded-full text-xs font-medium inline-flex items-center gap-1.5 active:scale-95 transition w-full sm:w-auto justify-center sm:justify-start ${
+                    className={`h-9 px-4 rounded-xl text-xs font-medium inline-flex items-center justify-center gap-1.5 active:scale-95 transition ${
                       isPast
-                        ? "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-400"
-                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                        ? "bg-zinc-200/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-300"
+                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
                     }`}
                   >
-                    <Video className="w-3.5 h-3.5 shrink-0" />
+                    <Video className="w-3.5 h-3.5" />
                     <span>{isPast ? "Session Archive" : "Join Live Meeting"}</span>
-                    <ExternalLink className="w-3 h-3 shrink-0" />
+                    <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
                 {mapUrl && (
@@ -217,9 +216,9 @@ function renderMeetupRows(list: PlanDay[], isPast: boolean, program: PlanProgram
                     href={mapUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5 w-full sm:w-auto justify-center sm:justify-start"
+                    className="h-9 px-4 rounded-xl border border-zinc-200 dark:border-white/20 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center justify-center gap-1.5 active:scale-95 transition hover:bg-zinc-50 dark:hover:bg-white/5"
                   >
-                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5" />
                     <span>Directions</span>
                   </a>
                 )}

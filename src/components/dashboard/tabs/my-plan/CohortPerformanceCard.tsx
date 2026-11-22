@@ -326,6 +326,29 @@ function TrainingWidget({
     ? getTrainingDayStatus(selectedDay, currentDayNumber)
     : null;
 
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+  const expectedTrainingUpToToday = sortedDays.filter(
+    (d) => d.dayType === "TRAINING_DAY" && d.dayNumber <= todayDayNum
+  ).length;
+  const completedTrainingUpToToday = sortedDays.filter(
+    (d) =>
+      d.dayType === "TRAINING_DAY" &&
+      d.dayNumber <= todayDayNum &&
+      Boolean(
+        d.userProgress?.isCompleted ||
+          d.userProgress?.videoWatched ||
+          (d.userProgress?.selectedWorkout &&
+            d.userProgress.selectedWorkout !== "SKIPPED") ||
+          (d.userProgress?.workoutNotes &&
+            d.userProgress.workoutNotes !== "SKIPPED") ||
+          checkedList(d, undefined).length > 0
+      )
+  ).length;
+  const paceDelta = completedTrainingUpToToday - expectedTrainingUpToToday;
+  const paceDeltaStr =
+    paceDelta > 0 ? `+${paceDelta}` : paceDelta === 0 ? "±0" : `${paceDelta}`;
+
   // 7 columns: Sun to Sat
   const dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const firstDay = sortedDays[0];
@@ -346,6 +369,9 @@ function TrainingWidget({
           <span className="text-sm font-semibold text-zinc-950 dark:text-white">
             Training
           </span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-medium">
+            Today: Day {todayDayNum} ({paceDeltaStr})
+          </span>
         </div>
         <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
           {pct}%
@@ -361,7 +387,7 @@ function TrainingWidget({
           ))}
         </div>
 
-        {/* 7-Column Boxes: 4 Tones (T1=Full, T2=Partial, T3=Rest light, T4=Upcoming/Skipped palest) */}
+        {/* 7-Column Boxes: 5 Nodes (Full, Partial, Rest, Skipped, Future) */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {Array.from({ length: totalSlots }, (_, i) => {
             const dayIndex = i - startDayOfWeek;
@@ -381,6 +407,7 @@ function TrainingWidget({
 
             const status = getTrainingDayStatus(d, currentDayNumber);
             const isSelected = selectedDayNum === d.dayNumber;
+            const isToday = d.dayNumber === todayDayNum;
 
             return (
               <button
@@ -393,30 +420,35 @@ function TrainingWidget({
                 }
                 title={`Day ${d.dayNumber}: ${
                   status === "full"
-                    ? "Completed"
+                    ? "Full Workout"
                     : status === "partial"
-                    ? "Partial"
+                    ? "Partial Workout"
                     : status === "rest"
                     ? "Rest Day"
                     : status === "future"
                     ? "Upcoming"
                     : "Skipped"
-                }`}
-                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                }${isToday ? " (Today)" : ""}`}
+                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
                   isSelected
                     ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
                     : ""
                 }${
+                  isToday && !isSelected
+                    ? "outline outline-1 outline-zinc-900/40 dark:outline-white/40 "
+                    : ""
+                }${
                   status === "full"
-                    ? "bg-zinc-900 dark:bg-white"
+                    ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
                     : status === "partial"
-                    ? "bg-zinc-500 dark:bg-white/55"
+                    ? "bg-zinc-500 dark:bg-zinc-300 text-white dark:text-zinc-950"
                     : status === "rest"
-                    ? "bg-zinc-200 dark:bg-white/[0.15]"
-                    : "bg-zinc-100/80 dark:bg-white/[0.05] border border-zinc-200/40 dark:border-white/[0.05]"
+                    ? "bg-zinc-300 dark:bg-zinc-600"
+                    : status === "skipped"
+                    ? "bg-zinc-200/40 dark:bg-white/[0.04] border border-zinc-300/80 dark:border-white/15"
+                    : "bg-transparent border border-dashed border-zinc-300/60 dark:border-white/10"
                 }`}
-              >
-              </button>
+              />
             );
           })}
         </div>
@@ -428,6 +460,7 @@ function TrainingWidget({
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-zinc-950 dark:text-white">
                   Day {selectedDay.dayNumber}
+                  {selectedDay.dayNumber === todayDayNum ? " (Today)" : ""}
                 </span>
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
                   · {formatShortDayDate(selectedDay.unlockDate, selectedDay.dayNumber)}
@@ -435,11 +468,11 @@ function TrainingWidget({
               </div>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 {selectedStatus === "full"
-                  ? "Workout completed"
+                  ? "Workout completed in full"
                   : selectedStatus === "partial"
-                  ? "Partially completed"
+                  ? "Partially completed session"
                   : selectedStatus === "rest"
-                  ? "Rest day"
+                  ? "Scheduled rest & recovery day"
                   : selectedStatus === "future"
                   ? "Upcoming session"
                   : "Workout skipped"}
@@ -448,11 +481,11 @@ function TrainingWidget({
             <div className="text-right">
               <span className="text-xs font-mono font-semibold text-zinc-950 dark:text-white uppercase">
                 {selectedStatus === "full"
-                  ? "Completed"
+                  ? "Full"
                   : selectedStatus === "partial"
                   ? "Partial"
                   : selectedStatus === "rest"
-                  ? "Rest"
+                  ? "Rest Day"
                   : selectedStatus === "future"
                   ? "Upcoming"
                   : "Skipped"}

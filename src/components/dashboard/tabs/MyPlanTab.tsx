@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Compass,
   ExternalLink,
+  MessageSquare,
   Shield,
   User as UserIcon,
   Users,
@@ -372,8 +373,8 @@ export function MyPlanOverview({
                 onClick={() => setShowCommunityModal(true)}
                 className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>{locale === "id" ? "Komunitas" : "Community"}</span>
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Group Chat</span>
               </button>
               <button
                 type="button"

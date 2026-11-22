@@ -19,40 +19,22 @@ import {
 } from "./checkInUtils";
 
 export function StepHeader({
-  eyebrow,
-  rightLabel,
   title,
   subtitle,
-  quote,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   rightLabel?: string;
   title: string;
   subtitle?: string | null;
   quote?: string | null;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          {eyebrow}
-        </span>
-        {rightLabel && (
-          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
-            {rightLabel}
-          </span>
-        )}
-      </div>
-      <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white leading-[1.15]">
+    <div className="space-y-1 pb-1">
+      <h1 className="text-xl sm:text-2xl font-geometric font-normal tracking-tight text-zinc-950 dark:text-white leading-snug">
         {title}
       </h1>
-      {quote && (
-        <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-200 border-l-2 border-zinc-300 dark:border-white/25 pl-3 leading-relaxed">
-          {quote}
-        </p>
-      )}
       {subtitle && (
-        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
           {subtitle}
         </p>
       )}
@@ -269,10 +251,7 @@ export function SleepStepView({
   if (currentSubStep === "wake") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={`Day ${dayNumber} · Sleep Log`}
-          title="What time did you wake up today?"
-        />
+        <StepHeader title="What time did you wake up?" />
         <TimeInputField
           idPrefix="wake-time"
           label="Wake time"
@@ -288,10 +267,7 @@ export function SleepStepView({
   if (currentSubStep === "bed") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={wake ? `Woke up at ${wake}` : `Day ${dayNumber} · Sleep Log`}
-          title="What time did you go to sleep last night?"
-        />
+        <StepHeader title="What time did you go to bed?" />
         <TimeInputField
           idPrefix="bed-time"
           label="Bedtime"
@@ -303,7 +279,7 @@ export function SleepStepView({
         {totalSleepMins > 0 && (
           <div className="pt-3 border-t border-zinc-200/90 dark:border-white/10 flex items-center justify-between gap-3 text-xs">
             <span className="text-zinc-600 dark:text-zinc-400 font-medium">
-              Total Sleep
+              Calculated Rest
             </span>
             <div className="flex items-center gap-2">
               <span className="font-mono font-bold text-sm text-zinc-950 dark:text-white">
@@ -325,11 +301,7 @@ export function SleepStepView({
 
   return (
     <div className="space-y-6 min-w-0">
-      <StepHeader
-        eyebrow={`${bed} → ${wake} · ${formatDuration(totalSleepMins)}`}
-        title="How do you feel after waking up?"
-        subtitle="Select the condition that best describes your morning energy."
-      />
+      <StepHeader title="How do you feel after waking up?" />
       <FeelingSelector
         items={SLEEP_FEELINGS}
         selected={sleepFeeling}
@@ -354,24 +326,48 @@ export function MealStepView({
   setMealDraft: React.Dispatch<React.SetStateAction<MealDraft>>;
   clearError: () => void;
 }) {
+  void dayNumber;
   if (currentSubStep === "meal_count") {
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader
-          eyebrow={`Day ${dayNumber} · Meal Notes`}
-          title="How was your meal today?"
-        />
-        <textarea
-          value={mealDraft.mealFeeling}
-          onChange={(e) => {
-            clearError();
-            setMealDraft((prev) => ({ ...prev, mealFeeling: e.target.value }));
-          }}
-          rows={5}
-          maxLength={1000}
-          placeholder="e.g. Had rice and grilled chicken for lunch, light dinner around 7pm..."
-          className="w-full px-4 py-3.5 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-base sm:text-sm leading-relaxed text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:border-zinc-950 dark:focus:border-white transition resize-none"
-        />
+        <StepHeader title="How many meals did you eat today?" />
+        <div className="grid grid-cols-3 gap-3 pt-1">
+          {([1, 2, 3] as const).map((count) => {
+            const active = mealDraft.mealsCount === count;
+            return (
+              <button
+                key={count}
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setMealDraft((prev) => ({
+                    ...prev,
+                    mealsCount: count,
+                    mealEntries: prev.mealEntries.slice(0, count),
+                  }));
+                }}
+                className={`py-5 px-2 rounded-2xl border text-center transition active:scale-95 ${
+                  active
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                }`}
+              >
+                <span className="block text-2xl font-geometric font-medium tabular-nums leading-none">
+                  {count}
+                </span>
+                <span
+                  className={`block text-xs font-medium mt-2 ${
+                    active
+                      ? "text-white/80 dark:text-zinc-950/80"
+                      : "text-zinc-500 dark:text-zinc-400"
+                  }`}
+                >
+                  {count === 1 ? "Meal" : "Meals"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -419,9 +415,8 @@ export function MealStepView({
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader
-          eyebrow={`Meal ${slotIndex + 1} of ${totalMeals} · Daily Plan Check`}
-          title={`Did Meal ${slotIndex + 1} follow today's meal plan?`}
-          subtitle={cleanDefaultRec ? `Suggested: ${cleanDefaultRec}` : null}
+          title={`Did Meal ${slotIndex + 1} follow your plan?`}
+          subtitle={cleanDefaultRec ? `Recommended: ${cleanDefaultRec}` : null}
         />
 
         <div className="grid grid-cols-1 gap-3">
@@ -550,11 +545,7 @@ export function MealStepView({
 
   return (
     <div className="space-y-6 min-w-0">
-      <StepHeader
-        eyebrow={`${mealDraft.mealsCount} ${mealDraft.mealsCount === 1 ? "Meal" : "Meals"} Logged`}
-        title="How do you feel after your meals?"
-        subtitle="Note your post-meal digestion and sustained energy state."
-      />
+      <StepHeader title="How do you feel after today's meals?" />
       <FeelingSelector
         items={MEAL_FEELINGS}
         selected={mealDraft.mealFeeling}

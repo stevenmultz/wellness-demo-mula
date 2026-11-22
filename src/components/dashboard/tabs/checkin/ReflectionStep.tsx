@@ -35,8 +35,7 @@ export function ReflectionStepView({
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader
-          eyebrow={`Day ${dayNumber} · Daily Notes`}
-          title="How was your day?"
+          title="What is on your mind today?"
         />
 
         <textarea
@@ -50,7 +49,7 @@ export function ReflectionStepView({
           }}
           rows={5}
           maxLength={2000}
-          placeholder="Write anything on your mind — thoughts, wins, struggles, or just how you feel..."
+          placeholder="Write your journal, vent, or share any thoughts from today..."
           className={areaCls}
         />
 
@@ -63,15 +62,26 @@ export function ReflectionStepView({
               : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
           }`}
         >
-          <p
-            className={`text-sm font-semibold ${
-              preferNotAnswer
-                ? "text-white dark:text-zinc-950"
-                : "text-zinc-950 dark:text-white"
-            }`}
-          >
-            Prefer not to answer
-          </p>
+          <div className="min-w-0">
+            <p
+              className={`text-sm font-semibold ${
+                preferNotAnswer
+                  ? "text-white dark:text-zinc-950"
+                  : "text-zinc-950 dark:text-white"
+              }`}
+            >
+              Prefer not to answer
+            </p>
+            <p
+              className={`text-xs mt-0.5 leading-relaxed ${
+                preferNotAnswer
+                  ? "text-white/80 dark:text-zinc-950/80"
+                  : "text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              Keep today&apos;s journal private and continue to your mood rating.
+            </p>
+          </div>
           {preferNotAnswer && <Check className="w-4 h-4 shrink-0" />}
         </button>
       </div>
@@ -81,9 +91,7 @@ export function ReflectionStepView({
   return (
     <div className="space-y-6 min-w-0">
       <StepHeader
-        eyebrow="End of Day Check-In"
-        title="How is your overall mood & energy today?"
-        subtitle="Select your overall rating to wrap up today's reflection."
+        title="How was your mood & energy today?"
       />
       <div
         className="grid grid-cols-5 gap-2 sm:gap-2.5 pt-1 min-w-0"
