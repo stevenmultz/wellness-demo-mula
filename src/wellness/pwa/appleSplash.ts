@@ -50,9 +50,14 @@ const APPLE_SPLASH_DEVICES: AppleSplashSpec[] = [
  * Generates exact iOS WebKit apple-touch-startup-image link entries for BOTH
  * light and dark system appearance, both pointing to the pure-white zera.id splash PNGs
  * so iPhones in Dark Mode never fall back to a black launch window.
+ * Includes a universal fallback startup image without media query to cover any unlisted screen ratios.
  */
-export const APPLE_SPLASH_LINKS: Array<{ key: string; href: string; media: string }> =
-  APPLE_SPLASH_DEVICES.flatMap((d) => {
+export const APPLE_SPLASH_LINKS: Array<{ key: string; href: string; media?: string }> = [
+  {
+    key: "apple-splash-universal-fallback",
+    href: `/splash/splash-1179x2556.png?${SPLASH_VERSION}`,
+  },
+  ...APPLE_SPLASH_DEVICES.flatMap((d) => {
     const base = `screen and (device-width: ${d.deviceWidth}px) and (device-height: ${d.deviceHeight}px) and (-webkit-device-pixel-ratio: ${d.dpr}) and (orientation: portrait)`;
     return [
       {
@@ -66,4 +71,5 @@ export const APPLE_SPLASH_LINKS: Array<{ key: string; href: string; media: strin
         media: `${base} and (prefers-color-scheme: dark)`,
       },
     ];
-  });
+  }),
+];

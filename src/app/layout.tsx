@@ -5,6 +5,8 @@ import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuraBackground } from "@/components/ui/AuraBackground";
 import { ServiceWorkerRegister } from "@/components/providers/ServiceWorkerRegister";
+import { PwaSplashDismiss } from "@/components/providers/PwaSplashDismiss";
+import { ZeraSplashWordmark } from "@/components/common/ZeraSplashWordmark";
 import { BRAND } from "@/wellness/brand";
 import { APPLE_SPLASH_LINKS } from "@/wellness/pwa/appleSplash";
 import { LocaleProvider } from "@/wellness/i18n/LocaleContext";
@@ -48,7 +50,7 @@ export default async function RootLayout({
       <head>
         {/* Static first-byte PWA & Apple splash tags (bypassing Next.js 16 streaming metadata) */}
         <meta name="theme-color" content="#f6f6f4" />
-        <meta name="color-scheme" content="only light" />
+        <meta name="color-scheme" content="light" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content={BRAND.name} />
@@ -62,7 +64,7 @@ export default async function RootLayout({
             key={item.key}
             rel="apple-touch-startup-image"
             href={item.href}
-            media={item.media}
+            {...(item.media ? { media: item.media } : {})}
           />
         ))}
         <style
@@ -72,7 +74,28 @@ export default async function RootLayout({
                 margin: 0;
                 padding: 0;
                 background-color: #f6f6f4;
-                color-scheme: only light;
+                color-scheme: light;
+              }
+              #zera-pwa-splash {
+                position: fixed;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #f6f6f4;
+                color: #09090b;
+                user-select: none;
+                overflow: hidden;
+                pointer-events: none;
+                transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+              }
+              #zera-pwa-splash.splash-dismissed {
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
               }
             `,
           }}
@@ -86,8 +109,12 @@ export default async function RootLayout({
       <body
         className={`${urbanist.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-[#f6f6f4] relative overflow-x-clip antialiased`}
       >
+        <div id="zera-pwa-splash" aria-hidden="true">
+          <ZeraSplashWordmark />
+        </div>
         <ThemeProvider>
           <LocaleProvider initialLocale={locale}>
+            <PwaSplashDismiss />
             <ServiceWorkerRegister />
             <SmoothScroll>
               <AuraBackground />
