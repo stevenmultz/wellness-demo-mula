@@ -12,51 +12,35 @@ import {
   type PlanDay,
 } from "./myPlanUtils";
 
-// ─── MetricDeltaBadge (Arrow Up/Down + Emerald/Ruby Border Box, Monochrome Text) ─
+// ─── MetricDeltaBadge (Up = Emerald Border Box, Down = Ruby Border Box, Monochrome Text) ─
 function MetricDeltaBadge({
   delta,
   unit = "%",
-  invertColor = false,
 }: {
   delta: number;
   unit?: string;
-  invertColor?: boolean;
 }) {
   const absVal = Math.abs(delta);
   const label = `${absVal}${unit}`;
 
   if (delta > 0) {
-    const isPositiveGood = !invertColor;
     return (
-      <span
-        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold text-zinc-900 dark:text-zinc-100 bg-white/60 dark:bg-white/[0.04] ${
-          isPositiveGood
-            ? "border-[#2E6F54] dark:border-[#4D9E7B]"
-            : "border-[#9E3B4B] dark:border-[#C95B6B]"
-        }`}
-      >
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#2A7B60] bg-[#EBF3F0]/80 dark:border-[#4D9E7B] dark:bg-[#1F6E54]/20 text-[10px] font-mono font-semibold text-zinc-950 dark:text-zinc-100 leading-none">
         <ArrowUp className="w-2.5 h-2.5 stroke-[2.25] shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
   if (delta < 0) {
-    const isNegativeGood = invertColor;
     return (
-      <span
-        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold text-zinc-900 dark:text-zinc-100 bg-white/60 dark:bg-white/[0.04] ${
-          isNegativeGood
-            ? "border-[#2E6F54] dark:border-[#4D9E7B]"
-            : "border-[#9E3B4B] dark:border-[#C95B6B]"
-        }`}
-      >
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#F7ECEE]/80 dark:border-[#C95B6B] dark:bg-[#9E2A3A]/20 text-[10px] font-mono font-semibold text-zinc-950 dark:text-zinc-100 leading-none">
         <ArrowDown className="w-2.5 h-2.5 stroke-[2.25] shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-zinc-300 dark:border-white/15 bg-white/40 dark:bg-white/[0.02] text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-zinc-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.02] text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400 leading-none">
       <span>0{unit}</span>
     </span>
   );
@@ -119,7 +103,7 @@ function FiftyBarMeter({ percent }: { percent: number }) {
   );
 }
 
-// ─── 1. Body Weight Widget (Top Summary + Weekly Change) ─────────────────────
+// ─── 1. Body Weight Widget (Side-by-Side Left Card, Editorial Urbanist + Weekly Change) ─
 interface DatedWeightPoint {
   dayIndex: number;
   weightKg: number;
@@ -159,7 +143,6 @@ function WeightSummaryWidget({
 
   const points: DatedWeightPoint[] = [];
 
-  // 1. Collect from server bodyMetricLogs
   bodyMetricLogs.forEach((log, idx) => {
     if (typeof log.weightKg === "number" && log.weightKg > 20 && log.weightKg < 300) {
       if (!programId || !log.programId || log.programId === programId) {
@@ -172,7 +155,6 @@ function WeightSummaryWidget({
     }
   });
 
-  // 2. Collect from day customTasks submissions & localByDay
   for (const d of days) {
     for (const ct of d.customTasks || []) {
       const vals = ct.submission?.values;
@@ -197,7 +179,6 @@ function WeightSummaryWidget({
     }
   }
 
-  // Deduplicate by dayIndex and sort ascending
   const byDayMap = new Map<number, number>();
   for (const pt of points) {
     byDayMap.set(pt.dayIndex, pt.weightKg);
@@ -210,7 +191,6 @@ function WeightSummaryWidget({
     sortedPoints.length > 0 ? sortedPoints[sortedPoints.length - 1] : null;
   const latestWeight = latestPoint ? latestPoint.weightKg : 0;
 
-  // Weekly change: compare latest reading against reading ~7 days earlier (or earliest reading in the past week)
   let weeklyDeltaKg = 0;
   if (latestPoint && sortedPoints.length >= 2) {
     const targetDayIndex = (currentDayNumber || latestPoint.dayIndex) - 7;
@@ -224,24 +204,248 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <Scale className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-        <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-          Weight
-        </span>
+    <div className="h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex flex-col justify-between gap-4">
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Scale className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+            Weight
+          </span>
+        </div>
+        <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg" />
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-          {latestWeight > 0 ? `${latestWeight.toFixed(1)} kg` : "—"}
+
+      <div className="space-y-1 my-auto py-1">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+            {latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
+          </span>
+          {latestWeight > 0 && (
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+              kg
+            </span>
+          )}
+        </div>
+        <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+          Per week change
         </span>
-        <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg / wk" />
       </div>
     </div>
   );
 }
 
-// ─── 2. Sleep Widget (Line Chart Interactive, Delta in Minutes) ──────────────
+// ─── 2. Training Widget (Side-by-Side Right Card, 7-Column 5-Grey Heatmap) ───
+type TrainingStatus = "full" | "partial" | "rest" | "skipped" | "future";
+
+function getTrainingDayStatus(
+  d: PlanDay,
+  currentDayNumber?: number
+): TrainingStatus {
+  const p = d.userProgress;
+  const isCompleted = Boolean(p && p.isCompleted);
+  const hasWorkout = Boolean(
+    p &&
+      (p.videoWatched ||
+        (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
+        (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
+        checkedList(d, undefined).length > 0)
+  );
+
+  if (isCompleted) return "full";
+  if (hasWorkout) return "partial";
+  if (d.dayType === "REST_DAY") return "rest";
+
+  const isFuture =
+    Boolean(
+      currentDayNumber &&
+        currentDayNumber > 0 &&
+        d.dayNumber > currentDayNumber
+    ) ||
+    (!d.isCalendarUnlocked && !d.isPast2359);
+  if (isFuture) return "future";
+
+  return "skipped";
+}
+
+function TrainingWidget({
+  days,
+  pct,
+  currentDayNumber,
+  deltaPct = 0,
+}: {
+  days: PlanDay[];
+  pct: number;
+  currentDayNumber?: number;
+  deltaPct?: number;
+}) {
+  const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
+  const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
+  const selectedDay =
+    sortedDays.find((d) => d.dayNumber === selectedDayNum) || null;
+
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+
+  // Compact 7 columns: S M T W T F S on mobile, Sun..Sat on sm+
+  const dayHeaders = [
+    { short: "S", full: "Sun" },
+    { short: "M", full: "Mon" },
+    { short: "T", full: "Tue" },
+    { short: "W", full: "Wed" },
+    { short: "T", full: "Thu" },
+    { short: "F", full: "Fri" },
+    { short: "S", full: "Sat" },
+  ];
+  const firstDay = sortedDays[0];
+  const firstDate = firstDay?.unlockDate ? new Date(firstDay.unlockDate) : null;
+  const startDayOfWeek =
+    firstDate && !isNaN(firstDate.getTime()) ? firstDate.getDay() : 0;
+  const totalSlots = Math.max(
+    7,
+    Math.ceil((startDayOfWeek + sortedDays.length) / 7) * 7
+  );
+
+  const getDayCompletionFraction = (d: PlanDay): string => {
+    const acts =
+      d.dayType === "REST_DAY"
+        ? splitActivities(d.restInstructions)
+        : movementNames(d);
+    if (acts.length > 0) {
+      const checks = checkedList(d, undefined);
+      const done = d.userProgress?.isCompleted
+        ? acts.length
+        : acts.filter((name) =>
+            checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
+          ).length;
+      return `${done}/${acts.length}`;
+    }
+
+    const totalCount = sortedDays.length || 7;
+    const completedUpToDay = sortedDays.filter((item) => {
+      if (item.dayNumber > d.dayNumber) return false;
+      const st = getTrainingDayStatus(item, currentDayNumber);
+      return st === "full" || st === "partial" || st === "rest";
+    }).length;
+    return `${completedUpToDay}/${totalCount}`;
+  };
+
+  return (
+    <div className="h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex flex-col justify-between gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Dumbbell className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+            Training
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[11px] sm:text-xs font-mono font-medium text-zinc-900 dark:text-white">
+            {pct}%
+          </span>
+          <MetricDeltaBadge delta={deltaPct} />
+        </div>
+      </div>
+
+      {/* 7-Column Grid (Sun to Sat) */}
+      <div className="space-y-1.5 my-auto">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] font-mono text-zinc-400 dark:text-zinc-500 text-center">
+          {dayHeaders.map((day, idx) => (
+            <span key={idx}>
+              <span className="sm:hidden">{day.short}</span>
+              <span className="hidden sm:inline">{day.full}</span>
+            </span>
+          ))}
+        </div>
+
+        {/* 5 Distinct Grey Variants (None matching widget bg #ececea):
+            1. More Light Grey (#fcfcfb) -> Future / Upcoming
+            2. Light Grey (#d4d4d8)      -> Skipped
+            3. Grey (#a1a1aa)            -> Rest Day
+            4. Dark Grey (#52525b)       -> Partial Workout
+            5. More Dark Grey (#18181b)  -> Full Workout
+        */}
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+          {Array.from({ length: totalSlots }, (_, i) => {
+            const dayIndex = i - startDayOfWeek;
+            const d =
+              dayIndex >= 0 && dayIndex < sortedDays.length
+                ? sortedDays[dayIndex]
+                : undefined;
+
+            if (!d) {
+              return (
+                <div
+                  key={`slot-${i}`}
+                  className="aspect-square rounded-[4px] sm:rounded-md bg-transparent"
+                />
+              );
+            }
+
+            const status = getTrainingDayStatus(d, currentDayNumber);
+            const isSelected = selectedDayNum === d.dayNumber;
+            const isToday = d.dayNumber === todayDayNum;
+
+            return (
+              <button
+                key={d.dayNumber}
+                type="button"
+                onClick={() =>
+                  setSelectedDayNum((prev) =>
+                    prev === d.dayNumber ? null : d.dayNumber
+                  )
+                }
+                aria-label={`Day ${d.dayNumber}`}
+                className={`aspect-square rounded-[4px] sm:rounded-md flex items-center justify-center transition-all cursor-pointer relative ${
+                  isSelected
+                    ? "ring-1.5 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
+                    : ""
+                }${
+                  isToday && !isSelected
+                    ? "outline outline-1 outline-zinc-900/50 dark:outline-white/50 "
+                    : ""
+                }${
+                  status === "full"
+                    ? "bg-[#18181b] dark:bg-white text-white dark:text-zinc-950"
+                    : status === "partial"
+                    ? "bg-[#52525b] dark:bg-zinc-300 text-white dark:text-zinc-950"
+                    : status === "rest"
+                    ? "bg-[#a1a1aa] dark:bg-zinc-500"
+                    : status === "skipped"
+                    ? "bg-[#d4d4d8] dark:bg-zinc-700"
+                    : "bg-[#fcfcfb] dark:bg-zinc-800/60"
+                }`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Clean separated detail bar on click — click to dismiss */}
+        {selectedDay && (
+          <button
+            type="button"
+            onClick={() => setSelectedDayNum(null)}
+            title="Click to dismiss"
+            className="w-full rounded-lg bg-white/90 dark:bg-white/[0.08] px-2.5 py-1.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-1.5 text-[10px] font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition mt-1"
+          >
+            <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
+              {formatMetricDate(
+                selectedDay.unlockDate,
+                selectedDay.dayNumber,
+                currentDayNumber
+              )}
+            </span>
+            <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white shrink-0">
+              {getDayCompletionFraction(selectedDay)}
+            </span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── 3. Sleep Widget (Line Chart Interactive, Delta in Minutes) ──────────────
 function SleepWidget({
   days,
   deltaMins = 0,
@@ -340,7 +544,7 @@ function SleepWidget({
         </div>
       </div>
 
-      {/* Body: Line Chart (No Day 1 / Day X labels) */}
+      {/* Body: Line Chart */}
       {validSleeps.length === 0 ? (
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center py-4">
           No sleep data recorded yet
@@ -368,7 +572,6 @@ function SleepWidget({
                 </linearGradient>
               </defs>
 
-              {/* Target Line (7h 30m) */}
               <line
                 x1={padX}
                 y1={targetY}
@@ -379,10 +582,8 @@ function SleepWidget({
                 strokeDasharray="4 3"
               />
 
-              {/* Area fill under curve */}
               {areaD && <path d={areaD} fill="url(#sleepAreaGrad)" />}
 
-              {/* Main Line graph */}
               {pathD && (
                 <path
                   d={pathD}
@@ -394,7 +595,6 @@ function SleepWidget({
                 />
               )}
 
-              {/* Clickable Data points */}
               {points.map((pt) => {
                 if (pt.mins === 0) return null;
                 const isGood = pt.mins >= TARGET;
@@ -435,7 +635,7 @@ function SleepWidget({
             </svg>
           </div>
 
-          {/* Clean separated detail bar on click (No literal "/" character) — click to dismiss */}
+          {/* Clean separated detail bar on click — click to dismiss */}
           {selectedPoint && (
             <button
               type="button"
@@ -466,207 +666,7 @@ function SleepWidget({
   );
 }
 
-// ─── 3. Training Widget (7-Column Heatmap with 5 Distinct Grey Variants) ──────
-type TrainingStatus = "full" | "partial" | "rest" | "skipped" | "future";
-
-function getTrainingDayStatus(
-  d: PlanDay,
-  currentDayNumber?: number
-): TrainingStatus {
-  const p = d.userProgress;
-  const isCompleted = Boolean(p && p.isCompleted);
-  const hasWorkout = Boolean(
-    p &&
-      (p.videoWatched ||
-        (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
-        (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
-        checkedList(d, undefined).length > 0)
-  );
-
-  if (isCompleted) return "full";
-  if (hasWorkout) return "partial";
-  if (d.dayType === "REST_DAY") return "rest";
-
-  const isFuture =
-    Boolean(
-      currentDayNumber &&
-        currentDayNumber > 0 &&
-        d.dayNumber > currentDayNumber
-    ) ||
-    (!d.isCalendarUnlocked && !d.isPast2359);
-  if (isFuture) return "future";
-
-  return "skipped";
-}
-
-function TrainingWidget({
-  days,
-  pct,
-  currentDayNumber,
-  deltaPct = 0,
-}: {
-  days: PlanDay[];
-  pct: number;
-  currentDayNumber?: number;
-  deltaPct?: number;
-}) {
-  const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
-  const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
-  const selectedDay =
-    sortedDays.find((d) => d.dayNumber === selectedDayNum) || null;
-
-  const todayDayNum =
-    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
-
-  // 7 columns: Sun to Sat
-  const dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const firstDay = sortedDays[0];
-  const firstDate = firstDay?.unlockDate ? new Date(firstDay.unlockDate) : null;
-  const startDayOfWeek =
-    firstDate && !isNaN(firstDate.getTime()) ? firstDate.getDay() : 0;
-  const totalSlots = Math.max(
-    7,
-    Math.ceil((startDayOfWeek + sortedDays.length) / 7) * 7
-  );
-
-  const getDayCompletionFraction = (d: PlanDay): string => {
-    const acts =
-      d.dayType === "REST_DAY"
-        ? splitActivities(d.restInstructions)
-        : movementNames(d);
-    if (acts.length > 0) {
-      const checks = checkedList(d, undefined);
-      const done = d.userProgress?.isCompleted
-        ? acts.length
-        : acts.filter((name) =>
-            checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
-          ).length;
-      return `${done}/${acts.length}`;
-    }
-
-    const totalCount = sortedDays.length || 7;
-    const completedUpToDay = sortedDays.filter((item) => {
-      if (item.dayNumber > d.dayNumber) return false;
-      const st = getTrainingDayStatus(item, currentDayNumber);
-      return st === "full" || st === "partial" || st === "rest";
-    }).length;
-    return `${completedUpToDay}/${totalCount}`;
-  };
-
-  return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Training
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-            {pct}%
-          </span>
-          <MetricDeltaBadge delta={deltaPct} />
-        </div>
-      </div>
-
-      {/* 7-Column Grid (Sun to Sat) */}
-      <div className="space-y-2 pt-1">
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono text-zinc-400 dark:text-zinc-500 text-center">
-          {dayHeaders.map((day) => (
-            <span key={day}>{day}</span>
-          ))}
-        </div>
-
-        {/* 5 Distinct Grey Variants (None matching widget bg #ececea):
-            1. More Light Grey (#fcfcfb) -> Future / Upcoming
-            2. Light Grey (#d4d4d8)      -> Skipped
-            3. Grey (#a1a1aa)            -> Rest Day
-            4. Dark Grey (#52525b)       -> Partial Workout
-            5. More Dark Grey (#18181b)  -> Full Workout
-        */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-          {Array.from({ length: totalSlots }, (_, i) => {
-            const dayIndex = i - startDayOfWeek;
-            const d =
-              dayIndex >= 0 && dayIndex < sortedDays.length
-                ? sortedDays[dayIndex]
-                : undefined;
-
-            if (!d) {
-              return (
-                <div
-                  key={`slot-${i}`}
-                  className="aspect-square rounded-md sm:rounded-lg bg-transparent"
-                />
-              );
-            }
-
-            const status = getTrainingDayStatus(d, currentDayNumber);
-            const isSelected = selectedDayNum === d.dayNumber;
-            const isToday = d.dayNumber === todayDayNum;
-
-            return (
-              <button
-                key={d.dayNumber}
-                type="button"
-                onClick={() =>
-                  setSelectedDayNum((prev) =>
-                    prev === d.dayNumber ? null : d.dayNumber
-                  )
-                }
-                aria-label={`Day ${d.dayNumber}`}
-                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
-                  isSelected
-                    ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
-                    : ""
-                }${
-                  isToday && !isSelected
-                    ? "outline outline-1.5 outline-zinc-900/50 dark:outline-white/50 "
-                    : ""
-                }${
-                  status === "full"
-                    ? "bg-[#18181b] dark:bg-white text-white dark:text-zinc-950"
-                    : status === "partial"
-                    ? "bg-[#52525b] dark:bg-zinc-300 text-white dark:text-zinc-950"
-                    : status === "rest"
-                    ? "bg-[#a1a1aa] dark:bg-zinc-500"
-                    : status === "skipped"
-                    ? "bg-[#d4d4d8] dark:bg-zinc-700"
-                    : "bg-[#fcfcfb] dark:bg-zinc-800/60"
-                }`}
-              />
-            );
-          })}
-        </div>
-
-        {/* Clean separated detail bar on click (No literal "/" character) — click to dismiss */}
-        {selectedDay && (
-          <button
-            type="button"
-            onClick={() => setSelectedDayNum(null)}
-            title="Click to dismiss"
-            className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
-          >
-            <span className="font-medium text-zinc-600 dark:text-zinc-300">
-              {formatMetricDate(
-                selectedDay.unlockDate,
-                selectedDay.dayNumber,
-                currentDayNumber
-              )}
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
-              {getDayCompletionFraction(selectedDay)} completed
-            </span>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── 4. Meal Control Widget (No Nested Boxes, No Sub-Icons, Circular Macro Chart) ─
+// ─── 4. Meal Control Widget (Editorial Urbanist Calories/Water + Circular Macro Chart) ─
 interface ParsedDayNutrition {
   calories: number;
   carbsG: number;
@@ -791,7 +791,6 @@ function MealControlWidget({
   const todayDay = days.find((d) => d.dayNumber === todayDayNum);
   const todayNutr = todayDay ? extractDayNutrition(todayDay) : null;
 
-  // Use today's nutrition if logged, otherwise most recent logged day's nutrition
   const nutritionDays = days.map(extractDayNutrition).filter((n) => n.hasData);
   const activeNutr =
     todayNutr && todayNutr.hasData
@@ -841,28 +840,43 @@ function MealControlWidget({
         <FiftyBarMeter percent={pct} />
       </div>
 
-      {/* Calories & Water — Directly inside card without sub-boxes or icons */}
-      <div className="flex items-center justify-between pt-3 border-t border-zinc-300/60 dark:border-white/10 text-xs">
-        <div className="flex items-baseline gap-2">
-          <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+      {/* Editorial Urbanist Calories & Water — Directly inside card without sub-boxes or icons */}
+      <div className="grid grid-cols-2 gap-4 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
+        <div className="space-y-1">
+          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Calories
           </span>
-          <span className="font-mono font-semibold text-zinc-950 dark:text-white">
-            {calories > 0 ? `${calories.toLocaleString()} kcal` : "—"}
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {calories > 0 ? calories.toLocaleString() : "—"}
+            </span>
+            {calories > 0 && (
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                kcal
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+
+        <div className="space-y-1">
+          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Water
           </span>
-          <span className="font-mono font-semibold text-zinc-950 dark:text-white">
-            {waterMl > 0 ? `${(waterMl / 1000).toFixed(1)} L` : "—"}
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {waterMl > 0 ? (waterMl / 1000).toFixed(1) : "—"}
+            </span>
+            {waterMl > 0 && (
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                L
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Circular Diagram (Donut Chart) for Carbs, Protein, Fat — No nested box */}
-      <div className="flex items-center gap-5 pt-2 border-t border-zinc-300/60 dark:border-white/10">
+      <div className="flex items-center gap-5 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
         <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
           <svg
             viewBox="0 0 88 88"
@@ -870,7 +884,6 @@ function MealControlWidget({
             role="img"
             aria-label={`Carbs ${carbsPct}%, Protein ${proteinPct}%, Fat ${fatPct}%`}
           >
-            {/* Background track */}
             <circle
               cx="44"
               cy="44"
@@ -879,7 +892,6 @@ function MealControlWidget({
               strokeWidth="10"
               className="stroke-zinc-300/50 dark:stroke-white/10"
             />
-            {/* Carbs Segment (Medium Grey #71717a) */}
             <circle
               cx="44"
               cy="44"
@@ -890,7 +902,6 @@ function MealControlWidget({
               strokeDasharray={`${carbsLen} ${circumference}`}
               strokeDashoffset={0}
             />
-            {/* Protein Segment (Obsidian #18181b) */}
             <circle
               cx="44"
               cy="44"
@@ -901,7 +912,6 @@ function MealControlWidget({
               strokeDasharray={`${proteinLen} ${circumference}`}
               strokeDashoffset={-carbsLen}
             />
-            {/* Fat Segment (Light Grey #b4b4bb) */}
             <circle
               cx="44"
               cy="44"
@@ -1128,13 +1138,22 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. Weight (Top Simple Summary + Weekly Change) */}
-      <WeightSummaryWidget
-        days={sorted}
-        bodyMetricLogs={bodyMetricLogs}
-        programId={programId}
-        currentDayNumber={currentDayNumber}
-      />
+      {/* 1. First Row: Weight & Training Side-by-Side */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 items-stretch">
+        <WeightSummaryWidget
+          days={sorted}
+          bodyMetricLogs={bodyMetricLogs}
+          programId={programId}
+          currentDayNumber={currentDayNumber}
+        />
+
+        <TrainingWidget
+          days={sorted}
+          pct={trainingPct}
+          currentDayNumber={currentDayNumber}
+          deltaPct={trainingDelta}
+        />
+      </div>
 
       {/* 2. Sleep Average (Interactive Line Chart + Delta in Minutes) */}
       <SleepWidget
@@ -1143,15 +1162,7 @@ export function CohortPerformanceCard({
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 3. Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
-      <TrainingWidget
-        days={sorted}
-        pct={trainingPct}
-        currentDayNumber={currentDayNumber}
-        deltaPct={trainingDelta}
-      />
-
-      {/* 4. Meal Control (50-Segment Bar + Calories, Water & Circular Macro Chart) */}
+      {/* 3. Meal Control (50-Segment Bar + Editorial Calories/Water & Circular Macro Chart) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}

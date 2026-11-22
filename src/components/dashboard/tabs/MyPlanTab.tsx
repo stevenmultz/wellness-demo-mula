@@ -415,13 +415,7 @@ export function MyPlanOverview({
               >
                 <span>{label}</span>
                 {count > 0 && (
-                  <span
-                    className={`font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded-full ${
-                      active
-                        ? "bg-zinc-950/10 dark:bg-white/15 text-zinc-950 dark:text-white font-bold"
-                        : "bg-zinc-300 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-semibold"
-                    }`}
-                  >
+                  <span className="font-mono text-[10px] leading-none tabular-nums px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#F7ECEE] dark:border-[#C95B6B] dark:bg-[#9E2A3A]/20 text-[#9E2A3A] dark:text-[#F4B8C0] font-bold">
                     {count}
                   </span>
                 )}

@@ -19,6 +19,24 @@
   --card-shadow: none;
   --radius-card: 16px;
   --radius-control: 12px;
+
+  /* Global Urbanist Jewel & Diamond Semantic Colors (Monochrome-harmonized) */
+  /* Red — Pigeon Blood Ruby */
+  --semantic-ruby: #9e2a3a;
+  --semantic-ruby-border: #b03244;
+  --semantic-ruby-bg: #f7ecee;
+  /* Green — Colombian Emerald */
+  --semantic-emerald: #1f6e54;
+  --semantic-emerald-border: #2a7b60;
+  --semantic-emerald-bg: #ebf3f0;
+  /* Yellow — Fancy Canary Diamond */
+  --semantic-canary: #a67c1e;
+  --semantic-canary-border: #b88b28;
+  --semantic-canary-bg: #f8f3e6;
+  /* Blue — Kashmir Blue Diamond / Sapphire */
+  --semantic-sapphire: #26547c;
+  --semantic-sapphire-border: #316694;
+  --semantic-sapphire-bg: #ebf0f5;
 }
 
 .dark {
@@ -35,6 +53,20 @@
   --accent-10: #f5f5f4;
   --muted-foreground: #a1a1aa;
   --card-shadow: none;
+
+  /* Dark Mode Jewel & Diamond Semantic Colors */
+  --semantic-ruby: #e06c7c;
+  --semantic-ruby-border: #c95b6b;
+  --semantic-ruby-bg: rgba(158, 42, 58, 0.18);
+  --semantic-emerald: #52b793;
+  --semantic-emerald-border: #4d9e7b;
+  --semantic-emerald-bg: rgba(31, 110, 84, 0.18);
+  --semantic-canary: #d4a94a;
+  --semantic-canary-border: #c29538;
+  --semantic-canary-bg: rgba(166, 124, 30, 0.18);
+  --semantic-sapphire: #6396c2;
+  --semantic-sapphire-border: #4c7ea8;
+  --semantic-sapphire-bg: rgba(38, 84, 124, 0.18);
 }
 
 html {

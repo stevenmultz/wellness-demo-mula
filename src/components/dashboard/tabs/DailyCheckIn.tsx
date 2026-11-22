@@ -64,6 +64,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [weightInput, setWeightInput] = useState("");
   const [loggedWeightsByDay, setLoggedWeightsByDay] = useState<Record<string, number>>({});
+  const [centerDayId, setCenterDayId] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -112,7 +113,33 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }).format(new Date());
   }, []);
 
-  // Center the active/selected day in the number strip if present
+  // Compute which day is in the center of the 3-day viewport
+  const updateCenterDayFromScroll = () => {
+    const container = stripRef.current;
+    if (!container || programDays.length === 0) return;
+    const containerRect = container.getBoundingClientRect();
+    const viewportMidX = containerRect.left + containerRect.width / 2;
+
+    let closestId: string | null = null;
+    let minDist = Infinity;
+
+    for (const d of programDays) {
+      const btn = buttonRefs.current[d.id];
+      if (!btn) continue;
+      const rect = btn.getBoundingClientRect();
+      const btnMidX = rect.left + rect.width / 2;
+      const dist = Math.abs(btnMidX - viewportMidX);
+      if (dist < minDist) {
+        minDist = dist;
+        closestId = d.id;
+      }
+    }
+    if (closestId) {
+      setCenterDayId((prev) => (prev === closestId ? prev : closestId));
+    }
+  };
+
+  // Center the active/selected day in the 3-day strip
   useEffect(() => {
     const container = stripRef.current;
     const btn = buttonRefs.current[selectedDay.id];
@@ -126,7 +153,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       container.clientWidth / 2 +
       btnRect.width / 2;
     container.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
+    const t = setTimeout(updateCenterDayFromScroll, 180);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDay.id, programDays.length]);
+
+  const effectiveCenterDayId = useMemo(() => {
+    if (centerDayId && programDays.some((d) => d.id === centerDayId)) {
+      return centerDayId;
+    }
+    if (programDays.length >= 3) {
+      const selIdx = programDays.findIndex((d) => d.id === selectedDay.id);
+      const midIdx = Math.min(programDays.length - 2, Math.max(1, selIdx >= 0 ? selIdx : 1));
+      return programDays[midIdx]?.id || selectedDay.id;
+    }
+    return selectedDay.id;
+  }, [centerDayId, programDays, selectedDay.id]);
 
   const selectedActivities = useMemo(
     () => (isSelectedToday ? activities : deriveDayActivities(selectedDay)),
@@ -265,15 +307,17 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
       <div
         ref={stripRef}
+        onScroll={updateCenterDayFromScroll}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
-        className="w-full overflow-x-auto no-scrollbar py-0.5 scroll-smooth"
+        className="w-full overflow-x-auto no-scrollbar py-1.5 scroll-smooth snap-x snap-mandatory"
         style={{ scrollbarWidth: "none" }}
       >
-        <div className="inline-flex items-center gap-1.5 min-w-full">
+        <div className="flex items-center gap-2 min-w-full">
           {programDays.map((d) => {
             const isActiveSelected = d.id === selectedDay.id;
+            const isCenterCard = d.id === effectiveCenterDayId;
             const isTodayItem = d.id === day.id;
             const isDoneItem = !!d.userProgress?.isCompleted;
             const isPastItem =
@@ -293,26 +337,46 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   buttonRefs.current[d.id] = el;
                 }}
                 type="button"
-                onClick={() => setSelectedDayId(d.id)}
-                className={`shrink-0 w-[84px] py-1.5 px-2 rounded-xl text-center transition active:scale-95 select-none flex flex-col items-center justify-center ${
+                onClick={() => {
+                  setSelectedDayId(d.id);
+                  setCenterDayId(d.id);
+                }}
+                style={{ width: "calc((100% - 16px) / 3)" }}
+                className={`shrink-0 snap-center rounded-xl text-center transition-all duration-200 active:scale-95 select-none flex flex-col items-center justify-center px-2 ${
+                  isCenterCard
+                    ? "min-h-[54px] py-2.5 scale-[1.03] z-10"
+                    : "min-h-[42px] py-1.5 scale-95"
+                } ${
                   isTodayItem
                     ? isActiveSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-2 ring-zinc-950 dark:ring-white opacity-100 font-semibold"
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white opacity-100 font-semibold"
                       : "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white shadow-xs opacity-100 font-semibold"
                     : isPastItem
                       ? isActiveSelected
-                        ? "bg-zinc-200/90 dark:bg-white/15 text-zinc-900 dark:text-white border border-zinc-400 dark:border-white/30 opacity-75 shadow-2xs"
-                        : "bg-zinc-100/70 dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-white/5 opacity-40 hover:opacity-70"
+                        ? "bg-zinc-200/90 dark:bg-white/15 text-zinc-900 dark:text-white border border-zinc-400 dark:border-white/30 opacity-85 shadow-2xs"
+                        : "bg-zinc-100/80 dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border border-zinc-200/70 dark:border-white/5 opacity-60 hover:opacity-80"
                       : isActiveSelected
-                        ? "bg-zinc-200/70 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-white/20 opacity-65"
-                        : "bg-zinc-100/40 dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-600 border border-zinc-200/30 dark:border-white/5 opacity-30 hover:opacity-55"
+                        ? "bg-zinc-200/80 dark:bg-white/10 text-zinc-900 dark:text-zinc-200 border border-zinc-300 dark:border-white/20 opacity-80"
+                        : "bg-zinc-100/50 dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-600 border border-zinc-200/40 dark:border-white/5 opacity-45 hover:opacity-65"
                 }`}
               >
-                <span className="text-[11px] font-semibold leading-tight inline-flex items-center justify-center gap-1">
+                <span
+                  className={`${
+                    isCenterCard ? "text-xs sm:text-[13px]" : "text-[11px]"
+                  } font-semibold leading-tight inline-flex items-center justify-center gap-1 ${
+                    isPastItem ? "line-through decoration-[1.5px] opacity-85" : ""
+                  }`}
+                >
                   <span>{dateStr}</span>
-                  {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0 opacity-70" />}
+                  {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0 opacity-75" />}
                 </span>
-                <span className="text-[10px] opacity-75 leading-tight mt-0.5 font-medium">
+                <span
+                  className={`${
+                    isCenterCard ? "text-[10.5px]" : "text-[9.5px]"
+                  } opacity-75 leading-tight mt-0.5 font-medium ${
+                    isPastItem ? "line-through decoration-1" : ""
+                  }`}
+                >
                   {dayTypeWord}
                 </span>
               </button>
@@ -350,14 +414,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                         {t.title}
                       </p>
-                      {isSelectedPast && !isDone && (
-                        <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                          · Skipped
-                        </span>
+                      {!isDone && !isSelectedFuture && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] shrink-0"
+                          aria-label="Incomplete task"
+                        />
                       )}
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
@@ -421,10 +486,16 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     Body Weight
                   </p>
+                  {selectedDayWeight === null && !isSelectedFuture && (
+                    <span
+                      className="w-2 h-2 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] shrink-0"
+                      aria-label="Incomplete task"
+                    />
+                  )}
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                   {selectedDayWeight !== null
