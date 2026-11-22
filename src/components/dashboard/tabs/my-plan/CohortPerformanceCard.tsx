@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Droplets, Dumbbell, Flame, Moon, Plus, Scale, Utensils } from "lucide-react";
+import { ArrowDown, ArrowUp, Dumbbell, Moon, Scale, Utensils } from "lucide-react";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
   calcSleepMins,
@@ -12,7 +12,7 @@ import {
   type PlanDay,
 } from "./myPlanUtils";
 
-// ─── MetricDeltaBadge ────────────────────────────────────────────────────────
+// ─── MetricDeltaBadge (Arrow Up/Down + Emerald/Ruby Border Box, Monochrome Text) ─
 function MetricDeltaBadge({
   delta,
   unit = "%",
@@ -22,18 +22,21 @@ function MetricDeltaBadge({
   unit?: string;
   invertColor?: boolean;
 }) {
+  const absVal = Math.abs(delta);
+  const label = `${absVal}${unit}`;
+
   if (delta > 0) {
     const isPositiveGood = !invertColor;
     return (
       <span
-        className={`text-[11px] font-mono font-semibold ${
+        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold text-zinc-900 dark:text-zinc-100 bg-white/60 dark:bg-white/[0.04] ${
           isPositiveGood
-            ? "text-emerald-600 dark:text-emerald-400"
-            : "text-rose-600 dark:text-rose-400"
+            ? "border-[#2E6F54] dark:border-[#4D9E7B]"
+            : "border-[#9E3B4B] dark:border-[#C95B6B]"
         }`}
       >
-        +{delta}
-        {unit}
+        <ArrowUp className="w-2.5 h-2.5 stroke-[2.25] shrink-0" />
+        <span>{label}</span>
       </span>
     );
   }
@@ -41,20 +44,20 @@ function MetricDeltaBadge({
     const isNegativeGood = invertColor;
     return (
       <span
-        className={`text-[11px] font-mono font-semibold ${
+        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold text-zinc-900 dark:text-zinc-100 bg-white/60 dark:bg-white/[0.04] ${
           isNegativeGood
-            ? "text-emerald-600 dark:text-emerald-400"
-            : "text-rose-600 dark:text-rose-400"
+            ? "border-[#2E6F54] dark:border-[#4D9E7B]"
+            : "border-[#9E3B4B] dark:border-[#C95B6B]"
         }`}
       >
-        {delta}
-        {unit}
+        <ArrowDown className="w-2.5 h-2.5 stroke-[2.25] shrink-0" />
+        <span>{label}</span>
       </span>
     );
   }
   return (
-    <span className="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500">
-      ±0{unit}
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-zinc-300 dark:border-white/15 bg-white/40 dark:bg-white/[0.02] text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+      <span>0{unit}</span>
     </span>
   );
 }
@@ -116,14 +119,136 @@ function FiftyBarMeter({ percent }: { percent: number }) {
   );
 }
 
-// ─── 1. Sleep Widget (Line Chart Interactive) ─────────────────────────────────
-function SleepWidget({
+// ─── 1. Body Weight Widget (Top Summary + Weekly Change) ─────────────────────
+interface DatedWeightPoint {
+  dayIndex: number;
+  weightKg: number;
+}
+
+function WeightSummaryWidget({
   days,
-  deltaPct = 0,
+  bodyMetricLogs = [],
+  programId,
   currentDayNumber,
 }: {
   days: PlanDay[];
-  deltaPct?: number;
+  bodyMetricLogs?: BodyMetricPoint[];
+  programId?: string;
+  currentDayNumber?: number;
+}) {
+  const [localByDay, setLocalByDay] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const loadLocal = () => {
+      try {
+        const saved = localStorage.getItem("zera_weight_by_day_v1");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") {
+            setLocalByDay(parsed);
+          }
+        }
+      } catch {
+        // ignore storage error
+      }
+    };
+    loadLocal();
+    window.addEventListener("zera:weight-updated", loadLocal);
+    return () => window.removeEventListener("zera:weight-updated", loadLocal);
+  }, []);
+
+  const points: DatedWeightPoint[] = [];
+
+  // 1. Collect from server bodyMetricLogs
+  bodyMetricLogs.forEach((log, idx) => {
+    if (typeof log.weightKg === "number" && log.weightKg > 20 && log.weightKg < 300) {
+      if (!programId || !log.programId || log.programId === programId) {
+        const matchedDay = days.find((d) => d.id === log.programDayId);
+        points.push({
+          dayIndex: matchedDay ? matchedDay.dayNumber : idx + 1,
+          weightKg: Number(log.weightKg.toFixed(1)),
+        });
+      }
+    }
+  });
+
+  // 2. Collect from day customTasks submissions & localByDay
+  for (const d of days) {
+    for (const ct of d.customTasks || []) {
+      const vals = ct.submission?.values;
+      if (vals && typeof vals === "object") {
+        const rawW =
+          (vals as Record<string, unknown>).weightKg ??
+          (vals as Record<string, unknown>).weight;
+        const numW = Number(rawW);
+        if (Number.isFinite(numW) && numW > 20 && numW < 300) {
+          points.push({
+            dayIndex: d.dayNumber,
+            weightKg: Number(numW.toFixed(1)),
+          });
+        }
+      }
+    }
+    if (typeof localByDay[d.id] === "number" && localByDay[d.id] > 20) {
+      points.push({
+        dayIndex: d.dayNumber,
+        weightKg: Number(localByDay[d.id].toFixed(1)),
+      });
+    }
+  }
+
+  // Deduplicate by dayIndex and sort ascending
+  const byDayMap = new Map<number, number>();
+  for (const pt of points) {
+    byDayMap.set(pt.dayIndex, pt.weightKg);
+  }
+  const sortedPoints: DatedWeightPoint[] = Array.from(byDayMap.entries())
+    .map(([dayIndex, weightKg]) => ({ dayIndex, weightKg }))
+    .sort((a, b) => a.dayIndex - b.dayIndex);
+
+  const latestPoint =
+    sortedPoints.length > 0 ? sortedPoints[sortedPoints.length - 1] : null;
+  const latestWeight = latestPoint ? latestPoint.weightKg : 0;
+
+  // Weekly change: compare latest reading against reading ~7 days earlier (or earliest reading in the past week)
+  let weeklyDeltaKg = 0;
+  if (latestPoint && sortedPoints.length >= 2) {
+    const targetDayIndex = (currentDayNumber || latestPoint.dayIndex) - 7;
+    let referencePoint = sortedPoints[0];
+    for (const pt of sortedPoints.slice(0, -1)) {
+      if (pt.dayIndex <= targetDayIndex) {
+        referencePoint = pt;
+      }
+    }
+    weeklyDeltaKg = Number((latestWeight - referencePoint.weightKg).toFixed(1));
+  }
+
+  return (
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <Scale className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+        <span className="text-sm font-semibold text-zinc-950 dark:text-white">
+          Weight
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+          {latestWeight > 0 ? `${latestWeight.toFixed(1)} kg` : "—"}
+        </span>
+        <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg / wk" />
+      </div>
+    </div>
+  );
+}
+
+// ─── 2. Sleep Widget (Line Chart Interactive, Delta in Minutes) ──────────────
+function SleepWidget({
+  days,
+  deltaMins = 0,
+  currentDayNumber,
+}: {
+  days: PlanDay[];
+  deltaMins?: number;
   currentDayNumber?: number;
 }) {
   const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
@@ -201,7 +326,7 @@ function SleepWidget({
             Sleep Average
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {avgMins > 0 ? (
             <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
               {formatSleepHours(avgMins)} avg
@@ -211,7 +336,7 @@ function SleepWidget({
               —
             </span>
           )}
-          <MetricDeltaBadge delta={deltaPct} />
+          <MetricDeltaBadge delta={deltaMins} unit=" min" />
         </div>
       </div>
 
@@ -283,10 +408,7 @@ function SleepWidget({
                     }
                     className="cursor-pointer"
                   >
-                    {/* Touch target */}
                     <circle cx={pt.x} cy={pt.y} r={12} fill="transparent" />
-
-                    {/* Outer ring if selected */}
                     {isSelected && (
                       <circle
                         cx={pt.x}
@@ -295,8 +417,6 @@ function SleepWidget({
                         className="fill-none stroke-2 stroke-zinc-950 dark:stroke-white"
                       />
                     )}
-
-                    {/* Dot */}
                     <circle
                       cx={pt.x}
                       cy={pt.y}
@@ -315,22 +435,29 @@ function SleepWidget({
             </svg>
           </div>
 
-          {/* Simple 1-line detail on click: "7 Nov 2026 / 22.00 - 06.30 / 8h 30m" — click to dismiss */}
+          {/* Clean separated detail bar on click (No literal "/" character) — click to dismiss */}
           {selectedPoint && (
             <button
               type="button"
               onClick={() => setSelectedDayNum(null)}
               title="Click to dismiss"
-              className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3 py-2 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
+              className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
             >
-              {formatMetricDate(
-                selectedPoint.unlockDate,
-                selectedPoint.day,
-                currentDayNumber
-              )}{" "}
-              / {(selectedPoint.bedtime || "22:00").replace(":", ".")} -{" "}
-              {(selectedPoint.wakeTime || "06:30").replace(":", ".")} /{" "}
-              {selectedPoint.mins > 0 ? formatSleepHours(selectedPoint.mins) : "0h"}
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                {formatMetricDate(
+                  selectedPoint.unlockDate,
+                  selectedPoint.day,
+                  currentDayNumber
+                )}
+              </span>
+              <span className="h-3.5 w-px bg-zinc-200 dark:bg-white/15 shrink-0" />
+              <span className="text-zinc-900 dark:text-white">
+                {selectedPoint.bedtime || "22:00"} – {selectedPoint.wakeTime || "06:30"}
+              </span>
+              <span className="h-3.5 w-px bg-zinc-200 dark:bg-white/15 shrink-0" />
+              <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
+                {selectedPoint.mins > 0 ? formatSleepHours(selectedPoint.mins) : "0h"}
+              </span>
             </button>
           )}
         </div>
@@ -339,7 +466,7 @@ function SleepWidget({
   );
 }
 
-// ─── 2. Training Widget (7-Column Heatmap with 5 Distinct Grey Variants) ──────
+// ─── 3. Training Widget (7-Column Heatmap with 5 Distinct Grey Variants) ──────
 type TrainingStatus = "full" | "partial" | "rest" | "skipped" | "future";
 
 function getTrainingDayStatus(
@@ -402,7 +529,6 @@ function TrainingWidget({
     Math.ceil((startDayOfWeek + sortedDays.length) / 7) * 7
   );
 
-  // Calculate "complete X from Y" for clicked day (e.g. "5/7")
   const getDayCompletionFraction = (d: PlanDay): string => {
     const acts =
       d.dayType === "REST_DAY"
@@ -418,7 +544,6 @@ function TrainingWidget({
       return `${done}/${acts.length}`;
     }
 
-    // Fallback: completed days up to this day / total days in program (or 7-day week)
     const totalCount = sortedDays.length || 7;
     const completedUpToDay = sortedDays.filter((item) => {
       if (item.dayNumber > d.dayNumber) return false;
@@ -438,7 +563,7 @@ function TrainingWidget({
             Training
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
             {pct}%
           </span>
@@ -448,14 +573,13 @@ function TrainingWidget({
 
       {/* 7-Column Grid (Sun to Sat) */}
       <div className="space-y-2 pt-1">
-        {/* Column Headers: Sun Mon Tue Wed Thu Fri Sat */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono text-zinc-400 dark:text-zinc-500 text-center">
           {dayHeaders.map((day) => (
             <span key={day}>{day}</span>
           ))}
         </div>
 
-        {/* 7-Column Boxes: 5 Distinct Grey Variants (None matching widget bg #ececea):
+        {/* 5 Distinct Grey Variants (None matching widget bg #ececea):
             1. More Light Grey (#fcfcfb) -> Future / Upcoming
             2. Light Grey (#d4d4d8)      -> Skipped
             3. Grey (#a1a1aa)            -> Rest Day
@@ -517,20 +641,24 @@ function TrainingWidget({
           })}
         </div>
 
-        {/* Simple 1-line detail on click: "8 Nov 2026 / 5/7" — click to dismiss */}
+        {/* Clean separated detail bar on click (No literal "/" character) — click to dismiss */}
         {selectedDay && (
           <button
             type="button"
             onClick={() => setSelectedDayNum(null)}
             title="Click to dismiss"
-            className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3 py-2 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
+            className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
           >
-            {formatMetricDate(
-              selectedDay.unlockDate,
-              selectedDay.dayNumber,
-              currentDayNumber
-            )}{" "}
-            / {getDayCompletionFraction(selectedDay)}
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              {formatMetricDate(
+                selectedDay.unlockDate,
+                selectedDay.dayNumber,
+                currentDayNumber
+              )}
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
+              {getDayCompletionFraction(selectedDay)} completed
+            </span>
           </button>
         )}
       </div>
@@ -538,7 +666,7 @@ function TrainingWidget({
   );
 }
 
-// ─── 3. Meal Control Widget (Compliance + Calories, Carbs, Protein, Fat & Water) ─
+// ─── 4. Meal Control Widget (No Nested Boxes, No Sub-Icons, Circular Macro Chart) ─
 interface ParsedDayNutrition {
   calories: number;
   carbsG: number;
@@ -603,7 +731,6 @@ function extractDayNutrition(d: PlanDay): ParsedDayNutrition {
     return { calories, carbsG, proteinG, fatG, waterMl, hasData: true };
   }
 
-  // Fallback estimation when meal check-in was completed without manual macro numbers
   if (mc === "FULL" || mc === "YES") {
     return {
       calories: 1950,
@@ -652,39 +779,44 @@ function MealControlWidget({
   days,
   pct,
   deltaPct = 0,
+  currentDayNumber,
 }: {
   days: PlanDay[];
   pct: number;
   deltaPct?: number;
+  currentDayNumber?: number;
 }) {
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+  const todayDay = days.find((d) => d.dayNumber === todayDayNum);
+  const todayNutr = todayDay ? extractDayNutrition(todayDay) : null;
+
+  // Use today's nutrition if logged, otherwise most recent logged day's nutrition
   const nutritionDays = days.map(extractDayNutrition).filter((n) => n.hasData);
-  const count = nutritionDays.length;
+  const activeNutr =
+    todayNutr && todayNutr.hasData
+      ? todayNutr
+      : nutritionDays.length > 0
+      ? nutritionDays[nutritionDays.length - 1]
+      : { calories: 0, carbsG: 0, proteinG: 0, fatG: 0, waterMl: 0, hasData: false };
 
-  const avgCalories =
-    count > 0
-      ? Math.round(nutritionDays.reduce((a, b) => a + b.calories, 0) / count)
-      : 0;
-  const avgCarbs =
-    count > 0
-      ? Math.round(nutritionDays.reduce((a, b) => a + b.carbsG, 0) / count)
-      : 0;
-  const avgProtein =
-    count > 0
-      ? Math.round(nutritionDays.reduce((a, b) => a + b.proteinG, 0) / count)
-      : 0;
-  const avgFat =
-    count > 0
-      ? Math.round(nutritionDays.reduce((a, b) => a + b.fatG, 0) / count)
-      : 0;
-  const avgWaterMl =
-    count > 0
-      ? Math.round(nutritionDays.reduce((a, b) => a + b.waterMl, 0) / count)
-      : 0;
+  const calories = activeNutr.calories;
+  const carbsG = activeNutr.carbsG;
+  const proteinG = activeNutr.proteinG;
+  const fatG = activeNutr.fatG;
+  const waterMl = activeNutr.waterMl;
 
-  const totalMacroG = avgCarbs + avgProtein + avgFat;
-  const carbsPct = totalMacroG > 0 ? Math.round((avgCarbs / totalMacroG) * 100) : 45;
-  const proteinPct = totalMacroG > 0 ? Math.round((avgProtein / totalMacroG) * 100) : 35;
+  const totalMacroG = carbsG + proteinG + fatG;
+  const carbsPct = totalMacroG > 0 ? Math.round((carbsG / totalMacroG) * 100) : 45;
+  const proteinPct = totalMacroG > 0 ? Math.round((proteinG / totalMacroG) * 100) : 35;
   const fatPct = totalMacroG > 0 ? Math.max(0, 100 - carbsPct - proteinPct) : 20;
+
+  // Circular Donut Chart geometry
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const carbsLen = (carbsPct / 100) * circumference;
+  const proteinLen = (proteinPct / 100) * circumference;
+  const fatLen = (fatPct / 100) * circumference;
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
@@ -696,7 +828,7 @@ function MealControlWidget({
             Meal Control
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
             {pct}%
           </span>
@@ -704,405 +836,145 @@ function MealControlWidget({
         </div>
       </div>
 
-      {/* Body: 50-segment bar */}
-      <div className="space-y-1.5 pt-0.5">
+      {/* 50-segment bar */}
+      <div className="pt-0.5">
         <FiftyBarMeter percent={pct} />
       </div>
 
-      {/* Calories & Water Row */}
-      <div className="grid grid-cols-2 gap-2.5 pt-1">
-        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/10 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-              Calories
-            </span>
-            <span className="text-sm font-mono font-semibold text-zinc-950 dark:text-white">
-              {avgCalories > 0 ? `${avgCalories.toLocaleString()} kcal` : "—"}
-            </span>
-          </div>
-          <Flame className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-        </div>
-
-        <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/10 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-              Water
-            </span>
-            <span className="text-sm font-mono font-semibold text-zinc-950 dark:text-white">
-              {avgWaterMl > 0 ? `${(avgWaterMl / 1000).toFixed(1)} L` : "—"}
-            </span>
-          </div>
-          <Droplets className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-        </div>
-      </div>
-
-      {/* Macros: Carbs, Protein, Fat */}
-      <div className="rounded-xl bg-white/80 dark:bg-white/[0.05] p-3 border border-zinc-200/60 dark:border-white/10 space-y-2.5">
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-              Carbs
-            </span>
-            <span className="text-xs sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white">
-              {avgCarbs > 0 ? `${avgCarbs}g` : "—"}
-            </span>
-          </div>
-          <div className="border-x border-zinc-200/70 dark:border-white/10">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-              Protein
-            </span>
-            <span className="text-xs sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white">
-              {avgProtein > 0 ? `${avgProtein}g` : "—"}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-              Fat
-            </span>
-            <span className="text-xs sm:text-sm font-mono font-semibold text-zinc-950 dark:text-white">
-              {avgFat > 0 ? `${avgFat}g` : "—"}
-            </span>
-          </div>
-        </div>
-
-        {/* Monochrome 3-tone macro distribution bar */}
-        <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-zinc-200 dark:bg-white/10">
-          <div
-            style={{ width: `${carbsPct}%` }}
-            className="h-full bg-[#71717a] dark:bg-zinc-400 transition-all"
-            title={`Carbs ${carbsPct}%`}
-          />
-          <div
-            style={{ width: `${proteinPct}%` }}
-            className="h-full bg-[#18181b] dark:bg-white transition-all"
-            title={`Protein ${proteinPct}%`}
-          />
-          <div
-            style={{ width: `${fatPct}%` }}
-            className="h-full bg-[#d4d4d8] dark:bg-zinc-600 transition-all"
-            title={`Fat ${fatPct}%`}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── 4. Body Weight Widget (Interactive Line Chart + Quick Log) ──────────────
-interface WeightEntry {
-  dateStr: string;
-  weightKg: number;
-}
-
-function WeightWidget({
-  days,
-  bodyMetricLogs = [],
-  programId,
-  currentDayNumber,
-}: {
-  days: PlanDay[];
-  bodyMetricLogs?: BodyMetricPoint[];
-  programId?: string;
-  currentDayNumber?: number;
-}) {
-  const storageKey = `zera_weight_logs_v1:${programId || "default"}`;
-  const [localEntries, setLocalEntries] = useState<WeightEntry[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const [showLogInput, setShowLogInput] = useState(false);
-  const [inputWeight, setInputWeight] = useState("");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setLocalEntries(
-            parsed.filter(
-              (x): x is WeightEntry =>
-                x &&
-                typeof x.dateStr === "string" &&
-                typeof x.weightKg === "number" &&
-                x.weightKg > 20 &&
-                x.weightKg < 300
-            )
-          );
-        }
-      }
-    } catch {
-      // ignore storage error
-    }
-  }, [storageKey]);
-
-  // Combine server bodyMetricLogs + customTask measurement submissions + localEntries
-  const serverEntries: WeightEntry[] = [];
-
-  for (const log of bodyMetricLogs) {
-    if (typeof log.weightKg === "number" && log.weightKg > 0) {
-      if (!programId || !log.programId || log.programId === programId) {
-        serverEntries.push({
-          dateStr: formatMetricDate(log.recordedAt, 1, currentDayNumber),
-          weightKg: Number(log.weightKg.toFixed(1)),
-        });
-      }
-    }
-  }
-
-  for (const d of days) {
-    for (const ct of d.customTasks || []) {
-      const vals = ct.submission?.values;
-      if (vals && typeof vals === "object") {
-        const rawW = (vals as Record<string, unknown>).weightKg ?? (vals as Record<string, unknown>).weight;
-        const numW = Number(rawW);
-        if (Number.isFinite(numW) && numW > 20 && numW < 300) {
-          serverEntries.push({
-            dateStr: formatMetricDate(d.unlockDate, d.dayNumber, currentDayNumber),
-            weightKg: Number(numW.toFixed(1)),
-          });
-        }
-      }
-    }
-  }
-
-  // Merge and deduplicate by dateStr
-  const mergedMap = new Map<string, number>();
-  for (const e of [...serverEntries, ...localEntries]) {
-    mergedMap.set(e.dateStr, e.weightKg);
-  }
-  const weightSeries: WeightEntry[] = Array.from(mergedMap.entries()).map(
-    ([dateStr, weightKg]) => ({ dateStr, weightKg })
-  );
-
-  const latestWeight =
-    weightSeries.length > 0 ? weightSeries[weightSeries.length - 1].weightKg : 0;
-  const prevWeight =
-    weightSeries.length >= 2
-      ? weightSeries[weightSeries.length - 2].weightKg
-      : latestWeight;
-  const weightDeltaKg =
-    weightSeries.length >= 2
-      ? Number((latestWeight - prevWeight).toFixed(1))
-      : 0;
-
-  const handleSaveLocalWeight = () => {
-    const val = Number(inputWeight);
-    if (!Number.isFinite(val) || val < 20 || val > 300) return;
-    const todayLabel = formatMetricDate(
-      undefined,
-      currentDayNumber || 1,
-      currentDayNumber
-    );
-    const nextEntry: WeightEntry = {
-      dateStr: todayLabel,
-      weightKg: Number(val.toFixed(1)),
-    };
-    const updated = [
-      ...localEntries.filter((e) => e.dateStr !== todayLabel),
-      nextEntry,
-    ];
-    setLocalEntries(updated);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-    } catch {
-      // ignore storage error
-    }
-    setInputWeight("");
-    setShowLogInput(false);
-  };
-
-  // Chart coordinates
-  const svgW = 400;
-  const svgH = 64;
-  const padX = 10;
-  const padY = 8;
-  const usableW = svgW - padX * 2;
-  const usableH = svgH - padY * 2;
-
-  const weights = weightSeries.map((w) => w.weightKg);
-  const minW = weights.length > 0 ? Math.min(...weights) - 1 : 50;
-  const maxW = weights.length > 0 ? Math.max(...weights) + 1 : 80;
-  const spanW = Math.max(1, maxW - minW);
-
-  const points = weightSeries.map((w, idx) => {
-    const x =
-      weightSeries.length > 1
-        ? padX + (idx / (weightSeries.length - 1)) * usableW
-        : svgW / 2;
-    const y = svgH - padY - ((w.weightKg - minW) / spanW) * usableH;
-    return {
-      x,
-      y,
-      idx,
-      dateStr: w.dateStr,
-      weightKg: w.weightKg,
-    };
-  });
-
-  const pathD = points.reduce((acc, pt, idx) => {
-    return idx === 0
-      ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`
-      : `${acc} L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
-  }, "");
-
-  const areaD =
-    points.length > 1
-      ? `${pathD} L ${points[points.length - 1].x.toFixed(1)} ${svgH - padY} L ${points[0].x.toFixed(1)} ${svgH - padY} Z`
-      : "";
-
-  const selectedPoint =
-    selectedIdx !== null
-      ? points.find((pt) => pt.idx === selectedIdx) || null
-      : null;
-
-  return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Scale className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Body Weight
+      {/* Calories & Water — Directly inside card without sub-boxes or icons */}
+      <div className="flex items-center justify-between pt-3 border-t border-zinc-300/60 dark:border-white/10 text-xs">
+        <div className="flex items-baseline gap-2">
+          <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+            Calories
+          </span>
+          <span className="font-mono font-semibold text-zinc-950 dark:text-white">
+            {calories > 0 ? `${calories.toLocaleString()} kcal` : "—"}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {latestWeight > 0 ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-                {latestWeight.toFixed(1)} kg
-              </span>
-              <MetricDeltaBadge delta={weightDeltaKg} unit="kg" />
-            </div>
-          ) : (
-            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
-              —
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowLogInput((v) => !v)}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 dark:bg-white/10 border border-zinc-300/70 dark:border-white/15 text-[10px] font-mono font-medium text-zinc-800 dark:text-zinc-200 hover:bg-white transition cursor-pointer"
-          >
-            <Plus className="w-2.5 h-2.5" />
-            Log
-          </button>
+        <div className="flex items-baseline gap-2">
+          <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+            Water
+          </span>
+          <span className="font-mono font-semibold text-zinc-950 dark:text-white">
+            {waterMl > 0 ? `${(waterMl / 1000).toFixed(1)} L` : "—"}
+          </span>
         </div>
       </div>
 
-      {/* Inline Quick Log Weight */}
-      {showLogInput && (
-        <div className="flex items-center gap-2 pt-1 animate-in fade-in duration-150">
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.1"
-            min="20"
-            max="300"
-            placeholder="Weight in kg (e.g. 68.0)"
-            value={inputWeight}
-            onChange={(e) => setInputWeight(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSaveLocalWeight();
-              }
-            }}
-            className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-xs font-mono text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white"
-          />
-          <button
-            type="button"
-            onClick={handleSaveLocalWeight}
-            className="px-3.5 py-2 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-mono font-semibold hover:opacity-90 transition cursor-pointer"
+      {/* Circular Diagram (Donut Chart) for Carbs, Protein, Fat — No nested box */}
+      <div className="flex items-center gap-5 pt-2 border-t border-zinc-300/60 dark:border-white/10">
+        <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+          <svg
+            viewBox="0 0 88 88"
+            className="w-20 h-20 -rotate-90 overflow-visible"
+            role="img"
+            aria-label={`Carbs ${carbsPct}%, Protein ${proteinPct}%, Fat ${fatPct}%`}
           >
-            Save
-          </button>
+            {/* Background track */}
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              strokeWidth="10"
+              className="stroke-zinc-300/50 dark:stroke-white/10"
+            />
+            {/* Carbs Segment (Medium Grey #71717a) */}
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              stroke="#71717a"
+              strokeWidth="10"
+              strokeDasharray={`${carbsLen} ${circumference}`}
+              strokeDashoffset={0}
+            />
+            {/* Protein Segment (Obsidian #18181b) */}
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              stroke="#18181b"
+              strokeWidth="10"
+              strokeDasharray={`${proteinLen} ${circumference}`}
+              strokeDashoffset={-carbsLen}
+            />
+            {/* Fat Segment (Light Grey #b4b4bb) */}
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              stroke="#b4b4bb"
+              strokeWidth="10"
+              strokeDasharray={`${fatLen} ${circumference}`}
+              strokeDashoffset={-(carbsLen + proteinLen)}
+            />
+          </svg>
         </div>
-      )}
 
-      {/* Body: Line Chart */}
-      {weightSeries.length === 0 ? (
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center py-4">
-          No weight logged yet — tap Log to record today&apos;s weight
-        </p>
-      ) : (
-        <div className="space-y-2.5 pt-1">
-          <div className="w-full h-16">
-            <svg
-              className="w-full h-full overflow-visible"
-              viewBox={`0 0 ${svgW} ${svgH}`}
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="weightAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="0%"
-                    stopColor="currentColor"
-                    className="text-zinc-900/15 dark:text-white/20"
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor="currentColor"
-                    stopOpacity="0"
-                  />
-                </linearGradient>
-              </defs>
-
-              {areaD && <path d={areaD} fill="url(#weightAreaGrad)" />}
-
-              {pathD && (
-                <path
-                  d={pathD}
-                  fill="none"
-                  className="stroke-zinc-900 dark:stroke-white transition-all duration-300"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+        {/* Macro Percentages & Grams Legend */}
+        <div className="flex-1 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#71717a] shrink-0" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                Carbs
+              </span>
+            </div>
+            <div className="font-mono">
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {carbsPct}%
+              </span>
+              {carbsG > 0 && (
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                  ({carbsG}g)
+                </span>
               )}
-
-              {points.map((pt) => {
-                const isSelected = selectedIdx === pt.idx;
-                return (
-                  <g
-                    key={pt.idx}
-                    onClick={() =>
-                      setSelectedIdx((prev) => (prev === pt.idx ? null : pt.idx))
-                    }
-                    className="cursor-pointer"
-                  >
-                    <circle cx={pt.x} cy={pt.y} r={12} fill="transparent" />
-                    {isSelected && (
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={6.5}
-                        className="fill-none stroke-2 stroke-zinc-950 dark:stroke-white"
-                      />
-                    )}
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={isSelected ? 4 : 3}
-                      className="fill-zinc-950 dark:fill-white"
-                    />
-                  </g>
-                );
-              })}
-            </svg>
+            </div>
           </div>
 
-          {/* Simple 1-line detail on click: "8 Nov 2026 / 68.0 kg" — click to dismiss */}
-          {selectedPoint && (
-            <button
-              type="button"
-              onClick={() => setSelectedIdx(null)}
-              title="Click to dismiss"
-              className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3 py-2 border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
-            >
-              {selectedPoint.dateStr} / {selectedPoint.weightKg.toFixed(1)} kg
-            </button>
-          )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#18181b] dark:bg-white shrink-0" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                Protein
+              </span>
+            </div>
+            <div className="font-mono">
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {proteinPct}%
+              </span>
+              {proteinG > 0 && (
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                  ({proteinG}g)
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#b4b4bb] shrink-0" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                Fat
+              </span>
+            </div>
+            <div className="font-mono">
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {fatPct}%
+              </span>
+              {fatG > 0 && (
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                  ({fatG}g)
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1126,7 +998,7 @@ export function CohortPerformanceCard({
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
 
-  // ── 1. Sleep Stats & Step-Change Delta from Previous Average ────────────────
+  // ── 1. Sleep Stats & Delta in Minutes from Previous Average ─────────────────
   const validSleeps = sorted
     .map((d) => ({
       dayNumber: d.dayNumber,
@@ -1134,21 +1006,15 @@ export function CohortPerformanceCard({
     }))
     .filter((s) => s.mins > 0);
 
-  let sleepDelta = 0;
+  let sleepDeltaMins = 0;
   if (validSleeps.length >= 2) {
-    const currentAvg =
-      validSleeps.reduce((acc, s) => acc + s.mins, 0) / validSleeps.length;
+    const latestMins = validSleeps[validSleeps.length - 1].mins;
     const prevSlice = validSleeps.slice(0, -1);
     const prevAvg =
       prevSlice.reduce((acc, s) => acc + s.mins, 0) / prevSlice.length;
-    if (prevAvg > 0) {
-      sleepDelta = Math.round(((currentAvg - prevAvg) / prevAvg) * 100);
-      if (sleepDelta === 0 && currentAvg !== prevAvg) {
-        sleepDelta = currentAvg > prevAvg ? 1 : -1;
-      }
-    }
+    sleepDeltaMins = Math.round(latestMins - prevAvg);
   } else if (validSleeps.length === 1) {
-    sleepDelta = Math.round(((validSleeps[0].mins - 450) / 450) * 100);
+    sleepDeltaMins = Math.round(validSleeps[0].mins - 450);
   }
 
   // ── 2. Training Stats & Step-Change Delta from Previous Score ───────────────
@@ -1189,7 +1055,6 @@ export function CohortPerformanceCard({
       ? Math.max(0, Math.round(((trainingTotal - trainingMissed) / trainingTotal) * 100))
       : 100;
 
-  // Calculate delta strictly as change from the previous evaluated training day
   let trainingDelta = 0;
   if (trainingTotal > 0) {
     const evaluatedTrainingDays = trainingDays.filter(
@@ -1252,7 +1117,9 @@ export function CohortPerformanceCard({
           0,
           Math.round(((mealTotal - prevPenalty) / mealTotal) * 100)
         );
-        mealDelta = mealPct - prevMealPct || -Math.max(1, Math.round(oneMealDayWeight * latestPenalty));
+        mealDelta =
+          mealPct - prevMealPct ||
+          -Math.max(1, Math.round(oneMealDayWeight * latestPenalty));
       } else {
         mealDelta = oneMealDayWeight;
       }
@@ -1261,14 +1128,22 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. Sleep Average (Interactive Line Chart) */}
-      <SleepWidget
+      {/* 1. Weight (Top Simple Summary + Weekly Change) */}
+      <WeightSummaryWidget
         days={sorted}
-        deltaPct={sleepDelta}
+        bodyMetricLogs={bodyMetricLogs}
+        programId={programId}
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 2. Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
+      {/* 2. Sleep Average (Interactive Line Chart + Delta in Minutes) */}
+      <SleepWidget
+        days={sorted}
+        deltaMins={sleepDeltaMins}
+        currentDayNumber={currentDayNumber}
+      />
+
+      {/* 3. Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
       <TrainingWidget
         days={sorted}
         pct={trainingPct}
@@ -1276,18 +1151,11 @@ export function CohortPerformanceCard({
         deltaPct={trainingDelta}
       />
 
-      {/* 3. Meal Control (50-Segment Bar + Calories, Macros & Water) */}
+      {/* 4. Meal Control (50-Segment Bar + Calories, Water & Circular Macro Chart) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}
         deltaPct={mealDelta}
-      />
-
-      {/* 4. Body Weight (Interactive Line Chart + Quick Log) */}
-      <WeightWidget
-        days={sorted}
-        bodyMetricLogs={bodyMetricLogs}
-        programId={programId}
         currentDayNumber={currentDayNumber}
       />
     </section>
