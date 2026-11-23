@@ -7,6 +7,8 @@ import { z } from "zod";
 import { prisma } from "../db";
 import { requireAuth, requireProgramAccess } from "../security/guards";
 import { getProgramDayWibWindow } from "../utils/timezone";
+import { safeJsonParse } from "../utils/json";
+import { computeVerifiedDayCompletionInTx } from "../services/program-progress";
 import {
   extractBodyMetricsFromValues,
   parseCustomTaskFields,
@@ -91,27 +93,7 @@ export async function wellnessUserSubmitCustomTask(
     };
   }
 
-  const [existingSubmission, existingDayProgress] = await Promise.all([
-    prisma.programDayCustomSubmission.findUnique({
-      where: {
-        userId_customTaskId: {
-          userId: session.userId,
-          customTaskId,
-        },
-      },
-    }),
-    prisma.programDayProgress.findUnique({
-      where: {
-        userId_programDayId: {
-          userId: session.userId,
-          programDayId,
-        },
-      },
-      select: { id: true },
-    }),
-  ]);
-
-  if (isPast2359 && !existingSubmission && !existingDayProgress) {
+  if (isPast2359) {
     return {
       success: false,
       message: `The 23:59 WIB cutoff for Day ${customTask.programDay.dayNumber} has passed.`,
@@ -128,7 +110,7 @@ export async function wellnessUserSubmitCustomTask(
   }
   const sanitizedValues = sanitizedResult.values as Prisma.InputJsonValue;
 
-  const result = await prisma.$transaction(async (tx) => {
+  const { submission: result, dayCompleted } = await prisma.$transaction(async (tx) => {
     const submission = await tx.programDayCustomSubmission.upsert({
       where: {
         userId_customTaskId: {
@@ -153,34 +135,136 @@ export async function wellnessUserSubmitCustomTask(
         const logId = `bm_${crypto.randomBytes(10).toString("hex")}`;
         const now = new Date();
         // Atomic upsert backed by partial unique index `user_body_metric_logs_custom_task_day_uidx`
-        await tx.$executeRaw`
-          INSERT INTO "user_body_metric_logs" (
-            "id", "user_id", "program_id", "program_day_id", "source",
-            "weight_kg", "height_cm", "waist_cm", "chest_cm", "hips_cm",
-            "body_fat_pct", "resting_hr", "notes", "recorded_at"
-          )
-          VALUES (
-            ${logId}, ${session.userId}, ${customTask.programDay.programId}, ${programDayId}, 'CUSTOM_TASK'::"BodyMetricSource",
-            ${metrics.weightKg ?? null}, ${metrics.heightCm ?? null}, ${metrics.waistCm ?? null}, ${metrics.chestCm ?? null}, ${metrics.hipsCm ?? null},
-            ${metrics.bodyFatPct ?? null}, ${metrics.restingHr ?? null}, ${metrics.notes ?? null}, ${now}
-          )
-          ON CONFLICT ("user_id", "program_day_id", "source")
-          WHERE "program_day_id" IS NOT NULL AND "source" = 'CUSTOM_TASK'
-          DO UPDATE SET
-            "weight_kg" = COALESCE(EXCLUDED."weight_kg", "user_body_metric_logs"."weight_kg"),
-            "height_cm" = COALESCE(EXCLUDED."height_cm", "user_body_metric_logs"."height_cm"),
-            "waist_cm" = COALESCE(EXCLUDED."waist_cm", "user_body_metric_logs"."waist_cm"),
-            "chest_cm" = COALESCE(EXCLUDED."chest_cm", "user_body_metric_logs"."chest_cm"),
-            "hips_cm" = COALESCE(EXCLUDED."hips_cm", "user_body_metric_logs"."hips_cm"),
-            "body_fat_pct" = COALESCE(EXCLUDED."body_fat_pct", "user_body_metric_logs"."body_fat_pct"),
-            "resting_hr" = COALESCE(EXCLUDED."resting_hr", "user_body_metric_logs"."resting_hr"),
-            "notes" = COALESCE(EXCLUDED."notes", "user_body_metric_logs"."notes"),
-            "recorded_at" = EXCLUDED."recorded_at"
-        `;
+        // with graceful transactional fallback if index is missing (e.g. fresh `db push`).
+        try {
+          await tx.$executeRaw`
+            INSERT INTO "user_body_metric_logs" (
+              "id", "user_id", "program_id", "program_day_id", "source",
+              "weight_kg", "height_cm", "waist_cm", "chest_cm", "hips_cm",
+              "body_fat_pct", "resting_hr", "notes", "recorded_at"
+            )
+            VALUES (
+              ${logId}, ${session.userId}, ${customTask.programDay.programId}, ${programDayId}, 'CUSTOM_TASK'::"BodyMetricSource",
+              ${metrics.weightKg ?? null}, ${metrics.heightCm ?? null}, ${metrics.waistCm ?? null}, ${metrics.chestCm ?? null}, ${metrics.hipsCm ?? null},
+              ${metrics.bodyFatPct ?? null}, ${metrics.restingHr ?? null}, ${metrics.notes ?? null}, ${now}
+            )
+            ON CONFLICT ("user_id", "program_day_id", "source")
+            WHERE "program_day_id" IS NOT NULL AND "source" = 'CUSTOM_TASK'
+            DO UPDATE SET
+              "weight_kg" = COALESCE(EXCLUDED."weight_kg", "user_body_metric_logs"."weight_kg"),
+              "height_cm" = COALESCE(EXCLUDED."height_cm", "user_body_metric_logs"."height_cm"),
+              "waist_cm" = COALESCE(EXCLUDED."waist_cm", "user_body_metric_logs"."waist_cm"),
+              "chest_cm" = COALESCE(EXCLUDED."chest_cm", "user_body_metric_logs"."chest_cm"),
+              "hips_cm" = COALESCE(EXCLUDED."hips_cm", "user_body_metric_logs"."hips_cm"),
+              "body_fat_pct" = COALESCE(EXCLUDED."body_fat_pct", "user_body_metric_logs"."body_fat_pct"),
+              "resting_hr" = COALESCE(EXCLUDED."resting_hr", "user_body_metric_logs"."resting_hr"),
+              "notes" = COALESCE(EXCLUDED."notes", "user_body_metric_logs"."notes"),
+              "recorded_at" = EXCLUDED."recorded_at"
+          `;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "";
+          if (!msg.includes("42P10") && !msg.includes("ON CONFLICT")) {
+            throw err;
+          }
+          const existingLog = await tx.userBodyMetricLog.findFirst({
+            where: { userId: session.userId, programDayId, source: "CUSTOM_TASK" },
+          });
+          if (existingLog) {
+            await tx.userBodyMetricLog.update({
+              where: { id: existingLog.id },
+              data: {
+                weightKg: metrics.weightKg ?? existingLog.weightKg,
+                heightCm: metrics.heightCm ?? existingLog.heightCm,
+                waistCm: metrics.waistCm ?? existingLog.waistCm,
+                chestCm: metrics.chestCm ?? existingLog.chestCm,
+                hipsCm: metrics.hipsCm ?? existingLog.hipsCm,
+                bodyFatPct: metrics.bodyFatPct ?? existingLog.bodyFatPct,
+                restingHr: metrics.restingHr ?? existingLog.restingHr,
+                notes: metrics.notes ?? existingLog.notes,
+                recordedAt: now,
+              },
+            });
+          } else {
+            await tx.userBodyMetricLog.create({
+              data: {
+                id: logId,
+                userId: session.userId,
+                programId: customTask.programDay.programId,
+                programDayId,
+                source: "CUSTOM_TASK",
+                weightKg: metrics.weightKg ?? null,
+                heightCm: metrics.heightCm ?? null,
+                waistCm: metrics.waistCm ?? null,
+                chestCm: metrics.chestCm ?? null,
+                hipsCm: metrics.hipsCm ?? null,
+                bodyFatPct: metrics.bodyFatPct ?? null,
+                restingHr: metrics.restingHr ?? null,
+                notes: metrics.notes ?? null,
+                recordedAt: now,
+              },
+            });
+          }
+        }
       }
     }
 
-    return submission;
+    // Re-evaluate and sync ProgramDayProgress.isCompleted whenever a custom task is submitted
+    let computedDayCompleted = false;
+    const txAny = tx as unknown as {
+      programDayProgress?: {
+        findUnique?: typeof tx.programDayProgress.findUnique;
+        update?: typeof tx.programDayProgress.update;
+      };
+      programDayCustomTask?: { findMany?: typeof tx.programDayCustomTask.findMany };
+      programDayCustomSubmission?: { count?: typeof tx.programDayCustomSubmission.count };
+    };
+    const existingProg =
+      typeof txAny.programDayProgress?.findUnique === "function"
+        ? await tx.programDayProgress.findUnique({
+            where: {
+              userId_programDayId: {
+                userId: session.userId,
+                programDayId,
+              },
+            },
+          })
+        : null;
+
+    if (
+      existingProg &&
+      typeof txAny.programDayCustomTask?.findMany === "function" &&
+      typeof txAny.programDayCustomSubmission?.count === "function"
+    ) {
+      computedDayCompleted = await computeVerifiedDayCompletionInTx(
+        tx,
+        session.userId,
+        customTask.programDay,
+        {
+          isVideoWatched: existingProg.isVideoWatched,
+          checklistCompleted: safeJsonParse<string[]>(existingProg.checklistCompletedJson, []),
+          selectedWorkout: existingProg.selectedWorkout,
+          workoutNotes: existingProg.workoutNotes,
+          eventFeedback: existingProg.eventFeedback,
+          mealCompliance: existingProg.mealCompliance,
+          bedtime: existingProg.bedtime,
+          wakeTime: existingProg.wakeTime,
+        }
+      );
+      if (
+        computedDayCompleted !== existingProg.isCompleted &&
+        typeof txAny.programDayProgress?.update === "function"
+      ) {
+        await tx.programDayProgress.update({
+          where: { id: existingProg.id },
+          data: {
+            isCompleted: computedDayCompleted,
+            completedAt: computedDayCompleted ? existingProg.completedAt ?? new Date() : null,
+          },
+        });
+      }
+    }
+
+    return { submission, dayCompleted: computedDayCompleted };
   });
 
   try {
@@ -192,13 +276,16 @@ export async function wellnessUserSubmitCustomTask(
 
   return {
     success: true,
-    message: `"${customTask.title}" saved.`,
+    message: dayCompleted
+      ? `"${customTask.title}" saved — Day ${customTask.programDay.dayNumber} completed!`
+      : `"${customTask.title}" saved.`,
     data: {
       id: result.id,
       customTaskId: result.customTaskId,
       values: parseCustomSubmissionValues(result.valuesJson),
       submittedAt: result.submittedAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
+      dayCompleted,
     },
   };
 }
@@ -246,7 +333,11 @@ export async function wellnessAdminSaveDayCustomTasks(
 
   const day = await prisma.programDay.findUnique({
     where: { id: programDayId },
-    select: { id: true, programId: true },
+    select: {
+      id: true,
+      programId: true,
+      program: { select: { status: true } },
+    },
   });
 
   if (!day || day.programId !== programId) {
@@ -256,55 +347,97 @@ export async function wellnessAdminSaveDayCustomTasks(
   const tasks = parsedTasks.data;
   const incomingIds = tasks.map((t) => t.id).filter((id): id is string => Boolean(id));
 
-  await prisma.$transaction(async (tx) => {
-    await tx.programDayCustomTask.deleteMany({
-      where: {
-        programDayId,
-        ...(incomingIds.length > 0 ? { id: { notIn: incomingIds } } : {}),
-      },
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Prevent accidental cascade deletion of member submissions when removing tasks on live/enrolled programs
+      const tasksToRemove = await tx.programDayCustomTask.findMany({
+        where: {
+          programDayId,
+          ...(incomingIds.length > 0 ? { id: { notIn: incomingIds } } : {}),
+        },
+        select: { id: true, title: true, _count: { select: { submissions: true } } },
+      });
+      const submittedToRemove = tasksToRemove.filter((t) => t._count.submissions > 0);
+      if (submittedToRemove.length > 0) {
+        const activeEnrollments = await tx.programEnrollment.count({
+          where: { programId, status: "ACTIVE" },
+        });
+        if (day.program.status === "PUBLISHED" || activeEnrollments > 0) {
+          throw new Error(
+            `Cannot delete custom task(s) (${submittedToRemove
+              .map((t) => `"${t.title}"`)
+              .join(", ")}) because members have already submitted responses on this live program.`
+          );
+        }
+      }
+
+      if (tasksToRemove.length > 0) {
+        await tx.programDayCustomTask.deleteMany({
+          where: { id: { in: tasksToRemove.map((t) => t.id) } },
+        });
+      }
+
+      const existingIds = new Set(
+        (
+          await tx.programDayCustomTask.findMany({
+            where: { programDayId },
+            select: { id: true },
+          })
+        ).map((r) => r.id)
+      );
+
+      const toUpdate: Array<{ id: string; data: Prisma.ProgramDayCustomTaskUpdateManyMutationInput }> = [];
+      const toCreate: Prisma.ProgramDayCustomTaskCreateManyInput[] = [];
+
+      for (let idx = 0; idx < tasks.length; idx++) {
+        const task = tasks[idx];
+        let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
+        if (task.translations) {
+          try {
+            parsedTranslations =
+              typeof task.translations === "string"
+                ? (JSON.parse(task.translations) as Prisma.InputJsonValue)
+                : (task.translations as Prisma.InputJsonValue);
+          } catch {
+            parsedTranslations = undefined;
+          }
+        }
+
+        const basePayload = {
+          sortOrder: idx,
+          taskType: task.taskType,
+          title: task.title.trim(),
+          instructions: task.instructions?.trim() || null,
+          isRequired: true, // All tasks are mandatory (no optional tasks)
+          fieldsSchemaJson: task.fields as unknown as Prisma.InputJsonValue,
+          ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
+        };
+
+        if (task.id && existingIds.has(task.id)) {
+          toUpdate.push({ id: task.id, data: basePayload });
+        } else {
+          toCreate.push({ programDayId, ...basePayload });
+        }
+      }
+
+      await Promise.all([
+        ...toUpdate.map((u) =>
+          tx.programDayCustomTask.update({
+            where: { id: u.id },
+            data: u.data,
+          })
+        ),
+        toCreate.length > 0
+          ? tx.programDayCustomTask.createMany({ data: toCreate })
+          : Promise.resolve(),
+      ]);
     });
-
-    for (let idx = 0; idx < tasks.length; idx++) {
-      const task = tasks[idx];
-      let parsedTranslations: Prisma.InputJsonValue | undefined = undefined;
-      if (task.translations) {
-        try {
-          parsedTranslations =
-            typeof task.translations === "string"
-              ? (JSON.parse(task.translations) as Prisma.InputJsonValue)
-              : (task.translations as Prisma.InputJsonValue);
-        } catch {
-          parsedTranslations = undefined;
-        }
-      }
-
-      const payload = {
-        sortOrder: idx,
-        taskType: task.taskType,
-        title: task.title.trim(),
-        instructions: task.instructions?.trim() || null,
-        isRequired: task.isRequired ?? true,
-        fieldsSchemaJson: task.fields as unknown as Prisma.InputJsonValue,
-        ...(parsedTranslations !== undefined ? { translationsJson: parsedTranslations } : {}),
-      };
-
-      if (task.id) {
-        const updated = await tx.programDayCustomTask.updateMany({
-          where: { id: task.id, programDayId },
-          data: payload,
-        });
-        if (updated.count === 0) {
-          await tx.programDayCustomTask.create({
-            data: { programDayId, ...payload },
-          });
-        }
-      } else {
-        await tx.programDayCustomTask.create({
-          data: { programDayId, ...payload },
-        });
-      }
-    }
-  });
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to update custom tasks.",
+    };
+  }
 
   try {
     revalidatePath("/dashboard");

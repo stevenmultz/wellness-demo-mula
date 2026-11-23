@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Prisma, type Program, type ProgramDay } from "@prisma/client";
 import { prisma, lockProgramRow } from "../db";
 import { requireAdminAccess, requireProgramAccess } from "../security/guards";
@@ -95,18 +96,31 @@ function getIncompleteDaysPreview(
   days: ProgramDay[]
 ): string | null {
   if (program.locationType === "ONLINE") {
-    if (days.length === 0) return "at least 1 Session / Module";
-    const incomplete = days
-      .filter(
-        (d) =>
-          !isProgramDayComplete({
-            ...d,
-            videoChecklist: safeJsonParse<string[]>(d.videoChecklistJson, []),
-          })
-      )
-      .map((d) => d.dayNumber);
-    if (incomplete.length === 0) return null;
-    return `Module ${incomplete.join(", Module ")}`;
+    if (days.length === 0) return "at least 1 Day / Module";
+    const maxDayNum = Math.max(
+      program.durationDays || 1,
+      ...days.map((d) => d.dayNumber)
+    );
+    const missingDays: number[] = [];
+    for (let i = 1; i <= maxDayNum; i++) {
+      const dayRecord = days.find((d) => d.dayNumber === i);
+      if (
+        !isProgramDayComplete(
+          dayRecord
+            ? {
+                ...dayRecord,
+                videoChecklist: safeJsonParse<string[]>(dayRecord.videoChecklistJson, []),
+              }
+            : null
+        )
+      ) {
+        missingDays.push(i);
+      }
+    }
+    if (missingDays.length === 0) return null;
+    return missingDays.length > 6
+      ? `Day ${missingDays.slice(0, 6).join(", Day ")} (+${missingDays.length - 6} more)`
+      : `Day ${missingDays.join(", Day ")}`;
   }
 
   const missingDays: number[] = [];
@@ -199,7 +213,7 @@ export async function createProgramService(
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const randomSuffix = crypto.randomBytes(3).toString("hex");
   const slug = `${baseSlug || "program"}-${randomSuffix}`;
 
   const now = new Date();
@@ -334,8 +348,10 @@ export async function createProgramService(
                   onsiteVenue: d.onsiteVenue || null,
                   onsiteSchedule: d.onsiteSchedule || null,
                   restInstructions:
-                    d.restInstructions ||
-                    "Take today to rest, stretch gently, and let your body restore its energy.",
+                    d.dayType === "REST_DAY"
+                      ? d.restInstructions ||
+                        "Take today to rest, stretch gently, and let your body restore its energy."
+                      : d.restInstructions || null,
                 })),
               }
             : undefined,
@@ -812,8 +828,8 @@ export async function togglePublishProgramService(
 
     return {
       success: true as const,
-      message: `Cohort "${updated.title}" has been unpublished and returned to Review status.`,
-      data: { isPublished: false, status: "REVIEW" },
+      message: `Cohort "${updated.title}" has been unpublished and returned to Open status.`,
+      data: { isPublished: false, status: "OPEN" },
     };
   });
 
@@ -945,7 +961,7 @@ export async function duplicateProgramService(
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)+/g, "");
-    const suffix = Math.floor(1000 + Math.random() * 9000);
+    const suffix = crypto.randomBytes(3).toString("hex");
     const slug = `${baseSlug || "program"}-${suffix}`;
 
     let nextStart: Date | null = null;
@@ -1034,56 +1050,63 @@ export async function duplicateProgramService(
         : Promise.resolve(),
     ]);
 
-    for (const day of source.days) {
-      const createdDay = await tx.programDay.create({
-        data: {
-          programId: cloned.id,
-          dayNumber: day.dayNumber,
-          title: day.title,
-          dayType: day.dayType,
-          workoutOptionsJson:
-            day.workoutOptionsJson === null
-              ? Prisma.DbNull
-              : (day.workoutOptionsJson as Prisma.InputJsonValue),
-          sleepRecommendation: day.sleepRecommendation,
-          dayNotificationsJson:
-            day.dayNotificationsJson === null
-              ? Prisma.DbNull
-              : (day.dayNotificationsJson as Prisma.InputJsonValue),
-          videoUrl: day.videoUrl,
-          videoChecklistJson:
-            day.videoChecklistJson === null
-              ? Prisma.DbNull
-              : (day.videoChecklistJson as Prisma.InputJsonValue),
-          mealRecommendation: day.mealRecommendation,
-          meetupLink: day.meetupLink,
-          mapLink: day.mapLink,
-          onsiteVenue: day.onsiteVenue,
-          onsiteSchedule: day.onsiteSchedule,
-          eventTitle: day.eventTitle,
-          eventHost: day.eventHost,
-          eventDetails: day.eventDetails,
-          restInstructions: day.restInstructions,
-        },
-      });
+    // Batch create all days and their custom tasks concurrently in chunks (avoids N+1 sequential timeout)
+    const CHUNK_SIZE = 10;
+    for (let i = 0; i < source.days.length; i += CHUNK_SIZE) {
+      const chunk = source.days.slice(i, i + CHUNK_SIZE);
+      await Promise.all(
+        chunk.map(async (day) => {
+          const createdDay = await tx.programDay.create({
+            data: {
+              programId: cloned.id,
+              dayNumber: day.dayNumber,
+              title: day.title,
+              dayType: day.dayType,
+              workoutOptionsJson:
+                day.workoutOptionsJson === null
+                  ? Prisma.DbNull
+                  : (day.workoutOptionsJson as Prisma.InputJsonValue),
+              sleepRecommendation: day.sleepRecommendation,
+              dayNotificationsJson:
+                day.dayNotificationsJson === null
+                  ? Prisma.DbNull
+                  : (day.dayNotificationsJson as Prisma.InputJsonValue),
+              videoUrl: day.videoUrl,
+              videoChecklistJson:
+                day.videoChecklistJson === null
+                  ? Prisma.DbNull
+                  : (day.videoChecklistJson as Prisma.InputJsonValue),
+              mealRecommendation: day.mealRecommendation,
+              meetupLink: day.meetupLink,
+              mapLink: day.mapLink,
+              onsiteVenue: day.onsiteVenue,
+              onsiteSchedule: day.onsiteSchedule,
+              eventTitle: day.eventTitle,
+              eventHost: day.eventHost,
+              eventDetails: day.eventDetails,
+              restInstructions: day.restInstructions,
+            },
+          });
 
-      if (day.customTasks.length > 0) {
-        await tx.programDayCustomTask.createMany({
-          data: day.customTasks.map((ct) => ({
-            programDayId: createdDay.id,
-            sortOrder: ct.sortOrder,
-            taskType: ct.taskType,
-            title: ct.title,
-            instructions: ct.instructions,
-            isRequired: ct.isRequired,
-            fieldsSchemaJson: ct.fieldsSchemaJson as Prisma.InputJsonValue,
-            translationsJson:
-              ct.translationsJson === null
-                ? Prisma.DbNull
-                : (ct.translationsJson as Prisma.InputJsonValue),
-          })),
-        });
-      }
+          if (day.customTasks.length > 0) {
+            await tx.programDayCustomTask.createMany({
+              data: day.customTasks.map((ct) => ({
+                programDayId: createdDay.id,
+                sortOrder: ct.sortOrder,
+                taskType: ct.taskType,
+                title: ct.title,
+                instructions: ct.instructions,
+                isRequired: true,
+                fieldsSchemaJson: ct.fieldsSchemaJson as Prisma.InputJsonValue,
+                translationsJson:
+                  ct.translationsJson === null
+                    ? Prisma.DbNull
+                    : (ct.translationsJson as Prisma.InputJsonValue),
+              })),
+            });
+          }
+        })
+      );
     }
 
     await recordAuditLog(
@@ -1115,7 +1138,7 @@ export async function duplicateProgramService(
         : `Duplicated "${cloned.title}" as Draft with all ${source.days.length} module(s) copied.`,
       data: toClientProgramPayload(fullCloned),
     };
-  });
+  }, { timeout: 20000 });
 
   if (result.success) revalidateWellnessRoutes();
   return result;

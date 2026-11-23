@@ -257,6 +257,7 @@ export function DashboardClient({
   const {
     dayChecklists,
     overlayDay,
+    setDayCompletedOverride,
     setCustomSubmissionsByTaskId,
     handleOpenVideo,
     handleSyncChecklist,
@@ -385,8 +386,9 @@ export function DashboardClient({
     }
   };
 
-  // Hobby cron runs once a day. While this session is visible in foreground, ask the server (WIB clock) for due alerts.
+  // Hobby cron runs once a day. While this session is visible in foreground and user has active programs, ask the server (WIB clock) for due alerts.
   useEffect(() => {
+    if (allActiveEnrollments.length === 0) return;
     let lastMinute = "";
     let stopped = false;
     const tick = async () => {
@@ -418,14 +420,14 @@ export function DashboardClient({
       }
     };
     void tick();
-    const interval = setInterval(() => void tick(), 30000);
+    const interval = setInterval(() => void tick(), 60000);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       stopped = true;
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [setActionNotice]);
+  }, [setActionNotice, allActiveEnrollments.length]);
 
   const completedDaysCount =
     currentProgram?.days?.filter(
@@ -870,11 +872,17 @@ export function DashboardClient({
                 setIsOverHero(true);
                 window.scrollTo({ top: 0 });
               }}
-              onCustomTaskSubmitted={(dayId, customTaskId, submission) => {
+              onCustomTaskSubmitted={(dayId, customTaskId, submission, dayCompleted) => {
                 setCustomSubmissionsByTaskId((prev) => ({
                   ...prev,
                   [customTaskId]: submission,
                 }));
+                if (typeof dayCompleted === "boolean") {
+                  setDayCompletedOverride((prev) => ({
+                    ...prev,
+                    [dayId]: dayCompleted,
+                  }));
+                }
                 const metrics = extractBodyMetricsFromValues(submission.values);
                 if (metrics && currentProgram) {
                   setBodyMetricLogs((prev) => {

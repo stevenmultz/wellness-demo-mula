@@ -347,8 +347,8 @@ export const UpdateProgramMetaSchema = z
 export const SubmitDayProgressSchema = z.object({
   programDayId: z.string().min(1, "Program day ID is required").max(128),
   videoWatched: z.boolean().optional(),
-  isCompleted: z.boolean(),
-  checklistCompleted: z.array(z.string().max(300)).max(100).default([]),
+  isCompleted: z.boolean().optional().default(false),
+  checklistCompleted: z.array(z.string().max(300)).max(100).optional(),
   selectedWorkout: z.string().max(150).optional().or(z.literal("")),
   workoutNotes: z.string().max(4000).optional().or(z.literal("")),
   eventFeedback: z.string().max(4000).optional().or(z.literal("")),

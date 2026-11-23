@@ -22,12 +22,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [done, setDone] = useState<boolean[]>([...initialDone]);
   const initialKey = initialDone.join(",");
   useEffect(() => {
-    setDone((prev) => [
-      prev[0] || initialDone[0],
-      prev[1] || initialDone[1],
-      prev[2] || initialDone[2],
-      prev[3] || initialDone[3],
-    ]);
+    setDone([...initialDone]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
@@ -83,7 +78,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     !isAnytime &&
     !isSelectedToday &&
     (selectedDay.isPast2359 || selectedDay.dayNumber < day.dayNumber);
-  const isSelectedFuture = !isAnytime && !isSelectedToday && !isSelectedPast;
+  const isSelectedFuture =
+    !isAnytime &&
+    ((!isSelectedToday && !isSelectedPast) || !selectedDay.isCalendarUnlocked);
 
   const todayDateStr = useMemo(() => {
     return new Intl.DateTimeFormat("en-GB", {
@@ -153,8 +150,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
           <li>
             <strong className="text-zinc-900 dark:text-white">Task Cadence:</strong>{" "}
-            Complete each day&apos;s routine: sleep tracking, training workout, nutrition
-            logging, daily reflection, and body weight check-in.
+            Complete every scheduled task for the day: sleep tracking, daily activity,
+            nutrition logging, and any assigned coach checkpoints.
           </li>
           <li>
             <strong className="text-zinc-900 dark:text-white">Daily Reset:</strong> Active
@@ -254,8 +251,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             customTasks={selectedDay.customTasks}
             locked={selectedLocked}
             isFuture={isSelectedFuture}
-            onSubmitted={(customTaskId, submission) =>
-              props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission)
+            onSubmitted={(customTaskId, submission, dayCompleted) =>
+              props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission, dayCompleted)
             }
           />
         )}

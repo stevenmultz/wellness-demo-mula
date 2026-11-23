@@ -73,8 +73,8 @@ async function DashboardContent() {
 
   const locale = await getServerLocale(session.preferredLocale);
 
-  // Fetch enrollments, published programs, and body metric logs concurrently
-  const [enrollments, allProgramsData, bodyMetricLogsRaw] = await Promise.all([
+  // Stage 1: Fetch enrollments, lightweight published catalog metadata, and body metrics concurrently
+  const [enrollments, catalogProgramsData, bodyMetricLogsRaw] = await Promise.all([
     prisma.programEnrollment.findMany({
       where: { userId: session.userId },
       include: {
@@ -93,20 +93,10 @@ async function DashboardContent() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.program.findMany({
-      take: 250,
+      take: 150,
       where: {
         deletedAt: null,
-        OR: [
-          { status: "PUBLISHED" },
-          {
-            enrollments: {
-              some: {
-                userId: session.userId,
-                status: "ACTIVE",
-              },
-            },
-          },
-        ],
+        status: "PUBLISHED",
       },
       include: {
         ...PROGRAM_TAXONOMY_INCLUDE,
@@ -115,19 +105,18 @@ async function DashboardContent() {
             enrollments: { where: { status: "ACTIVE" } },
           },
         },
+        // Lightweight syllabus fields only for non-enrolled catalog preview (zero progresses/customTasks/JSON bloat)
         days: {
-          include: {
-            progresses: {
-              where: { userId: session.userId },
-            },
-            customTasks: {
-              orderBy: { sortOrder: "asc" },
-              include: {
-                submissions: {
-                  where: { userId: session.userId },
-                },
-              },
-            },
+          select: {
+            id: true,
+            dayNumber: true,
+            title: true,
+            dayType: true,
+            mapLink: true,
+            eventTitle: true,
+            eventHost: true,
+            onsiteVenue: true,
+            onsiteSchedule: true,
           },
           orderBy: { dayNumber: "asc" },
         },
@@ -147,6 +136,60 @@ async function DashboardContent() {
     enrollments.filter((e) => e.status === "ACTIVE").map((e) => [e.program.id, e])
   );
   const userActiveProgramIds = new Set(activeEnrollmentByProgramId.keys());
+
+  // Stage 2: Load full curriculum, progresses, customTasks & submissions ONLY for the user's ACTIVE enrolled programs
+  const activeProgramIdsList = Array.from(userActiveProgramIds);
+  const activeProgramsFull =
+    activeProgramIdsList.length > 0
+      ? await prisma.program.findMany({
+          where: {
+            id: { in: activeProgramIdsList },
+            deletedAt: null,
+          },
+          include: {
+            ...PROGRAM_TAXONOMY_INCLUDE,
+            _count: {
+              select: {
+                enrollments: { where: { status: "ACTIVE" } },
+              },
+            },
+            days: {
+              include: {
+                progresses: {
+                  where: { userId: session.userId },
+                },
+                customTasks: {
+                  orderBy: { sortOrder: "asc" },
+                  include: {
+                    submissions: {
+                      where: { userId: session.userId },
+                    },
+                  },
+                },
+              },
+              orderBy: { dayNumber: "asc" },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
+
+  const activeFullById = new Map(activeProgramsFull.map((p) => [p.id, p]));
+  const combinedProgramIds = new Set<string>();
+  const allProgramsList: Array<
+    | { kind: "active"; program: (typeof activeProgramsFull)[number] }
+    | { kind: "catalog"; program: (typeof catalogProgramsData)[number] }
+  > = [];
+
+  for (const p of activeProgramsFull) {
+    combinedProgramIds.add(p.id);
+    allProgramsList.push({ kind: "active", program: p });
+  }
+  for (const p of catalogProgramsData) {
+    if (combinedProgramIds.has(p.id)) continue;
+    combinedProgramIds.add(p.id);
+    allProgramsList.push({ kind: "catalog", program: p });
+  }
 
   const myPrograms = enrollments.map((e) => {
     const tax = serializeProgramTaxonomy(e.program);
@@ -191,8 +234,7 @@ async function DashboardContent() {
   const now = new Date();
 
   // Today's / tomorrow's tasks per ACTIVE program, resolved on the server in WIB (app timezone)
-  const dailyPlans: ProgramDailyPlan[] = allProgramsData
-    .filter((p) => userActiveProgramIds.has(p.id))
+  const dailyPlans: ProgramDailyPlan[] = activeProgramsFull
     .map((p) => {
       const enr = activeEnrollmentByProgramId.get(p.id);
       const effectiveStart =
@@ -251,8 +293,11 @@ async function DashboardContent() {
       );
     });
 
-  const allPrograms = allProgramsData.map((p) => {
-    const isPaidMember = userActiveProgramIds.has(p.id);
+  void activeFullById;
+
+  const allPrograms = allProgramsList.map((entry) => {
+    const p = entry.program;
+    const isPaidMember = entry.kind === "active";
     const activeEnrollment = activeEnrollmentByProgramId.get(p.id);
     const effectiveStartAt =
       p.locationType === "ONLINE"
@@ -268,6 +313,214 @@ async function DashboardContent() {
         : p.status === "PUBLISHED" || p.status === "OPEN"
         ? "ACTIVE"
         : "COMING_SOON";
+
+    const mappedDays =
+      entry.kind === "catalog"
+        ? entry.program.days.map((d) => {
+            const normalizedDayType =
+              p.locationType === "ONLINE" &&
+              (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
+                ? ("REST_DAY" as const)
+                : d.dayType;
+            return {
+              id: d.id,
+              dayNumber: d.dayNumber,
+              title: d.title,
+              dayType: normalizedDayType,
+              workoutOptions: [] as string[],
+              sleepRecommendation: null,
+              dayNotifications: [] as Array<{ time: string; message: string; label?: string }>,
+              unlockDate: "",
+              isCalendarUnlocked: false,
+              isPast2359: false,
+              isSkipped: false,
+              videoUrl: null,
+              videoChecklist: [] as string[],
+              mealRecommendation: null,
+              meetupLink: null,
+              mapLink: d.mapLink,
+              eventTitle: d.eventTitle,
+              eventHost: d.eventHost,
+              eventDetails: null,
+              onsiteVenue: d.onsiteVenue,
+              onsiteSchedule: d.onsiteSchedule,
+              restInstructions: null,
+              customTasks: [],
+              userProgress: null,
+            };
+          })
+        : entry.program.days.map((d) => {
+            const normalizedDayType =
+              p.locationType === "ONLINE" &&
+              (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
+                ? ("REST_DAY" as const)
+                : d.dayType;
+            const hasScheduleStart = Boolean(effectiveStartAt);
+            const { unlockDate, isCalendarUnlocked, isPast2359 } = !hasScheduleStart
+              ? { unlockDate: null, isCalendarUnlocked: true, isPast2359: false }
+              : getProgramDayWibWindow(effectiveStartAt!, d.dayNumber, now);
+
+            const progRecord = d.progresses[0] || null;
+            const checklistItems: string[] = safeJsonParse<string[]>(d.videoChecklistJson, []);
+            const completedChecklist: string[] = safeJsonParse<string[]>(
+              progRecord?.checklistCompletedJson,
+              []
+            );
+
+            const videoDone =
+              normalizedDayType !== "TRAINING_DAY" || !d.videoUrl
+                ? true
+                : !!progRecord?.isVideoWatched || !!progRecord?.isCompleted;
+            let checklistDone = checklistItems.length === 0 || !!progRecord?.isCompleted;
+            if (!checklistDone && normalizedDayType === "TRAINING_DAY") {
+              const groups = parseWorkoutOptionGroups(
+                safeJsonParse<string[]>(d.workoutOptionsJson, []),
+                checklistItems
+              );
+              const selectedOpt = progRecord?.selectedWorkout || groups[0]?.optionName || "Workout";
+              const activeGroup =
+                groups.find(
+                  (g) => g.optionName.trim().toLowerCase() === selectedOpt.trim().toLowerCase()
+                ) || groups[0];
+
+              if (activeGroup && activeGroup.movements.length > 0) {
+                const checkedKeys = new Set(
+                  completedChecklist.map((item) =>
+                    (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
+                  )
+                );
+                checklistDone = activeGroup.movements.every((m) => {
+                  const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
+                  const plainKey = m.name.trim().toLowerCase();
+                  return checkedKeys.has(scopedKey) || checkedKeys.has(plainKey);
+                });
+              } else {
+                checklistDone = checklistItems.every((item) => completedChecklist.includes(item));
+              }
+            }
+
+            // ALL custom tasks on the day are required (no optional custom tasks)
+            const allCustomDone = d.customTasks.every((ct) => ct.submissions.length > 0);
+
+            const sleepDone = Boolean(
+              progRecord?.bedtime &&
+                progRecord?.wakeTime &&
+                progRecord.bedtime !== "SKIPPED" &&
+                progRecord.wakeTime !== "SKIPPED"
+            );
+            const mealDone = Boolean(
+              progRecord?.mealCompliance && progRecord.mealCompliance !== "SKIPPED"
+            );
+            const activityDone =
+              normalizedDayType === "TRAINING_DAY"
+                ? videoDone &&
+                  checklistDone &&
+                  Boolean(
+                    progRecord?.isCompleted ||
+                      progRecord?.isVideoWatched ||
+                      (progRecord?.workoutNotes && progRecord.workoutNotes !== "SKIPPED") ||
+                      (progRecord?.selectedWorkout && progRecord.selectedWorkout !== "SKIPPED") ||
+                      completedChecklist.length > 0
+                  )
+                : normalizedDayType === "REST_DAY"
+                  ? Boolean(
+                      progRecord?.isCompleted ||
+                        (progRecord?.workoutNotes && progRecord.workoutNotes !== "SKIPPED") ||
+                        completedChecklist.length > 0
+                    )
+                  : Boolean(
+                      progRecord?.isCompleted ||
+                        (progRecord?.eventFeedback && progRecord.eventFeedback !== "SKIPPED")
+                    );
+
+            // Daily Reflection removed: 3 core tasks (Sleep + Activity + Meal) + ALL custom tasks
+            const isFullyCompleted =
+              (!!progRecord?.isCompleted ||
+                (!!progRecord && sleepDone && activityDone && mealDone)) &&
+              allCustomDone;
+
+            const isSkipped = hasScheduleStart && isPast2359 && !isFullyCompleted;
+            const canAccessMedia = isPaidMember && isCalendarUnlocked;
+
+            return {
+              id: d.id,
+              dayNumber: d.dayNumber,
+              title: d.title,
+              dayType: normalizedDayType,
+              workoutOptions: canAccessMedia ? safeJsonParse<string[]>(d.workoutOptionsJson, []) : [],
+              sleepRecommendation: canAccessMedia ? d.sleepRecommendation || null : null,
+              dayNotifications: canAccessMedia
+                ? safeJsonParse<Array<{ time: string; message: string; label?: string }>>(
+                    d.dayNotificationsJson,
+                    []
+                  )
+                : [],
+              unlockDate: unlockDate ? unlockDate.toISOString() : "",
+              isCalendarUnlocked,
+              isPast2359,
+              isSkipped,
+              videoUrl: canAccessMedia ? d.videoUrl : null,
+              videoChecklist: canAccessMedia ? checklistItems : [],
+              mealRecommendation: d.mealRecommendation || null,
+              meetupLink: isPaidMember ? d.meetupLink : null,
+              mapLink: d.mapLink,
+              eventTitle: d.eventTitle,
+              eventHost: d.eventHost,
+              eventDetails: isPaidMember ? d.eventDetails : null,
+              onsiteVenue: d.onsiteVenue,
+              onsiteSchedule: d.onsiteSchedule,
+              restInstructions: canAccessMedia ? d.restInstructions || null : null,
+              customTasks: canAccessMedia
+                ? d.customTasks.map((ct) => {
+                    const sub = ct.submissions[0] || null;
+                    return {
+                      id: ct.id,
+                      programDayId: ct.programDayId,
+                      sortOrder: ct.sortOrder,
+                      taskType: ct.taskType as any,
+                      title: resolveLocalizedField(ct.title, ct.translationsJson, locale, "title"),
+                      instructions:
+                        resolveLocalizedField(
+                          ct.instructions,
+                          ct.translationsJson,
+                          locale,
+                          "instructions"
+                        ) || null,
+                      isRequired: true,
+                      fields: parseCustomTaskFields(ct.fieldsSchemaJson),
+                      translations: toJsonString(ct.translationsJson),
+                      submission: sub
+                        ? {
+                            id: sub.id,
+                            values: parseCustomSubmissionValues(sub.valuesJson),
+                            submittedAt: sub.submittedAt.toISOString(),
+                            updatedAt: sub.updatedAt.toISOString(),
+                          }
+                        : null,
+                    };
+                  })
+                : [],
+              userProgress: progRecord
+                ? {
+                    id: progRecord.id,
+                    videoWatched: progRecord.isVideoWatched,
+                    isCompleted: isFullyCompleted,
+                    checklistCompleted: toJsonString(progRecord.checklistCompletedJson),
+                    selectedWorkout: progRecord.selectedWorkout,
+                    workoutNotes: progRecord.workoutNotes,
+                    eventFeedback: progRecord.eventFeedback,
+                    mealCompliance: progRecord.mealCompliance,
+                    mealNotes: progRecord.mealNotes,
+                    dailyReflection: progRecord.dailyReflection,
+                    happinessRate: progRecord.happinessRate,
+                    bedtime: progRecord.bedtime,
+                    wakeTime: progRecord.wakeTime,
+                    sleepDurationMinutes: progRecord.sleepDurationMinutes,
+                    assessmentResponse: progRecord.assessmentResponse,
+                  }
+                : null,
+            };
+          });
 
     return {
       id: p.id,
@@ -309,182 +562,12 @@ async function DashboardContent() {
       targetState: p.targetState || DEFAULT_TARGET_STATE,
       methodology: p.methodology || DEFAULT_METHODOLOGY,
       expectedBenefits: parseStringList(p.expectedBenefitsJson, DEFAULT_PROGRAM_BENEFITS),
-      scientificReferences: parseReferencesList(p.scientificReferencesJson, DEFAULT_PROGRAM_REFERENCES),
+      scientificReferences: parseReferencesList(
+        p.scientificReferencesJson,
+        DEFAULT_PROGRAM_REFERENCES
+      ),
       programGuidelines: parseStringList(p.programGuidelinesJson, DEFAULT_PROGRAM_GUIDELINES),
-      days: p.days.map((d) => {
-        const normalizedDayType =
-          p.locationType === "ONLINE" &&
-          (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
-            ? ("REST_DAY" as const)
-            : d.dayType;
-        const hasScheduleStart = Boolean(effectiveStartAt);
-        // Both HYBRID cohorts (from batchStart) and enrolled ONLINE programs (from member join date)
-        // use strict WIB calendar drip (00:00 WIB on start + (dayNumber - 1) days).
-        const { unlockDate, isCalendarUnlocked, isPast2359 } = !hasScheduleStart
-          ? { unlockDate: null, isCalendarUnlocked: true, isPast2359: false }
-          : getProgramDayWibWindow(effectiveStartAt!, d.dayNumber, now);
-
-        const progRecord = d.progresses[0] || null;
-        const checklistItems: string[] = safeJsonParse<string[]>(d.videoChecklistJson, []);
-        const completedChecklist: string[] = safeJsonParse<string[]>(progRecord?.checklistCompletedJson, []);
-
-        const videoDone =
-          normalizedDayType !== "TRAINING_DAY" || !d.videoUrl
-            ? true
-            : !!progRecord?.isVideoWatched || !!progRecord?.isCompleted;
-        let checklistDone = checklistItems.length === 0 || !!progRecord?.isCompleted;
-        if (!checklistDone && normalizedDayType === "TRAINING_DAY") {
-          const groups = parseWorkoutOptionGroups(
-            safeJsonParse<string[]>(d.workoutOptionsJson, []),
-            checklistItems
-          );
-          const selectedOpt = progRecord?.selectedWorkout || groups[0]?.optionName || "Workout";
-          const activeGroup =
-            groups.find((g) => g.optionName.trim().toLowerCase() === selectedOpt.trim().toLowerCase()) ||
-            groups[0];
-
-          if (activeGroup && activeGroup.movements.length > 0) {
-            const checkedKeys = new Set(
-              completedChecklist.map((item) =>
-                (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
-              )
-            );
-            checklistDone = activeGroup.movements.every((m) => {
-              const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
-              const plainKey = m.name.trim().toLowerCase();
-              return checkedKeys.has(scopedKey) || checkedKeys.has(plainKey);
-            });
-          } else {
-            checklistDone = checklistItems.every((item) => completedChecklist.includes(item));
-          }
-        }
-
-        const requiredCustomTasks = d.customTasks.filter((ct) => ct.isRequired);
-        const allRequiredCustomDone = requiredCustomTasks.every(
-          (ct) => ct.submissions.length > 0
-        );
-
-        const sleepDone = Boolean(
-          progRecord?.bedtime &&
-            progRecord?.wakeTime &&
-            progRecord.bedtime !== "SKIPPED" &&
-            progRecord.wakeTime !== "SKIPPED"
-        );
-        const mealDone = Boolean(
-          progRecord?.mealCompliance && progRecord.mealCompliance !== "SKIPPED"
-        );
-        const reflectionDone = Boolean(
-          progRecord?.dailyReflection && progRecord.dailyReflection !== "SKIPPED"
-        );
-        const activityDone =
-          normalizedDayType === "TRAINING_DAY"
-            ? videoDone &&
-              checklistDone &&
-              Boolean(
-                progRecord?.isCompleted ||
-                  progRecord?.isVideoWatched ||
-                  (progRecord?.workoutNotes && progRecord.workoutNotes !== "SKIPPED") ||
-                  (progRecord?.selectedWorkout && progRecord.selectedWorkout !== "SKIPPED") ||
-                  completedChecklist.length > 0
-              )
-            : normalizedDayType === "REST_DAY"
-              ? Boolean(
-                  progRecord?.isCompleted ||
-                    (progRecord?.workoutNotes && progRecord.workoutNotes !== "SKIPPED") ||
-                    completedChecklist.length > 0
-                )
-              : Boolean(
-                  progRecord?.isCompleted ||
-                    (progRecord?.eventFeedback && progRecord.eventFeedback !== "SKIPPED")
-                );
-
-        const isFullyCompleted =
-          (!!progRecord?.isCompleted ||
-            (!!progRecord &&
-              sleepDone &&
-              activityDone &&
-              mealDone &&
-              reflectionDone)) &&
-          allRequiredCustomDone;
-
-        // SOW 5.3 Skip Day Logic (applies to both scheduled HYBRID and time-based enrolled ONLINE programs)
-        const isSkipped = hasScheduleStart && isPast2359 && !isFullyCompleted;
-
-        // SOW 5.7 Content & Video Protection:
-        // Restrict media URLs strictly to verified paying members on unlocked days
-        const canAccessMedia = isPaidMember && isCalendarUnlocked;
-
-        return {
-          id: d.id,
-          dayNumber: d.dayNumber,
-          title: d.title,
-          dayType: normalizedDayType,
-          workoutOptions: canAccessMedia ? safeJsonParse<string[]>(d.workoutOptionsJson, []) : [],
-          sleepRecommendation: canAccessMedia ? d.sleepRecommendation || null : null,
-          dayNotifications: canAccessMedia
-            ? safeJsonParse<Array<{ time: string; message: string; label?: string }>>(d.dayNotificationsJson, [])
-            : [],
-          unlockDate: unlockDate ? unlockDate.toISOString() : "",
-          isCalendarUnlocked,
-          isPast2359,
-          isSkipped,
-          videoUrl: canAccessMedia ? d.videoUrl : null,
-          videoChecklist: canAccessMedia ? checklistItems : [],
-          mealRecommendation: d.mealRecommendation || null,
-          meetupLink: isPaidMember ? d.meetupLink : null,
-          mapLink: d.mapLink,
-          eventTitle: d.eventTitle,
-          eventHost: d.eventHost,
-          eventDetails: isPaidMember ? d.eventDetails : null,
-          onsiteVenue: d.onsiteVenue,
-          onsiteSchedule: d.onsiteSchedule,
-          restInstructions: canAccessMedia ? d.restInstructions || null : null,
-          customTasks: canAccessMedia
-            ? d.customTasks.map((ct) => {
-                const sub = ct.submissions[0] || null;
-                return {
-                  id: ct.id,
-                  programDayId: ct.programDayId,
-                  sortOrder: ct.sortOrder,
-                  taskType: ct.taskType as any,
-                  title: resolveLocalizedField(ct.title, ct.translationsJson, locale, "title"),
-                  instructions:
-                    resolveLocalizedField(ct.instructions, ct.translationsJson, locale, "instructions") || null,
-                  isRequired: ct.isRequired,
-                  fields: parseCustomTaskFields(ct.fieldsSchemaJson),
-                  translations: toJsonString(ct.translationsJson),
-                  submission: sub
-                    ? {
-                        id: sub.id,
-                        values: parseCustomSubmissionValues(sub.valuesJson),
-                        submittedAt: sub.submittedAt.toISOString(),
-                        updatedAt: sub.updatedAt.toISOString(),
-                      }
-                    : null,
-                };
-              })
-            : [],
-          userProgress: progRecord
-            ? {
-                id: progRecord.id,
-                videoWatched: progRecord.isVideoWatched,
-                isCompleted: isFullyCompleted,
-                checklistCompleted: toJsonString(progRecord.checklistCompletedJson),
-                selectedWorkout: progRecord.selectedWorkout,
-                workoutNotes: progRecord.workoutNotes,
-                eventFeedback: progRecord.eventFeedback,
-                mealCompliance: progRecord.mealCompliance,
-                mealNotes: progRecord.mealNotes,
-                dailyReflection: progRecord.dailyReflection,
-                happinessRate: progRecord.happinessRate,
-                bedtime: progRecord.bedtime,
-                wakeTime: progRecord.wakeTime,
-                sleepDurationMinutes: progRecord.sleepDurationMinutes,
-                assessmentResponse: progRecord.assessmentResponse,
-              }
-            : null,
-        };
-      }),
+      days: mappedDays,
     };
   });
 

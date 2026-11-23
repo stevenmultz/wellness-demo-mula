@@ -31,11 +31,28 @@ export interface DayRoutineTemplatePayload {
   sleepRecommendation?: string;
   mealRecommendation?: string;
   restInstructions?: string;
+  videoLinks?: Array<{ title: string; url: string }>;
+  onsiteVenue?: string;
+  onsiteSchedule?: string;
+  meetupLink?: string;
+  mapLink?: string;
+  eventTitle?: string;
+  eventHost?: string;
+  eventDetails?: string;
   workoutGroups?: Array<{
     optionName: string;
     movements: Array<{ name: string; target: string }>;
   }>;
   dayNotifications?: Array<{ time: string; label: string; message: string }>;
+  customTasks?: Array<{
+    sortOrder: number;
+    taskType: string;
+    title: string;
+    instructions?: string;
+    isRequired?: boolean;
+    fields: Array<Record<string, unknown>>;
+    translations?: string | null;
+  }>;
 }
 
 export interface ProgramTemplateDTO {
@@ -120,6 +137,12 @@ export async function wellnessSaveProgramTemplate(
   }
 
   const { id, templateType, name, description, organizationId, payload } = parsed.data;
+  if (JSON.stringify(payload).length > 100_000) {
+    return {
+      success: false,
+      message: "Template payload is too large (max 100 KB).",
+    };
+  }
   const resolvedOrgId =
     session.role === "SUPERADMIN"
       ? organizationId?.trim() || null

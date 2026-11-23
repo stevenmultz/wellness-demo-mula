@@ -15,6 +15,7 @@ import {
   Video,
 } from "lucide-react";
 import { safeJsonParse } from "@/wellness/utils/json";
+import { safeMediaUrl } from "@/wellness/utils/url-safety";
 import type { AdminUserItem } from "../adminTypes";
 
 type CustomerDayProgressItem = NonNullable<AdminUserItem["dayProgress"]>[number];
@@ -242,6 +243,79 @@ return (
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Custom Tasks Submissions */}
+        {sub.customSubmissions && sub.customSubmissions.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
+              Custom Tasks &amp; Measurements ({sub.customSubmissions.length})
+            </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {sub.customSubmissions.map((cs) => (
+                <div
+                  key={cs.customTaskId}
+                  className="p-3 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                      {cs.title}
+                    </span>
+                    <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 shrink-0">
+                      {cs.taskType}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(cs.values || {}).map(([k, v]) => {
+                      const photoSrc =
+                        typeof v === "string" &&
+                        (v.startsWith("data:image/") ||
+                          v.startsWith("/uploads/") ||
+                          v.startsWith("/api/media/"))
+                          ? safeMediaUrl(v)
+                          : null;
+                      if (photoSrc) {
+                        return (
+                          <a
+                            key={k}
+                            href={photoSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-200"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={photoSrc}
+                              alt={k}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-7 h-7 rounded object-cover"
+                            />
+                            <span>{k}</span>
+                          </a>
+                        );
+                      }
+                      return (
+                        <span
+                          key={k}
+                          className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-white/10 text-[11px] font-mono text-zinc-700 dark:text-zinc-200"
+                        >
+                          {k}:{" "}
+                          {Array.isArray(v)
+                            ? v.join(", ")
+                            : typeof v === "boolean"
+                            ? v
+                              ? "Yes"
+                              : "No"
+                            : String(v ?? "—")}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -46,7 +46,7 @@ export interface PlanOption {
   title: string;
 }
 
-export type PlanTaskId = "sleep" | "activity" | "meal" | "reflection";
+export type PlanTaskId = "sleep" | "activity" | "meal";
 
 export interface MyPlanIndexItem {
   programId: string;
@@ -311,14 +311,14 @@ export function evaluateDayTaskState(
             (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED")
         : !!progress?.isCompleted ||
           (!!progress?.eventFeedback && progress.eventFeedback !== "SKIPPED");
-  const initialDone: [boolean, boolean, boolean, boolean] = [
+  const initialDone: [boolean, boolean, boolean] = [
     sleepDone,
     activityDone,
     !!progress?.mealCompliance && progress.mealCompliance !== "SKIPPED",
-    !!progress?.dailyReflection && progress.dailyReflection !== "SKIPPED",
   ];
+  // All custom tasks are mandatory (no optional tasks)
   const pendingCustomTasks = (day?.customTasks || []).filter(
-    (ct) => ct.isRequired && !ct.submission
+    (ct) => !ct.submission
   ).length;
   const pendingTasksCount = day
     ? initialDone.filter((done) => !done).length + pendingCustomTasks

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowDown, ArrowUp, Dumbbell, Moon, Scale, Target, Utensils } from "lucide-react";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
@@ -120,27 +120,6 @@ function WeightSummaryWidget({
   programId?: string;
   currentDayNumber?: number;
 }) {
-  const [localByDay, setLocalByDay] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    const loadLocal = () => {
-      try {
-        const saved = localStorage.getItem("zera_weight_by_day_v1");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === "object") {
-            setLocalByDay(parsed);
-          }
-        }
-      } catch {
-        // ignore storage error
-      }
-    };
-    loadLocal();
-    window.addEventListener("zera:weight-updated", loadLocal);
-    return () => window.removeEventListener("zera:weight-updated", loadLocal);
-  }, []);
-
   const byDayMap = new Map<number, number>();
 
   bodyMetricLogs.forEach((log, idx) => {
@@ -165,9 +144,6 @@ function WeightSummaryWidget({
           byDayMap.set(d.dayNumber, Number(numW.toFixed(1)));
         }
       }
-    }
-    if (typeof localByDay[d.id] === "number" && localByDay[d.id] > 20) {
-      byDayMap.set(d.dayNumber, Number(localByDay[d.id].toFixed(1)));
     }
   }
 
@@ -736,51 +712,7 @@ function extractDayNutrition(d: PlanDay): ParsedDayNutrition {
     if (calories === 0 && (carbsG > 0 || proteinG > 0 || fatG > 0)) {
       calories = Math.round(carbsG * 4 + proteinG * 4 + fatG * 9);
     }
-    if (waterMl === 0 && (mc === "FULL" || mc === "SIMILAR" || mc === "PARTIAL")) {
-      waterMl = 2000;
-    }
     return { calories, carbsG, proteinG, fatG, waterMl, hasData: true };
-  }
-
-  if (mc === "FULL" || mc === "YES") {
-    return {
-      calories: 1950,
-      carbsG: 195,
-      proteinG: 140,
-      fatG: 65,
-      waterMl: 2400,
-      hasData: true,
-    };
-  }
-  if (mc === "SIMILAR") {
-    return {
-      calories: 2050,
-      carbsG: 215,
-      proteinG: 130,
-      fatG: 70,
-      waterMl: 2100,
-      hasData: true,
-    };
-  }
-  if (mc === "PARTIAL") {
-    return {
-      calories: 2200,
-      carbsG: 245,
-      proteinG: 110,
-      fatG: 78,
-      waterMl: 1700,
-      hasData: true,
-    };
-  }
-  if (mc === "OFF_TRACK") {
-    return {
-      calories: 2480,
-      carbsG: 290,
-      proteinG: 95,
-      fatG: 92,
-      waterMl: 1400,
-      hasData: true,
-    };
   }
 
   return { calories: 0, carbsG: 0, proteinG: 0, fatG: 0, waterMl: 0, hasData: false };
@@ -1105,7 +1037,8 @@ export function CohortPerformanceCard({
   }
 
   // ── 4. Program Commitment (Option A: Elapsed Days up to todayDayNum) ──────
-  // Holistic composite: Training, Nutrition/Meal, Sleep Target, and Daily Tasks/Reflection
+  // Holistic composite across ALL mandatory tasks: Activity/Training, Meal, Sleep Target, and Custom Tasks
+  // (Daily Reflection removed; no free partial credit on empty Rest Days)
   const computeDayCommitment = (d: PlanDay): number => {
     const p = d.userProgress;
 
@@ -1115,20 +1048,12 @@ export function CohortPerformanceCard({
       activityScore = isTrainingDayDone(d) ? 1 : 0;
     } else if (d.dayType === "REST_DAY") {
       const hasChecked = checkedList(d, undefined).length > 0;
-      const sMins = calcSleepMins(p?.bedtime, p?.wakeTime);
-      const hasReflection = Boolean(p?.dailyReflection || p?.happinessRate);
-      if (p?.isCompleted || hasChecked || hasReflection || sMins > 0) {
-        activityScore = 1;
-      } else {
-        activityScore = 0.5;
-      }
+      const hasNotes = Boolean(p?.workoutNotes && p.workoutNotes !== "SKIPPED");
+      activityScore = p?.isCompleted || hasChecked || hasNotes ? 1 : 0;
     } else {
       // CONNECT_DAY
-      if (p?.isCompleted || checkedList(d, undefined).length > 0) {
-        activityScore = 1;
-      } else {
-        activityScore = 0;
-      }
+      const hasFeedback = Boolean(p?.eventFeedback && p.eventFeedback !== "SKIPPED");
+      activityScore = p?.isCompleted || hasFeedback || checkedList(d, undefined).length > 0 ? 1 : 0;
     }
 
     // B. Meal compliance score (0..1)
@@ -1136,7 +1061,8 @@ export function CohortPerformanceCard({
 
     // C. Sleep score based on average/healthy target (7h = 420 mins) (0..1)
     let sleepScore = 0;
-    const sMins = calcSleepMins(p?.bedtime, p?.wakeTime);
+    const isSleepSkipped = p?.bedtime === "SKIPPED" || p?.wakeTime === "SKIPPED";
+    const sMins = isSleepSkipped ? 0 : calcSleepMins(p?.bedtime, p?.wakeTime);
     if (sMins >= 420) {
       sleepScore = 1;
     } else if (sMins >= 360) {
@@ -1147,23 +1073,22 @@ export function CohortPerformanceCard({
       sleepScore = 0;
     }
 
-    // D. Daily Reflection & Custom Tasks score (0..1)
-    const reflectionScore = p?.dailyReflection || p?.happinessRate ? 1 : 0;
+    // D. All Custom Tasks on the day are mandatory (when present)
     const cTasks = d.customTasks || [];
-    let customRatio = 1;
     if (cTasks.length > 0) {
       const completedCustom = cTasks.filter((ct) => Boolean(ct.submission)).length;
-      customRatio = completedCustom / cTasks.length;
+      const customRatio = completedCustom / cTasks.length;
+      // Composite with custom tasks: 35% Activity, 30% Meal, 20% Sleep, 15% Custom Tasks
+      return (
+        activityScore * 0.35 +
+        mealScore * 0.3 +
+        sleepScore * 0.2 +
+        customRatio * 0.15
+      );
     }
-    const tasksScore = cTasks.length > 0 ? reflectionScore * 0.5 + customRatio * 0.5 : reflectionScore;
 
-    // Composite: 30% Training/Activity, 30% Meal, 25% Sleep, 15% Tasks/Reflection
-    return (
-      activityScore * 0.3 +
-      mealScore * 0.3 +
-      sleepScore * 0.25 +
-      tasksScore * 0.15
-    );
+    // Composite on days without custom tasks: 40% Activity, 35% Meal, 25% Sleep (max = 100%)
+    return activityScore * 0.4 + mealScore * 0.35 + sleepScore * 0.25;
   };
 
   const elapsedCommitmentDays = sorted.filter((d) => d.dayNumber <= todayDayNum);

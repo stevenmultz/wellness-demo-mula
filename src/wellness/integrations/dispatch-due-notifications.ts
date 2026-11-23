@@ -4,6 +4,7 @@ import { sendWebPushNotification } from "@/wellness/integrations/web-push";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { safeJsonParse } from "@/wellness/utils/json";
 import { BRAND } from "@/wellness/brand";
+import { getProgramDayWibWindow } from "@/wellness/utils/timezone";
 import {
   buildCadenceDedupeKey,
   getDueSlots,
@@ -161,6 +162,9 @@ export async function dispatchDueNotifications(options: {
         select: {
           id: true,
           userId: true,
+          paidAt: true,
+          approvedAt: true,
+          createdAt: true,
           user: {
             select: {
               pushSubscriptions: { select: { endpoint: true, p256dh: true, auth: true } },
@@ -171,33 +175,7 @@ export async function dispatchDueNotifications(options: {
     },
   });
 
-  // Batch-load completed day IDs for enrolled members of ONLINE programs so reminders follow each user's next uncompleted module
-  const onlineProgramDayIds = programs
-    .filter((p) => p.locationType === "ONLINE")
-    .flatMap((p) => p.days.map((d) => d.id));
-  const onlineMemberIds = Array.from(
-    new Set(
-      programs
-        .filter((p) => p.locationType === "ONLINE")
-        .flatMap((p) => p.enrollments.map((e) => e.userId))
-    )
-  );
-  const completedOnlineSet = new Set<string>();
-  if (onlineProgramDayIds.length > 0 && onlineMemberIds.length > 0) {
-    const completedRows = await prisma.programDayProgress.findMany({
-      where: {
-        userId: { in: onlineMemberIds },
-        programDayId: { in: onlineProgramDayIds },
-        isCompleted: true,
-      },
-      select: { userId: true, programDayId: true },
-    });
-    for (const r of completedRows) {
-      completedOnlineSet.add(`${r.userId}:${r.programDayId}`);
-    }
-  }
-
-  // 1. Collect candidate dispatches across ALL programs (both HYBRID calendar cohorts and ONLINE anytime enrollments)
+  // 1. Collect candidate dispatches across ALL programs (HYBRID from batch startAt; ONLINE from each member's join date)
   const candidates: Array<{
     prog: (typeof programs)[number];
     day: (typeof programs)[number]["days"][number];
@@ -212,17 +190,22 @@ export async function dispatchDueNotifications(options: {
     if (prog.enrollments.length === 0 || prog.days.length === 0) continue;
 
     if (prog.locationType === "ONLINE") {
-      // For each active member in an ONLINE program, remind on their next uncompleted module at the configured WIB times
+      // For each active member in an ONLINE program, match their calendar-dripped day today in WIB
+      // based on join date (paidAt / approvedAt / createdAt). Members past their final day stop receiving reminders.
       const usersByDayId = new Map<string, Set<string>>();
       for (const enrollment of prog.enrollments) {
-        const nextModule = prog.days.find(
-          (d) => !completedOnlineSet.has(`${enrollment.userId}:${d.id}`)
-        );
-        if (!nextModule) continue;
-        let userSet = usersByDayId.get(nextModule.id);
+        const effectiveStart =
+          enrollment.paidAt ?? enrollment.approvedAt ?? enrollment.createdAt ?? prog.startAt;
+        if (!effectiveStart) continue;
+        const todayDay = prog.days.find((d) => {
+          const win = getProgramDayWibWindow(effectiveStart, d.dayNumber, nowUtc);
+          return win.isCalendarUnlocked && !win.isPast2359;
+        });
+        if (!todayDay) continue;
+        let userSet = usersByDayId.get(todayDay.id);
         if (!userSet) {
           userSet = new Set<string>();
-          usersByDayId.set(nextModule.id, userSet);
+          usersByDayId.set(todayDay.id, userSet);
         }
         userSet.add(enrollment.userId);
       }
@@ -238,8 +221,8 @@ export async function dispatchDueNotifications(options: {
             : [
                 {
                   time: "08:00",
-                  label: "Daily Module Reminder",
-                  message: `Lanjutkan Module ${day.dayNumber} di ${prog.title} kapan saja hari ini.`,
+                  label: "Daily Task Reminder",
+                  message: `Day ${day.dayNumber} di ${prog.title} sudah terbuka hari ini. Selesaikan tugas sebelum 23:59 WIB.`,
                 },
               ];
 

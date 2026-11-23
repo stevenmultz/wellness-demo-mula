@@ -27,7 +27,7 @@ export async function saveProgramDayService(
 
   const parentProgram = await prisma.program.findFirst({
     where: { id: d.programId, deletedAt: null },
-    select: { id: true, durationDays: true, locationType: true },
+    select: { id: true, durationDays: true, locationType: true, status: true },
   });
   if (!parentProgram) {
     return { success: false, message: "Program not found." };
@@ -88,94 +88,145 @@ export async function saveProgramDayService(
     restInstructions: d.restInstructions?.trim() || null,
   };
 
-  const savedDay = await prisma.$transaction(async (tx) => {
-    await lockProgramRow(tx, d.programId);
+  let savedDay;
+  try {
+    savedDay = await prisma.$transaction(async (tx) => {
+      await lockProgramRow(tx, d.programId);
 
-    const dayRow = await tx.programDay.upsert({
-      where: {
-        programId_dayNumber: {
+      const dayRow = await tx.programDay.upsert({
+        where: {
+          programId_dayNumber: {
+            programId: d.programId,
+            dayNumber: d.dayNumber,
+          },
+        },
+        create: {
           programId: d.programId,
           dayNumber: d.dayNumber,
+          ...sharedDayFields,
         },
-      },
-      create: {
-        programId: d.programId,
-        dayNumber: d.dayNumber,
-        ...sharedDayFields,
-      },
-      update: {
-        ...sharedDayFields,
-        version: { increment: 1 },
-      },
-    });
-
-    if (parentProgram.locationType === "ONLINE") {
-      const agg = await tx.programDay.aggregate({
-        where: { programId: d.programId },
-        _count: { id: true },
-      });
-      const syncedCount = Math.max(1, agg._count.id);
-      await tx.program.update({
-        where: { id: d.programId },
-        data: { durationDays: syncedCount },
-      });
-    }
-
-    if (d.customTasks !== undefined) {
-      const incomingIds = d.customTasks
-        .map((t) => t.id)
-        .filter((id): id is string => Boolean(id));
-      await tx.programDayCustomTask.deleteMany({
-        where: {
-          programDayId: dayRow.id,
-          ...(incomingIds.length > 0 ? { id: { notIn: incomingIds } } : {}),
+        update: {
+          ...sharedDayFields,
+          version: { increment: 1 },
         },
       });
-      for (let idx = 0; idx < d.customTasks.length; idx++) {
-        const ct = d.customTasks[idx];
-        let ctTranslations: Prisma.InputJsonValue | undefined = undefined;
-        if (ct.translations) {
-          try {
-            ctTranslations =
-              typeof ct.translations === "string"
-                ? (JSON.parse(ct.translations) as Prisma.InputJsonValue)
-                : (ct.translations as Prisma.InputJsonValue);
-          } catch {
-            ctTranslations = undefined;
-          }
-        }
-        const ctData = {
-          sortOrder: idx,
-          taskType: ct.taskType,
-          title: ct.title.trim(),
-          instructions: ct.instructions?.trim() || null,
-          isRequired: ct.isRequired ?? true,
-          fieldsSchemaJson: ct.fields as unknown as Prisma.InputJsonValue,
-          ...(ctTranslations !== undefined ? { translationsJson: ctTranslations } : {}),
-        };
-        if (ct.id) {
-          const upd = await tx.programDayCustomTask.updateMany({
-            where: { id: ct.id, programDayId: dayRow.id },
-            data: ctData,
-          });
-          if (upd.count === 0) {
-            await tx.programDayCustomTask.create({
-              data: { programDayId: dayRow.id, ...ctData },
-            });
-          }
-        } else {
-          await tx.programDayCustomTask.create({
-            data: { programDayId: dayRow.id, ...ctData },
-          });
-        }
+
+      if (parentProgram.locationType === "ONLINE") {
+        const agg = await tx.programDay.aggregate({
+          where: { programId: d.programId },
+          _max: { dayNumber: true },
+          _count: { id: true },
+        });
+        const syncedDuration = Math.max(1, agg._max.dayNumber ?? agg._count.id);
+        await tx.program.update({
+          where: { id: d.programId },
+          data: { durationDays: syncedDuration },
+        });
       }
-    }
 
-    return tx.programDay.findUniqueOrThrow({
-      where: { id: dayRow.id },
-      include: { customTasks: { orderBy: { sortOrder: "asc" } } },
+      if (d.customTasks !== undefined) {
+        const incomingIds = d.customTasks
+          .map((t) => t.id)
+          .filter((id): id is string => Boolean(id));
+
+        const tasksToRemove = await tx.programDayCustomTask.findMany({
+          where: {
+            programDayId: dayRow.id,
+            ...(incomingIds.length > 0 ? { id: { notIn: incomingIds } } : {}),
+          },
+          select: { id: true, title: true, _count: { select: { submissions: true } } },
+        });
+
+        const submittedToRemove = tasksToRemove.filter((t) => t._count.submissions > 0);
+        if (submittedToRemove.length > 0) {
+          const activeEnrollments = await tx.programEnrollment.count({
+            where: { programId: d.programId, status: "ACTIVE" },
+          });
+          if (parentProgram.status === "PUBLISHED" || activeEnrollments > 0) {
+            throw new Error(
+              `Cannot remove custom task(s) (${submittedToRemove
+                .map((t) => `"${t.title}"`)
+                .join(", ")}) because enrolled members have already submitted responses.`
+            );
+          }
+        }
+
+        if (tasksToRemove.length > 0) {
+          await tx.programDayCustomTask.deleteMany({
+            where: { id: { in: tasksToRemove.map((t) => t.id) } },
+          });
+        }
+
+        const existingIds = new Set(
+          (
+            await tx.programDayCustomTask.findMany({
+              where: { programDayId: dayRow.id },
+              select: { id: true },
+            })
+          ).map((r) => r.id)
+        );
+
+        const toUpdate: Array<{
+          id: string;
+          data: Prisma.ProgramDayCustomTaskUpdateManyMutationInput;
+        }> = [];
+        const toCreate: Prisma.ProgramDayCustomTaskCreateManyInput[] = [];
+
+        for (let idx = 0; idx < d.customTasks.length; idx++) {
+          const ct = d.customTasks[idx];
+          let ctTranslations: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined = undefined;
+          if (ct.translations === null || ct.translations === "") {
+            ctTranslations = Prisma.DbNull;
+          } else if (ct.translations) {
+            try {
+              ctTranslations =
+                typeof ct.translations === "string"
+                  ? (JSON.parse(ct.translations) as Prisma.InputJsonValue)
+                  : (ct.translations as Prisma.InputJsonValue);
+            } catch {
+              ctTranslations = undefined;
+            }
+          }
+          const ctData = {
+            sortOrder: idx,
+            taskType: ct.taskType,
+            title: ct.title.trim(),
+            instructions: ct.instructions?.trim() || null,
+            isRequired: true, // All tasks are mandatory (no optional tasks)
+            fieldsSchemaJson: ct.fields as unknown as Prisma.InputJsonValue,
+            ...(ctTranslations !== undefined ? { translationsJson: ctTranslations } : {}),
+          };
+          if (ct.id && existingIds.has(ct.id)) {
+            toUpdate.push({ id: ct.id, data: ctData });
+          } else {
+            toCreate.push({ programDayId: dayRow.id, ...ctData });
+          }
+        }
+
+        await Promise.all([
+          ...toUpdate.map((u) =>
+            tx.programDayCustomTask.update({
+              where: { id: u.id },
+              data: u.data,
+            })
+          ),
+          toCreate.length > 0
+            ? tx.programDayCustomTask.createMany({ data: toCreate })
+            : Promise.resolve(),
+        ]);
+      }
+
+      return tx.programDay.findUniqueOrThrow({
+        where: { id: dayRow.id },
+        include: { customTasks: { orderBy: { sortOrder: "asc" } } },
+      });
     });
-  });
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to save program day.",
+    };
+  }
 
   revalidateWellnessRoutes();
 
@@ -253,7 +304,7 @@ export async function deleteProgramDayService(
         status: "DRAFT",
         version: { increment: 1 },
         ...(parentMeta?.locationType === "ONLINE"
-          ? { durationDays: Math.max(1, remainingAgg._count.id) }
+          ? { durationDays: Math.max(1, remainingAgg._max.dayNumber ?? remainingAgg._count.id) }
           : {}),
       },
     });

@@ -1,4 +1,4 @@
-import { isSafePhotoUrl } from "./url-safety";
+import { isSafePhotoUrl, safeHttpUrl } from "./url-safety";
 
 const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -88,7 +88,11 @@ export function sanitizeCustomTaskSubmission(
         if (typeof rawVal !== "string") {
           return { ok: false, message: `"${field.label}" must be text.` };
         }
-        sanitizedValues[field.key] = rawVal.trim().slice(0, 500);
+        const trimmedText = rawVal.trim().slice(0, 500);
+        if (field.key === "videoUrl" && trimmedText && !safeHttpUrl(trimmedText)) {
+          return { ok: false, message: `Invalid video URL for "${field.label}".` };
+        }
+        sanitizedValues[field.key] = trimmedText;
         break;
       }
     }
@@ -422,7 +426,7 @@ export const CUSTOM_TASK_PRESETS: CustomTaskPreset[] = [
     titleId: "Foto Fullbody Progres",
     instructions: "Upload a clear daylight fullbody photo for progress evaluation.",
     instructionsId: "Unggah foto fullbody di pencahayaan terang untuk evaluasi progres.",
-    isRequired: false,
+    isRequired: true,
     fields: [
       {
         key: "photoUrl",

@@ -232,7 +232,7 @@ export function useAdminDayActions({
           taskType: ct.taskType,
           title: ct.title,
           instructions: ct.instructions,
-          isRequired: ct.isRequired,
+          isRequired: true,
           fields: ct.fields,
           translations: ct.translations || null,
         })),
@@ -259,7 +259,7 @@ export function useAdminDayActions({
           };
         });
         setPrograms(updatedPrograms);
-        const updatedProg = updatedPrograms.find((p) => p.id === prog.id)!;
+        const updatedProg = updatedPrograms.find((p) => p.id === prog.id) || prog;
         const isOnlineProg = (updatedProg.locationType || "ONLINE") === "ONLINE";
 
         if (moveNext && (isOnlineProg ? selectedDayNum < 90 : selectedDayNum < updatedProg.durationDays)) {
@@ -314,7 +314,7 @@ export function useAdminDayActions({
           };
         });
         setPrograms(updatedPrograms);
-        const updatedProg = updatedPrograms.find((p) => p.id === prog.id)!;
+        const updatedProg = updatedPrograms.find((p) => p.id === prog.id) || prog;
         loadDayIntoForm(updatedProg, selectedDayNum);
         setFeedback({
           type: "success",

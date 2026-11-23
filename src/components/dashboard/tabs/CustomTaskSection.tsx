@@ -37,7 +37,8 @@ export interface CustomTaskSectionProps {
   isFuture?: boolean;
   onSubmitted?: (
     customTaskId: string,
-    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
+    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>,
+    dayCompleted?: boolean
   ) => void;
 }
 
@@ -104,6 +105,9 @@ function toEmbedVideoUrl(rawUrl: string): string | null {
   if (!trimmed) return null;
   try {
     const u = new URL(trimmed);
+    if (u.protocol !== "https:" && u.protocol !== "http:") {
+      return null;
+    }
     if (u.hostname.includes("youtube.com")) {
       const v = u.searchParams.get("v");
       if (v) return `https://www.youtube.com/embed/${v}`;
@@ -248,9 +252,13 @@ export function CustomTaskSection({
     setFormValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Interactive steps filter out the static `videoUrl` configuration field (rendered on the `videoWatched` step)
+  // Interactive steps filter out the static `videoUrl` configuration field (rendered on the `videoWatched` step),
+  // falling back to all fields if `videoUrl` is the only field (prevents blank modal NPE).
   const interactiveFields = activeTask
-    ? activeTask.fields.filter((f) => f.key !== "videoUrl")
+    ? (() => {
+        const filtered = activeTask.fields.filter((f) => f.key !== "videoUrl");
+        return filtered.length > 0 ? filtered : activeTask.fields;
+      })()
     : [];
   const currentField = interactiveFields[stepIdx] || interactiveFields[0];
   const isLastStep = stepIdx >= interactiveFields.length - 1;
@@ -332,15 +340,14 @@ export function CustomTaskSection({
         return;
       }
       if (res.data && onSubmitted) {
-        onSubmitted(
-          activeTask.id,
-          res.data as {
-            id: string;
-            values: Record<string, unknown>;
-            submittedAt: string;
-            updatedAt: string;
-          }
-        );
+        const payload = res.data as {
+          id: string;
+          values: Record<string, unknown>;
+          submittedAt: string;
+          updatedAt: string;
+          dayCompleted?: boolean;
+        };
+        onSubmitted(activeTask.id, payload, payload.dayCompleted);
       }
       setActiveTask(null);
     } catch {

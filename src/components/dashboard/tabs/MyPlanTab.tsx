@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import { getWibCalendarDate } from "@/wellness/utils/timezone";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { DailyCheckIn } from "./DailyCheckIn";
 import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
@@ -178,15 +179,20 @@ export function MyPlanOverview({
   onOpenVideo: (dayId: string) => Promise<void | boolean>;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => Promise<void | boolean>;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;
-  onSaveReflection: (reflection: string, happiness: number, dayId: string) => Promise<void | boolean>;
+  onSaveReflection?: (reflection: string, happiness: number, dayId: string) => Promise<void | boolean>;
   onSaveAttendance: (notes: string, dayId: string) => Promise<void | boolean>;
-  onSaveWorkoutNotes: (notes: string, dayId: string) => Promise<void | boolean>;
+  onSaveWorkoutNotes: (
+    notes: string,
+    dayId: string,
+    extra?: { selectedWorkout?: string; checklistCompleted?: string[] }
+  ) => Promise<void | boolean>;
   onCompleteDay: (dayId: string) => Promise<void | boolean>;
   bodyMetricLogs?: BodyMetricPoint[];
   onCustomTaskSubmitted?: (
     dayId: string,
     customTaskId: string,
-    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
+    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>,
+    dayCompleted?: boolean
   ) => void;
   userName?: string | null;
   userAvatarUrl?: string | null;
@@ -206,8 +212,11 @@ export function MyPlanOverview({
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
-  const isOnlineProgram = (program?.locationType || "ONLINE").toUpperCase() === "ONLINE";
-  const locked = isOnlineProgram ? false : !day || !day.isCalendarUnlocked || day.isPast2359;
+  // Both HYBRID (from batch start) and ONLINE (from join date) obey WIB calendar drip windows
+  const hasCalendarSchedule = Boolean(day?.unlockDate);
+  const locked = hasCalendarSchedule
+    ? !day || !day.isCalendarUnlocked || day.isPast2359
+    : !day;
   const fullProgramDays = allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays;
 
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
@@ -268,8 +277,8 @@ export function MyPlanOverview({
   const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
 
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
-    const d = getProgramDayDate(day);
-    return new Date(d.getFullYear(), d.getMonth(), 1);
+    const w = getWibCalendarDate(getProgramDayDate(day));
+    return new Date(w.year, w.month, 1);
   });
 
   const touchStartXRef = useRef<number | null>(null);
@@ -403,8 +412,8 @@ export function MyPlanOverview({
           <button
             type="button"
             onClick={() => {
-              const dDate = getProgramDayDate(activeSelectedDay);
-              setCalendarMonth(new Date(dDate.getFullYear(), dDate.getMonth(), 1));
+              const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+              setCalendarMonth(new Date(w.year, w.month, 1));
               setShowCalendarModal(true);
             }}
             aria-label="Select date from calendar"
@@ -548,7 +557,7 @@ export function MyPlanOverview({
                   communityLink={program.communityLink}
                   programTitle={program.title}
                   locked={locked}
-                  isAnytime={isOnlineProgram}
+                  isAnytime={!hasCalendarSchedule}
                   activities={activities}
                   checks={checks}
                   initialDone={initialDone}
@@ -604,8 +613,8 @@ export function MyPlanOverview({
 
             const dayByYmd = new Map<string, PlanDay>();
             for (const pd of sortedProgramDays) {
-              const dt = getProgramDayDate(pd);
-              const key = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+              const w = getWibCalendarDate(getProgramDayDate(pd));
+              const key = `${w.year}-${w.month}-${w.date}`;
               if (!dayByYmd.has(key)) {
                 dayByYmd.set(key, pd);
               }

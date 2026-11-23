@@ -216,8 +216,8 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
     expect(checkedList(day, undefined)).toHaveLength(2);
 
     const state = evaluateDayTaskState(day);
-    expect(state.initialDone).toEqual([true, true, true, true]);
-    // 1 pending required custom task
+    expect(state.initialDone).toEqual([true, true, true]);
+    // 1 pending mandatory custom task
     expect(state.pendingTasksCount).toBe(1);
   });
 });

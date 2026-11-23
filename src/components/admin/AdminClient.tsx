@@ -261,11 +261,34 @@ export function AdminClient({
       ...(typeof p.sleepRecommendation === "string" ? { sleepRecommendation: p.sleepRecommendation } : {}),
       ...(typeof p.mealRecommendation === "string" ? { mealRecommendation: p.mealRecommendation } : {}),
       ...(typeof p.restInstructions === "string" ? { restInstructions: p.restInstructions } : {}),
+      ...(typeof p.onsiteVenue === "string" ? { onsiteVenue: p.onsiteVenue } : {}),
+      ...(typeof p.onsiteSchedule === "string" ? { onsiteSchedule: p.onsiteSchedule } : {}),
+      ...(typeof p.meetupLink === "string" ? { meetupLink: p.meetupLink } : {}),
+      ...(typeof p.mapLink === "string" ? { mapLink: p.mapLink } : {}),
+      ...(typeof p.eventTitle === "string" ? { eventTitle: p.eventTitle } : {}),
+      ...(typeof p.eventHost === "string" ? { eventHost: p.eventHost } : {}),
+      ...(typeof p.eventDetails === "string" ? { eventDetails: p.eventDetails } : {}),
+      ...(Array.isArray(p.videoLinks) && p.videoLinks.length > 0
+        ? { videoLinks: p.videoLinks as typeof prev.videoLinks }
+        : {}),
       ...(Array.isArray(p.dayNotifications)
         ? { dayNotifications: p.dayNotifications as typeof prev.dayNotifications }
         : {}),
       ...(Array.isArray(p.workoutGroups)
         ? { workoutGroups: p.workoutGroups as typeof prev.workoutGroups }
+        : {}),
+      ...(Array.isArray(p.customTasks)
+        ? {
+            customTasks: p.customTasks.map((ct, idx) => ({
+              sortOrder: idx,
+              taskType: ct.taskType as typeof prev.customTasks[number]["taskType"],
+              title: ct.title,
+              instructions: ct.instructions || "",
+              isRequired: true,
+              fields: (ct.fields || []) as unknown as typeof prev.customTasks[number]["fields"],
+              translations: ct.translations ?? null,
+            })),
+          }
         : {}),
     }));
     setFeedback({ type: "success", text: `Applied routine template "${tpl.name}".` });
@@ -284,8 +307,25 @@ export function AdminClient({
         sleepRecommendation: dayForm.sleepRecommendation,
         mealRecommendation: dayForm.mealRecommendation,
         restInstructions: dayForm.restInstructions,
+        videoLinks: dayForm.videoLinks,
+        onsiteVenue: dayForm.onsiteVenue,
+        onsiteSchedule: dayForm.onsiteSchedule,
+        meetupLink: dayForm.meetupLink,
+        mapLink: dayForm.mapLink,
+        eventTitle: dayForm.eventTitle,
+        eventHost: dayForm.eventHost,
+        eventDetails: dayForm.eventDetails,
         dayNotifications: dayForm.dayNotifications,
         workoutGroups: dayForm.workoutGroups,
+        customTasks: dayForm.customTasks.map((ct, idx) => ({
+          sortOrder: idx,
+          taskType: ct.taskType,
+          title: ct.title,
+          instructions: ct.instructions,
+          isRequired: true,
+          fields: ct.fields,
+          translations: ct.translations ?? null,
+        })),
       },
     });
     if (res.success && res.data) {

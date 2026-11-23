@@ -180,7 +180,6 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
       ["SLEEP", true],
       ["WORKOUT", true],
       ["MEAL", true],
-      ["REFLECTION", true],
       ["CUSTOM", true],
     ]);
 
@@ -199,7 +198,7 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
         },
       })
     );
-    expect(restTasks.find((t) => t.kind === "SLEEP")?.isDone).toBe(true);
+    expect(restTasks.find((t) => t.kind === "SLEEP")?.isDone).toBe(false);
     expect(restTasks.find((t) => t.kind === "REST")?.isDone).toBe(true);
     expect(restTasks.find((t) => t.kind === "MEAL")?.isDone).toBe(false);
 

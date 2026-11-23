@@ -27,7 +27,7 @@ export interface DailyCheckInProps {
   isAnytime?: boolean;
   activities: string[];
   checks: string[];
-  initialDone: [boolean, boolean, boolean, boolean];
+  initialDone: [boolean, boolean, boolean];
   onToggleCheck: (task: string, dayId: string, isRepUpdate?: boolean) => Promise<void> | void;
   onSyncChecklist?: (tasks: string[], dayId: string) => Promise<boolean>;
   onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => SaveResult;
@@ -40,14 +40,19 @@ export interface DailyCheckInProps {
     sleepFeeling?: string
   ) => SaveResult;
   onSaveAttendance: (notes: string, dayId: string) => SaveResult;
-  onSaveWorkoutNotes: (notes: string, dayId: string) => SaveResult;
+  onSaveWorkoutNotes: (
+    notes: string,
+    dayId: string,
+    extra?: { selectedWorkout?: string; checklistCompleted?: string[] }
+  ) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
-  onSaveReflection: (reflection: string, happiness: number, dayId: string) => SaveResult;
+  onSaveReflection?: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
   onCustomTaskSubmitted?: (
     dayId: string,
     customTaskId: string,
-    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
+    submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>,
+    dayCompleted?: boolean
   ) => void;
   widgetIndex?: 0 | 1 | 2;
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
@@ -91,12 +96,6 @@ export function getTasksForDay(dayType: string) {
       description: "Daily food intake, macros & water log",
       Icon: Utensils,
       image: "/pic.webp",
-    },
-    {
-      title: "Daily Reflection",
-      description: "Daily energy rating & reflection",
-      Icon: Sparkles,
-      image: "/coach3.webp",
     },
   ] as const;
 }
@@ -597,7 +596,7 @@ export function deriveDayDone(
   d: PlanDay,
   acts: string[],
   chks: string[]
-): [boolean, boolean, boolean, boolean] {
+): [boolean, boolean, boolean] {
   const p = d.userProgress;
   const sleepDone =
     !!p?.bedtime &&
@@ -609,20 +608,20 @@ export function deriveDayDone(
       ? !!p?.videoWatched ||
         !!p?.isCompleted ||
         (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED") ||
-        !!p?.selectedWorkout ||
+        (!!p?.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
         (acts.length > 0 &&
           acts.every((name) =>
             chks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
           ))
       : d.dayType === "REST_DAY"
         ? acts.length > 0
-          ? acts.every((name) => chks.includes(name))
-          : !!p?.isCompleted
+          ? acts.every((name) => chks.includes(name)) ||
+            (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED")
+          : !!p?.isCompleted || (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED")
         : (!!p?.eventFeedback && p.eventFeedback !== "SKIPPED") || !!p?.isCompleted;
   return [
     sleepDone,
     activityDone,
     !!p?.mealCompliance && p.mealCompliance !== "SKIPPED",
-    !!p?.dailyReflection && p.dailyReflection !== "SKIPPED",
   ];
 }

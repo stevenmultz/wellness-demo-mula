@@ -3,7 +3,7 @@ import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
 import { buildProgramScopeWhere } from "@/wellness/security/guards";
 import { prisma } from "@/wellness/db";
 import { AdminClient, AdminInitialRoute } from "@/components/admin/AdminClient";
-import { parseCustomTaskFields } from "@/wellness/utils/custom-tasks";
+import { parseCustomSubmissionValues, parseCustomTaskFields } from "@/wellness/utils/custom-tasks";
 import {
   safeJsonParse,
   parseTermsList,
@@ -321,11 +321,112 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
   });
 
   // 4. Resolve specific program if URL is /admin/programs/[programIdOrSlug]
+  // Fallback direct DB lookup if program is outside the initial 200-row slice
   let resolvedProgramId: string | null = null;
   if (activeMenu === "programs" && requestedProgramIdentifier) {
-    const matched = programs.find(
+    let matched = programs.find(
       (p) => p.id === requestedProgramIdentifier || p.slug === requestedProgramIdentifier
     );
+    if (!matched) {
+      const directProg = await prisma.program.findFirst({
+        where: {
+          deletedAt: null,
+          ...programScopeWhere,
+          OR: [{ id: requestedProgramIdentifier }, { slug: requestedProgramIdentifier }],
+        },
+        include: {
+          ...PROGRAM_TAXONOMY_INCLUDE,
+          days: {
+            orderBy: { dayNumber: "asc" },
+            include: {
+              customTasks: { orderBy: { sortOrder: "asc" } },
+              _count: { select: { progresses: true } },
+            },
+          },
+        },
+      });
+      if (directProg) {
+        const tax = serializeProgramTaxonomy(directProg);
+        const mappedDirect = {
+          id: directProg.id,
+          title: directProg.title,
+          batchNumber: directProg.batchNumber ?? null,
+          slug: directProg.slug,
+          description: directProg.description,
+          coverImage: toClientMediaUrl(directProg.coverImagePath),
+          introVideoUrl: directProg.introVideoUrl || null,
+          difficultyLevel: directProg.difficultyLevel || "INTERMEDIATE",
+          category: tax.category || "Pilates",
+          equipment: tax.equipment || null,
+          dailyCommitment: tax.dailyCommitment || null,
+          coachName: tax.coachName,
+          coachTitle: tax.coachTitle || null,
+          organizationId: directProg.organizationId || null,
+          organizationCache: tax.organizationName || null,
+          durationDays: directProg.durationDays,
+          actualPrice: directProg.actualPrice,
+          discountPercentage: directProg.discountPercentage,
+          price: directProg.price,
+          minQuota: directProg.minQuota,
+          maxQuota: directProg.maxQuota,
+          locationType: directProg.locationType,
+          city: directProg.city,
+          venueAddress: directProg.venueAddress,
+          customTerms: directProg.customTerms || null,
+          termsList: parseTermsList(directProg.customTerms),
+          targetState: directProg.targetState || DEFAULT_TARGET_STATE,
+          methodology: directProg.methodology || DEFAULT_METHODOLOGY,
+          expectedBenefits: parseStringList(directProg.expectedBenefitsJson, DEFAULT_PROGRAM_BENEFITS),
+          scientificReferences: parseReferencesList(directProg.scientificReferencesJson, DEFAULT_PROGRAM_REFERENCES),
+          programGuidelines: parseStringList(directProg.programGuidelinesJson, DEFAULT_PROGRAM_GUIDELINES),
+          communityLink: directProg.communityLink,
+          startDate: directProg.startAt,
+          endDate: directProg.endAt,
+          registrationOpenDate: directProg.registrationOpenAt,
+          registrationDeadline: directProg.registrationDeadlineAt,
+          status: directProg.status,
+          isPublished: directProg.status === "PUBLISHED",
+          dayCount: directProg.days.length,
+          activeSubscribers: statsMap[directProg.id]?.active || 0,
+          pendingSubscribers: statsMap[directProg.id]?.pending || 0,
+          submissionCount: directProg.days.reduce((acc, d) => acc + (d._count?.progresses || 0), 0),
+          days: directProg.days.map((d) => ({
+            id: d.id,
+            dayNumber: d.dayNumber,
+            title: d.title,
+            dayType: d.dayType,
+            responseCount: d._count?.progresses || 0,
+            workoutOptions: safeJsonParse<string[]>(d.workoutOptionsJson, []),
+            sleepRecommendation: d.sleepRecommendation,
+            dayNotifications: safeJsonParse<Array<{ time: string; message: string; label?: string }>>(d.dayNotificationsJson, []),
+            videoUrl: d.videoUrl,
+            videoChecklist: safeJsonParse<string[]>(d.videoChecklistJson, []),
+            mealRecommendation: d.mealRecommendation,
+            meetupLink: d.meetupLink,
+            mapLink: d.mapLink,
+            onsiteVenue: d.onsiteVenue,
+            onsiteSchedule: d.onsiteSchedule,
+            eventTitle: d.eventTitle,
+            eventHost: d.eventHost,
+            eventDetails: d.eventDetails,
+            restInstructions: d.restInstructions,
+            customTasks: d.customTasks.map((ct) => ({
+              id: ct.id,
+              programDayId: ct.programDayId,
+              sortOrder: ct.sortOrder,
+              taskType: ct.taskType as any,
+              title: ct.title,
+              instructions: ct.instructions,
+              isRequired: true,
+              fields: parseCustomTaskFields(ct.fieldsSchemaJson),
+              translations: toJsonString(ct.translationsJson),
+            })),
+          })),
+        };
+        programs.push(mappedDirect);
+        matched = mappedDirect;
+      }
+    }
     if (!matched) {
       redirect("/admin/programs");
     }
@@ -333,7 +434,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
   }
 
   // 5. Resolve specific customer if URL is /admin/customers/[customerId]
-  // Load full dayProgress + photos on demand for the inspected customer only (avoids eager multi-MB query for all 200 users)
+  // Load full dayProgress + customSubmissions on demand for the inspected customer only
   let resolvedCustomerId: string | null = null;
   let inspectedDayProgress: Array<{
     id: string;
@@ -353,6 +454,13 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     assessmentResponse: string | null;
     completedAt: Date | null;
     updatedAt: Date;
+    customSubmissions?: Array<{
+      id: string;
+      customTaskId: string;
+      title: string;
+      taskType: string;
+      values: Record<string, unknown>;
+    }>;
     programDay: {
       id: string;
       dayNumber: number;
@@ -364,64 +472,204 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
   }> = [];
 
   if (activeMenu === "members" && requestedCustomerIdentifier) {
-    const matchedCustomer = usersRaw.find(
+    let matchedCustomer = usersRaw.find(
       (u) =>
         u.id === requestedCustomerIdentifier ||
         u.email.toLowerCase() === requestedCustomerIdentifier.toLowerCase()
     );
     if (!matchedCustomer) {
-      redirect("/admin/customers");
-    }
-    resolvedCustomerId = matchedCustomer.id;
-    const rawProgress = await prisma.programDayProgress.findMany({
-      where: {
-        userId: matchedCustomer.id,
-        ...(session.role === "SUPERADMIN"
-          ? {}
-          : { programDay: { program: programScopeWhere } }),
-      },
-      take: 200,
-      select: {
-        id: true,
-        isVideoWatched: true,
-        isCompleted: true,
-        checklistCompletedJson: true,
-        selectedWorkout: true,
-        workoutNotes: true,
-        eventFeedback: true,
-        mealCompliance: true,
-        mealNotes: true,
-        dailyReflection: true,
-        happinessRate: true,
-        bedtime: true,
-        wakeTime: true,
-        sleepDurationMinutes: true,
-        assessmentResponse: true,
-        completedAt: true,
-        updatedAt: true,
-        programDay: {
-          select: {
-            id: true,
-            dayNumber: true,
-            title: true,
-            dayType: true,
-            programId: true,
-            program: {
-              select: {
-                id: true,
-                title: true,
+      const directUser = await prisma.user.findFirst({
+        where: {
+          deletedAt: null,
+          ...(session.role === "SUPERADMIN"
+            ? {}
+            : { enrollments: { some: { program: programScopeWhere } } }),
+          OR: [
+            { id: requestedCustomerIdentifier },
+            { email: { equals: requestedCustomerIdentifier, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          phone: true,
+          birthDate: true,
+          gender: true,
+          occupation: true,
+          address: true,
+          city: true,
+          province: true,
+          emergencyContactName: true,
+          emergencyContactPhone: true,
+          role: true,
+          status: true,
+          organizationId: true,
+          coachProfileId: true,
+          createdAt: true,
+          enrollments: {
+            where: session.role === "SUPERADMIN" ? {} : { program: programScopeWhere },
+            select: {
+              id: true,
+              status: true,
+              attendanceMode: true,
+              paymentReference: true,
+              paidAt: true,
+              validUntilAt: true,
+              termsAgreedAt: true,
+              program: {
+                select: {
+                  id: true,
+                  title: true,
+                  price: true,
+                  locationType: true,
+                  city: true,
+                  venueAddress: true,
+                  _count: { select: { days: true } },
+                },
               },
             },
           },
         },
-      },
-      orderBy: { completedAt: "desc" },
+      });
+      if (directUser) {
+        usersRaw.push(directUser);
+        matchedCustomer = directUser;
+      }
+    }
+    if (!matchedCustomer) {
+      redirect("/admin/customers");
+    }
+    resolvedCustomerId = matchedCustomer.id;
+    const [rawProgress, rawCustomSubs] = await Promise.all([
+      prisma.programDayProgress.findMany({
+        where: {
+          userId: matchedCustomer.id,
+          ...(session.role === "SUPERADMIN"
+            ? {}
+            : { programDay: { program: programScopeWhere } }),
+        },
+        take: 200,
+        select: {
+          id: true,
+          isVideoWatched: true,
+          isCompleted: true,
+          checklistCompletedJson: true,
+          selectedWorkout: true,
+          workoutNotes: true,
+          eventFeedback: true,
+          mealCompliance: true,
+          mealNotes: true,
+          dailyReflection: true,
+          happinessRate: true,
+          bedtime: true,
+          wakeTime: true,
+          sleepDurationMinutes: true,
+          assessmentResponse: true,
+          completedAt: true,
+          updatedAt: true,
+          programDay: {
+            select: {
+              id: true,
+              dayNumber: true,
+              title: true,
+              dayType: true,
+              programId: true,
+              program: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { completedAt: "desc" },
+      }),
+      prisma.programDayCustomSubmission.findMany({
+        where: {
+          userId: matchedCustomer.id,
+          ...(session.role === "SUPERADMIN"
+            ? {}
+            : { programDay: { program: programScopeWhere } }),
+        },
+        take: 300,
+        orderBy: { submittedAt: "desc" },
+        include: {
+          customTask: { select: { id: true, title: true, taskType: true } },
+          programDay: {
+            select: {
+              id: true,
+              dayNumber: true,
+              title: true,
+              dayType: true,
+              programId: true,
+              program: { select: { id: true, title: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const customByDayId = new Map<
+      string,
+      NonNullable<(typeof inspectedDayProgress)[number]["customSubmissions"]>
+    >();
+    const customDayMeta = new Map<
+      string,
+      { programDay: (typeof rawCustomSubs)[number]["programDay"]; updatedAt: Date }
+    >();
+    for (const cs of rawCustomSubs) {
+      const list = customByDayId.get(cs.programDayId) ?? [];
+      list.push({
+        id: cs.id,
+        customTaskId: cs.customTaskId,
+        title: cs.customTask.title,
+        taskType: cs.customTask.taskType,
+        values: parseCustomSubmissionValues(cs.valuesJson),
+      });
+      customByDayId.set(cs.programDayId, list);
+      const prev = customDayMeta.get(cs.programDayId);
+      if (!prev || cs.updatedAt > prev.updatedAt) {
+        customDayMeta.set(cs.programDayId, { programDay: cs.programDay, updatedAt: cs.updatedAt });
+      }
+    }
+
+    const seenDayIds = new Set<string>();
+    inspectedDayProgress = rawProgress.map((dp) => {
+      seenDayIds.add(dp.programDay.id);
+      return {
+        ...dp,
+        videoWatched: dp.isVideoWatched,
+        checklistCompleted: toJsonString(dp.checklistCompletedJson),
+        customSubmissions: customByDayId.get(dp.programDay.id) ?? [],
+      };
     });
-    inspectedDayProgress = rawProgress.map((dp) => ({
-      ...dp,
-      videoWatched: dp.isVideoWatched,
-      checklistCompleted: toJsonString(dp.checklistCompletedJson),
-    }));
+
+    for (const [pDayId, meta] of customDayMeta.entries()) {
+      if (seenDayIds.has(pDayId)) continue;
+      inspectedDayProgress.push({
+        id: `custom-only:${pDayId}`,
+        videoWatched: false,
+        isCompleted: false,
+        checklistCompleted: null,
+        selectedWorkout: null,
+        workoutNotes: null,
+        eventFeedback: null,
+        mealCompliance: null,
+        mealNotes: null,
+        dailyReflection: null,
+        happinessRate: null,
+        bedtime: null,
+        wakeTime: null,
+        sleepDurationMinutes: null,
+        assessmentResponse: null,
+        completedAt: null,
+        updatedAt: meta.updatedAt,
+        customSubmissions: customByDayId.get(pDayId) ?? [],
+        programDay: meta.programDay,
+      });
+    }
   }
 
   const users = usersRaw.map((u) => {

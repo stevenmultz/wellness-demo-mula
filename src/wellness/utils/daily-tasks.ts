@@ -76,7 +76,9 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
   const p = day.progress;
   const tasks: DailyTask[] = [];
 
-  const sleepDone = (!!p?.bedtime && !!p?.wakeTime) || p?.bedtime === "SKIPPED";
+  const sleepDone = Boolean(
+    p?.bedtime && p?.wakeTime && p.bedtime !== "SKIPPED" && p.wakeTime !== "SKIPPED"
+  );
   tasks.push({
     id: `${day.id}:SLEEP`,
     kind: "SLEEP",
@@ -95,9 +97,9 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
         !!p &&
         (p.isCompleted ||
           p.videoWatched ||
-          p.workoutNotes === "SKIPPED" ||
-          p.selectedWorkout === "SKIPPED" ||
-          !!p.workoutNotes),
+          (!!p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
+          (!!p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
+          checklistHasItems(p.checklistCompleted)),
     });
   } else if (day.dayType === "REST_DAY") {
     tasks.push({
@@ -107,10 +109,8 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
       description: day.restInstructions || day.title,
       isDone:
         !!p?.isCompleted ||
-        checklistHasItems(p?.checklistCompleted) ||
-        p?.workoutNotes === "SKIPPED" ||
-        p?.checklistCompleted === "SKIPPED" ||
-        !!p?.workoutNotes,
+        (checklistHasItems(p?.checklistCompleted) && p?.checklistCompleted !== "SKIPPED") ||
+        (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED"),
     });
   } else {
     tasks.push({
@@ -120,9 +120,7 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
       description: day.eventTitle || day.eventDetails || day.title,
       isDone:
         !!p?.isCompleted ||
-        !!p?.eventFeedback ||
-        p?.eventFeedback === "SKIPPED" ||
-        p?.workoutNotes === "SKIPPED",
+        (!!p?.eventFeedback && p.eventFeedback !== "SKIPPED"),
     });
   }
 
@@ -131,15 +129,7 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     kind: "MEAL",
     name: "Meal Tracking",
     description: "Log whether you followed today's meal recommendation.",
-    isDone: !!p?.mealCompliance,
-  });
-
-  tasks.push({
-    id: `${day.id}:REFLECTION`,
-    kind: "REFLECTION",
-    name: "Daily Reflection",
-    description: "Write your daily reflection and rate how your day went.",
-    isDone: !!p?.dailyReflection,
+    isDone: Boolean(p?.mealCompliance && p.mealCompliance !== "SKIPPED"),
   });
 
   if (Array.isArray(day.customTasks)) {

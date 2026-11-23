@@ -68,6 +68,29 @@ export async function GET(request: NextRequest) {
       }
 
       if (!authorized) {
+        const targetUserId = parsed.objectPath.split("/")[0]?.trim() || "";
+        const shareModel = (prisma as unknown as {
+          userProgressShare?: { findFirst?: typeof prisma.userProgressShare.findFirst };
+        }).userProgressShare;
+        if (targetUserId && typeof shareModel?.findFirst === "function") {
+          const shareMatch = await shareModel.findFirst({
+            where: {
+              ownerUserId: targetUserId,
+              status: "ACTIVE",
+              OR: [
+                { viewerUserId: session.userId },
+                { viewerEmail: { equals: session.email, mode: "insensitive" } },
+              ],
+            },
+            select: { id: true },
+          });
+          if (shareMatch) {
+            authorized = true;
+          }
+        }
+      }
+
+      if (!authorized) {
         const [publicCoverMatch, orgLogoMatch] = await Promise.all([
           prisma.program.findFirst({
             where: {

@@ -26,9 +26,9 @@ export function getDefaultNotificationsForType(dayType: string): DayNotification
       },
       {
         time: "20:30",
-        label: "Evening • Recovery Diary & Sleep",
+        label: "Evening • Recovery & Sleep",
         message:
-          "Log your restorative insights in Dear Diary and align your sleep environment for deep cellular recovery.",
+          "Complete your daily check-in and align your sleep schedule for deep cellular recovery before 23:59 WIB.",
       },
     ];
   }
@@ -42,15 +42,15 @@ export function getDefaultNotificationsForType(dayType: string): DayNotification
       },
       {
         time: "13:00",
-        label: "Afternoon • Community Reflection",
+        label: "Afternoon • Clean Nourishment",
         message:
           "Thank you for connecting! Nourish mindfully and log your nutrition compliance for today.",
       },
       {
         time: "20:30",
-        label: "Evening • Gratitude & Sleep Track",
+        label: "Evening • Sleep & Cutoff Reminder",
         message:
-          "Record your shared insights in Dear Diary and commit to your target bedtime schedule.",
+          "Make sure all today's tasks and sleep tracking are logged before the 23:59 WIB cutoff.",
       },
     ];
   }
@@ -69,9 +69,9 @@ export function getDefaultNotificationsForType(dayType: string): DayNotification
     },
     {
       time: "20:30",
-      label: "Evening • Dear Diary & Cutoff",
+      label: "Evening • Daily Cutoff Reminder",
       message:
-        "Complete your daily Dear Diary, rate your fulfillment index, and finalize logs prior to the 23:59 cutoff.",
+        "Complete all your daily tasks and custom checkpoints prior to the 23:59 WIB cutoff.",
     },
   ];
 }
@@ -199,6 +199,13 @@ export interface AdminUserItem {
     assessmentResponse?: string | null;
     completedAt: Date | string | null;
     updatedAt?: Date | string | null;
+    customSubmissions?: {
+      id: string;
+      customTaskId: string;
+      title: string;
+      taskType: string;
+      values: Record<string, unknown>;
+    }[];
     programDay: {
       id?: string;
       dayNumber: number;

@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Ruler, Activity, ClipboardCheck, Camera, Sparkles } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Ruler,
+  Activity,
+  ClipboardCheck,
+  Camera,
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
+  PlayCircle,
+} from "lucide-react";
 import {
   CUSTOM_TASK_PRESETS,
   type CustomTaskField,
@@ -74,7 +85,7 @@ export function AdminCustomTasksBuilder({
       taskType: preset.taskType,
       title: preset.title,
       instructions: preset.instructions,
-      isRequired: preset.isRequired,
+      isRequired: true,
       fields: preset.fields.map((f) => ({ ...f })),
       translations: JSON.stringify({
         id: { title: preset.titleId, instructions: preset.instructionsId },
@@ -108,11 +119,30 @@ export function AdminCustomTasksBuilder({
   };
 
   const updateTask = (idx: number, patch: Partial<AdminCustomTaskDraft>) => {
-    onChange(tasks.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
+    onChange(
+      tasks.map((t, i) => {
+        if (i !== idx) return t;
+        const next = { ...t, ...patch, isRequired: true };
+        // Clear stale preset translations when admin edits title or instructions so the new text displays in all locales
+        if (patch.title !== undefined || patch.instructions !== undefined) {
+          next.translations = null;
+        }
+        return next;
+      })
+    );
+  };
+
+  const moveTask = (idx: number, dir: -1 | 1) => {
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= tasks.length) return;
+    const copy = [...tasks];
+    const [moved] = copy.splice(idx, 1);
+    copy.splice(targetIdx, 0, moved);
+    onChange(copy.map((t, i) => ({ ...t, sortOrder: i })));
   };
 
   const removeTask = (idx: number) => {
-    onChange(tasks.filter((_, i) => i !== idx));
+    onChange(tasks.filter((_, i) => i !== idx).map((t, i) => ({ ...t, sortOrder: i })));
   };
 
   const addField = (taskIdx: number) => {
@@ -124,7 +154,7 @@ export function AdminCustomTasksBuilder({
         label: "New Input Field",
         type: "number",
         unit: "",
-        required: false,
+        required: true,
       },
     ];
     updateTask(taskIdx, { fields: nextFields });
@@ -234,24 +264,39 @@ export function AdminCustomTasksBuilder({
                       <option value="CHECKLIST">CHECKLIST</option>
                       <option value="MEDIA_UPLOAD">MEDIA_UPLOAD</option>
                     </select>
-                    <label className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={task.isRequired}
-                        onChange={(e) => updateTask(idx, { isRequired: e.target.checked })}
-                      />
-                      <span>Required</span>
-                    </label>
+                    <span className="px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-white/10 text-[10px] font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                      Mandatory
+                    </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => removeTask(idx)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-500/10 transition"
-                    title="Remove custom task"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveTask(idx, -1)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/10 disabled:opacity-30 transition"
+                      title="Move task up"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === tasks.length - 1}
+                      onClick={() => moveTask(idx, 1)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/10 disabled:opacity-30 transition"
+                      title="Move task down"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeTask(idx)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-500/10 transition"
+                      title="Remove custom task"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -264,7 +309,7 @@ export function AdminCustomTasksBuilder({
                       value={task.title}
                       onChange={(e) => updateTask(idx, { title: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 text-xs text-zinc-900 dark:text-white"
-                      placeholder="e.g. Body Measurement Check-In"
+                      placeholder="e.g. Body Weight Check-In"
                     />
                   </div>
                   <div>
@@ -281,10 +326,34 @@ export function AdminCustomTasksBuilder({
                   </div>
                 </div>
 
+                {/* Dedicated Coach Video URL editor for Introduction / Final Video Tasks */}
+                {(() => {
+                  const videoFieldIdx = task.fields.findIndex((f) => f.key === "videoUrl");
+                  if (videoFieldIdx < 0) return null;
+                  const vf = task.fields[videoFieldIdx];
+                  return (
+                    <div className="p-3 rounded-lg bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/10 space-y-1.5">
+                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
+                        <PlayCircle className="w-3.5 h-3.5 text-zinc-500" />
+                        <span>Coach Video URL (YouTube / Embed Link)</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={vf.placeholder || ""}
+                        onChange={(e) =>
+                          updateField(idx, videoFieldIdx, { placeholder: e.target.value })
+                        }
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/10 text-xs font-mono text-zinc-900 dark:text-white"
+                      />
+                    </div>
+                  );
+                })()}
+
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                      Input Fields ({task.fields.length})
+                      Input Fields ({task.fields.filter((f) => f.key !== "videoUrl").length})
                     </span>
                     <button
                       type="button"
@@ -296,61 +365,123 @@ export function AdminCustomTasksBuilder({
                   </div>
 
                   <div className="space-y-2">
-                    {task.fields.map((field, fIdx) => (
-                      <div
-                        key={field.key}
-                        className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-[#141414] p-2 rounded-lg border border-zinc-200/70 dark:border-white/10"
-                      >
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => updateField(idx, fIdx, { label: e.target.value })}
-                          placeholder="Label"
-                          className="col-span-4 px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
-                        />
-                        <select
-                          value={field.type}
-                          onChange={(e) =>
-                            updateField(idx, fIdx, {
-                              type: e.target.value as CustomTaskFieldType,
-                            })
-                          }
-                          className="col-span-3 px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
+                    {task.fields.map((field, fIdx) => {
+                      if (field.key === "videoUrl") return null;
+                      return (
+                        <div
+                          key={field.key}
+                          className="space-y-2 bg-white dark:bg-[#141414] p-2.5 rounded-lg border border-zinc-200/70 dark:border-white/10"
                         >
-                          <option value="number">Number</option>
-                          <option value="text">Short Text</option>
-                          <option value="textarea">Notes</option>
-                          <option value="boolean">Checkbox</option>
-                          <option value="rating">Rating Scale</option>
-                          <option value="photo">Photo</option>
-                        </select>
-                        <input
-                          type="text"
-                          value={field.unit || ""}
-                          onChange={(e) => updateField(idx, fIdx, { unit: e.target.value })}
-                          placeholder="Unit (kg/cm)"
-                          className="col-span-2 px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
-                        />
-                        <label className="col-span-2 inline-flex items-center justify-center gap-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(field.required)}
-                            onChange={(e) =>
-                              updateField(idx, fIdx, { required: e.target.checked })
-                            }
-                          />
-                          <span>Req</span>
-                        </label>
-                        <button
-                          type="button"
-                          disabled={task.fields.length <= 1}
-                          onClick={() => removeField(idx, fIdx)}
-                          className="col-span-1 flex items-center justify-center text-zinc-400 hover:text-red-500 disabled:opacity-30"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                          <div className="grid grid-cols-12 gap-2 items-center">
+                            <input
+                              type="text"
+                              value={field.label}
+                              onChange={(e) =>
+                                updateField(idx, fIdx, {
+                                  label: e.target.value,
+                                  labelId: undefined,
+                                })
+                              }
+                              placeholder="Label"
+                              className="col-span-5 px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
+                            />
+                            <select
+                              value={field.type}
+                              onChange={(e) =>
+                                updateField(idx, fIdx, {
+                                  type: e.target.value as CustomTaskFieldType,
+                                })
+                              }
+                              className="col-span-3 px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
+                            >
+                              <option value="number">Number</option>
+                              <option value="text">Short Text</option>
+                              <option value="textarea">Notes</option>
+                              <option value="boolean">Checkbox</option>
+                              <option value="select">Select Options</option>
+                              <option value="rating">Rating Scale</option>
+                              <option value="photo">Photo</option>
+                            </select>
+                            <input
+                              type="text"
+                              value={field.unit || ""}
+                              onChange={(e) => updateField(idx, fIdx, { unit: e.target.value })}
+                              placeholder="Unit (kg/cm)"
+                              className="col-span-3 px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
+                            />
+                            <button
+                              type="button"
+                              disabled={
+                                task.fields.filter((f) => f.key !== "videoUrl").length <= 1
+                              }
+                              onClick={() => removeField(idx, fIdx)}
+                              className="col-span-1 flex items-center justify-center text-zinc-400 hover:text-red-500 disabled:opacity-30"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {field.type === "select" && (
+                            <input
+                              type="text"
+                              value={(field.options || []).join(", ")}
+                              onChange={(e) =>
+                                updateField(idx, fIdx, {
+                                  options: e.target.value
+                                    .split(",")
+                                    .map((s) => s.trim())
+                                    .filter(Boolean),
+                                })
+                              }
+                              placeholder="Options separated by comma (e.g. Low, Medium, High)"
+                              className="w-full px-2 py-1.5 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-xs"
+                            />
+                          )}
+
+                          {(field.type === "number" || field.type === "rating") && (
+                            <div className="grid grid-cols-3 gap-2">
+                              <input
+                                type="number"
+                                value={field.min ?? ""}
+                                onChange={(e) =>
+                                  updateField(idx, fIdx, {
+                                    min: e.target.value === "" ? undefined : Number(e.target.value),
+                                  })
+                                }
+                                placeholder="Min"
+                                className="px-2 py-1 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-[11px] font-mono"
+                              />
+                              <input
+                                type="number"
+                                value={field.max ?? ""}
+                                onChange={(e) =>
+                                  updateField(idx, fIdx, {
+                                    max: e.target.value === "" ? undefined : Number(e.target.value),
+                                  })
+                                }
+                                placeholder="Max"
+                                className="px-2 py-1 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-[11px] font-mono"
+                              />
+                              <input
+                                type="number"
+                                step="any"
+                                value={field.step ?? ""}
+                                onChange={(e) =>
+                                  updateField(idx, fIdx, {
+                                    step:
+                                      e.target.value === "" || Number(e.target.value) <= 0
+                                        ? undefined
+                                        : Number(e.target.value),
+                                  })
+                                }
+                                placeholder="Step (e.g. 0.1)"
+                                className="px-2 py-1 rounded bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 text-[11px] font-mono"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

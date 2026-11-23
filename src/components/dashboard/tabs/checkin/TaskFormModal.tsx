@@ -457,7 +457,6 @@ export function TaskForm({
   };
 
   const persistFinal = async (): Promise<boolean> => {
-    await flushChecklist(localChecks);
     if (step === 0) {
       return (
         (await props.onSaveSleep(bed, wake, sleepMinutes(bed, wake), day.id, sleepFeeling)) !==
@@ -473,18 +472,35 @@ export function TaskForm({
         return (await props.onSaveAttendance(attendanceFeedback, day.id)) !== false;
       }
       if (isRest) {
+        if (syncTimerRef.current) {
+          clearTimeout(syncTimerRef.current);
+          syncTimerRef.current = null;
+        }
+        checksDirtyRef.current = false;
         const restNotes = `Feeling: ${trainingFeeling} · Active recovery completed`;
-        return (await props.onSaveWorkoutNotes(restNotes, day.id)) !== false;
+        return (
+          (await props.onSaveWorkoutNotes(restNotes, day.id, {
+            checklistCompleted: localChecks,
+          })) !== false
+        );
       }
-      if (activeWorkout) {
-        await props.onSelectWorkout(activeWorkout, day.id, false);
+      // Single atomic server action call for Training finish (eliminates 3 sequential DB roundtrips)
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
       }
+      checksDirtyRef.current = false;
       const trimmedNote = existingWorkoutNote.trim();
       const finalNotes = trainingFeeling
         ? `Feeling: ${trainingFeeling}${trimmedNote ? ` · ${trimmedNote}` : ""}`
         : trimmedNote ||
           (activeWorkout ? `Completed: ${activeWorkout}` : "Completed training session");
-      return (await props.onSaveWorkoutNotes(finalNotes, day.id)) !== false;
+      return (
+        (await props.onSaveWorkoutNotes(finalNotes, day.id, {
+          selectedWorkout: activeWorkout || undefined,
+          checklistCompleted: localChecks,
+        })) !== false
+      );
     }
     if (step === 2) {
       const mealCount = mealDraft.mealsCount || 1;
@@ -529,7 +545,10 @@ export function TaskForm({
         (await props.onSaveMeal(compliance, JSON.stringify(mealPayload), day.id)) !== false
       );
     }
-    return (await props.onSaveReflection(review.trim(), score || 3, day.id)) !== false;
+    if (props.onSaveReflection) {
+      return (await props.onSaveReflection(review.trim(), score || 3, day.id)) !== false;
+    }
+    return true;
   };
 
   const handlePrimaryAction = async () => {
