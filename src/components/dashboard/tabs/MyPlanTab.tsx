@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   AlertCircle,
-  Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -409,29 +408,20 @@ export function MyPlanOverview({
               setShowCalendarModal(true);
             }}
             aria-label="Select date from calendar"
-            className="group inline-flex items-center gap-2.5 p-1.5 pr-3.5 rounded-2xl backdrop-blur-md active:scale-95 transition cursor-pointer text-left"
+            className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/10"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
-            <span
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-xs"
-              style={{ backgroundColor: "#ffffff", color: "#09090b" }}
-            >
-              <Calendar className="w-4 h-4 shrink-0" />
+            <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
+              {activeFullDateStr}
+            </span>
+            <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
+              •
+            </span>
+            <span className="text-[11px] font-mono font-medium text-white/85 leading-tight whitespace-nowrap">
+              {activeDayTypeLabel}
             </span>
 
-            <span className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-                {activeFullDateStr}
-              </span>
-              <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
-                •
-              </span>
-              <span className="text-[11px] font-mono font-medium text-white/85 leading-tight whitespace-nowrap">
-                {activeDayTypeLabel}
-              </span>
-            </span>
-
-            <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 ml-0.5 transition-transform duration-200 group-hover:translate-y-0.5" />
+            <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
           </button>
         </div>
 

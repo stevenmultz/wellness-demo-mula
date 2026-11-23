@@ -200,23 +200,19 @@ function WeightSummaryWidget({
         </span>
       </div>
 
-      <div className="space-y-2 pt-0.5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-            {latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
-          </span>
-          {latestWeight > 0 && (
-            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-              kg
+      <div className="pt-0.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
             </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
+            {latestWeight > 0 && (
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                kg
+              </span>
+            )}
+          </div>
           <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg" />
-          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-none">
-            this week
-          </span>
         </div>
       </div>
     </div>
@@ -240,21 +236,17 @@ function ProgramCommitmentWidget({
         </span>
       </div>
 
-      <div className="space-y-2 pt-0.5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-            {pct}
-          </span>
-          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-            %
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="pt-0.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {pct}
+            </span>
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+              %
+            </span>
+          </div>
           <MetricDeltaBadge delta={deltaPct} unit="%" />
-          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-none">
-            vs yesterday
-          </span>
         </div>
       </div>
     </div>
