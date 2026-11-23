@@ -227,7 +227,7 @@ body {
 /* ========================================================================= */
 /* MEMBER DASHBOARD UNBOXED & BORDERLESS SYSTEM                              */
 /* ========================================================================= */
-.member-dashboard-unboxed *:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *),
+.member-dashboard-unboxed *:not(.dashboard-nav-boxed):not(.dashboard-nav-boxed *):not(.profile-detail-scope):not(.profile-detail-scope *):not(.semantic-badge-box),
 .member-dashboard-unboxed *::before,
 .member-dashboard-unboxed *::after {
   border-width: 0 !important;

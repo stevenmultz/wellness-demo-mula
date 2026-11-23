@@ -12,7 +12,7 @@ import {
   type PlanDay,
 } from "./myPlanUtils";
 
-// ─── MetricDeltaBadge (Up = Emerald Border Box, Down = Ruby Border Box, Monochrome Text) ─
+// ─── MetricDeltaBadge (Up = Emerald Border Box + White Text, Down = Ruby Border Box + White Text) ─
 function MetricDeltaBadge({
   delta,
   unit = "%",
@@ -25,22 +25,22 @@ function MetricDeltaBadge({
 
   if (delta > 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#2A7B60] bg-[#EBF3F0]/80 dark:border-[#4D9E7B] dark:bg-[#1F6E54]/20 text-[10px] font-mono font-semibold text-zinc-950 dark:text-zinc-100 leading-none">
-        <ArrowUp className="w-2.5 h-2.5 stroke-[2.25] shrink-0" />
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-none">
+        <ArrowUp className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
   if (delta < 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#F7ECEE]/80 dark:border-[#C95B6B] dark:bg-[#9E2A3A]/20 text-[10px] font-mono font-semibold text-zinc-950 dark:text-zinc-100 leading-none">
-        <ArrowDown className="w-2.5 h-2.5 stroke-[2.25] shrink-0" />
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-none">
+        <ArrowDown className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-zinc-300 dark:border-white/15 bg-white/50 dark:bg-white/[0.02] text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400 leading-none">
+    <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-none">
       <span>0{unit}</span>
     </span>
   );
@@ -204,19 +204,16 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex flex-col justify-between gap-4">
-      <div className="flex items-center justify-between gap-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Scale className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-          <span className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
-            Weight
-          </span>
-        </div>
-        <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg" />
+    <div className="h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex flex-col justify-between gap-3">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Scale className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+        <span className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+          Weight
+        </span>
       </div>
 
-      <div className="space-y-1 my-auto py-1">
-        <div className="flex items-baseline gap-1.5">
+      <div className="space-y-2 my-auto pt-1">
+        <div className="flex items-baseline gap-1">
           <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
             {latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
           </span>
@@ -226,9 +223,13 @@ function WeightSummaryWidget({
             </span>
           )}
         </div>
-        <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-          Per week change
-        </span>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg" />
+          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-none">
+            this week
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -1138,21 +1139,25 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. First Row: Weight & Training Side-by-Side */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 items-stretch">
-        <WeightSummaryWidget
-          days={sorted}
-          bodyMetricLogs={bodyMetricLogs}
-          programId={programId}
-          currentDayNumber={currentDayNumber}
-        />
+      {/* 1. First Row: Weight (1/3) & Training (2/3) Side-by-Side */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 items-stretch">
+        <div className="col-span-1 h-full">
+          <WeightSummaryWidget
+            days={sorted}
+            bodyMetricLogs={bodyMetricLogs}
+            programId={programId}
+            currentDayNumber={currentDayNumber}
+          />
+        </div>
 
-        <TrainingWidget
-          days={sorted}
-          pct={trainingPct}
-          currentDayNumber={currentDayNumber}
-          deltaPct={trainingDelta}
-        />
+        <div className="col-span-2 h-full">
+          <TrainingWidget
+            days={sorted}
+            pct={trainingPct}
+            currentDayNumber={currentDayNumber}
+            deltaPct={trainingDelta}
+          />
+        </div>
       </div>
 
       {/* 2. Sleep Average (Interactive Line Chart + Delta in Minutes) */}
