@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
@@ -723,7 +723,7 @@ function SleepWidget({
   );
 }
 
-// ─── 4. Meal Control Widget (Pure Qualitative Dietary Adherence) ──────────────
+// ─── 4. Meal Control Widget (Adherence Bar + Carbs/Protein/Fat Donut Chart) ──
 function MealControlWidget({
   days,
   pct,
@@ -735,49 +735,6 @@ function MealControlWidget({
   deltaPct?: number;
   currentDayNumber?: number;
 }) {
-  const todayDayNum =
-    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
-  const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
-  const onPlanDays = elapsedDays.filter((d) => {
-    const mc = d.userProgress?.mealCompliance;
-    return mc === "FULL" || mc === "YES" || mc === "SIMILAR";
-  }).length;
-  const partialDays = elapsedDays.filter(
-    (d) => d.userProgress?.mealCompliance === "PARTIAL"
-  ).length;
-
-  return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
-      <div className="space-y-2">
-        <MetricLabelHeader icon={<FillUtensilsIcon />}>Meal Control</MetricLabelHeader>
-        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
-      </div>
-
-      {/* 50-segment bar */}
-      <div className="pt-0.5">
-        <FiftyBarMeter percent={pct} />
-      </div>
-
-      {/* Adherence summary (pure meal control, decoupled from calories & water) */}
-      <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 pt-0.5">
-        <span>
-          {onPlanDays}/{elapsedDays.length} {elapsedDays.length === 1 ? "day" : "days"} on plan
-        </span>
-        {partialDays > 0 && <span>{partialDays} partial</span>}
-      </div>
-    </div>
-  );
-}
-
-// ─── 5. Calories & Macros Widget (Daily Reset for Today + Program Average) ───
-function CaloriesWidget({
-  days,
-  currentDayNumber,
-}: {
-  days: PlanDay[];
-  currentDayNumber?: number;
-}) {
   const [macroScope, setMacroScope] = useState<"today" | "avg">("today");
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
@@ -786,50 +743,31 @@ function CaloriesWidget({
   const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
   const todayNutr = extractNutritionFromMealNotes(todayDay?.userProgress?.mealNotes);
 
-  const loggedCalorieDays = elapsedDays
-    .map((d) => ({
-      dayNumber: d.dayNumber,
-      ...extractNutritionFromMealNotes(d.userProgress?.mealNotes),
-    }))
-    .filter((n) => n.hasMealData && n.calories > 0);
+  const loggedMacroDays = elapsedDays
+    .map((d) => extractNutritionFromMealNotes(d.userProgress?.mealNotes))
+    .filter((n) => n.hasMealData && (n.carbsG > 0 || n.proteinG > 0 || n.fatG > 0));
 
-  const avgCalories =
-    loggedCalorieDays.length > 0
-      ? Math.round(
-          loggedCalorieDays.reduce((acc, n) => acc + n.calories, 0) /
-            loggedCalorieDays.length
-        )
-      : 0;
   const avgCarbsG =
-    loggedCalorieDays.length > 0
+    loggedMacroDays.length > 0
       ? Math.round(
-          loggedCalorieDays.reduce((acc, n) => acc + n.carbsG, 0) /
-            loggedCalorieDays.length
+          loggedMacroDays.reduce((acc, n) => acc + n.carbsG, 0) /
+            loggedMacroDays.length
         )
       : 0;
   const avgProteinG =
-    loggedCalorieDays.length > 0
+    loggedMacroDays.length > 0
       ? Math.round(
-          loggedCalorieDays.reduce((acc, n) => acc + n.proteinG, 0) /
-            loggedCalorieDays.length
+          loggedMacroDays.reduce((acc, n) => acc + n.proteinG, 0) /
+            loggedMacroDays.length
         )
       : 0;
   const avgFatG =
-    loggedCalorieDays.length > 0
+    loggedMacroDays.length > 0
       ? Math.round(
-          loggedCalorieDays.reduce((acc, n) => acc + n.fatG, 0) /
-            loggedCalorieDays.length
+          loggedMacroDays.reduce((acc, n) => acc + n.fatG, 0) /
+            loggedMacroDays.length
         )
       : 0;
-
-  let caloriesDelta = 0;
-  if (loggedCalorieDays.length >= 2) {
-    const latestCal = loggedCalorieDays[loggedCalorieDays.length - 1].calories;
-    const prevSlice = loggedCalorieDays.slice(0, -1);
-    const prevAvg =
-      prevSlice.reduce((acc, n) => acc + n.calories, 0) / prevSlice.length;
-    caloriesDelta = Math.round(latestCal - prevAvg);
-  }
 
   const displayCarbsG = macroScope === "today" ? todayNutr.carbsG : avgCarbsG;
   const displayProteinG = macroScope === "today" ? todayNutr.proteinG : avgProteinG;
@@ -849,47 +787,22 @@ function CaloriesWidget({
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
-      {/* Small Label + Fill Icon Header */}
-      <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
-
-      {/* Today (Resets Daily, Pure Food Intake) vs Program Average */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Today Intake
-          </span>
-          <MetricValueDisplay
-            value={todayNutr.calories > 0 ? todayNutr.calories.toLocaleString() : "0"}
-            unit="kcal"
-            showDelta={false}
-          />
-          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-            Resets daily · Intake only
-          </span>
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Program Avg
-          </span>
-          <MetricValueDisplay
-            value={avgCalories > 0 ? avgCalories.toLocaleString() : "—"}
-            unit={avgCalories > 0 ? "kcal" : undefined}
-            delta={caloriesDelta}
-            deltaUnit=" kcal"
-          />
-          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-            {loggedCalorieDays.length}{" "}
-            {loggedCalorieDays.length === 1 ? "day" : "days"} logged
-          </span>
-        </div>
+      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
+      <div className="space-y-2">
+        <MetricLabelHeader icon={<FillUtensilsIcon />}>Meal Control</MetricLabelHeader>
+        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
       </div>
 
-      {/* Macro Breakdown with Today / Program Avg toggle */}
+      {/* 50-segment bar */}
+      <div className="pt-0.5">
+        <FiftyBarMeter percent={pct} />
+      </div>
+
+      {/* Carbs / Protein / Fat Donut Chart */}
       <div className="space-y-3 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Macros ({macroScope === "today" ? "Today" : "Program Avg"})
+            Macros ({macroScope === "today" ? "Today" : "Avg"})
           </span>
           <div className="inline-flex items-center rounded-lg bg-zinc-200/80 dark:bg-white/10 p-0.5 text-[10px] font-mono">
             <button
@@ -1030,7 +943,126 @@ function CaloriesWidget({
   );
 }
 
-// ─── 6. Water / Hydration Widget (Daily Reset + Program History & Average) ───
+// ─── 5. Calories Widget (Simple Editorial Card matching Weight & Commitment) ─
+function CaloriesWidget({
+  days,
+  currentDayNumber,
+}: {
+  days: PlanDay[];
+  currentDayNumber?: number;
+}) {
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+
+  const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
+  const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
+  const todayCalories = extractNutritionFromMealNotes(
+    todayDay?.userProgress?.mealNotes
+  ).calories;
+
+  const loggedCalorieDays = elapsedDays
+    .map((d) => extractNutritionFromMealNotes(d.userProgress?.mealNotes))
+    .filter((n) => n.hasMealData && n.calories > 0);
+
+  let caloriesDelta = 0;
+  if (loggedCalorieDays.length >= 2) {
+    const latestCal = loggedCalorieDays[loggedCalorieDays.length - 1].calories;
+    const prevSlice = loggedCalorieDays.slice(0, -1);
+    const prevAvg =
+      prevSlice.reduce((acc, n) => acc + n.calories, 0) / prevSlice.length;
+    caloriesDelta = Math.round(latestCal - prevAvg);
+  }
+
+  return (
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+      <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
+
+      <MetricValueDisplay
+        value={todayCalories > 0 ? todayCalories.toLocaleString() : "0"}
+        unit="kcal"
+        delta={caloriesDelta}
+        deltaUnit=" kcal"
+      />
+    </div>
+  );
+}
+
+// ─── Monochrome Water Bottle Icon (Standard 500 ml bottle, proportional fill) ─
+function MonochromeWaterBottle({
+  fillRatio,
+  bottleIndex,
+  bottleMl,
+}: {
+  fillRatio: number;
+  bottleIndex: number;
+  bottleMl: number;
+}) {
+  const clipId = useId();
+  const clamped = Math.max(0, Math.min(1, fillRatio));
+  const bodyTop = 6.5;
+  const bodyBottom = 36.5;
+  const bodyHeight = bodyBottom - bodyTop;
+  const fillH = clamped * bodyHeight;
+  const fillY = bodyBottom - fillH;
+  const filledMl = Math.round(clamped * bottleMl);
+  const isFull = clamped >= 0.999;
+
+  const bottleBodyPath =
+    "M9.2 6.5h5.6v2.2c0 .7.38 1.35.98 1.72l2.14 1.32A2.8 2.8 0 0 1 19.25 14.1v19.4a3 3 0 0 1-3 3h-8.5a3 3 0 0 1-3-3V14.1a2.8 2.8 0 0 1 1.33-2.36l2.14-1.32c.6-.37.98-1.02.98-1.72V6.5Z";
+
+  return (
+    <svg
+      viewBox="0 0 24 38"
+      className="w-5 h-8 sm:w-6 sm:h-9 shrink-0"
+      role="img"
+      aria-label={`Bottle ${bottleIndex + 1}: ${filledMl}/${bottleMl} ml`}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <path d={bottleBodyPath} />
+        </clipPath>
+      </defs>
+
+      {/* Bottle Cap */}
+      <rect
+        x="8.2"
+        y="1.2"
+        width="7.6"
+        height="3.6"
+        rx="1.2"
+        fill="currentColor"
+        className={
+          isFull
+            ? "text-zinc-950 dark:text-white transition-colors duration-300"
+            : "text-zinc-400/75 dark:text-white/25 transition-colors duration-300"
+        }
+      />
+
+      {/* Empty Bottle Silhouette */}
+      <path
+        d={bottleBodyPath}
+        fill="currentColor"
+        className="text-zinc-300/80 dark:text-white/15"
+      />
+
+      {/* Monochrome Liquid Fill (rises from bottom based on today's intake) */}
+      {fillH > 0 && (
+        <g clipPath={`url(#${clipId})`}>
+          <rect
+            x="0"
+            y={fillY}
+            width="24"
+            height={fillH + 1}
+            fill="currentColor"
+            className="text-zinc-950 dark:text-white transition-all duration-300"
+          />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+// ─── 6. Water / Hydration Widget (5 Standard 500 ml Bottles = 2.5 L Daily) ───
 function HydrationWidget({
   days,
   currentDayNumber,
@@ -1038,9 +1070,8 @@ function HydrationWidget({
   days: PlanDay[];
   currentDayNumber?: number;
 }) {
-  const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
-  const DAILY_TARGET_ML = 2500;
-  const CONSISTENCY_THRESHOLD_ML = 2000;
+  const BOTTLE_SIZE_ML = 500;
+  const BOTTLE_COUNT = 5;
 
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
@@ -1051,150 +1082,45 @@ function HydrationWidget({
     todayDay?.userProgress?.mealNotes
   ).waterMl;
 
-  const waterSeries = elapsedDays.map((d) => ({
-    dayNumber: d.dayNumber,
-    unlockDate: d.unlockDate,
-    waterMl: extractNutritionFromMealNotes(d.userProgress?.mealNotes).waterMl,
-  }));
-
-  const loggedWaterDays = waterSeries.filter((w) => w.waterMl > 0);
-  const avgWaterMl =
-    loggedWaterDays.length > 0
-      ? Math.round(
-          loggedWaterDays.reduce((acc, w) => acc + w.waterMl, 0) /
-            loggedWaterDays.length
-        )
-      : 0;
-  const goalHitDays = waterSeries.filter(
-    (w) => w.waterMl >= CONSISTENCY_THRESHOLD_ML
-  ).length;
+  const loggedWaterDays = elapsedDays
+    .map((d) => extractNutritionFromMealNotes(d.userProgress?.mealNotes).waterMl)
+    .filter((ml) => ml > 0);
 
   let waterDeltaMl = 0;
   if (loggedWaterDays.length >= 2) {
-    const latestMl = loggedWaterDays[loggedWaterDays.length - 1].waterMl;
+    const latestMl = loggedWaterDays[loggedWaterDays.length - 1];
     const prevSlice = loggedWaterDays.slice(0, -1);
     const prevAvg =
-      prevSlice.reduce((acc, w) => acc + w.waterMl, 0) / prevSlice.length;
+      prevSlice.reduce((acc, ml) => acc + ml, 0) / prevSlice.length;
     waterDeltaMl = Math.round(latestMl - prevAvg);
   }
 
-  const todayHydrationPct = Math.min(
-    100,
-    Math.round((todayWaterMl / DAILY_TARGET_ML) * 100)
-  );
-  const recentBars = waterSeries.slice(-14);
-  const selectedBar =
-    recentBars.find((b) => b.dayNumber === selectedDayNum) || null;
-
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
-      {/* Small Label + Fill Icon Header */}
-      <MetricLabelHeader icon={<FillDropletIcon />}>Water</MetricLabelHeader>
-
-      {/* Today (Resets Daily) vs Program Avg */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Today
-          </span>
-          <MetricValueDisplay
-            value={(todayWaterMl / 1000).toFixed(1)}
-            unit="L"
-            showDelta={false}
-          />
-          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-            Target 2.5 L · Resets daily
-          </span>
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Program Avg
-          </span>
-          <MetricValueDisplay
-            value={avgWaterMl > 0 ? (avgWaterMl / 1000).toFixed(1) : "—"}
-            unit={avgWaterMl > 0 ? "L" : undefined}
-            delta={waterDeltaMl}
-            deltaUnit=" ml"
-          />
-          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-            {goalHitDays}/{elapsedDays.length}{" "}
-            {elapsedDays.length === 1 ? "day" : "days"} ≥ 2.0 L
-          </span>
-        </div>
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+      <div className="space-y-2">
+        <MetricLabelHeader icon={<FillDropletIcon />}>Water</MetricLabelHeader>
+        <MetricValueDisplay
+          value={(todayWaterMl / 1000).toFixed(1)}
+          unit="L"
+          delta={waterDeltaMl}
+          deltaUnit=" ml"
+        />
       </div>
 
-      {/* Today's Hydration Progress Meter */}
-      <div className="pt-0.5">
-        <FiftyBarMeter percent={todayHydrationPct} />
+      {/* Standard 500 ml Water Bottles filled proportionally in monochrome */}
+      <div className="flex items-end justify-between gap-1 pt-1">
+        {Array.from({ length: BOTTLE_COUNT }, (_, idx) => {
+          const fillRatio = (todayWaterMl - idx * BOTTLE_SIZE_ML) / BOTTLE_SIZE_ML;
+          return (
+            <MonochromeWaterBottle
+              key={idx}
+              bottleIndex={idx}
+              bottleMl={BOTTLE_SIZE_ML}
+              fillRatio={fillRatio}
+            />
+          );
+        })}
       </div>
-
-      {/* Recent Daily Hydration Bars (Interactive History) */}
-      {recentBars.length > 0 && (
-        <div className="space-y-2.5 pt-2 border-t border-zinc-300/60 dark:border-white/10">
-          <div className="flex items-end gap-1.5 h-12">
-            {recentBars.map((b) => {
-              const heightPct =
-                b.waterMl > 0
-                  ? Math.max(16, Math.min(100, Math.round((b.waterMl / 3000) * 100)))
-                  : 10;
-              const isSelected = selectedDayNum === b.dayNumber;
-              const hitGoal = b.waterMl >= CONSISTENCY_THRESHOLD_ML;
-
-              return (
-                <button
-                  key={b.dayNumber}
-                  type="button"
-                  onClick={() =>
-                    setSelectedDayNum((prev) =>
-                      prev === b.dayNumber ? null : b.dayNumber
-                    )
-                  }
-                  aria-label={`Day ${b.dayNumber}: ${(b.waterMl / 1000).toFixed(1)} L`}
-                  className="flex-1 h-full flex items-end justify-center cursor-pointer group"
-                >
-                  <span
-                    style={{ height: `${heightPct}%` }}
-                    className={`w-full rounded-sm transition-all ${
-                      isSelected
-                        ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
-                        : ""
-                    }${
-                      hitGoal
-                        ? "bg-zinc-950 dark:bg-white"
-                        : b.waterMl > 0
-                        ? "bg-zinc-500 dark:bg-zinc-400"
-                        : "bg-zinc-300/70 dark:bg-white/15"
-                    }`}
-                  />
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedBar && (
-            <button
-              type="button"
-              onClick={() => setSelectedDayNum(null)}
-              title="Click to dismiss"
-              className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
-            >
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                {formatMetricDate(
-                  selectedBar.unlockDate,
-                  selectedBar.dayNumber,
-                  currentDayNumber
-                )}
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
-                {selectedBar.waterMl > 0
-                  ? `${(selectedBar.waterMl / 1000).toFixed(1)} L (${selectedBar.waterMl.toLocaleString()} ml)`
-                  : "0.0 L"}
-              </span>
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -1423,7 +1349,7 @@ export function CohortPerformanceCard({
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 4. Meal Control (Pure Dietary Adherence) */}
+      {/* 4. Meal Control (50-Segment Bar + Carbs/Protein/Fat Donut Chart) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}
@@ -1431,11 +1357,11 @@ export function CohortPerformanceCard({
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 5. Calories & Macros (Daily Reset for Today + Program Average; Intake Only) */}
-      <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
-
-      {/* 6. Water / Hydration (Daily Reset for Today + Program Average & History) */}
-      <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
+      {/* 5 & 6. Calories (Simple Card) & Water (Monochrome Bottles) Side-by-Side */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
+        <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
+      </div>
     </section>
   );
 }
