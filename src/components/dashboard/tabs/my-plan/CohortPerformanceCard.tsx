@@ -1,17 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  Droplets,
-  Dumbbell,
-  Flame,
-  Moon,
-  Scale,
-  Target,
-  Utensils,
-} from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
@@ -23,7 +13,127 @@ import {
   type PlanDay,
 } from "./myPlanUtils";
 
-// ─── MetricDeltaBadge (Up = Emerald Border Box + White Text, Down = Ruby Border Box + White Text) ─
+// ─── Solid Fill Metric Icons (16×16 geometric silhouettes) ─────────────────────
+function FillScaleIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 3a5.5 5.5 0 0 0-5.18 3.66c-.18.5.18 1.04.71 1.04h8.94c.53 0 .89-.54.71-1.04A5.5 5.5 0 0 0 12 6Zm.75 2.25a.75.75 0 0 0-1.5 0v1.95a.75.75 0 0 0 1.5 0V8.25Z"
+      />
+    </svg>
+  );
+}
+
+function FillTargetIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"
+      />
+    </svg>
+  );
+}
+
+function FillDumbbellIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M3 9a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 3 15H2.5A1.5 1.5 0 0 1 1 13.5v-3A1.5 1.5 0 0 1 2.5 9H3Zm3.5-3A1.5 1.5 0 0 1 8 7.5v9A1.5 1.5 0 0 1 6.5 18h-1A1.5 1.5 0 0 1 4 16.5v-9A1.5 1.5 0 0 1 5.5 6h1Zm12 0A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 17.5 6h1Zm3 3A1.5 1.5 0 0 1 23 10.5v3a1.5 1.5 0 0 1-1.5 1.5H21a1.5 1.5 0 0 1-1.5-1.5v-3A1.5 1.5 0 0 1 21 9h.5ZM9 10.5h6v3H9v-3Z" />
+    </svg>
+  );
+}
+
+function FillMoonIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M21 14.2A8.5 8.5 0 0 1 9.8 3a.75.75 0 0 0-.96-.96A9.75 9.75 0 1 0 21.96 15.16a.75.75 0 0 0-.96-.96Z" />
+    </svg>
+  );
+}
+
+function FillUtensilsIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M7.5 2a.75.75 0 0 1 .75.75V7.5h1.25V2.75a.75.75 0 0 1 1.5 0V7.5a3.75 3.75 0 0 1-2.5 3.54V21a1 1 0 1 1-2 0V11.04A3.75 3.75 0 0 1 4 7.5V2.75a.75.75 0 0 1 1.5 0V7.5h1.25V2.75A.75.75 0 0 1 7.5 2Zm9.75 0a.75.75 0 0 1 .75.75V21a1 1 0 1 1-2 0v-6.25h-1.25A1.75 1.75 0 0 1 13 13V7.25C13 4.35 14.88 2 17.25 2Z" />
+    </svg>
+  );
+}
+
+function FillFlameIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12.92 2.24a.75.75 0 0 0-1.27.39c-.35 2.02-1.49 3.63-3.16 5.14C6.64 9.45 5 11.46 5 14.5a7 7 0 1 0 14 0c0-3.19-1.56-6.28-3.8-8.33a.75.75 0 0 0-1.24.44c-.14.85-.46 1.63-.95 2.26-.06-2.29-.44-4.7-1.09-6.63Z" />
+    </svg>
+  );
+}
+
+function FillDropletIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12.64 2.42a.85.85 0 0 0-1.28 0C8.82 5.42 5 10.35 5 14.5a7 7 0 0 0 14 0c0-4.15-3.82-9.08-6.36-12.08Z" />
+    </svg>
+  );
+}
+
+// ─── Unified Small Label + Solid Fill Icon Header ────────────────────────────
+function MetricLabelHeader({
+  icon,
+  children,
+  title,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0" title={title}>
+      <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+        {icon}
+      </span>
+      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-none">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+// ─── Unified Primary Value + Bottom-Aligned Side-by-Side Delta Badge ─────────
+function MetricValueDisplay({
+  value,
+  unit,
+  delta,
+  deltaUnit = "%",
+  showDelta = true,
+}: {
+  value: string;
+  unit?: string;
+  delta?: number;
+  deltaUnit?: string;
+  showDelta?: boolean;
+}) {
+  return (
+    <div className="flex items-end gap-2 flex-wrap">
+      <div className="flex items-baseline gap-1 leading-none">
+        <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+          {value}
+        </span>
+        {unit && (
+          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-none">
+            {unit}
+          </span>
+        )}
+      </div>
+      {showDelta && delta !== undefined && (
+        <MetricDeltaBadge delta={delta} unit={deltaUnit} />
+      )}
+    </div>
+  );
+}
+
+// ─── MetricDeltaBadge (Small label-sized indicator, bottom-aligned next to value) ─
 function MetricDeltaBadge({
   delta,
   unit = "%",
@@ -36,7 +146,7 @@ function MetricDeltaBadge({
 
   if (delta > 0) {
     return (
-      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-none">
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-none mb-[1px]">
         <ArrowUp className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
@@ -44,14 +154,14 @@ function MetricDeltaBadge({
   }
   if (delta < 0) {
     return (
-      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-none">
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-none mb-[1px]">
         <ArrowDown className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
   return (
-    <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-none">
+    <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-none mb-[1px]">
       <span>0{unit}</span>
     </span>
   );
@@ -179,29 +289,15 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
-      <div className="flex items-center gap-2 min-w-0">
-        <Scale className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-        <span className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-          Weight
-        </span>
-      </div>
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+      <MetricLabelHeader icon={<FillScaleIcon />}>Weight</MetricLabelHeader>
 
-      <div className="pt-0.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
-            </span>
-            {latestWeight > 0 && (
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                kg
-              </span>
-            )}
-          </div>
-          <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg" />
-        </div>
-      </div>
+      <MetricValueDisplay
+        value={latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
+        unit={latestWeight > 0 ? "kg" : undefined}
+        delta={weeklyDeltaKg}
+        deltaUnit=" kg"
+      />
     </div>
   );
 }
@@ -215,27 +311,12 @@ function ProgramCommitmentWidget({
   deltaPct?: number;
 }) {
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
-      <div className="flex items-center gap-2 min-w-0" title="Program Commitment">
-        <Target className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-        <span className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-          <span className="hidden sm:inline">Program </span>Commitment
-        </span>
-      </div>
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+      <MetricLabelHeader icon={<FillTargetIcon />} title="Program Commitment">
+        <span className="hidden sm:inline">Program </span>Commitment
+      </MetricLabelHeader>
 
-      <div className="pt-0.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {pct}
-            </span>
-            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-              %
-            </span>
-          </div>
-          <MetricDeltaBadge delta={deltaPct} unit="%" />
-        </div>
-      </div>
+      <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
     </div>
   );
 }
@@ -332,20 +413,10 @@ function TrainingWidget({
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Training
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-            {pct}%
-          </span>
-          <MetricDeltaBadge delta={deltaPct} />
-        </div>
+      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
+      <div className="space-y-2">
+        <MetricLabelHeader icon={<FillDumbbellIcon />}>Training</MetricLabelHeader>
+        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
       </div>
 
       {/* 7-Column Grid (Sun to Sat) */}
@@ -520,26 +591,14 @@ function SleepWidget({
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Moon className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Sleep Average
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {avgMins > 0 ? (
-            <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-              {formatSleepHours(avgMins)} avg
-            </span>
-          ) : (
-            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
-              —
-            </span>
-          )}
-          <MetricDeltaBadge delta={deltaMins} unit=" min" />
-        </div>
+      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
+      <div className="space-y-2">
+        <MetricLabelHeader icon={<FillMoonIcon />}>Sleep Average</MetricLabelHeader>
+        <MetricValueDisplay
+          value={avgMins > 0 ? formatSleepHours(avgMins) : "—"}
+          delta={deltaMins}
+          deltaUnit=" min"
+        />
       </div>
 
       {/* Body: Line Chart */}
@@ -689,20 +748,10 @@ function MealControlWidget({
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Utensils className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Meal Control
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-            {pct}%
-          </span>
-          <MetricDeltaBadge delta={deltaPct} />
-        </div>
+      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
+      <div className="space-y-2">
+        <MetricLabelHeader icon={<FillUtensilsIcon />}>Meal Control</MetricLabelHeader>
+        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
       </div>
 
       {/* 50-segment bar */}
@@ -800,55 +849,35 @@ function CaloriesWidget({
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Flame className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Calories
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-            {avgCalories > 0 ? `${avgCalories.toLocaleString()} avg` : "—"}
-          </span>
-          <MetricDeltaBadge delta={caloriesDelta} unit=" kcal" />
-        </div>
-      </div>
+      {/* Small Label + Fill Icon Header */}
+      <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
 
       {/* Today (Resets Daily, Pure Food Intake) vs Program Average */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Today Intake
           </span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {todayNutr.calories > 0 ? todayNutr.calories.toLocaleString() : "0"}
-            </span>
-            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-              kcal
-            </span>
-          </div>
+          <MetricValueDisplay
+            value={todayNutr.calories > 0 ? todayNutr.calories.toLocaleString() : "0"}
+            unit="kcal"
+            showDelta={false}
+          />
           <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
             Resets daily · Intake only
           </span>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Program Avg
           </span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {avgCalories > 0 ? avgCalories.toLocaleString() : "—"}
-            </span>
-            {avgCalories > 0 && (
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                kcal
-              </span>
-            )}
-          </div>
+          <MetricValueDisplay
+            value={avgCalories > 0 ? avgCalories.toLocaleString() : "—"}
+            unit={avgCalories > 0 ? "kcal" : undefined}
+            delta={caloriesDelta}
+            deltaUnit=" kcal"
+          />
           <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
             {loggedCalorieDays.length}{" "}
             {loggedCalorieDays.length === 1 ? "day" : "days"} logged
@@ -1059,55 +1088,35 @@ function HydrationWidget({
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Droplets className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
-            Water
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
-            {avgWaterMl > 0 ? `${(avgWaterMl / 1000).toFixed(1)} L avg` : "—"}
-          </span>
-          <MetricDeltaBadge delta={waterDeltaMl} unit=" ml" />
-        </div>
-      </div>
+      {/* Small Label + Fill Icon Header */}
+      <MetricLabelHeader icon={<FillDropletIcon />}>Water</MetricLabelHeader>
 
       {/* Today (Resets Daily) vs Program Avg */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Today
           </span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {(todayWaterMl / 1000).toFixed(1)}
-            </span>
-            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-              L
-            </span>
-          </div>
+          <MetricValueDisplay
+            value={(todayWaterMl / 1000).toFixed(1)}
+            unit="L"
+            showDelta={false}
+          />
           <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
             Target 2.5 L · Resets daily
           </span>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
             Program Avg
           </span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {avgWaterMl > 0 ? (avgWaterMl / 1000).toFixed(1) : "—"}
-            </span>
-            {avgWaterMl > 0 && (
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                L
-              </span>
-            )}
-          </div>
+          <MetricValueDisplay
+            value={avgWaterMl > 0 ? (avgWaterMl / 1000).toFixed(1) : "—"}
+            unit={avgWaterMl > 0 ? "L" : undefined}
+            delta={waterDeltaMl}
+            deltaUnit=" ml"
+          />
           <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
             {goalHitDays}/{elapsedDays.length}{" "}
             {elapsedDays.length === 1 ? "day" : "days"} ≥ 2.0 L
