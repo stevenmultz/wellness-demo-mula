@@ -93,7 +93,7 @@ function MetricLabelHeader({
       <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
         {icon}
       </span>
-      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-none">
+      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
         {children}
       </span>
     </div>
@@ -116,12 +116,12 @@ function MetricValueDisplay({
 }) {
   return (
     <div className="flex items-end gap-2 flex-wrap">
-      <div className="flex items-baseline gap-1 leading-none">
-        <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+      <div className="flex items-baseline gap-1">
+        <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
           {value}
         </span>
         {unit && (
-          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-none">
+          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
             {unit}
           </span>
         )}
@@ -146,7 +146,7 @@ function MetricDeltaBadge({
 
   if (delta > 0) {
     return (
-      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-none mb-[1px]">
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
         <ArrowUp className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
@@ -154,14 +154,14 @@ function MetricDeltaBadge({
   }
   if (delta < 0) {
     return (
-      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-none mb-[1px]">
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
         <ArrowDown className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
   return (
-    <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-none mb-[1px]">
+    <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
       <span>0{unit}</span>
     </span>
   );
@@ -735,43 +735,15 @@ function MealControlWidget({
   deltaPct?: number;
   currentDayNumber?: number;
 }) {
-  const [macroScope, setMacroScope] = useState<"today" | "avg">("today");
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
 
-  const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
-  const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
+  const todayDay = days.find((d) => d.dayNumber === todayDayNum);
   const todayNutr = extractNutritionFromMealNotes(todayDay?.userProgress?.mealNotes);
 
-  const loggedMacroDays = elapsedDays
-    .map((d) => extractNutritionFromMealNotes(d.userProgress?.mealNotes))
-    .filter((n) => n.hasMealData && (n.carbsG > 0 || n.proteinG > 0 || n.fatG > 0));
-
-  const avgCarbsG =
-    loggedMacroDays.length > 0
-      ? Math.round(
-          loggedMacroDays.reduce((acc, n) => acc + n.carbsG, 0) /
-            loggedMacroDays.length
-        )
-      : 0;
-  const avgProteinG =
-    loggedMacroDays.length > 0
-      ? Math.round(
-          loggedMacroDays.reduce((acc, n) => acc + n.proteinG, 0) /
-            loggedMacroDays.length
-        )
-      : 0;
-  const avgFatG =
-    loggedMacroDays.length > 0
-      ? Math.round(
-          loggedMacroDays.reduce((acc, n) => acc + n.fatG, 0) /
-            loggedMacroDays.length
-        )
-      : 0;
-
-  const displayCarbsG = macroScope === "today" ? todayNutr.carbsG : avgCarbsG;
-  const displayProteinG = macroScope === "today" ? todayNutr.proteinG : avgProteinG;
-  const displayFatG = macroScope === "today" ? todayNutr.fatG : avgFatG;
+  const displayCarbsG = todayNutr.carbsG;
+  const displayProteinG = todayNutr.proteinG;
+  const displayFatG = todayNutr.fatG;
 
   const totalMacroG = displayCarbsG + displayProteinG + displayFatG;
   const carbsPct = totalMacroG > 0 ? Math.round((displayCarbsG / totalMacroG) * 100) : 0;
@@ -799,38 +771,7 @@ function MealControlWidget({
       </div>
 
       {/* Carbs / Protein / Fat Donut Chart */}
-      <div className="space-y-3 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Macros ({macroScope === "today" ? "Today" : "Avg"})
-          </span>
-          <div className="inline-flex items-center rounded-lg bg-zinc-200/80 dark:bg-white/10 p-0.5 text-[10px] font-mono">
-            <button
-              type="button"
-              onClick={() => setMacroScope("today")}
-              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
-                macroScope === "today"
-                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white font-semibold shadow-2xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
-              }`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => setMacroScope("avg")}
-              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
-                macroScope === "avg"
-                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white font-semibold shadow-2xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
-              }`}
-            >
-              Avg
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-5">
+      <div className="flex items-center gap-5 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
           <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
             <svg
               viewBox="0 0 88 88"
@@ -937,7 +878,6 @@ function MealControlWidget({
               </div>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );
