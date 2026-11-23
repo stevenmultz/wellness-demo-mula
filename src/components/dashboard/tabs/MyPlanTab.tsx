@@ -419,11 +419,14 @@ export function MyPlanOverview({
               <Calendar className="w-4 h-4 shrink-0" />
             </span>
 
-            <span className="flex flex-col min-w-0">
-              <span className="text-xs font-geometric font-semibold text-white leading-tight">
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
                 {activeFullDateStr}
               </span>
-              <span className="text-[10px] font-mono text-white/80 leading-tight mt-0.5">
+              <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
+                •
+              </span>
+              <span className="text-[11px] font-mono font-medium text-white/85 leading-tight whitespace-nowrap">
                 {activeDayTypeLabel}
               </span>
             </span>

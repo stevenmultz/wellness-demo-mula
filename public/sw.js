@@ -1,5 +1,5 @@
 // ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Instant Launch Shell)
-const CACHE_NAME = "zera-wellness-pwa-v23";
+const CACHE_NAME = "zera-wellness-pwa-v24";
 
 const STATIC_ASSETS = [
   "/pwa-launch.html",

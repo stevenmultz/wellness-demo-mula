@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Dumbbell, Moon, Scale, Utensils } from "lucide-react";
+import { ArrowDown, ArrowUp, Dumbbell, Moon, Scale, Target, Utensils } from "lucide-react";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
   calcSleepMins,
@@ -216,6 +216,44 @@ function WeightSummaryWidget({
           <MetricDeltaBadge delta={weeklyDeltaKg} unit=" kg" />
           <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-none">
             this week
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 2. Program Commitment Widget (Side-by-Side Right Card, Overall Holistic Score) ─
+function ProgramCommitmentWidget({
+  pct,
+  deltaPct = 0,
+}: {
+  pct: number;
+  deltaPct?: number;
+}) {
+  return (
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+      <div className="flex items-center gap-2 min-w-0" title="Program Commitment">
+        <Target className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+        <span className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+          <span className="hidden sm:inline">Program </span>Commitment
+        </span>
+      </div>
+
+      <div className="space-y-2 pt-0.5">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+            {pct}
+          </span>
+          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+            %
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <MetricDeltaBadge delta={deltaPct} unit="%" />
+          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-none">
+            vs yesterday
           </span>
         </div>
       </div>
@@ -1074,15 +1112,106 @@ export function CohortPerformanceCard({
     mealDelta = mealPct - prevMealPct;
   }
 
+  // ── 4. Program Commitment (Option A: Elapsed Days up to todayDayNum) ──────
+  // Holistic composite: Training, Nutrition/Meal, Sleep Target, and Daily Tasks/Reflection
+  const computeDayCommitment = (d: PlanDay): number => {
+    const p = d.userProgress;
+
+    // A. Activity / Training score (0..1)
+    let activityScore = 0;
+    if (d.dayType === "TRAINING_DAY") {
+      activityScore = isTrainingDayDone(d) ? 1 : 0;
+    } else if (d.dayType === "REST_DAY") {
+      const hasChecked = checkedList(d, undefined).length > 0;
+      const sMins = calcSleepMins(p?.bedtime, p?.wakeTime);
+      const hasReflection = Boolean(p?.dailyReflection || p?.happinessRate);
+      if (p?.isCompleted || hasChecked || hasReflection || sMins > 0) {
+        activityScore = 1;
+      } else {
+        activityScore = 0.5;
+      }
+    } else {
+      // CONNECT_DAY
+      if (p?.isCompleted || checkedList(d, undefined).length > 0) {
+        activityScore = 1;
+      } else {
+        activityScore = 0;
+      }
+    }
+
+    // B. Meal compliance score (0..1)
+    const mealScore = getDayMealScore(d);
+
+    // C. Sleep score based on average/healthy target (7h = 420 mins) (0..1)
+    let sleepScore = 0;
+    const sMins = calcSleepMins(p?.bedtime, p?.wakeTime);
+    if (sMins >= 420) {
+      sleepScore = 1;
+    } else if (sMins >= 360) {
+      sleepScore = 0.85;
+    } else if (sMins > 0) {
+      sleepScore = 0.6;
+    } else {
+      sleepScore = 0;
+    }
+
+    // D. Daily Reflection & Custom Tasks score (0..1)
+    const reflectionScore = p?.dailyReflection || p?.happinessRate ? 1 : 0;
+    const cTasks = d.customTasks || [];
+    let customRatio = 1;
+    if (cTasks.length > 0) {
+      const completedCustom = cTasks.filter((ct) => Boolean(ct.submission)).length;
+      customRatio = completedCustom / cTasks.length;
+    }
+    const tasksScore = cTasks.length > 0 ? reflectionScore * 0.5 + customRatio * 0.5 : reflectionScore;
+
+    // Composite: 30% Training/Activity, 30% Meal, 25% Sleep, 15% Tasks/Reflection
+    return (
+      activityScore * 0.3 +
+      mealScore * 0.3 +
+      sleepScore * 0.25 +
+      tasksScore * 0.15
+    );
+  };
+
+  const elapsedCommitmentDays = sorted.filter((d) => d.dayNumber <= todayDayNum);
+  const earnedCommitmentSum = elapsedCommitmentDays.reduce(
+    (acc, d) => acc + computeDayCommitment(d),
+    0
+  );
+  const commitmentPct =
+    elapsedCommitmentDays.length > 0
+      ? Math.round((earnedCommitmentSum / elapsedCommitmentDays.length) * 100)
+      : 0;
+
+  let commitmentDelta = 0;
+  if (elapsedCommitmentDays.length >= 2) {
+    const prevSlice = elapsedCommitmentDays.slice(0, -1);
+    const prevEarnedSum = prevSlice.reduce(
+      (acc, d) => acc + computeDayCommitment(d),
+      0
+    );
+    const prevCommitmentPct = Math.round(
+      (prevEarnedSum / prevSlice.length) * 100
+    );
+    commitmentDelta = commitmentPct - prevCommitmentPct;
+  }
+
   return (
     <section className="w-full space-y-4">
-      {/* 1. Weight (Simple Summary + Weekly Change Below Value) */}
-      <WeightSummaryWidget
-        days={sorted}
-        bodyMetricLogs={bodyMetricLogs}
-        programId={programId}
-        currentDayNumber={currentDayNumber}
-      />
+      {/* 1. Weight & Program Commitment Side-by-Side */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <WeightSummaryWidget
+          days={sorted}
+          bodyMetricLogs={bodyMetricLogs}
+          programId={programId}
+          currentDayNumber={currentDayNumber}
+        />
+        <ProgramCommitmentWidget
+          pct={commitmentPct}
+          deltaPct={commitmentDelta}
+        />
+      </div>
 
       {/* 2. Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
       <TrainingWidget
