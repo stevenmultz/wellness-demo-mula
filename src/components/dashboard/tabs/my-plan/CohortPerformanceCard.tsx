@@ -62,10 +62,13 @@ function FillUtensilsIcon({ className = "w-3.5 h-3.5" }: { className?: string })
   );
 }
 
-function FillFlameIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+function FillRiceBowlIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M12.92 2.24a.75.75 0 0 0-1.27.39c-.35 2.02-1.49 3.63-3.16 5.14C6.64 9.45 5 11.46 5 14.5a7 7 0 1 0 14 0c0-3.19-1.56-6.28-3.8-8.33a.75.75 0 0 0-1.24.44c-.14.85-.46 1.63-.95 2.26-.06-2.29-.44-4.7-1.09-6.63Z" />
+      {/* Fluffy rice mound above bowl rim */}
+      <path d="M5.4 11.2C6.05 7.4 8.75 4.8 12 4.8s5.95 2.6 6.6 6.4H5.4Z" />
+      {/* Solid bowl body with clean foot base */}
+      <path d="M2.8 12.8h18.4a.8.8 0 0 1 .8.8c0 3.75-2.55 6.7-6.2 7.45v.95a1 1 0 0 1-1 1H9.2a1 1 0 0 1-1-1v-.95C4.55 20.3 2 17.35 2 13.6a.8.8 0 0 1 .8-.8Z" />
     </svg>
   );
 }
@@ -289,7 +292,7 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
       <MetricLabelHeader icon={<FillScaleIcon />}>Weight</MetricLabelHeader>
 
       <MetricValueDisplay
@@ -302,7 +305,7 @@ function WeightSummaryWidget({
   );
 }
 
-// ─── 2. Program Commitment Widget (Side-by-Side Right Card, Overall Holistic Score) ─
+// ─── 2. Program Commitment Widget (1/3 Bento Card, Overall Holistic Score) ───
 function ProgramCommitmentWidget({
   pct,
   deltaPct = 0,
@@ -311,9 +314,9 @@ function ProgramCommitmentWidget({
   deltaPct?: number;
 }) {
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
       <MetricLabelHeader icon={<FillTargetIcon />} title="Program Commitment">
-        <span className="hidden sm:inline">Program </span>Commitment
+        Commitment
       </MetricLabelHeader>
 
       <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
@@ -974,8 +977,8 @@ function CaloriesWidget({
   }
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
-      <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+      <MetricLabelHeader icon={<FillRiceBowlIcon />}>Calories</MetricLabelHeader>
 
       <MetricValueDisplay
         value={todayCalories > 0 ? todayCalories.toLocaleString() : "0"}
@@ -1096,7 +1099,7 @@ function HydrationWidget({
   }
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillDropletIcon />}>Water</MetricLabelHeader>
         <MetricValueDisplay
@@ -1108,7 +1111,7 @@ function HydrationWidget({
       </div>
 
       {/* Standard 500 ml Water Bottles filled proportionally in monochrome */}
-      <div className="flex items-end justify-between gap-1 pt-1">
+      <div className="flex items-end justify-between gap-2 pt-1">
         {Array.from({ length: BOTTLE_COUNT }, (_, idx) => {
           const fillRatio = (todayWaterMl - idx * BOTTLE_SIZE_ML) / BOTTLE_SIZE_ML;
           return (
@@ -1319,22 +1322,36 @@ export function CohortPerformanceCard({
   }
 
   return (
-    <section className="w-full space-y-4">
-      {/* 1. Weight & Program Commitment Side-by-Side */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <WeightSummaryWidget
-          days={sorted}
-          bodyMetricLogs={bodyMetricLogs}
-          programId={programId}
-          currentDayNumber={currentDayNumber}
-        />
-        <ProgramCommitmentWidget
-          pct={commitmentPct}
-          deltaPct={commitmentDelta}
-        />
+    <section className="w-full space-y-3 sm:space-y-4">
+      {/* Row 1: Weight (1/3) & Calories (2/3) */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="col-span-1">
+          <WeightSummaryWidget
+            days={sorted}
+            bodyMetricLogs={bodyMetricLogs}
+            programId={programId}
+            currentDayNumber={currentDayNumber}
+          />
+        </div>
+        <div className="col-span-2">
+          <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
+        </div>
       </div>
 
-      {/* 2. Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
+      {/* Row 2: Water (2/3) & Commitment (1/3) */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="col-span-2">
+          <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
+        </div>
+        <div className="col-span-1">
+          <ProgramCommitmentWidget
+            pct={commitmentPct}
+            deltaPct={commitmentDelta}
+          />
+        </div>
+      </div>
+
+      {/* Row 3: Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
       <TrainingWidget
         days={sorted}
         pct={trainingPct}
@@ -1342,26 +1359,20 @@ export function CohortPerformanceCard({
         deltaPct={trainingDelta}
       />
 
-      {/* 3. Sleep Average (Interactive Line Chart + Delta in Minutes) */}
+      {/* Row 4: Sleep Average (Interactive Line Chart + Delta in Minutes) */}
       <SleepWidget
         days={sorted}
         deltaMins={sleepDeltaMins}
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 4. Meal Control (50-Segment Bar + Carbs/Protein/Fat Donut Chart) */}
+      {/* Row 5: Meal Control (50-Segment Bar + Carbs/Protein/Fat Donut Chart) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}
         deltaPct={mealDelta}
         currentDayNumber={currentDayNumber}
       />
-
-      {/* 5 & 6. Calories (Simple Card) & Water (Monochrome Bottles) Side-by-Side */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
-        <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
-      </div>
     </section>
   );
 }
