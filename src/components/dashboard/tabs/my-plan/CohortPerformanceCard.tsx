@@ -204,16 +204,16 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex flex-col justify-between gap-3">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <Scale className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-        <span className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+      <div className="flex items-center gap-2 min-w-0">
+        <Scale className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+        <span className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
           Weight
         </span>
       </div>
 
-      <div className="space-y-2 my-auto pt-1">
-        <div className="flex items-baseline gap-1">
+      <div className="space-y-2 pt-0.5">
+        <div className="flex items-baseline gap-1.5">
           <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
             {latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
           </span>
@@ -287,16 +287,8 @@ function TrainingWidget({
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
 
-  // Compact 7 columns: S M T W T F S on mobile, Sun..Sat on sm+
-  const dayHeaders = [
-    { short: "S", full: "Sun" },
-    { short: "M", full: "Mon" },
-    { short: "T", full: "Tue" },
-    { short: "W", full: "Wed" },
-    { short: "T", full: "Thu" },
-    { short: "F", full: "Fri" },
-    { short: "S", full: "Sat" },
-  ];
+  // 7 columns: Sun to Sat
+  const dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const firstDay = sortedDays[0];
   const firstDate = firstDay?.unlockDate ? new Date(firstDay.unlockDate) : null;
   const startDayOfWeek =
@@ -331,17 +323,17 @@ function TrainingWidget({
   };
 
   return (
-    <div className="h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex flex-col justify-between gap-3">
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
       {/* Header */}
-      <div className="flex items-center justify-between gap-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Dumbbell className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-          <span className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Dumbbell className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
             Training
           </span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[11px] sm:text-xs font-mono font-medium text-zinc-900 dark:text-white">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
             {pct}%
           </span>
           <MetricDeltaBadge delta={deltaPct} />
@@ -349,13 +341,10 @@ function TrainingWidget({
       </div>
 
       {/* 7-Column Grid (Sun to Sat) */}
-      <div className="space-y-1.5 my-auto">
-        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] font-mono text-zinc-400 dark:text-zinc-500 text-center">
-          {dayHeaders.map((day, idx) => (
-            <span key={idx}>
-              <span className="sm:hidden">{day.short}</span>
-              <span className="hidden sm:inline">{day.full}</span>
-            </span>
+      <div className="space-y-2 pt-1">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-mono text-zinc-400 dark:text-zinc-500 text-center">
+          {dayHeaders.map((day) => (
+            <span key={day}>{day}</span>
           ))}
         </div>
 
@@ -366,7 +355,7 @@ function TrainingWidget({
             4. Dark Grey (#52525b)       -> Partial Workout
             5. More Dark Grey (#18181b)  -> Full Workout
         */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {Array.from({ length: totalSlots }, (_, i) => {
             const dayIndex = i - startDayOfWeek;
             const d =
@@ -378,7 +367,7 @@ function TrainingWidget({
               return (
                 <div
                   key={`slot-${i}`}
-                  className="aspect-square rounded-[4px] sm:rounded-md bg-transparent"
+                  className="aspect-square rounded-md sm:rounded-lg bg-transparent"
                 />
               );
             }
@@ -397,9 +386,9 @@ function TrainingWidget({
                   )
                 }
                 aria-label={`Day ${d.dayNumber}`}
-                className={`aspect-square rounded-[4px] sm:rounded-md flex items-center justify-center transition-all cursor-pointer relative ${
+                className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all cursor-pointer relative ${
                   isSelected
-                    ? "ring-1.5 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
+                    ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
                     : ""
                 }${
                   isToday && !isSelected
@@ -427,16 +416,16 @@ function TrainingWidget({
             type="button"
             onClick={() => setSelectedDayNum(null)}
             title="Click to dismiss"
-            className="w-full rounded-lg bg-white/90 dark:bg-white/[0.08] px-2.5 py-1.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-1.5 text-[10px] font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition mt-1"
+            className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition mt-1"
           >
-            <span className="font-medium text-zinc-600 dark:text-zinc-300 truncate">
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
               {formatMetricDate(
                 selectedDay.unlockDate,
                 selectedDay.dayNumber,
                 currentDayNumber
               )}
             </span>
-            <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white shrink-0">
+            <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
               {getDayCompletionFraction(selectedDay)}
             </span>
           </button>
@@ -1139,35 +1128,30 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-4">
-      {/* 1. First Row: Weight (1/3) & Training (2/3) Side-by-Side */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 items-stretch">
-        <div className="col-span-1 h-full">
-          <WeightSummaryWidget
-            days={sorted}
-            bodyMetricLogs={bodyMetricLogs}
-            programId={programId}
-            currentDayNumber={currentDayNumber}
-          />
-        </div>
+      {/* 1. Weight (Simple Summary + Weekly Change Below Value) */}
+      <WeightSummaryWidget
+        days={sorted}
+        bodyMetricLogs={bodyMetricLogs}
+        programId={programId}
+        currentDayNumber={currentDayNumber}
+      />
 
-        <div className="col-span-2 h-full">
-          <TrainingWidget
-            days={sorted}
-            pct={trainingPct}
-            currentDayNumber={currentDayNumber}
-            deltaPct={trainingDelta}
-          />
-        </div>
-      </div>
+      {/* 2. Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
+      <TrainingWidget
+        days={sorted}
+        pct={trainingPct}
+        currentDayNumber={currentDayNumber}
+        deltaPct={trainingDelta}
+      />
 
-      {/* 2. Sleep Average (Interactive Line Chart + Delta in Minutes) */}
+      {/* 3. Sleep Average (Interactive Line Chart + Delta in Minutes) */}
       <SleepWidget
         days={sorted}
         deltaMins={sleepDeltaMins}
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 3. Meal Control (50-Segment Bar + Editorial Calories/Water & Circular Macro Chart) */}
+      {/* 4. Meal Control (50-Segment Bar + Editorial Calories/Water & Circular Macro Chart) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}

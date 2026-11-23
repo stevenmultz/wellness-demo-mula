@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, Check, Lock, Scale } from "lucide-react";
 import { HeaderBackButton, InfoPopupModal } from "./shared";
@@ -9,7 +9,6 @@ import {
   deriveDayActivities,
   deriveDayChecks,
   deriveDayDone,
-  formatDayPillDate,
   getTasksForDay,
   getWibResetCountdown,
   type DailyCheckInProps,
@@ -33,10 +32,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
-  const [selectedDayId, setSelectedDayId] = useState<string>(day.id);
+  const [internalSelectedDayId, setInternalSelectedDayId] = useState<string>(day.id);
   useEffect(() => {
-    setSelectedDayId(day.id);
+    setInternalSelectedDayId(day.id);
   }, [day.id]);
+
+  const selectedDayId = props.selectedDayId || internalSelectedDayId;
 
   const [resetCountdown, setResetCountdown] = useState<string>(() =>
     getWibResetCountdown()
@@ -64,9 +65,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [weightInput, setWeightInput] = useState("");
   const [loggedWeightsByDay, setLoggedWeightsByDay] = useState<Record<string, number>>({});
-  const [centerDayId, setCenterDayId] = useState<string | null>(null);
-  const stripRef = useRef<HTMLDivElement | null>(null);
-  const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useEffect(() => {
     try {
@@ -112,63 +110,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       month: "short",
     }).format(new Date());
   }, []);
-
-  // Compute which day is in the center of the 3-day viewport
-  const updateCenterDayFromScroll = () => {
-    const container = stripRef.current;
-    if (!container || programDays.length === 0) return;
-    const containerRect = container.getBoundingClientRect();
-    const viewportMidX = containerRect.left + containerRect.width / 2;
-
-    let closestId: string | null = null;
-    let minDist = Infinity;
-
-    for (const d of programDays) {
-      const btn = buttonRefs.current[d.id];
-      if (!btn) continue;
-      const rect = btn.getBoundingClientRect();
-      const btnMidX = rect.left + rect.width / 2;
-      const dist = Math.abs(btnMidX - viewportMidX);
-      if (dist < minDist) {
-        minDist = dist;
-        closestId = d.id;
-      }
-    }
-    if (closestId) {
-      setCenterDayId((prev) => (prev === closestId ? prev : closestId));
-    }
-  };
-
-  // Center the active/selected day in the 3-day strip
-  useEffect(() => {
-    const container = stripRef.current;
-    const btn = buttonRefs.current[selectedDay.id];
-    if (!container || !btn) return;
-    const containerRect = container.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    const currentScroll = container.scrollLeft;
-    const targetScroll =
-      currentScroll +
-      (btnRect.left - containerRect.left) -
-      container.clientWidth / 2 +
-      btnRect.width / 2;
-    container.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
-    const t = setTimeout(updateCenterDayFromScroll, 180);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDay.id, programDays.length]);
-
-  const effectiveCenterDayId = useMemo(() => {
-    if (centerDayId && programDays.some((d) => d.id === centerDayId)) {
-      return centerDayId;
-    }
-    if (programDays.length >= 3) {
-      const selIdx = programDays.findIndex((d) => d.id === selectedDay.id);
-      const midIdx = Math.min(programDays.length - 2, Math.max(1, selIdx >= 0 ? selIdx : 1));
-      return programDays[midIdx]?.id || selectedDay.id;
-    }
-    return selectedDay.id;
-  }, [centerDayId, programDays, selectedDay.id]);
 
   const selectedActivities = useMemo(
     () => (isSelectedToday ? activities : deriveDayActivities(selectedDay)),
@@ -299,91 +240,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           </li>
           <li>
             <strong className="text-zinc-900 dark:text-white">Day Navigation:</strong>{" "}
-            Select any day chip below to review past submissions or preview upcoming
-            unlocked dates.
+            Tap the date on the program banner to open the calendar and select any day.
           </li>
         </ul>
       </InfoPopupModal>
-
-      <div
-        ref={stripRef}
-        onScroll={updateCenterDayFromScroll}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-        onTouchEnd={(e) => e.stopPropagation()}
-        className="w-full overflow-x-auto no-scrollbar py-1.5 scroll-smooth snap-x snap-mandatory"
-        style={{ scrollbarWidth: "none" }}
-      >
-        <div className="flex items-center gap-2 min-w-full">
-          {programDays.map((d) => {
-            const isActiveSelected = d.id === selectedDay.id;
-            const isCenterCard = d.id === effectiveCenterDayId;
-            const isTodayItem = d.id === day.id;
-            const isDoneItem = !!d.userProgress?.isCompleted;
-            const isPastItem =
-              !isAnytime && !isTodayItem && (d.isPast2359 || d.dayNumber < day.dayNumber);
-            const dayTypeWord =
-              d.dayType === "TRAINING_DAY"
-                ? "Training"
-                : d.dayType === "REST_DAY"
-                  ? "Rest"
-                  : "Connect";
-            const dateStr = formatDayPillDate(d.unlockDate, d.dayNumber);
-
-            return (
-              <button
-                key={d.id}
-                ref={(el) => {
-                  buttonRefs.current[d.id] = el;
-                }}
-                type="button"
-                onClick={() => {
-                  setSelectedDayId(d.id);
-                  setCenterDayId(d.id);
-                }}
-                style={{ width: "calc((100% - 16px) / 3)" }}
-                className={`shrink-0 snap-center rounded-xl text-center transition-all duration-200 active:scale-95 select-none flex flex-col items-center justify-center px-2 ${
-                  isCenterCard
-                    ? "min-h-[54px] py-2.5 scale-[1.03] z-10"
-                    : "min-h-[42px] py-1.5 scale-95"
-                } ${
-                  isTodayItem
-                    ? isActiveSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs ring-1 ring-zinc-950 dark:ring-white opacity-100 font-semibold"
-                      : "bg-white dark:bg-[#141414] text-zinc-950 dark:text-white border-2 border-zinc-950 dark:border-white shadow-xs opacity-100 font-semibold"
-                    : isPastItem
-                      ? isActiveSelected
-                        ? "bg-zinc-200/90 dark:bg-white/15 text-zinc-900 dark:text-white border border-zinc-400 dark:border-white/30 opacity-85 shadow-2xs"
-                        : "bg-zinc-100/80 dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 border border-zinc-200/70 dark:border-white/5 opacity-60 hover:opacity-80"
-                      : isActiveSelected
-                        ? "bg-zinc-200/80 dark:bg-white/10 text-zinc-900 dark:text-zinc-200 border border-zinc-300 dark:border-white/20 opacity-80"
-                        : "bg-zinc-100/50 dark:bg-white/[0.02] text-zinc-400 dark:text-zinc-600 border border-zinc-200/40 dark:border-white/5 opacity-45 hover:opacity-65"
-                }`}
-              >
-                <span
-                  className={`${
-                    isCenterCard ? "text-xs sm:text-[13px]" : "text-[11px]"
-                  } font-semibold leading-tight inline-flex items-center justify-center gap-1 ${
-                    isPastItem ? "line-through decoration-[1.5px] opacity-85" : ""
-                  }`}
-                >
-                  <span>{dateStr}</span>
-                  {isDoneItem && <Check className="w-2.5 h-2.5 shrink-0 opacity-75" />}
-                </span>
-                <span
-                  className={`${
-                    isCenterCard ? "text-[10.5px]" : "text-[9.5px]"
-                  } opacity-75 leading-tight mt-0.5 font-medium ${
-                    isPastItem ? "line-through decoration-1" : ""
-                  }`}
-                >
-                  {dayTypeWord}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <ol className="w-full space-y-3">
         {tasks.map((t, index) => {

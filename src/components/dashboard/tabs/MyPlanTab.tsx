@@ -1,10 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   AlertCircle,
+  Calendar,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -13,6 +16,7 @@ import {
   Shield,
   User as UserIcon,
   Users,
+  X,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
@@ -211,6 +215,61 @@ export function MyPlanOverview({
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
+  useEffect(() => {
+    if (day?.id) {
+      setSelectedDayId(day.id);
+    }
+  }, [day?.id]);
+
+  const sortedProgramDays = useMemo(() => {
+    const list =
+      fullProgramDays && fullProgramDays.length > 0
+        ? fullProgramDays
+        : day
+        ? [day]
+        : [];
+    return [...list].sort((a, b) => a.dayNumber - b.dayNumber);
+  }, [fullProgramDays, day]);
+
+  const activeSelectedDay = useMemo(
+    () =>
+      sortedProgramDays.find((d) => d.id === selectedDayId) ||
+      day ||
+      sortedProgramDays[0] ||
+      null,
+    [sortedProgramDays, selectedDayId, day]
+  );
+
+  const baseTodayDayNum = currentDayNumber > 0 ? currentDayNumber : 1;
+  const getProgramDayDate = (d: PlanDay | null | undefined): Date => {
+    if (d?.unlockDate) {
+      const parsed = new Date(d.unlockDate);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    const dayNum = d?.dayNumber || baseTodayDayNum;
+    const diffDays = dayNum - baseTodayDayNum;
+    return new Date(Date.now() + diffDays * 86400000);
+  };
+
+  const activeBannerDate = getProgramDayDate(activeSelectedDay);
+  const activeBannerDateStr = new Intl.DateTimeFormat(
+    locale === "id" ? "id-ID" : "en-GB",
+    {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Jakarta",
+    }
+  ).format(activeBannerDate);
+
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const d = getProgramDayDate(day);
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
 
@@ -328,37 +387,60 @@ export function MyPlanOverview({
       </div>
 
       {/* 1. Contained Image Banner */}
-      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[190px] sm:min-h-[220px] flex flex-col justify-end p-5 sm:p-7 text-white">
+      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[205px] sm:min-h-[235px] flex flex-col justify-end p-5 sm:p-7 pb-6 sm:pb-8 text-white">
         {program?.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
         ) : (
           <div className="absolute inset-0 bg-zinc-800" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
 
-        {/* Progress bar on image banner (Dark track with bright progress fill) */}
+        {/* Progress bar on image banner (High-contrast translucent track + solid pure white fill immune to dashboard-unboxed div.bg-white) */}
         {totalProgramDays > 0 && (
           <div
-            className="absolute bottom-2.5 inset-x-4 sm:inset-x-6 h-2 rounded-full bg-zinc-950/85 dark:bg-black/90 border border-white/20 z-20 overflow-hidden"
+            className="absolute bottom-2.5 inset-x-5 sm:inset-x-7 h-2 rounded-full z-20 overflow-hidden"
+            style={{ backgroundColor: "rgba(255, 255, 255, 0.28)" }}
+            role="progressbar"
+            aria-valuenow={displayDayNumber}
+            aria-valuemin={1}
+            aria-valuemax={totalProgramDays}
             title={`Day ${displayDayNumber} of ${totalProgramDays}`}
           >
-            <div
-              className="h-full bg-white transition-all duration-500 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+            <span
+              className="block h-full rounded-full transition-all duration-500"
               style={{
-                width: `${Math.min(100, Math.max(4, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
+                width: `${Math.min(100, Math.max(5, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
+                backgroundColor: "#ffffff",
               }}
             />
           </div>
         )}
 
         <div className="relative z-10 space-y-2">
-          {/* Day 1/10 above title */}
-          {totalProgramDays > 0 && (
-            <p className="text-xs font-mono font-medium text-white/80 tracking-wider">
-              Day {displayDayNumber}/{totalProgramDays}
-            </p>
-          )}
+          {/* Clickable Today / Selected Date on Banner + Day X/Y */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const dDate = getProgramDayDate(activeSelectedDay);
+                setCalendarMonth(new Date(dDate.getFullYear(), dDate.getMonth(), 1));
+                setShowCalendarModal(true);
+              }}
+              aria-label="Select date from calendar"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium text-white active:scale-95 transition cursor-pointer"
+              style={{ backgroundColor: "rgba(255, 255, 255, 0.18)" }}
+            >
+              <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
+              <span>{activeBannerDateStr}</span>
+              <ChevronDown className="w-3 h-3 text-white/85 shrink-0" />
+            </button>
+            {totalProgramDays > 0 && (
+              <span className="text-xs font-mono font-medium text-white/85 tracking-wider">
+                Day {activeSelectedDay?.dayNumber || displayDayNumber}/{totalProgramDays}
+              </span>
+            )}
+          </div>
 
           {/* Program title */}
           <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
@@ -415,7 +497,7 @@ export function MyPlanOverview({
               >
                 <span>{label}</span>
                 {count > 0 && (
-                  <span className="font-mono text-[10px] leading-none tabular-nums px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#F7ECEE] dark:border-[#C95B6B] dark:bg-[#9E2A3A]/20 text-[#9E2A3A] dark:text-[#F4B8C0] font-bold">
+                  <span className="semantic-badge-box font-mono text-[10px] leading-none tabular-nums px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[#f6f6f4] font-bold">
                     {count}
                   </span>
                 )}
@@ -469,6 +551,8 @@ export function MyPlanOverview({
                   onCustomTaskSubmitted={onCustomTaskSubmitted}
                   widgetIndex={widgetIndex}
                   onSwitchWidget={setWidgetIndex}
+                  selectedDayId={selectedDayId}
+                  onSelectDayId={setSelectedDayId}
                 />
               ) : (
                 <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
@@ -487,6 +571,171 @@ export function MyPlanOverview({
           </>
         )}
       </div>
+
+      {/* Calendar Date Picker Modal (Triggered by clicking date on Image Banner) */}
+      {showCalendarModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (() => {
+            const viewYear = calendarMonth.getFullYear();
+            const viewMonth = calendarMonth.getMonth();
+            const monthLabel = new Intl.DateTimeFormat(
+              locale === "id" ? "id-ID" : "en-US",
+              { month: "long", year: "numeric" }
+            ).format(calendarMonth);
+
+            const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+            const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+            const dayByYmd = new Map<string, PlanDay>();
+            for (const pd of sortedProgramDays) {
+              const dt = getProgramDayDate(pd);
+              const key = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+              if (!dayByYmd.has(key)) {
+                dayByYmd.set(key, pd);
+              }
+            }
+
+            return (
+              <div
+                onClick={() => setShowCalendarModal(false)}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Select program date"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-sm rounded-3xl bg-[#f6f6f4] dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+                >
+                  {/* Header: Month Navigation + Today & Close */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalendarMonth(new Date(viewYear, viewMonth - 1, 1))
+                        }
+                        aria-label="Previous month"
+                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="px-2 text-sm font-geometric font-semibold text-zinc-950 dark:text-white">
+                        {monthLabel}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalendarMonth(new Date(viewYear, viewMonth + 1, 1))
+                        }
+                        aria-label="Next month"
+                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {day && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDayId(day.id);
+                            setShowCalendarModal(false);
+                          }}
+                          className="h-8 px-2.5 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white transition cursor-pointer"
+                        >
+                          Today
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowCalendarModal(false)}
+                        aria-label="Close calendar"
+                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 7-Column Weekday Headers */}
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-500">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => (
+                      <span key={w}>{w}</span>
+                    ))}
+                  </div>
+
+                  {/* 7-Column Month Dates Grid */}
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {Array.from({ length: totalCells }, (_, idx) => {
+                      const dateNum = idx - firstWeekday + 1;
+                      if (dateNum < 1 || dateNum > daysInMonth) {
+                        return <div key={`empty-${idx}`} className="h-11 rounded-xl" />;
+                      }
+
+                      const key = `${viewYear}-${viewMonth}-${dateNum}`;
+                      const matchedDay = dayByYmd.get(key);
+                      const isSelected =
+                        !!matchedDay && matchedDay.id === activeSelectedDay?.id;
+                      const isTodayCell = !!matchedDay && matchedDay.id === day?.id;
+                      const isDoneCell = !!matchedDay?.userProgress?.isCompleted;
+
+                      if (!matchedDay) {
+                        return (
+                          <div
+                            key={key}
+                            className="h-11 rounded-xl flex flex-col items-center justify-center text-xs font-mono text-zinc-300 dark:text-zinc-700 select-none"
+                          >
+                            <span>{dateNum}</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDayId(matchedDay.id);
+                            setShowCalendarModal(false);
+                          }}
+                          className={`h-11 rounded-xl flex flex-col items-center justify-center transition active:scale-95 cursor-pointer relative ${
+                            isSelected
+                              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
+                              : isTodayCell
+                              ? "bg-zinc-300/80 dark:bg-white/20 text-zinc-950 dark:text-white font-semibold"
+                              : "bg-[#ececea] dark:bg-white/[0.06] text-zinc-900 dark:text-zinc-200 hover:bg-zinc-300/60 dark:hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-xs font-mono leading-none">
+                            {dateNum}
+                          </span>
+                          <span
+                            className={`text-[9px] font-mono leading-none mt-1 inline-flex items-center gap-0.5 ${
+                              isSelected
+                                ? "text-white/80 dark:text-zinc-900/80"
+                                : "text-zinc-500 dark:text-zinc-400"
+                            }`}
+                          >
+                            <span>D{matchedDay.dayNumber}</span>
+                            {isDoneCell && <Check className="w-2 h-2 stroke-[2.5]" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })(),
+          document.body
+        )}
 
       {/* External Community Disclaimer Modal */}
       {showCommunityModal &&

@@ -51,6 +51,8 @@ export interface DailyCheckInProps {
   ) => void;
   widgetIndex?: 0 | 1 | 2;
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
+  selectedDayId?: string;
+  onSelectDayId?: (dayId: string) => void;
 }
 
 export function getTasksForDay(dayType: string) {

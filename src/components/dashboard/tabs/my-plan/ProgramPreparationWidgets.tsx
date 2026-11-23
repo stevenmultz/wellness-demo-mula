@@ -269,42 +269,49 @@ export function ProgramPreparationWidgets({
           </ul>
         </InfoPopupModal>
 
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <ol className="w-full space-y-3">
           {guideCards.map((card) => {
             const Icon = card.icon;
             return (
-              <button
-                key={card.key}
-                type="button"
-                onClick={() => setActivePage(card.key)}
-                className="group relative overflow-hidden rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] p-4 text-left flex flex-col justify-between min-h-[110px] transition active:scale-[0.99] border border-transparent dark:border-white/5 shadow-2xs cursor-pointer"
-              >
-                <div className="relative z-10 flex items-center justify-between w-full">
-                  <div className="w-8 h-8 rounded-xl bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
-                    <Icon className="w-3.5 h-3.5" />
+              <li key={card.key} className="w-full">
+                <div
+                  onClick={() => setActivePage(card.key)}
+                  className="group w-full relative overflow-hidden rounded-2xl p-4 flex items-center justify-between gap-3 transition bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] cursor-pointer active:scale-[0.99]"
+                >
+                  <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                          {card.title}
+                        </p>
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                        {card.subtitle}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
-                      {card.badge}
-                    </span>
-                    <ArrowUpRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white transition" />
-                  </div>
-                </div>
 
-                <div className="relative z-10 pt-3 flex items-end justify-between w-full">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-950 dark:text-white">
-                      {card.title}
-                    </p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {card.subtitle}
-                    </p>
+                  <div className="relative z-10 shrink-0 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActivePage(card.key);
+                      }}
+                      aria-label={`Open ${card.title}`}
+                      className="w-7 h-7 rounded-lg bg-zinc-200/50 dark:bg-white/[0.06] hover:bg-zinc-300/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    >
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              </button>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </section>
 
       <GuideAccordionModal
