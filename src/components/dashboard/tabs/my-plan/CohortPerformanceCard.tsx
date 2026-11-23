@@ -62,13 +62,10 @@ function FillUtensilsIcon({ className = "w-3.5 h-3.5" }: { className?: string })
   );
 }
 
-function FillRiceBowlIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+function FillFlameIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      {/* Fluffy rice mound above bowl rim */}
-      <path d="M5.4 11.2C6.05 7.4 8.75 4.8 12 4.8s5.95 2.6 6.6 6.4H5.4Z" />
-      {/* Solid bowl body with clean foot base */}
-      <path d="M2.8 12.8h18.4a.8.8 0 0 1 .8.8c0 3.75-2.55 6.7-6.2 7.45v.95a1 1 0 0 1-1 1H9.2a1 1 0 0 1-1-1v-.95C4.55 20.3 2 17.35 2 13.6a.8.8 0 0 1 .8-.8Z" />
+      <path d="M12.92 2.24a.75.75 0 0 0-1.27.39c-.35 2.02-1.49 3.63-3.16 5.14C6.64 9.45 5 11.46 5 14.5a7 7 0 1 0 14 0c0-3.19-1.56-6.28-3.8-8.33a.75.75 0 0 0-1.24.44c-.14.85-.46 1.63-.95 2.26-.06-2.29-.44-4.7-1.09-6.63Z" />
     </svg>
   );
 }
@@ -292,7 +289,7 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
       <MetricLabelHeader icon={<FillScaleIcon />}>Weight</MetricLabelHeader>
 
       <MetricValueDisplay
@@ -305,7 +302,7 @@ function WeightSummaryWidget({
   );
 }
 
-// ─── 2. Program Commitment Widget (1/3 Bento Card, Overall Holistic Score) ───
+// ─── 2. Program Commitment Widget (50/50 Card, Overall Holistic Score) ───────
 function ProgramCommitmentWidget({
   pct,
   deltaPct = 0,
@@ -314,9 +311,9 @@ function ProgramCommitmentWidget({
   deltaPct?: number;
 }) {
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
       <MetricLabelHeader icon={<FillTargetIcon />} title="Program Commitment">
-        Commitment
+        <span className="hidden sm:inline">Program </span>Commitment
       </MetricLabelHeader>
 
       <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
@@ -946,7 +943,73 @@ function MealControlWidget({
   );
 }
 
-// ─── 5. Calories Widget (Simple Editorial Card matching Weight & Commitment) ─
+// ─── Monochrome Rice Bowl Icon (400 kcal per bowl, proportional fill) ────────
+function MonochromeRiceBowl({
+  fillRatio,
+  bowlIndex,
+  bowlKcal,
+}: {
+  fillRatio: number;
+  bowlIndex: number;
+  bowlKcal: number;
+}) {
+  const clipId = useId();
+  const clamped = Math.max(0, Math.min(1, fillRatio));
+  const shapeTop = 4.6;
+  const shapeBottom = 23;
+  const shapeHeight = shapeBottom - shapeTop;
+  const fillH = clamped * shapeHeight;
+  const fillY = shapeBottom - fillH;
+  const filledKcal = Math.round(clamped * bowlKcal);
+
+  const riceMoundPath = "M5.2 11.1C5.9 7.2 8.7 4.6 12 4.6s6.1 2.6 6.8 6.5H5.2Z";
+  const bowlBodyPath =
+    "M2.6 12.6h18.8a.8.8 0 0 1 .8.8c0 3.85-2.6 6.85-6.35 7.6v1a1 1 0 0 1-1 1H9.15a1 1 0 0 1-1-1v-1C4.4 20.25 1.8 17.25 1.8 13.4a.8.8 0 0 1 .8-.8Z";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-6 h-6 sm:w-7 sm:h-7 shrink-0"
+      role="img"
+      aria-label={`Bowl ${bowlIndex + 1}: ${filledKcal}/${bowlKcal} kcal`}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <path d={riceMoundPath} />
+          <path d={bowlBodyPath} />
+        </clipPath>
+      </defs>
+
+      {/* Empty Rice Bowl Silhouette */}
+      <path
+        d={riceMoundPath}
+        fill="currentColor"
+        className="text-zinc-300/80 dark:text-white/15"
+      />
+      <path
+        d={bowlBodyPath}
+        fill="currentColor"
+        className="text-zinc-300/80 dark:text-white/15"
+      />
+
+      {/* Monochrome Fill (rises from bottom based on today's calorie intake) */}
+      {fillH > 0 && (
+        <g clipPath={`url(#${clipId})`}>
+          <rect
+            x="0"
+            y={fillY}
+            width="24"
+            height={fillH + 1}
+            fill="currentColor"
+            className="text-zinc-950 dark:text-white transition-all duration-300"
+          />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+// ─── 5. Calories Widget (Flame Icon Header + 5 Monochrome Rice Bowls = 2000 kcal) ─
 function CaloriesWidget({
   days,
   currentDayNumber,
@@ -954,6 +1017,9 @@ function CaloriesWidget({
   days: PlanDay[];
   currentDayNumber?: number;
 }) {
+  const BOWL_SIZE_KCAL = 400;
+  const BOWL_COUNT = 5;
+
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
 
@@ -977,15 +1043,31 @@ function CaloriesWidget({
   }
 
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
-      <MetricLabelHeader icon={<FillRiceBowlIcon />}>Calories</MetricLabelHeader>
+    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+      <div className="space-y-2">
+        <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
+        <MetricValueDisplay
+          value={todayCalories > 0 ? todayCalories.toLocaleString() : "0"}
+          unit="kcal"
+          delta={caloriesDelta}
+          deltaUnit=" kcal"
+        />
+      </div>
 
-      <MetricValueDisplay
-        value={todayCalories > 0 ? todayCalories.toLocaleString() : "0"}
-        unit="kcal"
-        delta={caloriesDelta}
-        deltaUnit=" kcal"
-      />
+      {/* 5 Monochrome Rice Bowls (400 kcal each = 2,000 kcal) filled proportionally */}
+      <div className="flex items-end justify-between gap-1 pt-1">
+        {Array.from({ length: BOWL_COUNT }, (_, idx) => {
+          const fillRatio = (todayCalories - idx * BOWL_SIZE_KCAL) / BOWL_SIZE_KCAL;
+          return (
+            <MonochromeRiceBowl
+              key={idx}
+              bowlIndex={idx}
+              bowlKcal={BOWL_SIZE_KCAL}
+              fillRatio={fillRatio}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1111,7 +1193,7 @@ function HydrationWidget({
       </div>
 
       {/* Standard 500 ml Water Bottles filled proportionally in monochrome */}
-      <div className="flex items-end justify-between gap-2 pt-1">
+      <div className="flex items-end justify-between gap-1 pt-1">
         {Array.from({ length: BOTTLE_COUNT }, (_, idx) => {
           const fillRatio = (todayWaterMl - idx * BOTTLE_SIZE_ML) / BOTTLE_SIZE_ML;
           return (
@@ -1323,32 +1405,24 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-3 sm:space-y-4">
-      {/* Row 1: Weight (1/3) & Calories (2/3) */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="col-span-1">
-          <WeightSummaryWidget
-            days={sorted}
-            bodyMetricLogs={bodyMetricLogs}
-            programId={programId}
-            currentDayNumber={currentDayNumber}
-          />
-        </div>
-        <div className="col-span-2">
-          <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
-        </div>
+      {/* Row 1 (50/50): Weight & Calories */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <WeightSummaryWidget
+          days={sorted}
+          bodyMetricLogs={bodyMetricLogs}
+          programId={programId}
+          currentDayNumber={currentDayNumber}
+        />
+        <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
       </div>
 
-      {/* Row 2: Water (2/3) & Commitment (1/3) */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="col-span-2">
-          <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
-        </div>
-        <div className="col-span-1">
-          <ProgramCommitmentWidget
-            pct={commitmentPct}
-            deltaPct={commitmentDelta}
-          />
-        </div>
+      {/* Row 2 (50/50): Water & Commitment */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
+        <ProgramCommitmentWidget
+          pct={commitmentPct}
+          deltaPct={commitmentDelta}
+        />
       </div>
 
       {/* Row 3: Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
