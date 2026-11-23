@@ -277,6 +277,7 @@ async function DashboardContent() {
                   videoWatched: prog.isVideoWatched,
                   isCompleted: prog.isCompleted,
                   mealCompliance: prog.mealCompliance,
+                  mealNotes: prog.mealNotes,
                   dailyReflection: prog.dailyReflection,
                   bedtime: prog.bedtime,
                   wakeTime: prog.wakeTime,

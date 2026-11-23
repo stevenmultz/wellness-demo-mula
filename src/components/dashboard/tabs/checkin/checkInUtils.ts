@@ -1,5 +1,6 @@
 import {
   Angry,
+  Droplets,
   Dumbbell,
   Frown,
   Heart,
@@ -12,6 +13,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import { extractWaterMl } from "@/wellness/utils/nutrition";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { PlanDay } from "../MyPlanTab";
 
@@ -27,7 +29,7 @@ export interface DailyCheckInProps {
   isAnytime?: boolean;
   activities: string[];
   checks: string[];
-  initialDone: [boolean, boolean, boolean];
+  initialDone: [boolean, boolean, boolean, boolean];
   onToggleCheck: (task: string, dayId: string, isRepUpdate?: boolean) => Promise<void> | void;
   onSyncChecklist?: (tasks: string[], dayId: string) => Promise<boolean>;
   onSelectWorkout: (workout: string, dayId: string, resetChecklist?: boolean) => SaveResult;
@@ -46,6 +48,7 @@ export interface DailyCheckInProps {
     extra?: { selectedWorkout?: string; checklistCompleted?: string[] }
   ) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
+  onSaveWater: (waterMl: number, dayId: string) => SaveResult;
   onSaveReflection?: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
   onCustomTaskSubmitted?: (
@@ -92,9 +95,15 @@ export function getTasksForDay(dayType: string) {
             image: "/image.webp",
           },
     {
-      title: "Meal Notes",
-      description: "Daily food intake, macros & water log",
+      title: "Meal Control",
+      description: "Daily meal plan adherence & calories",
       Icon: Utensils,
+      image: "/pic.webp",
+    },
+    {
+      title: "Water Intake",
+      description: "Daily hydration log (resets daily)",
+      Icon: Droplets,
       image: "/pic.webp",
     },
   ] as const;
@@ -178,6 +187,7 @@ export type SubStepId =
   | "meal_off_3"
   | "meal_nutrition"
   | "meal_mood"
+  | "water_intake"
   | "reflection_journal"
   | "reflection_mood";
 
@@ -596,7 +606,7 @@ export function deriveDayDone(
   d: PlanDay,
   acts: string[],
   chks: string[]
-): [boolean, boolean, boolean] {
+): [boolean, boolean, boolean, boolean] {
   const p = d.userProgress;
   const sleepDone =
     !!p?.bedtime &&
@@ -623,5 +633,6 @@ export function deriveDayDone(
     sleepDone,
     activityDone,
     !!p?.mealCompliance && p.mealCompliance !== "SKIPPED",
+    extractWaterMl(p?.mealNotes) > 0,
   ];
 }

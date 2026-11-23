@@ -170,5 +170,42 @@ describe("Server Service: Daily Progress Submission & WIB Cutoff Integrity", () 
         create: expect.objectContaining({ isCompleted: false }),
       })
     );
+
+    // Case 3: Logging Water Intake independently preserves existing Meal data & auto-completes when all 4 core tasks are done
+    mockPrisma.programDay.findUnique.mockResolvedValueOnce(trainingDay);
+    mockPrisma.programEnrollment.findUnique.mockResolvedValueOnce({ status: "ACTIVE" });
+    mockTx.programDayProgress.findUnique.mockResolvedValueOnce({
+      id: "prog_1",
+      isVideoWatched: true,
+      isCompleted: false,
+      checklistCompletedJson: ["[Pilates] Roll Up", "[Pilates] Plank"],
+      selectedWorkout: "Pilates",
+      workoutNotes: "Felt great",
+      eventFeedback: null,
+      mealCompliance: "FULL",
+      mealNotes: JSON.stringify({ v: 5, mode: "full", calories: 1950, carbsG: 195, proteinG: 140, fatG: 65 }),
+      dailyReflection: null,
+      happinessRate: null,
+      bedtime: "22:30",
+      wakeTime: "06:00",
+      sleepDurationMinutes: 450,
+      assessmentResponse: null,
+      completedAt: null,
+    });
+    mockTx.programDayCustomTask.findMany.mockResolvedValueOnce([]);
+    mockTx.programDayProgress.upsert.mockImplementationOnce(async ({ update }) => update);
+
+    const waterRes = await submitDayProgressService({
+      programDayId: "d1",
+      mealNotes: JSON.stringify({ v: 5, waterMl: 2500 }),
+    });
+    expect(waterRes.success).toBe(true);
+    const lastUpsertArg = mockTx.programDayProgress.upsert.mock.calls.at(-1)?.[0];
+    expect(lastUpsertArg.update.isCompleted).toBe(true);
+    expect(lastUpsertArg.update.mealCompliance).toBe("FULL");
+    expect(JSON.parse(lastUpsertArg.update.mealNotes)).toMatchObject({
+      calories: 1950,
+      waterMl: 2500,
+    });
   });
 });

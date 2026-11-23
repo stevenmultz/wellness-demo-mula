@@ -4,6 +4,7 @@ import { requireAuth, requireProgramAccess } from "../security/guards";
 import { parseCustomSubmissionValues } from "../utils/custom-tasks";
 import { SubmitDayProgressSchema } from "../validators/program";
 import { parseWorkoutOptionGroups, safeJsonParse } from "../utils/json";
+import { extractWaterMl, mergeMealNotesPayload } from "../utils/nutrition";
 import { calculateSleepDuration, getProgramDayWibWindow } from "../utils/timezone";
 import type { WellnessActionResult } from "../actions/auth";
 
@@ -57,6 +58,7 @@ export interface DayCompletionCandidate {
   workoutNotes: string | null;
   eventFeedback: string | null;
   mealCompliance: string | null;
+  mealNotes?: string | null;
   bedtime: string | null;
   wakeTime: string | null;
 }
@@ -72,7 +74,7 @@ export interface DayCompletionDayMeta {
 /**
  * Authoritative server-side day completion evaluator (Single Source of Truth).
  * Every task is required (no optional tasks):
- * - Core tasks (3): Sleep + Activity (Training/Rest/Connect) + Meal (Daily Reflection removed)
+ * - Core tasks (4): Sleep + Activity (Training/Rest/Connect) + Meal Control + Water Intake
  * - Custom tasks: ALL custom tasks attached to the day must be submitted.
  */
 export async function computeVerifiedDayCompletionInTx(
@@ -90,6 +92,7 @@ export async function computeVerifiedDayCompletionInTx(
   const mealDone = Boolean(
     state.mealCompliance && state.mealCompliance !== "SKIPPED"
   );
+  const waterDone = extractWaterMl(state.mealNotes) > 0;
   const activityHasInput =
     programDay.dayType === "TRAINING_DAY"
       ? Boolean(
@@ -105,7 +108,7 @@ export async function computeVerifiedDayCompletionInTx(
           )
         : Boolean(state.eventFeedback && state.eventFeedback !== "SKIPPED");
 
-  if (!sleepDone || !mealDone || !activityHasInput) {
+  if (!sleepDone || !mealDone || !waterDone || !activityHasInput) {
     return false;
   }
 
@@ -307,8 +310,10 @@ export async function submitDayProgressService(
         mealCompliance !== undefined
           ? mealCompliance || null
           : existingProgress?.mealCompliance ?? null;
-      const finalMealNotes =
-        mealNotes !== undefined ? mealNotes || null : existingProgress?.mealNotes ?? null;
+      const finalMealNotes = mergeMealNotesPayload(
+        existingProgress?.mealNotes ?? null,
+        mealNotes
+      );
       const finalDailyReflection =
         dailyReflection !== undefined
           ? dailyReflection || null
@@ -331,6 +336,7 @@ export async function submitDayProgressService(
           workoutNotes: finalWorkoutNotes,
           eventFeedback: finalEventFeedback,
           mealCompliance: finalMealCompliance,
+          mealNotes: finalMealNotes,
           bedtime: finalBedtime,
           wakeTime: finalWakeTime,
         }

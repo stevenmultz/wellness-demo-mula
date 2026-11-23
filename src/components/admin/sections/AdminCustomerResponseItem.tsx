@@ -5,7 +5,9 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Droplets,
   Dumbbell,
+  Flame,
   Moon,
   Smile,
   Sparkles,
@@ -15,7 +17,9 @@ import {
   Video,
 } from "lucide-react";
 import { safeJsonParse } from "@/wellness/utils/json";
+import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import { safeMediaUrl } from "@/wellness/utils/url-safety";
+import { formatMealNoteSummary } from "@/components/dashboard/tabs/my-plan/myPlanUtils";
 import type { AdminUserItem } from "../adminTypes";
 
 type CustomerDayProgressItem = NonNullable<AdminUserItem["dayProgress"]>[number];
@@ -43,6 +47,8 @@ const dateFormatted = sub.completedAt
   : "Date not recorded";
 
 const checklistItems = safeJsonParse<string[]>(sub.checklistCompleted, []);
+const parsedNutrition = extractNutritionFromMealNotes(sub.mealNotes);
+const readableMealSummary = formatMealNoteSummary(sub.mealNotes);
 
 return (
   <div
@@ -208,14 +214,42 @@ return (
               </div>
             )}
 
-            {sub.mealNotes && (
+            {(sub.mealCompliance || readableMealSummary) && (
               <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
                   <Utensils className="w-3 h-3 text-zinc-500" />
-                  <span>Meal Notes ({sub.mealCompliance || "Logged"})</span>
+                  <span>Meal Control ({sub.mealCompliance || "Logged"})</span>
                 </span>
-                <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
-                  {sub.mealNotes}
+                {readableMealSummary && (
+                  <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                    {readableMealSummary}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {parsedNutrition.hasMealData && parsedNutrition.calories > 0 && (
+              <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
+                  <Flame className="w-3 h-3 text-zinc-500" />
+                  <span>Calories &amp; Macros</span>
+                </span>
+                <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                  {parsedNutrition.calories.toLocaleString()} kcal · C: {parsedNutrition.carbsG}g / P:{" "}
+                  {parsedNutrition.proteinG}g / F: {parsedNutrition.fatG}g
+                </p>
+              </div>
+            )}
+
+            {parsedNutrition.waterMl > 0 && (
+              <div className="p-3 rounded-xl bg-zinc-50/60 dark:bg-zinc-950/20 border border-zinc-200/60 dark:border-zinc-900/30 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono">
+                  <Droplets className="w-3 h-3 text-zinc-500" />
+                  <span>Water Intake</span>
+                </span>
+                <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                  {(parsedNutrition.waterMl / 1000).toFixed(1)} L (
+                  {parsedNutrition.waterMl.toLocaleString()} ml)
                 </p>
               </div>
             )}

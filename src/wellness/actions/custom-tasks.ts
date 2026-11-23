@@ -246,6 +246,7 @@ export async function wellnessUserSubmitCustomTask(
           workoutNotes: existingProg.workoutNotes,
           eventFeedback: existingProg.eventFeedback,
           mealCompliance: existingProg.mealCompliance,
+          mealNotes: existingProg.mealNotes,
           bedtime: existingProg.bedtime,
           wakeTime: existingProg.wakeTime,
         }

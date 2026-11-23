@@ -144,6 +144,7 @@ export function LockedTaskSummaryView({
   connectAttendance,
   connectRating,
   mealDraft,
+  waterMl = 0,
   recommendedMealsCount,
   review,
   score,
@@ -168,6 +169,7 @@ export function LockedTaskSummaryView({
   connectAttendance: "attend" | "cannot_attend" | null;
   connectRating: number;
   mealDraft: MealDraft;
+  waterMl?: number;
   recommendedMealsCount: number;
   review: string;
   score: number;
@@ -381,16 +383,6 @@ export function LockedTaskSummaryView({
                       </dd>
                     </div>
                   )}
-                  {mealDraft.waterMl && (
-                    <div className="py-4 flex items-center justify-between gap-4">
-                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        Water Intake
-                      </dt>
-                      <dd className="font-mono font-semibold text-zinc-950 dark:text-white text-right">
-                        {(mealDraft.waterMl / 1000).toFixed(1)} L ({mealDraft.waterMl} ml)
-                      </dd>
-                    </div>
-                  )}
                   <div className="py-4 flex items-center justify-between gap-4">
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       Post-Meal Mood
@@ -403,26 +395,18 @@ export function LockedTaskSummaryView({
               )}
 
               {step === 3 && (
-                <>
-                  <div className="py-4 space-y-1.5">
-                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Journal Reflection
-                    </dt>
-                    <dd className="text-sm text-zinc-900 dark:text-zinc-100 leading-relaxed">
-                      {review || "—"}
-                    </dd>
-                  </div>
-                  <div className="py-4 flex items-center justify-between gap-4">
-                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Mood &amp; Energy
-                    </dt>
-                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white">
-                      {score > 0
-                        ? `${FACES.find((f) => f.score === score)?.label || score} (${score}/5)`
+                <div className="py-4 flex items-center justify-between gap-4">
+                  <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Water Intake
+                  </dt>
+                  <dd className="font-mono font-semibold text-zinc-950 dark:text-white text-right">
+                    {waterMl > 0
+                      ? `${(waterMl / 1000).toFixed(1)} L (${waterMl.toLocaleString()} ml)`
+                      : mealDraft.waterMl && mealDraft.waterMl > 0
+                        ? `${(mealDraft.waterMl / 1000).toFixed(1)} L (${mealDraft.waterMl.toLocaleString()} ml)`
                         : "—"}
-                    </dd>
-                  </div>
-                </>
+                  </dd>
+                </div>
               )}
             </dl>
           )}

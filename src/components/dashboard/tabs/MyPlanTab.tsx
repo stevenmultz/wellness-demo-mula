@@ -147,6 +147,7 @@ export function MyPlanOverview({
   onOpenVideo,
   onSaveSleep,
   onSaveMeal,
+  onSaveWater,
   onSaveReflection,
   onSaveAttendance,
   onSaveWorkoutNotes,
@@ -179,6 +180,7 @@ export function MyPlanOverview({
   onOpenVideo: (dayId: string) => Promise<void | boolean>;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => Promise<void | boolean>;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;
+  onSaveWater: (waterMl: number, dayId: string) => Promise<void | boolean>;
   onSaveReflection?: (reflection: string, happiness: number, dayId: string) => Promise<void | boolean>;
   onSaveAttendance: (notes: string, dayId: string) => Promise<void | boolean>;
   onSaveWorkoutNotes: (
@@ -569,6 +571,7 @@ export function MyPlanOverview({
                   onSaveAttendance={onSaveAttendance}
                   onSaveWorkoutNotes={onSaveWorkoutNotes}
                   onSaveMeal={onSaveMeal}
+                  onSaveWater={onSaveWater}
                   onSaveReflection={onSaveReflection}
                   onCompleteDay={onCompleteDay}
                   onCustomTaskSubmitted={onCustomTaskSubmitted}

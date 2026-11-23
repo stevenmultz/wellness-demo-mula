@@ -151,7 +151,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           <li>
             <strong className="text-zinc-900 dark:text-white">Task Cadence:</strong>{" "}
             Complete every scheduled task for the day: sleep tracking, daily activity,
-            nutrition logging, and any assigned coach checkpoints.
+            meal control, water intake, and any assigned coach checkpoints.
           </li>
           <li>
             <strong className="text-zinc-900 dark:text-white">Daily Reset:</strong> Active

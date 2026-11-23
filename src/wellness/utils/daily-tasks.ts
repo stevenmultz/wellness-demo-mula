@@ -6,11 +6,20 @@
  * (the application timezone), never the server/browser locale, and tomorrow's list never
  * contains today's tasks because the two are resolved from distinct 00:00 WIB window starts.
  */
+import { extractWaterMl } from "./nutrition";
 import { WIB_OFFSET_MS, getProgramDayWibWindow } from "./timezone";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type DailyTaskKind = "SLEEP" | "WORKOUT" | "MEAL" | "REFLECTION" | "REST" | "EVENT" | "CUSTOM";
+export type DailyTaskKind =
+  | "SLEEP"
+  | "WORKOUT"
+  | "MEAL"
+  | "WATER"
+  | "REFLECTION"
+  | "REST"
+  | "EVENT"
+  | "CUSTOM";
 
 export interface DailyTask {
   id: string; // stable: `${programDayId}:${kind}` or `${programDayId}:CUSTOM:${customTaskId}`
@@ -40,6 +49,7 @@ export interface DailyTaskDayInput {
     videoWatched: boolean;
     isCompleted: boolean;
     mealCompliance: string | null;
+    mealNotes?: string | null;
     dailyReflection: string | null;
     bedtime?: string | null;
     wakeTime?: string | null;
@@ -127,9 +137,17 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
   tasks.push({
     id: `${day.id}:MEAL`,
     kind: "MEAL",
-    name: "Meal Tracking",
-    description: "Log whether you followed today's meal recommendation.",
+    name: "Meal Control",
+    description: "Log whether you followed today's meal plan & calories.",
     isDone: Boolean(p?.mealCompliance && p.mealCompliance !== "SKIPPED"),
+  });
+
+  tasks.push({
+    id: `${day.id}:WATER`,
+    kind: "WATER",
+    name: "Water Intake",
+    description: "Log your daily hydration intake (resets daily at 00:00 WIB).",
+    isDone: extractWaterMl(p?.mealNotes) > 0,
   });
 
   if (Array.isArray(day.customTasks)) {

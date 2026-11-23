@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { wellnessUserSubmitDayProgress as rawWellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import {
+  buildWaterOnlyMealNotes,
+  extractWaterMl,
+  mergeMealNotesPayload,
+} from "@/wellness/utils/nutrition";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { ActionNotice, ProgramDayItem, ProgramItem } from "./types";
 
@@ -157,6 +162,7 @@ export function useDashboardProgress({
       workoutNotes?: string;
       eventFeedback?: string;
       mealCompliance?: string;
+      mealNotes?: string;
       dailyReflection?: string;
       videoWatched?: boolean;
     }
@@ -170,6 +176,12 @@ export function useDashboardProgress({
       dayMealCompliance[targetDay.id] ??
       targetDay.userProgress?.mealCompliance;
     const mealDone = Boolean(mealComp && mealComp !== "SKIPPED");
+
+    const mNotes =
+      overrides?.mealNotes ??
+      dayMealNotes[targetDay.id] ??
+      targetDay.userProgress?.mealNotes;
+    const waterDone = extractWaterMl(mNotes) > 0;
 
     const wNotes =
       overrides?.workoutNotes ??
@@ -204,12 +216,12 @@ export function useDashboardProgress({
             Boolean((wNotes && wNotes !== "SKIPPED") || updatedChecklist.length > 0)
           : Boolean(evFb && evFb !== "SKIPPED");
 
-    // All custom tasks on the day are required (no optional custom tasks; Daily Reflection removed)
+    // All core tasks (Sleep, Activity, Meal Control, Water Intake) and custom tasks are required
     const allCustomDone = (targetDay.customTasks || []).every((ct) =>
       Boolean(customSubmissionsByTaskId[ct.id] ?? ct.submission)
     );
 
-    return sleepDone && activityDone && mealDone && allCustomDone;
+    return sleepDone && activityDone && mealDone && waterDone && allCustomDone;
   };
 
   const submitChecklistSnapshot = async (
@@ -566,11 +578,16 @@ export function useDashboardProgress({
     if (!targetDay) return false;
     const prevCompliance = dayMealCompliance[targetDay.id];
     const prevMealNotes = dayMealNotes[targetDay.id];
+    const existingNotes =
+      prevMealNotes !== undefined ? prevMealNotes : targetDay.userProgress?.mealNotes;
+    const mergedNotes = mergeMealNotesPayload(existingNotes, notes) ?? notes;
+
     setDayMealCompliance((prev) => ({ ...prev, [targetDay.id]: compliance }));
-    setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: notes }));
+    setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: mergedNotes }));
 
     const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
       mealCompliance: compliance,
+      mealNotes: mergedNotes,
     });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
@@ -578,7 +595,7 @@ export function useDashboardProgress({
       checklistCompleted: getCheckedItems(targetDay),
       videoWatched: getVideoWatched(targetDay),
       mealCompliance: compliance,
-      mealNotes: notes,
+      mealNotes: mergedNotes,
     });
 
     if (!res.success) {
@@ -595,13 +612,61 @@ export function useDashboardProgress({
         return next;
       });
       setActionNotice(
-        { type: "error", text: res.message || "Failed to save nutrition notes." },
+        { type: "error", text: res.message || "Failed to save meal control log." },
         4000
       );
       return false;
     }
     syncCompletedFromServer(targetDay.id, res.data);
-    setActionNotice({ type: "success", text: "Nutrition notes saved successfully." }, 3000);
+    setActionNotice({ type: "success", text: "Meal control saved successfully." }, 3000);
+    return true;
+  };
+
+  const handleSaveWater = async (
+    waterMl: number,
+    dayId?: string
+  ): Promise<boolean> => {
+    const targetDay = resolveTargetDay(dayId);
+    if (!targetDay) return false;
+    const prevMealNotes = dayMealNotes[targetDay.id];
+    const existingNotes =
+      prevMealNotes !== undefined ? prevMealNotes : targetDay.userProgress?.mealNotes;
+    const mergedNotes = buildWaterOnlyMealNotes(existingNotes, waterMl);
+
+    setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: mergedNotes }));
+
+    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+      mealNotes: mergedNotes,
+    });
+    const res = await wellnessUserSubmitDayProgress({
+      programDayId: targetDay.id,
+      isCompleted: autoComplete,
+      checklistCompleted: getCheckedItems(targetDay),
+      videoWatched: getVideoWatched(targetDay),
+      mealNotes: mergedNotes,
+    });
+
+    if (!res.success) {
+      setDayMealNotes((prev) => {
+        const next = { ...prev };
+        if (prevMealNotes === undefined) delete next[targetDay.id];
+        else next[targetDay.id] = prevMealNotes;
+        return next;
+      });
+      setActionNotice(
+        { type: "error", text: res.message || "Failed to save water intake." },
+        4000
+      );
+      return false;
+    }
+    syncCompletedFromServer(targetDay.id, res.data);
+    setActionNotice(
+      {
+        type: "success",
+        text: `Water intake saved (${(waterMl / 1000).toFixed(1)} L).`,
+      },
+      3000
+    );
     return true;
   };
 
@@ -672,6 +737,7 @@ export function useDashboardProgress({
     handleSaveWorkoutNotes,
     handleSaveEventFeedback,
     handleSaveMeal,
+    handleSaveWater,
     handleSaveReflection,
     handleCompleteProgramDay,
   };

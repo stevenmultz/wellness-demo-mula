@@ -1,5 +1,6 @@
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import { extractWaterMl } from "@/wellness/utils/nutrition";
 
 export interface PlanDay {
   id: string;
@@ -46,7 +47,7 @@ export interface PlanOption {
   title: string;
 }
 
-export type PlanTaskId = "sleep" | "activity" | "meal";
+export type PlanTaskId = "sleep" | "activity" | "meal" | "water";
 
 export interface MyPlanIndexItem {
   programId: string;
@@ -311,10 +312,11 @@ export function evaluateDayTaskState(
             (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED")
         : !!progress?.isCompleted ||
           (!!progress?.eventFeedback && progress.eventFeedback !== "SKIPPED");
-  const initialDone: [boolean, boolean, boolean] = [
+  const initialDone: [boolean, boolean, boolean, boolean] = [
     sleepDone,
     activityDone,
     !!progress?.mealCompliance && progress.mealCompliance !== "SKIPPED",
+    extractWaterMl(progress?.mealNotes) > 0,
   ];
   // All custom tasks are mandatory (no optional tasks)
   const pendingCustomTasks = (day?.customTasks || []).filter(

@@ -656,73 +656,17 @@ export function MealStepView({
     );
   }
 
-  if (currentSubStep === "meal_nutrition") {
-    const waterPresets = [1500, 2000, 2500, 3000];
-    const totals = computeMealTotals(mealDraft.mealEntries, mealDraft.mealsCount || 1);
-    const updateWater = (raw: string) => {
-      clearError();
-      const num = raw.trim() === "" ? null : Math.max(0, Math.round(Number(raw)));
-      setMealDraft((prev) => ({
-        ...prev,
-        ...totals,
-        waterMl: Number.isFinite(num as number) ? num : null,
-      }));
-    };
+  const totals = computeMealTotals(mealDraft.mealEntries, mealDraft.mealsCount || 1);
 
-    const inputCls =
-      "w-full px-3.5 py-3 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-sm font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+  return (
+    <div className="space-y-6 min-w-0">
+      <StepHeader title="How do you feel after today's meals?" />
 
-    return (
-      <div className="space-y-5 min-w-0">
-        <StepHeader title="How much water did you drink today?" />
-
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Water Intake (ml)
-            </label>
-            {mealDraft.waterMl ? (
-              <span className="text-xs font-mono font-semibold text-zinc-900 dark:text-white">
-                {(mealDraft.waterMl / 1000).toFixed(1)} L
-              </span>
-            ) : null}
-          </div>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={10000}
-            step={100}
-            placeholder="e.g. 2200"
-            value={mealDraft.waterMl ?? ""}
-            onChange={(e) => updateWater(e.target.value)}
-            className={inputCls}
-          />
-          <div className="grid grid-cols-4 gap-2 pt-1">
-            {waterPresets.map((ml) => {
-              const active = mealDraft.waterMl === ml;
-              return (
-                <button
-                  key={ml}
-                  type="button"
-                  onClick={() => updateWater(String(ml))}
-                  className={`py-2.5 px-2 rounded-xl border text-xs font-mono transition ${
-                    active
-                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"
-                      : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                  }`}
-                >
-                  {(ml / 1000).toFixed(1)}L
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Daily Calculated Nutrition Summary from Meals 1..N */}
+      {/* Daily Calculated Nutrition Summary from Meals 1..N (Pure Intake — Water tracked separately) */}
+      {totals.calories > 0 && (
         <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 block">
-            Today&apos;s Calculated Meal Totals ({mealDraft.mealsCount || 1}{" "}
+            Today&apos;s Calculated Intake ({mealDraft.mealsCount || 1}{" "}
             {(mealDraft.mealsCount || 1) === 1 ? "Meal" : "Meals"})
           </span>
           <div className="grid grid-cols-4 gap-2 text-xs font-mono">
@@ -752,13 +696,8 @@ export function MealStepView({
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="space-y-6 min-w-0">
-      <StepHeader title="How do you feel after today's meals?" />
       <FeelingSelector
         items={MEAL_FEELINGS}
         selected={mealDraft.mealFeeling}
@@ -767,6 +706,126 @@ export function MealStepView({
           setMealDraft((prev) => ({ ...prev, mealFeeling: label }));
         }}
       />
+    </div>
+  );
+}
+
+export function WaterStepView({
+  waterMl,
+  onChangeWaterMl,
+}: {
+  waterMl: number;
+  onChangeWaterMl: (next: number) => void;
+}) {
+  const TARGET_ML = 2500;
+  const presets = [1500, 2000, 2500, 3000];
+  const pct = Math.min(100, Math.round((Math.max(0, waterMl) / TARGET_ML) * 100));
+
+  const updateRaw = (raw: string) => {
+    const num = raw.trim() === "" ? 0 : Math.max(0, Math.min(15000, Math.round(Number(raw))));
+    onChangeWaterMl(Number.isFinite(num) ? num : 0);
+  };
+
+  const adjust = (delta: number) => {
+    onChangeWaterMl(Math.max(0, Math.min(15000, (waterMl || 0) + delta)));
+  };
+
+  const inputCls =
+    "w-full px-3.5 py-3 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-sm font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+
+  return (
+    <div className="space-y-6 min-w-0">
+      <StepHeader
+        title="How much water did you drink today?"
+        subtitle="Daily hydration resets at 00:00 WIB — you can update this throughout the day."
+      />
+
+      {/* Live Editorial Total + Progress Bar */}
+      <div className="p-5 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {(waterMl / 1000).toFixed(2).replace(/\.?0+$/, (m) => (m === ".00" ? ".0" : m))}
+            </span>
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+              / {(TARGET_ML / 1000).toFixed(1)} L
+            </span>
+          </div>
+          <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+            {waterMl.toLocaleString()} ml ({pct}%)
+          </span>
+        </div>
+
+        <div className="w-full h-2 rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {/* Incremental Quick-Add Controls for periodic logging throughout the day */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          <button
+            type="button"
+            disabled={waterMl <= 0}
+            onClick={() => adjust(-250)}
+            className="py-2.5 px-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-mono text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 transition active:scale-95 disabled:opacity-40"
+          >
+            -250 ml
+          </button>
+          <button
+            type="button"
+            onClick={() => adjust(250)}
+            className="py-2.5 px-2 rounded-xl border border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono font-semibold transition active:scale-95"
+          >
+            +250 ml
+          </button>
+          <button
+            type="button"
+            onClick={() => adjust(500)}
+            className="py-2.5 px-2 rounded-xl border border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono font-semibold transition active:scale-95"
+          >
+            +500 ml
+          </button>
+        </div>
+      </div>
+
+      {/* Exact Input + Daily Presets */}
+      <div className="space-y-2.5">
+        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          Total Water Today (ml)
+        </label>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={15000}
+          step={100}
+          placeholder="e.g. 2500"
+          value={waterMl > 0 ? waterMl : ""}
+          onChange={(e) => updateRaw(e.target.value)}
+          className={inputCls}
+        />
+        <div className="grid grid-cols-4 gap-2 pt-1">
+          {presets.map((ml) => {
+            const active = waterMl === ml;
+            return (
+              <button
+                key={ml}
+                type="button"
+                onClick={() => onChangeWaterMl(ml)}
+                className={`py-2.5 px-2 rounded-xl border text-xs font-mono transition ${
+                  active
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"
+                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                }`}
+              >
+                {(ml / 1000).toFixed(1)}L
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

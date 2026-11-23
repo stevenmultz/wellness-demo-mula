@@ -14,6 +14,12 @@ import {
   resolveProgramDailyPlan,
   type DailyTaskDayInput,
 } from "@/wellness/utils/daily-tasks";
+import {
+  buildWaterOnlyMealNotes,
+  extractNutritionFromMealNotes,
+  extractWaterMl,
+  mergeMealNotesPayload,
+} from "@/wellness/utils/nutrition";
 
 describe("Utils: Program Timeline & Status Resolution", () => {
   it("normalizes DB and Prisma program status aliases accurately", () => {
@@ -167,6 +173,7 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
           videoWatched: true,
           isCompleted: false,
           mealCompliance: "FULL",
+          mealNotes: JSON.stringify({ v: 5, waterMl: 2500, calories: 1950 }),
           dailyReflection: "Felt energized",
           bedtime: "22:30",
           wakeTime: "06:00",
@@ -180,6 +187,7 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
       ["SLEEP", true],
       ["WORKOUT", true],
       ["MEAL", true],
+      ["WATER", true],
       ["CUSTOM", true],
     ]);
 
@@ -192,6 +200,7 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
           videoWatched: false,
           isCompleted: false,
           mealCompliance: null,
+          mealNotes: null,
           dailyReflection: null,
           bedtime: "SKIPPED",
           checklistCompleted: JSON.stringify(["Walk"]),
@@ -201,6 +210,7 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
     expect(restTasks.find((t) => t.kind === "SLEEP")?.isDone).toBe(false);
     expect(restTasks.find((t) => t.kind === "REST")?.isDone).toBe(true);
     expect(restTasks.find((t) => t.kind === "MEAL")?.isDone).toBe(false);
+    expect(restTasks.find((t) => t.kind === "WATER")?.isDone).toBe(false);
 
     const eventTasks = buildDayTasks(
       makeDay({
@@ -217,6 +227,50 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
       })
     );
     expect(eventTasks.find((t) => t.kind === "EVENT")?.isDone).toBe(true);
+  });
+
+  it("merges Meal Control and Water Intake JSON independently without overwriting each other", () => {
+    const waterFirst = buildWaterOnlyMealNotes(null, 1500);
+    expect(extractWaterMl(waterFirst)).toBe(1500);
+    expect(extractNutritionFromMealNotes(waterFirst)).toMatchObject({
+      calories: 0,
+      waterMl: 1500,
+      hasMealData: false,
+      hasWaterData: true,
+    });
+
+    const mealSecond = mergeMealNotesPayload(
+      waterFirst,
+      JSON.stringify({
+        v: 5,
+        mode: "full",
+        mealsCount: 3,
+        calories: 1950,
+        carbsG: 195,
+        proteinG: 140,
+        fatG: 65,
+      })
+    );
+    expect(extractNutritionFromMealNotes(mealSecond)).toMatchObject({
+      calories: 1950,
+      carbsG: 195,
+      proteinG: 140,
+      fatG: 65,
+      waterMl: 1500,
+      hasMealData: true,
+      hasWaterData: true,
+    });
+
+    const waterUpdated = buildWaterOnlyMealNotes(mealSecond, 2750);
+    expect(extractNutritionFromMealNotes(waterUpdated)).toMatchObject({
+      calories: 1950,
+      carbsG: 195,
+      proteinG: 140,
+      fatG: 65,
+      waterMl: 2750,
+      hasMealData: true,
+      hasWaterData: true,
+    });
   });
 
   it("resolves distinct today and tomorrow windows for HYBRID cohorts by WIB date", () => {

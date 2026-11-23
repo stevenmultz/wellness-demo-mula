@@ -206,6 +206,7 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
         checklistCompleted: JSON.stringify(["[Pilates] Roll Up", "[Pilates] Plank"]),
         selectedWorkout: "Pilates",
         mealCompliance: "FULL",
+        mealNotes: JSON.stringify({ v: 5, waterMl: 2500, calories: 1950 }),
         dailyReflection: "Great morning!",
         bedtime: "22:30",
         wakeTime: "06:00",
@@ -216,9 +217,16 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
     expect(checkedList(day, undefined)).toHaveLength(2);
 
     const state = evaluateDayTaskState(day);
-    expect(state.initialDone).toEqual([true, true, true]);
+    expect(state.initialDone).toEqual([true, true, true, true]);
     // 1 pending mandatory custom task
     expect(state.pendingTasksCount).toBe(1);
+
+    const noWaterState = evaluateDayTaskState({
+      ...day,
+      userProgress: { ...day.userProgress!, mealNotes: JSON.stringify({ v: 5, calories: 1950 }) },
+    });
+    expect(noWaterState.initialDone).toEqual([true, true, true, false]);
+    expect(noWaterState.pendingTasksCount).toBe(2);
   });
 });
 

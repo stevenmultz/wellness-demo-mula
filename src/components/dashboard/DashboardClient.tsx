@@ -267,6 +267,7 @@ export function DashboardClient({
     handleSaveWorkoutNotes,
     handleSaveEventFeedback,
     handleSaveMeal,
+    handleSaveWater,
     handleSaveReflection,
     handleCompleteProgramDay,
   } = useDashboardProgress({
@@ -853,6 +854,7 @@ export function DashboardClient({
               onSyncChecklist={handleSyncChecklist}
               onSaveSleep={handleSaveSleep}
               onSaveMeal={handleSaveMeal}
+              onSaveWater={handleSaveWater}
               onSaveReflection={handleSaveReflection}
               onSaveAttendance={handleSaveEventFeedback}
               onCompleteDay={handleCompleteProgramDay}

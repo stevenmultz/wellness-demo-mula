@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import { extractWaterMl } from "@/wellness/utils/nutrition";
 import type { PlanDay } from "../MyPlanTab";
 import { HeaderBackButton } from "../shared";
 import {
@@ -19,9 +20,9 @@ import {
   type MealDraft,
   type SubStepId,
 } from "./checkInUtils";
-import { MealStepView, SleepStepView } from "./SleepMealSteps";
+import { MealStepView, SleepStepView, WaterStepView } from "./SleepMealSteps";
 import { ActivityStepView } from "./ActivitySteps";
-import { LockedTaskSummaryView, ReflectionStepView } from "./ReflectionStep";
+import { LockedTaskSummaryView } from "./ReflectionStep";
 
 export function TaskForm({
   day,
@@ -112,13 +113,14 @@ export function TaskForm({
   const [mealDraft, setMealDraft] = useState<MealDraft>(() =>
     readMealDraft(progress?.mealCompliance, progress?.mealNotes, recommendedMeals)
   );
-  const [review, setReview] = useState(
+  const [waterMl, setWaterMl] = useState<number>(() => extractWaterMl(progress?.mealNotes));
+  const [review] = useState(
     progress?.dailyReflection === "Skipped reflection journal today." ||
       progress?.dailyReflection === "SKIPPED"
       ? ""
       : progress?.dailyReflection || ""
   );
-  const [score, setScore] = useState(
+  const [score] = useState(
     progress?.dailyReflection === "SKIPPED"
       ? 0
       : progress?.happinessRate
@@ -220,11 +222,13 @@ export function TaskForm({
           list.push("meal_off_3");
         }
       }
-      list.push("meal_nutrition");
       list.push("meal_mood");
       return list;
     }
-    return ["reflection_journal", "reflection_mood"];
+    if (step === 3) {
+      return ["water_intake"];
+    }
+    return ["water_intake"];
   }, [
     step,
     isConnect,
@@ -438,9 +442,11 @@ export function TaskForm({
           : "Please enter total calories or macros for Meal 3.";
       }
       case "meal_nutrition":
-        return (mealDraft.waterMl ?? 0) > 0
+        return null;
+      case "water_intake":
+        return waterMl > 0
           ? null
-          : "Please select or enter your water intake today.";
+          : "Please log your water intake today (tap +250 ml or enter an amount).";
       case "meal_mood":
         return mealDraft.mealFeeling
           ? null
@@ -528,8 +534,9 @@ export function TaskForm({
           : "PARTIAL";
 
       const totals = computeMealTotals(activeEntries, mealCount);
+      const existingWater = waterMl > 0 ? waterMl : extractWaterMl(progress?.mealNotes);
       const mealPayload = {
-        v: 4,
+        v: 5,
         mode: compliance.toLowerCase(),
         checkedMeals,
         mealsCount: mealCount,
@@ -539,14 +546,14 @@ export function TaskForm({
         carbsG: totals.carbsG || mealDraft.carbsG || null,
         proteinG: totals.proteinG || mealDraft.proteinG || null,
         fatG: totals.fatG || mealDraft.fatG || null,
-        waterMl: mealDraft.waterMl ?? null,
+        waterMl: existingWater > 0 ? existingWater : null,
       };
       return (
         (await props.onSaveMeal(compliance, JSON.stringify(mealPayload), day.id)) !== false
       );
     }
-    if (props.onSaveReflection) {
-      return (await props.onSaveReflection(review.trim(), score || 3, day.id)) !== false;
+    if (step === 3) {
+      return (await props.onSaveWater(waterMl, day.id)) !== false;
     }
     return true;
   };
@@ -625,6 +632,7 @@ export function TaskForm({
         connectAttendance={connectAttendance}
         connectRating={connectRating}
         mealDraft={mealDraft}
+        waterMl={waterMl}
         recommendedMealsCount={recommendedMeals.length}
         review={review}
         score={score}
@@ -758,20 +766,12 @@ export function TaskForm({
             )}
 
             {step === 3 && (
-              <ReflectionStepView
-                currentSubStep={currentSubStep}
-                dayNumber={day.dayNumber}
-                review={review}
-                score={score}
-                onChangeReview={(next) => {
-                  setReview(next);
+              <WaterStepView
+                waterMl={waterMl}
+                onChangeWaterMl={(next) => {
+                  setWaterMl(next);
                   setError(null);
                 }}
-                onSelectScore={(n) => {
-                  setScore(n);
-                  setError(null);
-                }}
-                onSubmitShortcut={() => void handlePrimaryAction()}
               />
             )}
           </div>

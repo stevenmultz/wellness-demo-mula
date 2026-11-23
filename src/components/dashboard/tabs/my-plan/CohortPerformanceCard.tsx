@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Dumbbell, Moon, Scale, Target, Utensils } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Droplets,
+  Dumbbell,
+  Flame,
+  Moon,
+  Scale,
+  Target,
+  Utensils,
+} from "lucide-react";
+import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
   calcSleepMins,
@@ -653,71 +664,7 @@ function SleepWidget({
   );
 }
 
-// ─── 4. Meal Control Widget (Editorial Urbanist Calories/Water + Circular Macro Chart) ─
-interface ParsedDayNutrition {
-  calories: number;
-  carbsG: number;
-  proteinG: number;
-  fatG: number;
-  waterMl: number;
-  hasData: boolean;
-}
-
-function extractDayNutrition(d: PlanDay): ParsedDayNutrition {
-  const raw = d.userProgress?.mealNotes;
-  const mc = d.userProgress?.mealCompliance;
-
-  let calories = 0;
-  let carbsG = 0;
-  let proteinG = 0;
-  let fatG = 0;
-  let waterMl = 0;
-  let hasExplicit = false;
-
-  if (raw && raw.trim().startsWith("{")) {
-    try {
-      const parsed = JSON.parse(raw) as {
-        calories?: number | null;
-        carbsG?: number | null;
-        proteinG?: number | null;
-        fatG?: number | null;
-        waterMl?: number | null;
-      };
-      if (typeof parsed.calories === "number" && parsed.calories > 0) {
-        calories = parsed.calories;
-        hasExplicit = true;
-      }
-      if (typeof parsed.carbsG === "number" && parsed.carbsG > 0) {
-        carbsG = parsed.carbsG;
-        hasExplicit = true;
-      }
-      if (typeof parsed.proteinG === "number" && parsed.proteinG > 0) {
-        proteinG = parsed.proteinG;
-        hasExplicit = true;
-      }
-      if (typeof parsed.fatG === "number" && parsed.fatG > 0) {
-        fatG = parsed.fatG;
-        hasExplicit = true;
-      }
-      if (typeof parsed.waterMl === "number" && parsed.waterMl > 0) {
-        waterMl = parsed.waterMl;
-        hasExplicit = true;
-      }
-    } catch {
-      // ignore parse error
-    }
-  }
-
-  if (hasExplicit) {
-    if (calories === 0 && (carbsG > 0 || proteinG > 0 || fatG > 0)) {
-      calories = Math.round(carbsG * 4 + proteinG * 4 + fatG * 9);
-    }
-    return { calories, carbsG, proteinG, fatG, waterMl, hasData: true };
-  }
-
-  return { calories: 0, carbsG: 0, proteinG: 0, fatG: 0, waterMl: 0, hasData: false };
-}
-
+// ─── 4. Meal Control Widget (Pure Qualitative Dietary Adherence) ──────────────
 function MealControlWidget({
   days,
   pct,
@@ -731,37 +678,17 @@ function MealControlWidget({
 }) {
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
-  const todayDay = days.find((d) => d.dayNumber === todayDayNum);
-  const todayNutr = todayDay ? extractDayNutrition(todayDay) : null;
-
-  const nutritionDays = days.map(extractDayNutrition).filter((n) => n.hasData);
-  const activeNutr =
-    todayNutr && todayNutr.hasData
-      ? todayNutr
-      : nutritionDays.length > 0
-      ? nutritionDays[nutritionDays.length - 1]
-      : { calories: 0, carbsG: 0, proteinG: 0, fatG: 0, waterMl: 0, hasData: false };
-
-  const calories = activeNutr.calories;
-  const carbsG = activeNutr.carbsG;
-  const proteinG = activeNutr.proteinG;
-  const fatG = activeNutr.fatG;
-  const waterMl = activeNutr.waterMl;
-
-  const totalMacroG = carbsG + proteinG + fatG;
-  const carbsPct = totalMacroG > 0 ? Math.round((carbsG / totalMacroG) * 100) : 0;
-  const proteinPct = totalMacroG > 0 ? Math.round((proteinG / totalMacroG) * 100) : 0;
-  const fatPct = totalMacroG > 0 ? Math.max(0, 100 - carbsPct - proteinPct) : 0;
-
-  // Circular Donut Chart geometry
-  const radius = 34;
-  const circumference = 2 * Math.PI * radius;
-  const carbsLen = (carbsPct / 100) * circumference;
-  const proteinLen = (proteinPct / 100) * circumference;
-  const fatLen = (fatPct / 100) * circumference;
+  const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
+  const onPlanDays = elapsedDays.filter((d) => {
+    const mc = d.userProgress?.mealCompliance;
+    return mc === "FULL" || mc === "YES" || mc === "SIMILAR";
+  }).length;
+  const partialDays = elapsedDays.filter(
+    (d) => d.userProgress?.mealCompliance === "PARTIAL"
+  ).length;
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -783,151 +710,482 @@ function MealControlWidget({
         <FiftyBarMeter percent={pct} />
       </div>
 
-      {/* Editorial Urbanist Calories & Water — Directly inside card without sub-boxes or icons */}
-      <div className="grid grid-cols-2 gap-4 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
+      {/* Adherence summary (pure meal control, decoupled from calories & water) */}
+      <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 pt-0.5">
+        <span>
+          {onPlanDays}/{elapsedDays.length} {elapsedDays.length === 1 ? "day" : "days"} on plan
+        </span>
+        {partialDays > 0 && <span>{partialDays} partial</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── 5. Calories & Macros Widget (Daily Reset for Today + Program Average) ───
+function CaloriesWidget({
+  days,
+  currentDayNumber,
+}: {
+  days: PlanDay[];
+  currentDayNumber?: number;
+}) {
+  const [macroScope, setMacroScope] = useState<"today" | "avg">("today");
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+
+  const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
+  const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
+  const todayNutr = extractNutritionFromMealNotes(todayDay?.userProgress?.mealNotes);
+
+  const loggedCalorieDays = elapsedDays
+    .map((d) => ({
+      dayNumber: d.dayNumber,
+      ...extractNutritionFromMealNotes(d.userProgress?.mealNotes),
+    }))
+    .filter((n) => n.hasMealData && n.calories > 0);
+
+  const avgCalories =
+    loggedCalorieDays.length > 0
+      ? Math.round(
+          loggedCalorieDays.reduce((acc, n) => acc + n.calories, 0) /
+            loggedCalorieDays.length
+        )
+      : 0;
+  const avgCarbsG =
+    loggedCalorieDays.length > 0
+      ? Math.round(
+          loggedCalorieDays.reduce((acc, n) => acc + n.carbsG, 0) /
+            loggedCalorieDays.length
+        )
+      : 0;
+  const avgProteinG =
+    loggedCalorieDays.length > 0
+      ? Math.round(
+          loggedCalorieDays.reduce((acc, n) => acc + n.proteinG, 0) /
+            loggedCalorieDays.length
+        )
+      : 0;
+  const avgFatG =
+    loggedCalorieDays.length > 0
+      ? Math.round(
+          loggedCalorieDays.reduce((acc, n) => acc + n.fatG, 0) /
+            loggedCalorieDays.length
+        )
+      : 0;
+
+  let caloriesDelta = 0;
+  if (loggedCalorieDays.length >= 2) {
+    const latestCal = loggedCalorieDays[loggedCalorieDays.length - 1].calories;
+    const prevSlice = loggedCalorieDays.slice(0, -1);
+    const prevAvg =
+      prevSlice.reduce((acc, n) => acc + n.calories, 0) / prevSlice.length;
+    caloriesDelta = Math.round(latestCal - prevAvg);
+  }
+
+  const displayCarbsG = macroScope === "today" ? todayNutr.carbsG : avgCarbsG;
+  const displayProteinG = macroScope === "today" ? todayNutr.proteinG : avgProteinG;
+  const displayFatG = macroScope === "today" ? todayNutr.fatG : avgFatG;
+
+  const totalMacroG = displayCarbsG + displayProteinG + displayFatG;
+  const carbsPct = totalMacroG > 0 ? Math.round((displayCarbsG / totalMacroG) * 100) : 0;
+  const proteinPct =
+    totalMacroG > 0 ? Math.round((displayProteinG / totalMacroG) * 100) : 0;
+  const fatPct = totalMacroG > 0 ? Math.max(0, 100 - carbsPct - proteinPct) : 0;
+
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const carbsLen = (carbsPct / 100) * circumference;
+  const proteinLen = (proteinPct / 100) * circumference;
+  const fatLen = (fatPct / 100) * circumference;
+
+  return (
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Flame className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
+            Calories
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+            {avgCalories > 0 ? `${avgCalories.toLocaleString()} avg` : "—"}
+          </span>
+          <MetricDeltaBadge delta={caloriesDelta} unit=" kcal" />
+        </div>
+      </div>
+
+      {/* Today (Resets Daily, Pure Food Intake) vs Program Average */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
           <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Calories
+            Today Intake
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {calories > 0 ? calories.toLocaleString() : "—"}
+              {todayNutr.calories > 0 ? todayNutr.calories.toLocaleString() : "0"}
             </span>
-            {calories > 0 && (
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+              kcal
+            </span>
+          </div>
+          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+            Resets daily · Intake only
+          </span>
+        </div>
+
+        <div className="space-y-1">
+          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+            Program Avg
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {avgCalories > 0 ? avgCalories.toLocaleString() : "—"}
+            </span>
+            {avgCalories > 0 && (
               <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
                 kcal
               </span>
             )}
           </div>
+          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+            {loggedCalorieDays.length}{" "}
+            {loggedCalorieDays.length === 1 ? "day" : "days"} logged
+          </span>
+        </div>
+      </div>
+
+      {/* Macro Breakdown with Today / Program Avg toggle */}
+      <div className="space-y-3 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+            Macros ({macroScope === "today" ? "Today" : "Program Avg"})
+          </span>
+          <div className="inline-flex items-center rounded-lg bg-zinc-200/80 dark:bg-white/10 p-0.5 text-[10px] font-mono">
+            <button
+              type="button"
+              onClick={() => setMacroScope("today")}
+              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                macroScope === "today"
+                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white font-semibold shadow-2xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setMacroScope("avg")}
+              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                macroScope === "avg"
+                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white font-semibold shadow-2xs"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+              }`}
+            >
+              Avg
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-5">
+          <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+            <svg
+              viewBox="0 0 88 88"
+              className="w-20 h-20 -rotate-90 overflow-visible"
+              role="img"
+              aria-label={`Carbs ${carbsPct}%, Protein ${proteinPct}%, Fat ${fatPct}%`}
+            >
+              <circle
+                cx="44"
+                cy="44"
+                r={radius}
+                fill="none"
+                strokeWidth="10"
+                className="stroke-zinc-300/50 dark:stroke-white/10"
+              />
+              <circle
+                cx="44"
+                cy="44"
+                r={radius}
+                fill="none"
+                stroke="#71717a"
+                strokeWidth="10"
+                strokeDasharray={`${carbsLen} ${circumference}`}
+                strokeDashoffset={0}
+              />
+              <circle
+                cx="44"
+                cy="44"
+                r={radius}
+                fill="none"
+                stroke="#18181b"
+                strokeWidth="10"
+                strokeDasharray={`${proteinLen} ${circumference}`}
+                strokeDashoffset={-carbsLen}
+              />
+              <circle
+                cx="44"
+                cy="44"
+                r={radius}
+                fill="none"
+                stroke="#b4b4bb"
+                strokeWidth="10"
+                strokeDasharray={`${fatLen} ${circumference}`}
+                strokeDashoffset={-(carbsLen + proteinLen)}
+              />
+            </svg>
+          </div>
+
+          <div className="flex-1 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#71717a] shrink-0" />
+                <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                  Carbs
+                </span>
+              </div>
+              <div className="font-mono">
+                <span className="font-semibold text-zinc-950 dark:text-white">
+                  {carbsPct}%
+                </span>
+                {displayCarbsG > 0 && (
+                  <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                    ({displayCarbsG}g)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#18181b] dark:bg-white shrink-0" />
+                <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                  Protein
+                </span>
+              </div>
+              <div className="font-mono">
+                <span className="font-semibold text-zinc-950 dark:text-white">
+                  {proteinPct}%
+                </span>
+                {displayProteinG > 0 && (
+                  <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                    ({displayProteinG}g)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#b4b4bb] shrink-0" />
+                <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                  Fat
+                </span>
+              </div>
+              <div className="font-mono">
+                <span className="font-semibold text-zinc-950 dark:text-white">
+                  {fatPct}%
+                </span>
+                {displayFatG > 0 && (
+                  <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                    ({displayFatG}g)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 6. Water / Hydration Widget (Daily Reset + Program History & Average) ───
+function HydrationWidget({
+  days,
+  currentDayNumber,
+}: {
+  days: PlanDay[];
+  currentDayNumber?: number;
+}) {
+  const [selectedDayNum, setSelectedDayNum] = useState<number | null>(null);
+  const DAILY_TARGET_ML = 2500;
+  const CONSISTENCY_THRESHOLD_ML = 2000;
+
+  const todayDayNum =
+    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+
+  const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
+  const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
+  const todayWaterMl = extractNutritionFromMealNotes(
+    todayDay?.userProgress?.mealNotes
+  ).waterMl;
+
+  const waterSeries = elapsedDays.map((d) => ({
+    dayNumber: d.dayNumber,
+    unlockDate: d.unlockDate,
+    waterMl: extractNutritionFromMealNotes(d.userProgress?.mealNotes).waterMl,
+  }));
+
+  const loggedWaterDays = waterSeries.filter((w) => w.waterMl > 0);
+  const avgWaterMl =
+    loggedWaterDays.length > 0
+      ? Math.round(
+          loggedWaterDays.reduce((acc, w) => acc + w.waterMl, 0) /
+            loggedWaterDays.length
+        )
+      : 0;
+  const goalHitDays = waterSeries.filter(
+    (w) => w.waterMl >= CONSISTENCY_THRESHOLD_ML
+  ).length;
+
+  let waterDeltaMl = 0;
+  if (loggedWaterDays.length >= 2) {
+    const latestMl = loggedWaterDays[loggedWaterDays.length - 1].waterMl;
+    const prevSlice = loggedWaterDays.slice(0, -1);
+    const prevAvg =
+      prevSlice.reduce((acc, w) => acc + w.waterMl, 0) / prevSlice.length;
+    waterDeltaMl = Math.round(latestMl - prevAvg);
+  }
+
+  const todayHydrationPct = Math.min(
+    100,
+    Math.round((todayWaterMl / DAILY_TARGET_ML) * 100)
+  );
+  const recentBars = waterSeries.slice(-14);
+  const selectedBar =
+    recentBars.find((b) => b.dayNumber === selectedDayNum) || null;
+
+  return (
+    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Droplets className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+          <span className="text-sm font-semibold text-zinc-950 dark:text-white">
+            Water
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-medium text-zinc-900 dark:text-white">
+            {avgWaterMl > 0 ? `${(avgWaterMl / 1000).toFixed(1)} L avg` : "—"}
+          </span>
+          <MetricDeltaBadge delta={waterDeltaMl} unit=" ml" />
+        </div>
+      </div>
+
+      {/* Today (Resets Daily) vs Program Avg */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+            Today
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+              {(todayWaterMl / 1000).toFixed(1)}
+            </span>
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+              L
+            </span>
+          </div>
+          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+            Target 2.5 L · Resets daily
+          </span>
         </div>
 
         <div className="space-y-1">
           <span className="block text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Water
+            Program Avg
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-              {waterMl > 0 ? (waterMl / 1000).toFixed(1) : "—"}
+              {avgWaterMl > 0 ? (avgWaterMl / 1000).toFixed(1) : "—"}
             </span>
-            {waterMl > 0 && (
+            {avgWaterMl > 0 && (
               <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
                 L
               </span>
             )}
           </div>
+          <span className="block text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+            {goalHitDays}/{elapsedDays.length}{" "}
+            {elapsedDays.length === 1 ? "day" : "days"} ≥ 2.0 L
+          </span>
         </div>
       </div>
 
-      {/* Circular Diagram (Donut Chart) for Carbs, Protein, Fat — No nested box */}
-      <div className="flex items-center gap-5 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
-        <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-          <svg
-            viewBox="0 0 88 88"
-            className="w-20 h-20 -rotate-90 overflow-visible"
-            role="img"
-            aria-label={`Carbs ${carbsPct}%, Protein ${proteinPct}%, Fat ${fatPct}%`}
-          >
-            <circle
-              cx="44"
-              cy="44"
-              r={radius}
-              fill="none"
-              strokeWidth="10"
-              className="stroke-zinc-300/50 dark:stroke-white/10"
-            />
-            <circle
-              cx="44"
-              cy="44"
-              r={radius}
-              fill="none"
-              stroke="#71717a"
-              strokeWidth="10"
-              strokeDasharray={`${carbsLen} ${circumference}`}
-              strokeDashoffset={0}
-            />
-            <circle
-              cx="44"
-              cy="44"
-              r={radius}
-              fill="none"
-              stroke="#18181b"
-              strokeWidth="10"
-              strokeDasharray={`${proteinLen} ${circumference}`}
-              strokeDashoffset={-carbsLen}
-            />
-            <circle
-              cx="44"
-              cy="44"
-              r={radius}
-              fill="none"
-              stroke="#b4b4bb"
-              strokeWidth="10"
-              strokeDasharray={`${fatLen} ${circumference}`}
-              strokeDashoffset={-(carbsLen + proteinLen)}
-            />
-          </svg>
-        </div>
-
-        {/* Macro Percentages & Grams Legend */}
-        <div className="flex-1 space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#71717a] shrink-0" />
-              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
-                Carbs
-              </span>
-            </div>
-            <div className="font-mono">
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {carbsPct}%
-              </span>
-              {carbsG > 0 && (
-                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
-                  ({carbsG}g)
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#18181b] dark:bg-white shrink-0" />
-              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
-                Protein
-              </span>
-            </div>
-            <div className="font-mono">
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {proteinPct}%
-              </span>
-              {proteinG > 0 && (
-                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
-                  ({proteinG}g)
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#b4b4bb] shrink-0" />
-              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
-                Fat
-              </span>
-            </div>
-            <div className="font-mono">
-              <span className="font-semibold text-zinc-950 dark:text-white">
-                {fatPct}%
-              </span>
-              {fatG > 0 && (
-                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
-                  ({fatG}g)
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Today's Hydration Progress Meter */}
+      <div className="pt-0.5">
+        <FiftyBarMeter percent={todayHydrationPct} />
       </div>
+
+      {/* Recent Daily Hydration Bars (Interactive History) */}
+      {recentBars.length > 0 && (
+        <div className="space-y-2.5 pt-2 border-t border-zinc-300/60 dark:border-white/10">
+          <div className="flex items-end gap-1.5 h-12">
+            {recentBars.map((b) => {
+              const heightPct =
+                b.waterMl > 0
+                  ? Math.max(16, Math.min(100, Math.round((b.waterMl / 3000) * 100)))
+                  : 10;
+              const isSelected = selectedDayNum === b.dayNumber;
+              const hitGoal = b.waterMl >= CONSISTENCY_THRESHOLD_ML;
+
+              return (
+                <button
+                  key={b.dayNumber}
+                  type="button"
+                  onClick={() =>
+                    setSelectedDayNum((prev) =>
+                      prev === b.dayNumber ? null : b.dayNumber
+                    )
+                  }
+                  aria-label={`Day ${b.dayNumber}: ${(b.waterMl / 1000).toFixed(1)} L`}
+                  className="flex-1 h-full flex items-end justify-center cursor-pointer group"
+                >
+                  <span
+                    style={{ height: `${heightPct}%` }}
+                    className={`w-full rounded-sm transition-all ${
+                      isSelected
+                        ? "ring-2 ring-zinc-950 dark:ring-white ring-offset-1 ring-offset-[#ececea] dark:ring-offset-zinc-900 "
+                        : ""
+                    }${
+                      hitGoal
+                        ? "bg-zinc-950 dark:bg-white"
+                        : b.waterMl > 0
+                        ? "bg-zinc-500 dark:bg-zinc-400"
+                        : "bg-zinc-300/70 dark:bg-white/15"
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedBar && (
+            <button
+              type="button"
+              onClick={() => setSelectedDayNum(null)}
+              title="Click to dismiss"
+              className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
+            >
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                {formatMetricDate(
+                  selectedBar.unlockDate,
+                  selectedBar.dayNumber,
+                  currentDayNumber
+                )}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
+                {selectedBar.waterMl > 0
+                  ? `${(selectedBar.waterMl / 1000).toFixed(1)} L (${selectedBar.waterMl.toLocaleString()} ml)`
+                  : "0.0 L"}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1073,22 +1331,33 @@ export function CohortPerformanceCard({
       sleepScore = 0;
     }
 
-    // D. All Custom Tasks on the day are mandatory (when present)
+    // D. Hydration / Water intake score (2.0L = 100%, 1.5L = 85%, >0 = 60%)
+    const wMl = extractNutritionFromMealNotes(p?.mealNotes).waterMl;
+    const waterScore =
+      wMl >= 2000 ? 1 : wMl >= 1500 ? 0.85 : wMl > 0 ? 0.6 : 0;
+
+    // E. All Custom Tasks on the day are mandatory (when present)
     const cTasks = d.customTasks || [];
     if (cTasks.length > 0) {
       const completedCustom = cTasks.filter((ct) => Boolean(ct.submission)).length;
       const customRatio = completedCustom / cTasks.length;
-      // Composite with custom tasks: 35% Activity, 30% Meal, 20% Sleep, 15% Custom Tasks
+      // Composite with custom tasks: 30% Activity, 25% Meal, 20% Sleep, 10% Water, 15% Custom Tasks
       return (
-        activityScore * 0.35 +
-        mealScore * 0.3 +
+        activityScore * 0.3 +
+        mealScore * 0.25 +
         sleepScore * 0.2 +
+        waterScore * 0.1 +
         customRatio * 0.15
       );
     }
 
-    // Composite on days without custom tasks: 40% Activity, 35% Meal, 25% Sleep (max = 100%)
-    return activityScore * 0.4 + mealScore * 0.35 + sleepScore * 0.25;
+    // Composite on days without custom tasks: 35% Activity, 30% Meal, 20% Sleep, 15% Water (max = 100%)
+    return (
+      activityScore * 0.35 +
+      mealScore * 0.3 +
+      sleepScore * 0.2 +
+      waterScore * 0.15
+    );
   };
 
   const elapsedCommitmentDays = sorted.filter((d) => d.dayNumber <= todayDayNum);
@@ -1145,13 +1414,19 @@ export function CohortPerformanceCard({
         currentDayNumber={currentDayNumber}
       />
 
-      {/* 4. Meal Control (50-Segment Bar + Editorial Calories/Water & Circular Macro Chart) */}
+      {/* 4. Meal Control (Pure Dietary Adherence) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}
         deltaPct={mealDelta}
         currentDayNumber={currentDayNumber}
       />
+
+      {/* 5. Calories & Macros (Daily Reset for Today + Program Average; Intake Only) */}
+      <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
+
+      {/* 6. Water / Hydration (Daily Reset for Today + Program Average & History) */}
+      <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
     </section>
   );
 }
