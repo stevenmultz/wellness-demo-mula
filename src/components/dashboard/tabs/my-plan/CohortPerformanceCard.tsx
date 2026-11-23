@@ -141,16 +141,14 @@ function WeightSummaryWidget({
     return () => window.removeEventListener("zera:weight-updated", loadLocal);
   }, []);
 
-  const points: DatedWeightPoint[] = [];
+  const byDayMap = new Map<number, number>();
 
   bodyMetricLogs.forEach((log, idx) => {
     if (typeof log.weightKg === "number" && log.weightKg > 20 && log.weightKg < 300) {
       if (!programId || !log.programId || log.programId === programId) {
         const matchedDay = days.find((d) => d.id === log.programDayId);
-        points.push({
-          dayIndex: matchedDay ? matchedDay.dayNumber : idx + 1,
-          weightKg: Number(log.weightKg.toFixed(1)),
-        });
+        const dayIndex = matchedDay ? matchedDay.dayNumber : -(bodyMetricLogs.length - idx);
+        byDayMap.set(dayIndex, Number(log.weightKg.toFixed(1)));
       }
     }
   });
@@ -164,25 +162,15 @@ function WeightSummaryWidget({
           (vals as Record<string, unknown>).weight;
         const numW = Number(rawW);
         if (Number.isFinite(numW) && numW > 20 && numW < 300) {
-          points.push({
-            dayIndex: d.dayNumber,
-            weightKg: Number(numW.toFixed(1)),
-          });
+          byDayMap.set(d.dayNumber, Number(numW.toFixed(1)));
         }
       }
     }
     if (typeof localByDay[d.id] === "number" && localByDay[d.id] > 20) {
-      points.push({
-        dayIndex: d.dayNumber,
-        weightKg: Number(localByDay[d.id].toFixed(1)),
-      });
+      byDayMap.set(d.dayNumber, Number(localByDay[d.id].toFixed(1)));
     }
   }
 
-  const byDayMap = new Map<number, number>();
-  for (const pt of points) {
-    byDayMap.set(pt.dayIndex, pt.weightKg);
-  }
   const sortedPoints: DatedWeightPoint[] = Array.from(byDayMap.entries())
     .map(([dayIndex, weightKg]) => ({ dayIndex, weightKg }))
     .sort((a, b) => a.dayIndex - b.dayIndex);
@@ -242,6 +230,18 @@ function getTrainingDayStatus(
   d: PlanDay,
   currentDayNumber?: number
 ): TrainingStatus {
+  const isFuture =
+    Boolean(
+      currentDayNumber &&
+        currentDayNumber > 0 &&
+        d.dayNumber > currentDayNumber
+    ) ||
+    (!d.isCalendarUnlocked && !d.isPast2359);
+
+  if (d.dayType !== "TRAINING_DAY") {
+    return isFuture ? "future" : "rest";
+  }
+
   const p = d.userProgress;
   const isCompleted = Boolean(p && p.isCompleted);
   const hasWorkout = Boolean(
@@ -254,15 +254,6 @@ function getTrainingDayStatus(
 
   if (isCompleted) return "full";
   if (hasWorkout) return "partial";
-  if (d.dayType === "REST_DAY") return "rest";
-
-  const isFuture =
-    Boolean(
-      currentDayNumber &&
-        currentDayNumber > 0 &&
-        d.dayNumber > currentDayNumber
-    ) ||
-    (!d.isCalendarUnlocked && !d.isPast2359);
   if (isFuture) return "future";
 
   return "skipped";
@@ -796,9 +787,9 @@ function MealControlWidget({
   const waterMl = activeNutr.waterMl;
 
   const totalMacroG = carbsG + proteinG + fatG;
-  const carbsPct = totalMacroG > 0 ? Math.round((carbsG / totalMacroG) * 100) : 45;
-  const proteinPct = totalMacroG > 0 ? Math.round((proteinG / totalMacroG) * 100) : 35;
-  const fatPct = totalMacroG > 0 ? Math.max(0, 100 - carbsPct - proteinPct) : 20;
+  const carbsPct = totalMacroG > 0 ? Math.round((carbsG / totalMacroG) * 100) : 0;
+  const proteinPct = totalMacroG > 0 ? Math.round((proteinG / totalMacroG) * 100) : 0;
+  const fatPct = totalMacroG > 0 ? Math.max(0, 100 - carbsPct - proteinPct) : 0;
 
   // Circular Donut Chart geometry
   const radius = 34;
@@ -1000,6 +991,7 @@ export function CohortPerformanceCard({
 
   // ── 1. Sleep Stats & Delta in Minutes from Previous Average ─────────────────
   const validSleeps = sorted
+    .filter((d) => d.dayNumber <= todayDayNum)
     .map((d) => ({
       dayNumber: d.dayNumber,
       mins: calcSleepMins(d.userProgress?.bedtime, d.userProgress?.wakeTime),
@@ -1013,117 +1005,73 @@ export function CohortPerformanceCard({
     const prevAvg =
       prevSlice.reduce((acc, s) => acc + s.mins, 0) / prevSlice.length;
     sleepDeltaMins = Math.round(latestMins - prevAvg);
-  } else if (validSleeps.length === 1) {
-    sleepDeltaMins = Math.round(validSleeps[0].mins - 450);
   }
 
-  // ── 2. Training Stats & Step-Change Delta from Previous Score ───────────────
-  const trainingDays = sorted.filter((d) => d.dayType === "TRAINING_DAY");
-  const trainingTotal = trainingDays.length;
-
-  const isTrainingDayMissed = (d: PlanDay) => {
-    const p = d.userProgress;
-    const isCompleted = Boolean(
-      p &&
-        (p.isCompleted ||
-          p.videoWatched ||
-          (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
-          (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
-          checkedList(d, undefined).length > 0)
-    );
-    const explicitlySkipped = Boolean(
-      p && (p.selectedWorkout === "SKIPPED" || p.workoutNotes === "SKIPPED")
-    );
-    return explicitlySkipped || (d.isPast2359 && !isCompleted);
-  };
-
+  // ── 2. Training Stats (Option A: Elapsed TRAINING_DAYs only; Rest & Connect excluded) ──
   const isTrainingDayDone = (d: PlanDay) => {
     const p = d.userProgress;
+    if (!p) return false;
+    if (p.selectedWorkout === "SKIPPED" || p.workoutNotes === "SKIPPED") {
+      return false;
+    }
     return Boolean(
-      p &&
-        (p.isCompleted ||
-          p.videoWatched ||
-          (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
-          (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
-          checkedList(d, undefined).length > 0)
+      p.isCompleted ||
+        p.videoWatched ||
+        (p.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
+        (p.workoutNotes && p.workoutNotes !== "SKIPPED") ||
+        checkedList(d, undefined).length > 0
     );
   };
 
-  const trainingMissed = trainingDays.filter(isTrainingDayMissed).length;
+  const elapsedTrainingDays = sorted.filter(
+    (d) => d.dayType === "TRAINING_DAY" && d.dayNumber <= todayDayNum
+  );
+  const completedElapsedTrainingCount =
+    elapsedTrainingDays.filter(isTrainingDayDone).length;
   const trainingPct =
-    trainingTotal > 0
-      ? Math.max(0, Math.round(((trainingTotal - trainingMissed) / trainingTotal) * 100))
-      : 100;
+    elapsedTrainingDays.length > 0
+      ? Math.round(
+          (completedElapsedTrainingCount / elapsedTrainingDays.length) * 100
+        )
+      : 0;
 
   let trainingDelta = 0;
-  if (trainingTotal > 0) {
-    const evaluatedTrainingDays = trainingDays.filter(
-      (d) =>
-        d.dayNumber <= todayDayNum &&
-        (isTrainingDayDone(d) || isTrainingDayMissed(d))
-    );
-    if (evaluatedTrainingDays.length > 0) {
-      const latestTrainDay =
-        evaluatedTrainingDays[evaluatedTrainingDays.length - 1];
-      const oneDayWeight = Math.max(1, Math.round(100 / trainingTotal));
-
-      if (isTrainingDayMissed(latestTrainDay)) {
-        const prevMissed = Math.max(0, trainingMissed - 1);
-        const prevPct = Math.max(
-          0,
-          Math.round(((trainingTotal - prevMissed) / trainingTotal) * 100)
-        );
-        trainingDelta = trainingPct - prevPct || -oneDayWeight;
-      } else if (isTrainingDayDone(latestTrainDay)) {
-        const isFull = Boolean(latestTrainDay.userProgress?.isCompleted);
-        trainingDelta = isFull
-          ? oneDayWeight
-          : Math.max(1, Math.round(oneDayWeight / 2));
-      }
-    }
+  if (elapsedTrainingDays.length >= 2) {
+    const prevSlice = elapsedTrainingDays.slice(0, -1);
+    const prevDone = prevSlice.filter(isTrainingDayDone).length;
+    const prevPct = Math.round((prevDone / prevSlice.length) * 100);
+    trainingDelta = trainingPct - prevPct;
   }
 
-  // ── 3. Meal Stats & Step-Change Delta from Previous Score ───────────────────
-  const mealTotal = sorted.length;
-  const getDayMealPenalty = (d: PlanDay): number => {
+  // ── 3. Meal Stats (Option A: Elapsed Days up to todayDayNum) ────────────────
+  const getDayMealScore = (d: PlanDay): number => {
     const mc = d.userProgress?.mealCompliance;
-    if (mc === "SKIPPED" || mc === "OFF_TRACK") return 1;
+    if (mc === "FULL" || mc === "YES" || mc === "SIMILAR") return 1;
     if (mc === "PARTIAL") return 0.5;
-    if (mc === "FULL" || mc === "YES" || mc === "SIMILAR") return 0;
-    return d.isPast2359 ? 1 : 0;
+    return 0;
   };
 
-  const mealPenalty = sorted.reduce((acc, d) => acc + getDayMealPenalty(d), 0);
+  const elapsedMealDays = sorted.filter((d) => d.dayNumber <= todayDayNum);
+  const earnedMealScore = elapsedMealDays.reduce(
+    (acc, d) => acc + getDayMealScore(d),
+    0
+  );
   const mealPct =
-    mealTotal > 0
-      ? Math.max(0, Math.round(((mealTotal - mealPenalty) / mealTotal) * 100))
-      : 100;
+    elapsedMealDays.length > 0
+      ? Math.round((earnedMealScore / elapsedMealDays.length) * 100)
+      : 0;
 
   let mealDelta = 0;
-  if (mealTotal > 0) {
-    const evaluatedMealDays = sorted.filter(
-      (d) =>
-        d.dayNumber <= todayDayNum &&
-        (Boolean(d.userProgress?.mealCompliance) || d.isPast2359)
+  if (elapsedMealDays.length >= 2) {
+    const prevMealSlice = elapsedMealDays.slice(0, -1);
+    const prevMealEarned = prevMealSlice.reduce(
+      (acc, d) => acc + getDayMealScore(d),
+      0
     );
-    if (evaluatedMealDays.length > 0) {
-      const latestMealDay = evaluatedMealDays[evaluatedMealDays.length - 1];
-      const latestPenalty = getDayMealPenalty(latestMealDay);
-      const oneMealDayWeight = Math.max(1, Math.round(100 / mealTotal));
-
-      if (latestPenalty > 0) {
-        const prevPenalty = Math.max(0, mealPenalty - latestPenalty);
-        const prevMealPct = Math.max(
-          0,
-          Math.round(((mealTotal - prevPenalty) / mealTotal) * 100)
-        );
-        mealDelta =
-          mealPct - prevMealPct ||
-          -Math.max(1, Math.round(oneMealDayWeight * latestPenalty));
-      } else {
-        mealDelta = oneMealDayWeight;
-      }
-    }
+    const prevMealPct = Math.round(
+      (prevMealEarned / prevMealSlice.length) * 100
+    );
+    mealDelta = mealPct - prevMealPct;
   }
 
   return (

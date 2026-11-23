@@ -146,20 +146,73 @@ export function useDashboardProgress({
     });
   };
 
-  const computeAutoComplete = (targetDay: ProgramDayItem, updatedChecklist: string[]) => {
+  const computeAutoComplete = (
+    targetDay: ProgramDayItem,
+    updatedChecklist: string[],
+    overrides?: {
+      bedtime?: string;
+      wakeTime?: string;
+      workoutNotes?: string;
+      eventFeedback?: string;
+      mealCompliance?: string;
+      dailyReflection?: string;
+      videoWatched?: boolean;
+    }
+  ) => {
+    const bed = overrides?.bedtime ?? dayBedtimes[targetDay.id] ?? targetDay.userProgress?.bedtime;
+    const wake = overrides?.wakeTime ?? dayWakeTimes[targetDay.id] ?? targetDay.userProgress?.wakeTime;
+    const sleepDone = Boolean(bed && wake && bed !== "SKIPPED" && wake !== "SKIPPED");
+
+    const mealComp =
+      overrides?.mealCompliance ??
+      dayMealCompliance[targetDay.id] ??
+      targetDay.userProgress?.mealCompliance;
+    const mealDone = Boolean(mealComp && mealComp !== "SKIPPED");
+
+    const refl =
+      overrides?.dailyReflection ??
+      dayReflections[targetDay.id] ??
+      targetDay.userProgress?.dailyReflection;
+    const reflectionDone = Boolean(refl && refl !== "SKIPPED");
+
+    const wNotes =
+      overrides?.workoutNotes ??
+      dayWorkoutNotes[targetDay.id] ??
+      targetDay.userProgress?.workoutNotes;
+    const evFb =
+      overrides?.eventFeedback ??
+      dayEventFeedback[targetDay.id] ??
+      targetDay.userProgress?.eventFeedback;
+    const vidWatched = overrides?.videoWatched ?? getVideoWatched(targetDay);
+
     const videoDone =
       targetDay.dayType !== "TRAINING_DAY" || !targetDay.videoUrl
         ? true
-        : getVideoWatched(targetDay);
+        : vidWatched;
     const restItems = (targetDay.restInstructions || "")
       .split(/\n|•|·/)
       .map((line) => line.replace(/^[\s\-*–—\d.)]+/, "").trim())
       .filter((line) => line.length > 1);
-    const allTasksDone =
-      targetDay.dayType === "REST_DAY"
-        ? restItems.length === 0 || restItems.every((name) => updatedChecklist.includes(name))
-        : areActiveWorkoutMovementsCompleted(targetDay, updatedChecklist);
-    return videoDone && allTasksDone;
+
+    const activityDone =
+      targetDay.dayType === "TRAINING_DAY"
+        ? videoDone &&
+          areActiveWorkoutMovementsCompleted(targetDay, updatedChecklist) &&
+          Boolean(
+            (wNotes && wNotes !== "SKIPPED") ||
+              updatedChecklist.length > 0 ||
+              vidWatched
+          )
+        : targetDay.dayType === "REST_DAY"
+          ? (restItems.length === 0 || restItems.every((name) => updatedChecklist.includes(name))) &&
+            Boolean((wNotes && wNotes !== "SKIPPED") || updatedChecklist.length > 0)
+          : Boolean(evFb && evFb !== "SKIPPED");
+
+    const allRequiredCustomDone = (targetDay.customTasks || [])
+      .filter((ct) => ct.isRequired)
+      .every((ct) => Boolean(customSubmissionsByTaskId[ct.id] ?? ct.submission));
+
+    return sleepDone && activityDone && mealDone && reflectionDone && allRequiredCustomDone;
   };
 
   const submitChecklistSnapshot = async (
@@ -308,9 +361,13 @@ export function useDashboardProgress({
       setDayAssessments((prev) => ({ ...prev, [targetDay.id]: formattedAssessment }));
     }
 
+    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+      bedtime,
+      wakeTime,
+    });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
-      isCompleted: !!targetDay.userProgress?.isCompleted,
+      isCompleted: autoComplete || !!targetDay.userProgress?.isCompleted,
       checklistCompleted: getCheckedItems(targetDay),
       videoWatched: getVideoWatched(targetDay),
       bedtime,
@@ -363,9 +420,12 @@ export function useDashboardProgress({
     if (!targetDay) return false;
     setDayWorkoutNotes((prev) => ({ ...prev, [targetDay.id]: notes }));
 
+    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+      workoutNotes: notes,
+    });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
-      isCompleted: !!targetDay.userProgress?.isCompleted,
+      isCompleted: autoComplete || !!targetDay.userProgress?.isCompleted,
       checklistCompleted: getCheckedItems(targetDay),
       videoWatched: getVideoWatched(targetDay),
       workoutNotes: notes,
@@ -390,9 +450,12 @@ export function useDashboardProgress({
     if (!targetDay) return false;
     setDayEventFeedback((prev) => ({ ...prev, [targetDay.id]: feedbackText }));
 
+    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+      eventFeedback: feedbackText,
+    });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
-      isCompleted: !!targetDay.userProgress?.isCompleted,
+      isCompleted: autoComplete || !!targetDay.userProgress?.isCompleted,
       checklistCompleted: getCheckedItems(targetDay),
       videoWatched: getVideoWatched(targetDay),
       eventFeedback: feedbackText,
@@ -419,9 +482,12 @@ export function useDashboardProgress({
     setDayMealCompliance((prev) => ({ ...prev, [targetDay.id]: compliance }));
     setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: notes }));
 
+    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+      mealCompliance: compliance,
+    });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
-      isCompleted: !!targetDay.userProgress?.isCompleted,
+      isCompleted: autoComplete || !!targetDay.userProgress?.isCompleted,
       checklistCompleted: getCheckedItems(targetDay),
       videoWatched: getVideoWatched(targetDay),
       mealCompliance: compliance,
@@ -449,9 +515,12 @@ export function useDashboardProgress({
     setDayReflections((prev) => ({ ...prev, [targetDay.id]: reflection }));
     setDayHappiness((prev) => ({ ...prev, [targetDay.id]: happinessRate }));
 
+    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+      dailyReflection: reflection,
+    });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
-      isCompleted: !!targetDay.userProgress?.isCompleted,
+      isCompleted: autoComplete || !!targetDay.userProgress?.isCompleted,
       checklistCompleted: getCheckedItems(targetDay),
       videoWatched: getVideoWatched(targetDay),
       dailyReflection: reflection,

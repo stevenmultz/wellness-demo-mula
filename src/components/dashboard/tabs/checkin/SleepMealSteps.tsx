@@ -9,6 +9,7 @@ import {
   SLEEP_FEELINGS,
   TIME_24H_RE,
   WAKETIME_PRESETS,
+  computeMealTotals,
   formatDuration,
   pad2,
   sleepQualityLabel,
@@ -340,11 +341,16 @@ export function MealStepView({
                 type="button"
                 onClick={() => {
                   clearError();
-                  setMealDraft((prev) => ({
-                    ...prev,
-                    mealsCount: count,
-                    mealEntries: prev.mealEntries.slice(0, count),
-                  }));
+                  setMealDraft((prev) => {
+                    const nextEntries = prev.mealEntries.slice(0, count);
+                    const totals = computeMealTotals(nextEntries, count);
+                    return {
+                      ...prev,
+                      mealsCount: count,
+                      mealEntries: nextEntries,
+                      ...totals,
+                    };
+                  });
                 }}
                 className={`py-5 px-2 rounded-2xl border text-center transition active:scale-95 ${
                   active
@@ -380,7 +386,8 @@ export function MealStepView({
     const slotIndex =
       currentSubStep === "meal_entry_1" ? 0 : currentSubStep === "meal_entry_2" ? 1 : 2;
     const entry = mealDraft.mealEntries[slotIndex];
-    const totalMeals = mealDraft.mealsCount || 1;
+    const isFollowedOrSimilar =
+      entry?.status === "followed" || entry?.status === "similar";
     const defaultRec =
       recommendedMeals[Math.min(slotIndex, recommendedMeals.length - 1)] ||
       recommendedMeals[0];
@@ -391,23 +398,27 @@ export function MealStepView({
       setMealDraft((prev) => {
         const nextEntries = [...prev.mealEntries];
         nextEntries[slotIndex] = next;
-        const activeSlice = nextEntries.slice(0, prev.mealsCount || 1);
+        const count = prev.mealsCount || 1;
+        const activeSlice = nextEntries.slice(0, count);
         const checkedMeals = Array.from(
           new Set(
             activeSlice
-              .filter((e) => e?.status === "followed" && e.mealItem)
+              .filter(
+                (e) =>
+                  (e?.status === "followed" || e?.status === "similar") && e.mealItem
+              )
               .map((e) => e.mealItem!)
           )
         );
-        const allSimilar =
-          activeSlice.length > 0 && activeSlice.every((e) => e?.status === "similar");
         const allOff =
           activeSlice.length > 0 && activeSlice.every((e) => e?.status === "off_track");
+        const totals = computeMealTotals(nextEntries, count);
         return {
           ...prev,
           mealEntries: nextEntries,
           checkedMeals,
-          specialOption: allSimilar ? "similar" : allOff ? "off_track" : null,
+          specialOption: allOff ? "off_track" : null,
+          ...totals,
         };
       });
     };
@@ -423,47 +434,52 @@ export function MealStepView({
           <button
             type="button"
             onClick={() =>
-              setSlotEntry({ status: "followed", mealItem: entry?.mealItem || defaultRec })
+              setSlotEntry({
+                status: "followed",
+                mealItem: entry?.mealItem || defaultRec,
+              })
             }
             className={`w-full p-4 rounded-2xl border text-left transition select-none ${
-              entry?.status === "followed"
+              isFollowedOrSimilar
                 ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
                 : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
             }`}
           >
             <p
               className={`text-sm font-semibold ${
-                entry?.status === "followed"
+                isFollowedOrSimilar
                   ? "text-white dark:text-zinc-950"
                   : "text-zinc-950 dark:text-white"
               }`}
             >
-              Followed Recommended Meal
+              Followed Plan / Similar
             </p>
             <p
               className={`text-xs mt-0.5 ${
-                entry?.status === "followed"
+                isFollowedOrSimilar
                   ? "text-white/80 dark:text-zinc-950/80"
                   : "text-zinc-600 dark:text-zinc-400"
               }`}
             >
-              Ate in line with today&apos;s meal plan guideline.
+              Ate recommended menu or a similar clean, balanced meal portion.
             </p>
           </button>
 
-          {entry?.status === "followed" && recommendedMeals.length > 1 && (
+          {isFollowedOrSimilar && recommendedMeals.length > 1 && (
             <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/[0.03] space-y-2">
               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
                 Matched Menu Option
               </span>
               <div className="grid grid-cols-1 gap-1.5">
                 {recommendedMeals.map((mealLine, idx) => {
-                  const selected = (entry.mealItem || defaultRec) === mealLine;
+                  const selected = (entry?.mealItem || defaultRec) === mealLine;
                   return (
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => setSlotEntry({ status: "followed", mealItem: mealLine })}
+                      onClick={() =>
+                        setSlotEntry({ status: "followed", mealItem: mealLine })
+                      }
                       className={`w-full px-3 py-2 rounded-xl border text-left text-xs transition ${
                         selected
                           ? "border-zinc-950 dark:border-white bg-white dark:bg-white/10 font-semibold text-zinc-950 dark:text-white"
@@ -483,36 +499,15 @@ export function MealStepView({
 
           <button
             type="button"
-            onClick={() => setSlotEntry({ status: "similar" })}
-            className={`w-full p-4 rounded-2xl border text-left transition select-none ${
-              entry?.status === "similar"
-                ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-            }`}
-          >
-            <p
-              className={`text-sm font-semibold ${
-                entry?.status === "similar"
-                  ? "text-white dark:text-zinc-950"
-                  : "text-zinc-950 dark:text-white"
-              }`}
-            >
-              Similar Portion &amp; Clean Nutrition
-            </p>
-            <p
-              className={`text-xs mt-0.5 ${
-                entry?.status === "similar"
-                  ? "text-white/80 dark:text-zinc-950/80"
-                  : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              Different dish with balanced macros and portion size.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSlotEntry({ status: "off_track" })}
+            onClick={() =>
+              setSlotEntry({
+                status: "off_track",
+                calories: entry?.calories ?? null,
+                carbsG: entry?.carbsG ?? null,
+                proteinG: entry?.proteinG ?? null,
+                fatG: entry?.fatG ?? null,
+              })
+            }
             className={`w-full p-4 rounded-2xl border text-left transition select-none ${
               entry?.status === "off_track"
                 ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
@@ -535,7 +530,7 @@ export function MealStepView({
                   : "text-zinc-600 dark:text-zinc-400"
               }`}
             >
-              Did not follow recommended meal guidelines for Meal {slotIndex + 1}.
+              Ate outside today&apos;s plan — input Meal {slotIndex + 1} macros on the next step.
             </p>
           </button>
         </div>
@@ -543,28 +538,45 @@ export function MealStepView({
     );
   }
 
-  if (currentSubStep === "meal_nutrition") {
-    const waterPresets = [1500, 2000, 2500, 3000];
-    const updateMacro = (
-      field: "calories" | "carbsG" | "proteinG" | "fatG" | "waterMl",
+  if (
+    currentSubStep === "meal_off_1" ||
+    currentSubStep === "meal_off_2" ||
+    currentSubStep === "meal_off_3"
+  ) {
+    const slotIndex =
+      currentSubStep === "meal_off_1" ? 0 : currentSubStep === "meal_off_2" ? 1 : 2;
+    const entry = mealDraft.mealEntries[slotIndex] || { status: "off_track" as const };
+
+    const updateOffPlanMacro = (
+      field: "calories" | "carbsG" | "proteinG" | "fatG",
       raw: string
     ) => {
       clearError();
       const num = raw.trim() === "" ? null : Math.max(0, Math.round(Number(raw)));
       setMealDraft((prev) => {
-        const next = {
-          ...prev,
+        const nextEntries = [...prev.mealEntries];
+        const prevSlot = nextEntries[slotIndex] || { status: "off_track" as const };
+        const nextSlot: MealSlotEntry = {
+          ...prevSlot,
+          status: "off_track",
           [field]: Number.isFinite(num as number) ? num : null,
         };
         if (field === "carbsG" || field === "proteinG" || field === "fatG") {
-          const c = next.carbsG || 0;
-          const p = next.proteinG || 0;
-          const f = next.fatG || 0;
+          const c = nextSlot.carbsG || 0;
+          const p = nextSlot.proteinG || 0;
+          const f = nextSlot.fatG || 0;
           if (c > 0 || p > 0 || f > 0) {
-            next.calories = Math.round(c * 4 + p * 4 + f * 9);
+            nextSlot.calories = Math.round(c * 4 + p * 4 + f * 9);
           }
         }
-        return next;
+        nextEntries[slotIndex] = nextSlot;
+        const count = prev.mealsCount || 1;
+        const totals = computeMealTotals(nextEntries, count);
+        return {
+          ...prev,
+          mealEntries: nextEntries,
+          ...totals,
+        };
       });
     };
 
@@ -573,7 +585,10 @@ export function MealStepView({
 
     return (
       <div className="space-y-5 min-w-0">
-        <StepHeader title="What were your macros & water intake today?" />
+        <StepHeader
+          title={`What was the nutrition total for Meal ${slotIndex + 1} (Off Plan)?`}
+          subtitle="Enter macros or total calories for this off-plan meal."
+        />
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -584,10 +599,10 @@ export function MealStepView({
               type="number"
               inputMode="numeric"
               min={0}
-              max={1500}
-              placeholder="e.g. 200"
-              value={mealDraft.carbsG ?? ""}
-              onChange={(e) => updateMacro("carbsG", e.target.value)}
+              max={1000}
+              placeholder="e.g. 95"
+              value={entry.carbsG ?? ""}
+              onChange={(e) => updateOffPlanMacro("carbsG", e.target.value)}
               className={inputCls}
             />
           </div>
@@ -599,10 +614,10 @@ export function MealStepView({
               type="number"
               inputMode="numeric"
               min={0}
-              max={1000}
-              placeholder="e.g. 140"
-              value={mealDraft.proteinG ?? ""}
-              onChange={(e) => updateMacro("proteinG", e.target.value)}
+              max={500}
+              placeholder="e.g. 30"
+              value={entry.proteinG ?? ""}
+              onChange={(e) => updateOffPlanMacro("proteinG", e.target.value)}
               className={inputCls}
             />
           </div>
@@ -614,10 +629,10 @@ export function MealStepView({
               type="number"
               inputMode="numeric"
               min={0}
-              max={500}
-              placeholder="e.g. 60"
-              value={mealDraft.fatG ?? ""}
-              onChange={(e) => updateMacro("fatG", e.target.value)}
+              max={300}
+              placeholder="e.g. 35"
+              value={entry.fatG ?? ""}
+              onChange={(e) => updateOffPlanMacro("fatG", e.target.value)}
               className={inputCls}
             />
           </div>
@@ -629,16 +644,39 @@ export function MealStepView({
               type="number"
               inputMode="numeric"
               min={0}
-              max={10000}
-              placeholder="e.g. 1900"
-              value={mealDraft.calories ?? ""}
-              onChange={(e) => updateMacro("calories", e.target.value)}
+              max={5000}
+              placeholder="e.g. 815"
+              value={entry.calories ?? ""}
+              onChange={(e) => updateOffPlanMacro("calories", e.target.value)}
               className={inputCls}
             />
           </div>
         </div>
+      </div>
+    );
+  }
 
-        <div className="space-y-2 pt-1">
+  if (currentSubStep === "meal_nutrition") {
+    const waterPresets = [1500, 2000, 2500, 3000];
+    const totals = computeMealTotals(mealDraft.mealEntries, mealDraft.mealsCount || 1);
+    const updateWater = (raw: string) => {
+      clearError();
+      const num = raw.trim() === "" ? null : Math.max(0, Math.round(Number(raw)));
+      setMealDraft((prev) => ({
+        ...prev,
+        ...totals,
+        waterMl: Number.isFinite(num as number) ? num : null,
+      }));
+    };
+
+    const inputCls =
+      "w-full px-3.5 py-3 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-sm font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+
+    return (
+      <div className="space-y-5 min-w-0">
+        <StepHeader title="How much water did you drink today?" />
+
+        <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
               Water Intake (ml)
@@ -657,7 +695,7 @@ export function MealStepView({
             step={100}
             placeholder="e.g. 2200"
             value={mealDraft.waterMl ?? ""}
-            onChange={(e) => updateMacro("waterMl", e.target.value)}
+            onChange={(e) => updateWater(e.target.value)}
             className={inputCls}
           />
           <div className="grid grid-cols-4 gap-2 pt-1">
@@ -667,8 +705,8 @@ export function MealStepView({
                 <button
                   key={ml}
                   type="button"
-                  onClick={() => updateMacro("waterMl", String(ml))}
-                  className={`py-2 px-2 rounded-xl border text-xs font-mono transition ${
+                  onClick={() => updateWater(String(ml))}
+                  className={`py-2.5 px-2 rounded-xl border text-xs font-mono transition ${
                     active
                       ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"
                       : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
@@ -678,6 +716,40 @@ export function MealStepView({
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Daily Calculated Nutrition Summary from Meals 1..N */}
+        <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 block">
+            Today&apos;s Calculated Meal Totals ({mealDraft.mealsCount || 1}{" "}
+            {(mealDraft.mealsCount || 1) === 1 ? "Meal" : "Meals"})
+          </span>
+          <div className="grid grid-cols-4 gap-2 text-xs font-mono">
+            <div>
+              <span className="text-zinc-500 block text-[10px]">Calories</span>
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {totals.calories} kcal
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-500 block text-[10px]">Carbs</span>
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {totals.carbsG}g
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-500 block text-[10px]">Protein</span>
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {totals.proteinG}g
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-500 block text-[10px]">Fat</span>
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {totals.fatG}g
+              </span>
+            </div>
           </div>
         </div>
       </div>

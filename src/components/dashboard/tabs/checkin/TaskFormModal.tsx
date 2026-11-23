@@ -8,6 +8,7 @@ import { HeaderBackButton } from "../shared";
 import {
   REFLECTION_DECLINED,
   TIME_24H_RE,
+  computeMealTotals,
   matchesScopedMovement,
   parseLines,
   readMealDraft,
@@ -204,8 +205,21 @@ export function TaskForm({
     if (step === 2) {
       const count = mealDraft.mealsCount > 0 ? mealDraft.mealsCount : 1;
       const list: SubStepId[] = ["meal_count", "meal_entry_1"];
-      if (count >= 2) list.push("meal_entry_2");
-      if (count >= 3) list.push("meal_entry_3");
+      if (mealDraft.mealEntries[0]?.status === "off_track") {
+        list.push("meal_off_1");
+      }
+      if (count >= 2) {
+        list.push("meal_entry_2");
+        if (mealDraft.mealEntries[1]?.status === "off_track") {
+          list.push("meal_off_2");
+        }
+      }
+      if (count >= 3) {
+        list.push("meal_entry_3");
+        if (mealDraft.mealEntries[2]?.status === "off_track") {
+          list.push("meal_off_3");
+        }
+      }
       list.push("meal_nutrition");
       list.push("meal_mood");
       return list;
@@ -221,6 +235,7 @@ export function TaskForm({
     videos.length,
     movements.length,
     mealDraft.mealsCount,
+    mealDraft.mealEntries,
   ]);
 
   const safeSubIndex = Math.min(subStepIndex, Math.max(0, subSteps.length - 1));
@@ -396,14 +411,36 @@ export function TaskForm({
         return mealDraft.mealEntries[0]?.status
           ? null
           : "Please indicate whether Meal 1 followed today's meal plan.";
+      case "meal_off_1": {
+        const e1 = mealDraft.mealEntries[0];
+        return e1 && ((e1.calories ?? 0) > 0 || (e1.carbsG ?? 0) > 0 || (e1.proteinG ?? 0) > 0 || (e1.fatG ?? 0) > 0)
+          ? null
+          : "Please enter total calories or macros for Meal 1.";
+      }
       case "meal_entry_2":
         return mealDraft.mealEntries[1]?.status
           ? null
           : "Please indicate whether Meal 2 followed today's meal plan.";
+      case "meal_off_2": {
+        const e2 = mealDraft.mealEntries[1];
+        return e2 && ((e2.calories ?? 0) > 0 || (e2.carbsG ?? 0) > 0 || (e2.proteinG ?? 0) > 0 || (e2.fatG ?? 0) > 0)
+          ? null
+          : "Please enter total calories or macros for Meal 2.";
+      }
       case "meal_entry_3":
         return mealDraft.mealEntries[2]?.status
           ? null
           : "Please indicate whether Meal 3 followed today's meal plan.";
+      case "meal_off_3": {
+        const e3 = mealDraft.mealEntries[2];
+        return e3 && ((e3.calories ?? 0) > 0 || (e3.carbsG ?? 0) > 0 || (e3.proteinG ?? 0) > 0 || (e3.fatG ?? 0) > 0)
+          ? null
+          : "Please enter total calories or macros for Meal 3.";
+      }
+      case "meal_nutrition":
+        return (mealDraft.waterMl ?? 0) > 0
+          ? null
+          : "Please select or enter your water intake today.";
       case "meal_mood":
         return mealDraft.mealFeeling
           ? null
@@ -455,27 +492,26 @@ export function TaskForm({
       const checkedMeals = Array.from(
         new Set(
           activeEntries
-            .filter((e) => e.status === "followed" && e.mealItem)
+            .filter(
+              (e) =>
+                (e.status === "followed" || e.status === "similar") && e.mealItem
+            )
             .map((e) => e.mealItem!)
         )
       );
-      const allFollowed =
+      const allFollowedOrSimilar =
         activeEntries.length === mealCount &&
-        activeEntries.every((e) => e.status === "followed");
-      const allSimilar =
-        activeEntries.length === mealCount &&
-        activeEntries.every((e) => e.status === "similar");
+        activeEntries.every((e) => e.status === "followed" || e.status === "similar");
       const allOffTrack =
         activeEntries.length === mealCount &&
         activeEntries.every((e) => e.status === "off_track");
-      const compliance = allFollowed
+      const compliance = allFollowedOrSimilar
         ? "FULL"
-        : allSimilar
-          ? "SIMILAR"
-          : allOffTrack
-            ? "OFF_TRACK"
-            : "PARTIAL";
+        : allOffTrack
+          ? "OFF_TRACK"
+          : "PARTIAL";
 
+      const totals = computeMealTotals(activeEntries, mealCount);
       const mealPayload = {
         v: 4,
         mode: compliance.toLowerCase(),
@@ -483,10 +519,10 @@ export function TaskForm({
         mealsCount: mealCount,
         mealEntries: activeEntries,
         mealFeeling: mealDraft.mealFeeling,
-        calories: mealDraft.calories ?? null,
-        carbsG: mealDraft.carbsG ?? null,
-        proteinG: mealDraft.proteinG ?? null,
-        fatG: mealDraft.fatG ?? null,
+        calories: totals.calories || mealDraft.calories || null,
+        carbsG: totals.carbsG || mealDraft.carbsG || null,
+        proteinG: totals.proteinG || mealDraft.proteinG || null,
+        fatG: totals.fatG || mealDraft.fatG || null,
         waterMl: mealDraft.waterMl ?? null,
       };
       return (

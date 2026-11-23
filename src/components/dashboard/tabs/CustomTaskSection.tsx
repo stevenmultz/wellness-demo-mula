@@ -4,14 +4,21 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
+  Angry,
+  ArrowUpRight,
   Camera,
   Check,
-  CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
+  Frown,
+  Laugh,
   Loader2,
-  Ruler,
+  Lock,
+  Meh,
+  PlayCircle,
+  Scale,
+  Smile,
   Sparkles,
-  X,
 } from "lucide-react";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { wellnessUserSubmitCustomTask } from "@/wellness/actions/custom-tasks";
@@ -20,21 +27,67 @@ import type {
   CustomTaskType,
   ProgramDayCustomTaskDTO,
 } from "@/wellness/utils/custom-tasks";
+import { HeaderBackButton } from "./shared";
+import { StepHeader } from "./checkin/SleepMealSteps";
 
 export interface CustomTaskSectionProps {
   programDayId: string;
   customTasks: ProgramDayCustomTaskDTO[];
   locked: boolean;
+  isFuture?: boolean;
   onSubmitted?: (
     customTaskId: string,
     submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>
   ) => void;
 }
 
-function getTaskIcon(type: CustomTaskType) {
-  switch (type) {
+const CONFIDENCE_MOODS = [
+  {
+    score: 1,
+    Icon: Angry,
+    label: "Not Confident",
+    desc: "Feeling uncomfortable or disconnected from my body today.",
+  },
+  {
+    score: 2,
+    Icon: Frown,
+    label: "Low Confidence",
+    desc: "Self-conscious today, focusing on trusting the daily process.",
+  },
+  {
+    score: 3,
+    Icon: Meh,
+    label: "Neutral & Steady",
+    desc: "Feeling balanced and accepting of where I am right now.",
+  },
+  {
+    score: 4,
+    Icon: Smile,
+    label: "Confident & Strong",
+    desc: "Feeling good, capable, and noticing positive momentum.",
+  },
+  {
+    score: 5,
+    Icon: Laugh,
+    label: "Very Confident",
+    desc: "Feeling proud, energized, and fully comfortable in my body!",
+  },
+] as const;
+
+function getTaskIcon(task: ProgramDayCustomTaskDTO) {
+  const titleLower = task.title.toLowerCase();
+  if (
+    titleLower.includes("intro") ||
+    titleLower.includes("final") ||
+    titleLower.includes("sambutan") ||
+    titleLower.includes("penutup") ||
+    task.fields.some((f) => f.key === "videoUrl" || f.key === "videoWatched")
+  ) {
+    return PlayCircle;
+  }
+  switch (task.taskType) {
     case "MEASUREMENT":
-      return Ruler;
+      return Scale;
     case "BENCHMARK":
       return Activity;
     case "CHECKLIST":
@@ -46,15 +99,24 @@ function getTaskIcon(type: CustomTaskType) {
   }
 }
 
-function getTaskBadgeLabel(type: CustomTaskType, locale: "id" | "en") {
-  const map: Record<CustomTaskType, { en: string; id: string }> = {
-    MEASUREMENT: { en: "Measurement", id: "Pengukuran" },
-    BENCHMARK: { en: "Benchmark", id: "Tes Performa" },
-    FORM: { en: "Coach Check-In", id: "Cek Coach" },
-    CHECKLIST: { en: "Protocol", id: "Protokol" },
-    MEDIA_UPLOAD: { en: "Photo Check", id: "Foto Cek" },
-  };
-  return map[type]?.[locale] ?? type;
+function toEmbedVideoUrl(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+      if (u.pathname.startsWith("/embed/")) return trimmed;
+    }
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.replace(/^\//, "");
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+    return trimmed;
+  } catch {
+    return null;
+  }
 }
 
 async function compressPhoto(file: File, maxDim = 960, quality = 0.72): Promise<string> {
@@ -89,12 +151,15 @@ function summarizeValues(
   if (!values) return "";
   const parts: string[] = [];
   for (const f of fields) {
+    if (f.key === "videoUrl") continue;
     const val = values[f.key];
     if (val === undefined || val === null || val === "") continue;
     if (f.type === "boolean") {
       if (val === true) parts.push(f.label);
     } else if (f.type === "photo") {
       parts.push("Photo uploaded");
+    } else if (f.key === "confidenceMood" || f.type === "rating") {
+      parts.push(`Mood: ${val}/${f.max ?? 5}`);
     } else if (f.type !== "textarea") {
       parts.push(`${f.label}: ${val}${f.unit ? ` ${f.unit}` : ""}`);
     }
@@ -103,14 +168,60 @@ function summarizeValues(
   return parts.join(" • ");
 }
 
+function getStepQuestionTitle(field: CustomTaskField, task: ProgramDayCustomTaskDTO, locale: "id" | "en"): string {
+  if (field.key === "weightKg") {
+    return locale === "id"
+      ? "Berat badan Anda sekarang berapa?"
+      : "What is your current body weight?";
+  }
+  if (field.key === "weeklyGoalKg") {
+    return locale === "id"
+      ? "Goal berat badan minggu ini mau berapa?"
+      : "What is your goal weight for this week?";
+  }
+  if (field.key === "photoUrl") {
+    return locale === "id"
+      ? "Upload foto fullbody Anda hari ini"
+      : "Upload your fullbody progress photo";
+  }
+  if (field.key === "confidenceMood") {
+    return locale === "id"
+      ? "Bagaimana perasaan pede Anda hari ini?"
+      : "How confident do you feel in your body today?";
+  }
+  if (field.key === "videoWatched") {
+    const isFinal = task.title.toLowerCase().includes("final") || task.title.toLowerCase().includes("penutup");
+    return isFinal
+      ? locale === "id"
+        ? "Tonton video penutup program dari Coach"
+        : "Watch your coach's closing celebration video"
+      : locale === "id"
+        ? "Tonton video sambutan program dari Coach"
+        : "Watch your coach's welcome briefing video";
+  }
+  if (field.key === "readinessRating") {
+    return locale === "id"
+      ? "Seberapa siap & semangat Anda memulai program ini?"
+      : "How ready & committed do you feel starting this program?";
+  }
+  if (field.key === "programRating") {
+    return locale === "id"
+      ? "Bagaimana perasaan Anda setelah menyelesaikan program ini?"
+      : "How do you feel after completing this program?";
+  }
+  return locale === "id" && field.labelId ? field.labelId : field.label;
+}
+
 export function CustomTaskSection({
   programDayId,
   customTasks,
   locked,
+  isFuture = false,
   onSubmitted,
 }: CustomTaskSectionProps) {
   const { locale, t } = useLocale();
   const [activeTask, setActiveTask] = useState<ProgramDayCustomTaskDTO | null>(null);
+  const [stepIdx, setStepIdx] = useState(0);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [uploadingPhotoKey, setUploadingPhotoKey] = useState<string | null>(null);
@@ -119,19 +230,95 @@ export function CustomTaskSection({
   if (!customTasks || customTasks.length === 0) return null;
 
   const openTaskModal = (task: ProgramDayCustomTaskDTO) => {
-    if (locked) return;
+    if (isFuture) return;
     setErrorMsg(null);
-    setFormValues({ ...(task.submission?.values || {}) });
+    const initialVals: Record<string, unknown> = { ...(task.submission?.values || {}) };
+    for (const f of task.fields) {
+      if (f.key === "videoUrl" && !initialVals.videoUrl && f.placeholder) {
+        initialVals.videoUrl = f.placeholder;
+      }
+    }
+    setFormValues(initialVals);
+    setStepIdx(0);
     setActiveTask(task);
   };
 
   const handleFieldChange = (key: string, value: unknown) => {
+    setErrorMsg(null);
     setFormValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Interactive steps filter out the static `videoUrl` configuration field (rendered on the `videoWatched` step)
+  const interactiveFields = activeTask
+    ? activeTask.fields.filter((f) => f.key !== "videoUrl")
+    : [];
+  const currentField = interactiveFields[stepIdx] || interactiveFields[0];
+  const isLastStep = stepIdx >= interactiveFields.length - 1;
+
+  const resolveVideoUrlForTask = (task: ProgramDayCustomTaskDTO): string | null => {
+    const valUrl = typeof formValues.videoUrl === "string" ? formValues.videoUrl : "";
+    if (valUrl) return valUrl;
+    const urlField = task.fields.find((f) => f.key === "videoUrl");
+    if (urlField?.placeholder) return urlField.placeholder;
+    const match = (task.instructions || "").match(/https?:\/\/[^\s]+/);
+    if (match) return match[0];
+    return "https://www.youtube.com/watch?v=sTANio_2E0Q";
+  };
+
+  const validateCurrentField = (field: CustomTaskField | undefined): string | null => {
+    if (!field) return null;
+    const rawVal = formValues[field.key];
+    if (field.required) {
+      if (field.type === "boolean") {
+        if (rawVal !== true) {
+          return locale === "id"
+            ? `Mohon centang "${field.labelId || field.label}" terlebih dahulu.`
+            : `Please confirm "${field.label}" to continue.`;
+        }
+      } else if (
+        rawVal === undefined ||
+        rawVal === null ||
+        (typeof rawVal === "string" && rawVal.trim() === "")
+      ) {
+        return locale === "id"
+          ? `Mohon isi "${field.labelId || field.label}" terlebih dahulu.`
+          : `Please complete "${field.label}" to continue.`;
+      }
+    }
+    if (
+      (field.type === "number" || field.type === "rating") &&
+      rawVal !== undefined &&
+      rawVal !== null &&
+      rawVal !== ""
+    ) {
+      const n = Number(rawVal);
+      if (!Number.isFinite(n)) {
+        return "Please enter a valid number.";
+      }
+      if (field.min !== undefined && n < field.min) {
+        return `Minimum value is ${field.min}${field.unit ? ` ${field.unit}` : ""}.`;
+      }
+      if (field.max !== undefined && n > field.max) {
+        return `Maximum value is ${field.max}${field.unit ? ` ${field.unit}` : ""}.`;
+      }
+    }
+    return null;
+  };
+
+  const handleNextOrSubmit = async () => {
     if (!activeTask || locked) return;
+    const validationErr = validateCurrentField(currentField);
+    if (validationErr) {
+      setErrorMsg(validationErr);
+      return;
+    }
+
+    if (!isLastStep) {
+      setErrorMsg(null);
+      setStepIdx((prev) => prev + 1);
+      return;
+    }
+
     setSaving(true);
     setErrorMsg(null);
     try {
@@ -141,7 +328,7 @@ export function CustomTaskSection({
         values: formValues,
       });
       if (!res.success) {
-        setErrorMsg(res.message || "Failed to save checkpoint.");
+        setErrorMsg(res.message || "Failed to save task.");
         return;
       }
       if (res.data && onSubmitted) {
@@ -164,331 +351,476 @@ export function CustomTaskSection({
   };
 
   return (
-    <div className="space-y-3 pt-2">
-      <div className="flex items-center justify-between px-1">
-        <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-          {t.dashboard.customTasksTitle}
-        </span>
-        <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-          {customTasks.filter((ct) => !!ct.submission).length}/{customTasks.length}
-        </span>
-      </div>
+    <div className="space-y-3">
+      {customTasks.map((ct) => {
+        const Icon = getTaskIcon(ct);
+        const isDone = !!ct.submission;
+        const summary = summarizeValues(ct.fields, ct.submission?.values);
 
-      <div className="space-y-2.5">
-        {customTasks.map((ct) => {
-          const Icon = getTaskIcon(ct.taskType);
-          const isDone = !!ct.submission;
-          const summary = summarizeValues(ct.fields, ct.submission?.values);
+        return (
+          <div
+            key={ct.id}
+            onClick={() => {
+              if (!isFuture && (!locked || isDone)) {
+                openTaskModal(ct);
+              }
+            }}
+            className={`group w-full relative overflow-hidden rounded-2xl p-4 flex items-center justify-between gap-3 transition ${
+              isDone
+                ? "bg-[#e5e5e2] dark:bg-white/[0.08]"
+                : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
+            } ${isFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
+          >
+            <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
+                  isDone
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                    : "bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white"
+                }`}
+              >
+                {isDone ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+              </div>
 
-          return (
-            <button
-              key={ct.id}
-              type="button"
-              disabled={locked}
-              onClick={() => openTaskModal(ct)}
-              className={`w-full text-left rounded-2xl p-4 border transition flex items-start justify-between gap-3 active:scale-[0.99] disabled:opacity-60 ${
-                isDone
-                  ? "bg-emerald-500/[0.06] dark:bg-emerald-500/[0.08] border-emerald-500/25"
-                  : "bg-white dark:bg-[#141414] border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/25"
-              }`}
-            >
-              <div className="flex items-start gap-3 min-w-0">
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isDone
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      : "bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-200"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                </div>
-
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      {getTaskBadgeLabel(ct.taskType, locale)}
-                    </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.08] text-zinc-600 dark:text-zinc-300">
-                      {ct.isRequired ? t.common.required : t.common.optional}
-                    </span>
-                  </div>
-                  <p className="text-sm font-medium text-zinc-950 dark:text-white leading-snug">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
                     {ct.title}
                   </p>
-                  {summary ? (
-                    <p className="text-xs text-emerald-700 dark:text-emerald-300 font-mono truncate">
-                      {summary}
-                    </p>
-                  ) : (
-                    ct.instructions && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                        {ct.instructions}
-                      </p>
-                    )
+                  {!isDone && !isFuture && (
+                    <span
+                      className="w-2 h-2 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] shrink-0"
+                      aria-label="Incomplete task"
+                    />
                   )}
                 </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                  {summary || ct.instructions || "Complete coach checkpoint"}
+                </p>
               </div>
+            </div>
 
-              <div className="shrink-0 mt-1">
-                {isDone ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                ) : locked ? (
-                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-400">
-                    {locale === "id" ? "Terkunci" : "Locked"}
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
-                    {locale === "id" ? "Isi" : "Log"}
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {activeTask &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl bg-[#f6f6f4] dark:bg-[#141414] border border-zinc-200 dark:border-white/10 max-h-[90dvh] flex flex-col overflow-hidden shadow-2xl">
-              <div className="px-5 py-4 border-b border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 block">
-                    {getTaskBadgeLabel(activeTask.taskType, locale)}
-                  </span>
-                  <h3 className="text-base font-geometric font-semibold text-zinc-950 dark:text-white truncate">
-                    {activeTask.title}
-                  </h3>
-                </div>
+            <div className="relative z-10 shrink-0 flex items-center justify-end">
+              {isFuture ? (
+                <span className="py-1 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  <span>Locked</span>
+                </span>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => setActiveTask(null)}
-                  className="w-8 h-8 rounded-full bg-zinc-200/70 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 flex items-center justify-center"
-                  aria-label="Close"
+                  disabled={locked && !isDone}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openTaskModal(ct);
+                  }}
+                  aria-label={`Open ${ct.title}`}
+                  className="w-7 h-7 rounded-lg bg-zinc-200/50 dark:bg-white/[0.06] hover:bg-zinc-300/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {activeTask &&
+        currentField &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[120] h-[100dvh] w-full bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-y-auto"
+          >
+            {/* Header matching TaskFormModal */}
+            <header
+              style={{ paddingTop: "env(safe-area-inset-top)" }}
+              className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
+            >
+              <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+                <HeaderBackButton
+                  onClick={() => {
+                    if (stepIdx > 0) {
+                      setErrorMsg(null);
+                      setStepIdx((prev) => prev - 1);
+                    } else {
+                      setActiveTask(null);
+                    }
+                  }}
+                />
+                <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                  {activeTask.title} • {stepIdx + 1}/{interactiveFields.length}
+                </span>
               </div>
+              <div className="w-full h-1 bg-zinc-200/80 dark:bg-white/10">
+                <div
+                  className="h-full bg-zinc-950 dark:bg-white transition-all duration-300"
+                  style={{
+                    width: `${Math.round(((stepIdx + 1) / Math.max(1, interactiveFields.length)) * 100)}%`,
+                  }}
+                />
+              </div>
+            </header>
 
-              <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
-                {activeTask.instructions && (
-                  <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                    {activeTask.instructions}
-                  </p>
-                )}
+            <div
+              className="w-full max-w-xl mx-auto flex-1 flex flex-col justify-between px-4 sm:px-6 pt-6 sm:pt-10"
+              style={{ paddingBottom: "max(2.25rem, env(safe-area-inset-bottom))" }}
+            >
+              <div className="space-y-6 min-w-0">
+                <StepHeader
+                  title={getStepQuestionTitle(currentField, activeTask, locale)}
+                  subtitle={stepIdx === 0 ? activeTask.instructions : null}
+                />
 
-                {activeTask.fields.map((field) => {
-                  const labelText =
-                    locale === "id" && field.labelId ? field.labelId : field.label;
-                  const val = formValues[field.key];
-
-                  if (field.type === "boolean") {
-                    const checked = val === true;
-                    return (
+                {/* Video Player when on videoWatched step (Introduction Task / Final Task) */}
+                {currentField.key === "videoWatched" && (() => {
+                  const rawVideoUrl = resolveVideoUrlForTask(activeTask);
+                  const embedUrl = rawVideoUrl ? toEmbedVideoUrl(rawVideoUrl) : null;
+                  const checked = formValues[currentField.key] === true;
+                  return (
+                    <div className="space-y-4">
+                      {embedUrl && (
+                        <div className="w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-200/80 dark:border-white/10 shadow-sm">
+                          <iframe
+                            src={embedUrl}
+                            title={activeTask.title}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      )}
                       <button
-                        key={field.key}
                         type="button"
-                        onClick={() => handleFieldChange(field.key, !checked)}
-                        className={`w-full p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-left transition ${
+                        disabled={locked}
+                        onClick={() => handleFieldChange(currentField.key, !checked)}
+                        className={`w-full p-4 rounded-2xl border flex items-center justify-between gap-3 text-left transition ${
                           checked
-                            ? "bg-emerald-500/10 border-emerald-500/40 text-zinc-950 dark:text-white"
-                            : "bg-white dark:bg-[#1c1c1c] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-200"
+                            ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                            : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
-                        <span className="text-xs font-medium">
-                          {labelText}
-                          {field.required ? " *" : ""}
-                        </span>
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {locale === "id" && currentField.labelId
+                              ? currentField.labelId
+                              : currentField.label}
+                          </p>
+                          <p
+                            className={`text-xs mt-0.5 ${
+                              checked
+                                ? "text-white/80 dark:text-zinc-950/80"
+                                : "text-zinc-500 dark:text-zinc-400"
+                            }`}
+                          >
+                            {locale === "id"
+                              ? "Ketuk untuk konfirmasi Anda telah menonton video ini."
+                              : "Tap to confirm you have watched this video."}
+                          </p>
+                        </div>
                         <span
-                          className={`w-5 h-5 rounded-full flex items-center justify-center border ${
+                          className={`w-6 h-6 rounded-full flex items-center justify-center border shrink-0 ${
                             checked
-                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              ? "bg-white text-zinc-950 border-white dark:bg-zinc-950 dark:text-white dark:border-zinc-950"
                               : "border-zinc-300 dark:border-zinc-600"
                           }`}
                         >
-                          {checked && <Check className="w-3 h-3" />}
+                          {checked && <Check className="w-3.5 h-3.5" />}
                         </span>
                       </button>
-                    );
-                  }
+                    </div>
+                  );
+                })()}
 
-                  if (field.type === "rating") {
-                    const min = field.min ?? 1;
-                    const max = field.max ?? 5;
-                    const scores = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-                    const current = typeof val === "number" ? val : Number(val || 0);
+                {/* Standard Boolean step */}
+                {currentField.type === "boolean" && currentField.key !== "videoWatched" && (() => {
+                  const checked = formValues[currentField.key] === true;
+                  return (
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => handleFieldChange(currentField.key, !checked)}
+                      className={`w-full p-4 rounded-2xl border flex items-center justify-between gap-3 text-left transition ${
+                        checked
+                          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                          : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/15 text-zinc-900 dark:text-zinc-100"
+                      }`}
+                    >
+                      <span className="text-sm font-semibold">
+                        {locale === "id" && currentField.labelId
+                          ? currentField.labelId
+                          : currentField.label}
+                      </span>
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border ${
+                          checked
+                            ? "bg-white text-zinc-950 border-white dark:bg-zinc-950 dark:text-white dark:border-zinc-950"
+                            : "border-zinc-300 dark:border-zinc-600"
+                        }`}
+                      >
+                        {checked && <Check className="w-3.5 h-3.5" />}
+                      </span>
+                    </button>
+                  );
+                })()}
 
+                {/* 5-Mood Selector when rating is 1..5 (e.g. confidenceMood, readinessRating, programRating) */}
+                {currentField.type === "rating" &&
+                  (currentField.max ?? 5) === 5 && (() => {
+                    const currentScore = Number(formValues[currentField.key] || 0);
                     return (
-                      <div key={field.key} className="space-y-2">
-                        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200 block">
-                          {labelText}
-                          {field.required ? " *" : ""}
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {scores.map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => handleFieldChange(field.key, s)}
-                              className={`w-9 h-9 rounded-xl text-xs font-mono font-semibold border transition ${
-                                current === s
-                                  ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white"
-                                  : "bg-white dark:bg-[#1c1c1c] border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300"
-                              }`}
-                            >
-                              {s}
-                            </button>
-                          ))}
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-5 gap-2">
+                          {CONFIDENCE_MOODS.map((m) => {
+                            const FaceIcon = m.Icon;
+                            const active = currentScore === m.score;
+                            return (
+                              <button
+                                key={m.score}
+                                type="button"
+                                disabled={locked}
+                                onClick={() => handleFieldChange(currentField.key, m.score)}
+                                className={`py-3.5 px-1.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
+                                  active
+                                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                                }`}
+                              >
+                                <FaceIcon className="w-6 h-6" strokeWidth={1.8} />
+                                <span className="text-[10px] font-mono font-semibold">
+                                  {m.score}/5
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 pt-1">
+                          {CONFIDENCE_MOODS.map((m) => {
+                            const active = currentScore === m.score;
+                            return (
+                              <button
+                                key={m.score}
+                                type="button"
+                                disabled={locked}
+                                onClick={() => handleFieldChange(currentField.key, m.score)}
+                                className={`w-full p-3.5 rounded-2xl border text-left transition ${
+                                  active
+                                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100"
+                                }`}
+                              >
+                                <p className="text-xs font-semibold">{m.label}</p>
+                                <p
+                                  className={`text-[11px] mt-0.5 ${
+                                    active
+                                      ? "text-white/80 dark:text-zinc-950/80"
+                                      : "text-zinc-500 dark:text-zinc-400"
+                                  }`}
+                                >
+                                  {m.desc}
+                                </p>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     );
-                  }
+                  })()}
 
-                  if (field.type === "photo") {
-                    const photoStr = typeof val === "string" ? val : "";
+                {/* 1..10 Rating fallback */}
+                {currentField.type === "rating" &&
+                  (currentField.max ?? 5) !== 5 && (() => {
+                    const min = currentField.min ?? 1;
+                    const max = currentField.max ?? 10;
+                    const scores = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+                    const current = Number(formValues[currentField.key] || 0);
                     return (
-                      <div key={field.key} className="space-y-2">
-                        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200 block">
-                          {labelText}
-                          {field.required ? " *" : ""}
-                        </label>
-                        <label className="block w-full rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 p-4 text-center cursor-pointer hover:bg-white/50 dark:hover:bg-white/[0.03] transition">
-                          {photoStr ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={photoStr}
-                              alt={labelText}
-                              className="mx-auto max-h-48 rounded-xl object-cover"
-                            />
-                          ) : (
-                            <div className="py-4 space-y-1 text-zinc-500 dark:text-zinc-400">
-                              <Camera className="w-5 h-5 mx-auto" />
-                              <span className="text-xs block">
-                                {locale === "id" ? "Pilih atau ambil foto" : "Tap to upload photo"}
-                              </span>
-                            </div>
-                          )}
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            disabled={uploadingPhotoKey === field.key}
-                            className="sr-only"
-                            onChange={async (ev) => {
-                              const file = ev.target.files?.[0];
-                              if (!file) return;
-                              if (file.size > 5 * 1024 * 1024) {
-                                setErrorMsg("Photo exceeds maximum allowed size of 5 MB.");
-                                return;
-                              }
-                              setUploadingPhotoKey(field.key);
-                              setErrorMsg(null);
-                              try {
-                                const compressed = await compressPhoto(file);
-                                const uploadRes = await fetch("/api/upload", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ dataUrl: compressed, type: "custom" }),
-                                });
-                                const uploadJson = await uploadRes.json().catch(() => null);
-                                if (!uploadRes.ok || !uploadJson?.success || !uploadJson.url) {
-                                  throw new Error(uploadJson?.message || "Failed to upload photo.");
-                                }
-                                handleFieldChange(field.key, uploadJson.url);
-                              } catch (err) {
-                                setErrorMsg(
-                                  err instanceof Error ? err.message : "Could not process selected photo."
-                                );
-                              } finally {
-                                setUploadingPhotoKey(null);
-                              }
-                            }}
-                          />
-                        </label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {scores.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={locked}
+                            onClick={() => handleFieldChange(currentField.key, s)}
+                            className={`h-12 rounded-2xl text-sm font-mono font-semibold border transition ${
+                              current === s
+                                ? "bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-zinc-950 dark:border-white"
+                                : "bg-white dark:bg-[#141414] border-zinc-200 dark:border-white/15 text-zinc-700 dark:text-zinc-300"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
                       </div>
                     );
-                  }
+                  })()}
 
-                  if (field.type === "textarea") {
-                    return (
-                      <div key={field.key} className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200 block">
-                          {labelText}
-                          {field.required ? " *" : ""}
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={typeof val === "string" ? val : ""}
-                          onChange={(ev) => handleFieldChange(field.key, ev.target.value)}
-                          placeholder={field.placeholder || ""}
-                          className="w-full px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#1c1c1c] border border-zinc-200 dark:border-white/10 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white"
-                        />
-                      </div>
-                    );
-                  }
-
-                  if (field.type === "select" && field.options && field.options.length > 0) {
-                    return (
-                      <div key={field.key} className="space-y-1.5">
-                        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200 block">
-                          {labelText}
-                          {field.required ? " *" : ""}
-                        </label>
-                        <select
-                          value={typeof val === "string" ? val : ""}
-                          onChange={(ev) => handleFieldChange(field.key, ev.target.value)}
-                          className="w-full px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#1c1c1c] border border-zinc-200 dark:border-white/10 text-sm text-zinc-950 dark:text-white outline-none"
-                        >
-                          <option value="">-- Select --</option>
-                          {field.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  }
-
+                {/* Fullbody Photo Upload step */}
+                {currentField.type === "photo" && (() => {
+                  const photoStr =
+                    typeof formValues[currentField.key] === "string"
+                      ? String(formValues[currentField.key])
+                      : "";
                   return (
-                    <div key={field.key} className="space-y-1.5">
-                      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200 block">
-                        {labelText}
-                        {field.unit ? ` (${field.unit})` : ""}
-                        {field.required ? " *" : ""}
+                    <div className="space-y-3">
+                      <label className="block w-full rounded-2xl border border-dashed border-zinc-300 dark:border-white/20 bg-white dark:bg-[#141414] p-6 text-center cursor-pointer hover:border-zinc-400 dark:hover:border-white/35 transition">
+                        {photoStr ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={photoStr}
+                            alt={currentField.label}
+                            className="mx-auto max-h-64 rounded-xl object-cover"
+                          />
+                        ) : (
+                          <div className="py-8 space-y-2 text-zinc-500 dark:text-zinc-400">
+                            <Camera className="w-7 h-7 mx-auto text-zinc-700 dark:text-zinc-300" />
+                            <span className="text-sm font-medium block text-zinc-900 dark:text-white">
+                              {locale === "id"
+                                ? "Ketuk untuk ambil atau unggah foto fullbody"
+                                : "Tap to take or upload fullbody photo"}
+                            </span>
+                            <span className="text-xs block">
+                              JPEG, PNG, WebP (Max 5 MB)
+                            </span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          disabled={locked || uploadingPhotoKey === currentField.key}
+                          className="sr-only"
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) {
+                              setErrorMsg("Photo exceeds maximum allowed size of 5 MB.");
+                              return;
+                            }
+                            setUploadingPhotoKey(currentField.key);
+                            setErrorMsg(null);
+                            try {
+                              const compressed = await compressPhoto(file);
+                              const uploadRes = await fetch("/api/upload", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ dataUrl: compressed, type: "custom" }),
+                              });
+                              const uploadJson = await uploadRes.json().catch(() => null);
+                              if (!uploadRes.ok || !uploadJson?.success || !uploadJson.url) {
+                                throw new Error(uploadJson?.message || "Failed to upload photo.");
+                              }
+                              handleFieldChange(currentField.key, uploadJson.url);
+                            } catch (err) {
+                              setErrorMsg(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Could not process selected photo."
+                              );
+                            } finally {
+                              setUploadingPhotoKey(null);
+                            }
+                          }}
+                        />
                       </label>
-                      <input
-                        type={field.type === "number" ? "number" : "text"}
-                        step={field.step ?? (field.type === "number" ? "any" : undefined)}
-                        min={field.min}
-                        max={field.max}
-                        value={val !== undefined && val !== null ? String(val) : ""}
-                        onChange={(ev) => handleFieldChange(field.key, ev.target.value)}
-                        placeholder={field.placeholder || ""}
-                        className="w-full px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#1c1c1c] border border-zinc-200 dark:border-white/10 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white"
-                      />
                     </div>
                   );
-                })}
+                })()}
+
+                {/* Textarea step */}
+                {currentField.type === "textarea" && (
+                  <textarea
+                    rows={4}
+                    disabled={locked}
+                    value={
+                      typeof formValues[currentField.key] === "string"
+                        ? String(formValues[currentField.key])
+                        : ""
+                    }
+                    onChange={(ev) => handleFieldChange(currentField.key, ev.target.value)}
+                    placeholder={currentField.placeholder || "Write your response..."}
+                    className="w-full px-4 py-3.5 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-sm text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white resize-none"
+                  />
+                )}
+
+                {/* Select step */}
+                {currentField.type === "select" &&
+                  currentField.options &&
+                  currentField.options.length > 0 && (
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {currentField.options.map((opt) => {
+                        const active = formValues[currentField.key] === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            disabled={locked}
+                            onClick={() => handleFieldChange(currentField.key, opt)}
+                            className={`w-full p-4 rounded-2xl border text-left text-sm font-semibold transition ${
+                              active
+                                ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                                : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                {/* Number / Text step (e.g., weightKg, weeklyGoalKg) */}
+                {(currentField.type === "number" || currentField.type === "text") && (
+                  <div className="relative">
+                    <input
+                      type={currentField.type === "number" ? "number" : "text"}
+                      inputMode={currentField.type === "number" ? "decimal" : "text"}
+                      step={currentField.step ?? (currentField.type === "number" ? "0.1" : undefined)}
+                      min={currentField.min}
+                      max={currentField.max}
+                      disabled={locked}
+                      value={
+                        formValues[currentField.key] !== undefined &&
+                        formValues[currentField.key] !== null
+                          ? String(formValues[currentField.key])
+                          : ""
+                      }
+                      onChange={(ev) => handleFieldChange(currentField.key, ev.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void handleNextOrSubmit();
+                        }
+                      }}
+                      placeholder={currentField.placeholder || ""}
+                      className="w-full px-4 py-4 pr-14 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-lg font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition"
+                    />
+                    {currentField.unit && (
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-zinc-400">
+                        {currentField.unit}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {errorMsg && (
                   <p className="text-xs text-red-600 dark:text-red-400 font-medium">{errorMsg}</p>
                 )}
+              </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2">
+              {!locked && (
+                <div className="pt-6">
                   <button
                     type="button"
-                    onClick={() => setActiveTask(null)}
-                    className="h-10 px-4 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-white/10 transition"
-                  >
-                    {t.common.cancel}
-                  </button>
-                  <button
-                    type="submit"
                     disabled={saving || uploadingPhotoKey !== null}
-                    className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 active:scale-95 transition"
+                    onClick={() => void handleNextOrSubmit()}
+                    className="w-full py-3.5 px-6 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold inline-flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 cursor-pointer"
                   >
-                    {(saving || uploadingPhotoKey !== null) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {(saving || uploadingPhotoKey !== null) && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
                     <span>
                       {uploadingPhotoKey !== null
                         ? locale === "id"
@@ -496,11 +828,18 @@ export function CustomTaskSection({
                           : "Uploading photo..."
                         : saving
                           ? t.common.saving
-                          : t.dashboard.submitCustomTask}
+                          : isLastStep
+                            ? t.dashboard.submitCustomTask
+                            : locale === "id"
+                              ? "Lanjut"
+                              : "Continue"}
                     </span>
+                    {!isLastStep && !saving && uploadingPhotoKey === null && (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
-              </form>
+              )}
             </div>
           </div>,
           document.body

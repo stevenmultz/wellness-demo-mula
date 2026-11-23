@@ -108,11 +108,16 @@ export async function submitDayProgressService(
     };
   }
 
-  const isAnytimeOnline =
-    programDay.program.locationType === "ONLINE" || !programDay.program.startAt;
-  const { isCalendarUnlocked, isPast2359 } = isAnytimeOnline
+  const effectiveStartAt =
+    programDay.program.locationType === "ONLINE"
+      ? enrollment.paidAt ??
+        enrollment.approvedAt ??
+        enrollment.createdAt ??
+        programDay.program.startAt
+      : programDay.program.startAt;
+  const { isCalendarUnlocked, isPast2359 } = !effectiveStartAt
     ? { isCalendarUnlocked: true, isPast2359: false }
-    : getProgramDayWibWindow(programDay.program.startAt!, programDay.dayNumber);
+    : getProgramDayWibWindow(effectiveStartAt, programDay.dayNumber);
 
   if (!isCalendarUnlocked) {
     return {
@@ -153,7 +158,58 @@ export async function submitDayProgressService(
       videoWatched !== undefined ? videoWatched : existingProgress?.isVideoWatched ?? false;
     const targetChecklist = safeJsonParse<string[]>(programDay.videoChecklistJson, []);
 
-    let verifiedCompleted = isCompleted;
+    const finalSelectedWorkout =
+      selectedWorkout !== undefined
+        ? selectedWorkout || null
+        : existingProgress?.selectedWorkout ?? null;
+    const finalWorkoutNotes =
+      workoutNotes !== undefined ? workoutNotes || null : existingProgress?.workoutNotes ?? null;
+    const finalEventFeedback =
+      eventFeedback !== undefined ? eventFeedback || null : existingProgress?.eventFeedback ?? null;
+    const finalMealCompliance =
+      mealCompliance !== undefined
+        ? mealCompliance || null
+        : existingProgress?.mealCompliance ?? null;
+    const finalMealNotes =
+      mealNotes !== undefined ? mealNotes || null : existingProgress?.mealNotes ?? null;
+    const finalDailyReflection =
+      dailyReflection !== undefined
+        ? dailyReflection || null
+        : existingProgress?.dailyReflection ?? null;
+    const finalHappinessRate =
+      happinessRate !== undefined ? happinessRate : existingProgress?.happinessRate ?? null;
+    const finalAssessmentResponse =
+      assessmentResponse !== undefined
+        ? assessmentResponse || null
+        : existingProgress?.assessmentResponse ?? null;
+
+    const sleepDone = Boolean(
+      finalBedtime &&
+        finalWakeTime &&
+        finalBedtime !== "SKIPPED" &&
+        finalWakeTime !== "SKIPPED"
+    );
+    const mealDone = Boolean(finalMealCompliance && finalMealCompliance !== "SKIPPED");
+    const reflectionDone = Boolean(finalDailyReflection && finalDailyReflection !== "SKIPPED");
+    const activityHasInput =
+      programDay.dayType === "TRAINING_DAY"
+        ? Boolean(
+            nextVideoWatched ||
+              (finalWorkoutNotes && finalWorkoutNotes !== "SKIPPED") ||
+              (finalSelectedWorkout && finalSelectedWorkout !== "SKIPPED") ||
+              checklistCompleted.length > 0
+          )
+        : programDay.dayType === "REST_DAY"
+          ? Boolean(
+              (finalWorkoutNotes && finalWorkoutNotes !== "SKIPPED") ||
+                checklistCompleted.length > 0
+            )
+          : Boolean(finalEventFeedback && finalEventFeedback !== "SKIPPED");
+
+    const allCoreTasksFilled =
+      sleepDone && activityHasInput && mealDone && reflectionDone;
+
+    let verifiedCompleted = Boolean(isCompleted || allCoreTasksFilled);
     if (verifiedCompleted) {
       if (programDay.dayType === "TRAINING_DAY" && programDay.videoUrl && !nextVideoWatched) {
         verifiedCompleted = false;
@@ -165,9 +221,7 @@ export async function submitDayProgressService(
           targetChecklist
         );
         const activeOption =
-          (selectedWorkout !== undefined ? selectedWorkout : existingProgress?.selectedWorkout) ||
-          groups[0]?.optionName ||
-          "Workout";
+          finalSelectedWorkout || groups[0]?.optionName || "Workout";
 
         const activeGroup =
           groups.find(
@@ -214,30 +268,17 @@ export async function submitDayProgressService(
       isVideoWatched: nextVideoWatched,
       isCompleted: verifiedCompleted,
       checklistCompletedJson: checklistCompleted as Prisma.InputJsonValue,
-      selectedWorkout:
-        selectedWorkout !== undefined
-          ? selectedWorkout || null
-          : existingProgress?.selectedWorkout ?? null,
-      workoutNotes:
-        workoutNotes !== undefined ? workoutNotes || null : existingProgress?.workoutNotes ?? null,
-      eventFeedback:
-        eventFeedback !== undefined ? eventFeedback || null : existingProgress?.eventFeedback ?? null,
-      mealCompliance:
-        mealCompliance !== undefined ? mealCompliance || null : existingProgress?.mealCompliance ?? null,
-      mealNotes: mealNotes !== undefined ? mealNotes || null : existingProgress?.mealNotes ?? null,
-      dailyReflection:
-        dailyReflection !== undefined
-          ? dailyReflection || null
-          : existingProgress?.dailyReflection ?? null,
-      happinessRate:
-        happinessRate !== undefined ? happinessRate : existingProgress?.happinessRate ?? null,
+      selectedWorkout: finalSelectedWorkout,
+      workoutNotes: finalWorkoutNotes,
+      eventFeedback: finalEventFeedback,
+      mealCompliance: finalMealCompliance,
+      mealNotes: finalMealNotes,
+      dailyReflection: finalDailyReflection,
+      happinessRate: finalHappinessRate,
       bedtime: finalBedtime,
       wakeTime: finalWakeTime,
       sleepDurationMinutes: finalSleepMinutes,
-      assessmentResponse:
-        assessmentResponse !== undefined
-          ? assessmentResponse || null
-          : existingProgress?.assessmentResponse ?? null,
+      assessmentResponse: finalAssessmentResponse,
       completedAt: verifiedCompleted ? existingProgress?.completedAt ?? new Date() : null,
     };
 

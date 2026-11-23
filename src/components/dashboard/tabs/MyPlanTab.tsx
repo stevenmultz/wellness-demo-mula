@@ -6,7 +6,6 @@ import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   AlertCircle,
   Calendar,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -255,31 +254,18 @@ export function MyPlanOverview({
 
   const activeBannerDate = getProgramDayDate(activeSelectedDay);
   const localeTag = locale === "id" ? "id-ID" : "en-GB";
-  const activeMonthShort = new Intl.DateTimeFormat(localeTag, {
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
-  const activeDayOfMonth = new Intl.DateTimeFormat(localeTag, {
-    day: "numeric",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
-  const activeWeekdayLong = new Intl.DateTimeFormat(localeTag, {
-    weekday: "long",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
   const activeFullDateStr = new Intl.DateTimeFormat(localeTag, {
     day: "numeric",
     month: "short",
     year: "numeric",
     timeZone: "Asia/Jakarta",
   }).format(activeBannerDate);
-  const isBannerDateToday = !day || !activeSelectedDay || activeSelectedDay.id === day.id;
   const activeDayTypeLabel =
     activeSelectedDay?.dayType === "REST_DAY"
-      ? "Rest Day"
+      ? "Rest"
       : activeSelectedDay?.dayType === "TRAINING_DAY"
       ? "Training"
-      : "Session";
+      : "Connect";
   const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
 
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
@@ -413,7 +399,7 @@ export function MyPlanOverview({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
 
-        {/* Top Row: Engaging Editorial Calendar Date Widget */}
+        {/* Top Row: Simple Editorial Date & Day Type Button */}
         <div className="relative z-10 flex items-start justify-between gap-3">
           <button
             type="button"
@@ -426,38 +412,19 @@ export function MyPlanOverview({
             className="group inline-flex items-center gap-2.5 p-1.5 pr-3.5 rounded-2xl backdrop-blur-md active:scale-95 transition cursor-pointer text-left"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
-            {/* Mini Calendar Leaf Tile */}
             <span
-              className="w-9 h-9 rounded-xl flex flex-col items-center justify-center shrink-0 leading-none shadow-xs"
-              style={{ backgroundColor: "#ffffff" }}
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-xs"
+              style={{ backgroundColor: "#ffffff", color: "#09090b" }}
             >
-              <span
-                className="text-[8px] font-mono font-bold uppercase tracking-wider leading-none"
-                style={{ color: "#9E2A3A" }}
-              >
-                {activeMonthShort}
-              </span>
-              <span
-                className="text-sm font-geometric font-bold tabular-nums leading-none mt-0.5"
-                style={{ color: "#09090b" }}
-              >
-                {activeDayOfMonth}
-              </span>
+              <Calendar className="w-4 h-4 shrink-0" />
             </span>
 
-            {/* Date Meta: Today/Weekday + Full Date & Day Type */}
             <span className="flex flex-col min-w-0">
-              <span className="text-xs font-geometric font-semibold text-white leading-tight flex items-center gap-1.5">
-                <span>
-                  {isBannerDateToday
-                    ? locale === "id"
-                      ? `Hari Ini · ${activeWeekdayLong}`
-                      : `Today · ${activeWeekdayLong}`
-                    : activeWeekdayLong}
-                </span>
+              <span className="text-xs font-geometric font-semibold text-white leading-tight">
+                {activeFullDateStr}
               </span>
-              <span className="text-[10px] font-mono text-white/75 leading-tight mt-0.5">
-                {activeFullDateStr} · {activeDayTypeLabel}
+              <span className="text-[10px] font-mono text-white/80 leading-tight mt-0.5">
+                {activeDayTypeLabel}
               </span>
             </span>
 
@@ -465,7 +432,7 @@ export function MyPlanOverview({
           </button>
         </div>
 
-        {/* Bottom Content: Title, Action Buttons, and Progress Bar with Day X/Y */}
+        {/* Bottom Content: Title, Action Buttons, and Day X/Y + Progress Bar */}
         <div className="relative z-10 space-y-2.5 pt-6">
           {/* Program title */}
           <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
@@ -494,9 +461,12 @@ export function MyPlanOverview({
             </div>
           )}
 
-          {/* Progress bar + Day X/Y right beside it */}
+          {/* Day X/Y on the left + Progress bar on the right */}
           {totalProgramDays > 0 && (
             <div className="flex items-center gap-3 pt-1">
+              <span className="text-[11px] sm:text-xs font-mono font-semibold text-white/95 tracking-wider tabular-nums shrink-0">
+                Day {activeDayNum}/{totalProgramDays}
+              </span>
               <div
                 className="flex-1 h-2 rounded-full overflow-hidden"
                 style={{ backgroundColor: "rgba(255, 255, 255, 0.28)" }}
@@ -517,9 +487,6 @@ export function MyPlanOverview({
                   }}
                 />
               </div>
-              <span className="text-[11px] sm:text-xs font-mono font-semibold text-white/95 tracking-wider tabular-nums shrink-0">
-                Day {activeDayNum}/{totalProgramDays}
-              </span>
             </div>
           )}
         </div>
@@ -738,13 +705,12 @@ export function MyPlanOverview({
                       const isSelected =
                         !!matchedDay && matchedDay.id === activeSelectedDay?.id;
                       const isTodayCell = !!matchedDay && matchedDay.id === day?.id;
-                      const isDoneCell = !!matchedDay?.userProgress?.isCompleted;
 
                       if (!matchedDay) {
                         return (
                           <div
                             key={key}
-                            className="h-11 rounded-xl flex flex-col items-center justify-center text-xs font-mono text-zinc-300 dark:text-zinc-700 select-none"
+                            className="h-10 rounded-xl flex items-center justify-center text-xs font-mono text-zinc-300 dark:text-zinc-700 select-none"
                           >
                             <span>{dateNum}</span>
                           </div>
@@ -759,7 +725,7 @@ export function MyPlanOverview({
                             setSelectedDayId(matchedDay.id);
                             setShowCalendarModal(false);
                           }}
-                          className={`h-11 rounded-xl flex flex-col items-center justify-center transition active:scale-95 cursor-pointer relative ${
+                          className={`h-10 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative ${
                             isSelected
                               ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
                               : isTodayCell
@@ -769,16 +735,6 @@ export function MyPlanOverview({
                         >
                           <span className="text-xs font-mono leading-none">
                             {dateNum}
-                          </span>
-                          <span
-                            className={`text-[9px] font-mono leading-none mt-1 inline-flex items-center gap-0.5 ${
-                              isSelected
-                                ? "text-white/80 dark:text-zinc-900/80"
-                                : "text-zinc-500 dark:text-zinc-400"
-                            }`}
-                          >
-                            <span>D{matchedDay.dayNumber}</span>
-                            {isDoneCell && <Check className="w-2 h-2 stroke-[2.5]" />}
                           </span>
                         </button>
                       );

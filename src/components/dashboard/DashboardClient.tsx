@@ -61,8 +61,12 @@ function isCohortEnded(
   locationType?: string | null,
   days?: ProgramItem["days"]
 ) {
-  if (locationType === "ONLINE" || (!startDate && !endDate)) {
-    return Boolean(days && days.length > 0 && days.every((d) => !!d.userProgress?.isCompleted));
+  void locationType;
+  if (days && days.length > 0 && days.every((d) => !!d.userProgress?.isCompleted)) {
+    return true;
+  }
+  if (!startDate && !endDate) {
+    return false;
   }
   const nowMs = Date.now();
   if (endDate) {
@@ -72,10 +76,25 @@ function isCohortEnded(
   }
   if (startDate && dayCount) {
     const { year, month, date } = getWibCalendarDate(startDate);
-    const endWibCutoffMs = Date.UTC(year, month, date + dayCount, 23, 59, 59, 999) - WIB_OFFSET_MS;
+    const endWibCutoffMs = Date.UTC(year, month, date + Math.max(0, dayCount - 1), 23, 59, 59, 999) - WIB_OFFSET_MS;
     return nowMs > endWibCutoffMs;
   }
   return false;
+}
+
+function findCurrentProgramDayIndex(days: ProgramItem["days"] | undefined): number {
+  if (!days || days.length === 0) return -1;
+  const hasCalendarSchedule = days.some((d) => Boolean(d.unlockDate));
+  if (hasCalendarSchedule) {
+    const liveIdx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
+    if (liveIdx >= 0) return liveIdx;
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (days[i].isCalendarUnlocked) return i;
+    }
+    return 0;
+  }
+  const incompleteIdx = days.findIndex((d) => !d.userProgress?.isCompleted);
+  return incompleteIdx >= 0 ? incompleteIdx : days.length - 1;
 }
 
 function isCohortUpcoming(startDate?: string | Date | null, locationType?: string | null) {
@@ -231,30 +250,7 @@ export function DashboardClient({
     myEnrolledPrograms.find((p) => p.id === selectedProgId) ||
     myEnrolledPrograms[0] ||
     null;
-  const isCurrentProgramOnline = currentProgram?.locationType === "ONLINE";
-  const todayIndex = currentProgram?.days
-    ? isCurrentProgramOnline
-      ? (() => {
-          const incompleteIdx = currentProgram.days.findIndex(
-            (d) => !d.userProgress?.isCompleted
-          );
-          return incompleteIdx >= 0
-            ? incompleteIdx
-            : currentProgram.days.length > 0
-              ? currentProgram.days.length - 1
-              : -1;
-        })()
-      : (() => {
-          const liveIdx = currentProgram.days.findIndex(
-            (d) => d.isCalendarUnlocked && !d.isPast2359
-          );
-          if (liveIdx >= 0) return liveIdx;
-          for (let i = currentProgram.days.length - 1; i >= 0; i--) {
-            if (currentProgram.days[i].isCalendarUnlocked) return i;
-          }
-          return -1;
-        })()
-    : -1;
+  const todayIndex = findCurrentProgramDayIndex(currentProgram?.days);
   const currentDay = todayIndex >= 0 ? currentProgram?.days?.[todayIndex] || null : null;
   const calendarDay = currentDay;
 
@@ -468,20 +464,7 @@ export function DashboardClient({
     const totalDays = days.length || e.dayCount || 0;
     const completedDays = days.filter((d) => !!d.userProgress?.isCompleted).length;
     const locType = e.locationType || fullProg?.locationType;
-    const liveIdx =
-      locType === "ONLINE"
-        ? (() => {
-            const idx = days.findIndex((d) => !d.userProgress?.isCompleted);
-            return idx >= 0 ? idx : days.length > 0 ? days.length - 1 : -1;
-          })()
-        : (() => {
-            const idx = days.findIndex((d) => d.isCalendarUnlocked && !d.isPast2359);
-            if (idx >= 0) return idx;
-            for (let i = days.length - 1; i >= 0; i--) {
-              if (days[i].isCalendarUnlocked) return i;
-            }
-            return -1;
-          })();
+    const liveIdx = findCurrentProgramDayIndex(days);
     const liveDay = liveIdx >= 0 ? days[liveIdx] : null;
     const currentDayNumber = liveDay?.dayNumber || 0;
     const isCompleted = isCohortEnded(
@@ -831,21 +814,16 @@ export function DashboardClient({
                 completed: completedDaysCount,
                 skipped: skippedDaysCount,
                 remaining:
-                  (isCurrentProgramOnline
-                    ? currentProgram?.days.filter((d) => !d.userProgress?.isCompleted).length
-                    : currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted).length) || 0,
+                  currentProgram?.days.filter((d) => !d.isPast2359 && !d.userProgress?.isCompleted)
+                    .length || 0,
                 segments: (currentProgram?.days || []).map((d) =>
                   d.userProgress?.isCompleted
                     ? ("done" as const)
-                    : isCurrentProgramOnline
-                      ? d.id === currentDay?.id
-                        ? ("today" as const)
+                    : d.isCalendarUnlocked && !d.isPast2359
+                      ? ("today" as const)
+                      : d.isPast2359
+                        ? ("skipped" as const)
                         : ("upcoming" as const)
-                      : d.isCalendarUnlocked && !d.isPast2359
-                        ? ("today" as const)
-                        : d.isPast2359
-                          ? ("skipped" as const)
-                          : ("upcoming" as const)
                 ),
               }}
               onOpenDetails={() => {

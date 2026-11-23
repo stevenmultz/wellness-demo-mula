@@ -143,12 +143,17 @@ async function DashboardContent() {
       .then((rows) => rows.reverse()),
   ]);
 
-  const userActiveProgramIds = new Set(
-    enrollments.filter((e) => e.status === "ACTIVE").map((e) => e.program.id)
+  const activeEnrollmentByProgramId = new Map(
+    enrollments.filter((e) => e.status === "ACTIVE").map((e) => [e.program.id, e])
   );
+  const userActiveProgramIds = new Set(activeEnrollmentByProgramId.keys());
 
   const myPrograms = enrollments.map((e) => {
     const tax = serializeProgramTaxonomy(e.program);
+    const effectiveStart =
+      e.program.locationType === "ONLINE"
+        ? e.paidAt ?? e.approvedAt ?? e.createdAt ?? e.program.startAt
+        : e.program.startAt;
     return {
       enrollmentId: e.id,
       programId: e.program.id,
@@ -169,7 +174,7 @@ async function DashboardContent() {
       venueAddress: e.program.venueAddress,
       communityLink: e.program.communityLink,
       dayCount: e.program._count.days,
-      startDate: e.program.startAt,
+      startDate: effectiveStart,
       endDate: e.program.endAt,
       registrationDeadline: e.program.registrationDeadlineAt,
       status: e.status,
@@ -188,17 +193,27 @@ async function DashboardContent() {
   // Today's / tomorrow's tasks per ACTIVE program, resolved on the server in WIB (app timezone)
   const dailyPlans: ProgramDailyPlan[] = allProgramsData
     .filter((p) => userActiveProgramIds.has(p.id))
-    .map((p) =>
-      resolveProgramDailyPlan(
+    .map((p) => {
+      const enr = activeEnrollmentByProgramId.get(p.id);
+      const effectiveStart =
+        p.locationType === "ONLINE"
+          ? enr?.paidAt ?? enr?.approvedAt ?? enr?.createdAt ?? p.startAt
+          : p.startAt;
+      return resolveProgramDailyPlan(
         p.id,
-        p.startAt,
+        effectiveStart,
         p.days.map((d) => {
           const prog = d.progresses[0] || null;
+          const normalizedDayType =
+            p.locationType === "ONLINE" &&
+            (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
+              ? "REST_DAY"
+              : d.dayType;
           return {
             id: d.id,
             dayNumber: d.dayNumber,
             title: d.title,
-            dayType: d.dayType,
+            dayType: normalizedDayType,
             videoUrl: d.videoUrl,
             mealRecommendation: d.mealRecommendation || null,
             restInstructions: d.restInstructions || null,
@@ -233,11 +248,19 @@ async function DashboardContent() {
         }),
         now,
         p.locationType
-      )
-    );
+      );
+    });
 
   const allPrograms = allProgramsData.map((p) => {
     const isPaidMember = userActiveProgramIds.has(p.id);
+    const activeEnrollment = activeEnrollmentByProgramId.get(p.id);
+    const effectiveStartAt =
+      p.locationType === "ONLINE"
+        ? activeEnrollment?.paidAt ??
+          activeEnrollment?.approvedAt ??
+          activeEnrollment?.createdAt ??
+          p.startAt
+        : p.startAt;
     const tax = serializeProgramTaxonomy(p);
     const normalizedStatus =
       p.status === "DONE" || p.status === "ARCHIVED"
@@ -289,23 +312,28 @@ async function DashboardContent() {
       scientificReferences: parseReferencesList(p.scientificReferencesJson, DEFAULT_PROGRAM_REFERENCES),
       programGuidelines: parseStringList(p.programGuidelinesJson, DEFAULT_PROGRAM_GUIDELINES),
       days: p.days.map((d) => {
-        const isAnytime = p.locationType === "ONLINE" || !p.startAt;
-        // HYBRID cohorts use strict WIB calendar drip (00:00 WIB on batchStart + (dayNumber - 1) days).
-        // Full ONLINE programs have no date range and unlock all days immediately for anytime access.
-        const { unlockDate, isCalendarUnlocked, isPast2359 } = isAnytime
+        const normalizedDayType =
+          p.locationType === "ONLINE" &&
+          (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
+            ? ("REST_DAY" as const)
+            : d.dayType;
+        const hasScheduleStart = Boolean(effectiveStartAt);
+        // Both HYBRID cohorts (from batchStart) and enrolled ONLINE programs (from member join date)
+        // use strict WIB calendar drip (00:00 WIB on start + (dayNumber - 1) days).
+        const { unlockDate, isCalendarUnlocked, isPast2359 } = !hasScheduleStart
           ? { unlockDate: null, isCalendarUnlocked: true, isPast2359: false }
-          : getProgramDayWibWindow(p.startAt!, d.dayNumber, now);
+          : getProgramDayWibWindow(effectiveStartAt!, d.dayNumber, now);
 
         const progRecord = d.progresses[0] || null;
         const checklistItems: string[] = safeJsonParse<string[]>(d.videoChecklistJson, []);
         const completedChecklist: string[] = safeJsonParse<string[]>(progRecord?.checklistCompletedJson, []);
 
         const videoDone =
-          d.dayType !== "TRAINING_DAY" || !d.videoUrl
+          normalizedDayType !== "TRAINING_DAY" || !d.videoUrl
             ? true
             : !!progRecord?.isVideoWatched || !!progRecord?.isCompleted;
         let checklistDone = checklistItems.length === 0 || !!progRecord?.isCompleted;
-        if (!checklistDone && d.dayType === "TRAINING_DAY") {
+        if (!checklistDone && normalizedDayType === "TRAINING_DAY") {
           const groups = parseWorkoutOptionGroups(
             safeJsonParse<string[]>(d.workoutOptionsJson, []),
             checklistItems
@@ -336,16 +364,51 @@ async function DashboardContent() {
           (ct) => ct.submissions.length > 0
         );
 
+        const sleepDone = Boolean(
+          progRecord?.bedtime &&
+            progRecord?.wakeTime &&
+            progRecord.bedtime !== "SKIPPED" &&
+            progRecord.wakeTime !== "SKIPPED"
+        );
+        const mealDone = Boolean(
+          progRecord?.mealCompliance && progRecord.mealCompliance !== "SKIPPED"
+        );
+        const reflectionDone = Boolean(
+          progRecord?.dailyReflection && progRecord.dailyReflection !== "SKIPPED"
+        );
+        const activityDone =
+          normalizedDayType === "TRAINING_DAY"
+            ? videoDone &&
+              checklistDone &&
+              Boolean(
+                progRecord?.isCompleted ||
+                  progRecord?.isVideoWatched ||
+                  (progRecord?.workoutNotes && progRecord.workoutNotes !== "SKIPPED") ||
+                  (progRecord?.selectedWorkout && progRecord.selectedWorkout !== "SKIPPED") ||
+                  completedChecklist.length > 0
+              )
+            : normalizedDayType === "REST_DAY"
+              ? Boolean(
+                  progRecord?.isCompleted ||
+                    (progRecord?.workoutNotes && progRecord.workoutNotes !== "SKIPPED") ||
+                    completedChecklist.length > 0
+                )
+              : Boolean(
+                  progRecord?.isCompleted ||
+                    (progRecord?.eventFeedback && progRecord.eventFeedback !== "SKIPPED")
+                );
+
         const isFullyCompleted =
           (!!progRecord?.isCompleted ||
             (!!progRecord &&
-              videoDone &&
-              checklistDone &&
-              (checklistItems.length === 0 || completedChecklist.length > 0))) &&
+              sleepDone &&
+              activityDone &&
+              mealDone &&
+              reflectionDone)) &&
           allRequiredCustomDone;
 
-        // SOW 5.3 Skip Day Logic (HYBRID scheduled cohorts only; ONLINE is anytime)
-        const isSkipped = !isAnytime && isPast2359 && !isFullyCompleted;
+        // SOW 5.3 Skip Day Logic (applies to both scheduled HYBRID and time-based enrolled ONLINE programs)
+        const isSkipped = hasScheduleStart && isPast2359 && !isFullyCompleted;
 
         // SOW 5.7 Content & Video Protection:
         // Restrict media URLs strictly to verified paying members on unlocked days
@@ -355,7 +418,7 @@ async function DashboardContent() {
           id: d.id,
           dayNumber: d.dayNumber,
           title: d.title,
-          dayType: d.dayType,
+          dayType: normalizedDayType,
           workoutOptions: canAccessMedia ? safeJsonParse<string[]>(d.workoutOptionsJson, []) : [],
           sleepRecommendation: canAccessMedia ? d.sleepRecommendation || null : null,
           dayNotifications: canAccessMedia

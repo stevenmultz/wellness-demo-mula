@@ -70,13 +70,17 @@ export async function wellnessUserSubmitCustomTask(
     };
   }
 
-  const isOnlineProgram =
-    customTask.programDay.program.locationType === "ONLINE" ||
-    !customTask.programDay.program.startAt;
-  const { isCalendarUnlocked, isPast2359 } = isOnlineProgram
+  const effectiveStartAt =
+    customTask.programDay.program.locationType === "ONLINE"
+      ? enrollment.paidAt ??
+        enrollment.approvedAt ??
+        enrollment.createdAt ??
+        customTask.programDay.program.startAt
+      : customTask.programDay.program.startAt;
+  const { isCalendarUnlocked, isPast2359 } = !effectiveStartAt
     ? { isCalendarUnlocked: true, isPast2359: false }
     : getProgramDayWibWindow(
-        customTask.programDay.program.startAt!,
+        effectiveStartAt,
         customTask.programDay.dayNumber
       );
 

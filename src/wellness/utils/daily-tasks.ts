@@ -89,7 +89,7 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     tasks.push({
       id: `${day.id}:WORKOUT`,
       kind: "WORKOUT",
-      name: "Daily Activity",
+      name: "Online Training",
       description: day.title,
       isDone:
         !!p &&
@@ -103,7 +103,7 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     tasks.push({
       id: `${day.id}:REST`,
       kind: "REST",
-      name: "Daily Activity",
+      name: "Rest Activity",
       description: day.restInstructions || day.title,
       isDone:
         !!p?.isCompleted ||
@@ -116,7 +116,7 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     tasks.push({
       id: `${day.id}:EVENT`,
       kind: "EVENT",
-      name: "Daily Activity",
+      name: "Connect",
       description: day.eventTitle || day.eventDetails || day.title,
       isDone:
         !!p?.isCompleted ||
@@ -159,8 +159,9 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
 
 /**
  * Resolves today's / tomorrow's day for a program.
- * - HYBRID cohorts resolve by WIB calendar date (00:00 WIB window).
- * - ONLINE anytime programs have no fixed dates and surface the next uncompleted day.
+ * - Both HYBRID cohorts (using program startAt) and enrolled ONLINE programs (using member enrollment start date)
+ *   resolve by WIB calendar date (00:00 WIB window).
+ * - Only falls back to next uncompleted day if no startDate is provided.
  */
 export function resolveProgramDailyPlan(
   programId: string,
@@ -169,7 +170,8 @@ export function resolveProgramDailyPlan(
   now: Date = new Date(),
   locationType?: string | null
 ): ProgramDailyPlan {
-  if (locationType === "ONLINE" || !startDate) {
+  void locationType;
+  if (!startDate) {
     const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
     const todayDay =
       sorted.find((d) => !d.progress?.isCompleted) || sorted[sorted.length - 1] || null;

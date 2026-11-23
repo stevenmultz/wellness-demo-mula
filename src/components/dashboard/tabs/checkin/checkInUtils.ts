@@ -68,15 +68,15 @@ export function getTasksForDay(dayType: string) {
     },
     isRest
       ? {
-          title: "Rest Day",
+          title: "Rest Activity",
           description: "Recovery guidelines & body check-in",
           Icon: Heart,
           image: "/coach2.webp",
         }
       : isConnect
         ? {
-            title: "Community Session",
-            description: "Session takeaways & attendance",
+            title: "Connect",
+            description: "Community session takeaways & attendance",
             Icon: Users,
             image: "/coach.webp",
           }
@@ -88,12 +88,12 @@ export function getTasksForDay(dayType: string) {
           },
     {
       title: "Meal Notes",
-      description: "Daily food intake & nutrition log",
+      description: "Daily food intake, macros & water log",
       Icon: Utensils,
       image: "/pic.webp",
     },
     {
-      title: "Daily Notes",
+      title: "Daily Reflection",
       description: "Daily energy rating & reflection",
       Icon: Sparkles,
       image: "/coach3.webp",
@@ -172,8 +172,11 @@ export type SubStepId =
   | "connect_rating"
   | "meal_count"
   | "meal_entry_1"
+  | "meal_off_1"
   | "meal_entry_2"
+  | "meal_off_2"
   | "meal_entry_3"
+  | "meal_off_3"
   | "meal_nutrition"
   | "meal_mood"
   | "reflection_journal"
@@ -182,6 +185,64 @@ export type SubStepId =
 export interface MealSlotEntry {
   status: "followed" | "similar" | "off_track";
   mealItem?: string;
+  calories?: number | null;
+  carbsG?: number | null;
+  proteinG?: number | null;
+  fatG?: number | null;
+}
+
+export function computeMealTotals(
+  entries: MealSlotEntry[],
+  mealsCount: number
+): { calories: number; carbsG: number; proteinG: number; fatG: number } {
+  const count = Math.max(1, Math.min(3, mealsCount || 1));
+  const recCalPerMeal = Math.round(1950 / count);
+  const recCarbsPerMeal = Math.round(195 / count);
+  const recProteinPerMeal = Math.round(140 / count);
+  const recFatPerMeal = Math.round(65 / count);
+
+  let totalCal = 0;
+  let totalCarbs = 0;
+  let totalProtein = 0;
+  let totalFat = 0;
+
+  for (let i = 0; i < count; i++) {
+    const e = entries[i];
+    if (!e) continue;
+    if (e.status === "followed" || e.status === "similar") {
+      totalCal += recCalPerMeal;
+      totalCarbs += recCarbsPerMeal;
+      totalProtein += recProteinPerMeal;
+      totalFat += recFatPerMeal;
+    } else if (e.status === "off_track") {
+      const c = typeof e.carbsG === "number" && e.carbsG > 0 ? e.carbsG : 0;
+      const p = typeof e.proteinG === "number" && e.proteinG > 0 ? e.proteinG : 0;
+      const f = typeof e.fatG === "number" && e.fatG > 0 ? e.fatG : 0;
+      const cal =
+        typeof e.calories === "number" && e.calories > 0
+          ? e.calories
+          : c > 0 || p > 0 || f > 0
+            ? Math.round(c * 4 + p * 4 + f * 9)
+            : 0;
+      totalCal += cal;
+      if (c > 0 || p > 0 || f > 0) {
+        totalCarbs += c;
+        totalProtein += p;
+        totalFat += f;
+      } else if (cal > 0) {
+        totalCarbs += Math.round((cal * 0.48) / 4);
+        totalProtein += Math.round((cal * 0.2) / 4);
+        totalFat += Math.round((cal * 0.32) / 9);
+      }
+    }
+  }
+
+  return {
+    calories: totalCal,
+    carbsG: totalCarbs,
+    proteinG: totalProtein,
+    fatG: totalFat,
+  };
 }
 
 export interface MealDraft {
