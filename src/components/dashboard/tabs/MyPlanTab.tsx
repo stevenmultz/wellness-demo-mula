@@ -254,16 +254,33 @@ export function MyPlanOverview({
   };
 
   const activeBannerDate = getProgramDayDate(activeSelectedDay);
-  const activeBannerDateStr = new Intl.DateTimeFormat(
-    locale === "id" ? "id-ID" : "en-GB",
-    {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      timeZone: "Asia/Jakarta",
-    }
-  ).format(activeBannerDate);
+  const localeTag = locale === "id" ? "id-ID" : "en-GB";
+  const activeMonthShort = new Intl.DateTimeFormat(localeTag, {
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const activeDayOfMonth = new Intl.DateTimeFormat(localeTag, {
+    day: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const activeWeekdayLong = new Intl.DateTimeFormat(localeTag, {
+    weekday: "long",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const activeFullDateStr = new Intl.DateTimeFormat(localeTag, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const isBannerDateToday = !day || !activeSelectedDay || activeSelectedDay.id === day.id;
+  const activeDayTypeLabel =
+    activeSelectedDay?.dayType === "REST_DAY"
+      ? "Rest Day"
+      : activeSelectedDay?.dayType === "TRAINING_DAY"
+      ? "Training"
+      : "Session";
+  const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
 
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const d = getProgramDayDate(day);
@@ -387,7 +404,7 @@ export function MyPlanOverview({
       </div>
 
       {/* 1. Contained Image Banner */}
-      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[205px] sm:min-h-[235px] flex flex-col justify-end p-5 sm:p-7 pb-6 sm:pb-8 text-white">
+      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[215px] sm:min-h-[245px] flex flex-col justify-between p-5 sm:p-7 text-white">
         {program?.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
@@ -396,52 +413,60 @@ export function MyPlanOverview({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
 
-        {/* Progress bar on image banner (High-contrast translucent track + solid pure white fill immune to dashboard-unboxed div.bg-white) */}
-        {totalProgramDays > 0 && (
-          <div
-            className="absolute bottom-2.5 inset-x-5 sm:inset-x-7 h-2 rounded-full z-20 overflow-hidden"
-            style={{ backgroundColor: "rgba(255, 255, 255, 0.28)" }}
-            role="progressbar"
-            aria-valuenow={displayDayNumber}
-            aria-valuemin={1}
-            aria-valuemax={totalProgramDays}
-            title={`Day ${displayDayNumber} of ${totalProgramDays}`}
+        {/* Top Row: Engaging Editorial Calendar Date Widget */}
+        <div className="relative z-10 flex items-start justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const dDate = getProgramDayDate(activeSelectedDay);
+              setCalendarMonth(new Date(dDate.getFullYear(), dDate.getMonth(), 1));
+              setShowCalendarModal(true);
+            }}
+            aria-label="Select date from calendar"
+            className="group inline-flex items-center gap-2.5 p-1.5 pr-3.5 rounded-2xl backdrop-blur-md active:scale-95 transition cursor-pointer text-left"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
+            {/* Mini Calendar Leaf Tile */}
             <span
-              className="block h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.min(100, Math.max(5, Math.round((displayDayNumber / totalProgramDays) * 100)))}%`,
-                backgroundColor: "#ffffff",
-              }}
-            />
-          </div>
-        )}
-
-        <div className="relative z-10 space-y-2">
-          {/* Clickable Today / Selected Date on Banner + Day X/Y */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const dDate = getProgramDayDate(activeSelectedDay);
-                setCalendarMonth(new Date(dDate.getFullYear(), dDate.getMonth(), 1));
-                setShowCalendarModal(true);
-              }}
-              aria-label="Select date from calendar"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium text-white active:scale-95 transition cursor-pointer"
-              style={{ backgroundColor: "rgba(255, 255, 255, 0.18)" }}
+              className="w-9 h-9 rounded-xl flex flex-col items-center justify-center shrink-0 leading-none shadow-xs"
+              style={{ backgroundColor: "#ffffff" }}
             >
-              <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
-              <span>{activeBannerDateStr}</span>
-              <ChevronDown className="w-3 h-3 text-white/85 shrink-0" />
-            </button>
-            {totalProgramDays > 0 && (
-              <span className="text-xs font-mono font-medium text-white/85 tracking-wider">
-                Day {activeSelectedDay?.dayNumber || displayDayNumber}/{totalProgramDays}
+              <span
+                className="text-[8px] font-mono font-bold uppercase tracking-wider leading-none"
+                style={{ color: "#9E2A3A" }}
+              >
+                {activeMonthShort}
               </span>
-            )}
-          </div>
+              <span
+                className="text-sm font-geometric font-bold tabular-nums leading-none mt-0.5"
+                style={{ color: "#09090b" }}
+              >
+                {activeDayOfMonth}
+              </span>
+            </span>
 
+            {/* Date Meta: Today/Weekday + Full Date & Day Type */}
+            <span className="flex flex-col min-w-0">
+              <span className="text-xs font-geometric font-semibold text-white leading-tight flex items-center gap-1.5">
+                <span>
+                  {isBannerDateToday
+                    ? locale === "id"
+                      ? `Hari Ini · ${activeWeekdayLong}`
+                      : `Today · ${activeWeekdayLong}`
+                    : activeWeekdayLong}
+                </span>
+              </span>
+              <span className="text-[10px] font-mono text-white/75 leading-tight mt-0.5">
+                {activeFullDateStr} · {activeDayTypeLabel}
+              </span>
+            </span>
+
+            <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 ml-0.5 transition-transform duration-200 group-hover:translate-y-0.5" />
+          </button>
+        </div>
+
+        {/* Bottom Content: Title, Action Buttons, and Progress Bar with Day X/Y */}
+        <div className="relative z-10 space-y-2.5 pt-6">
           {/* Program title */}
           <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
             {program?.title || t.myPlan.noActivePlanTitle}
@@ -449,7 +474,7 @@ export function MyPlanOverview({
 
           {/* Action buttons (Community & Report - without "Join") */}
           {program && (
-            <div className="flex items-center gap-4 pt-0.5">
+            <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => setShowCommunityModal(true)}
@@ -466,6 +491,35 @@ export function MyPlanOverview({
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span>{t.myPlan.report}</span>
               </button>
+            </div>
+          )}
+
+          {/* Progress bar + Day X/Y right beside it */}
+          {totalProgramDays > 0 && (
+            <div className="flex items-center gap-3 pt-1">
+              <div
+                className="flex-1 h-2 rounded-full overflow-hidden"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.28)" }}
+                role="progressbar"
+                aria-valuenow={activeDayNum}
+                aria-valuemin={1}
+                aria-valuemax={totalProgramDays}
+                title={`Day ${activeDayNum} of ${totalProgramDays}`}
+              >
+                <span
+                  className="block h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(5, Math.round((activeDayNum / totalProgramDays) * 100))
+                    )}%`,
+                    backgroundColor: "#ffffff",
+                  }}
+                />
+              </div>
+              <span className="text-[11px] sm:text-xs font-mono font-semibold text-white/95 tracking-wider tabular-nums shrink-0">
+                Day {activeDayNum}/{totalProgramDays}
+              </span>
             </div>
           )}
         </div>
