@@ -207,10 +207,6 @@ export function MyPlanOverview({
   void onOpenDetails;
   const { locale, t } = useLocale();
 
-  if (!program) {
-    return <MyPlanNoPlanPage onExplore={onExplore} />;
-  }
-
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
@@ -285,6 +281,10 @@ export function MyPlanOverview({
 
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+
+  if (!program) {
+    return <MyPlanNoPlanPage onExplore={onExplore} />;
+  }
 
   const currentIndex = Math.max(
     0,

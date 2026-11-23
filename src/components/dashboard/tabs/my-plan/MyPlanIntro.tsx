@@ -45,21 +45,20 @@ export function MyPlanIntro({
   const isId = locale === "id";
   const displayName = (userName || "Member").trim() || "Member";
 
+  // Active plan index among enrolled plans
+  const [activeSlide, setActiveSlide] = useState(0);
+  // Subtabs: Guides (0), Tasks (1), Metrics (2)
+  const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
+  const [showCommunityModal, setShowCommunityModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
   // If user has 0 plans, immediately render dedicated No Plan page
   if (plans.length === 0) {
     return <MyPlanNoPlanPage onExplore={onExplore} />;
   }
 
-  // Active plan index among enrolled plans
-  const [activeSlide, setActiveSlide] = useState(0);
   const safeSlide = Math.min(activeSlide, Math.max(0, plans.length - 1));
   const currentPlan = plans[safeSlide] || plans[0];
-
-  // Subtabs: Guides (0), Tasks (1), Metrics (2)
-  const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
-
-  const [showCommunityModal, setShowCommunityModal] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
 
   const total = Math.max(1, currentPlan.totalDays || currentPlan.dayCount || 1);
   const pendingTasks =

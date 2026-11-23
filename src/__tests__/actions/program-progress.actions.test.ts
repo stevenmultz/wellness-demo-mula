@@ -9,6 +9,8 @@ const { mockRequireAuth, mockTx, mockPrisma } = vi.hoisted(() => {
   const prisma = {
     programDay: { findUnique: vi.fn() },
     programEnrollment: { findUnique: vi.fn() },
+    programDayProgress: { findMany: vi.fn() },
+    programDayCustomSubmission: { findMany: vi.fn() },
     $transaction: vi.fn(async (cb: (client: typeof tx) => unknown) => cb(tx)),
   };
   return {
@@ -27,7 +29,10 @@ vi.mock("@/wellness/db", () => ({
   prisma: mockPrisma,
 }));
 
-import { submitDayProgressService } from "@/wellness/services/program-progress";
+import {
+  getProgramSubmissionsService,
+  submitDayProgressService,
+} from "@/wellness/services/program-progress";
 
 describe("Server Service: Daily Progress Submission & WIB Cutoff Integrity", () => {
   beforeEach(() => {
@@ -207,5 +212,72 @@ describe("Server Service: Daily Progress Submission & WIB Cutoff Integrity", () 
       calories: 1950,
       waterMl: 2500,
     });
+  });
+
+  it("loads program submissions and merges core day progress with custom-only submissions", async () => {
+    const missingIdRes = await getProgramSubmissionsService("");
+    expect(missingIdRes.success).toBe(false);
+
+    const t1 = new Date("2026-06-01T08:00:00.000Z");
+    const t2 = new Date("2026-06-01T09:00:00.000Z");
+    mockPrisma.programDayProgress.findMany.mockResolvedValueOnce([
+      {
+        id: "prog_1",
+        userId: "u_1",
+        programDayId: "d1",
+        isCompleted: true,
+        isVideoWatched: true,
+        checklistCompletedJson: ["[Pilates] Roll Up"],
+        selectedWorkout: "Pilates",
+        workoutNotes: "Solid session",
+        eventFeedback: null,
+        mealCompliance: "FULL",
+        mealNotes: JSON.stringify({ v: 5, calories: 1900, waterMl: 2500 }),
+        dailyReflection: null,
+        happinessRate: null,
+        bedtime: "22:30",
+        wakeTime: "06:00",
+        sleepDurationMinutes: 450,
+        assessmentResponse: null,
+        completedAt: t1,
+        updatedAt: t1,
+        user: { id: "u_1", fullName: "Ayu", email: "ayu@zera.id" },
+        programDay: { id: "d1", dayNumber: 1, title: "Core Flow", dayType: "TRAINING_DAY" },
+      },
+    ]);
+    mockPrisma.programDayCustomSubmission.findMany.mockResolvedValueOnce([
+      {
+        id: "cs_1",
+        userId: "u_1",
+        programDayId: "d1",
+        customTaskId: "ct_1",
+        valuesJson: { weightKg: 60 },
+        updatedAt: t1,
+        user: { id: "u_1", fullName: "Ayu", email: "ayu@zera.id" },
+        programDay: { id: "d1", dayNumber: 1, title: "Core Flow", dayType: "TRAINING_DAY" },
+        customTask: { id: "ct_1", title: "Weigh-in", taskType: "MEASUREMENT" },
+      },
+      {
+        id: "cs_2",
+        userId: "u_2",
+        programDayId: "d1",
+        customTaskId: "ct_1",
+        valuesJson: { weightKg: 72 },
+        updatedAt: t2,
+        user: { id: "u_2", fullName: "Budi", email: "budi@zera.id" },
+        programDay: { id: "d1", dayNumber: 1, title: "Core Flow", dayType: "TRAINING_DAY" },
+        customTask: { id: "ct_1", title: "Weigh-in", taskType: "MEASUREMENT" },
+      },
+    ]);
+
+    const res = await getProgramSubmissionsService("p1", { dayNumber: 1, userId: "ALL", limit: 50 });
+    expect(res.success).toBe(true);
+    expect(res.data?.stats).toEqual({
+      totalSubmissions: 2,
+      completedSubmissions: 1,
+      uniqueMembers: 2,
+    });
+    expect(res.data?.submissions.find((s) => s.userId === "u_1")?.customSubmissions).toHaveLength(1);
+    expect(res.data?.submissions.find((s) => s.userId === "u_2")?.id).toBe("custom-only:u_2:d1");
   });
 });

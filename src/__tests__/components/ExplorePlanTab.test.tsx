@@ -169,7 +169,7 @@ describe("ExplorePlanTab bone structure & minimalist cards", () => {
       expect(screen.getByText("Online Programs")).toBeDefined();
       expect(screen.getByText("Hybrid Programs")).toBeDefined();
       expect(screen.getByText("Hybrid Programs Available In")).toBeDefined();
-      expect(screen.getByText("Community")).toBeDefined();
+      expect(screen.getByRole("heading", { name: "Community" })).toBeDefined();
       expect(screen.queryByText("See all sports category")).toBeNull();
       expect(screen.queryByText("See all community")).toBeNull();
     });

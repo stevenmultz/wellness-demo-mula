@@ -271,6 +271,25 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
       hasMealData: true,
       hasWaterData: true,
     });
+
+    // Derived calories from macros when calories omitted + invalid/plain-text safety
+    expect(
+      extractNutritionFromMealNotes(JSON.stringify({ carbsG: 100, proteinG: 50, fatG: 20 }))
+    ).toMatchObject({ calories: 780, hasMealData: true, hasWaterData: false });
+    expect(extractNutritionFromMealNotes("{invalid-json")).toMatchObject({
+      calories: 0,
+      waterMl: 0,
+      hasMealData: false,
+    });
+    expect(mergeMealNotesPayload(null, undefined)).toBeNull();
+    expect(mergeMealNotesPayload("existing", "")).toBe("existing");
+    expect(mergeMealNotesPayload("Ate clean salad", JSON.stringify({ waterMl: 2000 }))).toContain(
+      "legacyNote"
+    );
+    expect(
+      mergeMealNotesPayload(JSON.stringify({ waterMl: 2000 }), "Plain text update")
+    ).toContain("Plain text update");
+    expect(mergeMealNotesPayload(null, "Plain text")).toBe("Plain text");
   });
 
   it("resolves distinct today and tomorrow windows for HYBRID cohorts by WIB date", () => {

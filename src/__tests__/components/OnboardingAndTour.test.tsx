@@ -41,7 +41,7 @@ describe("UI Components: Sequential Onboarding Wizard, First-Time App Tour & Whi
   it("renders ZeraLogoLoading with clean white background, black zera.id logo, and no background image", () => {
     const { container } = render(<ZeraLogoLoading />);
     const loader = screen.getByRole("status", { name: /loading/i });
-    expect(loader.className).toContain("bg-white");
+    expect(loader.className).toContain("bg-[#f6f6f4]");
     expect(loader.className).toContain("text-zinc-950");
     expect(container.querySelector("img")).toBeNull();
     expect(loader.textContent?.toLowerCase()).toContain("zera.id");
