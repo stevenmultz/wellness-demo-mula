@@ -1055,7 +1055,7 @@ function CaloriesWidget({
       </div>
 
       {/* 5 Monochrome Rice Bowls (400 kcal each = 2,000 kcal) filled proportionally */}
-      <div className="flex items-end justify-between gap-1 pt-1">
+      <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
         {Array.from({ length: BOWL_COUNT }, (_, idx) => {
           const fillRatio = (todayCalories - idx * BOWL_SIZE_KCAL) / BOWL_SIZE_KCAL;
           return (
@@ -1193,7 +1193,7 @@ function HydrationWidget({
       </div>
 
       {/* Standard 500 ml Water Bottles filled proportionally in monochrome */}
-      <div className="flex items-end justify-between gap-1 pt-1">
+      <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
         {Array.from({ length: BOTTLE_COUNT }, (_, idx) => {
           const fillRatio = (todayWaterMl - idx * BOTTLE_SIZE_ML) / BOTTLE_SIZE_ML;
           return (
@@ -1405,7 +1405,7 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-3 sm:space-y-4">
-      {/* Row 1 (50/50): Weight & Calories */}
+      {/* Row 1 (50/50): Weight & Commitment */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <WeightSummaryWidget
           days={sorted}
@@ -1413,16 +1413,16 @@ export function CohortPerformanceCard({
           programId={programId}
           currentDayNumber={currentDayNumber}
         />
-        <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
-      </div>
-
-      {/* Row 2 (50/50): Water & Commitment */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
         <ProgramCommitmentWidget
           pct={commitmentPct}
           deltaPct={commitmentDelta}
         />
+      </div>
+
+      {/* Row 2 (50/50): Calories & Water */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <CaloriesWidget days={sorted} currentDayNumber={currentDayNumber} />
+        <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
       </div>
 
       {/* Row 3: Training (7-Column Heatmap Grid - 5 Monochrome Grey Variants) */}
