@@ -327,132 +327,135 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Widget 1: Today Progress (Clean Percentage Only) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2 border border-zinc-200/50 dark:border-white/5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-            <FillTargetIcon className="w-3.5 h-3.5" />
-          </span>
-          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-            Today Progress
-          </span>
-        </div>
-
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
-            {progressPct}
-          </span>
-          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-            %
-          </span>
-        </div>
-      </div>
-
-      {/* Widget 2: Pinned (Meetup Date, Time, Venue & Zoom Schedule) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-            <FillPinIcon className="w-3.5 h-3.5" />
-          </span>
-          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-            Pinned
-          </span>
-        </div>
-
-        <div className="divide-y divide-zinc-300/60 dark:divide-white/10">
-          {/* Meetup Row */}
-          <div className="pb-3 flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5 min-w-0">
-              <span className="w-7 h-7 rounded-lg bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
-                <FillMapPinIcon className="w-3.5 h-3.5" />
-              </span>
-              <div className="min-w-0 space-y-0.5">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
-                    Meetup
-                  </span>
-                  {pinnedMeetup?.countdown && (
-                    <span className="semantic-badge-box px-1.5 py-[1.5px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-900 dark:text-white leading-[1.25]">
-                      {pinnedMeetup.countdown}
-                    </span>
-                  )}
-                </div>
-
-                {pinnedMeetup ? (
-                  <>
-                    <p className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 leading-normal">
-                      {pinnedMeetup.dateLabel}
-                      {pinnedMeetup.timeLabel ? ` · ${pinnedMeetup.timeLabel}` : ""}
-                    </p>
-                    {pinnedMeetup.venue && (
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                        {pinnedMeetup.venue}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-                    No meetup scheduled
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {pinnedMeetup?.mapUrl && (
-              <a
-                href={pinnedMeetup.mapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 h-7 px-2.5 rounded-lg bg-white/90 dark:bg-white/10 hover:bg-white dark:hover:bg-white/15 text-[11px] font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1 transition active:scale-95"
-              >
-                <span>Maps</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </a>
-            )}
+      {/* Top Row (1/3 Today Progress & 2/3 Pinned Side-by-Side) */}
+      <div className="w-full grid grid-cols-3 gap-3 sm:gap-4 items-stretch">
+        {/* 1/3: Today Progress (Clean Percentage Only) */}
+        <div className="col-span-1 w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 flex flex-col justify-between gap-2 border border-zinc-200/50 dark:border-white/5">
+          <div className="flex items-center gap-1.5 min-w-0" title="Today Progress">
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <FillTargetIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              <span className="hidden sm:inline">Today </span>Progress
+            </span>
           </div>
 
-          {/* Zoom Row */}
-          <div className="pt-3 flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5 min-w-0">
-              <span className="w-7 h-7 rounded-lg bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
-                <FillVideoIcon className="w-3.5 h-3.5" />
-              </span>
-              <div className="min-w-0 space-y-0.5">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
-                    Zoom
-                  </span>
-                  {pinnedZoom?.countdown && (
-                    <span className="semantic-badge-box px-1.5 py-[1.5px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-900 dark:text-white leading-[1.25]">
-                      {pinnedZoom.countdown}
+          <div className="flex items-baseline gap-0.5 sm:gap-1">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+              {progressPct}
+            </span>
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+              %
+            </span>
+          </div>
+        </div>
+
+        {/* 2/3: Pinned (Meetup Date, Time, Venue & Zoom Schedule) */}
+        <div className="col-span-2 w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-3.5 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <FillPinIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              Pinned
+            </span>
+          </div>
+
+          <div className="divide-y divide-zinc-300/60 dark:divide-white/10">
+            {/* Meetup Row */}
+            <div className="pb-2.5 flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <FillMapPinIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
+                      Meetup
                     </span>
+                    {pinnedMeetup?.countdown && (
+                      <span className="semantic-badge-box px-1.5 py-[1px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[9px] sm:text-[10px] font-mono font-semibold text-zinc-900 dark:text-white leading-[1.25]">
+                        {pinnedMeetup.countdown}
+                      </span>
+                    )}
+                  </div>
+
+                  {pinnedMeetup ? (
+                    <>
+                      <p className="text-[10px] sm:text-[11px] font-mono text-zinc-700 dark:text-zinc-300 leading-normal truncate">
+                        {pinnedMeetup.dateLabel}
+                        {pinnedMeetup.timeLabel ? ` · ${pinnedMeetup.timeLabel}` : ""}
+                      </p>
+                      {pinnedMeetup.venue && (
+                        <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-1">
+                          {pinnedMeetup.venue}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                      No meetup scheduled
+                    </p>
                   )}
                 </div>
-
-                {pinnedZoom ? (
-                  <p className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 leading-normal">
-                    {pinnedZoom.dateLabel}
-                    {pinnedZoom.timeLabel ? ` · ${pinnedZoom.timeLabel}` : ""}
-                  </p>
-                ) : (
-                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-                    No Zoom scheduled
-                  </p>
-                )}
               </div>
+
+              {pinnedMeetup?.mapUrl && (
+                <a
+                  href={pinnedMeetup.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 h-6 sm:h-7 px-2 sm:px-2.5 rounded-lg bg-white/90 dark:bg-white/10 hover:bg-white dark:hover:bg-white/15 text-[10px] sm:text-[11px] font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1 transition active:scale-95"
+                >
+                  <span>Maps</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
             </div>
 
-            {pinnedZoom?.zoomUrl && (
-              <a
-                href={pinnedZoom.zoomUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 h-7 px-2.5 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1 transition active:scale-95"
-              >
-                <span>Join</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </a>
-            )}
+            {/* Zoom Row */}
+            <div className="pt-2.5 flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <FillVideoIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
+                      Zoom
+                    </span>
+                    {pinnedZoom?.countdown && (
+                      <span className="semantic-badge-box px-1.5 py-[1px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[9px] sm:text-[10px] font-mono font-semibold text-zinc-900 dark:text-white leading-[1.25]">
+                        {pinnedZoom.countdown}
+                      </span>
+                    )}
+                  </div>
+
+                  {pinnedZoom ? (
+                    <p className="text-[10px] sm:text-[11px] font-mono text-zinc-700 dark:text-zinc-300 leading-normal truncate">
+                      {pinnedZoom.dateLabel}
+                      {pinnedZoom.timeLabel ? ` · ${pinnedZoom.timeLabel}` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] sm:text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                      No Zoom scheduled
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {pinnedZoom?.zoomUrl && (
+                <a
+                  href={pinnedZoom.zoomUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 h-6 sm:h-7 px-2 sm:px-2.5 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] sm:text-[11px] font-semibold inline-flex items-center gap-1 transition active:scale-95"
+                >
+                  <span>Join</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>

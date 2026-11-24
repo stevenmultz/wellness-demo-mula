@@ -1,9 +1,10 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, X } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
+import { InfoPopupModal } from "../shared";
 import {
   FillDropletIcon,
   FillDumbbellIcon,
@@ -154,7 +155,7 @@ export function FiftyBarMeter({
   );
 }
 
-// ─── Flippable Metric Card Wrapper (Inline Info Button Aligned with Label -> 3D Flip) ─
+// ─── Metric Card Wrapper (Inline Info Button Aligned with Label -> Info Popup Modal) ─
 function FlippableMetricCard({
   title,
   label,
@@ -172,105 +173,56 @@ function FlippableMetricCard({
   frontClassName?: string;
   children?: ReactNode;
 }) {
-  const [flipped, setFlipped] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   return (
-    <div className="w-full h-full" style={{ perspective: "1000px" }}>
+    <>
       <div
-        className="grid w-full h-full transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-        style={{
-          transformStyle: "preserve-3d",
-          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-        }}
+        className={`w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
       >
-        {/* Front Face */}
-        <div
-          aria-hidden={flipped}
-          className={`col-start-1 row-start-1 relative w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName} ${
-            flipped ? "pointer-events-none" : "pointer-events-auto"
-          }`}
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "rotateY(0deg)",
-          }}
-        >
-          <div className="space-y-2">
-            {/* Unified Header Row: Icon + Label aligned inline with Info Button */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0" title={title}>
-                <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-                  {icon}
-                </span>
-                <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-                  {label ?? title}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setFlipped(true);
-                }}
-                aria-label={`Info about ${title}`}
-                title={`About ${title}`}
-                className="w-5 h-5 -mr-0.5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
-              >
-                <FillInfoIcon className="w-3.5 h-3.5" />
-              </button>
+        <div className="space-y-2">
+          {/* Unified Header Row: Icon + Label aligned inline with Info Button */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0" title={title}>
+              <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+                {icon}
+              </span>
+              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+                {label ?? title}
+              </span>
             </div>
 
-            {valueSlot}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setInfoOpen(true);
+              }}
+              aria-label={`Info about ${title}`}
+              title={`About ${title}`}
+              className="w-5 h-5 -mr-0.5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
+            >
+              <FillInfoIcon className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {children}
+          {valueSlot}
         </div>
 
-        {/* Back Face (Calculation & Source Info) */}
-        <div
-          aria-hidden={!flipped}
-          onClick={() => setFlipped(false)}
-          className={`col-start-1 row-start-1 relative w-full h-full rounded-2xl bg-[#e5e5e2] dark:bg-[#19191b] p-4 sm:p-5 border border-zinc-300/70 dark:border-white/10 flex flex-col justify-between gap-2 cursor-pointer ${
-            flipped ? "pointer-events-auto" : "pointer-events-none"
-          }`}
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "rotateY(180deg)",
-          }}
-        >
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-zinc-700 dark:text-zinc-300 shrink-0 flex items-center">
-                  {icon}
-                </span>
-                <span className="text-[11px] font-semibold text-zinc-900 dark:text-white truncate leading-normal py-[1px]">
-                  {title}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setFlipped(false);
-                }}
-                aria-label={`Close ${title} info`}
-                className="w-5 h-5 -mr-0.5 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-1.5">
-              {infoContent}
-            </div>
-          </div>
-        </div>
+        {children}
       </div>
-    </div>
+
+      <InfoPopupModal
+        open={infoOpen}
+        title={title}
+        subtitle="How this metric is calculated"
+        onClose={() => setInfoOpen(false)}
+      >
+        <div className="space-y-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+          {infoContent}
+        </div>
+      </InfoPopupModal>
+    </>
   );
 }
 
