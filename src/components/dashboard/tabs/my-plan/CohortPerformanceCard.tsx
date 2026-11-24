@@ -153,7 +153,7 @@ export function FiftyBarMeter({
   );
 }
 
-// ─── Unified Metric Card Wrapper (Dark Heat-Gradient Header + Light Body) ────
+// ─── Unified Metric Card Wrapper ─────────────────────────────────────────────
 function FlippableMetricCard({
   title,
   label,
@@ -174,27 +174,23 @@ function FlippableMetricCard({
   void _infoContent;
 
   return (
-    <div className="w-full h-full rounded-2xl overflow-hidden bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 flex flex-col">
-      {/* Soft Monochrome Light-Dark Grey Header Strip with Subtle Tonal Heat Gradient */}
-      <div
-        className="w-full px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-1.5 min-w-0 text-white"
-        style={{
-          backgroundImage:
-            "radial-gradient(120% 140% at 92% 15%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 48%, transparent 78%), linear-gradient(125deg, #4b4b49 0%, #5b5b58 55%, #6b6b68 100%)",
-        }}
-        title={title}
-      >
-        <span className="text-white/95 shrink-0 flex items-center">{icon}</span>
-        <span className="text-[11px] font-medium text-white/95 truncate leading-normal py-[1px]">
-          {label ?? title}
-        </span>
+    <div
+      className={`w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
+    >
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 min-w-0" title={title}>
+          <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+            {icon}
+          </span>
+          <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+            {label ?? title}
+          </span>
+        </div>
+
+        {valueSlot}
       </div>
 
-      {/* Standard Light/Neutral Value & Chart Body */}
-      <div className={`p-4 sm:p-5 flex-1 ${frontClassName}`}>
-        {valueSlot}
-        {children}
-      </div>
+      {children}
     </div>
   );
 }

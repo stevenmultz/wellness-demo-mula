@@ -309,10 +309,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
                 <FillTargetIcon className="w-3.5 h-3.5" />
               </span>
-              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
                 Daily Tasks Progress
               </span>
             </div>
