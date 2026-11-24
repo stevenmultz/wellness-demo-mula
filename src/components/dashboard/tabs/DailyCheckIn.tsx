@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { Check, MessageCircle, User, Users } from "lucide-react";
+import { Check, MessageCircle, Users } from "lucide-react";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { InfoPopupModal } from "./shared";
@@ -162,13 +162,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   const { locale } = useLocale();
   const isId = locale === "id";
-  const coachDisplayName = props.coachName || selectedDay.coachName || "Coach";
   const programTitle = props.programTitle || "Program";
-  const coachChatUrl = buildConciergeWhatsAppUrl(
-    isId
-      ? `Halo Coach ${coachDisplayName}, saya ingin bertanya mengenai program ${programTitle}.`
-      : `Hi Coach ${coachDisplayName}, I have a question regarding ${programTitle}.`
-  );
 
   const handleOpenGroupChat = () => {
     if (props.onOpenCommunity) {
@@ -440,64 +434,32 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* Chat with Coach & Group Widget */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
-        <div className="space-y-0.5">
+      {/* Community Group Chat Widget */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-              <MessageCircle className="w-3.5 h-3.5" />
+              <Users className="w-3.5 h-3.5" />
             </span>
             <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-              {isId ? "Tanya Coach & Group Chat" : "Coach & Community Chat"}
+              {isId ? "Grup Komunitas Cohort" : "Cohort Community Chat"}
             </span>
           </div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
             {isId
-              ? "Konsultasikan kendala tugas Anda langsung ke coach atau berdiskusi di grup komunitas."
-              : "Reach out to your coach directly or chat with peers in the cohort group."}
+              ? "Diskusi dan berbagi progres bersama sesama anggota cohort."
+              : "Chat and share progress with fellow cohort members."}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 pt-0.5">
-          {/* Chat with Coach */}
-          <a
-            href={coachChatUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2.5 p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-zinc-950 dark:text-white transition active:scale-[0.98] cursor-pointer shadow-2xs group"
-          >
-            <span className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white group-hover:scale-105 transition-transform">
-              <User className="w-4 h-4" />
-            </span>
-            <div className="min-w-0 text-left">
-              <span className="block text-xs font-semibold text-zinc-950 dark:text-white truncate leading-tight">
-                Chat Coach
-              </span>
-              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400 truncate leading-tight mt-0.5">
-                {coachDisplayName}
-              </span>
-            </div>
-          </a>
-
-          {/* Group Chat */}
-          <button
-            type="button"
-            onClick={handleOpenGroupChat}
-            className="flex items-center gap-2.5 p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-zinc-950 dark:text-white transition active:scale-[0.98] cursor-pointer shadow-2xs group"
-          >
-            <span className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white group-hover:scale-105 transition-transform">
-              <Users className="w-4 h-4" />
-            </span>
-            <div className="min-w-0 text-left">
-              <span className="block text-xs font-semibold text-zinc-950 dark:text-white truncate leading-tight">
-                Group Chat
-              </span>
-              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400 truncate leading-tight mt-0.5">
-                Cohort Member
-              </span>
-            </div>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleOpenGroupChat}
+          className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+        >
+          <MessageCircle className="w-3.5 h-3.5" />
+          <span>{isId ? "Buka Group Chat" : "Group Chat"}</span>
+        </button>
       </div>
 
       {/* Custom Coach Task Modal Host (opened directly when tapping custom task tiles) */}

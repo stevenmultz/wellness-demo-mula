@@ -464,18 +464,15 @@ export function MyPlanOverview({
         {/* Bottom Row: Program Format + Date Button (Left) + Dropdown Menu Button (Right) */}
         <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
           <div className="flex flex-col items-start gap-1 min-w-0">
-            <span className="text-[11px] font-mono font-semibold text-white/90 tracking-wide uppercase px-1 drop-shadow-xs">
+            <span
+              className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
               {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                ? locale === "id"
-                  ? "Program Hybrid"
-                  : "Hybrid Program"
+                ? "Hybrid"
                 : (program?.locationType || "").toUpperCase() === "ONSITE"
-                  ? locale === "id"
-                    ? "Program Onsite"
-                    : "Onsite Program"
-                  : locale === "id"
-                    ? "Program Online"
-                    : "Online Program"}
+                  ? "Onsite"
+                  : "Online"}
             </span>
 
             <button
