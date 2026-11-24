@@ -220,9 +220,10 @@ export function MyPlanIntro({
             >
               <span>{label}</span>
               {count > 0 && (
-                <span className="semantic-badge-box font-mono text-[10px] leading-none tabular-nums px-1.5 py-0.5 rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[#f6f6f4] font-bold">
-                  {count}
-                </span>
+                <span
+                  aria-label="Incomplete tasks"
+                  className="semantic-badge-box w-2 h-2 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] shrink-0"
+                />
               )}
             </button>
           );

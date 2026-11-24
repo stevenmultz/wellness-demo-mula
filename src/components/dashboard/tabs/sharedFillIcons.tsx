@@ -156,6 +156,18 @@ export function FillBellIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
   );
 }
 
+export function FillInfoIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 5.25a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3Zm-1.1 4.15a.9.9 0 0 1 .9-.9h.4a.9.9 0 0 1 .9.9v4.65h.55a.75.75 0 0 1 0 1.5h-3.3a.75.75 0 0 1 0-1.5h.55V11.4Z"
+      />
+    </svg>
+  );
+}
+
 // ─── Bottom Navigation Solid Fill Icons (Home, Explore, Chat, Profile) ───────
 export function FillHomeIcon({ className = "w-5 h-5" }: FillIconProps) {
   return (

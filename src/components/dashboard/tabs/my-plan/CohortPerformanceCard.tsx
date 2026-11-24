@@ -1,13 +1,14 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
   FillDropletIcon,
   FillDumbbellIcon,
   FillFlameIcon,
+  FillInfoIcon,
   FillMoonIcon,
   FillScaleIcon,
   FillTargetIcon,
@@ -33,7 +34,7 @@ function MetricLabelHeader({
   title?: string;
 }) {
   return (
-    <div className="flex items-center gap-1.5 min-w-0" title={title}>
+    <div className="flex items-center gap-1.5 min-w-0 pr-6" title={title}>
       <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
         {icon}
       </span>
@@ -141,10 +142,17 @@ function formatMetricDate(
   }).format(targetDate);
 }
 
-// ─── FiftyBarMeter (50 segments) ─────────────────────────────────────────────
-export function FiftyBarMeter({ percent }: { percent: number }) {
+// ─── FiftyBarMeter (50 segments by default; configurable for compact cards) ──
+export function FiftyBarMeter({
+  percent,
+  segments = 50,
+}: {
+  percent: number;
+  segments?: number;
+}) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
-  const filledBars = Math.round((safePercent / 100) * 50);
+  const count = Math.max(8, Math.round(segments));
+  const filledBars = Math.round((safePercent / 100) * count);
   return (
     <div
       className="flex items-center justify-between py-1"
@@ -154,16 +162,116 @@ export function FiftyBarMeter({ percent }: { percent: number }) {
       aria-valuemax={100}
       aria-label={`${safePercent}%`}
     >
-      {Array.from({ length: 50 }, (_, i) => i + 1).map((bar) => (
+      {Array.from({ length: count }, (_, i) => i + 1).map((bar) => (
         <div
           key={bar}
-          className={`w-[1.5px] h-5 rounded-full transition-all ${
+          className={`${count <= 28 ? "w-[2px]" : "w-[1.5px]"} h-5 rounded-full transition-all ${
             bar <= filledBars
               ? "bg-zinc-950 dark:bg-white"
               : "bg-zinc-300 dark:bg-white/20"
           }`}
         />
       ))}
+    </div>
+  );
+}
+
+// ─── Flippable Metric Card Wrapper (Top-Right Info Button -> 3D Flip Back) ───
+function FlippableMetricCard({
+  title,
+  icon,
+  infoContent,
+  frontClassName = "space-y-2.5",
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  infoContent: ReactNode;
+  frontClassName?: string;
+  children: ReactNode;
+}) {
+  const [flipped, setFlipped] = useState(false);
+
+  return (
+    <div className="w-full h-full" style={{ perspective: "1000px" }}>
+      <div
+        className="grid w-full h-full transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        style={{
+          transformStyle: "preserve-3d",
+          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+        }}
+      >
+        {/* Front Face */}
+        <div
+          aria-hidden={flipped}
+          className={`col-start-1 row-start-1 relative w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName} ${
+            flipped ? "pointer-events-none" : "pointer-events-auto"
+          }`}
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(0deg)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setFlipped(true);
+            }}
+            aria-label={`Info about ${title}`}
+            title={`About ${title}`}
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 cursor-pointer"
+          >
+            <FillInfoIcon className="w-3.5 h-3.5" />
+          </button>
+
+          {children}
+        </div>
+
+        {/* Back Face (Simple Clear Info Page) */}
+        <div
+          aria-hidden={!flipped}
+          onClick={() => setFlipped(false)}
+          className={`col-start-1 row-start-1 relative w-full h-full rounded-2xl bg-[#e5e5e2] dark:bg-[#19191b] p-4 sm:p-5 border border-zinc-300/70 dark:border-white/10 flex flex-col justify-between gap-2 cursor-pointer ${
+            flipped ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
+        >
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-zinc-700 dark:text-zinc-300 shrink-0 flex items-center">
+                  {icon}
+                </span>
+                <span className="text-[11px] font-semibold text-zinc-900 dark:text-white truncate leading-normal py-[1px]">
+                  {title}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFlipped(false);
+                }}
+                aria-label={`Close ${title} info`}
+                className="w-6 h-6 -mr-1 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-2">
+              {infoContent}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -233,7 +341,14 @@ function WeightSummaryWidget({
   }
 
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Weight"
+      icon={<FillScaleIcon />}
+      frontClassName="space-y-2.5"
+      infoContent={
+        <p>Latest logged weight and change vs. 7 days ago.</p>
+      }
+    >
       <MetricLabelHeader icon={<FillScaleIcon />}>Weight</MetricLabelHeader>
 
       <MetricValueDisplay
@@ -242,7 +357,7 @@ function WeightSummaryWidget({
         delta={weeklyDeltaKg}
         deltaUnit=" kg"
       />
-    </div>
+    </FlippableMetricCard>
   );
 }
 
@@ -255,13 +370,20 @@ function ProgramCommitmentWidget({
   deltaPct?: number;
 }) {
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2.5 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Commitment"
+      icon={<FillTargetIcon />}
+      frontClassName="space-y-2.5"
+      infoContent={
+        <p>Daily consistency across activity, meals, sleep, and water.</p>
+      }
+    >
       <MetricLabelHeader icon={<FillTargetIcon />} title="Program Commitment">
         <span className="hidden sm:inline">Program </span>Commitment
       </MetricLabelHeader>
 
       <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
-    </div>
+    </FlippableMetricCard>
   );
 }
 
@@ -382,7 +504,41 @@ function TrainingWidget({
   };
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Training"
+      icon={<FillDumbbellIcon />}
+      frontClassName="space-y-3.5"
+      infoContent={
+        <>
+          <p>
+            Completion rate across scheduled training days. Tap any calendar tile to see
+            that day&apos;s workout detail.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-[#18181b] dark:bg-white" />
+              Done
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-[#52525b] dark:bg-zinc-300" />
+              Partial
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-[#a1a1aa] dark:bg-zinc-500" />
+              Rest
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-[#d4d4d8] dark:bg-zinc-700" />
+              Skipped
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-[#fcfcfb] dark:bg-zinc-800/80 border border-zinc-300/70 dark:border-white/15" />
+              Upcoming
+            </span>
+          </div>
+        </>
+      }
+    >
       {/* Header + Unified Large Value & Bottom-Aligned Delta */}
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillDumbbellIcon />}>Training</MetricLabelHeader>
@@ -480,7 +636,7 @@ function TrainingWidget({
           </button>
         )}
       </div>
-    </div>
+    </FlippableMetricCard>
   );
 }
 
@@ -564,7 +720,17 @@ function SleepWidget({
   const avgRemMins = avgMins > 0 ? Math.round(avgMins % 60) : 0;
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Sleep Average"
+      icon={<FillMoonIcon />}
+      frontClassName="space-y-3.5"
+      infoContent={
+        <p>
+          Average sleep duration from your logged bedtime and wake time. The dashed line
+          marks the 7.5h target; tap any dot on the chart to inspect that night.
+        </p>
+      }
+    >
       {/* Header + Unified Large Value (0 hour 0 min when empty) & Bottom-Aligned Delta */}
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillMoonIcon />}>Sleep Average</MetricLabelHeader>
@@ -715,7 +881,7 @@ function SleepWidget({
           </button>
         )}
       </div>
-    </div>
+    </FlippableMetricCard>
   );
 }
 
@@ -754,7 +920,17 @@ function MealControlWidget({
   const fatLen = (fatPct / 100) * circumference;
 
   return (
-    <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Meal Control"
+      icon={<FillUtensilsIcon />}
+      frontClassName="space-y-4"
+      infoContent={
+        <p>
+          Adherence score to your meal plan across elapsed days, paired with today&apos;s
+          Carbs, Protein, and Fat macro balance.
+        </p>
+      }
+    >
       {/* Header + Unified Large Value & Bottom-Aligned Delta */}
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillUtensilsIcon />}>Meal Control</MetricLabelHeader>
@@ -875,7 +1051,7 @@ function MealControlWidget({
             </div>
           </div>
       </div>
-    </div>
+    </FlippableMetricCard>
   );
 }
 
@@ -979,7 +1155,14 @@ function CaloriesWidget({
   }
 
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Calories"
+      icon={<FillFlameIcon />}
+      frontClassName="space-y-3"
+      infoContent={
+        <p>Today&apos;s calorie intake. Each filled bowl represents 400 kcal (2,000 kcal total).</p>
+      }
+    >
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
         <MetricValueDisplay
@@ -1004,7 +1187,7 @@ function CaloriesWidget({
           );
         })}
       </div>
-    </div>
+    </FlippableMetricCard>
   );
 }
 
@@ -1117,7 +1300,14 @@ function HydrationWidget({
   }
 
   return (
-    <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+    <FlippableMetricCard
+      title="Water"
+      icon={<FillDropletIcon />}
+      frontClassName="space-y-3"
+      infoContent={
+        <p>Today&apos;s water intake. Each filled bottle represents 500 ml (2.5 L daily goal).</p>
+      }
+    >
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillDropletIcon />}>Water</MetricLabelHeader>
         <MetricValueDisplay
@@ -1142,7 +1332,7 @@ function HydrationWidget({
           );
         })}
       </div>
-    </div>
+    </FlippableMetricCard>
   );
 }
 
