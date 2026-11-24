@@ -23,28 +23,6 @@ import {
   type PlanDay,
 } from "./myPlanUtils";
 
-// ─── Unified Small Label + Solid Fill Icon Header ────────────────────────────
-function MetricLabelHeader({
-  icon,
-  children,
-  title,
-}: {
-  icon: ReactNode;
-  children: ReactNode;
-  title?: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 min-w-0 pr-6" title={title}>
-      <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-        {icon}
-      </span>
-      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-        {children}
-      </span>
-    </div>
-  );
-}
-
 // ─── Unified Primary Value + Bottom-Aligned Side-by-Side Delta Badge ─────────
 function MetricValueDisplay({
   value,
@@ -91,7 +69,7 @@ function MetricDeltaBadge({
 
   if (delta > 0) {
     return (
-      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-[var(--semantic-green-border)] bg-[var(--semantic-green)] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
         <ArrowUp className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
@@ -99,7 +77,7 @@ function MetricDeltaBadge({
   }
   if (delta < 0) {
     return (
-      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+      <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2.5px] rounded-md border border-[var(--semantic-red-border)] bg-[var(--semantic-red)] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
         <ArrowDown className="w-2.5 h-2.5 stroke-[2.5] text-white shrink-0" />
         <span>{label}</span>
       </span>
@@ -176,19 +154,23 @@ export function FiftyBarMeter({
   );
 }
 
-// ─── Flippable Metric Card Wrapper (Top-Right Info Button -> 3D Flip Back) ───
+// ─── Flippable Metric Card Wrapper (Inline Info Button Aligned with Label -> 3D Flip) ─
 function FlippableMetricCard({
   title,
+  label,
   icon,
+  valueSlot,
   infoContent,
-  frontClassName = "space-y-2.5",
+  frontClassName = "space-y-3",
   children,
 }: {
   title: string;
+  label?: ReactNode;
   icon: ReactNode;
+  valueSlot: ReactNode;
   infoContent: ReactNode;
   frontClassName?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -213,23 +195,39 @@ function FlippableMetricCard({
             transform: "rotateY(0deg)",
           }}
         >
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setFlipped(true);
-            }}
-            aria-label={`Info about ${title}`}
-            title={`About ${title}`}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 cursor-pointer"
-          >
-            <FillInfoIcon className="w-3.5 h-3.5" />
-          </button>
+          <div className="space-y-2">
+            {/* Unified Header Row: Icon + Label aligned inline with Info Button */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0" title={title}>
+                <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+                  {icon}
+                </span>
+                <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+                  {label ?? title}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFlipped(true);
+                }}
+                aria-label={`Info about ${title}`}
+                title={`About ${title}`}
+                className="w-5 h-5 -mr-0.5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
+              >
+                <FillInfoIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {valueSlot}
+          </div>
 
           {children}
         </div>
 
-        {/* Back Face (Simple Clear Info Page) */}
+        {/* Back Face (Calculation & Source Info) */}
         <div
           aria-hidden={!flipped}
           onClick={() => setFlipped(false)}
@@ -260,13 +258,13 @@ function FlippableMetricCard({
                   setFlipped(false);
                 }}
                 aria-label={`Close ${title} info`}
-                className="w-6 h-6 -mr-1 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
+                className="w-5 h-5 -mr-0.5 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-2">
+            <div className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-1.5">
               {infoContent}
             </div>
           </div>
@@ -344,20 +342,22 @@ function WeightSummaryWidget({
     <FlippableMetricCard
       title="Weight"
       icon={<FillScaleIcon />}
-      frontClassName="space-y-2.5"
-      infoContent={
-        <p>Latest logged weight and change vs. 7 days ago.</p>
+      frontClassName="space-y-0"
+      valueSlot={
+        <MetricValueDisplay
+          value={latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
+          unit={latestWeight > 0 ? "kg" : undefined}
+          delta={weeklyDeltaKg}
+          deltaUnit=" kg"
+        />
       }
-    >
-      <MetricLabelHeader icon={<FillScaleIcon />}>Weight</MetricLabelHeader>
-
-      <MetricValueDisplay
-        value={latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
-        unit={latestWeight > 0 ? "kg" : undefined}
-        delta={weeklyDeltaKg}
-        deltaUnit=" kg"
-      />
-    </FlippableMetricCard>
+      infoContent={
+        <p>
+          From your latest body weight log. Delta = latest weight minus your log 7 days
+          ago.
+        </p>
+      }
+    />
   );
 }
 
@@ -371,19 +371,24 @@ function ProgramCommitmentWidget({
 }) {
   return (
     <FlippableMetricCard
-      title="Commitment"
-      icon={<FillTargetIcon />}
-      frontClassName="space-y-2.5"
-      infoContent={
-        <p>Daily consistency across activity, meals, sleep, and water.</p>
+      title="Program Commitment"
+      label={
+        <>
+          <span className="hidden sm:inline">Program </span>Commitment
+        </>
       }
-    >
-      <MetricLabelHeader icon={<FillTargetIcon />} title="Program Commitment">
-        <span className="hidden sm:inline">Program </span>Commitment
-      </MetricLabelHeader>
-
-      <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
-    </FlippableMetricCard>
+      icon={<FillTargetIcon />}
+      frontClassName="space-y-0"
+      valueSlot={
+        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
+      }
+      infoContent={
+        <p>
+          Daily avg: 35% Activity, 30% Meal, 20% Sleep, 15% Water (or 15% Custom Tasks
+          when assigned).
+        </p>
+      }
+    />
   );
 }
 
@@ -508,11 +513,14 @@ function TrainingWidget({
       title="Training"
       icon={<FillDumbbellIcon />}
       frontClassName="space-y-3.5"
+      valueSlot={
+        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
+      }
       infoContent={
         <>
           <p>
-            Completion rate across scheduled training days. Tap any calendar tile to see
-            that day&apos;s workout detail.
+            Calculated as completed training days ÷ elapsed training days (Rest &amp;
+            Connect days excluded). Delta compares against prior training days.
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">
             <span className="inline-flex items-center gap-1.5">
@@ -539,11 +547,6 @@ function TrainingWidget({
         </>
       }
     >
-      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
-      <div className="space-y-2">
-        <MetricLabelHeader icon={<FillDumbbellIcon />}>Training</MetricLabelHeader>
-        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
-      </div>
 
       {/* 7-Column Grid (Sun to Sat) */}
       <div className="space-y-2 pt-1">
@@ -724,16 +727,7 @@ function SleepWidget({
       title="Sleep Average"
       icon={<FillMoonIcon />}
       frontClassName="space-y-3.5"
-      infoContent={
-        <p>
-          Average sleep duration from your logged bedtime and wake time. The dashed line
-          marks the 7.5h target; tap any dot on the chart to inspect that night.
-        </p>
-      }
-    >
-      {/* Header + Unified Large Value (0 hour 0 min when empty) & Bottom-Aligned Delta */}
-      <div className="space-y-2">
-        <MetricLabelHeader icon={<FillMoonIcon />}>Sleep Average</MetricLabelHeader>
+      valueSlot={
         <div className="flex items-end gap-2 flex-wrap">
           <div className="flex items-baseline gap-1.5">
             <span className="inline-flex items-baseline gap-1">
@@ -755,7 +749,14 @@ function SleepWidget({
           </div>
           <MetricDeltaBadge delta={deltaMins} unit=" min" />
         </div>
-      </div>
+      }
+      infoContent={
+        <p>
+          Calculated as total sleep minutes ÷ logged sleep days (from Bedtime to Wake Time
+          in Sleep Log). Dashed line = 7.5h target; delta = latest night vs. prior average.
+        </p>
+      }
+    >
 
       {/* Body: Line Chart (Always shown — renders clean straight flat line when no data yet) */}
       <div className="space-y-2.5 pt-1">
@@ -924,18 +925,17 @@ function MealControlWidget({
       title="Meal Control"
       icon={<FillUtensilsIcon />}
       frontClassName="space-y-4"
+      valueSlot={
+        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
+      }
       infoContent={
         <p>
-          Adherence score to your meal plan across elapsed days, paired with today&apos;s
-          Carbs, Protein, and Fat macro balance.
+          Average Meal Control score across elapsed days (Full/Similar = 100%, Partial =
+          50%, Skipped = 0%). Donut chart shows today&apos;s Carbs, Protein, and Fat ratio
+          in grams.
         </p>
       }
     >
-      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
-      <div className="space-y-2">
-        <MetricLabelHeader icon={<FillUtensilsIcon />}>Meal Control</MetricLabelHeader>
-        <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
-      </div>
 
       {/* 50-segment bar */}
       <div className="pt-0.5">
@@ -1159,20 +1159,21 @@ function CaloriesWidget({
       title="Calories"
       icon={<FillFlameIcon />}
       frontClassName="space-y-3"
-      infoContent={
-        <p>Today&apos;s calorie intake. Each filled bowl represents 400 kcal (2,000 kcal total).</p>
-      }
-    >
-      <div className="space-y-2">
-        <MetricLabelHeader icon={<FillFlameIcon />}>Calories</MetricLabelHeader>
+      valueSlot={
         <MetricValueDisplay
           value={todayCalories > 0 ? todayCalories.toLocaleString() : "0"}
           unit="kcal"
           delta={caloriesDelta}
           deltaUnit=" kcal"
         />
-      </div>
-
+      }
+      infoContent={
+        <p>
+          Sum of calories from today&apos;s Meal Control (1 bowl = 400 kcal). Delta =
+          today vs. prior logged avg.
+        </p>
+      }
+    >
       {/* 5 Monochrome Rice Bowls (400 kcal each = 2,000 kcal) filled proportionally */}
       <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
         {Array.from({ length: BOWL_COUNT }, (_, idx) => {
@@ -1304,20 +1305,21 @@ function HydrationWidget({
       title="Water"
       icon={<FillDropletIcon />}
       frontClassName="space-y-3"
-      infoContent={
-        <p>Today&apos;s water intake. Each filled bottle represents 500 ml (2.5 L daily goal).</p>
-      }
-    >
-      <div className="space-y-2">
-        <MetricLabelHeader icon={<FillDropletIcon />}>Water</MetricLabelHeader>
+      valueSlot={
         <MetricValueDisplay
           value={(todayWaterMl / 1000).toFixed(1)}
           unit="L"
           delta={waterDeltaMl}
           deltaUnit=" ml"
         />
-      </div>
-
+      }
+      infoContent={
+        <p>
+          Total water logged in today&apos;s Water Intake (1 bottle = 500 ml). Delta =
+          today vs. prior logged avg.
+        </p>
+      }
+    >
       {/* Standard 500 ml Water Bottles filled proportionally in monochrome */}
       <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
         {Array.from({ length: BOTTLE_COUNT }, (_, idx) => {

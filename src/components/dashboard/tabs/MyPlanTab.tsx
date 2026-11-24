@@ -517,7 +517,7 @@ export function MyPlanOverview({
                 {count > 0 && (
                   <span
                     aria-label="Incomplete tasks"
-                    className="semantic-badge-box w-2 h-2 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] shrink-0"
+                    className="semantic-badge-box w-2 h-2 rounded-full bg-[var(--semantic-red-dot)] shrink-0"
                   />
                 )}
               </button>

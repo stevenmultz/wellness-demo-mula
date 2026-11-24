@@ -474,7 +474,7 @@ export function CustomTaskSection({
                           <span>Locked</span>
                         </span>
                       ) : isDone ? (
-                        <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25]">
+                        <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[var(--semantic-green-border)] bg-[var(--semantic-green)] text-[10px] font-mono font-semibold text-white leading-[1.25]">
                           <Check className="w-2.5 h-2.5 stroke-[2.75]" />
                           <span>Done</span>
                         </span>

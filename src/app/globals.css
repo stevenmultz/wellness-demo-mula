@@ -20,15 +20,24 @@
   --radius-card: 16px;
   --radius-control: 12px;
 
-  /* Global Urbanist Jewel & Diamond Semantic Colors (Monochrome-harmonized) */
-  /* Red — Pigeon Blood Ruby */
-  --semantic-ruby: #9e2a3a;
-  --semantic-ruby-border: #b03244;
-  --semantic-ruby-bg: #f7ecee;
-  /* Green — Colombian Emerald */
-  --semantic-emerald: #1f6e54;
-  --semantic-emerald-border: #2a7b60;
-  --semantic-emerald-bg: #ebf3f0;
+  /* Global Semantic Colors (Monochrome-harmonized Sage Green & Dusty Red) */
+  /* Red — Dusty Red */
+  --semantic-red: #a85858;
+  --semantic-red-border: #964b4b;
+  --semantic-red-dot: #a85858;
+  --semantic-red-bg: #f6ecec;
+  /* Green — Sage Green */
+  --semantic-green: #5e7f69;
+  --semantic-green-border: #4f6e59;
+  --semantic-green-dot: #5e7f69;
+  --semantic-green-bg: #ecf2ee;
+  /* Legacy aliases pointing to global semantic tokens */
+  --semantic-ruby: var(--semantic-red);
+  --semantic-ruby-border: var(--semantic-red-border);
+  --semantic-ruby-bg: var(--semantic-red-bg);
+  --semantic-emerald: var(--semantic-green);
+  --semantic-emerald-border: var(--semantic-green-border);
+  --semantic-emerald-bg: var(--semantic-green-bg);
   /* Yellow — Fancy Canary Diamond */
   --semantic-canary: #a67c1e;
   --semantic-canary-border: #b88b28;
@@ -54,13 +63,21 @@
   --muted-foreground: #a1a1aa;
   --card-shadow: none;
 
-  /* Dark Mode Jewel & Diamond Semantic Colors */
-  --semantic-ruby: #e06c7c;
-  --semantic-ruby-border: #c95b6b;
-  --semantic-ruby-bg: rgba(158, 42, 58, 0.18);
-  --semantic-emerald: #52b793;
-  --semantic-emerald-border: #4d9e7b;
-  --semantic-emerald-bg: rgba(31, 110, 84, 0.18);
+  /* Dark Mode Semantic Colors (Sage Green & Dusty Red) */
+  --semantic-red: #b56565;
+  --semantic-red-border: #c47878;
+  --semantic-red-dot: #cc7c7c;
+  --semantic-red-bg: rgba(168, 88, 88, 0.22);
+  --semantic-green: #698c74;
+  --semantic-green-border: #7da188;
+  --semantic-green-dot: #86aa92;
+  --semantic-green-bg: rgba(94, 127, 105, 0.22);
+  --semantic-ruby: var(--semantic-red);
+  --semantic-ruby-border: var(--semantic-red-border);
+  --semantic-ruby-bg: var(--semantic-red-bg);
+  --semantic-emerald: var(--semantic-green);
+  --semantic-emerald-border: var(--semantic-green-border);
+  --semantic-emerald-bg: var(--semantic-green-bg);
   --semantic-canary: #d4a94a;
   --semantic-canary-border: #c29538;
   --semantic-canary-bg: rgba(166, 124, 30, 0.18);

@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
-import { FiftyBarMeter } from "./my-plan/CohortPerformanceCard";
 import {
   FillBellIcon,
   FillCameraIcon,
@@ -36,6 +35,41 @@ import { TaskForm } from "./checkin/TaskFormModal";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 
 export type { DailyCheckInProps };
+
+// ─── Ascending Vertical Step-Bar Meter (Unique to Tasks Progress) ────────────
+function VerticalStepMeter({ percent }: { percent: number }) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  const steps = 10;
+  const filledSteps = Math.round((safePercent / 100) * steps);
+
+  return (
+    <div
+      className="flex items-end gap-1 sm:gap-1.5 h-12 shrink-0"
+      role="progressbar"
+      aria-valuenow={safePercent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`${safePercent}%`}
+    >
+      {Array.from({ length: steps }, (_, i) => {
+        const stepNum = i + 1;
+        const heightPct = 28 + Math.round((i / (steps - 1)) * 72);
+        const isFilled = stepNum <= filledSteps;
+        return (
+          <div
+            key={stepNum}
+            style={{ height: `${heightPct}%` }}
+            className={`w-[5px] sm:w-[6px] rounded-full transition-all duration-300 ${
+              isFilled
+                ? "bg-zinc-950 dark:bg-white"
+                : "bg-zinc-300/80 dark:bg-white/15"
+            }`}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 export function DailyCheckIn(props: DailyCheckInProps) {
   const { day, locked, activities, checks, initialDone } = props;
@@ -324,103 +358,103 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Top Row (50/50 Side-by-Side): Today Progress & Reminder */}
-      <div className="w-full grid grid-cols-2 gap-3 sm:gap-4 items-stretch">
-        {/* Widget 1: Today Progress (Metrics-Matched Surface, Typography & Segmented Meter) */}
-        <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 flex flex-col justify-between gap-3 border border-zinc-200/50 dark:border-white/5">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-                <FillTargetIcon className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-                Today Progress
-              </span>
-            </div>
-
-            <div className="flex items-end gap-1.5 flex-wrap">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
-                  {progressPct}
-                </span>
-                <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-                  %
-                </span>
-              </div>
-
-              {isSelectedFuture ? (
-                <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
-                  <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
-                  <span>Locked</span>
-                </span>
-              ) : allCleared ? (
-                <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
-                  <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
-                  <span>
-                    {completedTasks}/{totalTasks}
-                  </span>
-                </span>
-              ) : (
-                <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
-                  <span>{remainingTasks} left</span>
-                </span>
-              )}
-            </div>
+      {/* Widget 1: Today Progress (Stacked Full-Width Card with Ascending Vertical Step-Bar Meter) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-end justify-between gap-4">
+        <div className="space-y-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <FillTargetIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              Today Progress
+            </span>
           </div>
 
-          <div className="pt-0.5">
-            <FiftyBarMeter percent={progressPct} segments={24} />
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {progressPct}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                %
+              </span>
+            </div>
+
+            {isSelectedFuture ? (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
+                <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
+                <span>Locked</span>
+              </span>
+            ) : allCleared ? (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[var(--semantic-green-border)] bg-[var(--semantic-green)] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+                <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
+                <span>
+                  {completedTasks}/{totalTasks}
+                </span>
+              </span>
+            ) : (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[var(--semantic-red-border)] bg-[var(--semantic-red)] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+                <span>{remainingTasks} left</span>
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Widget 2: Daily Reminder & Upcoming Meetup Alert */}
-        <div className="w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 flex flex-col justify-between gap-2.5 border border-zinc-200/50 dark:border-white/5">
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-                <FillBellIcon className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-                Reminder
-              </span>
-            </div>
-
-            <p className="text-[11px] sm:text-xs text-zinc-800 dark:text-zinc-200 leading-snug line-clamp-3">
-              {dailyReminderText}
-            </p>
-          </div>
-
-          {upcomingMeetup ? (
-            <div className="pt-2 border-t border-zinc-300/60 dark:border-white/10 space-y-1 min-w-0">
-              <div className="flex items-center justify-between gap-1.5 min-w-0">
-                <div className="flex items-center gap-1 min-w-0">
-                  <FillUsersIcon className="w-3 h-3 text-zinc-700 dark:text-zinc-300 shrink-0" />
-                  <span className="text-[11px] font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-                    {upcomingMeetup.label}
-                  </span>
-                </div>
-                <span className="semantic-badge-box shrink-0 px-1.5 py-[2px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[9px] font-mono font-semibold text-zinc-950 dark:text-white leading-[1.25] whitespace-nowrap">
-                  {upcomingMeetup.daysUntil === 0
-                    ? "Today"
-                    : upcomingMeetup.daysUntil === 1
-                      ? "Tomorrow"
-                      : `In ${upcomingMeetup.daysUntil}d`}
-                </span>
-              </div>
-              <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate leading-normal">
-                {upcomingMeetup.dateLabel}
-                {upcomingMeetup.schedule ? ` · ${upcomingMeetup.schedule}` : ""}
-              </p>
-            </div>
-          ) : !isAnytime && isSelectedToday ? (
-            <p className="pt-2 border-t border-zinc-300/60 dark:border-white/10 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate leading-normal">
-              {resetCountdown}
-            </p>
-          ) : null}
-        </div>
+        <VerticalStepMeter percent={progressPct} />
       </div>
 
-      {/* Free-Order 2-Column Task Tiles Grid (Complete in any order; Ruby dot on top-right of icon when pending) */}
+      {/* Widget 2: Daily Reminder & Upcoming Meetup Alert (Stacked Below Today Progress) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <FillBellIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              Reminder
+            </span>
+          </div>
+
+          {!isAnytime && isSelectedToday && (
+            <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0 leading-normal">
+              {resetCountdown}
+            </span>
+          )}
+        </div>
+
+        <p className="text-xs sm:text-[13px] text-zinc-800 dark:text-zinc-200 leading-relaxed">
+          {dailyReminderText}
+        </p>
+
+        {upcomingMeetup && (
+          <div className="pt-2.5 border-t border-zinc-300/60 dark:border-white/10 flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-6 h-6 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+                <FillUsersIcon className="w-3 h-3" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+                  {upcomingMeetup.label}
+                </p>
+                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate leading-normal">
+                  {upcomingMeetup.dateLabel}
+                  {upcomingMeetup.schedule ? ` · ${upcomingMeetup.schedule}` : ""}
+                </p>
+              </div>
+            </div>
+
+            <span className="semantic-badge-box shrink-0 px-2 py-[3px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-950 dark:text-white leading-[1.25] whitespace-nowrap">
+              {upcomingMeetup.daysUntil === 0
+                ? "Today"
+                : upcomingMeetup.daysUntil === 1
+                  ? "Tomorrow"
+                  : `In ${upcomingMeetup.daysUntil}d`}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Free-Order 2-Column Task Tiles Grid (Complete in any order; Dusty Red dot on top-right of icon when pending) */}
       <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
         {taskTiles.map((tile) => {
           const TileIcon = tile.Icon;
@@ -439,7 +473,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/60 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
               >
-                {/* Top Row: Solid Fill Icon (with Red Pending Dot on icon top-right) + Emerald Check when done */}
+                {/* Top Row: Solid Fill Icon (with Dusty Red Pending Dot on icon top-right) + Sage Green Check when done */}
                 <div className="w-full flex items-start justify-between gap-2">
                   <span
                     className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${
@@ -457,7 +491,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     {isPending && (
                       <span
                         aria-label="Not completed"
-                        className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                        className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
                       />
                     )}
                   </span>
@@ -465,7 +499,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   {tile.isDone ? (
                     <span
                       aria-label="Completed"
-                      className="semantic-badge-box w-5 h-5 rounded-full bg-[#1F6E54] border border-[#2A7B60] text-white flex items-center justify-center shrink-0"
+                      className="semantic-badge-box w-5 h-5 rounded-full bg-[var(--semantic-green)] border border-[var(--semantic-green-border)] text-white flex items-center justify-center shrink-0"
                     >
                       <Check className="w-3 h-3 stroke-[2.75]" />
                     </span>
