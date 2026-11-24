@@ -254,8 +254,8 @@ interface GuideAccordionModalProps {
 }
 
 const BANNER_META: Record<GuidePageKey, { img: string; title: string }> = {
-  meal: { img: "/pic.webp", title: "Meal Guide" },
-  meetup: { img: "/coach.webp", title: "Meetups & Live" },
+  meal: { img: "/pic.webp", title: "Nutrition" },
+  meetup: { img: "/coach.webp", title: "Sessions" },
   overview: { img: "/coach3.webp", title: "Overview" },
   rules: { img: "/coach2.webp", title: "Rules & Guidelines" },
   coach: { img: "/coach.webp", title: "Coaches" },

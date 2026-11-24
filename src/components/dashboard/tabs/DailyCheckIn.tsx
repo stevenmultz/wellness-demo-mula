@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
-import { FiftyBarMeter } from "./my-plan/CohortPerformanceCard";
 import {
   FillCameraIcon,
   FillChecklistIcon,
@@ -156,10 +155,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
   const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
   const totalStages = tasks.length + customTasksList.length;
-  const completedStages = coreDoneCount + customDoneCount;
-  const remainingStages = Math.max(0, totalStages - completedStages);
-  const journeyPct =
-    totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
+  const remainingStages = Math.max(0, totalStages - (coreDoneCount + customDoneCount));
 
   const getCoreFillIcon = (index: number): ComponentType<FillIconProps> => {
     if (index === 0) return FillMoonIcon;
@@ -317,51 +313,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Daily Journey Progress Summary Card (Metrics-Matched Surface & Typography) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-              <FillFlagIcon className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-              Daily Journey
-            </span>
-          </div>
-
-          <div className="flex items-end gap-2 flex-wrap">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
-                {completedStages}/{totalStages}
-              </span>
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-                stages
-              </span>
-            </div>
-
-            {isSelectedFuture ? (
-              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
-                <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
-                <span>Locked</span>
-              </span>
-            ) : allCleared ? (
-              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
-                <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
-                <span>Clear</span>
-              </span>
-            ) : (
-              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
-                <span>{remainingStages} left</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="pt-0.5">
-          <FiftyBarMeter percent={journeyPct} />
-        </div>
-      </div>
-
       {/* Winding S-Curve Game Map Journey Canvas (Metrics-Matched Monochrome Editorial Surface) */}
       <div
         className="relative w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 overflow-hidden select-none"
@@ -466,7 +417,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 </button>
               </div>
 
-              {/* Clean Map Signpost Label on the open side of the S-curve */}
+              {/* Clean Map Signpost Label on the open side of the S-curve (task name only) */}
               <button
                 type="button"
                 disabled={pt.disabled}
@@ -484,29 +435,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         right: "calc(24% + 44px)",
                       }
                 }
-                className={`absolute -translate-y-1/2 z-10 flex flex-col cursor-pointer disabled:cursor-default group transition active:scale-[0.99] ${
-                  pt.isLeft ? "items-start text-left" : "items-end text-right"
+                className={`absolute -translate-y-1/2 z-10 flex items-center cursor-pointer disabled:cursor-default group transition active:scale-[0.99] ${
+                  pt.isLeft ? "justify-start text-left" : "justify-end text-right"
                 } ${isSelectedFuture ? "opacity-65" : ""}`}
               >
-                <div
-                  className={`inline-flex items-center gap-1.5 ${
-                    pt.isLeft ? "flex-row" : "flex-row-reverse"
-                  }`}
-                >
-                  <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal">
-                    {pt.stageNum}
-                  </span>
-                  {pt.isDone && (
-                    <span className="semantic-badge-box px-1.5 py-[1px] rounded border border-[#2A7B60] bg-[#1F6E54] text-[9px] font-mono font-semibold uppercase text-white leading-[1.25]">
-                      Done
-                    </span>
-                  )}
-                </div>
                 <span className="text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate max-w-full group-hover:opacity-75 transition">
                   {pt.title}
-                </span>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal truncate max-w-full">
-                  {pt.description}
                 </span>
               </button>
             </div>

@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  BookOpen,
-  ChevronRight,
-  Info,
-  Target,
-  Users,
-  Utensils,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { InfoPopupModal } from "../shared";
+import {
+  FillTargetIcon,
+  FillUsersIcon,
+  FillUtensilsIcon,
+  type FillIconProps,
+} from "../sharedFillIcons";
 import {
   GuideAccordionModal,
   type GuideCoachItem,
@@ -203,111 +201,121 @@ export function ProgramPreparationWidgets({
 
   const guideCards: Array<{
     key: GuidePageKey;
-    img: string;
-    icon: typeof Utensils;
+    icon: ComponentType<FillIconProps>;
     badge: string;
     title: string;
     subtitle: string;
   }> = [
     {
       key: "meal",
-      img: "/pic.webp",
-      icon: Utensils,
+      icon: FillUtensilsIcon,
       badge: `${totalDaysCount} days`,
-      title: "Meal Guide",
-      subtitle: "Daily nutrition & hydration",
+      title: "Nutrition",
+      subtitle: "Daily meals & hydration",
     },
     ...(!isOnlineProgram
       ? [
           {
             key: "meetup" as GuidePageKey,
-            img: "/coach.webp",
-            icon: Users,
+            icon: FillUsersIcon,
             badge: `${meetupDays.length} ${meetupDays.length === 1 ? "session" : "sessions"}`,
-            title: "Meetups & Live",
-            subtitle: "Zoom clinics & sessions",
+            title: "Sessions",
+            subtitle: "Live clinics & meetups",
           },
         ]
       : []),
     {
       key: "overview",
-      img: "/coach3.webp",
-      icon: Target,
-      badge: `${program.durationDays || totalDaysCount} days focus`,
-      title: "Program Overview",
-      subtitle: "Blueprint, rules, coaches & gear",
+      icon: FillTargetIcon,
+      badge: `${program.durationDays || totalDaysCount} days`,
+      title: "Overview",
+      subtitle: "Blueprint, rules & coaches",
     },
   ];
 
   return (
     <>
       <section className="w-full space-y-4">
-
-
         <InfoPopupModal
           open={showGuidesInfo}
-          title="Program Guides"
-          subtitle="Meals, sessions, and comprehensive overview"
+          title="Guides"
+          subtitle="Nutrition, sessions, and program overview"
           onClose={() => setShowGuidesInfo(false)}
         >
           <p className="font-semibold text-zinc-950 dark:text-white">
-            What Program Guides Cover:
+            What Guides Cover:
           </p>
           <ul className="space-y-1.5 text-[11px] leading-relaxed list-disc list-inside text-zinc-600 dark:text-zinc-400">
             <li>
-              <strong className="text-zinc-900 dark:text-white">Meal Guide:</strong> Daily
-              nutrition principles, hydration targets, and dietary guidance.
+              <strong className="text-zinc-900 dark:text-white">Nutrition:</strong> Daily
+              meal recommendations, hydration targets, and dietary principles.
             </li>
             <li>
-              <strong className="text-zinc-900 dark:text-white">Meetups &amp; Live:</strong>{" "}
-              Scheduled Zoom clinics, live coaching sessions, and community meetups.
+              <strong className="text-zinc-900 dark:text-white">Sessions:</strong>{" "}
+              Scheduled live coaching sessions and community meetups.
             </li>
             <li>
-              <strong className="text-zinc-900 dark:text-white">Overview, Rules &amp; Faculty:</strong> Program
-              methodology, rules of conduct, coaching faculty, required gear, and scientific references.
+              <strong className="text-zinc-900 dark:text-white">Overview:</strong> Program
+              methodology, rules of conduct, coaching faculty, required gear, and references.
             </li>
           </ul>
         </InfoPopupModal>
 
-        <ol className="w-full space-y-3">
-          {guideCards.map((card) => {
+        {/* 2-Column Editorial Hardcover Book Grid */}
+        <ol className="w-full grid grid-cols-2 gap-3.5 sm:gap-4">
+          {guideCards.map((card, idx) => {
             const Icon = card.icon;
+            const volNum = String(idx + 1).padStart(2, "0");
+
             return (
               <li key={card.key} className="w-full">
-                <div
+                <button
+                  type="button"
                   onClick={() => setActivePage(card.key)}
-                  className="group w-full relative overflow-hidden rounded-2xl p-4 flex items-center justify-between gap-3 transition bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] cursor-pointer active:scale-[0.99]"
+                  aria-label={`Open ${card.title} guide`}
+                  className="group relative w-full aspect-[3/4] text-left rounded-r-2xl rounded-l-[5px] bg-[#ececea] dark:bg-white/[0.05] border border-zinc-300/75 dark:border-white/10 shadow-[4px_5px_0_0_rgba(24,24,27,0.10)] dark:shadow-[4px_5px_0_0_rgba(0,0,0,0.4)] hover:-translate-y-0.5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.07] active:translate-y-0 transition-all duration-200 overflow-hidden cursor-pointer flex"
                 >
-                  <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                          {card.title}
-                        </p>
-                      </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                        {card.subtitle}
-                      </p>
-                    </div>
+                  {/* Hardcover Book Spine (Left Edge) */}
+                  <div
+                    aria-hidden="true"
+                    className="w-3 sm:w-3.5 shrink-0 h-full bg-zinc-950/[0.08] dark:bg-white/[0.08] border-r border-zinc-950/10 dark:border-white/10 relative"
+                  >
+                    <span className="absolute inset-y-0 right-0 w-px bg-white/60 dark:bg-white/10" />
                   </div>
 
-                  <div className="relative z-10 shrink-0 flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActivePage(card.key);
-                      }}
-                      aria-label={`Open ${card.title}`}
-                      className="w-7 h-7 rounded-lg bg-zinc-200/50 dark:bg-white/[0.06] hover:bg-zinc-300/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Book Cover Front Face */}
+                  <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between">
+                    {/* Top Row: Solid Fill Icon + Volume Number */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="w-8 h-8 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500 leading-normal">
+                        {volNum}
+                      </span>
+                    </div>
+
+                    {/* Center-Bottom Editorial Title & Subtitle */}
+                    <div className="space-y-2.5 pt-2">
+                      <div className="space-y-1">
+                        <p className="text-base sm:text-lg font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-snug">
+                          {card.title}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-2">
+                          {card.subtitle}
+                        </p>
+                      </div>
+
+                      {/* Footer Rule + Edition Meta */}
+                      <div className="pt-2.5 border-t border-zinc-300/70 dark:border-white/10 flex items-center justify-between gap-1.5">
+                        <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-zinc-500 dark:text-zinc-400 truncate leading-normal">
+                          {card.badge}
+                        </span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </button>
               </li>
             );
           })}
