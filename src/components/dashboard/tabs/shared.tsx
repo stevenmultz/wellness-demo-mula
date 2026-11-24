@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowLeft,
-  ChevronDown,
   Info,
   Loader2,
   LogOut,
@@ -50,6 +49,7 @@ export function formatIdr(amount: number): string {
 export { safeHttpUrl } from "@/wellness/utils/url-safety";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
+import { FillUserIcon } from "./sharedFillIcons";
 
 /** Unified static brand wordmark rendered identically across all top headers. */
 export function BrandWordmark({ light = false }: { light?: boolean }) {
@@ -133,35 +133,21 @@ export function HeaderProfileButton({
         aria-haspopup={hasMenu ? "menu" : undefined}
         aria-expanded={hasMenu ? open : undefined}
         title={email ? `${t.nav.profile} (${email})` : t.nav.profile}
-        className={`shrink-0 max-w-[62vw] sm:max-w-[260px] h-8 pl-1 pr-2.5 rounded-full border text-xs font-geometric font-medium inline-flex items-center gap-1.5 active:scale-95 transition ${
+        className={`shrink-0 w-8 h-8 rounded-full overflow-hidden border inline-flex items-center justify-center active:scale-95 transition cursor-pointer ${
           light
-            ? "bg-white/15 hover:bg-white/25 backdrop-blur-md border-white/25 text-white drop-shadow-xs"
-            : "bg-white hover:bg-zinc-50 border-zinc-200/90 text-zinc-900 shadow-2xs"
+            ? "bg-white/20 hover:bg-white/30 backdrop-blur-md border-white/30 text-white drop-shadow-xs"
+            : "bg-white hover:bg-zinc-50 border-zinc-200/90 text-zinc-700 shadow-2xs"
         }`}
       >
-        <span
-          className={`w-6 h-6 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${
-            light ? "bg-white/20" : "bg-zinc-100"
-          }`}
-        >
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt={displayText}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <User className={`w-3.5 h-3.5 ${light ? "text-white" : "text-zinc-600"}`} />
-          )}
-        </span>
-        <span className="truncate">{displayText}</span>
-        {hasMenu && (
-          <ChevronDown
-            className={`w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-150 ${
-              open ? "rotate-180" : ""
-            }`}
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt={displayText}
+            className="w-full h-full object-cover"
           />
+        ) : (
+          <FillUserIcon className={`w-4 h-4 ${light ? "text-white" : "text-zinc-600"}`} />
         )}
       </button>
 

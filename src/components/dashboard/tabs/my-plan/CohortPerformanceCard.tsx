@@ -334,12 +334,12 @@ function TrainingWidget({
   const getDayCompletionFraction = (d: PlanDay): string => {
     const status = getTrainingDayStatus(d, currentDayNumber);
 
+    if (status === "future") {
+      return "-";
+    }
+
     if (d.dayType === "TRAINING_DAY") {
       const acts = movementNames(d);
-      const total = acts.length > 0 ? acts.length : 1;
-      if (status === "future") {
-        return `0/${total} Training`;
-      }
       if (acts.length > 0) {
         const checks = checkedList(d, undefined);
         const done = d.userProgress?.isCompleted
@@ -355,10 +355,6 @@ function TrainingWidget({
 
     if (d.dayType === "REST_DAY") {
       const acts = splitActivities(d.restInstructions);
-      const total = acts.length > 0 ? acts.length : 1;
-      if (status === "future") {
-        return `0/${total} Rest`;
-      }
       if (acts.length > 0) {
         const checks = checkedList(d, undefined);
         const done = d.userProgress?.isCompleted
@@ -377,9 +373,6 @@ function TrainingWidget({
     }
 
     // CONNECT_DAY / MEETUP_DAY
-    if (status === "future") {
-      return "0/1 Connect";
-    }
     const done =
       d.userProgress?.isCompleted ||
       (d.userProgress?.eventFeedback && d.userProgress.eventFeedback !== "SKIPPED")

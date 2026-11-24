@@ -1,20 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpRight, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import { FiftyBarMeter } from "./my-plan/CohortPerformanceCard";
 import {
+  FillCameraIcon,
+  FillChecklistIcon,
   FillDropletIcon,
   FillDumbbellIcon,
   FillFlagIcon,
   FillHeartIcon,
   FillLockIcon,
   FillMoonIcon,
+  FillPlayIcon,
+  FillScaleIcon,
+  FillSparkleIcon,
+  FillTargetIcon,
   FillUsersIcon,
   FillUtensilsIcon,
+  type FillIconProps,
 } from "./sharedFillIcons";
 import {
   deriveDayActivities,
@@ -25,6 +32,7 @@ import {
   type DailyCheckInProps,
 } from "./checkin/checkInUtils";
 import { TaskForm } from "./checkin/TaskFormModal";
+import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 
 export type { DailyCheckInProps };
 
@@ -67,6 +75,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const [openCustomTaskId, setOpenCustomTaskId] = useState<string | null>(null);
 
   const programDays = useMemo(() => {
     const list =
@@ -152,16 +161,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const journeyPct =
     totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
 
-  // First incomplete unlocked stage index across core + custom tasks (highlights "UP NEXT" quest node)
-  const firstIncompleteCoreIdx = !isSelectedFuture
-    ? tasks.findIndex((_, i) => !selectedDone[i])
-    : -1;
-  const hasCustomNextUp =
-    !isSelectedFuture &&
-    firstIncompleteCoreIdx === -1 &&
-    customTasksList.some((ct) => !ct.submission);
-
-  const getCoreFillIcon = (index: number) => {
+  const getCoreFillIcon = (index: number): ComponentType<FillIconProps> => {
     if (index === 0) return FillMoonIcon;
     if (index === 1) {
       if (selectedDay.dayType === "REST_DAY") return FillHeartIcon;
@@ -172,8 +172,113 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     return FillDropletIcon;
   };
 
+  const getCustomFillIcon = (ct: ProgramDayCustomTaskDTO): ComponentType<FillIconProps> => {
+    const titleLower = ct.title.toLowerCase();
+    if (
+      titleLower.includes("intro") ||
+      titleLower.includes("final") ||
+      titleLower.includes("sambutan") ||
+      titleLower.includes("penutup") ||
+      ct.fields.some((f) => f.key === "videoUrl" || f.key === "videoWatched")
+    ) {
+      return FillPlayIcon;
+    }
+    switch (ct.taskType) {
+      case "MEASUREMENT":
+        return FillScaleIcon;
+      case "BENCHMARK":
+        return FillTargetIcon;
+      case "CHECKLIST":
+        return FillChecklistIcon;
+      case "MEDIA_UPLOAD":
+        return FillCameraIcon;
+      default:
+        return FillSparkleIcon;
+    }
+  };
+
+  interface JourneyMapNode {
+    key: string;
+    stageNum: string;
+    title: string;
+    description: string;
+    isDone: boolean;
+    Icon: ComponentType<FillIconProps>;
+    onOpen: () => void;
+    disabled: boolean;
+  }
+
+  const journeyNodes: JourneyMapNode[] = [
+    ...tasks.map((t, index) => {
+      const isDone = selectedDone[index];
+      return {
+        key: `core-${t.title}`,
+        stageNum: String(index + 1).padStart(2, "0"),
+        title: t.title,
+        description: t.description,
+        isDone,
+        Icon: getCoreFillIcon(index),
+        disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
+        onOpen: () => openDetail(index),
+      };
+    }),
+    ...customTasksList.map((ct, idx) => {
+      const isDone = Boolean(ct.submission);
+      return {
+        key: `custom-${ct.id}`,
+        stageNum: String(tasks.length + idx + 1).padStart(2, "0"),
+        title: ct.title,
+        description: ct.instructions || "Coach checkpoint",
+        isDone,
+        Icon: getCustomFillIcon(ct),
+        disabled: isSelectedFuture || (selectedLocked && !isDone),
+        onOpen: () => setOpenCustomTaskId(ct.id),
+      };
+    }),
+  ];
+
+  const firstIncompleteNodeIdx = !isSelectedFuture
+    ? journeyNodes.findIndex((n) => !n.isDone)
+    : -1;
+  const allCleared = !isSelectedFuture && totalStages > 0 && remainingStages === 0;
+
+  // Winding S-Curve Game Map Geometry
+  const SVG_W = 360;
+  const TOP_PAD = 68;
+  const ROW_STEP = 104;
+  const FINISH_STEP = 92;
+  const BOTTOM_PAD = 56;
+
+  const mapPoints = journeyNodes.map((node, idx) => {
+    const isLeft = idx % 2 === 0;
+    const xPct = isLeft ? 24 : 76;
+    const xSvg = (xPct / 100) * SVG_W;
+    const yPx = TOP_PAD + idx * ROW_STEP;
+    return { ...node, idx, isLeft, xPct, xSvg, yPx };
+  });
+
+  const lastNodeY =
+    mapPoints.length > 0 ? mapPoints[mapPoints.length - 1].yPx : TOP_PAD;
+  const finishNode = {
+    xPct: 50,
+    xSvg: SVG_W / 2,
+    yPx: lastNodeY + FINISH_STEP,
+  };
+  const mapHeight = finishNode.yPx + BOTTOM_PAD;
+
+  const roadSegments = mapPoints.map((pt, idx) => {
+    const next = idx < mapPoints.length - 1 ? mapPoints[idx + 1] : finishNode;
+    const midY = (pt.yPx + next.yPx) / 2;
+    const pathD = `M ${pt.xSvg.toFixed(1)} ${pt.yPx.toFixed(1)} C ${pt.xSvg.toFixed(1)} ${midY.toFixed(1)}, ${next.xSvg.toFixed(1)} ${midY.toFixed(1)}, ${next.xSvg.toFixed(1)} ${next.yPx.toFixed(1)}`;
+    return {
+      key: `seg-${pt.key}`,
+      pathD,
+      paved: pt.isDone,
+    };
+  });
+
   return (
-    <section className="w-full space-y-3.5 sm:space-y-4">
+    <section className="w-full space-y-3 sm:space-y-4">
       <InfoPopupModal
         open={showDailyTasksInfo}
         title="Daily Tasks & Schedule"
@@ -239,7 +344,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
                 <span>Locked</span>
               </span>
-            ) : remainingStages === 0 && totalStages > 0 ? (
+            ) : allCleared ? (
               <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
                 <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
                 <span>Clear</span>
@@ -257,127 +362,194 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       </div>
 
-      {/* Connected Game-Journey Vertical Stage Trail */}
-      <div className="w-full">
-        <ol className="w-full">
-          {tasks.map((t, index) => {
-            const isDone = selectedDone[index];
-            const isNextUp = firstIncompleteCoreIdx === index;
-            const hasMoreBelow =
-              index < tasks.length - 1 || customTasksList.length > 0;
-            const StageIcon = getCoreFillIcon(index);
-            const stageNum = String(index + 1).padStart(2, "0");
+      {/* Winding S-Curve Game Map Journey Canvas (Metrics-Matched Monochrome Editorial Surface) */}
+      <div
+        className="relative w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 overflow-hidden select-none"
+        style={{ height: `${mapHeight}px` }}
+      >
+        {/* Subtle Minimalist Topographic Dot-Grid Terrain */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none opacity-45 dark:opacity-20"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(24, 24, 27, 0.16) 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+          }}
+        />
 
-            return (
-              <li key={t.title} className="w-full flex items-stretch gap-3">
-                {/* Left Vertical Game Trail Node + Connector */}
-                <div className="w-9 shrink-0 flex flex-col items-center">
-                  <button
-                    type="button"
-                    disabled={isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone)}
-                    onClick={() => openDetail(index)}
-                    aria-label={`Stage ${stageNum}: ${t.title}`}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition mt-3 relative cursor-pointer disabled:cursor-default ${
-                      isDone
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                        : isNextUp
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e] shadow-sm"
-                          : isSelectedFuture
-                            ? "bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-zinc-400 dark:text-zinc-500"
-                            : "bg-[#ececea] dark:bg-white/[0.06] border border-zinc-300/90 dark:border-white/15 text-zinc-700 dark:text-zinc-300"
-                    }`}
-                  >
-                    {isDone ? (
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    ) : isSelectedFuture ? (
-                      <FillLockIcon className="w-3.5 h-3.5" />
-                    ) : (
-                      <StageIcon className="w-4 h-4" />
-                    )}
-                  </button>
+        {/* Winding Cubic-Bezier SVG Trail (vectorEffect keeps stroke width crisp on all viewports) */}
+        <svg
+          aria-hidden="true"
+          viewBox={`0 0 ${SVG_W} ${mapHeight}`}
+          preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        >
+          {roadSegments.map((seg) => (
+            <g key={seg.key}>
+              {/* Wide stone path underlay */}
+              <path
+                d={seg.pathD}
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+                strokeWidth={14}
+                strokeLinecap="round"
+                className="stroke-zinc-300/55 dark:stroke-white/[0.08]"
+              />
+              {/* Paved solid trail (completed) vs dashed route (upcoming) */}
+              <path
+                d={seg.pathD}
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+                strokeWidth={seg.paved ? 3.5 : 2.5}
+                strokeDasharray={seg.paved ? undefined : "6 6"}
+                strokeLinecap="round"
+                className={
+                  seg.paved
+                    ? "stroke-zinc-950 dark:stroke-white transition-all duration-300"
+                    : "stroke-zinc-400/80 dark:stroke-white/30"
+                }
+              />
+            </g>
+          ))}
+        </svg>
 
-                  {hasMoreBelow && (
-                    <div
-                      aria-hidden="true"
-                      className={`flex-1 min-h-4 my-1 transition-colors ${
-                        isDone
-                          ? "w-[2px] rounded-full bg-zinc-950 dark:bg-white"
-                          : "w-0 border-l-2 border-dashed border-zinc-300 dark:border-white/20"
-                      }`}
-                    />
+        {/* Interactive Waypoint Nodes + Signpost Labels along the Winding Map */}
+        {mapPoints.map((pt) => {
+          const isNextUp = firstIncompleteNodeIdx === pt.idx;
+          const StageIcon = pt.Icon;
+
+          return (
+            <div key={pt.key}>
+              {/* Tactile Round Map Waypoint Node */}
+              <div
+                style={{ left: `${pt.xPct}%`, top: `${pt.yPx}px` }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
+              >
+                {/* Floating "NEXT" game quest callout bubble above active stage */}
+                {isNextUp && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+                    <span className="px-2 py-[2px] rounded-md bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-mono font-bold uppercase tracking-[0.12em] leading-[1.25] whitespace-nowrap shadow-xs">
+                      Next
+                    </span>
+                    <span className="w-1.5 h-1.5 bg-zinc-950 dark:bg-white rotate-45 -mt-[3px]" />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={pt.disabled}
+                  onClick={pt.onOpen}
+                  aria-label={`Stage ${pt.stageNum}: ${pt.title}`}
+                  className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:cursor-default ${
+                    pt.isDone
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-[0_4px_0_0_rgba(24,24,27,0.28)] active:translate-y-[2px]"
+                      : isNextUp
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-[3px] ring-zinc-950/25 dark:ring-white/30 ring-offset-2 ring-offset-[#ececea] dark:ring-offset-zinc-900 shadow-[0_5px_0_0_rgba(24,24,27,0.3)] active:translate-y-[2px]"
+                        : isSelectedFuture
+                          ? "bg-zinc-200/85 dark:bg-white/[0.06] border border-zinc-300/80 dark:border-white/10 text-zinc-400 dark:text-zinc-500"
+                          : "bg-white dark:bg-zinc-900 border-2 border-zinc-300 dark:border-white/20 text-zinc-800 dark:text-zinc-100 shadow-[0_4px_0_0_rgba(24,24,27,0.1)] hover:border-zinc-400 active:translate-y-[2px]"
+                  }`}
+                >
+                  {isSelectedFuture ? (
+                    <FillLockIcon className="w-5 h-5" />
+                  ) : (
+                    <StageIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+                  )}
+
+                  {/* Emerald Check Badge pinned to completed node */}
+                  {pt.isDone && (
+                    <span className="semantic-badge-box absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#1F6E54] border-2 border-[#ececea] dark:border-zinc-900 text-white flex items-center justify-center shadow-xs">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Clean Map Signpost Label on the open side of the S-curve */}
+              <button
+                type="button"
+                disabled={pt.disabled}
+                onClick={pt.onOpen}
+                style={
+                  pt.isLeft
+                    ? {
+                        top: `${pt.yPx}px`,
+                        left: "calc(24% + 44px)",
+                        right: "16px",
+                      }
+                    : {
+                        top: `${pt.yPx}px`,
+                        left: "16px",
+                        right: "calc(24% + 44px)",
+                      }
+                }
+                className={`absolute -translate-y-1/2 z-10 flex flex-col cursor-pointer disabled:cursor-default group transition active:scale-[0.99] ${
+                  pt.isLeft ? "items-start text-left" : "items-end text-right"
+                } ${isSelectedFuture ? "opacity-65" : ""}`}
+              >
+                <div
+                  className={`inline-flex items-center gap-1.5 ${
+                    pt.isLeft ? "flex-row" : "flex-row-reverse"
+                  }`}
+                >
+                  <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal">
+                    {pt.stageNum}
+                  </span>
+                  {pt.isDone && (
+                    <span className="semantic-badge-box px-1.5 py-[1px] rounded border border-[#2A7B60] bg-[#1F6E54] text-[9px] font-mono font-semibold uppercase text-white leading-[1.25]">
+                      Done
+                    </span>
                   )}
                 </div>
+                <span className="text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate max-w-full group-hover:opacity-75 transition">
+                  {pt.title}
+                </span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal truncate max-w-full">
+                  {pt.description}
+                </span>
+              </button>
+            </div>
+          );
+        })}
 
-                {/* Right Stage Card (Metrics-Matched Surface) */}
-                <div className={`flex-1 min-w-0 ${hasMoreBelow ? "pb-3" : ""}`}>
-                  <div
-                    onClick={() => {
-                      if (!isSelectedFuture && (!selectedLocked || isSelectedPast || isDone)) {
-                        openDetail(index);
-                      }
-                    }}
-                    className={`group w-full rounded-2xl p-3.5 sm:p-4 border transition ${
-                      isDone
-                        ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
-                        : isNextUp
-                          ? "bg-[#ececea] dark:bg-white/[0.06] border-zinc-950/30 dark:border-white/30 shadow-xs"
-                          : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
-                    } ${isSelectedFuture ? "opacity-70" : "cursor-pointer active:scale-[0.99]"}`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal">
-                        Stage {stageNum}
-                      </span>
-
-                      {isSelectedFuture ? (
-                        <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 inline-flex items-center gap-1 leading-normal">
-                          <FillLockIcon className="w-2.5 h-2.5" />
-                          <span>Locked</span>
-                        </span>
-                      ) : isDone ? (
-                        <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25]">
-                          <Check className="w-2.5 h-2.5 stroke-[2.75]" />
-                          <span>Done</span>
-                        </span>
-                      ) : isNextUp ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-md bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold leading-[1.25]">
-                          <span>Next</span>
-                          <ArrowUpRight className="w-2.5 h-2.5" />
-                        </span>
-                      ) : (
-                        <span className="w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white inline-flex items-center justify-center transition">
-                          <ArrowUpRight className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-                      {t.title}
-                    </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate leading-normal mt-0.5">
-                      {t.description}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-
-        {customTasksList.length > 0 && (
-          <CustomTaskSection
-            programDayId={selectedDay.id}
-            customTasks={customTasksList}
-            locked={selectedLocked}
-            isFuture={isSelectedFuture}
-            startStageNumber={tasks.length + 1}
-            highlightFirstIncomplete={hasCustomNextUp}
-            onSubmitted={(customTaskId, submission, dayCompleted) =>
-              props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission, dayCompleted)
-            }
-          />
-        )}
+        {/* Finish Milestone Flag at the End of the Winding Map */}
+        <div
+          style={{ left: `${finishNode.xPct}%`, top: `${finishNode.yPx}px` }}
+          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-1.5"
+        >
+          <div
+            className={`w-11 h-11 rounded-full flex items-center justify-center transition ${
+              allCleared
+                ? "bg-[#1F6E54] text-white ring-[3px] ring-[#1F6E54]/25 ring-offset-2 ring-offset-[#ececea] dark:ring-offset-zinc-900 shadow-sm"
+                : "bg-zinc-300/80 dark:bg-white/10 text-zinc-500 dark:text-zinc-400 border border-zinc-300 dark:border-white/15"
+            }`}
+          >
+            <FillFlagIcon className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal whitespace-nowrap">
+            {allCleared
+              ? `Day ${selectedDay.dayNumber} Clear`
+              : `Day ${selectedDay.dayNumber} Goal`}
+          </span>
+        </div>
       </div>
+
+      {/* Custom Coach Task Modal Host (opened directly when tapping custom nodes on the map) */}
+      {customTasksList.length > 0 && (
+        <CustomTaskSection
+          programDayId={selectedDay.id}
+          customTasks={customTasksList}
+          locked={selectedLocked}
+          isFuture={isSelectedFuture}
+          modalOnly
+          externalOpenTaskId={openCustomTaskId}
+          onExternalModalClose={() => setOpenCustomTaskId(null)}
+          onSubmitted={(customTaskId, submission, dayCompleted) =>
+            props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission, dayCompleted)
+          }
+        />
+      )}
 
         {detailOpen &&
         typeof document !== "undefined" &&

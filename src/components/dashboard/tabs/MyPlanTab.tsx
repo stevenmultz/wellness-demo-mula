@@ -293,14 +293,20 @@ export function MyPlanOverview({
   const totalPlans = plans && plans.length > 0 ? plans.length : 1;
 
   const handlePrevPlan = () => {
-    if (plans && currentIndex > 0 && plans[currentIndex - 1]) {
-      onSelectPlan?.(plans[currentIndex - 1].programId);
+    if (plans && plans.length > 1) {
+      const prevIdx = (currentIndex - 1 + plans.length) % plans.length;
+      if (plans[prevIdx]) {
+        onSelectPlan?.(plans[prevIdx].programId);
+      }
     }
   };
 
   const handleNextPlan = () => {
-    if (plans && currentIndex < totalPlans - 1 && plans[currentIndex + 1]) {
-      onSelectPlan?.(plans[currentIndex + 1].programId);
+    if (plans && plans.length > 1) {
+      const nextIdx = (currentIndex + 1) % plans.length;
+      if (plans[nextIdx]) {
+        onSelectPlan?.(plans[nextIdx].programId);
+      }
     }
   };
 
@@ -357,12 +363,12 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Program name switcher (left/right arrows to switch; tap title to open All My Programs) */}
+      {/* 0. Program name switcher (infinite loop left/right arrows; tap title to open All My Programs) */}
       <div className="w-full flex items-center justify-between gap-2 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
         <button
           type="button"
           onClick={handlePrevPlan}
-          disabled={!plans || currentIndex === 0 || plans.length <= 1}
+          disabled={!plans || plans.length <= 1}
           aria-label="Previous program"
           className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
         >
@@ -383,7 +389,7 @@ export function MyPlanOverview({
         <button
           type="button"
           onClick={handleNextPlan}
-          disabled={!plans || currentIndex >= totalPlans - 1 || plans.length <= 1}
+          disabled={!plans || plans.length <= 1}
           aria-label="Next program"
           className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
         >
@@ -428,13 +434,8 @@ export function MyPlanOverview({
           </button>
         </div>
 
-        {/* Bottom Content: Title, Action Buttons, and Day X/Y + Progress Bar */}
+        {/* Bottom Content: Action Buttons and Day X/Y + Progress Bar (Program title moved to switcher above) */}
         <div className="relative z-10 space-y-2.5 pt-6">
-          {/* Program title */}
-          <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight text-white leading-tight">
-            {program?.title || t.myPlan.noActivePlanTitle}
-          </h1>
-
           {/* Action buttons (Community & Report - without "Join") */}
           {program && (
             <div className="flex items-center gap-4">

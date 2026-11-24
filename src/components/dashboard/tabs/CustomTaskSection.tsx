@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Angry,
@@ -40,6 +40,9 @@ export interface CustomTaskSectionProps {
   isFuture?: boolean;
   startStageNumber?: number;
   highlightFirstIncomplete?: boolean;
+  modalOnly?: boolean;
+  externalOpenTaskId?: string | null;
+  onExternalModalClose?: () => void;
   onSubmitted?: (
     customTaskId: string,
     submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>,
@@ -228,6 +231,9 @@ export function CustomTaskSection({
   isFuture = false,
   startStageNumber = 5,
   highlightFirstIncomplete = false,
+  modalOnly = false,
+  externalOpenTaskId = null,
+  onExternalModalClose,
   onSubmitted,
 }: CustomTaskSectionProps) {
   const { locale, t } = useLocale();
@@ -237,6 +243,27 @@ export function CustomTaskSection({
   const [saving, setSaving] = useState(false);
   const [uploadingPhotoKey, setUploadingPhotoKey] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const closeModal = () => {
+    setActiveTask(null);
+    onExternalModalClose?.();
+  };
+
+  useEffect(() => {
+    if (!externalOpenTaskId || isFuture) return;
+    const found = customTasks.find((ct) => ct.id === externalOpenTaskId);
+    if (!found) return;
+    setErrorMsg(null);
+    const initialVals: Record<string, unknown> = { ...(found.submission?.values || {}) };
+    for (const f of found.fields) {
+      if (f.key === "videoUrl" && !initialVals.videoUrl && f.placeholder) {
+        initialVals.videoUrl = f.placeholder;
+      }
+    }
+    setFormValues(initialVals);
+    setStepIdx(0);
+    setActiveTask(found);
+  }, [externalOpenTaskId, customTasks, isFuture]);
 
   if (!customTasks || customTasks.length === 0) return null;
 
@@ -356,7 +383,7 @@ export function CustomTaskSection({
         };
         onSubmitted(activeTask.id, payload, payload.dayCompleted);
       }
-      setActiveTask(null);
+      closeModal();
     } catch {
       setErrorMsg("Network error while saving.");
     } finally {
@@ -369,109 +396,113 @@ export function CustomTaskSection({
     : -1;
 
   return (
-    <ol className="w-full">
-      {customTasks.map((ct, idx) => {
-        const Icon = getTaskIcon(ct);
-        const isDone = !!ct.submission;
-        const isNextUp = firstIncompleteCustomIdx === idx;
-        const hasMoreBelow = idx < customTasks.length - 1;
-        const stageNum = String(startStageNumber + idx).padStart(2, "0");
-        const summary = summarizeValues(ct.fields, ct.submission?.values);
+    <div className={modalOnly ? "" : "w-full"}>
+      {!modalOnly && (
+        <ol className="w-full">
+          {customTasks.map((ct, idx) => {
+            const Icon = getTaskIcon(ct);
+            const isDone = !!ct.submission;
+            const isNextUp = firstIncompleteCustomIdx === idx;
+            const hasMoreBelow = idx < customTasks.length - 1;
+            const stageNum = String(startStageNumber + idx).padStart(2, "0");
+            const summary = summarizeValues(ct.fields, ct.submission?.values);
 
-        return (
-          <li key={ct.id} className="w-full flex items-stretch gap-3">
-            {/* Left Vertical Game Trail Node + Connector */}
-            <div className="w-9 shrink-0 flex flex-col items-center">
-              <button
-                type="button"
-                disabled={isFuture || (locked && !isDone)}
-                onClick={() => openTaskModal(ct)}
-                aria-label={`Stage ${stageNum}: ${ct.title}`}
-                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition mt-3 cursor-pointer disabled:cursor-default ${
-                  isDone
-                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                    : isNextUp
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e] shadow-sm"
-                      : isFuture
-                        ? "bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-zinc-400 dark:text-zinc-500"
-                        : "bg-[#ececea] dark:bg-white/[0.06] border border-zinc-300/90 dark:border-white/15 text-zinc-700 dark:text-zinc-300"
-                }`}
-              >
-                {isDone ? (
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                ) : isFuture ? (
-                  <FillLockIcon className="w-3.5 h-3.5" />
-                ) : (
-                  <Icon className="w-4 h-4" />
-                )}
-              </button>
+            return (
+              <li key={ct.id} className="w-full flex items-stretch gap-3">
+                {/* Left Vertical Game Trail Node + Connector */}
+                <div className="w-9 shrink-0 flex flex-col items-center">
+                  <button
+                    type="button"
+                    disabled={isFuture || (locked && !isDone)}
+                    onClick={() => openTaskModal(ct)}
+                    aria-label={`Stage ${stageNum}: ${ct.title}`}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition mt-3 cursor-pointer disabled:cursor-default ${
+                      isDone
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                        : isNextUp
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e] shadow-sm"
+                          : isFuture
+                            ? "bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-zinc-400 dark:text-zinc-500"
+                            : "bg-[#ececea] dark:bg-white/[0.06] border border-zinc-300/90 dark:border-white/15 text-zinc-700 dark:text-zinc-300"
+                    }`}
+                  >
+                    {isDone ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : isFuture ? (
+                      <FillLockIcon className="w-3.5 h-3.5" />
+                    ) : (
+                      <Icon className="w-4 h-4" />
+                    )}
+                  </button>
 
-              {hasMoreBelow && (
-                <div
-                  aria-hidden="true"
-                  className={`flex-1 min-h-4 my-1 transition-colors ${
-                    isDone
-                      ? "w-[2px] rounded-full bg-zinc-950 dark:bg-white"
-                      : "w-0 border-l-2 border-dashed border-zinc-300 dark:border-white/20"
-                  }`}
-                />
-              )}
-            </div>
-
-            {/* Right Stage Card (Metrics-Matched Surface) */}
-            <div className={`flex-1 min-w-0 ${hasMoreBelow ? "pb-3" : ""}`}>
-              <div
-                onClick={() => {
-                  if (!isFuture && (!locked || isDone)) {
-                    openTaskModal(ct);
-                  }
-                }}
-                className={`group w-full rounded-2xl p-3.5 sm:p-4 border transition ${
-                  isDone
-                    ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
-                    : isNextUp
-                      ? "bg-[#ececea] dark:bg-white/[0.06] border-zinc-950/30 dark:border-white/30 shadow-xs"
-                      : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
-                } ${isFuture ? "opacity-70" : "cursor-pointer active:scale-[0.99]"}`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal">
-                    Stage {stageNum}
-                  </span>
-
-                  {isFuture ? (
-                    <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 inline-flex items-center gap-1 leading-normal">
-                      <FillLockIcon className="w-2.5 h-2.5" />
-                      <span>Locked</span>
-                    </span>
-                  ) : isDone ? (
-                    <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25]">
-                      <Check className="w-2.5 h-2.5 stroke-[2.75]" />
-                      <span>Done</span>
-                    </span>
-                  ) : isNextUp ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-md bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold leading-[1.25]">
-                      <span>Next</span>
-                      <ArrowUpRight className="w-2.5 h-2.5" />
-                    </span>
-                  ) : (
-                    <span className="w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white inline-flex items-center justify-center transition">
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </span>
+                  {hasMoreBelow && (
+                    <div
+                      aria-hidden="true"
+                      className={`flex-1 min-h-4 my-1 transition-colors ${
+                        isDone
+                          ? "w-[2px] rounded-full bg-zinc-950 dark:bg-white"
+                          : "w-0 border-l-2 border-dashed border-zinc-300 dark:border-white/20"
+                      }`}
+                    />
                   )}
                 </div>
 
-                <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-                  {ct.title}
-                </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate leading-normal mt-0.5">
-                  {summary || ct.instructions || "Complete coach checkpoint"}
-                </p>
-              </div>
-            </div>
-          </li>
-        );
-      })}
+                {/* Right Stage Card (Metrics-Matched Surface) */}
+                <div className={`flex-1 min-w-0 ${hasMoreBelow ? "pb-3" : ""}`}>
+                  <div
+                    onClick={() => {
+                      if (!isFuture && (!locked || isDone)) {
+                        openTaskModal(ct);
+                      }
+                    }}
+                    className={`group w-full rounded-2xl p-3.5 sm:p-4 border transition ${
+                      isDone
+                        ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
+                        : isNextUp
+                          ? "bg-[#ececea] dark:bg-white/[0.06] border-zinc-950/30 dark:border-white/30 shadow-xs"
+                          : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
+                    } ${isFuture ? "opacity-70" : "cursor-pointer active:scale-[0.99]"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal">
+                        Stage {stageNum}
+                      </span>
+
+                      {isFuture ? (
+                        <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 inline-flex items-center gap-1 leading-normal">
+                          <FillLockIcon className="w-2.5 h-2.5" />
+                          <span>Locked</span>
+                        </span>
+                      ) : isDone ? (
+                        <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25]">
+                          <Check className="w-2.5 h-2.5 stroke-[2.75]" />
+                          <span>Done</span>
+                        </span>
+                      ) : isNextUp ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-md bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold leading-[1.25]">
+                          <span>Next</span>
+                          <ArrowUpRight className="w-2.5 h-2.5" />
+                        </span>
+                      ) : (
+                        <span className="w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white inline-flex items-center justify-center transition">
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+                      {ct.title}
+                    </p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate leading-normal mt-0.5">
+                      {summary || ct.instructions || "Complete coach checkpoint"}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
       {activeTask &&
         currentField &&
@@ -495,7 +526,7 @@ export function CustomTaskSection({
                       setErrorMsg(null);
                       setStepIdx((prev) => prev - 1);
                     } else {
-                      setActiveTask(null);
+                      closeModal();
                     }
                   }}
                 />
@@ -892,6 +923,6 @@ export function CustomTaskSection({
           </div>,
           document.body
         )}
-    </ol>
+    </div>
   );
 }
