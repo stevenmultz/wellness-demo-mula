@@ -22,9 +22,17 @@ if (!/test/i.test(dbName)) {
   process.exit(1);
 }
 
-const prisma = new PrismaClient({ datasourceUrl: url });
 const CONTENDERS = 12;
 const QUOTA = 3;
+
+const parsedUrl = new URL(url);
+if (!parsedUrl.searchParams.has("connection_limit")) {
+  parsedUrl.searchParams.set("connection_limit", String(CONTENDERS + 8));
+}
+if (!parsedUrl.searchParams.has("pool_timeout")) {
+  parsedUrl.searchParams.set("pool_timeout", "30");
+}
+const prisma = new PrismaClient({ datasourceUrl: parsedUrl.toString() });
 
 async function activateOne(programId: string, enrollmentId: string, useLock: boolean) {
   return prisma.$transaction(async (tx) => {
@@ -52,7 +60,21 @@ async function scenario(useLock: boolean): Promise<number> {
     const enrollments = await Promise.all(
       users.map((u) => prisma.programEnrollment.create({ data: { userId: u.id, programId: program.id, status: "PENDING" } }))
     );
-    await Promise.allSettled(enrollments.map((e) => activateOne(program.id, e.id, useLock)));
+    const results = await Promise.allSettled(
+      enrollments.map((e) => activateOne(program.id, e.id, useLock))
+    );
+    const rejected = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected"
+    );
+    if (rejected.length > 0) {
+      console.error(
+        `[scenario useLock=${useLock}] ${rejected.length}/${results.length} transactions rejected. First error:`,
+        rejected[0].reason
+      );
+      if (useLock) {
+        throw rejected[0].reason;
+      }
+    }
     return prisma.programEnrollment.count({ where: { programId: program.id, status: "ACTIVE" } });
   } finally {
     await prisma.programEnrollment.deleteMany({ where: { programId: program.id } });

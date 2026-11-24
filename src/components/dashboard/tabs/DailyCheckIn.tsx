@@ -304,7 +304,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Standalone Tasks Progress Widget */}
+      {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 min-w-0">
@@ -313,7 +313,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <FillTargetIcon className="w-3.5 h-3.5" />
               </span>
               <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-                Tasks Progress
+                Daily Tasks Progress
               </span>
             </div>
 
@@ -337,13 +337,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           aria-valuenow={progressPct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Tasks Progress ${progressPct}%`}
-          className="w-full h-1.5 rounded-full bg-zinc-300/75 dark:bg-white/15 overflow-hidden"
+          aria-label={`Daily Tasks Progress ${progressPct}%`}
+          className="w-full flex items-center gap-1.5"
         >
-          <div
-            style={{ width: `${progressPct}%` }}
-            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-500"
-          />
+          {Array.from({ length: Math.max(1, totalTasks) }, (_, idx) => {
+            const isFilled = idx < completedTasks;
+            return (
+              <div
+                key={idx}
+                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                  isFilled
+                    ? "bg-zinc-950 dark:bg-white"
+                    : "bg-zinc-300/80 dark:bg-white/15"
+                }`}
+              />
+            );
+          })}
         </div>
       </div>
 

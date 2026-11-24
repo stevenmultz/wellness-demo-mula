@@ -153,7 +153,7 @@ export function FiftyBarMeter({
   );
 }
 
-// ─── Unified Metric Card Wrapper ─────────────────────────────────────────────
+// ─── Unified Metric Card Wrapper (Dark Heat-Gradient Header + Light Body) ────
 function FlippableMetricCard({
   title,
   label,
@@ -174,23 +174,27 @@ function FlippableMetricCard({
   void _infoContent;
 
   return (
-    <div
-      className={`w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
-    >
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 min-w-0" title={title}>
-          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-            {icon}
-          </span>
-          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-            {label ?? title}
-          </span>
-        </div>
-
-        {valueSlot}
+    <div className="w-full h-full rounded-2xl overflow-hidden bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 flex flex-col">
+      {/* Dark Thermal Heat-Gradient Header Strip with Light Icon & Label */}
+      <div
+        className="w-full px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-1.5 min-w-0 text-white"
+        style={{
+          backgroundImage:
+            "linear-gradient(125deg, #141416 0%, #291918 50%, #4d2720 82%, #6b3526 100%)",
+        }}
+        title={title}
+      >
+        <span className="text-white/95 shrink-0 flex items-center">{icon}</span>
+        <span className="text-[11px] font-medium text-white/95 truncate leading-normal py-[1px]">
+          {label ?? title}
+        </span>
       </div>
 
-      {children}
+      {/* Standard Light/Neutral Value & Chart Body */}
+      <div className={`p-4 sm:p-5 flex-1 ${frontClassName}`}>
+        {valueSlot}
+        {children}
+      </div>
     </div>
   );
 }
