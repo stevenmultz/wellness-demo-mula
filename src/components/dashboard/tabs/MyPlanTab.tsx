@@ -617,6 +617,7 @@ export function MyPlanOverview({
             days={fullProgramDays}
             currentDayId={day?.id}
             onSwitchWidget={setWidgetIndex}
+            onOpenReport={() => setShowReportModal(true)}
           />
         </div>
 

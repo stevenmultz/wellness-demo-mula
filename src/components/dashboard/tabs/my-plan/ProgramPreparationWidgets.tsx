@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { AlertCircle, Smartphone, User } from "lucide-react";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { InfoPopupModal } from "../shared";
 import {
   FillTargetIcon,
@@ -50,13 +52,17 @@ export function ProgramPreparationWidgets({
   days,
   currentDayId,
   onSwitchWidget: _onSwitchWidget,
+  onOpenReport,
 }: {
   program: PlanProgramInfo;
   days: PlanDay[];
   currentDayId?: string;
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
+  onOpenReport?: () => void;
 }) {
   void _onSwitchWidget;
+  const { locale } = useLocale();
+  const isId = locale === "id";
   const [activePage, setActivePage] = useState<GuidePageKey | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const toggleSection = (key: string) =>
@@ -226,6 +232,75 @@ export function ProgramPreparationWidgets({
   return (
     <>
       <section className="w-full space-y-3 sm:space-y-4">
+        {/* Report Issue with Program / App / Coach Widget */}
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                <AlertCircle className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                {isId ? "Pusat Bantuan & Lapor Kendala" : "Report & Member Support"}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              {isId
+                ? "Ada kendala dengan materi program, aplikasi, atau bimbingan coach? Beritahu kami agar segera dibantu."
+                : "Experiencing issues with the program, app, or coach guidance? Let us know so we can assist right away."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={onOpenReport}
+              className="flex flex-col items-center justify-center p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-center transition active:scale-[0.98] cursor-pointer shadow-2xs group"
+            >
+              <span className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white mb-1.5 group-hover:scale-105 transition-transform">
+                <FillTargetIcon className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-tight">
+                {isId ? "Program" : "Program"}
+              </span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                {isId ? "Materi/jadwal" : "Content/flow"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenReport}
+              className="flex flex-col items-center justify-center p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-center transition active:scale-[0.98] cursor-pointer shadow-2xs group"
+            >
+              <span className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white mb-1.5 group-hover:scale-105 transition-transform">
+                <Smartphone className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-tight">
+                {isId ? "Aplikasi" : "App"}
+              </span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                {isId ? "Bug & glitch" : "Bugs & errors"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenReport}
+              className="flex flex-col items-center justify-center p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-center transition active:scale-[0.98] cursor-pointer shadow-2xs group"
+            >
+              <span className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white mb-1.5 group-hover:scale-105 transition-transform">
+                <User className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-tight">
+                {isId ? "Coach" : "Coach"}
+              </span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                {isId ? "Bimbingan" : "Guidance"}
+              </span>
+            </button>
+          </div>
+        </div>
+
         <InfoPopupModal
           open={showGuidesInfo}
           title="Guides"
