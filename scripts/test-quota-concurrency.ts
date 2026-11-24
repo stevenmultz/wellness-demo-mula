@@ -55,7 +55,8 @@ async function scenario(useLock: boolean): Promise<number> {
     await Promise.allSettled(enrollments.map((e) => activateOne(program.id, e.id, useLock)));
     return prisma.programEnrollment.count({ where: { programId: program.id, status: "ACTIVE" } });
   } finally {
-    await prisma.program.delete({ where: { id: program.id } }); // cascades enrollments
+    await prisma.programEnrollment.deleteMany({ where: { programId: program.id } });
+    await prisma.program.delete({ where: { id: program.id } });
     await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });
   }
 }

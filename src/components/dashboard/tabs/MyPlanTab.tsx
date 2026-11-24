@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Compass,
   ExternalLink,
+  Info,
   MessageSquare,
+  MoreHorizontal,
   Shield,
   User as UserIcon,
   Users,
@@ -204,7 +206,6 @@ export function MyPlanOverview({
   selectedProgramId?: string;
   onSelectPlan?: (programId: string) => void;
 }) {
-  void onOpenDetails;
   const { locale, t } = useLocale();
 
   const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
@@ -221,12 +222,32 @@ export function MyPlanOverview({
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [showBannerMenu, setShowBannerMenu] = useState(false);
+  const bannerMenuRef = useRef<HTMLDivElement>(null);
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
       setSelectedDayId(day.id);
     }
   }, [day?.id]);
+
+  useEffect(() => {
+    if (!showBannerMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (bannerMenuRef.current && !bannerMenuRef.current.contains(e.target as Node)) {
+        setShowBannerMenu(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowBannerMenu(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [showBannerMenu]);
 
   const sortedProgramDays = useMemo(() => {
     const list =
@@ -398,14 +419,16 @@ export function MyPlanOverview({
       </div>
 
       {/* 1. Contained Image Banner */}
-      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
-        {program?.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
-        ) : (
-          <div className="absolute inset-0 bg-zinc-800" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
+      <section className="relative w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
+        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+          {program?.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={program.coverImage} alt="" className="w-full h-full object-cover object-center" />
+          ) : (
+            <div className="w-full h-full bg-zinc-800" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
+        </div>
 
         {/* Top Row: Date & Day Type (Left) + Day X/Y (Right) */}
         <div className="relative z-10 flex items-center justify-between gap-2">
@@ -444,28 +467,69 @@ export function MyPlanOverview({
           )}
         </div>
 
-        {/* Bottom Row: Group Chat (Left) + Report (Right) */}
+        {/* Bottom-Right Menu Button with Dropdown (Group Chat, Report, Detail) */}
         {program && (
-          <div className="relative z-10 flex items-center justify-between gap-2 pt-8">
-            <button
-              type="button"
-              onClick={() => setShowCommunityModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-xs font-medium text-white/95 hover:text-white active:scale-95 transition cursor-pointer"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-              <span>Group Chat</span>
-            </button>
+          <div className="relative z-20 flex items-center justify-end pt-8">
+            <div ref={bannerMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShowBannerMenu((prev) => !prev)}
+                aria-label="Program menu"
+                aria-haspopup="menu"
+                aria-expanded={showBannerMenu}
+                className="w-9 h-9 rounded-full backdrop-blur-md border border-white/15 text-white inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setShowReportModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-xs font-medium text-white/85 hover:text-white active:scale-95 transition cursor-pointer"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>{t.myPlan.report}</span>
-            </button>
+              {showBannerMenu && (
+                <div
+                  role="menu"
+                  aria-label="Program options"
+                  className="absolute right-0 top-11 z-30 w-44 rounded-2xl bg-[#f6f6f4] dark:bg-[#1a1a1c] border border-zinc-200/80 dark:border-white/10 shadow-xl p-1.5 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowBannerMenu(false);
+                      setShowCommunityModal(true);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-medium text-left hover:bg-[#ececea] dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    <span>Group Chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowBannerMenu(false);
+                      setShowReportModal(true);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-medium text-left hover:bg-[#ececea] dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    <span>{t.myPlan.report}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowBannerMenu(false);
+                      onOpenDetails();
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-medium text-left hover:bg-[#ececea] dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
+                  >
+                    <Info className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    <span>Detail</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>

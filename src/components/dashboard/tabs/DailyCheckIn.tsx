@@ -363,7 +363,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 className={`group relative w-full h-full min-h-[108px] rounded-2xl p-4 flex flex-col justify-between text-left border transition cursor-pointer disabled:cursor-default ${
                   tile.isDone
                     ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
-                    : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/60 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
+                    : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
               >
                 {/* Top: Clean Solid Fill Icon (No Box) with Dusty Red Pending Dot or Sage Green Check at top-right */}

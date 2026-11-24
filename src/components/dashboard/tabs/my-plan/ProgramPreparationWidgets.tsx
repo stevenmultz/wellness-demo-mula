@@ -225,7 +225,7 @@ export function ProgramPreparationWidgets({
 
   return (
     <>
-      <section className="w-full space-y-4">
+      <section className="w-full space-y-3 sm:space-y-4">
         <InfoPopupModal
           open={showGuidesInfo}
           title="Guides"
@@ -251,8 +251,8 @@ export function ProgramPreparationWidgets({
           </ul>
         </InfoPopupModal>
 
-        {/* Compact 3-Column Pocket Hardcover Book Shelf (Clean Spine + Icon + General Title Only) */}
-        <ol className="w-full grid grid-cols-3 gap-2.5 sm:gap-3.5">
+        {/* Compact 3-Column Pocket Book Shelf (Unified Surface, Bare Solid-Fill Icon & Typography with Tasks & Metrics) */}
+        <ol className="w-full grid grid-cols-3 gap-3 sm:gap-4">
           {guideCards.map((card) => {
             const Icon = card.icon;
 
@@ -262,25 +262,23 @@ export function ProgramPreparationWidgets({
                   type="button"
                   onClick={() => setActivePage(card.key)}
                   aria-label={`Open ${card.title} guide`}
-                  className="group relative w-full aspect-[3/4] text-left rounded-r-xl rounded-l-[4px] bg-[#ececea] dark:bg-white/[0.05] border border-zinc-300/75 dark:border-white/10 shadow-[3px_4px_0_0_rgba(24,24,27,0.09)] dark:shadow-[3px_4px_0_0_rgba(0,0,0,0.4)] hover:-translate-y-0.5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.07] active:translate-y-0 transition-all duration-200 overflow-hidden cursor-pointer flex"
+                  className="group relative w-full aspect-[3/4] text-left rounded-r-2xl rounded-l-[4px] bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06] active:scale-[0.98] transition overflow-hidden cursor-pointer flex"
                 >
-                  {/* Hardcover Book Spine (Left Edge) */}
+                  {/* Subtle Book Spine (Left Edge) */}
                   <div
                     aria-hidden="true"
-                    className="w-2.5 sm:w-3 shrink-0 h-full bg-zinc-950/[0.08] dark:bg-white/[0.08] border-r border-zinc-950/10 dark:border-white/10 relative"
-                  >
-                    <span className="absolute inset-y-0 right-0 w-px bg-white/60 dark:bg-white/10" />
-                  </div>
+                    className="w-2.5 sm:w-3 shrink-0 h-full bg-zinc-950/[0.06] dark:bg-white/[0.06]"
+                  />
 
                   {/* Book Cover Front Face */}
-                  <div className="flex-1 min-w-0 p-2.5 sm:p-3.5 flex flex-col justify-between">
-                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0 shadow-2xs">
-                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between">
+                    <span className="inline-flex items-center justify-center shrink-0 self-start text-zinc-900 dark:text-white">
+                      <Icon className="w-6 h-6" />
                     </span>
 
-                    <p className="text-[13px] sm:text-sm font-geometric font-semibold tracking-tight text-zinc-950 dark:text-white leading-snug break-words">
+                    <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate w-full">
                       {card.title}
-                    </p>
+                    </span>
                   </div>
                 </button>
               </li>
