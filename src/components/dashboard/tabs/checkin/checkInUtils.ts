@@ -122,11 +122,26 @@ export const BEDTIME_PRESETS = ["21:30", "22:00", "22:30", "23:00", "23:30", "00
 export const WAKETIME_PRESETS = ["05:30", "06:00", "06:30", "07:00", "07:30", "08:00"];
 
 export const SLEEP_FEELINGS = [
-  { label: "Refreshed & Alert", desc: "Woke up clear-headed with high morning readiness." },
-  { label: "Rested & Steady", desc: "Solid restorative rest and balanced morning energy." },
-  { label: "Still Groggy", desc: "Mild sleep inertia or sluggish getting started." },
-  { label: "Light & Restless", desc: "Interrupted or lighter sleep cycles overnight." },
-  { label: "Exhausted", desc: "Unrefreshing sleep; prioritizing gentle recovery today." },
+  {
+    label: "Segar & Enak (Fresh & Ready)",
+    desc: "Bangun bugar, segar, dan berenergi penuh untuk aktivitas hari ini.",
+  },
+  {
+    label: "Cukup Baik (Good & Rested)",
+    desc: "Tidur nyenyak, merasa pulih dan tenang memulai hari.",
+  },
+  {
+    label: "Biasa Saja (Okay / Normal)",
+    desc: "Kondisi tubuh netral atau butuh sedikit waktu untuk fokus.",
+  },
+  {
+    label: "Lelah / Kurang Tidur (Tired)",
+    desc: "Tidur kurang nyenyak, tubuh terasa letih atau mengantuk.",
+  },
+  {
+    label: "Sakit (Sick / Unwell)",
+    desc: "Merasa demam, flu, nyeri badan, atau sakit; butuh istirahat pemulihan.",
+  },
 ];
 
 export const MEAL_FEELINGS = [

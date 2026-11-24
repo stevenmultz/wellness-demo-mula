@@ -430,8 +430,42 @@ export function MyPlanOverview({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
         </div>
 
-        {/* Top Row: Date & Day Type (Left) + Day X/Y (Right) */}
+        {/* Top Row: Community Profile/Logo (Left) + Day X/Y (Right) */}
         <div className="relative z-10 flex items-center justify-between gap-2">
+          <div
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[70%]"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+          >
+            {program?.organizationLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={program.organizationLogo}
+                alt={program.organizationName || "Community"}
+                className="w-5 h-5 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-white">
+                <Users className="w-3 h-3" />
+              </span>
+            )}
+            <span className="text-xs font-semibold text-white truncate leading-tight">
+              {program?.organizationName || program?.coachName || "Community"}
+            </span>
+          </div>
+
+          {totalProgramDays > 0 && (
+            <span
+              className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-[11px] font-mono font-semibold text-white/95 tracking-wide tabular-nums shrink-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              title={`Day ${activeDayNum} of ${totalProgramDays}`}
+            >
+              Day {activeDayNum}/{totalProgramDays}
+            </span>
+          )}
+        </div>
+
+        {/* Bottom Row: Date Button (Left) + Dropdown Menu Button (Right) */}
+        <div className="relative z-20 flex items-center justify-between gap-2 pt-8">
           <button
             type="button"
             onClick={() => {
@@ -456,20 +490,7 @@ export function MyPlanOverview({
             <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
           </button>
 
-          {totalProgramDays > 0 && (
-            <span
-              className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-[11px] font-mono font-semibold text-white/95 tracking-wide tabular-nums shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              title={`Day ${activeDayNum} of ${totalProgramDays}`}
-            >
-              Day {activeDayNum}/{totalProgramDays}
-            </span>
-          )}
-        </div>
-
-        {/* Bottom-Right Menu Button with Dropdown (Group Chat, Report, Detail) */}
-        {program && (
-          <div className="relative z-20 flex items-center justify-end pt-8">
+          {program && (
             <div ref={bannerMenuRef} className="relative">
               <button
                 type="button"
@@ -487,7 +508,7 @@ export function MyPlanOverview({
                 <div
                   role="menu"
                   aria-label="Program options"
-                  className="absolute right-0 top-11 z-30 w-44 rounded-2xl bg-[#f6f6f4] dark:bg-[#1a1a1c] border border-zinc-200/80 dark:border-white/10 shadow-xl p-1.5 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150"
+                  className="absolute right-0 bottom-11 z-30 w-44 rounded-2xl bg-[#f6f6f4] dark:bg-[#1a1a1c] border border-zinc-200/80 dark:border-white/10 shadow-xl p-1.5 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150"
                 >
                   <button
                     type="button"
@@ -530,8 +551,8 @@ export function MyPlanOverview({
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
       {/* 3. Subtabs */}

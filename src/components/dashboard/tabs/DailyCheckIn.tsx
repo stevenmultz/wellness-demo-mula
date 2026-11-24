@@ -227,11 +227,31 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
   };
 
+  const getCoreTaskStepCount = (index: number): number => {
+    if (index === 0) return 3; // sleep log: wake, bed, feeling
+    if (index === 1) {
+      if (selectedDay.dayType === "REST_DAY") return 2;
+      if (selectedDay.dayType !== "TRAINING_DAY") return 2;
+      let count = 1; // feeling / notes
+      if (selectedDay.workoutOptions && selectedDay.workoutOptions.length > 0) count++;
+      if (selectedDay.videoUrl) count++;
+      if (selectedDay.videoChecklist && selectedDay.videoChecklist.length > 0) count++;
+      return Math.min(4, Math.max(2, count));
+    }
+    if (index === 2) return 3; // meal count, meal entry, meal mood
+    return 1; // water intake
+  };
+
+  const getCustomStepCount = (ct: ProgramDayCustomTaskDTO): number => {
+    return ct.fields?.length ? Math.max(1, ct.fields.length) : 1;
+  };
+
   interface DailyTaskTile {
     key: string;
     title: string;
     durationLabel: string;
     isDone: boolean;
+    stepCount: number;
     Icon: ComponentType<FillIconProps>;
     onOpen: () => void;
     disabled: boolean;
@@ -245,6 +265,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         title: t.title,
         durationLabel: getCoreDurationLabel(index),
         isDone,
+        stepCount: getCoreTaskStepCount(index),
         Icon: getCoreFillIcon(index),
         disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
         onOpen: () => openDetail(index),
@@ -257,6 +278,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         title: ct.title,
         durationLabel: getCustomDurationLabel(ct),
         isDone,
+        stepCount: getCustomStepCount(ct),
         Icon: getCustomFillIcon(ct),
         disabled: isSelectedFuture || (selectedLocked && !isDone),
         onOpen: () => setOpenCustomTaskId(ct.id),
@@ -307,18 +329,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-                <FillTargetIcon className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-                Daily Tasks Progress
-              </span>
-            </div>
-
-            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0 leading-normal">
-              {completedTasks}/{totalTasks}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+              <FillTargetIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+              Daily Tasks Progress
             </span>
           </div>
 
@@ -356,7 +372,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       </div>
 
-      {/* Free-Order 2-Column Task Tiles Grid (Pending dot & Completed check share exact top-right icon anchor) */}
+      {/* Free-Order 2-Column Task Tiles Grid */}
       <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
         {taskTiles.map((tile) => {
           const TileIcon = tile.Icon;
@@ -371,12 +387,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 aria-label={tile.title}
                 className={`group relative w-full h-full min-h-[108px] rounded-2xl p-4 flex flex-col justify-between text-left border transition cursor-pointer disabled:cursor-default ${
                   tile.isDone
-                    ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
+                    ? "opacity-60 bg-[#e4e4e1] dark:bg-white/[0.03] border-zinc-300/50 dark:border-white/5"
                     : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
               >
-                {/* Top: Clean Solid Fill Icon (No Box) with Dusty Red Pending Dot or Sage Green Check at top-right */}
-                <div className="w-full flex items-start">
+                {/* Top: Icon (Left) + Step Dots Indicator (Right) */}
+                <div className="w-full flex items-start justify-between gap-2">
                   <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
                     {isSelectedFuture ? (
                       <FillLockIcon className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
@@ -394,12 +410,30 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     {tile.isDone && (
                       <span
                         aria-label="Completed"
-                        className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e5e5e2] dark:ring-[#18181b] flex items-center justify-center"
+                        className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
                       >
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </span>
                     )}
                   </span>
+
+                  {/* Step dots indicating number of steps inside the task */}
+                  <div
+                    className="flex items-center gap-1 shrink-0 pt-1"
+                    title={`${tile.stepCount} ${tile.stepCount === 1 ? "step" : "steps"}`}
+                    aria-label={`${tile.stepCount} steps`}
+                  >
+                    {Array.from({ length: tile.stepCount }, (_, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                          tile.isDone
+                            ? "bg-zinc-400 dark:bg-zinc-500"
+                            : "bg-zinc-400/70 dark:bg-white/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 {/* Bottom: Task Name + Estimated Completion Time */}

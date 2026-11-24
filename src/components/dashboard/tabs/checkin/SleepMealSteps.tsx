@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Coffee, GlassWater, Plus, RotateCcw } from "lucide-react";
 import {
   BEDTIME_PRESETS,
   HOURS_24,
@@ -308,6 +309,18 @@ export function SleepStepView({
         selected={sleepFeeling}
         onSelect={onChangeSleepFeeling}
       />
+
+      {(sleepFeeling.toLowerCase().includes("sakit") ||
+        sleepFeeling.toLowerCase().includes("sick")) && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 dark:text-amber-200 text-xs leading-relaxed space-y-1.5 animate-in fade-in duration-200">
+          <p className="font-semibold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+            <span>💡 Rekomendasi Pemulihan (Rest &amp; Recovery)</span>
+          </p>
+          <p className="text-zinc-700 dark:text-zinc-300">
+            Kesehatan dan pemulihan tubuh Anda adalah prioritas utama. Jika hari ini sedang sakit, sangat disarankan untuk beristirahat penuh (Rest Mode), perbanyak hidrasi air hangat, dan lewati aktivitas berat hari ini agar imunitas tubuh cepat pulih.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -710,6 +723,73 @@ export function MealStepView({
   );
 }
 
+function BottleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M10 2h4" />
+      <path d="M10 2v3a2 2 0 0 1-.6 1.4L8 8a2 2 0 0 0-.6 1.4V20a2 2 0 0 0 2 2h5.2a2 2 0 0 0 2-2V9.4a2 2 0 0 0-.6-1.4l-1.4-1.6A2 2 0 0 1 14 5V2" />
+      <line x1="8" y1="14" x2="16" y2="14" />
+    </svg>
+  );
+}
+
+function TumblerIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M7 3h10l-1.5 17a2 2 0 0 1-2 1.9h-3a2 2 0 0 1-2-1.9L7 3z" />
+      <line x1="6" y1="3" x2="18" y2="3" />
+      <line x1="8" y1="10" x2="16" y2="10" />
+    </svg>
+  );
+}
+
+const WATER_CONTAINERS = [
+  {
+    id: "glass",
+    name: "Gelas",
+    enName: "Glass",
+    ml: 250,
+    Icon: GlassWater,
+  },
+  {
+    id: "mug",
+    name: "Cangkir",
+    enName: "Cup / Mug",
+    ml: 350,
+    Icon: Coffee,
+  },
+  {
+    id: "bottle",
+    name: "Botol",
+    enName: "Bottle",
+    ml: 500,
+    Icon: BottleIcon,
+  },
+  {
+    id: "tumbler",
+    name: "Tumbler",
+    enName: "Tumbler",
+    ml: 750,
+    Icon: TumblerIcon,
+  },
+] as const;
+
 export function WaterStepView({
   waterMl,
   onChangeWaterMl,
@@ -718,29 +798,35 @@ export function WaterStepView({
   onChangeWaterMl: (next: number) => void;
 }) {
   const TARGET_ML = 2500;
-  const presets = [1500, 2000, 2500, 3000];
   const pct = Math.min(100, Math.round((Math.max(0, waterMl) / TARGET_ML) * 100));
+  const [showCustom, setShowCustom] = useState(false);
+  const [customInput, setCustomInput] = useState("");
 
-  const updateRaw = (raw: string) => {
-    const num = raw.trim() === "" ? 0 : Math.max(0, Math.min(15000, Math.round(Number(raw))));
-    onChangeWaterMl(Number.isFinite(num) ? num : 0);
-  };
-
-  const adjust = (delta: number) => {
+  const addAmount = (delta: number) => {
     onChangeWaterMl(Math.max(0, Math.min(15000, (waterMl || 0) + delta)));
   };
 
-  const inputCls =
-    "w-full px-3.5 py-3 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-sm font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
+  const handleReset = () => {
+    onChangeWaterMl(0);
+  };
+
+  const handleCustomSubmit = () => {
+    const val = parseInt(customInput, 10);
+    if (!Number.isNaN(val) && val > 0) {
+      addAmount(val);
+      setCustomInput("");
+      setShowCustom(false);
+    }
+  };
 
   return (
     <div className="space-y-6 min-w-0">
       <StepHeader
-        title="How much water did you drink today?"
-        subtitle="Daily hydration resets at 00:00 WIB — you can update this throughout the day."
+        title="Berapa banyak air yang Anda minum hari ini?"
+        subtitle="Tap ikon wadah minum untuk langsung menambahkan catatan hidrasi harian Anda."
       />
 
-      {/* Live Editorial Total + Progress Bar */}
+      {/* Progress & Live Total Card */}
       <div className="p-5 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-3">
         <div className="flex items-baseline justify-between gap-2">
           <div className="flex items-baseline gap-1.5">
@@ -751,76 +837,107 @@ export function WaterStepView({
               / {(TARGET_ML / 1000).toFixed(1)} L
             </span>
           </div>
+
           <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
             {waterMl.toLocaleString()} ml ({pct}%)
           </span>
         </div>
 
-        <div className="w-full h-2 rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
+        <div className="w-full h-2.5 rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
           <div
             className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        {/* Incremental Quick-Add Controls for periodic logging throughout the day */}
-        <div className="grid grid-cols-3 gap-2 pt-1">
+        {/* Action Buttons Toolbar: Reset & Custom Add */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-200/60 dark:border-white/10">
           <button
             type="button"
             disabled={waterMl <= 0}
-            onClick={() => adjust(-250)}
-            className="py-2.5 px-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-mono text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 transition active:scale-95 disabled:opacity-40"
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 disabled:hover:text-zinc-600 disabled:hover:bg-transparent transition cursor-pointer disabled:cursor-default"
           >
-            -250 ml
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Water</span>
           </button>
+
           <button
             type="button"
-            onClick={() => adjust(250)}
-            className="py-2.5 px-2 rounded-xl border border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono font-semibold transition active:scale-95"
+            onClick={() => setShowCustom((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition cursor-pointer"
           >
-            +250 ml
-          </button>
-          <button
-            type="button"
-            onClick={() => adjust(500)}
-            className="py-2.5 px-2 rounded-xl border border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-mono font-semibold transition active:scale-95"
-          >
-            +500 ml
+            <Plus className="w-3.5 h-3.5" />
+            <span>{showCustom ? "Tutup Custom" : "Tambah Custom (ml)"}</span>
           </button>
         </div>
+
+        {/* Optional Custom Input Panel */}
+        {showCustom && (
+          <div className="pt-2 flex items-center gap-2 animate-in fade-in duration-150">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={10}
+              max={5000}
+              step={50}
+              placeholder="Jumlah ml (mis. 200)"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleCustomSubmit();
+                }
+              }}
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#18181b] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
+            />
+            <button
+              type="button"
+              disabled={!customInput || parseInt(customInput, 10) <= 0}
+              onClick={handleCustomSubmit}
+              className="px-4 py-2.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
+            >
+              Tambah
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Exact Input + Daily Presets */}
+      {/* 4 Quick Container Tap Cards */}
       <div className="space-y-2.5">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-          Total Water Today (ml)
-        </label>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={15000}
-          step={100}
-          placeholder="e.g. 2500"
-          value={waterMl > 0 ? waterMl : ""}
-          onChange={(e) => updateRaw(e.target.value)}
-          className={inputCls}
-        />
-        <div className="grid grid-cols-4 gap-2 pt-1">
-          {presets.map((ml) => {
-            const active = waterMl === ml;
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+          Pilih Wadah (Tap untuk menambah)
+        </span>
+
+        <div className="grid grid-cols-2 gap-3">
+          {WATER_CONTAINERS.map((c) => {
+            const ContainerIcon = c.Icon;
             return (
               <button
-                key={ml}
+                key={c.id}
                 type="button"
-                onClick={() => onChangeWaterMl(ml)}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-mono transition ${
-                  active
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"
-                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                }`}
+                onClick={() => addAmount(c.ml)}
+                className="group relative p-4 rounded-2xl border border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] hover:border-zinc-400 dark:hover:border-white/30 text-left transition active:scale-95 cursor-pointer shadow-2xs flex flex-col justify-between min-h-[108px]"
               >
-                {(ml / 1000).toFixed(1)}L
+                <div className="flex items-center justify-between w-full">
+                  <span className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <ContainerIcon className="w-5 h-5" />
+                  </span>
+
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
+                    +{c.ml} ml
+                  </span>
+                </div>
+
+                <div className="pt-3">
+                  <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-tight">
+                    {c.name}
+                  </span>
+                  <span className="block text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal mt-0.5">
+                    {c.enName} · Tap +{c.ml} ml
+                  </span>
+                </div>
               </button>
             );
           })}
