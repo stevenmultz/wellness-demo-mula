@@ -2,10 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import Lenis from "lenis";
+
+type LenisInstance = {
+  scrollTo: (target: number, opts?: { immediate?: boolean }) => void;
+  raf: (time: number) => void;
+  destroy: () => void;
+};
 
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
-  const lenisRef = useRef<Lenis | null>(null);
+  const lenisRef = useRef<LenisInstance | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -32,29 +37,39 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Initialize Lenis strictly on desktop public pages
-    const lenis = new Lenis({
-      duration: 1.0,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: "vertical",
-      gestureOrientation: "vertical",
-      smoothWheel: true,
-      wheelMultiplier: 0.95,
-      infinite: false,
-    });
+    let cancelled = false;
+    let frameId: number | null = null;
+    let lenis: LenisInstance | null = null;
 
-    lenisRef.current = lenis;
+    // Dynamically import Lenis only on desktop public pages so mobile & dashboard skip parsing it
+    import("lenis")
+      .then(({ default: Lenis }) => {
+        if (cancelled) return;
+        lenis = new Lenis({
+          duration: 1.0,
+          easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+          orientation: "vertical",
+          gestureOrientation: "vertical",
+          smoothWheel: true,
+          wheelMultiplier: 0.95,
+          infinite: false,
+        });
 
-    let frameId: number;
-    function raf(time: number) {
-      lenis.raf(time);
-      frameId = requestAnimationFrame(raf);
-    }
-    frameId = requestAnimationFrame(raf);
+        lenisRef.current = lenis;
+
+        function raf(time: number) {
+          if (cancelled || !lenis) return;
+          lenis.raf(time);
+          frameId = requestAnimationFrame(raf);
+        }
+        frameId = requestAnimationFrame(raf);
+      })
+      .catch(() => {});
 
     return () => {
-      cancelAnimationFrame(frameId);
-      lenis.destroy();
+      cancelled = true;
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      lenis?.destroy();
       lenisRef.current = null;
     };
   }, [pathname]);

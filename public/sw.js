@@ -1,5 +1,5 @@
 // ZERA + Sanctuary Wellness PWA Service Worker (Cache + Offline Fallback, Instant Launch Shell)
-const CACHE_NAME = "zera-wellness-pwa-v47";
+const CACHE_NAME = "zera-wellness-pwa-v50";
 
 const STATIC_ASSETS = [
   "/pwa-launch.html",
@@ -113,12 +113,34 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Pure Cache-First for immutable content-hashed Next.js static chunks (avoids redundant network re-checks on every launch)
+  if (
+    url.origin === self.location.origin &&
+    url.pathname.startsWith("/_next/static/")
+  ) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(request, responseToCache))
+              .catch(() => {});
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
   // Stale-while-revalidate for other static assets (exclude user /uploads/ media)
   if (
     url.origin === self.location.origin &&
     !url.pathname.startsWith("/uploads/") &&
-    (url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2|woff|css|js)$/) ||
-      url.pathname.startsWith("/_next/static/"))
+    url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2|woff|css|js)$/)
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {

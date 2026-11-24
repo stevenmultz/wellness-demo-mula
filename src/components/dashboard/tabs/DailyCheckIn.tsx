@@ -151,6 +151,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   const customTasksList = selectedDay.customTasks || [];
+  const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
+  const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
+  const totalTasks = tasks.length + customTasksList.length;
+  const completedTasks = coreDoneCount + customDoneCount;
+  const progressPct =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const getCoreFillIcon = (index: number): ComponentType<FillIconProps> => {
     if (index === 0) return FillMoonIcon;
@@ -188,9 +194,43 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
   };
 
+  const getCoreDurationLabel = (index: number): string => {
+    if (index === 0) return "1 min";
+    if (index === 1) {
+      if (selectedDay.dayType === "TRAINING_DAY") return "15 min";
+      return "2 min";
+    }
+    if (index === 2) return "2 min";
+    return "1 min";
+  };
+
+  const getCustomDurationLabel = (ct: ProgramDayCustomTaskDTO): string => {
+    const titleLower = ct.title.toLowerCase();
+    if (
+      titleLower.includes("intro") ||
+      titleLower.includes("final") ||
+      titleLower.includes("sambutan") ||
+      titleLower.includes("penutup") ||
+      ct.fields.some((f) => f.key === "videoUrl" || f.key === "videoWatched")
+    ) {
+      return "3 min";
+    }
+    switch (ct.taskType) {
+      case "MEASUREMENT":
+        return "2 min";
+      case "BENCHMARK":
+        return "5 min";
+      case "MEDIA_UPLOAD":
+        return "2 min";
+      default:
+        return "1 min";
+    }
+  };
+
   interface DailyTaskTile {
     key: string;
     title: string;
+    durationLabel: string;
     isDone: boolean;
     Icon: ComponentType<FillIconProps>;
     onOpen: () => void;
@@ -203,6 +243,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       return {
         key: `core-${t.title}`,
         title: t.title,
+        durationLabel: getCoreDurationLabel(index),
         isDone,
         Icon: getCoreFillIcon(index),
         disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
@@ -214,6 +255,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       return {
         key: `custom-${ct.id}`,
         title: ct.title,
+        durationLabel: getCustomDurationLabel(ct),
         isDone,
         Icon: getCustomFillIcon(ct),
         disabled: isSelectedFuture || (selectedLocked && !isDone),
@@ -262,6 +304,49 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
+      {/* Standalone Tasks Progress Widget */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+                <FillTargetIcon className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+                Tasks Progress
+              </span>
+            </div>
+
+            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0 leading-normal">
+              {completedTasks}/{totalTasks}
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+              {progressPct}
+            </span>
+            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+              %
+            </span>
+          </div>
+        </div>
+
+        <div
+          role="progressbar"
+          aria-valuenow={progressPct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Tasks Progress ${progressPct}%`}
+          className="w-full h-1.5 rounded-full bg-zinc-300/75 dark:bg-white/15 overflow-hidden"
+        >
+          <div
+            style={{ width: `${progressPct}%` }}
+            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-500"
+          />
+        </div>
+      </div>
+
       {/* Free-Order 2-Column Task Tiles Grid (Pending dot & Completed check share exact top-right icon anchor) */}
       <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
         {taskTiles.map((tile) => {
@@ -281,32 +366,26 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/60 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
               >
-                {/* Top: Solid Fill Icon with Dusty Red Pending Dot or Sage Green Check at identical top-right anchor */}
+                {/* Top: Clean Solid Fill Icon (No Box) with Dusty Red Pending Dot or Sage Green Check at top-right */}
                 <div className="w-full flex items-start">
-                  <span
-                    className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${
-                      tile.isDone
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-2xs"
-                        : "bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white"
-                    }`}
-                  >
+                  <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
                     {isSelectedFuture ? (
-                      <FillLockIcon className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                      <FillLockIcon className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
                     ) : (
-                      <TileIcon className="w-4 h-4" />
+                      <TileIcon className="w-6 h-6" />
                     )}
 
                     {isPending && (
                       <span
                         aria-label="Not completed"
-                        className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                        className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
                       />
                     )}
 
                     {tile.isDone && (
                       <span
                         aria-label="Completed"
-                        className="semantic-badge-box absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e5e5e2] dark:ring-[#18181b] flex items-center justify-center"
+                        className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e5e5e2] dark:ring-[#18181b] flex items-center justify-center"
                       >
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </span>
@@ -314,10 +393,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   </span>
                 </div>
 
-                {/* Bottom: Clean Task Name Only */}
-                <span className="pt-3 text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate w-full">
-                  {tile.title}
-                </span>
+                {/* Bottom: Task Name + Estimated Completion Time */}
+                <div className="pt-3 w-full min-w-0 space-y-0.5">
+                  <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate w-full">
+                    {tile.title}
+                  </span>
+                  <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                    {tile.durationLabel}
+                  </span>
+                </div>
               </button>
             </li>
           );

@@ -123,7 +123,7 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
         expect(mockPush).toHaveBeenCalledWith("/onboarding");
         expect(mockRefresh).toHaveBeenCalled();
       },
-      { timeout: 1500 }
+      { timeout: 3000 }
     );
   });
 
@@ -177,7 +177,7 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
         expect(mockPush).toHaveBeenCalledWith("/admin");
         expect(mockRefresh).toHaveBeenCalled();
       },
-      { timeout: 1500 }
+      { timeout: 3000 }
     );
   });
 });

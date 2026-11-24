@@ -398,17 +398,17 @@ export function MyPlanOverview({
       </div>
 
       {/* 1. Contained Image Banner */}
-      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[215px] sm:min-h-[245px] flex flex-col justify-between p-5 sm:p-7 text-white">
+      <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
         {program?.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={program.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
         ) : (
           <div className="absolute inset-0 bg-zinc-800" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
 
-        {/* Top Row: Simple Editorial Date & Day Type Button */}
-        <div className="relative z-10 flex items-start justify-between gap-3">
+        {/* Top Row: Date & Day Type (Left) + Day X/Y (Right) */}
+        <div className="relative z-10 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => {
@@ -417,7 +417,7 @@ export function MyPlanOverview({
               setShowCalendarModal(true);
             }}
             aria-label="Select date from calendar"
-            className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/10"
+            className="group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/10 min-w-0"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
             <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
@@ -426,67 +426,48 @@ export function MyPlanOverview({
             <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
               •
             </span>
-            <span className="text-[11px] font-mono font-medium text-white/85 leading-tight whitespace-nowrap">
+            <span className="text-[11px] font-mono font-medium text-white/85 leading-tight truncate">
               {activeDayTypeLabel}
             </span>
 
             <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
           </button>
-        </div>
 
-        {/* Bottom Content: Action Buttons and Day X/Y + Progress Bar (Program title moved to switcher above) */}
-        <div className="relative z-10 space-y-2.5 pt-6">
-          {/* Action buttons (Community & Report - without "Join") */}
-          {program && (
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setShowCommunityModal(true)}
-                className="py-1 text-xs font-medium text-white/95 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Group Chat</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowReportModal(true)}
-                className="py-1 text-xs font-medium text-white/80 hover:text-white inline-flex items-center gap-1.5 active:scale-95 transition drop-shadow-xs cursor-pointer"
-              >
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>{t.myPlan.report}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Day X/Y on the left + Progress bar on the right */}
           {totalProgramDays > 0 && (
-            <div className="flex items-center gap-3 pt-1">
-              <span className="text-[11px] sm:text-xs font-mono font-semibold text-white/95 tracking-wider tabular-nums shrink-0">
-                Day {activeDayNum}/{totalProgramDays}
-              </span>
-              <div
-                className="flex-1 h-2 rounded-full overflow-hidden"
-                style={{ backgroundColor: "rgba(255, 255, 255, 0.28)" }}
-                role="progressbar"
-                aria-valuenow={activeDayNum}
-                aria-valuemin={1}
-                aria-valuemax={totalProgramDays}
-                title={`Day ${activeDayNum} of ${totalProgramDays}`}
-              >
-                <span
-                  className="block h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Math.max(5, Math.round((activeDayNum / totalProgramDays) * 100))
-                    )}%`,
-                    backgroundColor: "#ffffff",
-                  }}
-                />
-              </div>
-            </div>
+            <span
+              className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-[11px] font-mono font-semibold text-white/95 tracking-wide tabular-nums shrink-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              title={`Day ${activeDayNum} of ${totalProgramDays}`}
+            >
+              Day {activeDayNum}/{totalProgramDays}
+            </span>
           )}
         </div>
+
+        {/* Bottom Row: Group Chat (Left) + Report (Right) */}
+        {program && (
+          <div className="relative z-10 flex items-center justify-between gap-2 pt-8">
+            <button
+              type="button"
+              onClick={() => setShowCommunityModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-xs font-medium text-white/95 hover:text-white active:scale-95 transition cursor-pointer"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+              <span>Group Chat</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowReportModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-xs font-medium text-white/85 hover:text-white active:scale-95 transition cursor-pointer"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{t.myPlan.report}</span>
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 3. Subtabs */}

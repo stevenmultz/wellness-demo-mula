@@ -123,9 +123,38 @@ export function DashboardClient({
 }: DashboardProps) {
   const router = useRouter();
   const { t } = useLocale();
-  const programById = useMemo(
-    () => new Map<string, ProgramItem>(allPrograms.map((p) => [p.id, p])),
-    [allPrograms]
+  const [extraProgramsById, setExtraProgramsById] = useState<Record<string, ProgramItem>>({});
+  const programById = useMemo(() => {
+    const map = new Map<string, ProgramItem>(allPrograms.map((p) => [p.id, p]));
+    for (const [id, prog] of Object.entries(extraProgramsById)) {
+      if (!map.has(id)) map.set(id, prog);
+    }
+    return map;
+  }, [allPrograms, extraProgramsById]);
+
+  const resolveProgramDetail = useCallback(
+    async (programId: string): Promise<ProgramItem | null> => {
+      const cached = programById.get(programId);
+      if (cached) return cached;
+      try {
+        const res = await fetch(`/api/programs/${encodeURIComponent(programId)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return null;
+        const json = (await res.json()) as { success?: boolean; program?: ProgramItem };
+        if (json.success && json.program) {
+          setExtraProgramsById((prev) => ({
+            ...prev,
+            [programId]: json.program as ProgramItem,
+          }));
+          return json.program;
+        }
+      } catch {
+        // Ignore transient network errors
+      }
+      return null;
+    },
+    [programById]
   );
   const hasInitialActivePlan = myPrograms.some((e) => {
     const fullProg = programById.get(e.programId);
@@ -235,6 +264,28 @@ export function DashboardClient({
 
   // Program Detail Explanation Modal
   const [detailedProgram, setDetailedProgram] = useState<ProgramItem | null>(null);
+  const detailRequestIdRef = useRef(0);
+
+  const openProgramDetailById = (programId: string) => {
+    const cached = programById.get(programId);
+    if (cached) {
+      detailRequestIdRef.current += 1;
+      setDetailedProgram(cached);
+      return;
+    }
+    const reqId = ++detailRequestIdRef.current;
+    void resolveProgramDetail(programId).then((prog) => {
+      if (detailRequestIdRef.current !== reqId) return;
+      if (prog) {
+        setDetailedProgram(prog);
+      } else {
+        setActionNotice(
+          { type: "error", text: "Unable to load program details. Please try again." },
+          4000
+        );
+      }
+    });
+  };
 
   const handleSignOut = async () => {
     await wellnessSignOut();
@@ -301,37 +352,41 @@ export function DashboardClient({
     programId: string,
     mode: "IN_PERSON" | "VIRTUAL" = "VIRTUAL"
   ) => {
-    const targetProg = allPrograms.find((p) => p.id === programId);
-    if (targetProg) {
-      const publicBadge = resolvePublicBadge({
-        status: targetProg.status,
-        locationType: targetProg.locationType,
-        registrationOpenDate: targetProg.registrationOpenDate,
-        registrationDeadline: targetProg.registrationDeadline,
-        startDate: targetProg.startDate,
-        endDate: targetProg.endDate,
-        maxQuota: targetProg.maxQuota,
-        enrolledCount: targetProg.enrolledCount,
-      });
-
-      if (publicBadge && publicBadge !== "Open Registration") {
-        setActionNotice({
-          type: "error",
-          text: `Registration is not open for this program (Status: ${publicBadge}).`,
-        });
-        setTimeout(() => setActionNotice(null), 4000);
-        return;
-      }
-    }
-
     setEnrollingId(programId);
     try {
+      const targetProg = programById.get(programId) || (await resolveProgramDetail(programId));
+      if (targetProg) {
+        const publicBadge = resolvePublicBadge({
+          status: targetProg.status,
+          locationType: targetProg.locationType,
+          registrationOpenDate: targetProg.registrationOpenDate,
+          registrationDeadline: targetProg.registrationDeadline,
+          startDate: targetProg.startDate,
+          endDate: targetProg.endDate,
+          maxQuota: targetProg.maxQuota,
+          enrolledCount: targetProg.enrolledCount,
+        });
+
+        if (publicBadge && publicBadge !== "Open Registration") {
+          setActionNotice(
+            {
+              type: "error",
+              text: `Registration is not open for this program (Status: ${publicBadge}).`,
+            },
+            4000
+          );
+          return;
+        }
+      }
+
       const res = await wellnessEnrollProgram(programId, mode);
       if (res.success && res.data) {
         setQrisInvoice(res.data);
       } else {
-        setActionNotice({ type: "error", text: res.message || "Enrollment failed." });
-        setTimeout(() => setActionNotice(null), 4000);
+        setActionNotice(
+          { type: "error", text: res.message || "Enrollment failed." },
+          4000
+        );
       }
     } finally {
       setEnrollingId(null);
@@ -828,7 +883,9 @@ export function DashboardClient({
                 ),
               }}
               onOpenDetails={() => {
-                const prog = allPrograms.find((p) => p.id === overviewEnrollment?.programId);
+                const prog = overviewEnrollment?.programId
+                  ? programById.get(overviewEnrollment.programId)
+                  : undefined;
                 if (prog) setDetailedProgram(prog);
               }}
               onSaveWorkoutNotes={handleSaveWorkoutNotes}
@@ -930,10 +987,7 @@ export function DashboardClient({
               onOpenProfile={openProfileFromHeader}
               profileMenuActions={profileMenuActions}
               onRegister={(id) => handleOpenQrisCheckout(id)}
-              onViewDetails={(id) => {
-                const prog = allPrograms.find((p) => p.id === id);
-                if (prog) setDetailedProgram(prog);
-              }}
+              onViewDetails={openProgramDetailById}
               onOpenPlan={(id) => {
                 setSelectedProgId(id);
                 setMyPlanView("detail");
@@ -968,10 +1022,7 @@ export function DashboardClient({
                 endDate: e.endDate,
                 dayCount: e.dayCount,
               }))}
-              onOpenProgramDetail={(progId) => {
-                const prog = allPrograms.find((p) => p.id === progId);
-                if (prog) setDetailedProgram(prog);
-              }}
+              onOpenProgramDetail={openProgramDetailById}
             />
           </div>
         )}
@@ -1019,13 +1070,19 @@ export function DashboardClient({
           router.refresh();
         }}
         programLocationType={
-          allPrograms.find((p) => p.id === qrisInvoice?.programId)?.locationType
+          qrisInvoice?.programId
+            ? programById.get(qrisInvoice.programId)?.locationType
+            : undefined
         }
         programVenue={
-          allPrograms.find((p) => p.id === qrisInvoice?.programId)?.venueAddress
+          qrisInvoice?.programId
+            ? programById.get(qrisInvoice.programId)?.venueAddress
+            : undefined
         }
         programTerms={
-          allPrograms.find((p) => p.id === qrisInvoice?.programId)?.termsList
+          qrisInvoice?.programId
+            ? programById.get(qrisInvoice.programId)?.termsList
+            : undefined
         }
       />
 

@@ -28,7 +28,6 @@ export function ZeraLogoLoading() {
         }}
       >
         <ZeraSplashWordmark />
-        <span className="sr-only">zera.id</span>
       </div>
     </div>
   );

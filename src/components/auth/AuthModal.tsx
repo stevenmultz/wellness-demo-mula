@@ -203,7 +203,13 @@ export function AuthGatewayCard({
             : result.message || "A 6-digit verification code has been sent to your email."
         );
         setStep("otp");
-        setTimeout(() => otpInputRefs.current[0]?.focus(), 80);
+        requestAnimationFrame(() => {
+          const active = typeof document !== "undefined" ? document.activeElement : null;
+          const alreadyInOtp = otpInputRefs.current.some((el) => el && el === active);
+          if (!alreadyInOtp) {
+            otpInputRefs.current[0]?.focus();
+          }
+        });
       } else {
         setErrorMsg(result.message || "Could not send verification email.");
       }
@@ -342,7 +348,13 @@ export function AuthGatewayCard({
             ? "Kode verifikasi baru telah dikirim ke email Anda."
             : "A fresh 6-digit verification code has been sent."
         );
-        setTimeout(() => otpInputRefs.current[0]?.focus(), 80);
+        requestAnimationFrame(() => {
+          const active = typeof document !== "undefined" ? document.activeElement : null;
+          const alreadyInOtp = otpInputRefs.current.some((el) => el && el === active);
+          if (!alreadyInOtp) {
+            otpInputRefs.current[0]?.focus();
+          }
+        });
       } else {
         setErrorMsg(res.message || "Could not resend verification code.");
       }

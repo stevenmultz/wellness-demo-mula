@@ -73,83 +73,19 @@ async function DashboardContent() {
 
   const locale = await getServerLocale(session.preferredLocale);
 
-  // Stage 1: Fetch enrollments, lightweight published catalog metadata, and body metrics concurrently
-  const [enrollments, catalogProgramsData, bodyMetricLogsRaw] = await Promise.all([
+  // Single parallel round-trip: fetch ONLY the user's enrolled programs (with days, progresses,
+  // customTasks & submissions in one query) + body metric logs. Unenrolled Explore catalog programs
+  // are loaded lazily on-demand via /api/explore/programs and /api/programs/[id] instead of blocking startup.
+  const [enrollments, bodyMetricLogsRaw] = await Promise.all([
     prisma.programEnrollment.findMany({
       where: { userId: session.userId },
       include: {
         program: {
           include: {
             ...PROGRAM_TAXONOMY_INCLUDE,
-            _count: { select: { days: true } },
-          },
-        },
-        transactions: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { qrisStringOrUrl: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.program.findMany({
-      take: 150,
-      where: {
-        deletedAt: null,
-        status: "PUBLISHED",
-      },
-      include: {
-        ...PROGRAM_TAXONOMY_INCLUDE,
-        _count: {
-          select: {
-            enrollments: { where: { status: "ACTIVE" } },
-          },
-        },
-        // Lightweight syllabus fields only for non-enrolled catalog preview (zero progresses/customTasks/JSON bloat)
-        days: {
-          select: {
-            id: true,
-            dayNumber: true,
-            title: true,
-            dayType: true,
-            mapLink: true,
-            eventTitle: true,
-            eventHost: true,
-            onsiteVenue: true,
-            onsiteSchedule: true,
-          },
-          orderBy: { dayNumber: "asc" },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.userBodyMetricLog
-      .findMany({
-        where: { userId: session.userId },
-        orderBy: { recordedAt: "desc" },
-        take: 100,
-      })
-      .then((rows) => rows.reverse()),
-  ]);
-
-  const activeEnrollmentByProgramId = new Map(
-    enrollments.filter((e) => e.status === "ACTIVE").map((e) => [e.program.id, e])
-  );
-  const userActiveProgramIds = new Set(activeEnrollmentByProgramId.keys());
-
-  // Stage 2: Load full curriculum, progresses, customTasks & submissions ONLY for the user's ACTIVE enrolled programs
-  const activeProgramIdsList = Array.from(userActiveProgramIds);
-  const activeProgramsFull =
-    activeProgramIdsList.length > 0
-      ? await prisma.program.findMany({
-          where: {
-            id: { in: activeProgramIdsList },
-            deletedAt: null,
-          },
-          include: {
-            ...PROGRAM_TAXONOMY_INCLUDE,
             _count: {
               select: {
+                days: true,
                 enrollments: { where: { status: "ACTIVE" } },
               },
             },
@@ -170,28 +106,60 @@ async function DashboardContent() {
               orderBy: { dayNumber: "asc" },
             },
           },
-          orderBy: { createdAt: "asc" },
-        })
-      : [];
+        },
+        transactions: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { qrisStringOrUrl: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.userBodyMetricLog
+      .findMany({
+        where: { userId: session.userId },
+        orderBy: { recordedAt: "desc" },
+        take: 100,
+      })
+      .then((rows) => rows.reverse()),
+  ]);
 
-  const activeFullById = new Map(activeProgramsFull.map((p) => [p.id, p]));
-  const combinedProgramIds = new Set<string>();
-  const allProgramsList: Array<
-    | { kind: "active"; program: (typeof activeProgramsFull)[number] }
-    | { kind: "catalog"; program: (typeof catalogProgramsData)[number] }
-  > = [];
+  const validEnrollments = enrollments.filter(
+    (e) => e.program && e.program.deletedAt === null
+  );
 
-  for (const p of activeProgramsFull) {
-    combinedProgramIds.add(p.id);
-    allProgramsList.push({ kind: "active", program: p });
+  const activeEnrollmentByProgramId = new Map(
+    validEnrollments
+      .filter((e) => e.status === "ACTIVE")
+      .map((e) => [e.program.id, e])
+  );
+
+  // Deduplicate enrolled programs (preferring ACTIVE enrollment metadata when multiple exist)
+  const enrolledProgramEntries = new Map<
+    string,
+    {
+      isActive: boolean;
+      program: (typeof validEnrollments)[number]["program"];
+    }
+  >();
+  for (const e of validEnrollments) {
+    const isActive = e.status === "ACTIVE";
+    const existing = enrolledProgramEntries.get(e.program.id);
+    if (!existing || (isActive && !existing.isActive)) {
+      enrolledProgramEntries.set(e.program.id, {
+        isActive,
+        program: e.program,
+      });
+    }
   }
-  for (const p of catalogProgramsData) {
-    if (combinedProgramIds.has(p.id)) continue;
-    combinedProgramIds.add(p.id);
-    allProgramsList.push({ kind: "catalog", program: p });
-  }
 
-  const myPrograms = enrollments.map((e) => {
+  const activeProgramsFull = Array.from(enrolledProgramEntries.values())
+    .filter((entry) => entry.isActive)
+    .map((entry) => entry.program);
+
+  const allProgramsList = Array.from(enrolledProgramEntries.values());
+
+  const myPrograms = validEnrollments.map((e) => {
     const tax = serializeProgramTaxonomy(e.program);
     const effectiveStart =
       e.program.locationType === "ONLINE"
@@ -294,11 +262,9 @@ async function DashboardContent() {
       );
     });
 
-  void activeFullById;
-
   const allPrograms = allProgramsList.map((entry) => {
     const p = entry.program;
-    const isPaidMember = entry.kind === "active";
+    const isPaidMember = entry.isActive;
     const activeEnrollment = activeEnrollmentByProgramId.get(p.id);
     const effectiveStartAt =
       p.locationType === "ONLINE"
@@ -315,42 +281,41 @@ async function DashboardContent() {
         ? "ACTIVE"
         : "COMING_SOON";
 
-    const mappedDays =
-      entry.kind === "catalog"
-        ? entry.program.days.map((d) => {
-            const normalizedDayType =
-              p.locationType === "ONLINE" &&
-              (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
-                ? ("REST_DAY" as const)
-                : d.dayType;
-            return {
-              id: d.id,
-              dayNumber: d.dayNumber,
-              title: d.title,
-              dayType: normalizedDayType,
-              workoutOptions: [] as string[],
-              sleepRecommendation: null,
-              dayNotifications: [] as Array<{ time: string; message: string; label?: string }>,
-              unlockDate: "",
-              isCalendarUnlocked: false,
-              isPast2359: false,
-              isSkipped: false,
-              videoUrl: null,
-              videoChecklist: [] as string[],
-              mealRecommendation: null,
-              meetupLink: null,
-              mapLink: d.mapLink,
-              eventTitle: d.eventTitle,
-              eventHost: d.eventHost,
-              eventDetails: null,
-              onsiteVenue: d.onsiteVenue,
-              onsiteSchedule: d.onsiteSchedule,
-              restInstructions: null,
-              customTasks: [],
-              userProgress: null,
-            };
-          })
-        : entry.program.days.map((d) => {
+    const mappedDays = !isPaidMember
+      ? p.days.map((d) => {
+          const normalizedDayType =
+            p.locationType === "ONLINE" &&
+            (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
+              ? ("REST_DAY" as const)
+              : d.dayType;
+          return {
+            id: d.id,
+            dayNumber: d.dayNumber,
+            title: d.title,
+            dayType: normalizedDayType,
+            workoutOptions: [] as string[],
+            sleepRecommendation: null,
+            dayNotifications: [] as Array<{ time: string; message: string; label?: string }>,
+            unlockDate: "",
+            isCalendarUnlocked: false,
+            isPast2359: false,
+            isSkipped: false,
+            videoUrl: null,
+            videoChecklist: [] as string[],
+            mealRecommendation: null,
+            meetupLink: null,
+            mapLink: d.mapLink,
+            eventTitle: d.eventTitle,
+            eventHost: d.eventHost,
+            eventDetails: null,
+            onsiteVenue: d.onsiteVenue,
+            onsiteSchedule: d.onsiteSchedule,
+            restInstructions: null,
+            customTasks: [],
+            userProgress: null,
+          };
+        })
+      : p.days.map((d) => {
             const normalizedDayType =
               p.locationType === "ONLINE" &&
               (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
