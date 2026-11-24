@@ -24,6 +24,8 @@ export interface DailyCheckInProps {
   pastDays: PlanDay[];
   allProgramDays?: PlanDay[];
   communityLink?: string | null;
+  coachName?: string | null;
+  onOpenCommunity?: () => void;
   programTitle?: string;
   programVenueAddress?: string | null;
   locked: boolean;

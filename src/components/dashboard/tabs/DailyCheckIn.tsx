@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { Check } from "lucide-react";
+import { Check, MessageCircle, User, Users } from "lucide-react";
+import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
@@ -158,6 +160,33 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  const { locale } = useLocale();
+  const isId = locale === "id";
+  const coachDisplayName = props.coachName || selectedDay.coachName || "Coach";
+  const programTitle = props.programTitle || "Program";
+  const coachChatUrl = buildConciergeWhatsAppUrl(
+    isId
+      ? `Halo Coach ${coachDisplayName}, saya ingin bertanya mengenai program ${programTitle}.`
+      : `Hi Coach ${coachDisplayName}, I have a question regarding ${programTitle}.`
+  );
+
+  const handleOpenGroupChat = () => {
+    if (props.onOpenCommunity) {
+      props.onOpenCommunity();
+      return;
+    }
+    const groupUrl =
+      props.communityLink ||
+      buildConciergeWhatsAppUrl(
+        isId
+          ? `Halo Concierge, saya ingin bergabung ke group chat komunitas untuk: ${programTitle}`
+          : `Hello Concierge, I would like to join the community group for: ${programTitle}`
+      );
+    if (typeof window !== "undefined") {
+      window.open(groupUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const getCoreFillIcon = (index: number): ComponentType<FillIconProps> => {
     if (index === 0) return FillMoonIcon;
     if (index === 1) {
@@ -227,31 +256,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
   };
 
-  const getCoreTaskStepCount = (index: number): number => {
-    if (index === 0) return 3; // sleep log: wake, bed, feeling
-    if (index === 1) {
-      if (selectedDay.dayType === "REST_DAY") return 2;
-      if (selectedDay.dayType !== "TRAINING_DAY") return 2;
-      let count = 1; // feeling / notes
-      if (selectedDay.workoutOptions && selectedDay.workoutOptions.length > 0) count++;
-      if (selectedDay.videoUrl) count++;
-      if (selectedDay.videoChecklist && selectedDay.videoChecklist.length > 0) count++;
-      return Math.min(4, Math.max(2, count));
-    }
-    if (index === 2) return 3; // meal count, meal entry, meal mood
-    return 1; // water intake
-  };
-
-  const getCustomStepCount = (ct: ProgramDayCustomTaskDTO): number => {
-    return ct.fields?.length ? Math.max(1, ct.fields.length) : 1;
-  };
-
   interface DailyTaskTile {
     key: string;
     title: string;
     durationLabel: string;
     isDone: boolean;
-    stepCount: number;
     Icon: ComponentType<FillIconProps>;
     onOpen: () => void;
     disabled: boolean;
@@ -265,7 +274,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         title: t.title,
         durationLabel: getCoreDurationLabel(index),
         isDone,
-        stepCount: getCoreTaskStepCount(index),
         Icon: getCoreFillIcon(index),
         disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
         onOpen: () => openDetail(index),
@@ -278,7 +286,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         title: ct.title,
         durationLabel: getCustomDurationLabel(ct),
         isDone,
-        stepCount: getCustomStepCount(ct),
         Icon: getCustomFillIcon(ct),
         disabled: isSelectedFuture || (selectedLocked && !isDone),
         onOpen: () => setOpenCustomTaskId(ct.id),
@@ -391,8 +398,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
               >
-                {/* Top: Icon (Left) + Step Dots Indicator (Right) */}
-                <div className="w-full flex items-start justify-between gap-2">
+                {/* Top: Clean Solid Fill Icon */}
+                <div className="w-full flex items-start">
                   <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
                     {isSelectedFuture ? (
                       <FillLockIcon className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
@@ -416,24 +423,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       </span>
                     )}
                   </span>
-
-                  {/* Step dots indicating number of steps inside the task (vertical layout on right) */}
-                  <div
-                    className="flex flex-col items-center gap-1 shrink-0 pt-0.5"
-                    title={`${tile.stepCount} ${tile.stepCount === 1 ? "step" : "steps"}`}
-                    aria-label={`${tile.stepCount} steps`}
-                  >
-                    {Array.from({ length: tile.stepCount }, (_, sIdx) => (
-                      <span
-                        key={sIdx}
-                        className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                          tile.isDone
-                            ? "bg-zinc-400 dark:bg-zinc-500"
-                            : "bg-zinc-400/70 dark:bg-white/30"
-                        }`}
-                      />
-                    ))}
-                  </div>
                 </div>
 
                 {/* Bottom: Task Name + Estimated Completion Time */}
@@ -450,6 +439,66 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           );
         })}
       </ol>
+
+      {/* Chat with Coach & Group Widget */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+              <MessageCircle className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+              {isId ? "Tanya Coach & Group Chat" : "Coach & Community Chat"}
+            </span>
+          </div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            {isId
+              ? "Konsultasikan kendala tugas Anda langsung ke coach atau berdiskusi di grup komunitas."
+              : "Reach out to your coach directly or chat with peers in the cohort group."}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+          {/* Chat with Coach */}
+          <a
+            href={coachChatUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-zinc-950 dark:text-white transition active:scale-[0.98] cursor-pointer shadow-2xs group"
+          >
+            <span className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white group-hover:scale-105 transition-transform">
+              <User className="w-4 h-4" />
+            </span>
+            <div className="min-w-0 text-left">
+              <span className="block text-xs font-semibold text-zinc-950 dark:text-white truncate leading-tight">
+                Chat Coach
+              </span>
+              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400 truncate leading-tight mt-0.5">
+                {coachDisplayName}
+              </span>
+            </div>
+          </a>
+
+          {/* Group Chat */}
+          <button
+            type="button"
+            onClick={handleOpenGroupChat}
+            className="flex items-center gap-2.5 p-3 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-zinc-950 dark:text-white transition active:scale-[0.98] cursor-pointer shadow-2xs group"
+          >
+            <span className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white group-hover:scale-105 transition-transform">
+              <Users className="w-4 h-4" />
+            </span>
+            <div className="min-w-0 text-left">
+              <span className="block text-xs font-semibold text-zinc-950 dark:text-white truncate leading-tight">
+                Group Chat
+              </span>
+              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400 truncate leading-tight mt-0.5">
+                Cohort Member
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
 
       {/* Custom Coach Task Modal Host (opened directly when tapping custom task tiles) */}
       {customTasksList.length > 0 && (

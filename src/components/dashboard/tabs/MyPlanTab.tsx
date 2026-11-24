@@ -461,16 +461,22 @@ export function MyPlanOverview({
           </span>
         </div>
 
-        {/* Bottom Row: Day Number + Date Button (Left) + Dropdown Menu Button (Right) */}
+        {/* Bottom Row: Program Format + Date Button (Left) + Dropdown Menu Button (Right) */}
         <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
           <div className="flex flex-col items-start gap-1 min-w-0">
-            {totalProgramDays > 0 && (
-              <span className="text-[11px] font-mono font-semibold text-white/90 tracking-wide tabular-nums px-1 drop-shadow-xs">
-                {locale === "id"
-                  ? `Day ${activeDayNum} dari ${totalProgramDays}`
-                  : `Day ${activeDayNum} of ${totalProgramDays}`}
-              </span>
-            )}
+            <span className="text-[11px] font-mono font-semibold text-white/90 tracking-wide uppercase px-1 drop-shadow-xs">
+              {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                ? locale === "id"
+                  ? "Program Hybrid"
+                  : "Hybrid Program"
+                : (program?.locationType || "").toUpperCase() === "ONSITE"
+                  ? locale === "id"
+                    ? "Program Onsite"
+                    : "Onsite Program"
+                  : locale === "id"
+                    ? "Program Online"
+                    : "Online Program"}
+            </span>
 
             <button
               type="button"
@@ -624,6 +630,8 @@ export function MyPlanOverview({
                   pastDays={historyDays}
                   allProgramDays={allProgramDays}
                   communityLink={program.communityLink}
+                  coachName={program.coachName}
+                  onOpenCommunity={() => setShowCommunityModal(true)}
                   programTitle={program.title}
                   programVenueAddress={program.venueAddress}
                   locked={locked}
