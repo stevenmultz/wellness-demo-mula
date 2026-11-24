@@ -417,9 +417,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     )}
                   </span>
 
-                  {/* Step dots indicating number of steps inside the task */}
+                  {/* Step dots indicating number of steps inside the task (vertical layout on right) */}
                   <div
-                    className="flex items-center gap-1 shrink-0 pt-1"
+                    className="flex flex-col items-center gap-1 shrink-0 pt-0.5"
                     title={`${tile.stepCount} ${tile.stepCount === 1 ? "step" : "steps"}`}
                     aria-label={`${tile.stepCount} steps`}
                   >

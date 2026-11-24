@@ -430,7 +430,7 @@ export function MyPlanOverview({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
         </div>
 
-        {/* Top Row: Community Profile/Logo (Left) + Day X/Y (Right) */}
+        {/* Top Row: Community Profile/Logo (Left) + Sport Category (Right) */}
         <div className="relative z-10 flex items-center justify-between gap-2">
           <div
             className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[70%]"
@@ -453,42 +453,49 @@ export function MyPlanOverview({
             </span>
           </div>
 
-          {totalProgramDays > 0 && (
-            <span
-              className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-[11px] font-mono font-semibold text-white/95 tracking-wide tabular-nums shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              title={`Day ${activeDayNum} of ${totalProgramDays}`}
-            >
-              Day {activeDayNum}/{totalProgramDays}
-            </span>
-          )}
-        </div>
-
-        {/* Bottom Row: Date Button (Left) + Dropdown Menu Button (Right) */}
-        <div className="relative z-20 flex items-center justify-between gap-2 pt-8">
-          <button
-            type="button"
-            onClick={() => {
-              const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-              setCalendarMonth(new Date(w.year, w.month, 1));
-              setShowCalendarModal(true);
-            }}
-            aria-label="Select date from calendar"
-            className="group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/10 min-w-0"
+          <span
+            className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
-            <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-              {activeFullDateStr}
-            </span>
-            <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
-              •
-            </span>
-            <span className="text-[11px] font-mono font-medium text-white/85 leading-tight truncate">
-              {activeDayTypeLabel}
-            </span>
+            {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
+          </span>
+        </div>
 
-            <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
-          </button>
+        {/* Bottom Row: Day Number + Date Button (Left) + Dropdown Menu Button (Right) */}
+        <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
+          <div className="flex flex-col items-start gap-1 min-w-0">
+            {totalProgramDays > 0 && (
+              <span className="text-[11px] font-mono font-semibold text-white/90 tracking-wide tabular-nums px-1 drop-shadow-xs">
+                {locale === "id"
+                  ? `Day ${activeDayNum} dari ${totalProgramDays}`
+                  : `Day ${activeDayNum} of ${totalProgramDays}`}
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+                setCalendarMonth(new Date(w.year, w.month, 1));
+                setShowCalendarModal(true);
+              }}
+              aria-label="Select date from calendar"
+              className="group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/10 min-w-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
+                {activeFullDateStr}
+              </span>
+              <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
+                •
+              </span>
+              <span className="text-[11px] font-mono font-medium text-white/85 leading-tight truncate">
+                {activeDayTypeLabel}
+              </span>
+
+              <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
+            </button>
+          </div>
 
           {program && (
             <div ref={bannerMenuRef} className="relative">
