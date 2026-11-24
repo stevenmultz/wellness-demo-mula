@@ -552,6 +552,7 @@ export function MyPlanOverview({
                   allProgramDays={allProgramDays}
                   communityLink={program.communityLink}
                   programTitle={program.title}
+                  programVenueAddress={program.venueAddress}
                   locked={locked}
                   isAnytime={!hasCalendarSchedule}
                   activities={activities}

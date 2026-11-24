@@ -20,17 +20,18 @@
   --radius-card: 16px;
   --radius-control: 12px;
 
-  /* Global Semantic Colors (Monochrome-harmonized Sage Green & Dusty Red) */
-  /* Red — Dusty Red */
-  --semantic-red: #a85858;
-  --semantic-red-border: #964b4b;
-  --semantic-red-dot: #a85858;
-  --semantic-red-bg: #f6ecec;
-  /* Green — Sage Green */
-  --semantic-green: #5e7f69;
-  --semantic-green-border: #4f6e59;
-  --semantic-green-dot: #5e7f69;
-  --semantic-green-bg: #ecf2ee;
+  /* Global Semantic Colors (Monochrome-Native Gray-Mixed Red & Gray-Mixed Green) */
+  /* Matched perceptual lightness (~46.5 L*) & restrained chroma for effortless monochrome + sibling harmony */
+  /* Red + Gray — Ash Rose / Mineral Oxblood Gray */
+  --semantic-red: #8c6264;
+  --semantic-red-border: #785254;
+  --semantic-red-dot: #8c6264;
+  --semantic-red-bg: #f2ecec;
+  /* Green + Gray — Slate Sage / Mineral Moss Gray */
+  --semantic-green: #5e7868;
+  --semantic-green-border: #4f6658;
+  --semantic-green-dot: #5e7868;
+  --semantic-green-bg: #eaefed;
   /* Legacy aliases pointing to global semantic tokens */
   --semantic-ruby: var(--semantic-red);
   --semantic-ruby-border: var(--semantic-red-border);
@@ -63,15 +64,15 @@
   --muted-foreground: #a1a1aa;
   --card-shadow: none;
 
-  /* Dark Mode Semantic Colors (Sage Green & Dusty Red) */
-  --semantic-red: #b56565;
-  --semantic-red-border: #c47878;
-  --semantic-red-dot: #cc7c7c;
-  --semantic-red-bg: rgba(168, 88, 88, 0.22);
-  --semantic-green: #698c74;
-  --semantic-green-border: #7da188;
-  --semantic-green-dot: #86aa92;
-  --semantic-green-bg: rgba(94, 127, 105, 0.22);
+  /* Dark Mode Semantic Colors (Gray-Mixed Red & Gray-Mixed Green; white badge text >= 4.8:1) */
+  --semantic-red: #8f6466;
+  --semantic-red-border: #a87c7e;
+  --semantic-red-dot: #b58587;
+  --semantic-red-bg: rgba(140, 98, 100, 0.22);
+  --semantic-green: #5e7868;
+  --semantic-green-border: #789483;
+  --semantic-green-dot: #85a190;
+  --semantic-green-bg: rgba(94, 120, 104, 0.22);
   --semantic-ruby: var(--semantic-red);
   --semantic-ruby-border: var(--semantic-red-border);
   --semantic-ruby-bg: var(--semantic-red-bg);

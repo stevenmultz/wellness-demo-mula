@@ -25,6 +25,7 @@ export interface DailyCheckInProps {
   allProgramDays?: PlanDay[];
   communityLink?: string | null;
   programTitle?: string;
+  programVenueAddress?: string | null;
   locked: boolean;
   isAnytime?: boolean;
   activities: string[];

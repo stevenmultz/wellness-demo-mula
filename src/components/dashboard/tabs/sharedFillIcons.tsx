@@ -168,6 +168,34 @@ export function FillInfoIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
   );
 }
 
+export function FillPinIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M16 3a1 1 0 0 1 .78.38l3.84 4.8a1 1 0 0 1-.48 1.57l-3.04.95-2.6 2.6.95 3.04a1 1 0 0 1-1.66 1.01l-3.44-3.44-5.1 5.1a.85.85 0 0 1-1.2-1.2l5.1-5.1-3.44-3.44a1 1 0 0 1 1.01-1.66l3.04.95 2.6-2.6.95-3.04A1 1 0 0 1 16 3Z" />
+    </svg>
+  );
+}
+
+export function FillMapPinIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.18 6.46 11.46 7.01 11.98a.72.72 0 0 0 .98 0c.55-.52 7.01-6.8 7.01-11.98A7.5 7.5 0 0 0 12 2Zm0 4.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
+      />
+    </svg>
+  );
+}
+
+export function FillVideoIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M4.5 6A2.5 2.5 0 0 0 2 8.5v7A2.5 2.5 0 0 0 4.5 18h9a2.5 2.5 0 0 0 2.5-2.5v-1.28l4.23 2.54A1.2 1.2 0 0 0 22 15.73V8.27a1.2 1.2 0 0 0-1.77-1.03L16 9.78V8.5A2.5 2.5 0 0 0 13.5 6h-9Z" />
+    </svg>
+  );
+}
+
 // ─── Bottom Navigation Solid Fill Icons (Home, Explore, Chat, Profile) ───────
 export function FillHomeIcon({ className = "w-5 h-5" }: FillIconProps) {
   return (

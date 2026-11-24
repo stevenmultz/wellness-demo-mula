@@ -2,24 +2,26 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { Check } from "lucide-react";
-import { InfoPopupModal } from "./shared";
+import { Check, ExternalLink } from "lucide-react";
+import { InfoPopupModal, safeHttpUrl } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
-  FillBellIcon,
   FillCameraIcon,
   FillChecklistIcon,
   FillDropletIcon,
   FillDumbbellIcon,
   FillHeartIcon,
   FillLockIcon,
+  FillMapPinIcon,
   FillMoonIcon,
+  FillPinIcon,
   FillPlayIcon,
   FillScaleIcon,
   FillSparkleIcon,
   FillTargetIcon,
   FillUsersIcon,
   FillUtensilsIcon,
+  FillVideoIcon,
   type FillIconProps,
 } from "./sharedFillIcons";
 import {
@@ -35,41 +37,6 @@ import { TaskForm } from "./checkin/TaskFormModal";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 
 export type { DailyCheckInProps };
-
-// ─── Ascending Vertical Step-Bar Meter (Unique to Tasks Progress) ────────────
-function VerticalStepMeter({ percent }: { percent: number }) {
-  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
-  const steps = 10;
-  const filledSteps = Math.round((safePercent / 100) * steps);
-
-  return (
-    <div
-      className="flex items-end gap-1 sm:gap-1.5 h-12 shrink-0"
-      role="progressbar"
-      aria-valuenow={safePercent}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={`${safePercent}%`}
-    >
-      {Array.from({ length: steps }, (_, i) => {
-        const stepNum = i + 1;
-        const heightPct = 28 + Math.round((i / (steps - 1)) * 72);
-        const isFilled = stepNum <= filledSteps;
-        return (
-          <div
-            key={stepNum}
-            style={{ height: `${heightPct}%` }}
-            className={`w-[5px] sm:w-[6px] rounded-full transition-all duration-300 ${
-              isFilled
-                ? "bg-zinc-950 dark:bg-white"
-                : "bg-zinc-300/80 dark:bg-white/15"
-            }`}
-          />
-        );
-      })}
-    </div>
-  );
-}
 
 export function DailyCheckIn(props: DailyCheckInProps) {
   const { day, locked, activities, checks, initialDone } = props;
@@ -192,61 +159,63 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
   const totalTasks = tasks.length + customTasksList.length;
   const completedTasks = coreDoneCount + customDoneCount;
-  const remainingTasks = Math.max(0, totalTasks - completedTasks);
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const allCleared = !isSelectedFuture && totalTasks > 0 && remainingTasks === 0;
 
-  // Find next upcoming meetup / live session in this program (today or upcoming days)
-  const upcomingMeetup = useMemo(() => {
+  // Pinned Meetup (date, time, venue) & Zoom (date, time, link) from program schedule
+  const { pinnedMeetup, pinnedZoom } = useMemo(() => {
     const baseDayNum = selectedDay.dayNumber || day.dayNumber || 1;
-    const candidate = programDays.find(
-      (d) =>
-        d.dayNumber >= baseDayNum &&
-        (d.dayType === "CONNECTION_DAY" ||
-          d.dayType === "MEETUP_DAY" ||
-          d.dayType === "CONNECT_DAY" ||
-          Boolean(d.eventTitle && d.eventTitle.trim()) ||
-          Boolean(d.meetupLink && d.meetupLink.trim()) ||
-          Boolean(d.onsiteVenue && d.onsiteVenue.trim()))
-    );
-    if (!candidate) return null;
-    const daysUntil = Math.max(0, candidate.dayNumber - baseDayNum);
-    const label = candidate.eventTitle?.trim() || candidate.title || "Live Meetup";
-    const dateLabel = formatDayPillDate(candidate.unlockDate, candidate.dayNumber);
-    const schedule = candidate.onsiteSchedule?.trim() || null;
-    return { daysUntil, label, dateLabel, schedule };
-  }, [programDays, selectedDay.dayNumber, day.dayNumber]);
+    const isSessionDay = (d: (typeof programDays)[number]) =>
+      d.dayType === "CONNECTION_DAY" ||
+      d.dayType === "MEETUP_DAY" ||
+      d.dayType === "CONNECT_DAY";
 
-  const dailyReminderText = useMemo(() => {
-    if (isSelectedFuture) {
-      return `Unlocks ${formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB.`;
-    }
-    if (isSelectedPast) {
-      return allCleared
-        ? `Day ${selectedDay.dayNumber} done. All tasks logged.`
-        : `Closed at 23:59 WIB (${completedTasks}/${totalTasks} done).`;
-    }
-    if (allCleared) {
-      return `All tasks done for Day ${selectedDay.dayNumber}. Great consistency!`;
-    }
-    if (selectedDay.dayType === "REST_DAY") {
-      return "Focus on recovery & hydration today.";
-    }
-    if (selectedDay.dayType === "TRAINING_DAY") {
-      return "Finish today's tasks in any order before 23:59 WIB.";
-    }
-    return "Check session details & finish today's logs.";
-  }, [
-    isSelectedFuture,
-    isSelectedPast,
-    allCleared,
-    selectedDay.unlockDate,
-    selectedDay.dayNumber,
-    selectedDay.dayType,
-    completedTasks,
-    totalTasks,
-  ]);
+    const findPreferred = (predicate: (d: (typeof programDays)[number]) => boolean) =>
+      programDays.find((d) => d.dayNumber >= baseDayNum && predicate(d)) ||
+      [...programDays].reverse().find(predicate) ||
+      null;
+
+    const meetupDay = findPreferred(
+      (d) =>
+        Boolean(d.onsiteVenue && d.onsiteVenue.trim()) ||
+        (isSessionDay(d) && Boolean(props.programVenueAddress?.trim()))
+    );
+
+    const zoomDay = findPreferred(
+      (d) =>
+        Boolean(d.meetupLink && d.meetupLink.trim()) ||
+        (isSessionDay(d) && !d.onsiteVenue?.trim())
+    );
+
+    const formatCountdown = (dayNum: number) => {
+      const diff = dayNum - baseDayNum;
+      if (diff < 0) return null;
+      if (diff === 0) return "Today";
+      if (diff === 1) return "Tomorrow";
+      return `In ${diff}d`;
+    };
+
+    const meetup = meetupDay
+      ? {
+          dateLabel: formatDayPillDate(meetupDay.unlockDate, meetupDay.dayNumber),
+          timeLabel: meetupDay.onsiteSchedule?.trim() || null,
+          venue: meetupDay.onsiteVenue?.trim() || props.programVenueAddress?.trim() || null,
+          mapUrl: safeHttpUrl(meetupDay.mapLink),
+          countdown: formatCountdown(meetupDay.dayNumber),
+        }
+      : null;
+
+    const zoom = zoomDay
+      ? {
+          dateLabel: formatDayPillDate(zoomDay.unlockDate, zoomDay.dayNumber),
+          timeLabel: zoomDay.onsiteSchedule?.trim() || null,
+          zoomUrl: safeHttpUrl(zoomDay.meetupLink),
+          countdown: formatCountdown(zoomDay.dayNumber),
+        }
+      : null;
+
+    return { pinnedMeetup: meetup, pinnedZoom: zoom };
+  }, [programDays, selectedDay.dayNumber, day.dayNumber, props.programVenueAddress]);
 
   const getCoreFillIcon = (index: number): ComponentType<FillIconProps> => {
     if (index === 0) return FillMoonIcon;
@@ -358,103 +327,137 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Widget 1: Today Progress (Stacked Full-Width Card with Ascending Vertical Step-Bar Meter) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-end justify-between gap-4">
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-              <FillTargetIcon className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-              Today Progress
-            </span>
-          </div>
-
-          <div className="flex items-end gap-2 flex-wrap">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
-                {progressPct}
-              </span>
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-                %
-              </span>
-            </div>
-
-            {isSelectedFuture ? (
-              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
-                <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
-                <span>Locked</span>
-              </span>
-            ) : allCleared ? (
-              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[var(--semantic-green-border)] bg-[var(--semantic-green)] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
-                <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
-                <span>
-                  {completedTasks}/{totalTasks}
-                </span>
-              </span>
-            ) : (
-              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[var(--semantic-red-border)] bg-[var(--semantic-red)] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
-                <span>{remainingTasks} left</span>
-              </span>
-            )}
-          </div>
+      {/* Widget 1: Today Progress (Clean Percentage Only) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-2 border border-zinc-200/50 dark:border-white/5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+            <FillTargetIcon className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+            Today Progress
+          </span>
         </div>
 
-        <VerticalStepMeter percent={progressPct} />
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+            {progressPct}
+          </span>
+          <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+            %
+          </span>
+        </div>
       </div>
 
-      {/* Widget 2: Daily Reminder & Upcoming Meetup Alert (Stacked Below Today Progress) */}
+      {/* Widget 2: Pinned (Meetup Date, Time, Venue & Zoom Schedule) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-              <FillBellIcon className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-              Reminder
-            </span>
-          </div>
-
-          {!isAnytime && isSelectedToday && (
-            <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 shrink-0 leading-normal">
-              {resetCountdown}
-            </span>
-          )}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+            <FillPinIcon className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+            Pinned
+          </span>
         </div>
 
-        <p className="text-xs sm:text-[13px] text-zinc-800 dark:text-zinc-200 leading-relaxed">
-          {dailyReminderText}
-        </p>
-
-        {upcomingMeetup && (
-          <div className="pt-2.5 border-t border-zinc-300/60 dark:border-white/10 flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-6 h-6 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
-                <FillUsersIcon className="w-3 h-3" />
+        <div className="divide-y divide-zinc-300/60 dark:divide-white/10">
+          {/* Meetup Row */}
+          <div className="pb-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <span className="w-7 h-7 rounded-lg bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
+                <FillMapPinIcon className="w-3.5 h-3.5" />
               </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-                  {upcomingMeetup.label}
-                </p>
-                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate leading-normal">
-                  {upcomingMeetup.dateLabel}
-                  {upcomingMeetup.schedule ? ` · ${upcomingMeetup.schedule}` : ""}
-                </p>
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
+                    Meetup
+                  </span>
+                  {pinnedMeetup?.countdown && (
+                    <span className="semantic-badge-box px-1.5 py-[1.5px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-900 dark:text-white leading-[1.25]">
+                      {pinnedMeetup.countdown}
+                    </span>
+                  )}
+                </div>
+
+                {pinnedMeetup ? (
+                  <>
+                    <p className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 leading-normal">
+                      {pinnedMeetup.dateLabel}
+                      {pinnedMeetup.timeLabel ? ` · ${pinnedMeetup.timeLabel}` : ""}
+                    </p>
+                    {pinnedMeetup.venue && (
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                        {pinnedMeetup.venue}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                    No meetup scheduled
+                  </p>
+                )}
               </div>
             </div>
 
-            <span className="semantic-badge-box shrink-0 px-2 py-[3px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-950 dark:text-white leading-[1.25] whitespace-nowrap">
-              {upcomingMeetup.daysUntil === 0
-                ? "Today"
-                : upcomingMeetup.daysUntil === 1
-                  ? "Tomorrow"
-                  : `In ${upcomingMeetup.daysUntil}d`}
-            </span>
+            {pinnedMeetup?.mapUrl && (
+              <a
+                href={pinnedMeetup.mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 h-7 px-2.5 rounded-lg bg-white/90 dark:bg-white/10 hover:bg-white dark:hover:bg-white/15 text-[11px] font-medium text-zinc-900 dark:text-white inline-flex items-center gap-1 transition active:scale-95"
+              >
+                <span>Maps</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
           </div>
-        )}
+
+          {/* Zoom Row */}
+          <div className="pt-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <span className="w-7 h-7 rounded-lg bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 mt-0.5">
+                <FillVideoIcon className="w-3.5 h-3.5" />
+              </span>
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
+                    Zoom
+                  </span>
+                  {pinnedZoom?.countdown && (
+                    <span className="semantic-badge-box px-1.5 py-[1.5px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-900 dark:text-white leading-[1.25]">
+                      {pinnedZoom.countdown}
+                    </span>
+                  )}
+                </div>
+
+                {pinnedZoom ? (
+                  <p className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 leading-normal">
+                    {pinnedZoom.dateLabel}
+                    {pinnedZoom.timeLabel ? ` · ${pinnedZoom.timeLabel}` : ""}
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                    No Zoom scheduled
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {pinnedZoom?.zoomUrl && (
+              <a
+                href={pinnedZoom.zoomUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 h-7 px-2.5 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold inline-flex items-center gap-1 transition active:scale-95"
+              >
+                <span>Join</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Free-Order 2-Column Task Tiles Grid (Complete in any order; Dusty Red dot on top-right of icon when pending) */}
+      {/* Free-Order 2-Column Task Tiles Grid (Pending dot & Completed check share exact top-right icon anchor) */}
       <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
         {taskTiles.map((tile) => {
           const TileIcon = tile.Icon;
@@ -473,8 +476,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                     : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/60 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                 } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
               >
-                {/* Top Row: Solid Fill Icon (with Dusty Red Pending Dot on icon top-right) + Sage Green Check when done */}
-                <div className="w-full flex items-start justify-between gap-2">
+                {/* Top: Solid Fill Icon with Dusty Red Pending Dot or Sage Green Check at identical top-right anchor */}
+                <div className="w-full flex items-start">
                   <span
                     className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${
                       tile.isDone
@@ -494,16 +497,16 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
                       />
                     )}
-                  </span>
 
-                  {tile.isDone ? (
-                    <span
-                      aria-label="Completed"
-                      className="semantic-badge-box w-5 h-5 rounded-full bg-[var(--semantic-green)] border border-[var(--semantic-green-border)] text-white flex items-center justify-center shrink-0"
-                    >
-                      <Check className="w-3 h-3 stroke-[2.75]" />
-                    </span>
-                  ) : null}
+                    {tile.isDone && (
+                      <span
+                        aria-label="Completed"
+                        className="semantic-badge-box absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e5e5e2] dark:ring-[#18181b] flex items-center justify-center"
+                      >
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </span>
+                    )}
+                  </span>
                 </div>
 
                 {/* Bottom: Clean Task Name Only */}
