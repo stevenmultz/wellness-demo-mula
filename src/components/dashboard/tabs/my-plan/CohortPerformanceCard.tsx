@@ -4,12 +4,10 @@ import { useId, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
-import { InfoPopupModal } from "../shared";
 import {
   FillDropletIcon,
   FillDumbbellIcon,
   FillFlameIcon,
-  FillInfoIcon,
   FillMoonIcon,
   FillScaleIcon,
   FillTargetIcon,
@@ -155,13 +153,13 @@ export function FiftyBarMeter({
   );
 }
 
-// ─── Metric Card Wrapper (Inline Info Button Aligned with Label -> Info Popup Modal) ─
+// ─── Unified Metric Card Wrapper ─────────────────────────────────────────────
 function FlippableMetricCard({
   title,
   label,
   icon,
   valueSlot,
-  infoContent,
+  infoContent: _infoContent,
   frontClassName = "space-y-3",
   children,
 }: {
@@ -169,60 +167,31 @@ function FlippableMetricCard({
   label?: ReactNode;
   icon: ReactNode;
   valueSlot: ReactNode;
-  infoContent: ReactNode;
+  infoContent?: ReactNode;
   frontClassName?: string;
   children?: ReactNode;
 }) {
-  const [infoOpen, setInfoOpen] = useState(false);
+  void _infoContent;
 
   return (
-    <>
-      <div
-        className={`w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
-      >
-        <div className="space-y-2">
-          {/* Unified Header Row: Icon + Label aligned inline with Info Button */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0" title={title}>
-              <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
-                {icon}
-              </span>
-              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
-                {label ?? title}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setInfoOpen(true);
-              }}
-              aria-label={`Info about ${title}`}
-              title={`About ${title}`}
-              className="w-5 h-5 -mr-0.5 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90 shrink-0 cursor-pointer"
-            >
-              <FillInfoIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {valueSlot}
+    <div
+      className={`w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
+    >
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 min-w-0" title={title}>
+          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+            {icon}
+          </span>
+          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+            {label ?? title}
+          </span>
         </div>
 
-        {children}
+        {valueSlot}
       </div>
 
-      <InfoPopupModal
-        open={infoOpen}
-        title={title}
-        subtitle="How this metric is calculated"
-        onClose={() => setInfoOpen(false)}
-      >
-        <div className="space-y-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-          {infoContent}
-        </div>
-      </InfoPopupModal>
-    </>
+      {children}
+    </div>
   );
 }
 
