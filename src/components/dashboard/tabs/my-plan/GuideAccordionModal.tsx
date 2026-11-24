@@ -282,6 +282,7 @@ export function GuideAccordionModal({
   openSections,
   toggleSection,
 }: GuideAccordionModalProps) {
+  void prepOverBanner;
   if (!activePage || typeof document === "undefined") return null;
 
   const meta = BANNER_META[activePage];
@@ -310,33 +311,38 @@ export function GuideAccordionModal({
           prepHeaderVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
         }`}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 min-h-14 py-2 flex items-center justify-between gap-3">
           <HeaderBackButton
             onClick={onClose}
-            overlay={prepOverBanner}
+            overlay={false}
             className="pointer-events-auto"
           />
         </div>
       </header>
 
-      <div className="relative h-[340px] sm:h-[400px] w-full overflow-hidden bg-zinc-950 shrink-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={meta.img} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/15" />
+      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 pt-16 sm:pt-20 pb-28 space-y-4 sm:space-y-5 flex-1">
+        {/* Contained Banner Widget (Matches Dashboard Program Banner Style) */}
+        <section className="relative w-full rounded-3xl overflow-hidden bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[185px] sm:min-h-[220px] flex flex-col justify-end p-5 sm:p-7 text-white">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={meta.img}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20" />
 
-        <div className="absolute inset-x-0 bottom-14 sm:bottom-16 z-0">
-          <div className="max-w-2xl mx-auto w-full px-6 sm:px-10 space-y-1.5">
-            <h1 className="text-2xl sm:text-4xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-md">
+          <div className="relative z-10 space-y-1.5">
+            <h1 className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-white leading-tight drop-shadow-xs">
               {meta.title}
             </h1>
             <p className="text-xs sm:text-sm text-white/80 leading-relaxed max-w-lg">
               {subtitle}
             </p>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="relative -mt-8 sm:-mt-10 z-10 rounded-t-[32px] sm:rounded-t-[36px] border-t border-x border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] shadow-2xl pt-8 sm:pt-10 px-6 sm:px-10 pb-32 max-w-2xl mx-auto w-full flex-1">
+        {/* Contained Content Widget */}
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 px-4 sm:px-6 py-3 sm:py-4">
         {activePage === "meal" && (
           <div className="space-y-4">
             {pastMealDays.length > 0 && (
@@ -733,6 +739,7 @@ export function GuideAccordionModal({
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>,
     document.body
