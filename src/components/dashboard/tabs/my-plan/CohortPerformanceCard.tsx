@@ -175,12 +175,12 @@ function FlippableMetricCard({
 
   return (
     <div className="w-full h-full rounded-2xl overflow-hidden bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 flex flex-col">
-      {/* Dark Thermal Heat-Gradient Header Strip with Light Icon & Label */}
+      {/* Soft Monochrome Light-Dark Grey Header Strip with Subtle Tonal Heat Gradient */}
       <div
         className="w-full px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-1.5 min-w-0 text-white"
         style={{
           backgroundImage:
-            "linear-gradient(125deg, #141416 0%, #291918 50%, #4d2720 82%, #6b3526 100%)",
+            "radial-gradient(120% 140% at 92% 15%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 48%, transparent 78%), linear-gradient(125deg, #4b4b49 0%, #5b5b58 55%, #6b6b68 100%)",
         }}
         title={title}
       >
