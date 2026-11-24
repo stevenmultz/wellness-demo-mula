@@ -357,46 +357,38 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. See all my programs button + Previous/Next index */}
-      <div className="w-full flex items-center justify-between gap-2 pb-0.5 px-0.5">
-        {/* See all my programs button */}
+      {/* 0. Program name switcher (left/right arrows to switch; tap title to open All My Programs) */}
+      <div className="w-full flex items-center justify-between gap-2 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
+        <button
+          type="button"
+          onClick={handlePrevPlan}
+          disabled={!plans || currentIndex === 0 || plans.length <= 1}
+          aria-label="Previous program"
+          className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
         <button
           type="button"
           onClick={onViewAllPrograms || onExplore}
-          className="h-8 px-3.5 rounded-xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-300/80 dark:border-white/10 text-xs font-semibold text-zinc-900 dark:text-white hover:bg-[#e4e4e1] dark:hover:bg-white/[0.08] shadow-xs transition active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+          title="All my programs"
+          className="flex-1 min-w-0 h-8 px-2 rounded-xl hover:bg-zinc-300/40 dark:hover:bg-white/[0.06] flex items-center justify-center transition active:scale-[0.99] cursor-pointer"
         >
-          <span>See all my programs</span>
+          <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+            {program.title}
+          </span>
         </button>
 
-        {/* Index previous / next controller */}
-        {plans && plans.length > 0 && (
-          <div className="inline-flex items-center gap-1 bg-[#ececea] dark:bg-white/[0.04] p-0.5 rounded-xl border border-zinc-300/80 dark:border-white/10 shadow-xs">
-            <button
-              type="button"
-              onClick={handlePrevPlan}
-              disabled={currentIndex === 0 || plans.length <= 1}
-              aria-label="Previous plan"
-              className="w-6 h-6 rounded-lg hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span
-              data-testid="home-program-index"
-              className="px-2 text-[11px] font-mono font-medium text-zinc-900 dark:text-white tabular-nums select-none"
-            >
-              {currentIndex + 1} / {totalPlans}
-            </span>
-            <button
-              type="button"
-              onClick={handleNextPlan}
-              disabled={currentIndex >= totalPlans - 1 || plans.length <= 1}
-              aria-label="Next plan"
-              className="w-6 h-6 rounded-lg hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center disabled:opacity-25 transition cursor-pointer"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={handleNextPlan}
+          disabled={!plans || currentIndex >= totalPlans - 1 || plans.length <= 1}
+          aria-label="Next program"
+          className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* 1. Contained Image Banner */}

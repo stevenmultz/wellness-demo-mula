@@ -2,9 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpRight, Check, Lock } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
+import { FiftyBarMeter } from "./my-plan/CohortPerformanceCard";
+import {
+  FillDropletIcon,
+  FillDumbbellIcon,
+  FillFlagIcon,
+  FillHeartIcon,
+  FillLockIcon,
+  FillMoonIcon,
+  FillUsersIcon,
+  FillUtensilsIcon,
+} from "./sharedFillIcons";
 import {
   deriveDayActivities,
   deriveDayChecks,
@@ -132,8 +143,37 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setDetailOpen(false);
   };
 
+  const customTasksList = selectedDay.customTasks || [];
+  const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
+  const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
+  const totalStages = tasks.length + customTasksList.length;
+  const completedStages = coreDoneCount + customDoneCount;
+  const remainingStages = Math.max(0, totalStages - completedStages);
+  const journeyPct =
+    totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
+
+  // First incomplete unlocked stage index across core + custom tasks (highlights "UP NEXT" quest node)
+  const firstIncompleteCoreIdx = !isSelectedFuture
+    ? tasks.findIndex((_, i) => !selectedDone[i])
+    : -1;
+  const hasCustomNextUp =
+    !isSelectedFuture &&
+    firstIncompleteCoreIdx === -1 &&
+    customTasksList.some((ct) => !ct.submission);
+
+  const getCoreFillIcon = (index: number) => {
+    if (index === 0) return FillMoonIcon;
+    if (index === 1) {
+      if (selectedDay.dayType === "REST_DAY") return FillHeartIcon;
+      if (selectedDay.dayType !== "TRAINING_DAY") return FillUsersIcon;
+      return FillDumbbellIcon;
+    }
+    if (index === 2) return FillUtensilsIcon;
+    return FillDropletIcon;
+  };
+
   return (
-    <section className="w-full space-y-4">
+    <section className="w-full space-y-3.5 sm:space-y-4">
       <InfoPopupModal
         open={showDailyTasksInfo}
         title="Daily Tasks & Schedule"
@@ -172,72 +212,151 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      <ol className="w-full space-y-3">
-        {tasks.map((t, index) => {
-          const isDone = selectedDone[index];
-          const TaskIcon = t.Icon;
-          return (
-            <li key={t.title} className="w-full">
-              <div
-                onClick={() => {
-                  if (!isSelectedFuture && (!selectedLocked || isSelectedPast || isDone)) {
-                    openDetail(index);
-                  }
-                }}
-                className={`group w-full relative overflow-hidden rounded-2xl p-4 flex items-center justify-between gap-3 transition ${
-                  isDone
-                    ? "bg-[#e5e5e2] dark:bg-white/[0.08]"
-                    : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
-                } ${isSelectedFuture ? "opacity-75" : "cursor-pointer active:scale-[0.99]"}`}
-              >
-                <div className="relative z-10 flex items-center gap-3.5 min-w-0 flex-1">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${
+      {/* Daily Journey Progress Summary Card (Metrics-Matched Surface & Typography) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <FillFlagIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              Daily Journey
+            </span>
+          </div>
+
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {completedStages}/{totalStages}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                stages
+              </span>
+            </div>
+
+            {isSelectedFuture ? (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
+                <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
+                <span>Locked</span>
+              </span>
+            ) : remainingStages === 0 && totalStages > 0 ? (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+                <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
+                <span>Clear</span>
+              </span>
+            ) : (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+                <span>{remainingStages} left</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-0.5">
+          <FiftyBarMeter percent={journeyPct} />
+        </div>
+      </div>
+
+      {/* Connected Game-Journey Vertical Stage Trail */}
+      <div className="w-full">
+        <ol className="w-full">
+          {tasks.map((t, index) => {
+            const isDone = selectedDone[index];
+            const isNextUp = firstIncompleteCoreIdx === index;
+            const hasMoreBelow =
+              index < tasks.length - 1 || customTasksList.length > 0;
+            const StageIcon = getCoreFillIcon(index);
+            const stageNum = String(index + 1).padStart(2, "0");
+
+            return (
+              <li key={t.title} className="w-full flex items-stretch gap-3">
+                {/* Left Vertical Game Trail Node + Connector */}
+                <div className="w-9 shrink-0 flex flex-col items-center">
+                  <button
+                    type="button"
+                    disabled={isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone)}
+                    onClick={() => openDetail(index)}
+                    aria-label={`Stage ${stageNum}: ${t.title}`}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition mt-3 relative cursor-pointer disabled:cursor-default ${
                       isDone
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                        : "bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white"
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                        : isNextUp
+                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-2 ring-zinc-950 dark:ring-white ring-offset-2 ring-offset-[#f6f6f4] dark:ring-offset-[#0e0e0e] shadow-sm"
+                          : isSelectedFuture
+                            ? "bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-zinc-400 dark:text-zinc-500"
+                            : "bg-[#ececea] dark:bg-white/[0.06] border border-zinc-300/90 dark:border-white/15 text-zinc-700 dark:text-zinc-300"
                     }`}
                   >
-                    {isDone ? <Check className="w-4 h-4" /> : <TaskIcon className="w-4 h-4" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                        {t.title}
-                      </p>
-                      {!isDone && !isSelectedFuture && (
-                        <span
-                          className="w-2 h-2 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] shrink-0"
-                          aria-label="Incomplete task"
-                        />
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                      {t.description}
-                    </p>
-                  </div>
+                    {isDone ? (
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    ) : isSelectedFuture ? (
+                      <FillLockIcon className="w-3.5 h-3.5" />
+                    ) : (
+                      <StageIcon className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {hasMoreBelow && (
+                    <div
+                      aria-hidden="true"
+                      className={`flex-1 min-h-4 my-1 transition-colors ${
+                        isDone
+                          ? "w-[2px] rounded-full bg-zinc-950 dark:bg-white"
+                          : "w-0 border-l-2 border-dashed border-zinc-300 dark:border-white/20"
+                      }`}
+                    />
+                  )}
                 </div>
 
-                  <div className="relative z-10 shrink-0 flex items-center justify-end">
-                    {isSelectedFuture ? (
-                      <span className="py-1 text-[11px] font-mono text-zinc-400 inline-flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        <span>Locked</span>
+                {/* Right Stage Card (Metrics-Matched Surface) */}
+                <div className={`flex-1 min-w-0 ${hasMoreBelow ? "pb-3" : ""}`}>
+                  <div
+                    onClick={() => {
+                      if (!isSelectedFuture && (!selectedLocked || isSelectedPast || isDone)) {
+                        openDetail(index);
+                      }
+                    }}
+                    className={`group w-full rounded-2xl p-3.5 sm:p-4 border transition ${
+                      isDone
+                        ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
+                        : isNextUp
+                          ? "bg-[#ececea] dark:bg-white/[0.06] border-zinc-950/30 dark:border-white/30 shadow-xs"
+                          : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
+                    } ${isSelectedFuture ? "opacity-70" : "cursor-pointer active:scale-[0.99]"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal">
+                        Stage {stageNum}
                       </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={selectedLocked}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDetail(index);
-                        }}
-                        aria-label="Open task detail"
-                        className="w-7 h-7 rounded-lg bg-zinc-200/50 dark:bg-white/[0.06] hover:bg-zinc-300/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer"
-                      >
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+
+                      {isSelectedFuture ? (
+                        <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 inline-flex items-center gap-1 leading-normal">
+                          <FillLockIcon className="w-2.5 h-2.5" />
+                          <span>Locked</span>
+                        </span>
+                      ) : isDone ? (
+                        <span className="semantic-badge-box inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25]">
+                          <Check className="w-2.5 h-2.5 stroke-[2.75]" />
+                          <span>Done</span>
+                        </span>
+                      ) : isNextUp ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-md bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold leading-[1.25]">
+                          <span>Next</span>
+                          <ArrowUpRight className="w-2.5 h-2.5" />
+                        </span>
+                      ) : (
+                        <span className="w-6 h-6 rounded-lg bg-zinc-200/60 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white inline-flex items-center justify-center transition">
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+                      {t.title}
+                    </p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate leading-normal mt-0.5">
+                      {t.description}
+                    </p>
                   </div>
                 </div>
               </li>
@@ -245,17 +364,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           })}
         </ol>
 
-        {selectedDay.customTasks && selectedDay.customTasks.length > 0 && (
+        {customTasksList.length > 0 && (
           <CustomTaskSection
             programDayId={selectedDay.id}
-            customTasks={selectedDay.customTasks}
+            customTasks={customTasksList}
             locked={selectedLocked}
             isFuture={isSelectedFuture}
+            startStageNumber={tasks.length + 1}
+            highlightFirstIncomplete={hasCustomNextUp}
             onSubmitted={(customTaskId, submission, dayCompleted) =>
               props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission, dayCompleted)
             }
           />
         )}
+      </div>
 
         {detailOpen &&
         typeof document !== "undefined" &&

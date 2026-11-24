@@ -5,6 +5,15 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
+  FillDropletIcon,
+  FillDumbbellIcon,
+  FillFlameIcon,
+  FillMoonIcon,
+  FillScaleIcon,
+  FillTargetIcon,
+  FillUtensilsIcon,
+} from "../sharedFillIcons";
+import {
   calcSleepMins,
   checkedList,
   formatSleepHours,
@@ -12,71 +21,6 @@ import {
   splitActivities,
   type PlanDay,
 } from "./myPlanUtils";
-
-// ─── Solid Fill Metric Icons (16×16 geometric silhouettes) ─────────────────────
-function FillScaleIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 3a5.5 5.5 0 0 0-5.18 3.66c-.18.5.18 1.04.71 1.04h8.94c.53 0 .89-.54.71-1.04A5.5 5.5 0 0 0 12 6Zm.75 2.25a.75.75 0 0 0-1.5 0v1.95a.75.75 0 0 0 1.5 0V8.25Z"
-      />
-    </svg>
-  );
-}
-
-function FillTargetIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"
-      />
-    </svg>
-  );
-}
-
-function FillDumbbellIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M3 9a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 3 15H2.5A1.5 1.5 0 0 1 1 13.5v-3A1.5 1.5 0 0 1 2.5 9H3Zm3.5-3A1.5 1.5 0 0 1 8 7.5v9A1.5 1.5 0 0 1 6.5 18h-1A1.5 1.5 0 0 1 4 16.5v-9A1.5 1.5 0 0 1 5.5 6h1Zm12 0A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 17.5 6h1Zm3 3A1.5 1.5 0 0 1 23 10.5v3a1.5 1.5 0 0 1-1.5 1.5H21a1.5 1.5 0 0 1-1.5-1.5v-3A1.5 1.5 0 0 1 21 9h.5ZM9 10.5h6v3H9v-3Z" />
-    </svg>
-  );
-}
-
-function FillMoonIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M21 14.2A8.5 8.5 0 0 1 9.8 3a.75.75 0 0 0-.96-.96A9.75 9.75 0 1 0 21.96 15.16a.75.75 0 0 0-.96-.96Z" />
-    </svg>
-  );
-}
-
-function FillUtensilsIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M7.5 2a.75.75 0 0 1 .75.75V7.5h1.25V2.75a.75.75 0 0 1 1.5 0V7.5a3.75 3.75 0 0 1-2.5 3.54V21a1 1 0 1 1-2 0V11.04A3.75 3.75 0 0 1 4 7.5V2.75a.75.75 0 0 1 1.5 0V7.5h1.25V2.75A.75.75 0 0 1 7.5 2Zm9.75 0a.75.75 0 0 1 .75.75V21a1 1 0 1 1-2 0v-6.25h-1.25A1.75 1.75 0 0 1 13 13V7.25C13 4.35 14.88 2 17.25 2Z" />
-    </svg>
-  );
-}
-
-function FillFlameIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M12.92 2.24a.75.75 0 0 0-1.27.39c-.35 2.02-1.49 3.63-3.16 5.14C6.64 9.45 5 11.46 5 14.5a7 7 0 1 0 14 0c0-3.19-1.56-6.28-3.8-8.33a.75.75 0 0 0-1.24.44c-.14.85-.46 1.63-.95 2.26-.06-2.29-.44-4.7-1.09-6.63Z" />
-    </svg>
-  );
-}
-
-function FillDropletIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M12.64 2.42a.85.85 0 0 0-1.28 0C8.82 5.42 5 10.35 5 14.5a7 7 0 0 0 14 0c0-4.15-3.82-9.08-6.36-12.08Z" />
-    </svg>
-  );
-}
 
 // ─── Unified Small Label + Solid Fill Icon Header ────────────────────────────
 function MetricLabelHeader({
@@ -198,7 +142,7 @@ function formatMetricDate(
 }
 
 // ─── FiftyBarMeter (50 segments) ─────────────────────────────────────────────
-function FiftyBarMeter({ percent }: { percent: number }) {
+export function FiftyBarMeter({ percent }: { percent: number }) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
   const filledBars = Math.round((safePercent / 100) * 50);
   return (
@@ -388,27 +332,60 @@ function TrainingWidget({
   );
 
   const getDayCompletionFraction = (d: PlanDay): string => {
-    const acts =
-      d.dayType === "REST_DAY"
-        ? splitActivities(d.restInstructions)
-        : movementNames(d);
-    if (acts.length > 0) {
-      const checks = checkedList(d, undefined);
-      const done = d.userProgress?.isCompleted
-        ? acts.length
-        : acts.filter((name) =>
-            checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
-          ).length;
-      return `${done}/${acts.length}`;
+    const status = getTrainingDayStatus(d, currentDayNumber);
+
+    if (d.dayType === "TRAINING_DAY") {
+      const acts = movementNames(d);
+      const total = acts.length > 0 ? acts.length : 1;
+      if (status === "future") {
+        return `0/${total} Training`;
+      }
+      if (acts.length > 0) {
+        const checks = checkedList(d, undefined);
+        const done = d.userProgress?.isCompleted
+          ? acts.length
+          : acts.filter((name) =>
+              checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
+            ).length;
+        return `${done}/${acts.length} Training`;
+      }
+      const done = status === "full" || status === "partial" ? 1 : 0;
+      return `${done}/1 Training`;
     }
 
-    const totalCount = sortedDays.length || 7;
-    const completedUpToDay = sortedDays.filter((item) => {
-      if (item.dayNumber > d.dayNumber) return false;
-      const st = getTrainingDayStatus(item, currentDayNumber);
-      return st === "full" || st === "partial" || st === "rest";
-    }).length;
-    return `${completedUpToDay}/${totalCount}`;
+    if (d.dayType === "REST_DAY") {
+      const acts = splitActivities(d.restInstructions);
+      const total = acts.length > 0 ? acts.length : 1;
+      if (status === "future") {
+        return `0/${total} Rest`;
+      }
+      if (acts.length > 0) {
+        const checks = checkedList(d, undefined);
+        const done = d.userProgress?.isCompleted
+          ? acts.length
+          : acts.filter((name) =>
+              checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
+            ).length;
+        return `${done}/${acts.length} Rest`;
+      }
+      const done =
+        d.userProgress?.isCompleted ||
+        (d.userProgress?.workoutNotes && d.userProgress.workoutNotes !== "SKIPPED")
+          ? 1
+          : 0;
+      return `${done}/1 Rest`;
+    }
+
+    // CONNECT_DAY / MEETUP_DAY
+    if (status === "future") {
+      return "0/1 Connect";
+    }
+    const done =
+      d.userProgress?.isCompleted ||
+      (d.userProgress?.eventFeedback && d.userProgress.eventFeedback !== "SKIPPED")
+        ? 1
+        : 0;
+    return `${done}/1 Connect`;
   };
 
   return (
@@ -586,139 +563,165 @@ function SleepWidget({
       : "";
 
   const targetY = (svgH - padY - (TARGET / CEILING) * usableH).toFixed(1);
+  const baselineY = (svgH - padY).toFixed(1);
+  const flatBaselineD = `M ${padX.toFixed(1)} ${baselineY} L ${(svgW - padX).toFixed(1)} ${baselineY}`;
 
   const selectedPoint = points.find((pt) => pt.day === selectedDayNum) || null;
+  const avgHours = avgMins > 0 ? Math.floor(avgMins / 60) : 0;
+  const avgRemMins = avgMins > 0 ? Math.round(avgMins % 60) : 0;
 
   return (
     <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3.5 border border-zinc-200/50 dark:border-white/5">
-      {/* Header + Unified Large Value & Bottom-Aligned Delta */}
+      {/* Header + Unified Large Value (0 hour 0 min when empty) & Bottom-Aligned Delta */}
       <div className="space-y-2">
         <MetricLabelHeader icon={<FillMoonIcon />}>Sleep Average</MetricLabelHeader>
-        <MetricValueDisplay
-          value={avgMins > 0 ? formatSleepHours(avgMins) : "—"}
-          delta={deltaMins}
-          deltaUnit=" min"
-        />
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="flex items-baseline gap-1.5">
+            <span className="inline-flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {avgHours}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                hour
+              </span>
+            </span>
+            <span className="inline-flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {avgRemMins}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                min
+              </span>
+            </span>
+          </div>
+          <MetricDeltaBadge delta={deltaMins} unit=" min" />
+        </div>
       </div>
 
-      {/* Body: Line Chart */}
-      {validSleeps.length === 0 ? (
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center py-4">
-          No sleep data recorded yet
-        </p>
-      ) : (
-        <div className="space-y-2.5 pt-1">
-          <div className="w-full h-16">
-            <svg
-              className="w-full h-full overflow-visible"
-              viewBox={`0 0 ${svgW} ${svgH}`}
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="sleepAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="0%"
-                    stopColor="currentColor"
-                    className="text-zinc-900/15 dark:text-white/20"
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor="currentColor"
-                    stopOpacity="0"
-                  />
-                </linearGradient>
-              </defs>
-
-              <line
-                x1={padX}
-                y1={targetY}
-                x2={svgW - padX}
-                y2={targetY}
-                className="stroke-zinc-400/60 dark:stroke-white/20"
-                strokeWidth="1"
-                strokeDasharray="4 3"
-              />
-
-              {areaD && <path d={areaD} fill="url(#sleepAreaGrad)" />}
-
-              {pathD && (
-                <path
-                  d={pathD}
-                  fill="none"
-                  className="stroke-zinc-900 dark:stroke-white transition-all duration-300"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+      {/* Body: Line Chart (Always shown — renders clean straight flat line when no data yet) */}
+      <div className="space-y-2.5 pt-1">
+        <div className="w-full h-16">
+          <svg
+            className="w-full h-full overflow-visible"
+            viewBox={`0 0 ${svgW} ${svgH}`}
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="sleepAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor="currentColor"
+                  className="text-zinc-900/15 dark:text-white/20"
                 />
-              )}
+                <stop
+                  offset="100%"
+                  stopColor="currentColor"
+                  stopOpacity="0"
+                />
+              </linearGradient>
+            </defs>
 
-              {points.map((pt) => {
-                if (pt.mins === 0) return null;
-                const isGood = pt.mins >= TARGET;
-                const isSelected = selectedDayNum === pt.day;
+            <line
+              x1={padX}
+              y1={targetY}
+              x2={svgW - padX}
+              y2={targetY}
+              className="stroke-zinc-400/60 dark:stroke-white/20"
+              strokeWidth="1"
+              strokeDasharray="4 3"
+            />
 
-                return (
-                  <g
-                    key={pt.day}
-                    onClick={() =>
-                      setSelectedDayNum((prev) => (prev === pt.day ? null : pt.day))
-                    }
-                    className="cursor-pointer"
-                  >
-                    <circle cx={pt.x} cy={pt.y} r={12} fill="transparent" />
-                    {isSelected && (
+            {validSleeps.length === 0 ? (
+              <path
+                d={flatBaselineD}
+                fill="none"
+                className="stroke-zinc-900/40 dark:stroke-white/40 transition-all duration-300"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            ) : (
+              <>
+                {areaD && <path d={areaD} fill="url(#sleepAreaGrad)" />}
+
+                {pathD && (
+                  <path
+                    d={pathD}
+                    fill="none"
+                    className="stroke-zinc-900 dark:stroke-white transition-all duration-300"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+
+                {points.map((pt) => {
+                  if (pt.mins === 0) return null;
+                  const isGood = pt.mins >= TARGET;
+                  const isSelected = selectedDayNum === pt.day;
+
+                  return (
+                    <g
+                      key={pt.day}
+                      onClick={() =>
+                        setSelectedDayNum((prev) => (prev === pt.day ? null : pt.day))
+                      }
+                      className="cursor-pointer"
+                    >
+                      <circle cx={pt.x} cy={pt.y} r={12} fill="transparent" />
+                      {isSelected && (
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={6.5}
+                          className="fill-none stroke-2 stroke-zinc-950 dark:stroke-white"
+                        />
+                      )}
                       <circle
                         cx={pt.x}
                         cy={pt.y}
-                        r={6.5}
-                        className="fill-none stroke-2 stroke-zinc-950 dark:stroke-white"
+                        r={isSelected ? 4 : isGood ? 3 : 2.5}
+                        className={
+                          isSelected
+                            ? "fill-zinc-950 dark:fill-white"
+                            : isGood
+                            ? "fill-zinc-950 dark:fill-white"
+                            : "fill-zinc-400 dark:fill-white/50"
+                        }
                       />
-                    )}
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={isSelected ? 4 : isGood ? 3 : 2.5}
-                      className={
-                        isSelected
-                          ? "fill-zinc-950 dark:fill-white"
-                          : isGood
-                          ? "fill-zinc-950 dark:fill-white"
-                          : "fill-zinc-400 dark:fill-white/50"
-                      }
-                    />
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-
-          {/* Clean separated detail bar on click — click to dismiss */}
-          {selectedPoint && (
-            <button
-              type="button"
-              onClick={() => setSelectedDayNum(null)}
-              title="Click to dismiss"
-              className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
-            >
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                {formatMetricDate(
-                  selectedPoint.unlockDate,
-                  selectedPoint.day,
-                  currentDayNumber
-                )}
-              </span>
-              <span className="h-3.5 w-px bg-zinc-200 dark:bg-white/15 shrink-0" />
-              <span className="text-zinc-900 dark:text-white">
-                {selectedPoint.bedtime || "22:00"} – {selectedPoint.wakeTime || "06:30"}
-              </span>
-              <span className="h-3.5 w-px bg-zinc-200 dark:bg-white/15 shrink-0" />
-              <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
-                {selectedPoint.mins > 0 ? formatSleepHours(selectedPoint.mins) : "0h"}
-              </span>
-            </button>
-          )}
+                    </g>
+                  );
+                })}
+              </>
+            )}
+          </svg>
         </div>
-      )}
+
+        {/* Clean separated detail bar on click — click to dismiss */}
+        {selectedPoint && (
+          <button
+            type="button"
+            onClick={() => setSelectedDayNum(null)}
+            title="Click to dismiss"
+            className="w-full rounded-xl bg-white/90 dark:bg-white/[0.08] px-3.5 py-2.5 border border-zinc-200/80 dark:border-white/10 flex items-center justify-between gap-2 text-xs font-mono text-zinc-900 dark:text-white animate-in fade-in duration-150 cursor-pointer hover:bg-white dark:hover:bg-white/15 transition"
+          >
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              {formatMetricDate(
+                selectedPoint.unlockDate,
+                selectedPoint.day,
+                currentDayNumber
+              )}
+            </span>
+            <span className="h-3.5 w-px bg-zinc-200 dark:bg-white/15 shrink-0" />
+            <span className="text-zinc-900 dark:text-white">
+              {selectedPoint.bedtime || "22:00"} – {selectedPoint.wakeTime || "06:30"}
+            </span>
+            <span className="h-3.5 w-px bg-zinc-200 dark:bg-white/15 shrink-0" />
+            <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 font-semibold text-zinc-950 dark:text-white">
+              {selectedPoint.mins > 0 ? formatSleepHours(selectedPoint.mins) : "0h"}
+            </span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -41,11 +41,13 @@ import type {
 import {
   CheckCircle,
   AlertTriangle,
-  Compass,
-  Home,
-  MessageCircle,
-  User,
 } from "lucide-react";
+import {
+  FillChatIcon,
+  FillCompassIcon,
+  FillHomeIcon,
+  FillUserIcon,
+} from "./tabs/sharedFillIcons";
 
 export type {
   EnrollmentItem,
@@ -592,10 +594,10 @@ export function DashboardClient({
           <div className="h-10 flex items-center gap-1.5">
             {(
               [
-                { key: "my_plan", label: "Home", Icon: Home },
-                { key: "all_plan", label: t.nav.explore, Icon: Compass },
-                { key: "notifications", label: "Message", Icon: MessageCircle },
-                { key: "profile", label: t.nav.profile, Icon: User },
+                { key: "my_plan", label: "Home", Icon: FillHomeIcon },
+                { key: "all_plan", label: t.nav.explore, Icon: FillCompassIcon },
+                { key: "notifications", label: "Message", Icon: FillChatIcon },
+                { key: "profile", label: t.nav.profile, Icon: FillUserIcon },
               ] as const
             ).map(({ key, label, Icon }) => {
               const active = activeTab === key;
@@ -626,11 +628,7 @@ export function DashboardClient({
                   }}
                   className={`flex-1 h-9 rounded-xl border flex items-center justify-center transition active:scale-95 ${btnStateClass}`}
                 >
-                  <Icon
-                    className="w-5 h-5"
-                    strokeWidth={active ? 2.2 : 1.75}
-                    aria-hidden="true"
-                  />
+                  <Icon className="w-5 h-5" />
                 </button>
               );
             })}
