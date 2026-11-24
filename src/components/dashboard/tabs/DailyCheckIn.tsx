@@ -5,12 +5,13 @@ import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
+import { FiftyBarMeter } from "./my-plan/CohortPerformanceCard";
 import {
+  FillBellIcon,
   FillCameraIcon,
   FillChecklistIcon,
   FillDropletIcon,
   FillDumbbellIcon,
-  FillFlagIcon,
   FillHeartIcon,
   FillLockIcon,
   FillMoonIcon,
@@ -26,6 +27,7 @@ import {
   deriveDayActivities,
   deriveDayChecks,
   deriveDayDone,
+  formatDayPillDate,
   getTasksForDay,
   getWibResetCountdown,
   type DailyCheckInProps,
@@ -154,8 +156,65 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const customTasksList = selectedDay.customTasks || [];
   const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
   const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
-  const totalStages = tasks.length + customTasksList.length;
-  const remainingStages = Math.max(0, totalStages - (coreDoneCount + customDoneCount));
+  const totalTasks = tasks.length + customTasksList.length;
+  const completedTasks = coreDoneCount + customDoneCount;
+  const remainingTasks = Math.max(0, totalTasks - completedTasks);
+  const progressPct =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const allCleared = !isSelectedFuture && totalTasks > 0 && remainingTasks === 0;
+
+  // Find next upcoming meetup / live session in this program (today or upcoming days)
+  const upcomingMeetup = useMemo(() => {
+    const baseDayNum = selectedDay.dayNumber || day.dayNumber || 1;
+    const candidate = programDays.find(
+      (d) =>
+        d.dayNumber >= baseDayNum &&
+        (d.dayType === "CONNECTION_DAY" ||
+          d.dayType === "MEETUP_DAY" ||
+          d.dayType === "CONNECT_DAY" ||
+          Boolean(d.eventTitle && d.eventTitle.trim()) ||
+          Boolean(d.meetupLink && d.meetupLink.trim()) ||
+          Boolean(d.onsiteVenue && d.onsiteVenue.trim()))
+    );
+    if (!candidate) return null;
+    const daysUntil = Math.max(0, candidate.dayNumber - baseDayNum);
+    const label = candidate.eventTitle?.trim() || candidate.title || "Live Meetup";
+    const dateLabel = formatDayPillDate(candidate.unlockDate, candidate.dayNumber);
+    const schedule = candidate.onsiteSchedule?.trim() || null;
+    return { daysUntil, label, dateLabel, schedule };
+  }, [programDays, selectedDay.dayNumber, day.dayNumber]);
+
+  const dailyReminderText = useMemo(() => {
+    if (isSelectedFuture) {
+      return `Unlocks ${formatDayPillDate(selectedDay.unlockDate, selectedDay.dayNumber)} at 00:00 WIB.`;
+    }
+    if (isSelectedPast) {
+      return allCleared
+        ? `Day ${selectedDay.dayNumber} completed. All daily tasks were logged.`
+        : `Day ${selectedDay.dayNumber} closed at 23:59 WIB (${completedTasks}/${totalTasks} completed).`;
+    }
+    if (allCleared) {
+      return `All tasks complete for Day ${selectedDay.dayNumber}. Great consistency today.`;
+    }
+    const dayFocus =
+      selectedDay.dayType === "REST_DAY"
+        ? "Focus on recovery & hydration today."
+        : selectedDay.dayType === "TRAINING_DAY"
+          ? "Complete your tasks in any order before 23:59 WIB."
+          : "Check your session details and complete today's logs.";
+    return isAnytime ? dayFocus : `${dayFocus} ${resetCountdown}.`;
+  }, [
+    isSelectedFuture,
+    isSelectedPast,
+    allCleared,
+    selectedDay.unlockDate,
+    selectedDay.dayNumber,
+    selectedDay.dayType,
+    completedTasks,
+    totalTasks,
+    isAnytime,
+    resetCountdown,
+  ]);
 
   const getCoreFillIcon = (index: number): ComponentType<FillIconProps> => {
     if (index === 0) return FillMoonIcon;
@@ -193,38 +252,32 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
   };
 
-  interface JourneyMapNode {
+  interface DailyTaskTile {
     key: string;
-    stageNum: string;
     title: string;
-    description: string;
     isDone: boolean;
     Icon: ComponentType<FillIconProps>;
     onOpen: () => void;
     disabled: boolean;
   }
 
-  const journeyNodes: JourneyMapNode[] = [
+  const taskTiles: DailyTaskTile[] = [
     ...tasks.map((t, index) => {
       const isDone = selectedDone[index];
       return {
         key: `core-${t.title}`,
-        stageNum: String(index + 1).padStart(2, "0"),
         title: t.title,
-        description: t.description,
         isDone,
         Icon: getCoreFillIcon(index),
         disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
         onOpen: () => openDetail(index),
       };
     }),
-    ...customTasksList.map((ct, idx) => {
+    ...customTasksList.map((ct) => {
       const isDone = Boolean(ct.submission);
       return {
         key: `custom-${ct.id}`,
-        stageNum: String(tasks.length + idx + 1).padStart(2, "0"),
         title: ct.title,
-        description: ct.instructions || "Coach checkpoint",
         isDone,
         Icon: getCustomFillIcon(ct),
         disabled: isSelectedFuture || (selectedLocked && !isDone),
@@ -232,46 +285,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       };
     }),
   ];
-
-  const firstIncompleteNodeIdx = !isSelectedFuture
-    ? journeyNodes.findIndex((n) => !n.isDone)
-    : -1;
-  const allCleared = !isSelectedFuture && totalStages > 0 && remainingStages === 0;
-
-  // Winding S-Curve Game Map Geometry
-  const SVG_W = 360;
-  const TOP_PAD = 68;
-  const ROW_STEP = 104;
-  const FINISH_STEP = 92;
-  const BOTTOM_PAD = 56;
-
-  const mapPoints = journeyNodes.map((node, idx) => {
-    const isLeft = idx % 2 === 0;
-    const xPct = isLeft ? 24 : 76;
-    const xSvg = (xPct / 100) * SVG_W;
-    const yPx = TOP_PAD + idx * ROW_STEP;
-    return { ...node, idx, isLeft, xPct, xSvg, yPx };
-  });
-
-  const lastNodeY =
-    mapPoints.length > 0 ? mapPoints[mapPoints.length - 1].yPx : TOP_PAD;
-  const finishNode = {
-    xPct: 50,
-    xSvg: SVG_W / 2,
-    yPx: lastNodeY + FINISH_STEP,
-  };
-  const mapHeight = finishNode.yPx + BOTTOM_PAD;
-
-  const roadSegments = mapPoints.map((pt, idx) => {
-    const next = idx < mapPoints.length - 1 ? mapPoints[idx + 1] : finishNode;
-    const midY = (pt.yPx + next.yPx) / 2;
-    const pathD = `M ${pt.xSvg.toFixed(1)} ${pt.yPx.toFixed(1)} C ${pt.xSvg.toFixed(1)} ${midY.toFixed(1)}, ${next.xSvg.toFixed(1)} ${midY.toFixed(1)}, ${next.xSvg.toFixed(1)} ${next.yPx.toFixed(1)}`;
-    return {
-      key: `seg-${pt.key}`,
-      pathD,
-      paved: pt.isDone,
-    };
-  });
 
   return (
     <section className="w-full space-y-3 sm:space-y-4">
@@ -313,163 +326,157 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Winding S-Curve Game Map Journey Canvas (Metrics-Matched Monochrome Editorial Surface) */}
-      <div
-        className="relative w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/50 dark:border-white/5 overflow-hidden select-none"
-        style={{ height: `${mapHeight}px` }}
-      >
-        {/* Subtle Minimalist Topographic Dot-Grid Terrain */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none opacity-45 dark:opacity-20"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, rgba(24, 24, 27, 0.16) 1px, transparent 1px)",
-            backgroundSize: "18px 18px",
-          }}
-        />
-
-        {/* Winding Cubic-Bezier SVG Trail (vectorEffect keeps stroke width crisp on all viewports) */}
-        <svg
-          aria-hidden="true"
-          viewBox={`0 0 ${SVG_W} ${mapHeight}`}
-          preserveAspectRatio="none"
-          className="absolute inset-0 w-full h-full pointer-events-none"
-        >
-          {roadSegments.map((seg) => (
-            <g key={seg.key}>
-              {/* Wide stone path underlay */}
-              <path
-                d={seg.pathD}
-                fill="none"
-                vectorEffect="non-scaling-stroke"
-                strokeWidth={14}
-                strokeLinecap="round"
-                className="stroke-zinc-300/55 dark:stroke-white/[0.08]"
-              />
-              {/* Paved solid trail (completed) vs dashed route (upcoming) */}
-              <path
-                d={seg.pathD}
-                fill="none"
-                vectorEffect="non-scaling-stroke"
-                strokeWidth={seg.paved ? 3.5 : 2.5}
-                strokeDasharray={seg.paved ? undefined : "6 6"}
-                strokeLinecap="round"
-                className={
-                  seg.paved
-                    ? "stroke-zinc-950 dark:stroke-white transition-all duration-300"
-                    : "stroke-zinc-400/80 dark:stroke-white/30"
-                }
-              />
-            </g>
-          ))}
-        </svg>
-
-        {/* Interactive Waypoint Nodes + Signpost Labels along the Winding Map */}
-        {mapPoints.map((pt) => {
-          const isNextUp = firstIncompleteNodeIdx === pt.idx;
-          const StageIcon = pt.Icon;
-
-          return (
-            <div key={pt.key}>
-              {/* Tactile Round Map Waypoint Node */}
-              <div
-                style={{ left: `${pt.xPct}%`, top: `${pt.yPx}px` }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
-              >
-                {/* Floating "NEXT" game quest callout bubble above active stage */}
-                {isNextUp && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
-                    <span className="px-2 py-[2px] rounded-md bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[9px] font-mono font-bold uppercase tracking-[0.12em] leading-[1.25] whitespace-nowrap shadow-xs">
-                      Next
-                    </span>
-                    <span className="w-1.5 h-1.5 bg-zinc-950 dark:bg-white rotate-45 -mt-[3px]" />
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={pt.disabled}
-                  onClick={pt.onOpen}
-                  aria-label={`Stage ${pt.stageNum}: ${pt.title}`}
-                  className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:cursor-default ${
-                    pt.isDone
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-[0_4px_0_0_rgba(24,24,27,0.28)] active:translate-y-[2px]"
-                      : isNextUp
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 ring-[3px] ring-zinc-950/25 dark:ring-white/30 ring-offset-2 ring-offset-[#ececea] dark:ring-offset-zinc-900 shadow-[0_5px_0_0_rgba(24,24,27,0.3)] active:translate-y-[2px]"
-                        : isSelectedFuture
-                          ? "bg-zinc-200/85 dark:bg-white/[0.06] border border-zinc-300/80 dark:border-white/10 text-zinc-400 dark:text-zinc-500"
-                          : "bg-white dark:bg-zinc-900 border-2 border-zinc-300 dark:border-white/20 text-zinc-800 dark:text-zinc-100 shadow-[0_4px_0_0_rgba(24,24,27,0.1)] hover:border-zinc-400 active:translate-y-[2px]"
-                  }`}
-                >
-                  {isSelectedFuture ? (
-                    <FillLockIcon className="w-5 h-5" />
-                  ) : (
-                    <StageIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                  )}
-
-                  {/* Emerald Check Badge pinned to completed node */}
-                  {pt.isDone && (
-                    <span className="semantic-badge-box absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#1F6E54] border-2 border-[#ececea] dark:border-zinc-900 text-white flex items-center justify-center shadow-xs">
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Clean Map Signpost Label on the open side of the S-curve (task name only) */}
-              <button
-                type="button"
-                disabled={pt.disabled}
-                onClick={pt.onOpen}
-                style={
-                  pt.isLeft
-                    ? {
-                        top: `${pt.yPx}px`,
-                        left: "calc(24% + 44px)",
-                        right: "16px",
-                      }
-                    : {
-                        top: `${pt.yPx}px`,
-                        left: "16px",
-                        right: "calc(24% + 44px)",
-                      }
-                }
-                className={`absolute -translate-y-1/2 z-10 flex items-center cursor-pointer disabled:cursor-default group transition active:scale-[0.99] ${
-                  pt.isLeft ? "justify-start text-left" : "justify-end text-right"
-                } ${isSelectedFuture ? "opacity-65" : ""}`}
-              >
-                <span className="text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate max-w-full group-hover:opacity-75 transition">
-                  {pt.title}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-
-        {/* Finish Milestone Flag at the End of the Winding Map */}
-        <div
-          style={{ left: `${finishNode.xPct}%`, top: `${finishNode.yPx}px` }}
-          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-1.5"
-        >
-          <div
-            className={`w-11 h-11 rounded-full flex items-center justify-center transition ${
-              allCleared
-                ? "bg-[#1F6E54] text-white ring-[3px] ring-[#1F6E54]/25 ring-offset-2 ring-offset-[#ececea] dark:ring-offset-zinc-900 shadow-sm"
-                : "bg-zinc-300/80 dark:bg-white/10 text-zinc-500 dark:text-zinc-400 border border-zinc-300 dark:border-white/15"
-            }`}
-          >
-            <FillFlagIcon className="w-4 h-4" />
+      {/* Widget 1: Today Progress (Metrics-Matched Surface, Typography & 50-Segment Meter) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+              <FillTargetIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+              Today Progress
+            </span>
           </div>
-          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 leading-normal whitespace-nowrap">
-            {allCleared
-              ? `Day ${selectedDay.dayNumber} Clear`
-              : `Day ${selectedDay.dayNumber} Goal`}
-          </span>
+
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {progressPct}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                %
+              </span>
+            </div>
+
+            {isSelectedFuture ? (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-zinc-300 dark:border-white/15 bg-white/70 dark:bg-white/[0.06] text-[10px] font-mono font-medium text-zinc-600 dark:text-zinc-300 leading-[1.25] mb-[2px]">
+                <FillLockIcon className="w-2.5 h-2.5 shrink-0" />
+                <span>Locked</span>
+              </span>
+            ) : allCleared ? (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#2A7B60] bg-[#1F6E54] dark:border-[#4D9E7B] dark:bg-[#1F6E54] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+                <Check className="w-2.5 h-2.5 stroke-[2.75] shrink-0" />
+                <span>
+                  {completedTasks}/{totalTasks}
+                </span>
+              </span>
+            ) : (
+              <span className="semantic-badge-box inline-flex items-center gap-1 px-1.5 py-[2.5px] rounded-md border border-[#B03244] bg-[#9E2A3A] dark:border-[#C95B6B] dark:bg-[#9E2A3A] text-[10px] font-mono font-semibold text-white leading-[1.25] mb-[2px]">
+                <span>{remainingTasks} left</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-0.5">
+          <FiftyBarMeter percent={progressPct} />
         </div>
       </div>
 
-      {/* Custom Coach Task Modal Host (opened directly when tapping custom nodes on the map) */}
+      {/* Widget 2: Daily Reminder & Upcoming Meetup Alert */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-zinc-500 dark:text-zinc-400 shrink-0 flex items-center">
+            <FillBellIcon className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate leading-normal py-[1px]">
+            Reminder
+          </span>
+        </div>
+
+        <p className="text-xs sm:text-[13px] text-zinc-800 dark:text-zinc-200 leading-relaxed">
+          {dailyReminderText}
+        </p>
+
+        {upcomingMeetup && (
+          <div className="pt-2.5 border-t border-zinc-300/60 dark:border-white/10 flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-6 h-6 rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+                <FillUsersIcon className="w-3 h-3" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+                  {upcomingMeetup.label}
+                </p>
+                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate leading-normal">
+                  {upcomingMeetup.dateLabel}
+                  {upcomingMeetup.schedule ? ` · ${upcomingMeetup.schedule}` : ""}
+                </p>
+              </div>
+            </div>
+
+            <span className="semantic-badge-box shrink-0 px-2 py-[3px] rounded-md border border-zinc-900/15 dark:border-white/15 bg-white/85 dark:bg-white/10 text-[10px] font-mono font-semibold text-zinc-950 dark:text-white leading-[1.25] whitespace-nowrap">
+              {upcomingMeetup.daysUntil === 0
+                ? "Today"
+                : upcomingMeetup.daysUntil === 1
+                  ? "Tomorrow"
+                  : `In ${upcomingMeetup.daysUntil}d`}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Free-Order 2-Column Task Tiles Grid (Complete in any order; Ruby red indicator when pending) */}
+      <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
+        {taskTiles.map((tile) => {
+          const TileIcon = tile.Icon;
+          const isPending = !tile.isDone && !isSelectedFuture;
+
+          return (
+            <li key={tile.key} className="w-full">
+              <button
+                type="button"
+                disabled={tile.disabled}
+                onClick={tile.onOpen}
+                aria-label={tile.title}
+                className={`group relative w-full h-full min-h-[108px] rounded-2xl p-4 flex flex-col justify-between text-left border transition cursor-pointer disabled:cursor-default ${
+                  tile.isDone
+                    ? "bg-[#e5e5e2] dark:bg-white/[0.07] border-zinc-300/60 dark:border-white/10"
+                    : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/60 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
+                } ${isSelectedFuture ? "opacity-65" : "active:scale-[0.98]"}`}
+              >
+                {/* Top Row: Solid Fill Icon + Red Pending Dot / Emerald Check / Lock */}
+                <div className="w-full flex items-start justify-between gap-2">
+                  <span
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${
+                      tile.isDone
+                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-2xs"
+                        : "bg-white/90 dark:bg-white/10 text-zinc-900 dark:text-white"
+                    }`}
+                  >
+                    {isSelectedFuture ? (
+                      <FillLockIcon className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                    ) : (
+                      <TileIcon className="w-4 h-4" />
+                    )}
+                  </span>
+
+                  {isPending ? (
+                    <span
+                      aria-label="Not completed"
+                      className="semantic-badge-box mt-1 w-2.5 h-2.5 rounded-full bg-[#9E2A3A] dark:bg-[#E06C7C] ring-4 ring-[#9E2A3A]/15 dark:ring-[#E06C7C]/20 shrink-0"
+                    />
+                  ) : tile.isDone ? (
+                    <span
+                      aria-label="Completed"
+                      className="semantic-badge-box w-5 h-5 rounded-full bg-[#1F6E54] border border-[#2A7B60] text-white flex items-center justify-center shrink-0"
+                    >
+                      <Check className="w-3 h-3 stroke-[2.75]" />
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Bottom: Clean Task Name Only */}
+                <span className="pt-3 text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate w-full">
+                  {tile.title}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Custom Coach Task Modal Host (opened directly when tapping custom task tiles) */}
       {customTasksList.length > 0 && (
         <CustomTaskSection
           programDayId={selectedDay.id}
