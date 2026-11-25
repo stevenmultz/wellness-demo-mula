@@ -232,34 +232,6 @@ export function ProgramPreparationWidgets({
   return (
     <>
       <section className="w-full space-y-3 sm:space-y-4">
-        {/* Report & Member Support Widget */}
-        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-                <AlertCircle className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-                {isId ? "Pusat Bantuan & Lapor Kendala" : "Report & Member Support"}
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
-              {isId
-                ? "Laporkan kendala terkait program, aplikasi, atau bimbingan coach."
-                : "Report an issue with the program, app, or coaching guidance."}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenReport}
-            className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-          >
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>{isId ? "Lapor Kendala" : "Report Issue"}</span>
-          </button>
-        </div>
-
         <InfoPopupModal
           open={showGuidesInfo}
           title="Guides"
@@ -319,6 +291,34 @@ export function ProgramPreparationWidgets({
             );
           })}
         </ol>
+
+        {/* Report & Member Support Widget (Bottom of Guides) */}
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                <AlertCircle className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                {isId ? "Pusat Bantuan & Lapor Kendala" : "Report & Member Support"}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
+              {isId
+                ? "Laporkan kendala terkait program, aplikasi, atau bimbingan coach."
+                : "Report an issue with the program, app, or coaching guidance."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenReport}
+            className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>{isId ? "Lapor Kendala" : "Report Issue"}</span>
+          </button>
+        </div>
       </section>
 
       <GuideAccordionModal

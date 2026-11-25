@@ -4,15 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
-  AlertCircle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
   ExternalLink,
-  Info,
-  MessageSquare,
-  MoreHorizontal,
   Shield,
   User as UserIcon,
   Users,
@@ -142,7 +138,7 @@ export function MyPlanOverview({
   allProgramDays,
   onExplore,
   onViewHistory,
-  onOpenDetails,
+  onOpenDetails: _onOpenDetails,
   onToggleCheck,
   onSyncChecklist,
   onSelectWorkout,
@@ -218,36 +214,17 @@ export function MyPlanOverview({
     : !day;
   const fullProgramDays = allProgramDays && allProgramDays.length > 0 ? allProgramDays : historyDays;
 
+  void _onOpenDetails;
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
-  const [showBannerMenu, setShowBannerMenu] = useState(false);
-  const bannerMenuRef = useRef<HTMLDivElement>(null);
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
       setSelectedDayId(day.id);
     }
   }, [day?.id]);
-
-  useEffect(() => {
-    if (!showBannerMenu) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (bannerMenuRef.current && !bannerMenuRef.current.contains(e.target as Node)) {
-        setShowBannerMenu(false);
-      }
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowBannerMenu(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("keydown", handleKey);
-    };
-  }, [showBannerMenu]);
 
   const sortedProgramDays = useMemo(() => {
     const list =
@@ -430,10 +407,10 @@ export function MyPlanOverview({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
         </div>
 
-        {/* Top Row: Community Profile/Logo (Left) + Sport Category (Right) */}
+        {/* Top Row: Community Profile/Logo (Left) */}
         <div className="relative z-10 flex items-center justify-between gap-2">
           <div
-            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[70%]"
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[75%]"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
             {program?.organizationLogo ? (
@@ -452,28 +429,30 @@ export function MyPlanOverview({
               {program?.organizationName || program?.coachName || "Community"}
             </span>
           </div>
-
-          <span
-            className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/10 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-          >
-            {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
-          </span>
         </div>
 
-        {/* Bottom Row: Program Format + Date Button (Left) + Dropdown Menu Button (Right) */}
+        {/* Bottom Row: Type + Sports Side-by-Side & Date Button (Left) */}
         <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
-          <div className="flex flex-col items-start gap-1 min-w-0">
-            <span
-              className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                ? "Hybrid"
-                : (program?.locationType || "").toUpperCase() === "ONSITE"
-                  ? "Onsite"
-                  : "Online"}
-            </span>
+          <div className="flex flex-col items-start gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                  ? "Hybrid"
+                  : (program?.locationType || "").toUpperCase() === "ONSITE"
+                    ? "Onsite"
+                    : "Online"}
+              </span>
+
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
+              </span>
+            </div>
 
             <button
               type="button"
@@ -499,69 +478,6 @@ export function MyPlanOverview({
               <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
             </button>
           </div>
-
-          {program && (
-            <div ref={bannerMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setShowBannerMenu((prev) => !prev)}
-                aria-label="Program menu"
-                aria-haspopup="menu"
-                aria-expanded={showBannerMenu}
-                className="w-9 h-9 rounded-full backdrop-blur-md border border-white/15 text-white inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-
-              {showBannerMenu && (
-                <div
-                  role="menu"
-                  aria-label="Program options"
-                  className="absolute right-0 bottom-11 z-30 w-44 rounded-2xl bg-[#f6f6f4] dark:bg-[#1a1a1c] border border-zinc-200/80 dark:border-white/10 shadow-xl p-1.5 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setShowBannerMenu(false);
-                      setShowCommunityModal(true);
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-xs font-medium text-left hover:bg-[#ececea] dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                    <span>Group Chat</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setShowBannerMenu(false);
-                      setShowReportModal(true);
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-xs font-medium text-left hover:bg-[#ececea] dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
-                  >
-                    <AlertCircle className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                    <span>{t.myPlan.report}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setShowBannerMenu(false);
-                      onOpenDetails();
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-xs font-medium text-left hover:bg-[#ececea] dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
-                  >
-                    <Info className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                    <span>Detail</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </section>
 

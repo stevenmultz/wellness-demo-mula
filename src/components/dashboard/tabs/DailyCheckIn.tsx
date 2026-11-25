@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
-import { Check, MessageCircle, Users } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  Footprints,
+  MessageCircle,
+  Plus,
+  RotateCcw,
+  Users,
+} from "lucide-react";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { InfoPopupModal } from "./shared";
@@ -163,6 +171,95 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const { locale } = useLocale();
   const isId = locale === "id";
   const programTitle = props.programTitle || "Program";
+
+  // ── Daily Steps Tracker (reduces net daily calories at ~0.04 kcal/step) ──
+  const [steps, setSteps] = useState<number>(0);
+  const [showCustomSteps, setShowCustomSteps] = useState(false);
+  const [customStepsInput, setCustomStepsInput] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`zera_daily_steps_${selectedDay.id}`);
+      const parsed = raw ? parseInt(raw, 10) : 0;
+      setSteps(Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
+    } catch {
+      setSteps(0);
+    }
+    setShowCustomSteps(false);
+    setCustomStepsInput("");
+  }, [selectedDay.id]);
+
+  const updateSteps = (nextSteps: number) => {
+    const clamped = Math.max(0, Math.min(100000, Math.round(nextSteps)));
+    setSteps(clamped);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(`zera_daily_steps_${selectedDay.id}`, String(clamped));
+        window.dispatchEvent(new CustomEvent("zera:steps-updated"));
+      } catch {
+        // ignore storage errors
+      }
+    }
+  };
+
+  const handleCustomStepsSubmit = () => {
+    const val = parseInt(customStepsInput, 10);
+    if (!Number.isNaN(val) && val > 0) {
+      updateSteps(steps + val);
+      setCustomStepsInput("");
+      setShowCustomSteps(false);
+    }
+  };
+
+  const stepsBurnedKcal = Math.round(steps * 0.04);
+
+  // ── Day Info & Today's Focus derived metadata ────────────────────────────
+  const totalProgramDays = Math.max(
+    props.allProgramDays?.length || 0,
+    props.pastDays?.length || 0,
+    selectedDay.dayNumber || 1
+  );
+
+  const dayTypeLabel =
+    selectedDay.dayType === "TRAINING_DAY"
+      ? isId
+        ? "Hari Latihan"
+        : "Training Day"
+      : selectedDay.dayType === "REST_DAY"
+        ? isId
+          ? "Hari Istirahat"
+          : "Rest Day"
+        : isId
+          ? "Hari Pertemuan"
+          : "Meetup Day";
+
+  const todayFocusTitle =
+    selectedDay.title?.trim() ||
+    (selectedDay.dayType === "TRAINING_DAY"
+      ? isId
+        ? "Latihan Terjadwal & Pemulihan Aktif"
+        : "Scheduled Training & Active Conditioning"
+      : selectedDay.dayType === "REST_DAY"
+        ? isId
+          ? "Pemulihan Tubuh, Tidur & Nutrisi"
+          : "Full Body Recovery, Sleep & Nutrition"
+        : isId
+          ? "Sesi Komunitas & Evaluasi Bersama"
+          : "Community Session & Cohort Check-In");
+
+  const todayFocusSubtitle =
+    selectedDay.dayType === "TRAINING_DAY"
+      ? isId
+        ? "Selesaikan sesi latihan utama, jaga pola makan, hidrasi, dan kualitas tidur."
+        : "Complete today's workout session, stay on meal plan, hydrate, and prioritize sleep."
+      : selectedDay.dayType === "REST_DAY"
+        ? isId
+          ? "Fokus istirahat, peregangan ringan, nutrisi bersih, dan tidur yang cukup."
+          : "Focus on rest, light mobility, clean nutrition, and restorative sleep."
+        : isId
+          ? "Ikuti sesi pertemuan komunitas, catat pembelajaran, dan jaga rutinitas harian."
+          : "Join the community meetup, log your takeaways, and maintain daily habits.";
 
   const handleOpenGroupChat = () => {
     if (props.onOpenCommunity) {
@@ -327,6 +424,38 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
+      {/* Day Info & Today's Focus Widget */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-2">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+              <CalendarDays className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+              {isId
+                ? `Hari ke-${selectedDay.dayNumber} dari ${totalProgramDays}`
+                : `Day ${selectedDay.dayNumber} of ${totalProgramDays}`}
+            </span>
+          </div>
+
+          <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold shrink-0 leading-normal">
+            {dayTypeLabel}
+          </span>
+        </div>
+
+        <div className="space-y-0.5 pt-0.5">
+          <p className="text-[11px] font-mono uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            {isId ? "Fokus Hari Ini" : "Today's Focus"}
+          </p>
+          <p className="text-sm font-semibold text-zinc-950 dark:text-white leading-snug">
+            {todayFocusTitle}
+          </p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            {todayFocusSubtitle}
+          </p>
+        </div>
+      </div>
+
       {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
         <div className="space-y-2">
@@ -433,6 +562,112 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           );
         })}
       </ol>
+
+      {/* Add Steps Widget (Daily Steps to Burn / Reduce Calories) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
+        <div className="flex items-start justify-between gap-2 min-w-0">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                <Footprints className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                {isId ? "Tambah Langkah (Steps)" : "Add Daily Steps"}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {steps.toLocaleString()}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                steps
+              </span>
+              {stepsBurnedKcal > 0 && (
+                <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-green)] text-white text-[10px] font-mono font-semibold tabular-nums">
+                  -{stepsBurnedKcal} kcal
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {steps > 0 && (
+              <button
+                type="button"
+                disabled={isSelectedFuture}
+                onClick={() => updateSteps(0)}
+                aria-label="Reset steps"
+                className="px-2.5 py-1.5 rounded-xl text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 transition cursor-pointer inline-flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={isSelectedFuture}
+              onClick={() => setShowCustomSteps((prev) => !prev)}
+              className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-[11px] font-semibold text-zinc-900 dark:text-white hover:border-zinc-400 disabled:opacity-40 transition cursor-pointer inline-flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" />
+              <span>{showCustomSteps ? (isId ? "Tutup" : "Close") : "Custom"}</span>
+            </button>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          {isId
+            ? "Catat langkah harian untuk mengurangi estimasi kalori bersih hari ini (~40 kcal per 1.000 langkah)."
+            : "Log your daily steps to deduct estimated calories burned from today's net calories (~40 kcal per 1,000 steps)."}
+        </p>
+
+        {/* Quick Step Increment Buttons */}
+        <div className="grid grid-cols-3 gap-2">
+          {[1000, 2500, 5000].map((inc) => (
+            <button
+              key={inc}
+              type="button"
+              disabled={isSelectedFuture}
+              onClick={() => updateSteps(steps + inc)}
+              className="py-2 px-2 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-xs font-mono font-semibold text-zinc-950 dark:text-white transition active:scale-95 disabled:opacity-40 cursor-pointer"
+            >
+              +{inc.toLocaleString()}
+            </button>
+          ))}
+        </div>
+
+        {/* Optional Custom Steps Input */}
+        {showCustomSteps && (
+          <div className="flex items-center gap-2 pt-1 animate-in fade-in duration-150">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100000}
+              step={100}
+              placeholder={isId ? "Jumlah langkah (mis. 3500)" : "Steps count (e.g. 3500)"}
+              value={customStepsInput}
+              onChange={(e) => setCustomStepsInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleCustomStepsSubmit();
+                }
+              }}
+              className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
+            />
+            <button
+              type="button"
+              disabled={!customStepsInput || parseInt(customStepsInput, 10) <= 0}
+              onClick={handleCustomStepsSubmit}
+              className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
+            >
+              {isId ? "Tambah" : "Add"}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Community Group Chat Widget */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">

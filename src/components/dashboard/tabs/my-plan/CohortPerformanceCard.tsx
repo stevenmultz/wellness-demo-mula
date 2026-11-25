@@ -1,8 +1,10 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, Info } from "lucide-react";
 import { extractNutritionFromMealNotes } from "@/wellness/utils/nutrition";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
+import { InfoPopupModal } from "../shared";
 import type { BodyMetricPoint } from "../BodyProgressWidget";
 import {
   FillDropletIcon,
@@ -153,12 +155,15 @@ export function FiftyBarMeter({
   );
 }
 
-// ─── Unified Metric Card Wrapper ─────────────────────────────────────────────
+type MetricRating = "good" | "avg" | "bad";
+
+// ─── Unified Metric Card Wrapper with Top-Right 90° Bookmark Indicator ───────
 function FlippableMetricCard({
   title,
   label,
   icon,
   valueSlot,
+  status,
   infoContent: _infoContent,
   frontClassName = "space-y-3",
   children,
@@ -167,18 +172,46 @@ function FlippableMetricCard({
   label?: ReactNode;
   icon: ReactNode;
   valueSlot: ReactNode;
+  status?: MetricRating;
   infoContent?: ReactNode;
   frontClassName?: string;
   children?: ReactNode;
 }) {
   void _infoContent;
 
+  const badgeLabel =
+    status === "good" ? "GOOD" : status === "avg" ? "AVG" : status === "bad" ? "BAD" : null;
+  const badgeColorCls =
+    status === "good"
+      ? "bg-[var(--semantic-green)] text-white"
+      : status === "avg"
+        ? "bg-amber-500/90 dark:bg-amber-500/80 text-white"
+        : "bg-[var(--semantic-red)] text-white";
+
   return (
     <div
-      className={`w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
+      className={`relative overflow-hidden w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
     >
+      {badgeLabel && (
+        <div
+          aria-label={`Status: ${badgeLabel}`}
+          title={`Status: ${badgeLabel}`}
+          className={`semantic-badge-box absolute top-0 right-2.5 sm:right-3 w-5 sm:w-[22px] h-11 sm:h-12 flex items-center justify-center shadow-xs select-none pointer-events-none ${badgeColorCls}`}
+          style={{
+            clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%)",
+          }}
+        >
+          <span
+            className="text-[8px] sm:text-[9px] font-mono font-bold tracking-[0.12em] uppercase leading-none pb-1.5"
+            style={{ writingMode: "vertical-rl" }}
+          >
+            {badgeLabel}
+          </span>
+        </div>
+      )}
+
       <div className="space-y-2">
-        <div className="flex items-center gap-1.5 min-w-0" title={title}>
+        <div className="flex items-center gap-1.5 min-w-0 pr-7" title={title}>
           <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
             {icon}
           </span>
@@ -259,10 +292,20 @@ function WeightSummaryWidget({
     weeklyDeltaKg = Number((latestWeight - referencePoint.weightKg).toFixed(1));
   }
 
+  const weightStatus: MetricRating =
+    latestWeight <= 0
+      ? "avg"
+      : Math.abs(weeklyDeltaKg) <= 1.0
+        ? "good"
+        : Math.abs(weeklyDeltaKg) <= 2.0
+          ? "avg"
+          : "bad";
+
   return (
     <FlippableMetricCard
       title="Weight"
       icon={<FillScaleIcon />}
+      status={weightStatus}
       frontClassName="space-y-0"
       valueSlot={
         <MetricValueDisplay
@@ -290,6 +333,9 @@ function ProgramCommitmentWidget({
   pct: number;
   deltaPct?: number;
 }) {
+  const commitmentStatus: MetricRating =
+    pct >= 80 ? "good" : pct >= 50 ? "avg" : "bad";
+
   return (
     <FlippableMetricCard
       title="Program Commitment"
@@ -299,6 +345,7 @@ function ProgramCommitmentWidget({
         </>
       }
       icon={<FillTargetIcon />}
+      status={commitmentStatus}
       frontClassName="space-y-0"
       valueSlot={
         <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
@@ -429,10 +476,14 @@ function TrainingWidget({
     return `${done}/1 Connect`;
   };
 
+  const trainingStatus: MetricRating =
+    pct >= 80 ? "good" : pct >= 50 ? "avg" : "bad";
+
   return (
     <FlippableMetricCard
       title="Training"
       icon={<FillDumbbellIcon />}
+      status={trainingStatus}
       frontClassName="space-y-3.5"
       valueSlot={
         <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
@@ -643,10 +694,14 @@ function SleepWidget({
   const avgHours = avgMins > 0 ? Math.floor(avgMins / 60) : 0;
   const avgRemMins = avgMins > 0 ? Math.round(avgMins % 60) : 0;
 
+  const sleepStatus: MetricRating =
+    avgMins >= 420 ? "good" : avgMins >= 360 ? "avg" : "bad";
+
   return (
     <FlippableMetricCard
       title="Sleep Average"
       icon={<FillMoonIcon />}
+      status={sleepStatus}
       frontClassName="space-y-3.5"
       valueSlot={
         <div className="flex items-end gap-2 flex-wrap">
@@ -841,10 +896,14 @@ function MealControlWidget({
   const proteinLen = (proteinPct / 100) * circumference;
   const fatLen = (fatPct / 100) * circumference;
 
+  const mealStatus: MetricRating =
+    pct >= 80 ? "good" : pct >= 50 ? "avg" : "bad";
+
   return (
     <FlippableMetricCard
       title="Meal Control"
       icon={<FillUtensilsIcon />}
+      status={mealStatus}
       frontClassName="space-y-4"
       valueSlot={
         <MetricValueDisplay value={String(pct)} unit="%" delta={deltaPct} deltaUnit="%" />
@@ -1058,9 +1117,33 @@ function CaloriesWidget({
 
   const elapsedDays = days.filter((d) => d.dayNumber <= todayDayNum);
   const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
-  const todayCalories = extractNutritionFromMealNotes(
+  const foodCalories = extractNutritionFromMealNotes(
     todayDay?.userProgress?.mealNotes
   ).calories;
+
+  const [todaySteps, setTodaySteps] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined" || !todayDay?.id) return;
+    const readSteps = () => {
+      try {
+        const raw = window.localStorage.getItem(`zera_daily_steps_${todayDay.id}`);
+        const parsed = raw ? parseInt(raw, 10) : 0;
+        setTodaySteps(Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
+      } catch {
+        setTodaySteps(0);
+      }
+    };
+    readSteps();
+    window.addEventListener("zera:steps-updated", readSteps);
+    window.addEventListener("storage", readSteps);
+    return () => {
+      window.removeEventListener("zera:steps-updated", readSteps);
+      window.removeEventListener("storage", readSteps);
+    };
+  }, [todayDay?.id]);
+
+  const stepsBurnedKcal = Math.round(todaySteps * 0.04);
+  const todayCalories = Math.max(0, foodCalories - stepsBurnedKcal);
 
   const loggedCalorieDays = elapsedDays
     .map((d) => extractNutritionFromMealNotes(d.userProgress?.mealNotes))
@@ -1075,10 +1158,19 @@ function CaloriesWidget({
     caloriesDelta = Math.round(latestCal - prevAvg);
   }
 
+  const caloriesStatus: MetricRating =
+    todayCalories >= 1400 && todayCalories <= 2200
+      ? "good"
+      : (todayCalories >= 1000 && todayCalories < 1400) ||
+          (todayCalories > 2200 && todayCalories <= 2600)
+        ? "avg"
+        : "bad";
+
   return (
     <FlippableMetricCard
       title="Calories"
       icon={<FillFlameIcon />}
+      status={caloriesStatus}
       frontClassName="space-y-3"
       valueSlot={
         <MetricValueDisplay
@@ -1090,24 +1182,31 @@ function CaloriesWidget({
       }
       infoContent={
         <p>
-          Sum of calories from today&apos;s Meal Control (1 bowl = 400 kcal). Delta =
-          today vs. prior logged avg.
+          Net calories = today&apos;s Meal Control calories minus steps burned (0.04 kcal
+          per step). 1 bowl = 400 kcal.
         </p>
       }
     >
       {/* 5 Monochrome Rice Bowls (400 kcal each = 2,000 kcal) filled proportionally */}
-      <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
-        {Array.from({ length: BOWL_COUNT }, (_, idx) => {
-          const fillRatio = (todayCalories - idx * BOWL_SIZE_KCAL) / BOWL_SIZE_KCAL;
-          return (
-            <MonochromeRiceBowl
-              key={idx}
-              bowlIndex={idx}
-              bowlKcal={BOWL_SIZE_KCAL}
-              fillRatio={fillRatio}
-            />
-          );
-        })}
+      <div className="space-y-1.5">
+        <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
+          {Array.from({ length: BOWL_COUNT }, (_, idx) => {
+            const fillRatio = (todayCalories - idx * BOWL_SIZE_KCAL) / BOWL_SIZE_KCAL;
+            return (
+              <MonochromeRiceBowl
+                key={idx}
+                bowlIndex={idx}
+                bowlKcal={BOWL_SIZE_KCAL}
+                fillRatio={fillRatio}
+              />
+            );
+          })}
+        </div>
+        {stepsBurnedKcal > 0 && (
+          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+            -{stepsBurnedKcal} kcal ({todaySteps.toLocaleString()} steps)
+          </p>
+        )}
       </div>
     </FlippableMetricCard>
   );
@@ -1221,10 +1320,14 @@ function HydrationWidget({
     waterDeltaMl = Math.round(latestMl - prevAvg);
   }
 
+  const waterStatus: MetricRating =
+    todayWaterMl >= 2000 ? "good" : todayWaterMl >= 1200 ? "avg" : "bad";
+
   return (
     <FlippableMetricCard
       title="Water"
       icon={<FillDropletIcon />}
+      status={waterStatus}
       frontClassName="space-y-3"
       valueSlot={
         <MetricValueDisplay
@@ -1274,6 +1377,9 @@ export function CohortPerformanceCard({
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
   void _onSwitchWidget;
+  const { locale } = useLocale();
+  const isId = locale === "id";
+  const [showMetricsInfo, setShowMetricsInfo] = useState(false);
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
@@ -1496,6 +1602,131 @@ export function CohortPerformanceCard({
         deltaPct={mealDelta}
         currentDayNumber={currentDayNumber}
       />
+
+      {/* Row 6: Metrics Calculation & GOOD/AVG/BAD Info Widget */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+              <Info className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+              {isId ? "Panduan Kalkulasi Metrics" : "Metrics Calculation Guide"}
+            </span>
+          </div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
+            {isId
+              ? "Lihat rumus setiap widget serta standar kriteria GOOD, AVG, dan BAD."
+              : "See how each metric is calculated and what defines GOOD, AVG, and BAD."}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowMetricsInfo(true)}
+          className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+        >
+          <Info className="w-3.5 h-3.5" />
+          <span>{isId ? "Info Kalkulasi" : "View Info"}</span>
+        </button>
+      </div>
+
+      <InfoPopupModal
+        open={showMetricsInfo}
+        title={isId ? "Kalkulasi & Kriteria Metrics" : "Metrics Formulas & Rating Criteria"}
+        subtitle={
+          isId
+            ? "Penjelasan cara hitung setiap indikator dan status GOOD / AVG / BAD"
+            : "How each widget is calculated and how GOOD / AVG / BAD badges are assigned"
+        }
+        onClose={() => setShowMetricsInfo(false)}
+      >
+        <div className="space-y-3 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2 pb-1 border-b border-zinc-200/70 dark:border-white/10">
+            <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-green)] text-white font-mono text-[10px] font-bold">
+              GOOD
+            </span>
+            <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-amber-500/90 text-white font-mono text-[10px] font-bold">
+              AVG
+            </span>
+            <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-red)] text-white font-mono text-[10px] font-bold">
+              BAD
+            </span>
+          </div>
+
+          <ul className="space-y-2.5">
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Weight:</strong>{" "}
+              {isId
+                ? "Diambil dari catatan berat badan terbaru. Delta = berat terbaru dikurangi catatan 7 hari lalu."
+                : "Latest logged body weight. Delta = latest weight minus your log 7 days ago."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: perubahan ≤ 1.0 kg/mgg · AVG: 1.1–2.0 kg/mgg · BAD: &gt; 2.0 kg/mgg
+              </div>
+            </li>
+
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Program Commitment:</strong>{" "}
+              {isId
+                ? "Rata-rata skor harian gabungan: 35% Aktivitas, 30% Meal, 20% Tidur, 15% Air (atau 15% Custom Task jika ada)."
+                : "Daily weighted average: 35% Activity, 30% Meal, 20% Sleep, 15% Water (or 15% Custom Tasks when assigned)."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: ≥ 80% · AVG: 50%–79% · BAD: &lt; 50%
+              </div>
+            </li>
+
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Calories (Net):</strong>{" "}
+              {isId
+                ? "Total kalori dari Meal Control hari ini dikurangi kalori terbakar dari Steps (0.04 kcal/step). 1 mangkuk = 400 kcal."
+                : "Today's Meal Control calories minus calories burned from logged Steps (0.04 kcal/step). 1 bowl = 400 kcal."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: 1,400–2,200 kcal · AVG: 1,000–1,399 / 2,201–2,600 · BAD: &lt; 1,000 atau &gt; 2,600
+              </div>
+            </li>
+
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Water:</strong>{" "}
+              {isId
+                ? "Total konsumsi air hari ini dari Water Intake (1 botol = 500 ml, target harian 2.5 L)."
+                : "Total water logged today in Water Intake (1 bottle = 500 ml, daily target 2.5 L)."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: ≥ 2.0 L · AVG: 1.2–1.9 L · BAD: &lt; 1.2 L
+              </div>
+            </li>
+
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Training:</strong>{" "}
+              {isId
+                ? "Hari latihan yang selesai ÷ total hari latihan yang sudah berjalan (Rest & Connect Day tidak dihitung)."
+                : "Completed training days ÷ elapsed training days (Rest & Connect days excluded)."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: ≥ 80% · AVG: 50%–79% · BAD: &lt; 50%
+              </div>
+            </li>
+
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Sleep Average:</strong>{" "}
+              {isId
+                ? "Total durasi tidur ÷ jumlah hari yang dicatat (berdasarkan Bedtime ke Wake Time di Sleep Log)."
+                : "Total sleep duration ÷ logged sleep days (Bedtime to Wake Time in Sleep Log)."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: ≥ 7 jam · AVG: 6–7 jam · BAD: &lt; 6 jam
+              </div>
+            </li>
+
+            <li>
+              <strong className="text-zinc-950 dark:text-white">Meal Control:</strong>{" "}
+              {isId
+                ? "Rata-rata kepatuhan makan harian (Full/Similar = 100%, Partial = 50%, Off/Skipped = 0%)."
+                : "Average daily meal adherence across elapsed days (Full/Similar = 100%, Partial = 50%, Skipped = 0%)."}
+              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                GOOD: ≥ 80% · AVG: 50%–79% · BAD: &lt; 50%
+              </div>
+            </li>
+          </ul>
+        </div>
+      </InfoPopupModal>
     </section>
   );
 }
