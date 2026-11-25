@@ -5,13 +5,17 @@ import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   ArrowRight,
+  BookOpen,
+  Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
   ExternalLink,
+  FileText,
   Loader2,
   Lock,
+  MoreHorizontal,
   Shield,
   Sparkles,
   User as UserIcon,
@@ -284,6 +288,7 @@ export function MyPlanOverview({
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [showBannerMenu, setShowBannerMenu] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
@@ -445,41 +450,70 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Program name switcher (hidden in standalone no-program mode) */}
-      {!isStandalone && program && (
-        <div className="w-full flex items-center justify-between gap-2 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
-          <button
-            type="button"
-            onClick={handlePrevPlan}
-            disabled={!plans || plans.length <= 1}
-            aria-label="Previous program"
-            className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+      {/* 0. Top Control Bar: Program Index Switcher (when active) side-by-side with Date Picker */}
+      <div className="w-full flex items-center justify-between gap-2">
+        {!isStandalone && program ? (
+          <div className="flex-1 min-w-0 flex items-center justify-between gap-1 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
+            <button
+              type="button"
+              onClick={handlePrevPlan}
+              disabled={!plans || plans.length <= 1}
+              aria-label="Previous program"
+              className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
+            <button
+              type="button"
+              onClick={onViewAllPrograms || onExplore}
+              title="All my programs"
+              className="flex-1 min-w-0 h-8 px-1.5 rounded-xl hover:bg-zinc-300/40 dark:hover:bg-white/[0.06] flex items-center justify-center transition active:scale-[0.99] cursor-pointer"
+            >
+              <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+                {program.title}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextPlan}
+              disabled={!plans || plans.length <= 1}
+              aria-label="Next program"
+              className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
+
+        {/* Date Picker Box (side-by-side with Program Index, always accessible even when no program) */}
+        {!isStandalone || isSubscribed ? (
           <button
             type="button"
-            onClick={onViewAllPrograms || onExplore}
-            title="All my programs"
-            className="flex-1 min-w-0 h-8 px-2 rounded-xl hover:bg-zinc-300/40 dark:hover:bg-white/[0.06] flex items-center justify-center transition active:scale-[0.99] cursor-pointer"
+            onClick={() => {
+              const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+              setCalendarMonth(new Date(w.year, w.month, 1));
+              setShowCalendarModal(true);
+            }}
+            aria-label="Select date from calendar"
+            className="group h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-zinc-300/60 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer shrink-0"
           >
-            <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-              {program.title}
+            <Calendar className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
+            <span className="text-xs font-geometric font-semibold text-zinc-950 dark:text-white leading-tight whitespace-nowrap">
+              {activeFullDateStr}
             </span>
+            <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
           </button>
-
-          <button
-            type="button"
-            onClick={handleNextPlan}
-            disabled={!plans || plans.length <= 1}
-            aria-label="Next program"
-            className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        ) : (
+          <span className="h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 text-xs font-geometric font-semibold text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap opacity-65">
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span>{activeFullDateStr}</span>
+          </span>
+        )}
+      </div>
 
       {/* 1. Contained Image Banner (Program Banner vs Explore Program Banner when no active program) */}
       {isStandalone ? (
@@ -489,10 +523,10 @@ export function MyPlanOverview({
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20" />
           </div>
 
-          {/* Top Row: Subscription Status Badge (Left) & Date Picker (Right) */}
+          {/* Top Row: Subscription Status Badge */}
           <div className="relative z-10 flex items-center justify-between gap-2">
             <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[60%] min-w-0"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[80%] min-w-0"
               style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
             >
               {isSubscribed ? (
@@ -510,32 +544,6 @@ export function MyPlanOverview({
                     : "Not Subscribed"}
               </span>
             </div>
-
-            {isSubscribed ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-                  setCalendarMonth(new Date(w.year, w.month, 1));
-                  setShowCalendarModal(true);
-                }}
-                aria-label="Select date from calendar"
-                className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-                  {activeFullDateStr}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
-              </button>
-            ) : (
-              <span
-                className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/15 text-xs font-geometric font-semibold text-white/80 shrink-0 whitespace-nowrap"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                {activeFullDateStr}
-              </span>
-            )}
           </div>
 
           {/* Bottom Row: Explore Programs CTA */}
@@ -596,10 +604,10 @@ export function MyPlanOverview({
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
           </div>
 
-          {/* Top Row: Community Profile/Logo (Left) & Date Picker (Right) */}
+          {/* Top Row: Community Profile/Logo */}
           <div className="relative z-10 flex items-center justify-between gap-2">
             <div
-              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[55%] min-w-0"
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[75%] min-w-0"
               style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
             >
               {program?.organizationLogo ? (
@@ -618,55 +626,113 @@ export function MyPlanOverview({
                 {program?.organizationName || program?.coachName || "Community"}
               </span>
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-                setCalendarMonth(new Date(w.year, w.month, 1));
-                setShowCalendarModal(true);
-              }}
-              aria-label="Select date from calendar"
-              className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-                {activeFullDateStr}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
-            </button>
           </div>
 
-          {/* Bottom Row: Type + Sports Side-by-Side & Today Focus (Left) */}
-          <div className="relative z-20 flex flex-col items-start gap-2.5 pt-8">
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                  ? "Hybrid"
-                  : (program?.locationType || "").toUpperCase() === "ONSITE"
-                    ? "Onsite"
-                    : "Online"}
-              </span>
+          {/* Bottom Row: Type + Sports + Boxed Day X of Y (Left) & Menu Button (Right) */}
+          <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
+            <div className="flex flex-col items-start gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <span
+                  className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+                >
+                  {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                    ? "Hybrid"
+                    : (program?.locationType || "").toUpperCase() === "ONSITE"
+                      ? "Onsite"
+                      : "Online"}
+                </span>
 
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                <span
+                  className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+                >
+                  {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
+                </span>
+              </div>
+
+              <div
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide max-w-full"
                 style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
               >
-                {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
-              </span>
+                <span className="whitespace-nowrap">
+                  {locale === "id"
+                    ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
+                    : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
+                </span>
+                <span className="text-white/50 select-none">·</span>
+                <span className="truncate">{activeDayTypeLabel}</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono font-medium text-white/90">
-              <span>
-                {locale === "id"
-                  ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
-                  : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
-              </span>
-              <span className="text-white/50 select-none">·</span>
-              <span>{activeDayTypeLabel}</span>
+            {/* Bottom-Right Program Menu Button */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowBannerMenu((prev) => !prev)}
+                aria-label={isId ? "Menu program" : "Program menu"}
+                aria-expanded={showBannerMenu}
+                className="w-9 h-9 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-black/60 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.48)" }}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {showBannerMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setShowBannerMenu(false)}
+                  />
+                  <div className="absolute right-0 bottom-11 z-40 w-52 rounded-2xl bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 shadow-xl p-1.5 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBannerMenu(false);
+                        setWidgetIndex(0);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                      <span>{isId ? "Panduan Program" : "Program Guides"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBannerMenu(false);
+                        setShowReportModal(true);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                      <span>{isId ? "Laporan Program" : "Program Report"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBannerMenu(false);
+                        setShowCommunityModal(true);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                      <span>{isId ? "Grup Komunitas" : "Community Group"}</span>
+                    </button>
+                    <div className="my-1 border-t border-zinc-200/70 dark:border-white/10" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBannerMenu(false);
+                        (onViewAllPrograms || onExplore)();
+                      }}
+                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
+                    >
+                      <Compass className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                      <span>{isId ? "Semua Program Saya" : "All My Programs"}</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </section>

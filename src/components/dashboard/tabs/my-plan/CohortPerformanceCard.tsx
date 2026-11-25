@@ -989,19 +989,13 @@ function SleepWidget({
   );
 }
 
-// ─── 4. Meal Control Widget (Adherence Bar + Caloric 4/4/9 Macro Donut Chart) ─
-function MealControlWidget({
+// ─── 4. Macros Widget (30-Day Caloric 4/4/9 Carbs / Protein / Fat Donut Chart) ─
+function MacrosWidget({
   days,
-  pct,
-  deltaPct = 0,
   currentDayNumber,
-  hasData = true,
 }: {
   days: PlanDay[];
-  pct: number;
-  deltaPct?: number;
   currentDayNumber?: number;
-  hasData?: boolean;
 }) {
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
@@ -1020,36 +1014,31 @@ function MealControlWidget({
     return { carbsG: legacy.carbsG, proteinG: legacy.proteinG, fatG: legacy.fatG };
   };
 
-  const todayDay = days.find((d) => d.dayNumber === todayDayNum);
-  const todayMacros = getDayMacros(todayDay);
-  const hasTodayMacros =
-    todayMacros.carbsG > 0 || todayMacros.proteinG > 0 || todayMacros.fatG > 0;
+  // 30-day average macros across logged days (Carbs, Protein, Fat)
+  const loggedMacroDays = days
+    .filter((d) => d.dayNumber <= todayDayNum)
+    .slice(-30)
+    .map(getDayMacros)
+    .filter((m) => m.carbsG > 0 || m.proteinG > 0 || m.fatG > 0);
 
-  // Fallback to 30-day logged average macros when today's meal hasn't been logged yet
-  let displayCarbsG = todayMacros.carbsG;
-  let displayProteinG = todayMacros.proteinG;
-  let displayFatG = todayMacros.fatG;
-  let showingAvgFallback = false;
-
-  if (!hasTodayMacros) {
-    const recentLogged = days
-      .filter((d) => d.dayNumber <= todayDayNum)
-      .slice(-30)
-      .map(getDayMacros)
-      .filter((m) => m.carbsG > 0 || m.proteinG > 0 || m.fatG > 0);
-    if (recentLogged.length > 0) {
-      displayCarbsG = Math.round(
-        recentLogged.reduce((a, m) => a + m.carbsG, 0) / recentLogged.length
-      );
-      displayProteinG = Math.round(
-        recentLogged.reduce((a, m) => a + m.proteinG, 0) / recentLogged.length
-      );
-      displayFatG = Math.round(
-        recentLogged.reduce((a, m) => a + m.fatG, 0) / recentLogged.length
-      );
-      showingAvgFallback = true;
-    }
-  }
+  const displayCarbsG =
+    loggedMacroDays.length > 0
+      ? Math.round(
+          loggedMacroDays.reduce((a, m) => a + m.carbsG, 0) / loggedMacroDays.length
+        )
+      : 0;
+  const displayProteinG =
+    loggedMacroDays.length > 0
+      ? Math.round(
+          loggedMacroDays.reduce((a, m) => a + m.proteinG, 0) / loggedMacroDays.length
+        )
+      : 0;
+  const displayFatG =
+    loggedMacroDays.length > 0
+      ? Math.round(
+          loggedMacroDays.reduce((a, m) => a + m.fatG, 0) / loggedMacroDays.length
+        )
+      : 0;
 
   // Scientific caloric macro split (Carbs 4 kcal/g, Protein 4 kcal/g, Fat 9 kcal/g; sums strictly to 100%)
   const { carbsPct, proteinPct, fatPct } = computeMacroCalorieSplit(
@@ -1064,143 +1053,119 @@ function MealControlWidget({
   const proteinLen = (proteinPct / 100) * circumference;
   const fatLen = (fatPct / 100) * circumference;
 
-  const mealStatus = ratePercentageScore(pct, hasData);
-
   return (
     <FlippableMetricCard
-      title="Meal Control"
+      title="Macros"
       periodLabel="/ mo"
       icon={<FillUtensilsIcon />}
-      status={mealStatus}
-      frontClassName="space-y-4"
-      valueSlot={
-        <MetricValueDisplay
-          value={hasData ? String(pct) : "—"}
-          unit={hasData ? "%" : undefined}
-          delta={deltaPct}
-          deltaUnit="%"
-          showDelta={hasData}
-        />
-      }
+      frontClassName="space-y-3"
+      valueSlot={null}
     >
-
-      {/* 50-segment bar */}
-      <div className="pt-0.5">
-        <FiftyBarMeter percent={hasData ? pct : 0} />
-      </div>
-
       {/* Carbs / Protein / Fat Donut Chart (% of daily calories: 4/4/9) */}
-      <div className="space-y-1.5 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
-        {showingAvgFallback && (
-          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-            30-day average macro split (% kcal)
-          </p>
-        )}
-        <div className="flex items-center gap-5">
-          <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-            <svg
-              viewBox="0 0 88 88"
-              className="w-20 h-20 -rotate-90 overflow-visible"
-              role="img"
-              aria-label={`Carbs ${carbsPct}%, Protein ${proteinPct}%, Fat ${fatPct}%`}
-            >
-              <circle
-                cx="44"
-                cy="44"
-                r={radius}
-                fill="none"
-                strokeWidth="10"
-                className="stroke-zinc-300/50 dark:stroke-white/10"
-              />
-              <circle
-                cx="44"
-                cy="44"
-                r={radius}
-                fill="none"
-                stroke="#71717a"
-                strokeWidth="10"
-                strokeDasharray={`${carbsLen} ${circumference}`}
-                strokeDashoffset={0}
-              />
-              <circle
-                cx="44"
-                cy="44"
-                r={radius}
-                fill="none"
-                stroke="#18181b"
-                strokeWidth="10"
-                strokeDasharray={`${proteinLen} ${circumference}`}
-                strokeDashoffset={-carbsLen}
-              />
-              <circle
-                cx="44"
-                cy="44"
-                r={radius}
-                fill="none"
-                stroke="#b4b4bb"
-                strokeWidth="10"
-                strokeDasharray={`${fatLen} ${circumference}`}
-                strokeDashoffset={-(carbsLen + proteinLen)}
-              />
-            </svg>
+      <div className="flex items-center gap-5 pt-1">
+        <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+          <svg
+            viewBox="0 0 88 88"
+            className="w-20 h-20 -rotate-90 overflow-visible"
+            role="img"
+            aria-label={`Carbs ${carbsPct}%, Protein ${proteinPct}%, Fat ${fatPct}%`}
+          >
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              strokeWidth="10"
+              className="stroke-zinc-300/50 dark:stroke-white/10"
+            />
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              stroke="#71717a"
+              strokeWidth="10"
+              strokeDasharray={`${carbsLen} ${circumference}`}
+              strokeDashoffset={0}
+            />
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              stroke="#18181b"
+              strokeWidth="10"
+              strokeDasharray={`${proteinLen} ${circumference}`}
+              strokeDashoffset={-carbsLen}
+            />
+            <circle
+              cx="44"
+              cy="44"
+              r={radius}
+              fill="none"
+              stroke="#b4b4bb"
+              strokeWidth="10"
+              strokeDasharray={`${fatLen} ${circumference}`}
+              strokeDashoffset={-(carbsLen + proteinLen)}
+            />
+          </svg>
+        </div>
+
+        <div className="flex-1 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#71717a] shrink-0" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                Carbs
+              </span>
+            </div>
+            <div className="font-mono">
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {carbsPct}%
+              </span>
+              {displayCarbsG > 0 && (
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                  ({displayCarbsG}g)
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="flex-1 space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#71717a] shrink-0" />
-                <span className="text-zinc-600 dark:text-zinc-300 font-medium">
-                  Carbs
-                </span>
-              </div>
-              <div className="font-mono">
-                <span className="font-semibold text-zinc-950 dark:text-white">
-                  {carbsPct}%
-                </span>
-                {displayCarbsG > 0 && (
-                  <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
-                    ({displayCarbsG}g)
-                  </span>
-                )}
-              </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#18181b] dark:bg-white shrink-0" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                Protein
+              </span>
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#18181b] dark:bg-white shrink-0" />
-                <span className="text-zinc-600 dark:text-zinc-300 font-medium">
-                  Protein
+            <div className="font-mono">
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {proteinPct}%
+              </span>
+              {displayProteinG > 0 && (
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                  ({displayProteinG}g)
                 </span>
-              </div>
-              <div className="font-mono">
-                <span className="font-semibold text-zinc-950 dark:text-white">
-                  {proteinPct}%
-                </span>
-                {displayProteinG > 0 && (
-                  <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
-                    ({displayProteinG}g)
-                  </span>
-                )}
-              </div>
+              )}
             </div>
+          </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#b4b4bb] shrink-0" />
-                <span className="text-zinc-600 dark:text-zinc-300 font-medium">
-                  Fat
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#b4b4bb] shrink-0" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">
+                Fat
+              </span>
+            </div>
+            <div className="font-mono">
+              <span className="font-semibold text-zinc-950 dark:text-white">
+                {fatPct}%
+              </span>
+              {displayFatG > 0 && (
+                <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
+                  ({displayFatG}g)
                 </span>
-              </div>
-              <div className="font-mono">
-                <span className="font-semibold text-zinc-950 dark:text-white">
-                  {fatPct}%
-                </span>
-                {displayFatG > 0 && (
-                  <span className="text-zinc-500 dark:text-zinc-400 ml-1.5">
-                    ({displayFatG}g)
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1543,7 +1508,7 @@ function DailyStepsMetricWidget({
 
   return (
     <FlippableMetricCard
-      title="Daily Steps"
+      title="Steps"
       periodLabel="/ day"
       icon={<FillFootprintsIcon />}
       status={stepsStatus}
@@ -1660,7 +1625,7 @@ export function CohortPerformanceCard({
     heightCm: latestHeightLog?.heightCm ?? null,
   });
 
-  // ── 1. Sleep Stats & Delta in Minutes from Previous Average ─────────────────
+  // ── 1. Sleep Stats & Delta (New Average − Previous Average, matching Training) ─
   const validSleeps = sorted
     .filter((d) => d.dayNumber <= todayDayNum)
     .map((d) => ({
@@ -1671,11 +1636,12 @@ export function CohortPerformanceCard({
 
   let sleepDeltaMins = 0;
   if (validSleeps.length >= 2) {
-    const latestMins = validSleeps[validSleeps.length - 1].mins;
+    const currentAvg =
+      validSleeps.reduce((acc, s) => acc + s.mins, 0) / validSleeps.length;
     const prevSlice = validSleeps.slice(0, -1);
     const prevAvg =
       prevSlice.reduce((acc, s) => acc + s.mins, 0) / prevSlice.length;
-    sleepDeltaMins = Math.round(latestMins - prevAvg);
+    sleepDeltaMins = Math.round(currentAvg - prevAvg);
   }
 
   // ── 2. Training Stats (Continuous ratio; No Morning Penalty on unlogged active today) ──
@@ -1876,13 +1842,10 @@ export function CohortPerformanceCard({
         currentDayNumber={todayDayNum}
       />
 
-      {/* Row 5: Meal Control (/mo - 30-Day Bar + Caloric 4/4/9 Donut Chart) */}
-      <MealControlWidget
+      {/* Row 5: Macros (/mo - 30-Day Caloric 4/4/9 Carbs / Protein / Fat Donut Chart) */}
+      <MacrosWidget
         days={sorted}
-        pct={mealPct}
-        deltaPct={mealDelta}
         currentDayNumber={todayDayNum}
-        hasData={hasMealData}
       />
 
       {/* Row 7: 1-Year Lifetime Growth Analytics Launcher */}
@@ -1998,7 +1961,7 @@ export function CohortPerformanceCard({
             </li>
 
             <li>
-              <strong className="text-zinc-950 dark:text-white">Daily Steps:</strong>{" "}
+              <strong className="text-zinc-950 dark:text-white">Steps (/ day):</strong>{" "}
               {isId
                 ? `Target langkah harian ${STEPS_TARGET_DAILY.toLocaleString()} langkah (~40 kcal/1.000 langkah).`
                 : `Daily goal ${STEPS_TARGET_DAILY.toLocaleString()} steps (~40 kcal/1,000 steps).`}
@@ -2028,13 +1991,10 @@ export function CohortPerformanceCard({
             </li>
 
             <li>
-              <strong className="text-zinc-950 dark:text-white">Meal Control:</strong>{" "}
+              <strong className="text-zinc-950 dark:text-white">Macros (/ mo):</strong>{" "}
               {isId
-                ? "Rata-rata kepatuhan makan (Full/Similar = 100%, Partial = 50%, Off/Skipped = 0%). Donut menampilkan % kalori makro (Karbo ×4, Protein ×4, Lemak ×9)."
-                : "Average meal adherence (Full/Similar = 100%, Partial = 50%, Off/Skipped = 0%). Donut displays % of total calories (Carbs ×4, Protein ×4, Fat ×9)."}
-              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                GOOD: ≥ 80% · AVG: 50%–79% · BAD: &lt; 50%
-              </div>
+                ? "Rata-rata pembagian makro harian selama 30 hari terakhir. Donut menampilkan % kalori makro (Karbo ×4, Protein ×4, Lemak ×9)."
+                : "30-day average daily macro split. Donut displays % of total calories (Carbs ×4, Protein ×4, Fat ×9)."}
             </li>
           </ul>
         </div>
