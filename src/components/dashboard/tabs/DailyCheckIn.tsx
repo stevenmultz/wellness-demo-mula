@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import {
-  CalendarDays,
   Check,
+  Dumbbell,
   Footprints,
   MessageCircle,
   Plus,
   RotateCcw,
+  Trash2,
   Users,
 } from "lucide-react";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
@@ -241,39 +242,76 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // ── Day Info & Today's Focus derived metadata ────────────────────────────
-  const totalProgramDays = Math.max(
-    props.allProgramDays?.length || 0,
-    props.pastDays?.length || 0,
-    selectedDay.dayNumber || 1
-  );
+  // ── More Training (Extra / Bonus Workouts per Day) ───────────────────────
+  interface ExtraTrainingSession {
+    id: string;
+    name: string;
+    durationMins: number;
+    kcal: number;
+  }
 
-  const dayTypeLabel =
-    selectedDay.dayType === "TRAINING_DAY"
-      ? isId
-        ? "Hari Latihan"
-        : "Training Day"
-      : selectedDay.dayType === "REST_DAY"
-        ? isId
-          ? "Hari Istirahat"
-          : "Rest Day"
-        : isId
-          ? "Hari Pertemuan"
-          : "Meetup Day";
+  const EXTRA_TRAINING_PRESETS = [
+    { id: "run", label: isId ? "Lari / Jogging" : "Cardio / Run", kcalPerMin: 9 },
+    { id: "strength", label: isId ? "Latihan Beban / Gym" : "Strength / Gym", kcalPerMin: 6 },
+    { id: "hiit", label: "HIIT / Circuit", kcalPerMin: 11 },
+    { id: "mobility", label: isId ? "Mobility / Yoga" : "Mobility / Yoga", kcalPerMin: 3 },
+    { id: "cycling", label: isId ? "Bersepeda" : "Cycling", kcalPerMin: 8 },
+    { id: "swim", label: isId ? "Berenang" : "Swimming", kcalPerMin: 9 },
+  ];
 
-  const todayFocusTitle =
-    selectedDay.title?.trim() ||
-    (selectedDay.dayType === "TRAINING_DAY"
-      ? isId
-        ? "Latihan Terjadwal & Pemulihan Aktif"
-        : "Scheduled Training & Active Conditioning"
-      : selectedDay.dayType === "REST_DAY"
-        ? isId
-          ? "Pemulihan Tubuh, Tidur & Nutrisi"
-          : "Full Body Recovery, Sleep & Nutrition"
-        : isId
-          ? "Sesi Komunitas & Evaluasi Bersama"
-          : "Community Session & Cohort Check-In");
+  const [extraSessions, setExtraSessions] = useState<ExtraTrainingSession[]>([]);
+  const [moreTrainingOpen, setMoreTrainingOpen] = useState(false);
+  const [selectedExtraType, setSelectedExtraType] = useState<string>("run");
+  const [customExtraName, setCustomExtraName] = useState<string>("");
+  const [extraDurationMins, setExtraDurationMins] = useState<number>(30);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`zera_more_training_${selectedDay.id}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setExtraSessions(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setExtraSessions([]);
+    }
+    setMoreTrainingOpen(false);
+  }, [selectedDay.id]);
+
+  const persistExtraSessions = (next: ExtraTrainingSession[]) => {
+    setExtraSessions(next);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(`zera_more_training_${selectedDay.id}`, JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+    }
+  };
+
+  const handleAddExtraSession = () => {
+    const preset =
+      EXTRA_TRAINING_PRESETS.find((p) => p.id === selectedExtraType) || EXTRA_TRAINING_PRESETS[0];
+    const mins = Math.max(5, Math.min(300, Math.round(extraDurationMins || 30)));
+    const name = customExtraName.trim() || preset.label;
+    const kcal = Math.round(mins * preset.kcalPerMin);
+    const nextItem: ExtraTrainingSession = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      durationMins: mins,
+      kcal,
+    };
+    persistExtraSessions([...extraSessions, nextItem]);
+    setCustomExtraName("");
+    setExtraDurationMins(30);
+    setMoreTrainingOpen(false);
+  };
+
+  const handleRemoveExtraSession = (id: string) => {
+    persistExtraSessions(extraSessions.filter((s) => s.id !== id));
+  };
+
+  const totalExtraMins = extraSessions.reduce((acc, s) => acc + s.durationMins, 0);
+  const totalExtraKcal = extraSessions.reduce((acc, s) => acc + s.kcal, 0);
 
   const handleOpenGroupChat = () => {
     if (props.onOpenCommunity) {
@@ -447,28 +485,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Day Info Widget (Day X of Y · Day Type + Today's Title) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-1.5">
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-            <CalendarDays className="w-3.5 h-3.5" />
-          </span>
-          <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
-            {isId
-              ? `Hari ke-${selectedDay.dayNumber} dari ${totalProgramDays}`
-              : `Day ${selectedDay.dayNumber} of ${totalProgramDays}`}
-          </span>
-          <span className="text-zinc-400 dark:text-zinc-500 text-xs select-none">·</span>
-          <span className="text-xs font-mono font-medium text-zinc-600 dark:text-zinc-400 leading-normal">
-            {dayTypeLabel}
-          </span>
-        </div>
-
-        <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white leading-snug">
-          {todayFocusTitle}
-        </p>
-      </div>
-
       {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
         <div className="space-y-2">
@@ -575,6 +591,72 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           );
         })}
       </ol>
+
+      {/* More Training Widget (Optional Extra / Bonus Workouts) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                <FillDumbbellIcon className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                More Training
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
+              {extraSessions.length > 0
+                ? isId
+                  ? `${extraSessions.length} sesi tambahan · ${totalExtraMins} mnt (-${totalExtraKcal} kcal)`
+                  : `${extraSessions.length} extra session${extraSessions.length > 1 ? "s" : ""} · ${totalExtraMins} min (-${totalExtraKcal} kcal)`
+                : isId
+                  ? "Catat latihan tambahan di luar jadwal utama hari ini."
+                  : "Log extra workouts outside today's main schedule."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSelectedFuture || (selectedLocked && !isAnytime)}
+            onClick={() => setMoreTrainingOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 disabled:opacity-40 transition cursor-pointer disabled:cursor-default shadow-xs inline-flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{isId ? "Tambah" : "Add Training"}</span>
+          </button>
+        </div>
+
+        {extraSessions.length > 0 && (
+          <div className="space-y-1.5 pt-1 border-t border-zinc-300/50 dark:border-white/10">
+            {extraSessions.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/80 dark:bg-[#141414] border border-zinc-200/70 dark:border-white/10"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
+                    {session.name}
+                  </p>
+                  <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                    {session.durationMins} min · -{session.kcal} kcal
+                  </p>
+                </div>
+
+                {!(selectedLocked && !isAnytime) && !isSelectedFuture && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveExtraSession(session.id)}
+                    aria-label={`Remove ${session.name}`}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Community Group Chat Widget */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
@@ -880,6 +962,171 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                             : "Close"
                           : "Save & Finish"}
                       </span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {/* More Training Fullscreen Modal */}
+      {moreTrainingOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 overflow-hidden"
+          >
+            <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col">
+              <header
+                style={{ paddingTop: "env(safe-area-inset-top)" }}
+                className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
+              >
+                <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+                  <HeaderBackButton
+                    onClick={() => setMoreTrainingOpen(false)}
+                    ariaLabel="Back to dashboard"
+                  />
+
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-[60%]">
+                    More Training · 1 / 1
+                  </span>
+                </div>
+              </header>
+
+              <div
+                className="w-full max-w-xl mx-auto flex-1 flex flex-col px-4 sm:px-6 pt-6 sm:pt-8"
+                style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
+              >
+                <div className="flex items-center gap-1.5 w-full">
+                  <div className="h-1 flex-1 rounded-full bg-zinc-950 dark:bg-white" />
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddExtraSession();
+                  }}
+                  className="flex-1 flex flex-col justify-between gap-8 pt-6 min-w-0"
+                >
+                  <div className="space-y-6 min-w-0">
+                    <div className="space-y-1.5">
+                      <h2 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-tight">
+                        {isId ? "Latihan tambahan apa hari ini?" : "What extra training did you do?"}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        {isId
+                          ? "Pilih jenis latihan dan durasi untuk mencatat sesi bonus Anda."
+                          : "Choose an activity type and duration to log your bonus workout."}
+                      </p>
+                    </div>
+
+                    {/* Activity Type Grid */}
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+                        {isId ? "Jenis Latihan" : "Activity Type"}
+                      </span>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {EXTRA_TRAINING_PRESETS.map((preset) => {
+                          const active = selectedExtraType === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => setSelectedExtraType(preset.id)}
+                              className={`p-3.5 rounded-2xl border text-left transition active:scale-95 cursor-pointer flex items-center gap-2.5 ${
+                                active
+                                  ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                                  : "border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-400 dark:hover:border-white/30"
+                              }`}
+                            >
+                              <Dumbbell className="w-4 h-4 shrink-0" />
+                              <span className="text-xs font-semibold truncate">{preset.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Duration Selector */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {isId ? "Durasi (menit)" : "Duration (minutes)"}
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                          ~
+                          {Math.round(
+                            (extraDurationMins || 0) *
+                              (EXTRA_TRAINING_PRESETS.find((p) => p.id === selectedExtraType)
+                                ?.kcalPerMin || 6)
+                          )}{" "}
+                          kcal
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2">
+                        {[15, 30, 45, 60].map((mins) => {
+                          const active = extraDurationMins === mins;
+                          return (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() => setExtraDurationMins(mins)}
+                              className={`py-2.5 rounded-xl border text-xs font-mono font-semibold transition active:scale-95 cursor-pointer ${
+                                active
+                                  ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                                  : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-400"
+                              }`}
+                            >
+                              {mins}m
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={5}
+                        max={300}
+                        value={extraDurationMins}
+                        onChange={(e) => setExtraDurationMins(parseInt(e.target.value, 10) || 0)}
+                        placeholder="30"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white"
+                      />
+                    </div>
+
+                    {/* Optional Custom Workout Title */}
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+                        {isId ? "Nama Latihan (Opsional)" : "Workout Name (Optional)"}
+                      </span>
+                      <input
+                        type="text"
+                        maxLength={60}
+                        value={customExtraName}
+                        onChange={(e) => setCustomExtraName(e.target.value)}
+                        placeholder={
+                          isId
+                            ? "mis. Easy Run 5K / Core Finisher"
+                            : "e.g. Easy 5K Run / Core Finisher"
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{isId ? "Simpan Latihan" : "Save Training"}</span>
                     </button>
                   </div>
                 </form>

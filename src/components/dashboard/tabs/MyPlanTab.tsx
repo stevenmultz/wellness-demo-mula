@@ -265,6 +265,31 @@ export function MyPlanOverview({
     timeZone: "Asia/Jakarta",
   }).format(activeBannerDate);
   const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
+  const activeDayTypeLabel =
+    activeSelectedDay?.dayType === "TRAINING_DAY"
+      ? locale === "id"
+        ? "Hari Latihan"
+        : "Training Day"
+      : activeSelectedDay?.dayType === "REST_DAY"
+        ? locale === "id"
+          ? "Hari Istirahat"
+          : "Rest Day"
+        : locale === "id"
+          ? "Hari Pertemuan"
+          : "Meetup Day";
+  const activeDayFocusTitle =
+    activeSelectedDay?.title?.trim() ||
+    (activeSelectedDay?.dayType === "TRAINING_DAY"
+      ? locale === "id"
+        ? "Latihan Terjadwal & Pemulihan Aktif"
+        : "Scheduled Training & Active Conditioning"
+      : activeSelectedDay?.dayType === "REST_DAY"
+        ? locale === "id"
+          ? "Pemulihan Tubuh, Tidur & Nutrisi"
+          : "Full Body Recovery, Sleep & Nutrition"
+        : locale === "id"
+          ? "Sesi Komunitas & Evaluasi Bersama"
+          : "Community Session & Cohort Check-In");
 
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const w = getWibCalendarDate(getProgramDayDate(day));
@@ -442,8 +467,8 @@ export function MyPlanOverview({
           </button>
         </div>
 
-        {/* Bottom Row: Type + Sports Side-by-Side (Left) */}
-        <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
+        {/* Bottom Row: Type + Sports Side-by-Side & Today Focus (Left) */}
+        <div className="relative z-20 flex flex-col items-start gap-2.5 pt-8">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
             <span
               className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
@@ -462,6 +487,21 @@ export function MyPlanOverview({
             >
               {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
             </span>
+          </div>
+
+          <div className="space-y-0.5 min-w-0 w-full">
+            <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono text-white/80">
+              <span>
+                {locale === "id"
+                  ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
+                  : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
+              </span>
+              <span className="text-white/50 select-none">·</span>
+              <span>{activeDayTypeLabel}</span>
+            </div>
+            <p className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
+              {activeDayFocusTitle}
+            </p>
           </div>
         </div>
       </section>
