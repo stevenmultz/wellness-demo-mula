@@ -6,13 +6,10 @@ import {
   ArrowRight,
   Calendar,
   Check,
-  Clock,
   Compass,
   Droplets,
-  Dumbbell,
   Flame,
   Footprints,
-  Heart,
   Loader2,
   Lock,
   Moon,
@@ -21,7 +18,6 @@ import {
   Sparkles,
   Trash2,
   TrendingUp,
-  Users,
   Utensils,
 } from "lucide-react";
 import type { DailyLogDTO } from "@/wellness/services/daily-log";
@@ -76,10 +72,7 @@ export function MaintenanceWellnessView({
   dailyLogsByDate,
   bodyMetricLogs,
   trackingPassPlans,
-  activePrograms = [],
-  upcomingPrograms = [],
   completedPrograms,
-  userName,
   userGender,
   userAge,
   checkoutLoadingPlanId,
@@ -93,19 +86,14 @@ export function MaintenanceWellnessView({
   onOpenGrowthAnalytics,
   onOpenExplore,
   onSelectTrackingPass,
-  onOpenProgram,
   onOpenPastProgram,
-  onViewAllPrograms,
 }: {
   trackingAccess: TrackingAccessStatusDTO;
   todayDateKey: string;
   dailyLogsByDate: Record<string, DailyLogDTO>;
   bodyMetricLogs: BodyMetricPoint[];
   trackingPassPlans: TrackingPassPlanDTO[];
-  activePrograms?: MyPlanIndexItem[];
-  upcomingPrograms?: MyPlanIndexItem[];
   completedPrograms: MyPlanIndexItem[];
-  userName?: string | null;
   userGender?: string | null;
   userAge?: number | null;
   checkoutLoadingPlanId?: string | null;
@@ -147,9 +135,7 @@ export function MaintenanceWellnessView({
   onOpenGrowthAnalytics: () => void;
   onOpenExplore: () => void;
   onSelectTrackingPass: (planId: string) => void;
-  onOpenProgram?: (programId: string) => void;
   onOpenPastProgram?: (programId: string) => void;
-  onViewAllPrograms?: () => void;
 }) {
   const { locale } = useLocale();
   const isId = locale === "id";
@@ -397,104 +383,50 @@ export function MaintenanceWellnessView({
       }).format(new Date(trackingAccess.trackingAccessUntil))
     : null;
 
-  const hasActivePrograms = activePrograms.length > 0;
-  const hasAnyHubPrograms = activePrograms.length > 0 || upcomingPrograms.length > 0;
-  const firstName = (userName || "").trim().split(/\s+/)[0] || "";
-  const todayHumanLabel = formatWibDateHuman(todayDateKey, isId);
-
-  const renderDayTypeBadge = (dayType?: string | null) => {
-    if (dayType === "TRAINING_DAY") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider bg-zinc-900 text-white dark:bg-white dark:text-zinc-950">
-          <Dumbbell className="w-3 h-3" />
-          <span>{isId ? "Training Day" : "Training Day"}</span>
-        </span>
-      );
-    }
-    if (dayType === "REST_DAY") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-          <Heart className="w-3 h-3" />
-          <span>{isId ? "Rest Day" : "Rest Day"}</span>
-        </span>
-      );
-    }
-    if (dayType === "CONNECT_DAY" || dayType === "MEETUP_DAY" || dayType === "CONNECTION_DAY") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-          <Users className="w-3 h-3" />
-          <span>{isId ? "Connect Day" : "Connect Day"}</span>
-        </span>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="w-full space-y-5 pb-16">
-      {/* 1. Today Hub Hero Banner */}
+      {/* 1. Status Hero Banner */}
       <section className="rounded-3xl p-5 sm:p-6 bg-zinc-950 text-white dark:bg-zinc-900 border border-zinc-800 dark:border-white/10 shadow-sm space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-white/10 text-white/90">
-                <Calendar className="w-3 h-3 text-white/70" />
-                <span>{todayHumanLabel}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-white/10 text-white/90">
-                {isExpired && !hasActivePrograms ? (
-                  <>
-                    <Lock className="w-3 h-3 text-amber-400" />
-                    <span>{isId ? "Arsip Read-Only" : "Read-Only Archive"}</span>
-                  </>
-                ) : hasActivePrograms ? (
-                  <>
-                    <Sparkles className="w-3 h-3 text-emerald-400" />
-                    <span>
-                      {isId
-                        ? `${activePrograms.length} Program Aktif · Tracking Aktif`
-                        : `${activePrograms.length} Active ${activePrograms.length === 1 ? "Program" : "Programs"} · Tracking Active`}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3 text-emerald-400" />
-                    <span>
-                      {isId
-                        ? `Tracking Aktif · Sisa ${trackingAccess.daysRemaining} hari`
-                        : `Active Tracking · ${trackingAccess.daysRemaining} days left`}
-                    </span>
-                  </>
-                )}
-              </span>
-            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-white/10 text-white/90">
+              {isExpired ? (
+                <>
+                  <Lock className="w-3 h-3 text-amber-400" />
+                  <span>{isId ? "Arsip Read-Only" : "Read-Only Archive"}</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 text-emerald-400" />
+                  <span>
+                    {isId
+                      ? `Tracking Aktif · Sisa ${trackingAccess.daysRemaining} hari`
+                      : `Active Tracking · ${trackingAccess.daysRemaining} days left`}
+                  </span>
+                </>
+              )}
+            </span>
             <h1 className="text-xl sm:text-2xl font-geometric font-semibold tracking-tight pt-1">
-              {isExpired && !hasActivePrograms
+              {isExpired
                 ? isId
                   ? "Masa Tracking Telah Berakhir"
                   : "Your Tracking Window Ended"
-                : firstName
-                  ? isId
-                    ? `Today Hub · ${firstName}`
-                    : `Today Hub · ${firstName}`
-                  : "Today Wellness Hub"}
+                : isId
+                  ? "Daily Wellness Tracker"
+                  : "Daily Wellness Tracker"}
             </h1>
             <p className="text-xs text-white/70 leading-relaxed max-w-lg">
-              {isExpired && !hasActivePrograms
+              {isExpired
                 ? isId
                   ? "Semua data 1 tahun & program selesai tetap bisa dilihat kapan saja. Perpanjang akses untuk mulai mencatat harian lagi."
                   : "Your 1-year growth data & past cohorts remain viewable anytime. Renew below to resume daily logging."
-                : hasActivePrograms
+                : expiryLabel
                   ? isId
-                    ? "Buka program aktifmu di bawah untuk tugas latihan dari coach, dan catat kebiasaan harian (Sleep, Meal, Water, Steps) cukup sekali di sini."
-                    : "Open your active programs below for coach training tasks, and log your daily habits (Sleep, Meal, Water, Steps) once right here."
-                  : expiryLabel
-                    ? isId
-                      ? `Akses aktif hingga ${expiryLabel}. Catat tidur, air, langkah, nutrisi, dan latihan mandiri untuk menjaga konsistensimu.`
-                      : `Access active until ${expiryLabel}. Log sleep, hydration, steps, nutrition, and workouts to maintain your momentum.`
-                    : isId
-                      ? "Catat tidur, hidrasi, langkah, nutrisi, dan latihan harianmu di satu tempat."
-                      : "Track your daily sleep, hydration, steps, nutrition, and extra workouts in one place."}
+                    ? `Akses aktif hingga ${expiryLabel}. Catat tidur, air, langkah, nutrisi, dan latihan mandiri untuk menjaga konsistensimu.`
+                    : `Access active until ${expiryLabel}. Log sleep, hydration, steps, nutrition, and workouts to maintain your momentum.`
+                  : isId
+                    ? "Catat tidur, hidrasi, langkah, nutrisi, dan latihan harianmu di satu tempat."
+                    : "Track your daily sleep, hydration, steps, nutrition, and extra workouts in one place."}
             </p>
           </div>
         </div>
@@ -518,138 +450,6 @@ export function MaintenanceWellnessView({
           </button>
         </div>
       </section>
-
-      {/* 1B. Today's Active & Upcoming Programs (Per-Program Coach Tasks) */}
-      {hasAnyHubPrograms && (
-        <section className="space-y-3" aria-label={isId ? "Program Hari Ini" : "Today's Programs"}>
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <h2 className="text-xs font-mono uppercase tracking-wider text-zinc-500">
-                {isId ? "Program Hari Ini" : "Today's Programs"}
-              </h2>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                {isId
-                  ? "Klik program untuk membuka halaman latihan, connect, rest, & tugas dari coach."
-                  : "Tap a program to open its dedicated training, connect, rest & coach tasks."}
-              </p>
-            </div>
-            {onViewAllPrograms && activePrograms.length + upcomingPrograms.length + completedPrograms.length > 1 && (
-              <button
-                type="button"
-                onClick={onViewAllPrograms}
-                className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition shrink-0 cursor-pointer"
-              >
-                {isId ? "Semua" : "View all"}
-              </button>
-            )}
-          </div>
-
-          {activePrograms.length > 0 && (
-            <div className="space-y-2.5">
-              {activePrograms.map((prog) => {
-                const pending = prog.pendingTasksCount ?? 0;
-                const isDoneToday = pending === 0;
-                const total = Math.max(1, prog.totalDays || prog.dayCount || 1);
-                const dayNum = Math.max(1, Math.min(total, prog.currentDayNumber || 1));
-
-                return (
-                  <button
-                    key={prog.programId}
-                    type="button"
-                    onClick={() => onOpenProgram?.(prog.programId)}
-                    className="w-full text-left p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/25 transition active:scale-[0.99] flex items-center gap-3.5 shadow-2xs cursor-pointer group"
-                  >
-                    {/* Cover Thumbnail */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-zinc-900 shrink-0 relative border border-zinc-200/60 dark:border-white/10">
-                      {prog.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={prog.coverImage}
-                          alt={prog.title}
-                          className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white/60">
-                          <Dumbbell className="w-6 h-6" />
-                        </div>
-                      )}
-                      <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded-lg bg-black/65 backdrop-blur-xs text-[9px] font-mono font-semibold text-white text-center truncate">
-                        Day {dayNum}/{total}
-                      </div>
-                    </div>
-
-                    {/* Program Info & Today's Status */}
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {renderDayTypeBadge(prog.todayDayType)}
-                        {isDoneToday ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                            <Check className="w-3 h-3" />
-                            <span>{isId ? "Selesai" : "Done"}</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300">
-                            <span>
-                              {isId
-                                ? `${pending} tugas hari ini`
-                                : `${pending} ${pending === 1 ? "task" : "tasks"} left`}
-                            </span>
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="text-sm sm:text-base font-geometric font-semibold text-zinc-950 dark:text-white truncate">
-                        {prog.title}
-                      </h3>
-
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                        {prog.coachName}
-                        {prog.organizationName ? ` · ${prog.organizationName}` : ""}
-                      </p>
-                    </div>
-
-                    <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-white/10 group-hover:bg-zinc-950 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-zinc-950 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 transition">
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {upcomingPrograms.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 px-1">
-                {isId ? "Segera Dimulai" : "Upcoming Programs"}
-              </p>
-              {upcomingPrograms.map((prog) => (
-                <button
-                  key={prog.programId}
-                  type="button"
-                  onClick={() => onOpenProgram?.(prog.programId)}
-                  className="w-full text-left p-3.5 rounded-2xl bg-white/80 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/25 transition flex items-center justify-between gap-3 cursor-pointer"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300">
-                        <Clock className="w-2.5 h-2.5" />
-                        <span>{isId ? "Segera Mulai" : "Upcoming"}</span>
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white truncate">
-                      {prog.title}
-                    </p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                      {prog.coachName}
-                    </p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-zinc-400 shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
 
       {/* 2. Renewal 2-Option Decoy Pricing Card (Prominent when Expired) */}
       {isExpired && (

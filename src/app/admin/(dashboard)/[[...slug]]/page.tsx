@@ -637,8 +637,6 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
       }),
     ]);
 
-    const isSuperadminActor = session.role === "SUPERADMIN";
-
     const enrollmentMetaByProgram = new Map(
       customerEnrollmentsMeta.map((e) => [e.programId, e])
     );
@@ -655,30 +653,24 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     };
 
     const logPairs: Array<{ userId: string; logDate: Date }> = [];
-    if (isSuperadminActor) {
-      for (const dp of rawProgress) {
-        const d = resolveLogDateForDay(
-          dp.programDay.programId,
-          dp.programDay.dayNumber,
-          dp.programDay.program
-        );
-        if (d) logPairs.push({ userId: matchedCustomer.id, logDate: d });
-      }
-      for (const cs of rawCustomSubs) {
-        const d = resolveLogDateForDay(
-          cs.programDay.programId,
-          cs.programDay.dayNumber,
-          cs.programDay.program
-        );
-        if (d) logPairs.push({ userId: matchedCustomer.id, logDate: d });
-      }
+    for (const dp of rawProgress) {
+      const d = resolveLogDateForDay(
+        dp.programDay.programId,
+        dp.programDay.dayNumber,
+        dp.programDay.program
+      );
+      if (d) logPairs.push({ userId: matchedCustomer.id, logDate: d });
+    }
+    for (const cs of rawCustomSubs) {
+      const d = resolveLogDateForDay(
+        cs.programDay.programId,
+        cs.programDay.dayNumber,
+        cs.programDay.program
+      );
+      if (d) logPairs.push({ userId: matchedCustomer.id, logDate: d });
     }
 
-    // Strict Coach/Partner Privacy: Only SUPERADMIN can hydrate platform-wide global biomarkers.
-    // Coaches and Partner Admins ONLY see responses from their own program widgets (Training, Connect, Rest, non-measurement Custom Tasks).
-    const dailyLogByUserDate = isSuperadminActor
-      ? await fetchDailyLogsByUserDatePairs(logPairs)
-      : new Map();
+    const dailyLogByUserDate = await fetchDailyLogsByUserDatePairs(logPairs);
 
     const customByDayId = new Map<
       string,
@@ -689,9 +681,6 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
       { programDay: (typeof rawCustomSubs)[number]["programDay"]; updatedAt: Date }
     >();
     for (const cs of rawCustomSubs) {
-      if (!isSuperadminActor && cs.customTask.taskType === "MEASUREMENT") {
-        continue;
-      }
       const list = customByDayId.get(cs.programDayId) ?? [];
       list.push({
         id: cs.id,
@@ -710,31 +699,24 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     const seenDayIds = new Set<string>();
     inspectedDayProgress = rawProgress.map((dp) => {
       seenDayIds.add(dp.programDay.id);
-      const logDate = isSuperadminActor
-        ? resolveLogDateForDay(
-            dp.programDay.programId,
-            dp.programDay.dayNumber,
-            dp.programDay.program
-          )
-        : null;
-      const gLog =
-        isSuperadminActor && logDate
-          ? dailyLogByUserDate.get(buildUserDatePairKey(matchedCustomer.id, logDate))
-          : undefined;
+      const logDate = resolveLogDateForDay(
+        dp.programDay.programId,
+        dp.programDay.dayNumber,
+        dp.programDay.program
+      );
+      const gLog = logDate
+        ? dailyLogByUserDate.get(buildUserDatePairKey(matchedCustomer.id, logDate))
+        : undefined;
       return {
         ...dp,
-        bedtime: isSuperadminActor ? (gLog?.bedtime ?? dp.bedtime) : null,
-        wakeTime: isSuperadminActor ? (gLog?.wakeTime ?? dp.wakeTime) : null,
-        sleepDurationMinutes: isSuperadminActor
-          ? (gLog?.sleepDurationMinutes ?? dp.sleepDurationMinutes)
-          : null,
-        mealCompliance: isSuperadminActor
-          ? (dp.mealCompliance ?? mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ?? null)
-          : null,
-        mealNotes: isSuperadminActor ? dp.mealNotes : null,
-        waterMl: isSuperadminActor ? gLog?.waterMl : undefined,
-        stepsCount: isSuperadminActor ? gLog?.stepsCount : undefined,
-        caloriesKcal: isSuperadminActor ? gLog?.caloriesKcal : undefined,
+        bedtime: gLog?.bedtime ?? dp.bedtime,
+        wakeTime: gLog?.wakeTime ?? dp.wakeTime,
+        sleepDurationMinutes: gLog?.sleepDurationMinutes ?? dp.sleepDurationMinutes,
+        mealCompliance:
+          dp.mealCompliance ?? mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ?? null,
+        waterMl: gLog?.waterMl,
+        stepsCount: gLog?.stepsCount,
+        caloriesKcal: gLog?.caloriesKcal,
         videoWatched: dp.isVideoWatched,
         checklistCompleted: toJsonString(dp.checklistCompletedJson),
         customSubmissions: customByDayId.get(dp.programDay.id) ?? [],
@@ -743,17 +725,14 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
 
     for (const [pDayId, meta] of customDayMeta.entries()) {
       if (seenDayIds.has(pDayId)) continue;
-      const logDate = isSuperadminActor
-        ? resolveLogDateForDay(
-            meta.programDay.programId,
-            meta.programDay.dayNumber,
-            meta.programDay.program
-          )
-        : null;
-      const gLog =
-        isSuperadminActor && logDate
-          ? dailyLogByUserDate.get(buildUserDatePairKey(matchedCustomer.id, logDate))
-          : undefined;
+      const logDate = resolveLogDateForDay(
+        meta.programDay.programId,
+        meta.programDay.dayNumber,
+        meta.programDay.program
+      );
+      const gLog = logDate
+        ? dailyLogByUserDate.get(buildUserDatePairKey(matchedCustomer.id, logDate))
+        : undefined;
       inspectedDayProgress.push({
         id: `custom-only:${pDayId}`,
         videoWatched: false,
@@ -762,18 +741,16 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
         selectedWorkout: null,
         workoutNotes: null,
         eventFeedback: null,
-        mealCompliance: isSuperadminActor
-          ? (mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ?? null)
-          : null,
+        mealCompliance: mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ?? null,
         mealNotes: null,
         dailyReflection: null,
         happinessRate: null,
-        bedtime: isSuperadminActor ? (gLog?.bedtime ?? null) : null,
-        wakeTime: isSuperadminActor ? (gLog?.wakeTime ?? null) : null,
-        sleepDurationMinutes: isSuperadminActor ? (gLog?.sleepDurationMinutes ?? null) : null,
-        waterMl: isSuperadminActor ? gLog?.waterMl : undefined,
-        stepsCount: isSuperadminActor ? gLog?.stepsCount : undefined,
-        caloriesKcal: isSuperadminActor ? gLog?.caloriesKcal : undefined,
+        bedtime: gLog?.bedtime ?? null,
+        wakeTime: gLog?.wakeTime ?? null,
+        sleepDurationMinutes: gLog?.sleepDurationMinutes ?? null,
+        waterMl: gLog?.waterMl,
+        stepsCount: gLog?.stepsCount,
+        caloriesKcal: gLog?.caloriesKcal,
         assessmentResponse: null,
         completedAt: null,
         updatedAt: meta.updatedAt,
@@ -786,7 +763,6 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
   const users = usersRaw.map((u) => {
     const baseUser = {
       ...u,
-      trackingAccessUntil: session.role === "SUPERADMIN" ? u.trackingAccessUntil : null,
       age: u.birthDate ? calculateAgeFromDob(u.birthDate) : null,
       enrollments: u.enrollments.map((e) => ({
         ...e,

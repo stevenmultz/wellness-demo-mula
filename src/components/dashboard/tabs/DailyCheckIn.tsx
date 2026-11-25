@@ -232,10 +232,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setStepsModalOpen(false);
   };
 
-  const programActivityDone = Boolean(selectedDone[1]);
+  const stepsDone = steps > 0 || Boolean(selectedDay.userProgress?.isCompleted);
+  const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
   const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
-  const totalTasks = 1 + customTasksList.length;
-  const completedTasks = (programActivityDone ? 1 : 0) + customDoneCount;
+  const totalTasks = tasks.length + 1 + customTasksList.length;
+  const completedTasks = coreDoneCount + (stepsDone ? 1 : 0) + customDoneCount;
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -427,23 +428,44 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     disabled: boolean;
   }
 
-  const primaryProgramTask = tasks[1];
   const taskTiles: DailyTaskTile[] = [
-    ...(primaryProgramTask
-      ? [
-          {
-            key: `core-${primaryProgramTask.title}`,
-            title: primaryProgramTask.title,
-            durationLabel: getCoreDurationLabel(1),
-            isDone: programActivityDone,
-            Icon: getCoreFillIcon(1),
-            disabled:
-              isSelectedFuture ||
-              (selectedLocked && !isSelectedPast && !programActivityDone),
-            onOpen: () => openDetail(1),
-          },
-        ]
-      : []),
+    ...tasks.map((t, index) => {
+      const isDone = selectedDone[index];
+      return {
+        key: `core-${t.title}`,
+        title: t.title,
+        durationLabel: getCoreDurationLabel(index),
+        isDone,
+        Icon: getCoreFillIcon(index),
+        disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
+        onOpen: () => openDetail(index),
+      };
+    }),
+    {
+      key: "core-daily-steps",
+      title: "Daily Steps",
+      durationLabel: steps > 0 ? `${steps.toLocaleString()} steps` : "1 min",
+      isDone: stepsDone,
+      Icon: FillFootprintsIcon,
+      disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
+      onOpen: openStepsModal,
+    },
+    {
+      key: "core-more-training",
+      title: "More Training",
+      durationLabel:
+        extraSessions.length > 0
+          ? `${totalExtraMins} min`
+          : isId
+            ? "Opsional"
+            : "Optional",
+      isDone: extraSessions.length > 0,
+      isOptional: true,
+      Icon: FillFlameIcon,
+      disabled:
+        isSelectedFuture || (selectedLocked && !isSelectedPast && extraSessions.length === 0),
+      onOpen: () => setMoreTrainingOpen(true),
+    },
     ...customTasksList.map((ct) => {
       const isDone = Boolean(ct.submission);
       return {
@@ -645,23 +667,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           );
         })}
       </ol>
-
-      {props.onBackToTodayHub && (
-        <div className="rounded-2xl bg-[#ececea]/80 dark:bg-white/[0.03] border border-zinc-200/60 dark:border-white/10 p-3.5 sm:p-4 flex items-center justify-between gap-3">
-          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            {isId
-              ? "Sleep, Meal, Water, Daily Steps & More Workouts dicatat terpusat di Today Hub."
-              : "Sleep, Meal, Water, Daily Steps & More Workouts are tracked centrally in Today Hub."}
-          </p>
-          <button
-            type="button"
-            onClick={props.onBackToTodayHub}
-            className="px-3 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[11px] font-semibold shrink-0 hover:opacity-90 transition cursor-pointer"
-          >
-            {isId ? "Today Hub" : "Today Hub"}
-          </button>
-        </div>
-      )}
 
       {/* Community Group Chat Widget */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
