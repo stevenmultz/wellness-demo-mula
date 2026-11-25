@@ -21,6 +21,7 @@ import {
   FillChecklistIcon,
   FillDropletIcon,
   FillDumbbellIcon,
+  FillFlameIcon,
   FillFootprintsIcon,
   FillHeartIcon,
   FillLockIcon,
@@ -313,6 +314,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const totalExtraMins = extraSessions.reduce((acc, s) => acc + s.durationMins, 0);
   const totalExtraKcal = extraSessions.reduce((acc, s) => acc + s.kcal, 0);
 
+  const todayFocusTitle =
+    selectedDay.title?.trim() ||
+    (selectedDay.dayType === "TRAINING_DAY"
+      ? isId
+        ? "Latihan Terjadwal & Pemulihan Aktif"
+        : "Scheduled Training & Active Conditioning"
+      : selectedDay.dayType === "REST_DAY"
+        ? isId
+          ? "Pemulihan Tubuh, Tidur & Nutrisi"
+          : "Full Body Recovery, Sleep & Nutrition"
+        : isId
+          ? "Sesi Komunitas & Evaluasi Bersama"
+          : "Community Session & Cohort Check-In");
+
   const handleOpenGroupChat = () => {
     if (props.onOpenCommunity) {
       props.onOpenCommunity();
@@ -404,6 +419,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     title: string;
     durationLabel: string;
     isDone: boolean;
+    isOptional?: boolean;
     Icon: ComponentType<FillIconProps>;
     onOpen: () => void;
     disabled: boolean;
@@ -430,6 +446,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       Icon: FillFootprintsIcon,
       disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
       onOpen: openStepsModal,
+    },
+    {
+      key: "core-more-training",
+      title: "More Training",
+      durationLabel:
+        extraSessions.length > 0
+          ? `${totalExtraMins} min`
+          : isId
+            ? "Opsional"
+            : "Optional",
+      isDone: extraSessions.length > 0,
+      isOptional: true,
+      Icon: FillFlameIcon,
+      disabled:
+        isSelectedFuture || (selectedLocked && !isSelectedPast && extraSessions.length === 0),
+      onOpen: () => setMoreTrainingOpen(true),
     },
     ...customTasksList.map((ct) => {
       const isDone = Boolean(ct.submission);
@@ -485,6 +517,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
+      {/* Today's Focus Widget */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+            <FillSparkleIcon className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+            {isId ? "Fokus Hari Ini" : "Today's Focus"}
+          </span>
+        </div>
+
+        <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white leading-snug">
+          {todayFocusTitle}
+        </p>
+      </div>
+
       {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
         <div className="space-y-2">
@@ -535,7 +583,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
         {taskTiles.map((tile) => {
           const TileIcon = tile.Icon;
-          const isPending = !tile.isDone && !isSelectedFuture;
+          const isPending = !tile.isDone && !tile.isOptional && !isSelectedFuture;
 
           return (
             <li key={tile.key} className="w-full">
@@ -591,72 +639,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           );
         })}
       </ol>
-
-      {/* More Training Widget (Optional Extra / Bonus Workouts) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-                <FillDumbbellIcon className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-                More Training
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
-              {extraSessions.length > 0
-                ? isId
-                  ? `${extraSessions.length} sesi tambahan · ${totalExtraMins} mnt (-${totalExtraKcal} kcal)`
-                  : `${extraSessions.length} extra session${extraSessions.length > 1 ? "s" : ""} · ${totalExtraMins} min (-${totalExtraKcal} kcal)`
-                : isId
-                  ? "Catat latihan tambahan di luar jadwal utama hari ini."
-                  : "Log extra workouts outside today's main schedule."}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            disabled={isSelectedFuture || (selectedLocked && !isAnytime)}
-            onClick={() => setMoreTrainingOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 disabled:opacity-40 transition cursor-pointer disabled:cursor-default shadow-xs inline-flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{isId ? "Tambah" : "Add Training"}</span>
-          </button>
-        </div>
-
-        {extraSessions.length > 0 && (
-          <div className="space-y-1.5 pt-1 border-t border-zinc-300/50 dark:border-white/10">
-            {extraSessions.map((session) => (
-              <div
-                key={session.id}
-                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/80 dark:bg-[#141414] border border-zinc-200/70 dark:border-white/10"
-              >
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                    {session.name}
-                  </p>
-                  <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                    {session.durationMins} min · -{session.kcal} kcal
-                  </p>
-                </div>
-
-                {!(selectedLocked && !isAnytime) && !isSelectedFuture && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveExtraSession(session.id)}
-                    aria-label={`Remove ${session.name}`}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer shrink-0"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Community Group Chat Widget */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
@@ -1023,6 +1005,47 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                           : "Choose an activity type and duration to log your bonus workout."}
                       </p>
                     </div>
+
+                    {/* Logged Extra Sessions Summary (if any) */}
+                    {extraSessions.length > 0 && (
+                      <div className="p-4 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-zinc-950 dark:text-white">
+                            {isId ? "Sesi Tercatat Hari Ini" : "Logged Extra Sessions"}
+                          </span>
+                          <span className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-300">
+                            {totalExtraMins} min · -{totalExtraKcal} kcal
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {extraSessions.map((session) => (
+                            <div
+                              key={session.id}
+                              className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
+                                  {session.name}
+                                </p>
+                                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                                  {session.durationMins} min · -{session.kcal} kcal
+                                </p>
+                              </div>
+                              {!(selectedLocked && !isAnytime) && !isSelectedFuture && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveExtraSession(session.id)}
+                                  aria-label={`Remove ${session.name}`}
+                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer shrink-0"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Activity Type Grid */}
                     <div className="space-y-2">

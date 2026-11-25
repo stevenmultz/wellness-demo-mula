@@ -277,19 +277,6 @@ export function MyPlanOverview({
         : locale === "id"
           ? "Hari Pertemuan"
           : "Meetup Day";
-  const activeDayFocusTitle =
-    activeSelectedDay?.title?.trim() ||
-    (activeSelectedDay?.dayType === "TRAINING_DAY"
-      ? locale === "id"
-        ? "Latihan Terjadwal & Pemulihan Aktif"
-        : "Scheduled Training & Active Conditioning"
-      : activeSelectedDay?.dayType === "REST_DAY"
-        ? locale === "id"
-          ? "Pemulihan Tubuh, Tidur & Nutrisi"
-          : "Full Body Recovery, Sleep & Nutrition"
-        : locale === "id"
-          ? "Sesi Komunitas & Evaluasi Bersama"
-          : "Community Session & Cohort Check-In");
 
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const w = getWibCalendarDate(getProgramDayDate(day));
@@ -489,19 +476,14 @@ export function MyPlanOverview({
             </span>
           </div>
 
-          <div className="space-y-0.5 min-w-0 w-full">
-            <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono text-white/80">
-              <span>
-                {locale === "id"
-                  ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
-                  : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
-              </span>
-              <span className="text-white/50 select-none">·</span>
-              <span>{activeDayTypeLabel}</span>
-            </div>
-            <p className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
-              {activeDayFocusTitle}
-            </p>
+          <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono font-medium text-white/90">
+            <span>
+              {locale === "id"
+                ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
+                : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
+            </span>
+            <span className="text-white/50 select-none">·</span>
+            <span>{activeDayTypeLabel}</span>
           </div>
         </div>
       </section>
