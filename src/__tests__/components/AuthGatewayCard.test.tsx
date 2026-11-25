@@ -48,7 +48,7 @@ function renderAuthCard(props: Parameters<typeof AuthGatewayCard>[0] = {}) {
   );
 }
 
-describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Password Fallback)", () => {
+describe("UI Component: AuthGatewayCard (Password Sign-In + Email OTP + Google)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/");
@@ -58,12 +58,13 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
     vi.useRealTimers();
   });
 
-  it("shows ONLY 'Sign in with Email' and 'Sign in with Google' initially, and displays URL authError", () => {
+  it("shows 'Sign in with Password', 'Sign in with Email' and 'Sign in with Google' initially, and displays URL authError", () => {
     window.history.replaceState({}, "", "/?authError=account_suspended");
     renderAuthCard({ contextProgramTitle: "21-Day Somatic Reset" });
 
     expect(screen.getByText("21-Day Somatic Reset")).toBeInTheDocument();
     expect(screen.getByText(/this account is suspended/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in with password/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in with email/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /sign in with google/i })).toHaveAttribute(
       "href",
@@ -99,6 +100,9 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
     renderAuthCard({ isModal: true, onClose });
 
     await user.click(screen.getByRole("button", { name: /sign in with email/i }));
+    // Verify "Use password instead" option is present in email step
+    expect(screen.getByRole("button", { name: /use password instead/i })).toBeInTheDocument();
+
     const emailInput = screen.getByPlaceholderText(/enter your email/i);
     await user.type(emailInput, "newbie@zera.id");
     await user.click(screen.getByRole("button", { name: /continue/i }));
@@ -127,17 +131,11 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
     );
   });
 
-  it("enforces mandatory Email OTP (no password bypass button) and routes Superadmin stevenmultz@gmail.com to /admin", async () => {
+  it("allows signing in with Email & Password directly and routes Superadmin stevenmultz@gmail.com to /admin", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
-    mockRequestEmailSignIn.mockResolvedValueOnce({
-      success: true,
-      message: "Verification code sent!",
-      data: { email: "stevenmultz@gmail.com" },
-      devOtpCode: "918273",
-    });
-    mockVerifyEmailOtp.mockResolvedValueOnce({
+    mockSignIn.mockResolvedValueOnce({
       success: true,
       data: {
         id: "admin_1",
@@ -150,24 +148,19 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
 
     renderAuthCard({ isModal: true, onClose });
 
-    await user.click(screen.getByRole("button", { name: /sign in with email/i }));
-    expect(screen.queryByRole("button", { name: /use password instead/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /sign in with password/i }));
+    expect(screen.getByRole("heading", { name: /sign in with password/i })).toBeInTheDocument();
 
     const emailInput = screen.getByPlaceholderText(/enter your email/i);
+    const passwordInput = screen.getByPlaceholderText(/enter your password/i);
+
     await user.type(emailInput, "stevenmultz@gmail.com");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.type(passwordInput, "SuperAdmin123!");
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
-    expect(mockRequestEmailSignIn).toHaveBeenCalledWith({ email: "stevenmultz@gmail.com" });
-    expect(await screen.findByText(/check your email/i)).toBeInTheDocument();
-
-    const digit1 = screen.getByLabelText("Digit 1");
-    await user.type(digit1, "918273");
-
-    await waitFor(() => {
-      expect(mockVerifyEmailOtp).toHaveBeenCalledWith({
-        email: "stevenmultz@gmail.com",
-        code: "918273",
-      });
+    expect(mockSignIn).toHaveBeenCalledWith({
+      email: "stevenmultz@gmail.com",
+      password: "SuperAdmin123!",
     });
 
     await waitFor(

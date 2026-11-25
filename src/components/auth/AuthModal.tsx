@@ -23,10 +23,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Mail,
+  KeyRound,
   RefreshCw,
 } from "lucide-react";
 
-export type AuthTabMode = "signin" | "signup" | "forgot";
+export type AuthTabMode = "signin" | "signup" | "forgot" | "password";
 type AuthFlowStep = "choice" | "email" | "otp" | "password" | "forgot";
 
 interface AuthGatewayCardProps {
@@ -77,7 +78,7 @@ export function AuthGatewayCard({
   const isId = locale === "id";
 
   const [step, setStep] = useState<AuthFlowStep>(
-    initialTab === "forgot" ? "forgot" : "choice"
+    initialTab === "forgot" ? "forgot" : initialTab === "password" ? "password" : "choice"
   );
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -124,6 +125,8 @@ export function AuthGatewayCard({
       setPendingVerificationEmail(null);
       if (activeTabOverride === "forgot") {
         setStep("forgot");
+      } else if (activeTabOverride === "password") {
+        setStep("password");
       } else {
         setStep("choice");
       }
@@ -547,11 +550,11 @@ export function AuthGatewayCard({
         <div className="space-y-2">
           <button
             type="button"
-            onClick={() => goToStep("email")}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
+            onClick={() => goToStep("choice")}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{isId ? "Pakai kode email saja" : "Use email code instead"}</span>
+            <span>{t.common.back}</span>
           </button>
           <div className="space-y-1">
             <h1 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white">
@@ -652,17 +655,26 @@ export function AuthGatewayCard({
       )}
 
       {/* =================================================================== */}
-      {/* STEP 1: CLEAN 2-BUTTON ENTRY (EMAIL & GOOGLE ONLY)                  */}
+      {/* STEP 1: ENTRY OPTIONS (PASSWORD, EMAIL OTP & GOOGLE)                */}
       {/* =================================================================== */}
       {step === "choice" && (
         <div className="space-y-3 pt-1">
           <button
             type="button"
-            onClick={() => goToStep("email")}
+            onClick={() => goToStep("password")}
             className="w-full h-12 rounded-full bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 text-xs sm:text-sm font-semibold tracking-wide flex items-center justify-center gap-2.5 transition active:scale-[0.99] cursor-pointer"
           >
+            <KeyRound className="w-4 h-4 shrink-0" />
+            <span>{isId ? "Masuk dengan Kata Sandi" : "Sign in with Password"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => goToStep("email")}
+            className="w-full h-12 rounded-full border border-zinc-300 dark:border-white/20 bg-white/90 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] text-zinc-900 dark:text-white text-xs sm:text-sm font-medium flex items-center justify-center gap-2.5 transition active:scale-[0.99] cursor-pointer"
+          >
             <Mail className="w-4 h-4 shrink-0" />
-            <span>Sign in with Email</span>
+            <span>{isId ? "Masuk dengan Kode OTP Email" : "Sign in with Email"}</span>
           </button>
 
           <a
@@ -754,6 +766,17 @@ export function AuthGatewayCard({
               </>
             )}
           </button>
+
+          <div className="pt-1 text-center">
+            <button
+              type="button"
+              onClick={() => goToStep("password")}
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition cursor-pointer"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>{isId ? "Gunakan kata sandi" : "Use password instead"}</span>
+            </button>
+          </div>
 
           <p className="pt-1 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
             {isId
@@ -892,7 +915,7 @@ export function AuthGatewayCard({
             </div>
           </div>
 
-          <div className="pt-1">
+          <div className="pt-1 space-y-2">
             <button
               type="submit"
               disabled={isLoading}
@@ -910,6 +933,17 @@ export function AuthGatewayCard({
                 </>
               )}
             </button>
+
+            <div className="text-center pt-0.5">
+              <button
+                type="button"
+                onClick={() => goToStep("email")}
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>{isId ? "Masuk dengan kode OTP email" : "Sign in with email OTP instead"}</span>
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -956,8 +990,8 @@ export function AuthGatewayCard({
 
             <button
               type="button"
-              onClick={() => goToStep("email")}
-              className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
+              onClick={() => goToStep("password")}
+              className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>{t.auth.backToSignIn}</span>
