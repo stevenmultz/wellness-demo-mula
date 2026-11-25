@@ -654,6 +654,8 @@ export function DashboardClient({
     activeEnrollments.length === 0 &&
     (hasMaintenanceOrArchive || resolvedTrackingAccess.hasAnyHistory) &&
     myPlanView === "intro";
+  const showTodayHub =
+    myPlanView === "intro" && (activeEnrollments.length > 0 || showMaintenanceHub);
   const planOptions = allActiveEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
   const myPlanIndexItems = allActiveEnrollments.map((e) => {
     const fullProg = programById.get(e.programId);
@@ -662,7 +664,7 @@ export function DashboardClient({
     const completedDays = days.filter((d) => !!d.userProgress?.isCompleted).length;
     const locType = e.locationType || fullProg?.locationType;
     const liveIdx = findCurrentProgramDayIndex(days);
-    const liveDay = liveIdx >= 0 ? days[liveIdx] : null;
+    const liveDay = liveIdx >= 0 ? overlayDay(days[liveIdx]) : null;
     const currentDayNumber = liveDay?.dayNumber || 0;
     const isCompleted = isCohortEnded(
       e.startDate,
@@ -673,8 +675,12 @@ export function DashboardClient({
     );
     const isUpcoming =
       !isCompleted && isCohortUpcoming(e.startDate || fullProg?.startDate, locType);
-    const pendingTasksCount =
-      !isCompleted && !isUpcoming && liveDay ? evaluateDayTaskState(liveDay).pendingTasksCount : 0;
+    const pendingTasksCount = (() => {
+      if (isCompleted || isUpcoming || !liveDay) return 0;
+      const evaluated = evaluateDayTaskState(liveDay, dayChecklists[liveDay.id]);
+      const pendingCustom = (liveDay.customTasks ?? []).filter((ct) => !ct.submission).length;
+      return (evaluated.initialDone[1] ? 0 : 1) + pendingCustom;
+    })();
     return {
       programId: e.programId,
       title: e.title,
@@ -831,10 +837,9 @@ export function DashboardClient({
       {/* Main Content Area with safe-area spacing below seamless top header and above bottom dock */}
       <main
         style={{
-          paddingTop:
-            (activeTab === "my_plan" && myPlanView === "detail") || isFullBleedFirstPage
-              ? "0px"
-              : "calc(4.5rem + env(safe-area-inset-top))",
+          paddingTop: isFullBleedFirstPage
+            ? "0px"
+            : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: isFullBleedFirstPage
             ? "0px"
             : "calc(3.5rem + env(safe-area-inset-bottom, 0px))",
@@ -869,14 +874,17 @@ export function DashboardClient({
         )}
 
         <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
-          {showMaintenanceHub ? (
+          {showTodayHub ? (
             <MaintenanceWellnessView
               trackingAccess={resolvedTrackingAccess}
               todayDateKey={todayWibDateKey}
               dailyLogsByDate={dailyLogsByDate}
               bodyMetricLogs={bodyMetricLogs}
               trackingPassPlans={trackingPassPlans}
+              activePrograms={myPlanIndexItems.filter((p) => !p.isCompleted && !p.isUpcoming)}
+              upcomingPrograms={myPlanIndexItems.filter((p) => p.isUpcoming)}
               completedPrograms={myPlanIndexItems.filter((p) => p.isCompleted)}
+              userName={user.fullName}
               userGender={user.gender}
               userAge={user.age}
               checkoutLoadingPlanId={passCheckoutLoadingId}
@@ -894,11 +902,23 @@ export function DashboardClient({
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               onSelectTrackingPass={handleOpenTrackingPassCheckout}
+              onOpenProgram={(programId) => {
+                setLastMyPlanPage("intro");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
               onOpenPastProgram={(programId) => {
                 setLastMyPlanPage("intro");
                 setSelectedProgId(programId);
                 setMyPlanView("detail");
                 setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onViewAllPrograms={() => {
+                setLastMyPlanPage("all");
+                setMyPlanView("all");
                 window.scrollTo({ top: 0 });
               }}
             />
@@ -1104,6 +1124,11 @@ export function DashboardClient({
                 setLastMyPlanPage("all");
                 setMyPlanView("all");
                 window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              onBackToTodayHub={() => {
+                setMyPlanView("intro");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
               }}
               onSelectPlan={(id) => {
                 setSelectedProgId(id);

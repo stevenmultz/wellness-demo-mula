@@ -104,7 +104,7 @@ export function MyPlanHeader({
 }) {
   const { t } = useLocale();
   const isListSubPage =
-    mode === "all" || mode === "ongoing" || mode === "upcoming" || mode === "done";
+    mode === "all" || mode === "ongoing" || mode === "upcoming" || mode === "done" || mode === "detail";
 
   return (
     <FloatingHeader visible={visible} transparent={overlay}>
@@ -168,6 +168,7 @@ export function MyPlanOverview({
   selectedProgramId,
   onSelectPlan,
   onViewAllPrograms,
+  onBackToTodayHub,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -177,6 +178,7 @@ export function MyPlanOverview({
   onExplore: () => void;
   onViewHistory?: () => void;
   onViewAllPrograms?: () => void;
+  onBackToTodayHub?: () => void;
   onOpenDetails: () => void;
   historyDays: PlanDay[];
   allProgramDays?: PlanDay[];
@@ -236,7 +238,9 @@ export function MyPlanOverview({
 }) {
   const { locale, t } = useLocale();
 
-  const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
+  const { checks, activities, initialDone } = evaluateDayTaskState(day, checklist);
+  const pendingCustomTasksCount = (day?.customTasks ?? []).filter((ct) => !ct.submission).length;
+  const pendingTasksCount = (day && !initialDone[1] ? 1 : 0) + pendingCustomTasksCount;
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
   // Both HYBRID (from batch start) and ONLINE (from join date) obey WIB calendar drip windows
@@ -613,6 +617,7 @@ export function MyPlanOverview({
                   onSwitchWidget={setWidgetIndex}
                   selectedDayId={selectedDayId}
                   onSelectDayId={setSelectedDayId}
+                  onBackToTodayHub={onBackToTodayHub}
                 />
               ) : (
                 <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />

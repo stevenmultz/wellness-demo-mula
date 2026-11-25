@@ -97,6 +97,7 @@ export interface DailyCheckInProps {
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
   selectedDayId?: string;
   onSelectDayId?: (dayId: string) => void;
+  onBackToTodayHub?: () => void;
 }
 
 export function getTasksForDay(dayType: string) {
