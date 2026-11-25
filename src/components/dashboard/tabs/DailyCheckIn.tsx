@@ -148,11 +148,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     [isSelectedToday, done, selectedDay, selectedActivities, selectedChecks]
   );
 
-  const selectedLocked = isAnytime ? false : isSelectedToday ? locked : true;
+  const isStandalone = Boolean(props.isStandalone);
+  const isFeatureLocked = Boolean(props.isFeatureLocked);
+  const selectedLocked = isFeatureLocked
+    ? true
+    : isStandalone
+      ? Boolean(selectedDay.isPast2359)
+      : isAnytime
+        ? false
+        : isSelectedToday
+          ? locked
+          : true;
   const tasks = useMemo(() => getTasksForDay(selectedDay.dayType), [selectedDay.dayType]);
 
   const openDetail = (index: number) => {
-    if (isSelectedFuture) return;
+    if (isFeatureLocked || isSelectedFuture) return;
     setStep(index);
     setDetailOpen(true);
   };
@@ -198,7 +208,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   }, [selectedDay.id, selectedDay.userProgress?.stepsCount]);
 
   const openStepsModal = () => {
-    if (isSelectedFuture) return;
+    if (isFeatureLocked || isSelectedFuture) return;
     setDraftSteps(steps);
     setShowCustomSteps(false);
     setCustomStepsInput("");
@@ -233,9 +243,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   const stepsDone = steps > 0 || Boolean(selectedDay.userProgress?.isCompleted);
-  const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
-  const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
-  const totalTasks = tasks.length + 1 + customTasksList.length;
+  const activeCoreTaskEntries = tasks
+    .map((t, index) => ({ t, index }))
+    .filter(({ index }) => (!isStandalone ? true : index !== 1));
+  const coreDoneCount = activeCoreTaskEntries.filter(({ index }) => selectedDone[index]).length;
+  const customDoneCount = isStandalone
+    ? 0
+    : customTasksList.filter((ct) => Boolean(ct.submission)).length;
+  const totalTasks = activeCoreTaskEntries.length + 1 + (isStandalone ? 0 : customTasksList.length);
   const completedTasks = coreDoneCount + (stepsDone ? 1 : 0) + customDoneCount;
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -429,7 +444,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   }
 
   const taskTiles: DailyTaskTile[] = [
-    ...tasks.map((t, index) => {
+    ...activeCoreTaskEntries.map(({ t, index }) => {
       const isDone = selectedDone[index];
       return {
         key: `core-${t.title}`,
@@ -437,7 +452,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         durationLabel: getCoreDurationLabel(index),
         isDone,
         Icon: getCoreFillIcon(index),
-        disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
+        disabled: isFeatureLocked || isSelectedFuture || (selectedLocked && !isSelectedPast && !isDone),
         onOpen: () => openDetail(index),
       };
     }),
@@ -447,7 +462,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       durationLabel: steps > 0 ? `${steps.toLocaleString()} steps` : "1 min",
       isDone: stepsDone,
       Icon: FillFootprintsIcon,
-      disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
+      disabled: isFeatureLocked || isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
       onOpen: openStepsModal,
     },
     {
@@ -463,21 +478,31 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       isOptional: true,
       Icon: FillFlameIcon,
       disabled:
-        isSelectedFuture || (selectedLocked && !isSelectedPast && extraSessions.length === 0),
-      onOpen: () => setMoreTrainingOpen(true),
+        isFeatureLocked ||
+        isSelectedFuture ||
+        (selectedLocked && !isSelectedPast && extraSessions.length === 0),
+      onOpen: () => {
+        if (isFeatureLocked) return;
+        setMoreTrainingOpen(true);
+      },
     },
-    ...customTasksList.map((ct) => {
-      const isDone = Boolean(ct.submission);
-      return {
-        key: `custom-${ct.id}`,
-        title: ct.title,
-        durationLabel: getCustomDurationLabel(ct),
-        isDone,
-        Icon: getCustomFillIcon(ct),
-        disabled: isSelectedFuture || (selectedLocked && !isDone),
-        onOpen: () => setOpenCustomTaskId(ct.id),
-      };
-    }),
+    ...(isStandalone
+      ? []
+      : customTasksList.map((ct) => {
+          const isDone = Boolean(ct.submission);
+          return {
+            key: `custom-${ct.id}`,
+            title: ct.title,
+            durationLabel: getCustomDurationLabel(ct),
+            isDone,
+            Icon: getCustomFillIcon(ct),
+            disabled: isFeatureLocked || isSelectedFuture || (selectedLocked && !isDone),
+            onOpen: () => {
+              if (isFeatureLocked) return;
+              setOpenCustomTaskId(ct.id);
+            },
+          };
+        })),
   ];
 
   return (
@@ -520,21 +545,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Today's Focus Widget */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-            <FillSparkleIcon className="w-3.5 h-3.5" />
-          </span>
-          <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-            {isId ? "Fokus Hari Ini" : "Today's Focus"}
-          </span>
-        </div>
+      {/* Today's Focus Widget (Program mode only) */}
+      {!isStandalone && (
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+              <FillSparkleIcon className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+              {isId ? "Fokus Hari Ini" : "Today's Focus"}
+            </span>
+          </div>
 
-        <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white leading-snug">
-          {todayFocusTitle}
-        </p>
-      </div>
+          <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white leading-snug">
+            {todayFocusTitle}
+          </p>
+        </div>
+      )}
 
       {/* Overtraining / Recovery Non-Blocking Advisory */}
       {loadAdvisory.isHighLoad && (
@@ -668,33 +695,35 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* Community Group Chat Widget */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
-        <div className="space-y-0.5 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-              <Users className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-              {isId ? "Grup Komunitas Cohort" : "Cohort Community Chat"}
-            </span>
+      {/* Community Group Chat Widget (Program mode only) */}
+      {!isStandalone && (
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                <Users className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                {isId ? "Grup Komunitas Cohort" : "Cohort Community Chat"}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
+              {isId
+                ? "Diskusi dan berbagi progres bersama sesama anggota cohort."
+                : "Chat and share progress with fellow cohort members."}
+            </p>
           </div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
-            {isId
-              ? "Diskusi dan berbagi progres bersama sesama anggota cohort."
-              : "Chat and share progress with fellow cohort members."}
-          </p>
-        </div>
 
-        <button
-          type="button"
-          onClick={handleOpenGroupChat}
-          className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-        >
-          <MessageCircle className="w-3.5 h-3.5" />
-          <span>{isId ? "Buka Group Chat" : "Group Chat"}</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={handleOpenGroupChat}
+            className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span>{isId ? "Buka Group Chat" : "Group Chat"}</span>
+          </button>
+        </div>
+      )}
 
       {/* Custom Coach Task Modal Host (opened directly when tapping custom task tiles) */}
       {customTasksList.length > 0 && (

@@ -15,8 +15,11 @@ import type { TrackingAccessStatusDTO } from "@/wellness/services/tracking-entit
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
 import {
   WIB_OFFSET_MS,
+  addWibDays,
+  formatDateOnlyKey,
   formatWibDateKey,
   getWibCalendarDate,
+  parseWibDateKey,
 } from "@/wellness/utils/timezone";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
@@ -35,6 +38,7 @@ import {
   MyPlanOverview,
   MyPlanUpcomingPage,
   type MyPlanSubView,
+  type PlanDay,
 } from "./tabs/MyPlanTab";
 import { ExplorePlanTab, type ExploreViewMode } from "./tabs/ExplorePlanTab";
 import { NotificationsHistoryTab } from "./tabs/NotificationsHistoryTab";
@@ -650,10 +654,95 @@ export function DashboardClient({
     }
     return count;
   }, [activeEnrollments, programById, todayWibDateKey]);
-  const showMaintenanceHub =
+  const showStandaloneNoProgram =
     activeEnrollments.length === 0 &&
-    (hasMaintenanceOrArchive || resolvedTrackingAccess.hasAnyHistory) &&
     myPlanView === "intro";
+
+  const standaloneDays = useMemo<PlanDay[]>(() => {
+    const base = parseWibDateKey(todayWibDateKey);
+    if (!base) return [];
+    const yesterdayKey = formatDateOnlyKey(addWibDays(base, -1));
+    const list: PlanDay[] = [];
+    for (let offset = -13; offset <= 0; offset++) {
+      const dt = addWibDays(base, offset);
+      const dateKey = formatDateOnlyKey(dt);
+      const gLog = dailyLogsByDate[dateKey] ?? null;
+      const isEditable = dateKey === todayWibDateKey || dateKey === yesterdayKey;
+
+      let mealComp: string | null = null;
+      if (gLog?.mealQualityMode === "ON_PLAN") mealComp = "FULL";
+      else if (gLog?.mealQualityMode === "PARTIAL") mealComp = "PARTIAL";
+      else if (gLog?.mealQualityMode === "OFF_TRACK") mealComp = "OFF_TRACK";
+      else if (gLog?.mealQualityMode === "SELF_LOGGED") mealComp = "SELF_LOGGED";
+
+      const serializedMealNotes =
+        gLog &&
+        (gLog.mealQualityMode != null ||
+          gLog.caloriesKcal > 0 ||
+          gLog.carbsG > 0 ||
+          gLog.proteinG > 0 ||
+          gLog.fatG > 0)
+          ? JSON.stringify({
+              mealsCount: gLog.mealsCount || 1,
+              mealFeeling: gLog.mealFeeling || undefined,
+              calories: gLog.caloriesKcal,
+              carbsG: gLog.carbsG,
+              proteinG: gLog.proteinG,
+              fatG: gLog.fatG,
+              mealEntries: Array.isArray(gLog.mealEntriesJson) ? gLog.mealEntriesJson : [],
+            })
+          : null;
+
+      list.push({
+        id: `standalone-${dateKey}`,
+        dayNumber: offset + 14,
+        title: "Daily Wellness",
+        dayType: "REST_DAY",
+        wibDateKey: dateKey,
+        unlockDate: dt.toISOString(),
+        isCalendarUnlocked: true,
+        isPast2359: !isEditable,
+        videoUrl: null,
+        videoChecklist: [],
+        mealRecommendation: null,
+        meetupLink: null,
+        onsiteVenue: null,
+        onsiteSchedule: null,
+        restInstructions: null,
+        customTasks: [],
+        userProgress: gLog
+          ? {
+              videoWatched: false,
+              isCompleted: false,
+              checklistCompleted: null,
+              bedtime: gLog.bedtime,
+              wakeTime: gLog.wakeTime,
+              sleepDurationMinutes: gLog.sleepDurationMinutes,
+              assessmentResponse: gLog.sleepFeeling
+                ? `Sleep Feeling: ${gLog.sleepFeeling}`
+                : null,
+              mealCompliance: mealComp,
+              mealNotes: serializedMealNotes,
+              waterMl: gLog.waterMl,
+              stepsCount: gLog.stepsCount,
+              stepsBurnedKcal: gLog.stepsBurnedKcal,
+              caloriesKcal: gLog.caloriesKcal,
+              carbsG: gLog.carbsG,
+              proteinG: gLog.proteinG,
+              fatG: gLog.fatG,
+              mealQualityMode: gLog.mealQualityMode,
+              extraWorkouts: gLog.extraWorkouts ?? [],
+            }
+          : null,
+      });
+    }
+    return list;
+  }, [todayWibDateKey, dailyLogsByDate]);
+
+  const standaloneTodayDay = standaloneDays[standaloneDays.length - 1] ?? null;
+
+  const extractStandaloneDateKey = (dayId?: string) =>
+    dayId?.startsWith("standalone-") ? dayId.slice("standalone-".length) : todayWibDateKey;
   const planOptions = allActiveEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
   const myPlanIndexItems = allActiveEnrollments.map((e) => {
     const fullProg = programById.get(e.programId);
@@ -869,38 +958,64 @@ export function DashboardClient({
         )}
 
         <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
-          {showMaintenanceHub ? (
-            <MaintenanceWellnessView
+          {showStandaloneNoProgram ? (
+            <MyPlanOverview
+              isStandalone
+              isSubscribed={resolvedTrackingAccess.canWriteDailyLogs}
               trackingAccess={resolvedTrackingAccess}
-              todayDateKey={todayWibDateKey}
-              dailyLogsByDate={dailyLogsByDate}
-              bodyMetricLogs={bodyMetricLogs}
               trackingPassPlans={trackingPassPlans}
-              completedPrograms={myPlanIndexItems.filter((p) => p.isCompleted)}
-              userGender={user.gender}
-              userAge={user.age}
+              onSelectTrackingPass={handleOpenTrackingPassCheckout}
               checkoutLoadingPlanId={passCheckoutLoadingId}
-              onSaveSleep={handleSaveSleep}
-              onSaveWater={handleSaveWater}
-              onSaveSteps={handleSaveSteps}
-              onSaveMeal={handleSaveMeal}
-              onAddExtraWorkout={handleAddExtraWorkout}
-              onDeleteExtraWorkout={handleDeleteExtraWorkout}
-              onLogSelfBodyWeight={handleLogSelfBodyWeight}
-              onOpenGrowthAnalytics={() => setShowGrowthAnalytics(true)}
-              onOpenExplore={() => {
+              program={null}
+              plan={null}
+              day={standaloneTodayDay}
+              stats={{
+                completed: 0,
+                skipped: 0,
+                remaining: standaloneDays.length,
+                segments: [],
+              }}
+              checklist={undefined}
+              historyDays={standaloneDays}
+              allProgramDays={standaloneDays}
+              onExplore={() => {
                 setExploreView("catalog");
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              onSelectTrackingPass={handleOpenTrackingPassCheckout}
-              onOpenPastProgram={(programId) => {
-                setLastMyPlanPage("intro");
-                setSelectedProgId(programId);
-                setMyPlanView("detail");
-                setIsOverHero(true);
-                window.scrollTo({ top: 0 });
-              }}
+              onOpenDetails={() => {}}
+              onToggleCheck={async () => {}}
+              onSelectWorkout={async () => false}
+              onOpenVideo={async () => false}
+              onSaveSleep={(bed, wake, mins, dayId, feeling) =>
+                handleSaveSleep(bed, wake, mins, undefined, feeling, extractStandaloneDateKey(dayId))
+              }
+              onSaveMeal={(comp, notes, dayId) =>
+                handleSaveMeal(comp, notes, undefined, extractStandaloneDateKey(dayId))
+              }
+              onSaveWater={(waterMl, dayId) =>
+                handleSaveWater(waterMl, undefined, extractStandaloneDateKey(dayId))
+              }
+              onSaveSteps={(stepsCount, dayId) =>
+                handleSaveSteps(stepsCount, undefined, extractStandaloneDateKey(dayId))
+              }
+              onAddExtraWorkout={(payload) =>
+                handleAddExtraWorkout({ ...payload, programDayId: null })
+              }
+              onUpdateExtraWorkout={handleUpdateExtraWorkout}
+              onDeleteExtraWorkout={(id, logDate) =>
+                handleDeleteExtraWorkout(id, logDate, null)
+              }
+              onSaveAttendance={async () => false}
+              onSaveWorkoutNotes={async () => false}
+              onCompleteDay={async () => false}
+              bodyMetricLogs={bodyMetricLogs}
+              userName={user.fullName}
+              userAvatarUrl={user.avatarUrl}
+              userEmail={user.email}
+              userGender={user.gender}
+              userAge={user.age}
+              onOpenGrowthAnalytics={() => setShowGrowthAnalytics(true)}
             />
           ) : allActiveEnrollments.length === 0 ? (
             <MyPlanNoPlanPage

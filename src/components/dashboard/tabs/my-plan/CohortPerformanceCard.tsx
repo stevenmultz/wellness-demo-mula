@@ -1811,7 +1811,7 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-3 sm:space-y-4">
-      {/* Row 1 (50/50): Weight & Commitment */}
+      {/* Row 1 (50/50): Weight & Daily Steps */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <WeightSummaryWidget
           days={sorted}
@@ -1819,11 +1819,7 @@ export function CohortPerformanceCard({
           programId={programId}
           currentDayNumber={currentDayNumber}
         />
-        <ProgramCommitmentWidget
-          pct={commitmentPct}
-          deltaPct={commitmentDelta}
-          hasData={hasCommitmentData}
-        />
+        <DailyStepsMetricWidget days={sorted} currentDayNumber={currentDayNumber} />
       </div>
 
       {/* Row 2 (50/50): Calories & Water */}
@@ -1834,12 +1830,6 @@ export function CohortPerformanceCard({
           calorieTarget={calorieTarget}
         />
         <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
-      </div>
-
-      {/* Row 3 (50/50): Daily Steps & More Training */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <DailyStepsMetricWidget days={sorted} currentDayNumber={currentDayNumber} />
-        <MoreTrainingMetricWidget days={sorted} currentDayNumber={currentDayNumber} />
       </div>
 
       {/* Row 4: Training (7-Column Heatmap Grid - WIB Weekday Aligned) */}
@@ -1960,20 +1950,10 @@ export function CohortPerformanceCard({
             </li>
 
             <li>
-              <strong className="text-zinc-950 dark:text-white">Program Commitment:</strong>{" "}
-              {isId
-                ? `Skor gabungan 5 task: ${Math.round(wNoC.activity * 100)}% Aktivitas, ${Math.round(wNoC.meal * 100)}% Meal, ${Math.round(wNoC.sleep * 100)}% Tidur, ${Math.round(wNoC.water * 100)}% Air, ${Math.round(wNoC.steps * 100)}% Steps (dengan Custom Task: ${Math.round(wWithC.activity * 100)}/${Math.round(wWithC.meal * 100)}/${Math.round(wWithC.sleep * 100)}/${Math.round(wWithC.water * 100)}/${Math.round(wWithC.steps * 100)}/${Math.round(wWithC.custom * 100)}%). Hari berjalan tidak memberi penalti pagi sebelum mulai dicatat.`
-                : `5-task composite: ${Math.round(wNoC.activity * 100)}% Activity, ${Math.round(wNoC.meal * 100)}% Meal, ${Math.round(wNoC.sleep * 100)}% Sleep, ${Math.round(wNoC.water * 100)}% Water, ${Math.round(wNoC.steps * 100)}% Steps (with Custom Tasks: ${Math.round(wWithC.activity * 100)}/${Math.round(wWithC.meal * 100)}/${Math.round(wWithC.sleep * 100)}/${Math.round(wWithC.water * 100)}/${Math.round(wWithC.steps * 100)}/${Math.round(wWithC.custom * 100)}%). Active today is excluded until started (no morning penalty).`}
-              <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                GOOD: ≥ 80% · AVG: 50%–79% · BAD: &lt; 50%
-              </div>
-            </li>
-
-            <li>
               <strong className="text-zinc-950 dark:text-white">Calories (Net):</strong>{" "}
               {isId
-                ? `Kalori makanan dikurangi Steps (0.04 kcal/step) & More Training (kecuali yang ditandai sudah termasuk Steps). Target harian Anda: ${calorieTarget.targetKcal.toLocaleString()} kcal ${calorieTarget.isPersonalized ? "(Mifflin-St Jeor personal)" : "(standar)"}.`
-                : `Food intake minus Steps (0.04 kcal/step) & More Training (excluding sessions already counted in Steps). Your daily target: ${calorieTarget.targetKcal.toLocaleString()} kcal ${calorieTarget.isPersonalized ? "(personalized Mifflin-St Jeor)" : "(baseline)"}.`}
+                ? `Kalori makanan dikurangi Steps (0.04 kcal/step) & aktivitas ekstra (kecuali yang ditandai sudah termasuk Steps). Target harian Anda: ${calorieTarget.targetKcal.toLocaleString()} kcal ${calorieTarget.isPersonalized ? "(Mifflin-St Jeor personal)" : "(standar)"}.`
+                : `Food intake minus Steps (0.04 kcal/step) & extra workouts (excluding sessions already counted in Steps). Your daily target: ${calorieTarget.targetKcal.toLocaleString()} kcal ${calorieTarget.isPersonalized ? "(personalized Mifflin-St Jeor)" : "(baseline)"}.`}
               <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                 GOOD: {calorieTarget.goodMinKcal.toLocaleString()}–{calorieTarget.goodMaxKcal.toLocaleString()} kcal · AVG: {calorieTarget.avgLowMinKcal.toLocaleString()}–{(calorieTarget.goodMinKcal - 1).toLocaleString()} / {(calorieTarget.goodMaxKcal + 1).toLocaleString()}–{calorieTarget.avgHighMaxKcal.toLocaleString()}
               </div>
@@ -1990,10 +1970,10 @@ export function CohortPerformanceCard({
             </li>
 
             <li>
-              <strong className="text-zinc-950 dark:text-white">Daily Steps &amp; More Training:</strong>{" "}
+              <strong className="text-zinc-950 dark:text-white">Daily Steps:</strong>{" "}
               {isId
-                ? `Target langkah harian ${STEPS_TARGET_DAILY.toLocaleString()} langkah (~40 kcal/1.000 langkah). More Training bersifat opsional dan mencatat sesi latihan ekstra.`
-                : `Daily goal ${STEPS_TARGET_DAILY.toLocaleString()} steps (~40 kcal/1,000 steps). More Training is optional and logs bonus sessions.`}
+                ? `Target langkah harian ${STEPS_TARGET_DAILY.toLocaleString()} langkah (~40 kcal/1.000 langkah).`
+                : `Daily goal ${STEPS_TARGET_DAILY.toLocaleString()} steps (~40 kcal/1,000 steps).`}
               <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                 Steps — GOOD: ≥ {STEPS_GOOD_MIN.toLocaleString()} · AVG: {STEPS_AVG_MIN.toLocaleString()}–{(STEPS_GOOD_MIN - 1).toLocaleString()} · BAD: &lt; {STEPS_AVG_MIN.toLocaleString()}
               </div>

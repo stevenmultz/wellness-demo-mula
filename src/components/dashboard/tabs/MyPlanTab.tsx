@@ -4,18 +4,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
+  ArrowRight,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
   ExternalLink,
+  Loader2,
+  Lock,
   Shield,
+  Sparkles,
   User as UserIcon,
   Users,
   X,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import type { TrackingAccessStatusDTO } from "@/wellness/services/tracking-entitlement";
+import type { TrackingPassPlanDTO } from "@/wellness/actions/tracking-pass";
 import { getWibCalendarDate } from "@/wellness/utils/timezone";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { DailyCheckIn } from "./DailyCheckIn";
@@ -168,6 +174,12 @@ export function MyPlanOverview({
   selectedProgramId,
   onSelectPlan,
   onViewAllPrograms,
+  isStandalone = false,
+  isSubscribed = true,
+  trackingAccess,
+  trackingPassPlans = [],
+  onSelectTrackingPass,
+  checkoutLoadingPlanId,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -233,10 +245,29 @@ export function MyPlanOverview({
   plans?: PlanOption[];
   selectedProgramId?: string;
   onSelectPlan?: (programId: string) => void;
+  isStandalone?: boolean;
+  isSubscribed?: boolean;
+  trackingAccess?: TrackingAccessStatusDTO;
+  trackingPassPlans?: TrackingPassPlanDTO[];
+  onSelectTrackingPass?: (planId: string) => void;
+  checkoutLoadingPlanId?: string | null;
 }) {
   const { locale, t } = useLocale();
+  const isId = locale === "id";
+  const isFeatureLocked = isStandalone && !isSubscribed;
+  const primaryPassPlan = trackingPassPlans[0] ?? null;
 
-  const { checks, activities, initialDone, pendingTasksCount } = evaluateDayTaskState(day, checklist);
+  const { checks, activities, initialDone, pendingTasksCount: rawPendingCount } = evaluateDayTaskState(day, checklist);
+  const standalonePendingCount =
+    (initialDone[0] ? 0 : 1) +
+    (initialDone[2] ? 0 : 1) +
+    (initialDone[3] ? 0 : 1) +
+    ((day?.userProgress?.stepsCount ?? 0) > 0 ? 0 : 1);
+  const pendingTasksCount = isStandalone
+    ? isFeatureLocked
+      ? 0
+      : standalonePendingCount
+    : rawPendingCount;
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
   // Both HYBRID (from batch start) and ONLINE (from join date) obey WIB calendar drip windows
@@ -318,13 +349,13 @@ export function MyPlanOverview({
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
 
-  if (!program) {
+  if (!program && !isStandalone) {
     return <MyPlanNoPlanPage onExplore={onExplore} />;
   }
 
   const currentIndex = Math.max(
     0,
-    (plans || []).findIndex((p) => p.programId === (selectedProgramId || program.id))
+    (plans || []).findIndex((p) => p.programId === (selectedProgramId || program?.id || ""))
   );
   const totalPlans = plans && plans.length > 0 ? plans.length : 1;
 
@@ -360,38 +391,51 @@ export function MyPlanOverview({
     }
   };
 
-  const isUpcoming = !!program?.isUpcoming;
-  const activeWidget: 0 | 1 | 2 = isUpcoming ? 0 : widgetIndex;
+  const isUpcoming = !isStandalone && !!program?.isUpcoming;
+  const activeWidget: 0 | 1 | 2 = isStandalone
+    ? widgetIndex === 0
+      ? 1
+      : widgetIndex
+    : isUpcoming
+      ? 0
+      : widgetIndex;
 
   const handleWidgetTouchStart = (e: React.TouchEvent) => {
+    if (isFeatureLocked) return;
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
   };
 
   const handleWidgetTouchEnd = (e: React.TouchEvent) => {
-    if (isUpcoming || touchStartXRef.current === null || touchStartYRef.current === null) return;
+    if (isFeatureLocked || isUpcoming || touchStartXRef.current === null || touchStartYRef.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
     const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
     touchStartXRef.current = null;
     touchStartYRef.current = null;
     // Only switch tabs on clear, deliberate horizontal swipes (not vertical scrolling)
+    const minTab = isStandalone ? 1 : 0;
     if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
       if (deltaX < -80) {
         setWidgetIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
       } else if (deltaX > 80) {
-        setWidgetIndex((prev) => (prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev));
+        setWidgetIndex((prev) => (prev > minTab ? ((prev - 1) as 0 | 1 | 2) : prev));
       }
     }
   };
 
-  const showSubtabs = !!program;
-  const subtabs = isUpcoming
-    ? ([{ index: 0, label: t.myPlan.subtabGuides, count: 0 }] as const)
-    : ([
-        { index: 0, label: t.myPlan.subtabGuides, count: 0 },
-        { index: 1, label: t.myPlan.subtabTasks, count: pendingTasksCount },
-        { index: 2, label: t.myPlan.subtabMetrics, count: 0 },
-      ] as const);
+  const showSubtabs = isStandalone || !!program;
+  const subtabs = isStandalone
+    ? ([
+        { index: 1 as const, label: t.myPlan.subtabTasks, count: pendingTasksCount },
+        { index: 2 as const, label: t.myPlan.subtabMetrics, count: 0 },
+      ] as const)
+    : isUpcoming
+      ? ([{ index: 0 as const, label: t.myPlan.subtabGuides, count: 0 }] as const)
+      : ([
+          { index: 0 as const, label: t.myPlan.subtabGuides, count: 0 },
+          { index: 1 as const, label: t.myPlan.subtabTasks, count: pendingTasksCount },
+          { index: 2 as const, label: t.myPlan.subtabMetrics, count: 0 },
+        ] as const);
 
   const displayName = (userName || "Member").trim() || "Member";
   const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
@@ -399,240 +443,410 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Program name switcher (infinite loop left/right arrows; tap title to open All My Programs) */}
-      <div className="w-full flex items-center justify-between gap-2 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
-        <button
-          type="button"
-          onClick={handlePrevPlan}
-          disabled={!plans || plans.length <= 1}
-          aria-label="Previous program"
-          className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-
-        <button
-          type="button"
-          onClick={onViewAllPrograms || onExplore}
-          title="All my programs"
-          className="flex-1 min-w-0 h-8 px-2 rounded-xl hover:bg-zinc-300/40 dark:hover:bg-white/[0.06] flex items-center justify-center transition active:scale-[0.99] cursor-pointer"
-        >
-          <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-            {program.title}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleNextPlan}
-          disabled={!plans || plans.length <= 1}
-          aria-label="Next program"
-          className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* 1. Contained Image Banner */}
-      <section className="relative w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
-        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-          {program?.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={program.coverImage} alt="" className="w-full h-full object-cover object-center" />
-          ) : (
-            <div className="w-full h-full bg-zinc-800" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
-        </div>
-
-        {/* Top Row: Community Profile/Logo (Left) & Date Picker (Right) */}
-        <div className="relative z-10 flex items-center justify-between gap-2">
-          <div
-            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[55%] min-w-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+      {/* 0. Program name switcher (hidden in standalone no-program mode) */}
+      {!isStandalone && program && (
+        <div className="w-full flex items-center justify-between gap-2 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
+          <button
+            type="button"
+            onClick={handlePrevPlan}
+            disabled={!plans || plans.length <= 1}
+            aria-label="Previous program"
+            className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
           >
-            {program?.organizationLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={program.organizationLogo}
-                alt={program.organizationName || "Community"}
-                className="w-5 h-5 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-white">
-                <Users className="w-3 h-3" />
-              </span>
-            )}
-            <span className="text-xs font-semibold text-white truncate leading-tight">
-              {program?.organizationName || program?.coachName || "Community"}
-            </span>
-          </div>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
 
           <button
             type="button"
-            onClick={() => {
-              const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-              setCalendarMonth(new Date(w.year, w.month, 1));
-              setShowCalendarModal(true);
-            }}
-            aria-label="Select date from calendar"
-            className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            onClick={onViewAllPrograms || onExplore}
+            title="All my programs"
+            className="flex-1 min-w-0 h-8 px-2 rounded-xl hover:bg-zinc-300/40 dark:hover:bg-white/[0.06] flex items-center justify-center transition active:scale-[0.99] cursor-pointer"
           >
-            <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-              {activeFullDateStr}
+            <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate leading-normal">
+              {program.title}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
           </button>
-        </div>
 
-        {/* Bottom Row: Type + Sports Side-by-Side & Today Focus (Left) */}
-        <div className="relative z-20 flex flex-col items-start gap-2.5 pt-8">
-          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-            <span
-              className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                ? "Hybrid"
-                : (program?.locationType || "").toUpperCase() === "ONSITE"
-                  ? "Onsite"
-                  : "Online"}
-            </span>
-
-            <span
-              className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono font-medium text-white/90">
-            <span>
-              {locale === "id"
-                ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
-                : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
-            </span>
-            <span className="text-white/50 select-none">·</span>
-            <span>{activeDayTypeLabel}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Subtabs */}
-      {showSubtabs && (
-        <div
-          role="tablist"
-          aria-label="Program sections"
-          className={`rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 grid gap-1 ${
-            isUpcoming ? "grid-cols-1" : "grid-cols-3"
-          }`}
-        >
-          {subtabs.map(({ index, label, count }) => {
-            const active = activeWidget === index;
-            return (
-              <button
-                key={label}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setWidgetIndex(index)}
-                className={`h-9 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer ${
-                  active
-                    ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                }`}
-              >
-                <span>{label}</span>
-                {count > 0 && (
-                  <span
-                    aria-label="Incomplete tasks"
-                    className="semantic-badge-box w-2 h-2 rounded-full bg-[var(--semantic-red-dot)] shrink-0"
-                  />
-                )}
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            onClick={handleNextPlan}
+            disabled={!plans || plans.length <= 1}
+            aria-label="Next program"
+            className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* 4. Respective content widgets */}
-      <div
-        onTouchStart={handleWidgetTouchStart}
-        onTouchEnd={handleWidgetTouchEnd}
-        className="transition-all duration-200"
-      >
-        <div className={activeWidget === 0 ? "block" : "hidden"}>
-          <ProgramPreparationWidgets
-            program={program}
-            days={fullProgramDays}
-            currentDayId={day?.id}
-            onSwitchWidget={setWidgetIndex}
-            onOpenReport={() => setShowReportModal(true)}
-          />
-        </div>
+      {/* 1. Contained Image Banner (Program Banner vs Explore Program Banner when no active program) */}
+      {isStandalone ? (
+        <section className="relative w-full rounded-3xl bg-zinc-950 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="w-full h-full bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.14),_rgba(24,24,27,0.96)_60%)]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20" />
+          </div>
 
-        {!isUpcoming && (
-          <>
-            <div className={activeWidget === 1 ? "block" : "hidden"}>
-              {day ? (
-                <DailyCheckIn
-                  key={day.id}
-                  day={day}
-                  pastDays={historyDays}
-                  allProgramDays={allProgramDays}
-                  communityLink={program.communityLink}
-                  coachName={program.coachName}
-                  onOpenCommunity={() => setShowCommunityModal(true)}
-                  programTitle={program.title}
-                  programVenueAddress={program.venueAddress}
-                  locked={locked}
-                  isAnytime={!hasCalendarSchedule}
-                  activities={activities}
-                  checks={checks}
-                  initialDone={initialDone}
-                  onToggleCheck={onToggleCheck}
-                  onSyncChecklist={onSyncChecklist}
-                  onSelectWorkout={onSelectWorkout}
-                  onOpenVideo={onOpenVideo}
-                  onSaveSleep={onSaveSleep}
-                  onSaveAttendance={onSaveAttendance}
-                  onSaveWorkoutNotes={onSaveWorkoutNotes}
-                  onSaveMeal={onSaveMeal}
-                  onSaveWater={onSaveWater}
-                  onSaveSteps={onSaveSteps}
-                  onAddExtraWorkout={onAddExtraWorkout}
-                  onUpdateExtraWorkout={onUpdateExtraWorkout}
-                  onDeleteExtraWorkout={onDeleteExtraWorkout}
-                  overlappingTrainingCount={overlappingTrainingCount}
-                  onSaveReflection={onSaveReflection}
-                  onCompleteDay={onCompleteDay}
-                  onCustomTaskSubmitted={onCustomTaskSubmitted}
-                  widgetIndex={widgetIndex}
-                  onSwitchWidget={setWidgetIndex}
-                  selectedDayId={selectedDayId}
-                  onSelectDayId={setSelectedDayId}
-                />
+          {/* Top Row: Subscription Status Badge (Left) & Date Picker (Right) */}
+          <div className="relative z-10 flex items-center justify-between gap-2">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[60%] min-w-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              {isSubscribed ? (
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               ) : (
-                <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
+                <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              )}
+              <span className="text-[11px] font-mono font-semibold text-white truncate leading-tight">
+                {isSubscribed
+                  ? isId
+                    ? `Tracking Aktif · ${trackingAccess?.daysRemaining ?? 0}h`
+                    : `Active Pass · ${trackingAccess?.daysRemaining ?? 0}d left`
+                  : isId
+                    ? "Belum Berlangganan"
+                    : "Not Subscribed"}
+              </span>
+            </div>
+
+            {isSubscribed ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+                  setCalendarMonth(new Date(w.year, w.month, 1));
+                  setShowCalendarModal(true);
+                }}
+                aria-label="Select date from calendar"
+                className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
+                  {activeFullDateStr}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center px-3 py-1.5 rounded-full backdrop-blur-md border border-white/15 text-xs font-geometric font-semibold text-white/80 shrink-0 whitespace-nowrap"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {activeFullDateStr}
+              </span>
+            )}
+          </div>
+
+          {/* Bottom Row: Explore Programs CTA */}
+          <div className="relative z-20 flex flex-col items-start gap-2.5 pt-6">
+            <div className="space-y-1 max-w-lg">
+              <h2 className="text-lg sm:text-xl font-geometric font-semibold tracking-tight text-white leading-snug">
+                {isId ? "Jelajahi Program Coach" : "Explore Coach Programs"}
+              </h2>
+              <p className="text-xs text-white/75 leading-relaxed">
+                {isId
+                  ? "Ikuti program latihan terstruktur dari coach pilihan — sudah termasuk bonus akses tracking harian."
+                  : "Join structured coach-led programs — includes bonus access to daily wellness tracking."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={onExplore}
+                className="px-4 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer shadow-sm"
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>{isId ? "Explore Program" : "Explore Programs"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              {!isSubscribed && primaryPassPlan && onSelectTrackingPass && (
+                <button
+                  type="button"
+                  disabled={checkoutLoadingPlanId === primaryPassPlan.id}
+                  onClick={() => onSelectTrackingPass(primaryPassPlan.id)}
+                  className="px-4 py-2 rounded-full bg-white/12 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer disabled:opacity-50"
+                >
+                  {checkoutLoadingPlanId === primaryPassPlan.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                  <span>
+                    {isId
+                      ? `Subscribe Pass · Rp ${primaryPassPlan.price.toLocaleString("id-ID")}`
+                      : `Subscribe Pass · Rp ${primaryPassPlan.price.toLocaleString("id-ID")}`}
+                  </span>
+                </button>
               )}
             </div>
+          </div>
+        </section>
+      ) : (
+        <section className="relative w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
+          <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            {program?.coverImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={program.coverImage} alt="" className="w-full h-full object-cover object-center" />
+            ) : (
+              <div className="w-full h-full bg-zinc-800" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
+          </div>
 
-            <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
-              <CohortPerformanceCard
+          {/* Top Row: Community Profile/Logo (Left) & Date Picker (Right) */}
+          <div className="relative z-10 flex items-center justify-between gap-2">
+            <div
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[55%] min-w-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              {program?.organizationLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={program.organizationLogo}
+                  alt={program.organizationName || "Community"}
+                  className="w-5 h-5 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-white">
+                  <Users className="w-3 h-3" />
+                </span>
+              )}
+              <span className="text-xs font-semibold text-white truncate leading-tight">
+                {program?.organizationName || program?.coachName || "Community"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+                setCalendarMonth(new Date(w.year, w.month, 1));
+                setShowCalendarModal(true);
+              }}
+              aria-label="Select date from calendar"
+              className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
+                {activeFullDateStr}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
+            </button>
+          </div>
+
+          {/* Bottom Row: Type + Sports Side-by-Side & Today Focus (Left) */}
+          <div className="relative z-20 flex flex-col items-start gap-2.5 pt-8">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                  ? "Hybrid"
+                  : (program?.locationType || "").toUpperCase() === "ONSITE"
+                    ? "Onsite"
+                    : "Online"}
+              </span>
+
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono font-medium text-white/90">
+              <span>
+                {locale === "id"
+                  ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
+                  : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
+              </span>
+              <span className="text-white/50 select-none">·</span>
+              <span>{activeDayTypeLabel}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 2. Subscription Lock Notice (shown only when standalone & not subscribed) */}
+      {isFeatureLocked && (
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.05] border border-zinc-300/70 dark:border-white/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0 mt-0.5">
+              <Lock className="w-4 h-4" />
+            </span>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white">
+                {isId ? "Berlangganan untuk Membuka Semua Fitur" : "Subscribe to Unlock All Features"}
+              </p>
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                {isId
+                  ? "Sleep, Meal, Water, Daily Steps, More Training & Metrics dapat digunakan setelah berlangganan Tracking Pass atau mengikuti Program Coach."
+                  : "Sleep, Meal, Water, Daily Steps, More Training & Metrics unlock once you subscribe to Tracking Pass or join a Coach Program."}
+              </p>
+            </div>
+          </div>
+
+          {primaryPassPlan && onSelectTrackingPass ? (
+            <button
+              type="button"
+              disabled={checkoutLoadingPlanId === primaryPassPlan.id}
+              onClick={() => onSelectTrackingPass(primaryPassPlan.id)}
+              className="px-4 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {checkoutLoadingPlanId === primaryPassPlan.id ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              <span>{isId ? "Aktifkan Langganan" : "Subscribe Now"}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onExplore}
+              className="px-4 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer inline-flex items-center justify-center gap-1.5"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>{isId ? "Explore Program" : "Explore Programs"}</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 3 & 4. Subtabs + Content Widgets (Dimmed & Non-Interactive when not subscribed in standalone mode) */}
+      <div
+        aria-disabled={isFeatureLocked || undefined}
+        className={
+          isFeatureLocked
+            ? "space-y-4 sm:space-y-5 opacity-45 grayscale-[25%] select-none pointer-events-none"
+            : "space-y-4 sm:space-y-5"
+        }
+      >
+        {showSubtabs && (
+          <div
+            role="tablist"
+            aria-label="Program sections"
+            className={`rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 grid gap-1 ${
+              isUpcoming ? "grid-cols-1" : isStandalone ? "grid-cols-2" : "grid-cols-3"
+            }`}
+          >
+            {subtabs.map(({ index, label, count }) => {
+              const active = activeWidget === index;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  disabled={isFeatureLocked}
+                  tabIndex={isFeatureLocked ? -1 : undefined}
+                  onClick={() => {
+                    if (isFeatureLocked) return;
+                    setWidgetIndex(index);
+                  }}
+                  className={`h-9 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed ${
+                    active
+                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
+                      : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>{label}</span>
+                  {count > 0 && (
+                    <span
+                      aria-label="Incomplete tasks"
+                      className="semantic-badge-box w-2 h-2 rounded-full bg-[var(--semantic-red-dot)] shrink-0"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 4. Respective content widgets */}
+        <div
+          onTouchStart={handleWidgetTouchStart}
+          onTouchEnd={handleWidgetTouchEnd}
+          className="transition-all duration-200"
+        >
+          {!isStandalone && program && (
+            <div className={activeWidget === 0 ? "block" : "hidden"}>
+              <ProgramPreparationWidgets
+                program={program}
                 days={fullProgramDays}
-                currentDayNumber={currentDayNumber}
-                bodyMetricLogs={bodyMetricLogs}
-                programId={program.id}
-                userGender={userGender}
-                userAge={userAge}
-                onOpenGrowthAnalytics={onOpenGrowthAnalytics}
+                currentDayId={day?.id}
                 onSwitchWidget={setWidgetIndex}
+                onOpenReport={() => setShowReportModal(true)}
               />
             </div>
-          </>
-        )}
+          )}
+
+          {!isUpcoming && (
+            <>
+              <div className={activeWidget === 1 ? "block" : "hidden"}>
+                {day ? (
+                  <DailyCheckIn
+                    key={day.id}
+                    day={day}
+                    pastDays={historyDays}
+                    allProgramDays={allProgramDays}
+                    communityLink={program?.communityLink}
+                    coachName={program?.coachName}
+                    onOpenCommunity={() => setShowCommunityModal(true)}
+                    programTitle={program?.title || "Daily Wellness"}
+                    programVenueAddress={program?.venueAddress}
+                    locked={isFeatureLocked ? true : locked}
+                    isAnytime={!hasCalendarSchedule}
+                    isStandalone={isStandalone}
+                    isFeatureLocked={isFeatureLocked}
+                    activities={activities}
+                    checks={checks}
+                    initialDone={initialDone}
+                    onToggleCheck={onToggleCheck}
+                    onSyncChecklist={onSyncChecklist}
+                    onSelectWorkout={onSelectWorkout}
+                    onOpenVideo={onOpenVideo}
+                    onSaveSleep={onSaveSleep}
+                    onSaveAttendance={onSaveAttendance}
+                    onSaveWorkoutNotes={onSaveWorkoutNotes}
+                    onSaveMeal={onSaveMeal}
+                    onSaveWater={onSaveWater}
+                    onSaveSteps={onSaveSteps}
+                    onAddExtraWorkout={onAddExtraWorkout}
+                    onUpdateExtraWorkout={onUpdateExtraWorkout}
+                    onDeleteExtraWorkout={onDeleteExtraWorkout}
+                    overlappingTrainingCount={overlappingTrainingCount}
+                    onSaveReflection={onSaveReflection}
+                    onCompleteDay={onCompleteDay}
+                    onCustomTaskSubmitted={onCustomTaskSubmitted}
+                    widgetIndex={widgetIndex}
+                    onSwitchWidget={setWidgetIndex}
+                    selectedDayId={selectedDayId}
+                    onSelectDayId={setSelectedDayId}
+                  />
+                ) : (
+                  <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
+                )}
+              </div>
+
+              <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
+                <CohortPerformanceCard
+                  days={fullProgramDays}
+                  currentDayNumber={currentDayNumber}
+                  bodyMetricLogs={bodyMetricLogs}
+                  programId={program?.id || "standalone-wellness"}
+                  userGender={userGender}
+                  userAge={userAge}
+                  onOpenGrowthAnalytics={onOpenGrowthAnalytics}
+                  onSwitchWidget={setWidgetIndex}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Calendar Date Picker Modal (Triggered by clicking date on Image Banner) */}
