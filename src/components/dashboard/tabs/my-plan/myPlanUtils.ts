@@ -33,6 +33,9 @@ export interface PlanDay {
   eventHost?: string | null;
   coachName?: string | null;
   customTasks?: ProgramDayCustomTaskDTO[];
+  /** Cross-program global training aggregation for this calendar date (e.g. 2/2 or 3/3) */
+  globalTrainingScheduled?: number;
+  globalTrainingCompleted?: number;
   userProgress?: {
     videoWatched: boolean;
     isCompleted: boolean;

@@ -197,6 +197,7 @@ export function FiftyBarMeter({
 function FlippableMetricCard({
   title,
   label,
+  periodLabel,
   icon,
   valueSlot,
   status,
@@ -206,6 +207,7 @@ function FlippableMetricCard({
 }: {
   title: string;
   label?: ReactNode;
+  periodLabel?: string;
   icon: ReactNode;
   valueSlot: ReactNode;
   status?: MetricRating;
@@ -225,9 +227,7 @@ function FlippableMetricCard({
         : "bg-[var(--semantic-red)] text-white";
 
   return (
-    <div
-      className={`relative overflow-hidden w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 ${frontClassName}`}
-    >
+    <div className="relative overflow-hidden w-full h-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5">
       {badgeLabel && (
         <div
           aria-label={`Status: ${badgeLabel}`}
@@ -246,20 +246,27 @@ function FlippableMetricCard({
         </div>
       )}
 
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 min-w-0 pr-7" title={title}>
-          <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-            {icon}
-          </span>
-          <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-            {label ?? title}
-          </span>
+      <div className={frontClassName}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 min-w-0 pr-7" title={title}>
+            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+              {icon}
+            </span>
+            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+              {label ?? title}
+            </span>
+            {periodLabel && (
+              <span className="text-[10px] font-mono font-normal text-zinc-400 dark:text-zinc-500 shrink-0 leading-none">
+                {periodLabel}
+              </span>
+            )}
+          </div>
+
+          {valueSlot}
         </div>
 
-        {valueSlot}
+        {children}
       </div>
-
-      {children}
     </div>
   );
 }
@@ -333,11 +340,12 @@ function WeightSummaryWidget({
     sortedPoints.length > 0 ? sortedPoints[sortedPoints.length - 1] : null;
   const latestWeight = latestPoint ? latestPoint.weightKg : 0;
 
-  // Find closest reference log 5-14 days prior (or earliest prior log if <5 days elapsed)
+  // Find closest reference log ~30 days prior (monthly weight change)
   const DAY_MS = 24 * 60 * 60 * 1000;
-  let weeklyDeltaKg: number | null = null;
+  let monthlyDeltaKg: number | null = null;
+  let weeklyEquivDeltaKg: number | null = null;
   if (latestPoint && sortedPoints.length >= 2) {
-    const targetMs = latestPoint.recordedMs - 7 * DAY_MS;
+    const targetMs = latestPoint.recordedMs - 30 * DAY_MS;
     const priorPoints = sortedPoints.slice(0, -1);
     let referencePoint = priorPoints[0];
     let bestDist = Math.abs(referencePoint.recordedMs - targetMs);
@@ -348,14 +356,20 @@ function WeightSummaryWidget({
         referencePoint = pt;
       }
     }
-    weeklyDeltaKg = Number((latestWeight - referencePoint.weightKg).toFixed(1));
+    monthlyDeltaKg = Number((latestWeight - referencePoint.weightKg).toFixed(1));
+    const elapsedWeeks = Math.max(
+      1,
+      (latestPoint.recordedMs - referencePoint.recordedMs) / (7 * DAY_MS)
+    );
+    weeklyEquivDeltaKg = Number((monthlyDeltaKg / elapsedWeeks).toFixed(2));
   }
 
-  const weightStatus = rateWeeklyWeightChangeKg(weeklyDeltaKg, sortedPoints.length);
+  const weightStatus = rateWeeklyWeightChangeKg(weeklyEquivDeltaKg, sortedPoints.length);
 
   return (
     <FlippableMetricCard
       title="Weight"
+      periodLabel="/ mo"
       icon={<FillScaleIcon />}
       status={weightStatus}
       frontClassName="space-y-0"
@@ -363,9 +377,9 @@ function WeightSummaryWidget({
         <MetricValueDisplay
           value={latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
           unit={latestWeight > 0 ? "kg" : undefined}
-          delta={weeklyDeltaKg ?? undefined}
+          delta={monthlyDeltaKg ?? undefined}
           deltaUnit=" kg"
-          showDelta={weeklyDeltaKg !== null}
+          showDelta={monthlyDeltaKg !== null}
           neutralDelta
         />
       }
@@ -417,7 +431,15 @@ function resolveActiveWorkoutOptionName(d: PlanDay): string | null {
   return d.userProgress?.selectedWorkout || groups[0]?.optionName || null;
 }
 
-function computeTrainingDayRatio(d: PlanDay): number {
+export function computeTrainingDayRatio(d: PlanDay): number {
+  if (typeof d.globalTrainingScheduled === "number") {
+    if (d.globalTrainingScheduled <= 0) return 0;
+    const completed = Math.max(
+      0,
+      Math.min(d.globalTrainingScheduled, d.globalTrainingCompleted ?? 0)
+    );
+    return completed / d.globalTrainingScheduled;
+  }
   if (d.dayType !== "TRAINING_DAY") return 0;
   const p = d.userProgress;
   if (!p) return 0;
@@ -510,6 +532,15 @@ function TrainingWidget({
       return "-";
     }
 
+    if (typeof d.globalTrainingScheduled === "number") {
+      if (d.globalTrainingScheduled <= 0) return "Rest";
+      const completed = Math.max(
+        0,
+        Math.min(d.globalTrainingScheduled, d.globalTrainingCompleted ?? 0)
+      );
+      return `${completed}/${d.globalTrainingScheduled} Training`;
+    }
+
     if (d.dayType === "TRAINING_DAY") {
       const acts = movementNames(d);
       if (acts.length > 0) {
@@ -557,6 +588,7 @@ function TrainingWidget({
   return (
     <FlippableMetricCard
       title="Training"
+      periodLabel="/ mo"
       icon={<FillDumbbellIcon />}
       status={trainingStatus}
       frontClassName="space-y-3.5"
@@ -784,6 +816,7 @@ function SleepWidget({
   return (
     <FlippableMetricCard
       title="Sleep Average"
+      periodLabel="/ mo"
       icon={<FillMoonIcon />}
       status={sleepStatus}
       frontClassName="space-y-3.5"
@@ -992,7 +1025,7 @@ function MealControlWidget({
   const hasTodayMacros =
     todayMacros.carbsG > 0 || todayMacros.proteinG > 0 || todayMacros.fatG > 0;
 
-  // Fallback to 7-day logged average macros when today's meal hasn't been logged yet
+  // Fallback to 30-day logged average macros when today's meal hasn't been logged yet
   let displayCarbsG = todayMacros.carbsG;
   let displayProteinG = todayMacros.proteinG;
   let displayFatG = todayMacros.fatG;
@@ -1001,7 +1034,7 @@ function MealControlWidget({
   if (!hasTodayMacros) {
     const recentLogged = days
       .filter((d) => d.dayNumber <= todayDayNum)
-      .slice(-7)
+      .slice(-30)
       .map(getDayMacros)
       .filter((m) => m.carbsG > 0 || m.proteinG > 0 || m.fatG > 0);
     if (recentLogged.length > 0) {
@@ -1036,6 +1069,7 @@ function MealControlWidget({
   return (
     <FlippableMetricCard
       title="Meal Control"
+      periodLabel="/ mo"
       icon={<FillUtensilsIcon />}
       status={mealStatus}
       frontClassName="space-y-4"
@@ -1059,7 +1093,7 @@ function MealControlWidget({
       <div className="space-y-1.5 pt-3.5 border-t border-zinc-300/60 dark:border-white/10">
         {showingAvgFallback && (
           <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-            7-day average macro split (% kcal)
+            30-day average macro split (% kcal)
           </p>
         )}
         <div className="flex items-center gap-5">
@@ -1298,6 +1332,7 @@ function CaloriesWidget({
   return (
     <FlippableMetricCard
       title="Calories"
+      periodLabel="/ day"
       icon={<FillFlameIcon />}
       status={caloriesStatus}
       frontClassName="space-y-3"
@@ -1313,29 +1348,18 @@ function CaloriesWidget({
       }
     >
       {/* 5 Monochrome Rice Bowls scaled to personalized daily calorie target */}
-      <div className="space-y-1.5">
-        <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
-          {Array.from({ length: BOWL_COUNT }, (_, idx) => {
-            const fillRatio = (todayNetKcal - idx * bowlSizeKcal) / bowlSizeKcal;
-            return (
-              <MonochromeRiceBowl
-                key={idx}
-                bowlIndex={idx}
-                bowlKcal={bowlSizeKcal}
-                fillRatio={fillRatio}
-              />
-            );
-          })}
-        </div>
-        {(todaySummary.totalBurnKcal > 0 || todaySummary.hasFoodLogged) && (
-          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
-            {todaySummary.hasFoodLogged ? `In ${todaySummary.foodKcal}` : "No meals yet"}
-            {todaySummary.stepsBurnKcal > 0 ? ` · Steps -${todaySummary.stepsBurnKcal}` : ""}
-            {todaySummary.extraWorkoutBurnKcal > 0
-              ? ` · Extra -${todaySummary.extraWorkoutBurnKcal}`
-              : ""}
-          </p>
-        )}
+      <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
+        {Array.from({ length: BOWL_COUNT }, (_, idx) => {
+          const fillRatio = (todayNetKcal - idx * bowlSizeKcal) / bowlSizeKcal;
+          return (
+            <MonochromeRiceBowl
+              key={idx}
+              bowlIndex={idx}
+              bowlKcal={bowlSizeKcal}
+              fillRatio={fillRatio}
+            />
+          );
+        })}
       </div>
     </FlippableMetricCard>
   );
@@ -1458,6 +1482,7 @@ function HydrationWidget({
   return (
     <FlippableMetricCard
       title="Water"
+      periodLabel="/ day"
       icon={<FillDropletIcon />}
       status={waterStatus}
       frontClassName="space-y-3"
@@ -1514,15 +1539,15 @@ function DailyStepsMetricWidget({
     stepsDelta = Math.round(todaySteps - prevAvg);
   }
 
-  const stepsPct = Math.min(100, Math.round((todaySteps / STEPS_TARGET_DAILY) * 100));
   const stepsStatus = rateStepsCount(todaySteps, true);
 
   return (
     <FlippableMetricCard
       title="Daily Steps"
+      periodLabel="/ day"
       icon={<FillFootprintsIcon />}
       status={stepsStatus}
-      frontClassName="space-y-3"
+      frontClassName="space-y-0"
       valueSlot={
         <MetricValueDisplay
           value={todaySteps.toLocaleString()}
@@ -1531,19 +1556,7 @@ function DailyStepsMetricWidget({
           showDelta={stepsDelta !== undefined}
         />
       }
-    >
-      <div className="space-y-1.5 pt-0.5">
-        <div className="w-full h-1.5 rounded-full bg-zinc-300/80 dark:bg-white/15 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
-            style={{ width: `${stepsPct}%` }}
-          />
-        </div>
-        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-          {stepsPct}% of {(STEPS_TARGET_DAILY / 1000).toFixed(0)}k goal
-        </p>
-      </div>
-    </FlippableMetricCard>
+    />
   );
 }
 
@@ -1598,6 +1611,7 @@ function MoreTrainingMetricWidget({
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function CohortPerformanceCard({
   days,
+  globalMonthlyDays,
   currentDayNumber,
   bodyMetricLogs = [],
   programId,
@@ -1607,6 +1621,7 @@ export function CohortPerformanceCard({
   onSwitchWidget: _onSwitchWidget,
 }: {
   days: PlanDay[];
+  globalMonthlyDays?: PlanDay[];
   currentDayNumber: number;
   bodyMetricLogs?: BodyMetricPoint[];
   programId?: string;
@@ -1619,9 +1634,14 @@ export function CohortPerformanceCard({
   const { locale } = useLocale();
   const isId = locale === "id";
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
-  const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
-  const todayDayNum =
-    currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
+  const useGlobalMonth = Boolean(globalMonthlyDays && globalMonthlyDays.length > 0);
+  const sourceDays = useGlobalMonth ? globalMonthlyDays! : days;
+  const sorted = [...sourceDays].sort((a, b) => a.dayNumber - b.dayNumber);
+  const todayDayNum = useGlobalMonth
+    ? sorted[sorted.length - 1]?.dayNumber || 30
+    : currentDayNumber && currentDayNumber > 0
+      ? currentDayNumber
+      : 1;
 
   // Personalized Mifflin-St Jeor calorie target from chronologically latest weight & height + user profile
   const sortedBodyLogsDesc = [...bodyMetricLogs].sort(
@@ -1677,23 +1697,31 @@ export function CohortPerformanceCard({
     trainingEvalDays.length > 0 &&
     (closedTrainingDays.length > 0 || computeTrainingDayRatio(todayTrainingDay!) > 0);
 
-  const trainingPct =
-    trainingEvalDays.length > 0
-      ? Math.round(
-          (trainingEvalDays.reduce((acc, d) => acc + computeTrainingDayRatio(d), 0) /
-            trainingEvalDays.length) *
-            100
-        )
-      : 0;
+  const computeSliceTrainingPct = (slice: PlanDay[]): number => {
+    if (slice.length === 0) return 0;
+    const isGlobalSlice = slice.some((d) => typeof d.globalTrainingScheduled === "number");
+    if (isGlobalSlice) {
+      let totalScheduled = 0;
+      let totalCompleted = 0;
+      for (const d of slice) {
+        const sched = Math.max(0, d.globalTrainingScheduled ?? 0);
+        const comp = Math.max(0, Math.min(sched, d.globalTrainingCompleted ?? 0));
+        totalScheduled += sched;
+        totalCompleted += comp;
+      }
+      return totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
+    }
+    return Math.round(
+      (slice.reduce((acc, d) => acc + computeTrainingDayRatio(d), 0) / slice.length) * 100
+    );
+  };
+
+  const trainingPct = computeSliceTrainingPct(trainingEvalDays);
 
   let trainingDelta = 0;
   if (trainingEvalDays.length >= 2) {
     const prevSlice = trainingEvalDays.slice(0, -1);
-    const prevPct = Math.round(
-      (prevSlice.reduce((acc, d) => acc + computeTrainingDayRatio(d), 0) /
-        prevSlice.length) *
-        100
-    );
+    const prevPct = computeSliceTrainingPct(prevSlice);
     trainingDelta = trainingPct - prevPct;
   }
 
@@ -1811,49 +1839,49 @@ export function CohortPerformanceCard({
 
   return (
     <section className="w-full space-y-3 sm:space-y-4">
-      {/* Row 1 (50/50): Weight & Daily Steps */}
+      {/* Row 1 (50/50): Weight (/mo) & Daily Steps (/day) */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <WeightSummaryWidget
           days={sorted}
           bodyMetricLogs={bodyMetricLogs}
           programId={programId}
-          currentDayNumber={currentDayNumber}
+          currentDayNumber={todayDayNum}
         />
-        <DailyStepsMetricWidget days={sorted} currentDayNumber={currentDayNumber} />
+        <DailyStepsMetricWidget days={sorted} currentDayNumber={todayDayNum} />
       </div>
 
-      {/* Row 2 (50/50): Calories & Water */}
+      {/* Row 2 (50/50): Calories (/day) & Water (/day) */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <CaloriesWidget
           days={sorted}
-          currentDayNumber={currentDayNumber}
+          currentDayNumber={todayDayNum}
           calorieTarget={calorieTarget}
         />
-        <HydrationWidget days={sorted} currentDayNumber={currentDayNumber} />
+        <HydrationWidget days={sorted} currentDayNumber={todayDayNum} />
       </div>
 
-      {/* Row 4: Training (7-Column Heatmap Grid - WIB Weekday Aligned) */}
+      {/* Row 3: Training (/mo - Global 30-Day Heatmap Grid, WIB Weekday Aligned) */}
       <TrainingWidget
         days={sorted}
         pct={trainingPct}
-        currentDayNumber={currentDayNumber}
+        currentDayNumber={todayDayNum}
         deltaPct={trainingDelta}
         hasData={hasTrainingData}
       />
 
-      {/* Row 5: Sleep Average (Interactive Line Chart + Delta in Minutes) */}
+      {/* Row 4: Sleep Average (/mo - 30-Day Line Chart + Delta in Minutes) */}
       <SleepWidget
         days={sorted}
         deltaMins={sleepDeltaMins}
-        currentDayNumber={currentDayNumber}
+        currentDayNumber={todayDayNum}
       />
 
-      {/* Row 6: Meal Control (50-Segment Bar + Caloric 4/4/9 Donut Chart) */}
+      {/* Row 5: Meal Control (/mo - 30-Day Bar + Caloric 4/4/9 Donut Chart) */}
       <MealControlWidget
         days={sorted}
         pct={mealPct}
         deltaPct={mealDelta}
-        currentDayNumber={currentDayNumber}
+        currentDayNumber={todayDayNum}
         hasData={hasMealData}
       />
 
@@ -1940,10 +1968,10 @@ export function CohortPerformanceCard({
 
           <ul className="space-y-2.5">
             <li>
-              <strong className="text-zinc-950 dark:text-white">Weight:</strong>{" "}
+              <strong className="text-zinc-950 dark:text-white">Weight (/ mo):</strong>{" "}
               {isId
-                ? "Menggunakan seluruh catatan berat badan global berdasar tanggal asli. Delta membandingkan terhadap catatan terdekat ~7 hari sebelumnya (ditampilkan netral)."
-                : "Uses global body weight logs sorted by timestamp. Delta compares to closest log ~7 days prior (neutral badge)."}
+                ? "Menggunakan seluruh catatan berat badan global berdasar tanggal asli. Delta membandingkan terhadap catatan terdekat ~30 hari sebelumnya."
+                : "Uses global body weight logs sorted by timestamp. Delta compares to closest log ~30 days prior."}
               <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                 GOOD: ≤ 1.0 kg/mgg · AVG: 1.1–1.5 kg/mgg · BAD: &gt; 1.5 kg/mgg (butuh ≥ 2 log)
               </div>
@@ -1980,10 +2008,10 @@ export function CohortPerformanceCard({
             </li>
 
             <li>
-              <strong className="text-zinc-950 dark:text-white">Training:</strong>{" "}
+              <strong className="text-zinc-950 dark:text-white">Training (/ mo):</strong>{" "}
               {isId
-                ? "Rasio penyelesaian gerakan latihan murni per Training Day (independen dari tidur/air; kalender selaras WIB)."
-                : "Pure movement completion ratio per Training Day (decoupled from sleep/water; WIB weekday aligned)."}
+                ? "Gabungan global 30 hari terakhir dari seluruh program aktif Anda. Jika hari itu ada 3 program training dinilai 3/3; jika 1 rest maka 2/2 (hari rest tidak mengurangi skor)."
+                : "Global 30-day aggregation across all your enrolled programs. If 3 programs have training that day it scores out of 3/3; if 1 is Rest it scores out of 2/2."}
               <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                 GOOD: ≥ 80% · AVG: 50%–79% · BAD: &lt; 50%
               </div>

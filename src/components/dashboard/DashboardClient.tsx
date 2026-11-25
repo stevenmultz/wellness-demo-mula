@@ -26,6 +26,7 @@ import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import type { BodyMetricPoint } from "./tabs/BodyProgressWidget";
 import { GrowthAnalyticsView } from "./tabs/GrowthAnalyticsView";
+import { computeTrainingDayRatio } from "./tabs/my-plan/CohortPerformanceCard";
 import { MaintenanceWellnessView } from "./tabs/my-plan/MaintenanceWellnessView";
 import {
   evaluateDayTaskState,
@@ -662,12 +663,33 @@ export function DashboardClient({
     const base = parseWibDateKey(todayWibDateKey);
     if (!base) return [];
     const yesterdayKey = formatDateOnlyKey(addWibDays(base, -1));
+
+    // Pre-index all enrolled program days by WIB calendar dateKey for global 30-day Training aggregation (3/3, 2/2, etc.)
+    const trainingByDate = new Map<string, { scheduled: number; completed: number }>();
+    for (const prog of myEnrolledPrograms) {
+      for (const rawDay of prog.days || []) {
+        const d = prog.id === currentProgram?.id ? overlayDay(rawDay) : rawDay;
+        if (d.dayType !== "TRAINING_DAY") continue;
+        const dk =
+          d.wibDateKey ||
+          (d.unlockDate ? formatWibDateKey(d.unlockDate) : null);
+        if (!dk) continue;
+        const entry = trainingByDate.get(dk) ?? { scheduled: 0, completed: 0 };
+        entry.scheduled += 1;
+        if (computeTrainingDayRatio(d) >= 1) {
+          entry.completed += 1;
+        }
+        trainingByDate.set(dk, entry);
+      }
+    }
+
     const list: PlanDay[] = [];
-    for (let offset = -13; offset <= 0; offset++) {
+    for (let offset = -29; offset <= 0; offset++) {
       const dt = addWibDays(base, offset);
       const dateKey = formatDateOnlyKey(dt);
       const gLog = dailyLogsByDate[dateKey] ?? null;
       const isEditable = dateKey === todayWibDateKey || dateKey === yesterdayKey;
+      const tr = trainingByDate.get(dateKey) ?? { scheduled: 0, completed: 0 };
 
       let mealComp: string | null = null;
       if (gLog?.mealQualityMode === "ON_PLAN") mealComp = "FULL";
@@ -695,9 +717,9 @@ export function DashboardClient({
 
       list.push({
         id: `standalone-${dateKey}`,
-        dayNumber: offset + 14,
+        dayNumber: offset + 30,
         title: "Daily Wellness",
-        dayType: "REST_DAY",
+        dayType: tr.scheduled > 0 ? "TRAINING_DAY" : "REST_DAY",
         wibDateKey: dateKey,
         unlockDate: dt.toISOString(),
         isCalendarUnlocked: true,
@@ -710,6 +732,8 @@ export function DashboardClient({
         onsiteSchedule: null,
         restInstructions: null,
         customTasks: [],
+        globalTrainingScheduled: tr.scheduled,
+        globalTrainingCompleted: tr.completed,
         userProgress: gLog
           ? {
               videoWatched: false,
@@ -737,7 +761,7 @@ export function DashboardClient({
       });
     }
     return list;
-  }, [todayWibDateKey, dailyLogsByDate]);
+  }, [todayWibDateKey, dailyLogsByDate, myEnrolledPrograms, currentProgram?.id, overlayDay]);
 
   const standaloneTodayDay = standaloneDays[standaloneDays.length - 1] ?? null;
 
@@ -978,6 +1002,7 @@ export function DashboardClient({
               checklist={undefined}
               historyDays={standaloneDays}
               allProgramDays={standaloneDays}
+              globalMonthlyDays={standaloneDays}
               onExplore={() => {
                 setExploreView("catalog");
                 setActiveTab("all_plan");
@@ -1100,6 +1125,7 @@ export function DashboardClient({
             />
           ) : (
             <MyPlanOverview
+              globalMonthlyDays={standaloneDays}
               program={
                 overviewEnrollment && currentProgram
                   ? {

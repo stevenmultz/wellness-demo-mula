@@ -180,6 +180,7 @@ export function MyPlanOverview({
   trackingPassPlans = [],
   onSelectTrackingPass,
   checkoutLoadingPlanId,
+  globalMonthlyDays,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -251,6 +252,7 @@ export function MyPlanOverview({
   trackingPassPlans?: TrackingPassPlanDTO[];
   onSelectTrackingPass?: (planId: string) => void;
   checkoutLoadingPlanId?: string | null;
+  globalMonthlyDays?: PlanDay[];
 }) {
   const { locale, t } = useLocale();
   const isId = locale === "id";
@@ -835,6 +837,7 @@ export function MyPlanOverview({
               <div className={activeWidget === 2 ? "block space-y-5" : "hidden"}>
                 <CohortPerformanceCard
                   days={fullProgramDays}
+                  globalMonthlyDays={globalMonthlyDays}
                   currentDayNumber={currentDayNumber}
                   bodyMetricLogs={bodyMetricLogs}
                   programId={program?.id || "standalone-wellness"}
