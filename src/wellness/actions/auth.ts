@@ -6,11 +6,17 @@ import { prisma } from "../db";
 import { BRAND } from "../brand";
 import { hashPassword, verifyPassword } from "../security/password";
 import {
-  createSessionToken,
   getWellnessSession,
-  setSessionCookie,
   clearSessionCookie,
 } from "../security/session";
+import {
+  buildPostVerificationUserUpdate,
+  buildSuperadminPromotionPatch,
+  isConfiguredSuperadminEmail,
+  issueAuthenticatedSession,
+  linkPendingProgressSharesInTx,
+  rotateUserCredentialsInTx,
+} from "../services/auth-core";
 import {
   SignUpSchema,
   SignInSchema,
@@ -175,17 +181,8 @@ export async function wellnessRequestEmailSignIn(
       };
     }
 
-    const superadminEnv = getSuperadminConfig();
-    const isSuperadminEmail =
-      Boolean(superadminEnv.email) && email.toLowerCase() === superadminEnv.email;
-
-    if (!user && isSuperadminEmail) {
-      return {
-        success: false,
-        message: "Please use password sign-in for administrator access.",
-      };
-    }
-
+    // All accounts (including configured Superadmin email) sign in via Email OTP.
+    // New rows always start as unverified USER and are only promoted AFTER OTP/link verification succeeds.
     if (!user) {
       user = await prisma.user.create({
         data: {
@@ -382,9 +379,11 @@ export async function wellnessVerifyEmailOtp(
         data: { usedAt: now },
       });
 
+      const postVerify = buildPostVerificationUserUpdate(tokenRecord.user, now);
+
       const updated = await tx.user.update({
         where: { id: tokenRecord.userId },
-        data: { emailVerifiedAt: tokenRecord.user.emailVerifiedAt ?? now },
+        data: postVerify.data,
         select: {
           id: true,
           email: true,
@@ -399,14 +398,7 @@ export async function wellnessVerifyEmailOtp(
         },
       });
 
-      await tx.userProgressShare.updateMany({
-        where: {
-          viewerEmail: updated.email.trim().toLowerCase(),
-          viewerUserId: null,
-          status: "ACTIVE",
-        },
-        data: { viewerUserId: updated.id },
-      });
+      await linkPendingProgressSharesInTx(tx, updated.id, updated.email);
 
       await recordAuditLog(
         {
@@ -414,9 +406,25 @@ export async function wellnessVerifyEmailOtp(
           action: "EMAIL_OTP_SIGN_IN",
           entityType: "User",
           entityId: updated.id,
+          ...(postVerify.revokedUnverifiedCredentials
+            ? { metadata: { preHijackCredentialsCleared: true } }
+            : {}),
         },
         tx
       );
+
+      if (postVerify.promotedToSuperadmin) {
+        await recordAuditLog(
+          {
+            actorUserId: updated.id,
+            action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+            entityType: "User",
+            entityId: updated.id,
+            metadata: { channel: "EMAIL_OTP" },
+          },
+          tx
+        );
+      }
 
       return updated;
     });
@@ -430,13 +438,7 @@ export async function wellnessVerifyEmailOtp(
 
     await resetDistributedRateLimit(emailBucket);
 
-    const sessionJwt = await createSessionToken({
-      userId: verifiedUser.id,
-      email: verifiedUser.email,
-      role: verifiedUser.role,
-      tokenVersion: verifiedUser.tokenVersion,
-    });
-    await setSessionCookie(sessionJwt);
+    await issueAuthenticatedSession(verifiedUser);
 
     const needsOnboarding = !isUserOnboardingComplete(verifiedUser);
 
@@ -515,11 +517,8 @@ export async function wellnessSignUp(
     }
 
     const passwordHash = await hashPassword(password);
-    const superadminEnv = getSuperadminConfig();
-    const isSuperadminEmail =
-      Boolean(superadminEnv.email) && email.toLowerCase() === superadminEnv.email;
 
-    if (isSuperadminEmail) {
+    if (isConfiguredSuperadminEmail(email)) {
       return {
         success: false,
         message: "This email is reserved for platform administration. Please sign in directly.",
@@ -573,7 +572,7 @@ export async function wellnessSignUp(
 }
 
 /**
- * Verify email token atomically and start authenticated session.
+ * Verify email token atomically (strictly single-use) and start authenticated session.
  */
 export async function wellnessVerifyEmailToken(
   rawToken: string
@@ -584,6 +583,18 @@ export async function wellnessVerifyEmailToken(
   }
 
   try {
+    const ip = await getClientIpKey();
+    const ipRl = await checkDistributedRateLimit(
+      `verify-token-ip:${ip}`,
+      RATE_LIMITS.authTokenVerify
+    );
+    if (!ipRl.allowed) {
+      return {
+        success: false,
+        message: "Too many verification attempts. Please wait a few minutes and try again.",
+      };
+    }
+
     const tokenRecord = await prisma.userEmailVerificationToken.findUnique({
       where: { tokenHash: hashToken(token) },
       include: {
@@ -613,36 +624,11 @@ export async function wellnessVerifyEmailToken(
       };
     }
 
-    // Idempotent handling: if an email scanner prefetched the link or user clicked twice,
-    // succeed gracefully when the user's email is already verified.
+    // AUTH-01: Strictly single-use tokens — NEVER mint a new session from an already-used link.
     if (tokenRecord.usedAt !== null) {
-      if (tokenRecord.user.emailVerifiedAt) {
-        if (tokenRecord.user.status === "ACTIVE") {
-          try {
-            const sessionJwt = await createSessionToken({
-              userId: tokenRecord.user.id,
-              email: tokenRecord.user.email,
-              role: tokenRecord.user.role,
-              tokenVersion: tokenRecord.user.tokenVersion,
-            });
-            await setSessionCookie(sessionJwt);
-          } catch {
-            // Safe fallback when invoked from a Server Component render
-          }
-        }
-        return {
-          success: true,
-          message: "Email verified successfully! Your account is active.",
-          data: {
-            email: tokenRecord.user.email,
-            role: tokenRecord.user.role,
-            needsOnboarding: !isUserOnboardingComplete(tokenRecord.user),
-          },
-        };
-      }
       return {
         success: false,
-        message: "This verification link has already been used. Please request a new one.",
+        message: "This verification link has already been used. Please sign in with a fresh verification code.",
       };
     }
 
@@ -650,6 +636,13 @@ export async function wellnessVerifyEmailToken(
       return {
         success: false,
         message: "This verification link has expired. Please request a new one.",
+      };
+    }
+
+    if (tokenRecord.user.status !== "ACTIVE") {
+      return {
+        success: false,
+        message: "Your account is currently suspended. Please contact the Wellness Administrator.",
       };
     }
 
@@ -666,9 +659,11 @@ export async function wellnessVerifyEmailToken(
         data: { usedAt: now },
       });
 
+      const postVerify = buildPostVerificationUserUpdate(tokenRecord.user, now);
+
       const updated = await tx.user.update({
         where: { id: tokenRecord.userId },
-        data: { emailVerifiedAt: tokenRecord.user.emailVerifiedAt ?? now },
+        data: postVerify.data,
         select: {
           id: true,
           email: true,
@@ -683,14 +678,7 @@ export async function wellnessVerifyEmailToken(
         },
       });
 
-      await tx.userProgressShare.updateMany({
-        where: {
-          viewerEmail: updated.email.trim().toLowerCase(),
-          viewerUserId: null,
-          status: "ACTIVE",
-        },
-        data: { viewerUserId: updated.id },
-      });
+      await linkPendingProgressSharesInTx(tx, updated.id, updated.email);
 
       await recordAuditLog(
         {
@@ -698,34 +686,39 @@ export async function wellnessVerifyEmailToken(
           action: "EMAIL_VERIFIED",
           entityType: "User",
           entityId: updated.id,
+          ...(postVerify.revokedUnverifiedCredentials
+            ? { metadata: { preHijackCredentialsCleared: true } }
+            : {}),
         },
         tx
       );
+
+      if (postVerify.promotedToSuperadmin) {
+        await recordAuditLog(
+          {
+            actorUserId: updated.id,
+            action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+            entityType: "User",
+            entityId: updated.id,
+            metadata: { channel: "EMAIL_VERIFY_LINK" },
+          },
+          tx
+        );
+      }
 
       return updated;
     });
 
     if (!verifiedUser) {
       return {
-        success: true,
-        message: "Email verified successfully! Your account is active.",
-        data: {
-          email: tokenRecord.user.email,
-          role: tokenRecord.user.role,
-          needsOnboarding: !isUserOnboardingComplete(tokenRecord.user),
-        },
+        success: false,
+        message: "This verification link has already been used. Please sign in with a fresh verification code.",
       };
     }
 
     if (verifiedUser.status === "ACTIVE") {
       try {
-        const sessionJwt = await createSessionToken({
-          userId: verifiedUser.id,
-          email: verifiedUser.email,
-          role: verifiedUser.role,
-          tokenVersion: verifiedUser.tokenVersion,
-        });
-        await setSessionCookie(sessionJwt);
+        await issueAuthenticatedSession(verifiedUser);
       } catch {
         // Safe fallback when invoked from a Server Component render
       }
@@ -850,13 +843,12 @@ export async function wellnessSignIn(
     });
 
     const superadminEnv = getSuperadminConfig();
-    const isConfiguredSuperadminEmail =
-      Boolean(superadminEnv.email) && email.trim().toLowerCase() === superadminEnv.email;
+    const isSuperadminTarget = isConfiguredSuperadminEmail(email);
 
     // Best-practice Bootstrap-Only Superadmin pattern:
     // 1. If the Superadmin account does not exist yet in DB (or has no passwordHash), bootstrap it once using SUPERADMIN_PASSWORD from env.
     // 2. Once the account exists in DB with a bcrypt passwordHash, verify against the DB hash so in-app password changes & resets work normally.
-    if (!user && isConfiguredSuperadminEmail && superadminEnv.password) {
+    if (!user && isSuperadminTarget && superadminEnv.password) {
       const a = Buffer.from(password, "utf8");
       const b = Buffer.from(superadminEnv.password, "utf8");
       const envMatch = a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -881,6 +873,13 @@ export async function wellnessSignIn(
           tokenVersion: 0,
         },
       });
+      await recordAuditLog({
+        actorUserId: user.id,
+        action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+        entityType: "User",
+        entityId: user.id,
+        metadata: { channel: "PASSWORD_BOOTSTRAP" },
+      });
     } else {
       if (!user) {
         await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
@@ -891,7 +890,7 @@ export async function wellnessSignIn(
       }
 
       if (!user.passwordHash) {
-        if (isConfiguredSuperadminEmail && superadminEnv.password) {
+        if (isSuperadminTarget && superadminEnv.password) {
           const a = Buffer.from(password, "utf8");
           const b = Buffer.from(superadminEnv.password, "utf8");
           if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
@@ -901,9 +900,19 @@ export async function wellnessSignIn(
               data: {
                 passwordHash: syncedHash,
                 role: "SUPERADMIN",
+                organizationId: null,
+                coachProfileId: null,
                 status: "ACTIVE",
                 emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+                tokenVersion: { increment: 1 },
               },
+            });
+            await recordAuditLog({
+              actorUserId: user.id,
+              action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+              entityType: "User",
+              entityId: user.id,
+              metadata: { channel: "PASSWORD_BOOTSTRAP" },
             });
           } else {
             await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
@@ -916,7 +925,7 @@ export async function wellnessSignIn(
           await verifyPassword(password, DUMMY_PASSWORD_HASH).catch(() => false);
           return {
             success: false,
-            message: "This account uses Google Sign-In. Please sign in with Google or use Forgot Password to set a password.",
+            message: "This account uses Google Sign-In or Email OTP. Please sign in with Email OTP or Google.",
           };
         }
       } else {
@@ -927,16 +936,24 @@ export async function wellnessSignIn(
             message: "Invalid email or password.",
           };
         }
-        if (isConfiguredSuperadminEmail && (user.role !== "SUPERADMIN" || !user.emailVerifiedAt)) {
+        const superadminPatch = buildSuperadminPromotionPatch(user);
+        if (superadminPatch || (isSuperadminTarget && !user.emailVerifiedAt)) {
           user = await prisma.user.update({
             where: { id: user.id },
             data: {
-              role: "SUPERADMIN",
+              ...(superadminPatch || {}),
               emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
-              organizationId: null,
-              coachProfileId: null,
             },
           });
+          if (superadminPatch) {
+            await recordAuditLog({
+              actorUserId: user.id,
+              action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+              entityType: "User",
+              entityId: user.id,
+              metadata: { channel: "PASSWORD_SIGN_IN" },
+            });
+          }
         }
       }
     }
@@ -961,13 +978,7 @@ export async function wellnessSignIn(
       };
     }
 
-    const token = await createSessionToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      tokenVersion: user.tokenVersion,
-    });
-    await setSessionCookie(token);
+    await issueAuthenticatedSession(user);
 
     return {
       success: true,
@@ -1105,7 +1116,7 @@ export async function wellnessRequestPasswordReset(
 }
 
 /**
- * Confirm Password Reset and revoke existing sessions.
+ * Confirm Password Reset and revoke existing sessions + active verification/reset tokens.
  */
 export async function wellnessConfirmPasswordReset(
   rawInput: unknown
@@ -1117,6 +1128,18 @@ export async function wellnessConfirmPasswordReset(
         success: false,
         message: "Invalid password reset submission.",
         errors: validation.error.flatten().fieldErrors,
+      };
+    }
+
+    const ip = await getClientIpKey();
+    const ipRl = await checkDistributedRateLimit(
+      `pwdreset-confirm-ip:${ip}`,
+      RATE_LIMITS.authTokenVerify
+    );
+    if (!ipRl.allowed) {
+      return {
+        success: false,
+        message: "Too many password reset attempts. Please wait 15 minutes and try again.",
       };
     }
 
@@ -1141,20 +1164,20 @@ export async function wellnessConfirmPasswordReset(
         where: { id: resetRecord.id, isUsed: false, expiresAt: { gt: new Date() } },
         data: { isUsed: true },
       });
-      if (claim.count !== 1) return false;
-      const targetUser = await tx.user.findUnique({
-        where: { id: resetRecord.userId },
-        select: { email: true, emailVerifiedAt: true },
+      if (claim.count !== 1) return null;
+
+      const rotated = await rotateUserCredentialsInTx(tx, {
+        targetUserId: resetRecord.userId,
+        newPasswordHash,
+        actorUserId: resetRecord.userId,
+        auditAction: "PASSWORD_RESET_CONFIRMED",
+        markEmailVerified: true,
+        requireActive: true,
       });
-      await tx.user.update({
-        where: { id: resetRecord.userId },
-        data: {
-          passwordHash: newPasswordHash,
-          emailVerifiedAt: targetUser?.emailVerifiedAt ?? new Date(),
-          tokenVersion: { increment: 1 },
-        },
-      });
-      return targetUser?.email || null;
+      if (!rotated) {
+        return null;
+      }
+      return rotated.email || null;
     });
 
     if (!consumed) {
@@ -1164,7 +1187,6 @@ export async function wellnessConfirmPasswordReset(
       };
     }
 
-    const ip = await getClientIpKey();
     await Promise.all([
       resetDistributedRateLimit(`signin-email:${consumed.toLowerCase()}`),
       resetDistributedRateLimit(`signin:${ip}:${consumed.toLowerCase()}`),

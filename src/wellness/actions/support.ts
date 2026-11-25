@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "../db";
+import { RATE_LIMITS } from "../config";
 import { requireAuth, requireSuperadmin } from "../security/guards";
+import { checkDistributedRateLimit } from "../security/rate-limit";
 import { recordAuditLog } from "../integrations/audit-log";
 import type { WellnessActionResult } from "./auth";
 
@@ -24,6 +26,18 @@ export async function wellnessSubmitCohortSupportRequest(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
   const session = await requireAuth();
+
+  const rl = await checkDistributedRateLimit(
+    `support:${session.userId}`,
+    RATE_LIMITS.supportRequest
+  );
+  if (!rl.allowed) {
+    return {
+      success: false,
+      message: "Too many support requests submitted recently. Please wait before submitting again.",
+    };
+  }
+
   const parsed = CreateSupportRequestSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {
@@ -35,15 +49,33 @@ export async function wellnessSubmitCohortSupportRequest(
 
   const { programId, requestType, reasonCode, note } = parsed.data;
 
-  const enrollment = await prisma.programEnrollment.findUnique({
-    where: {
-      userId_programId: { userId: session.userId, programId },
-    },
-    select: { id: true, status: true },
-  });
+  const [enrollment, existingOpen] = await Promise.all([
+    prisma.programEnrollment.findUnique({
+      where: {
+        userId_programId: { userId: session.userId, programId },
+      },
+      select: { id: true, status: true },
+    }),
+    prisma.cohortSupportRequest.findFirst({
+      where: {
+        userId: session.userId,
+        programId,
+        requestType,
+        status: { in: ["OPEN", "IN_REVIEW"] },
+      },
+      select: { id: true },
+    }),
+  ]);
 
   if (!enrollment) {
     return { success: false, message: "You are not enrolled in this cohort." };
+  }
+  if (existingOpen) {
+    return {
+      success: false,
+      message:
+        "You already have an active open request of this type for this cohort. Our team is reviewing it.",
+    };
   }
 
   const created = await prisma.cohortSupportRequest.create({

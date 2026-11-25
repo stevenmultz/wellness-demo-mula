@@ -57,3 +57,18 @@ export async function lockProgramRow(
 ): Promise<void> {
   await tx.$queryRaw`SELECT id FROM programs WHERE id = ${programId} FOR UPDATE`;
 }
+
+/**
+ * Serializes entitlement & tracking-pass updates per user so concurrent grants/revocations
+ * never compute stale `trackingAccessUntil` values.
+ *
+ * DEADLOCK PREVENTION RULE:
+ * Whenever a transaction locks BOTH a program row and a user row, ALWAYS call
+ * `lockProgramRow(tx, programId)` BEFORE `lockUserRow(tx, userId)`.
+ */
+export async function lockUserRow(
+  tx: Prisma.TransactionClient,
+  userId: string
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+}

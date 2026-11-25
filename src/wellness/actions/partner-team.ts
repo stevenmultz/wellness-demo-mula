@@ -14,6 +14,8 @@ import {
 } from "../security/guards";
 import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { recordAuditLog } from "../integrations/audit-log";
+import { rotateUserCredentialsInTx } from "../services/auth-core";
+import { updateUserStatusInTx } from "../services/user-governance";
 import type { WellnessActionResult } from "./auth";
 
 function hashToken(token: string): string {
@@ -553,22 +555,13 @@ export async function wellnessTogglePartnerCoachStatus(
         throw new Error("Forbidden: This Coach belongs to another organization.");
       }
 
-      const row = await tx.user.update({
-        where: { id: target.id },
-        data: { status: newStatus, tokenVersion: { increment: 1 } },
-        select: { id: true, fullName: true, status: true },
+      const row = await updateUserStatusInTx(tx, {
+        targetUserId: target.id,
+        newStatus,
+        actorUserId: session.userId,
+        auditAction: "PARTNER_UPDATE_COACH_STATUS",
+        auditMetadata: { organizationId: target.organizationId },
       });
-
-      await recordAuditLog(
-        {
-          actorUserId: session.userId,
-          action: "PARTNER_UPDATE_COACH_STATUS",
-          entityType: "User",
-          entityId: target.id,
-          metadata: { status: newStatus, organizationId: target.organizationId },
-        },
-        tx
-      );
 
       return row;
     });
@@ -617,21 +610,14 @@ export async function wellnessResetPartnerCoachPassword(
         throw new Error("Forbidden: This Coach belongs to another organization.");
       }
 
-      await tx.user.update({
-        where: { id: existing.id },
-        data: { passwordHash, tokenVersion: { increment: 1 } },
+      await rotateUserCredentialsInTx(tx, {
+        targetUserId: existing.id,
+        newPasswordHash: passwordHash,
+        actorUserId: session.userId,
+        auditAction: "PARTNER_RESET_COACH_PASSWORD",
+        auditMetadata: { organizationId: existing.organizationId },
+        requireActive: false,
       });
-
-      await recordAuditLog(
-        {
-          actorUserId: session.userId,
-          action: "PARTNER_RESET_COACH_PASSWORD",
-          entityType: "User",
-          entityId: existing.id,
-          metadata: { organizationId: existing.organizationId },
-        },
-        tx
-      );
 
       return existing;
     });

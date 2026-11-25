@@ -2,14 +2,29 @@
 
 import { useState } from "react";
 import { wellnessUserSubmitDayProgress as rawWellnessUserSubmitDayProgress } from "@/wellness/actions/program";
+import {
+  wellnessAddExtraWorkout,
+  wellnessDeleteExtraWorkout,
+  wellnessSaveDailyMeal,
+  wellnessSaveDailySleep,
+  wellnessSaveDailySteps,
+  wellnessSaveDailyWater,
+  wellnessUpdateExtraWorkout,
+} from "@/wellness/actions/daily-log";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import {
-  buildWaterOnlyMealNotes,
+  extractNutritionFromMealNotes,
   extractWaterMl,
   mergeMealNotesPayload,
 } from "@/wellness/utils/nutrition";
+import { formatWibDateKey } from "@/wellness/utils/timezone";
+import {
+  computeStepsBurnedKcal,
+  mapMealQualityToProgramCompliance,
+  mapProgramComplianceToMealQuality,
+} from "@/wellness/utils/wellness-metrics";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
-import type { ActionNotice, ProgramDayItem, ProgramItem } from "./types";
+import type { ActionNotice, DailyLogDTO, ExtraWorkoutDTO, ProgramDayItem, ProgramItem } from "./types";
 
 async function wellnessUserSubmitDayProgress(
   payload: Parameters<typeof rawWellnessUserSubmitDayProgress>[0]
@@ -27,16 +42,34 @@ async function wellnessUserSubmitDayProgress(
 interface UseDashboardProgressParams {
   currentProgram: ProgramItem | null;
   calendarDay: ProgramDayItem | null;
+  initialDailyLogs?: DailyLogDTO[];
   setActionNotice: (next: ActionNotice | null, autoDismissMs?: number) => void;
   onRefresh: () => void;
+}
+
+function getDayDateKey(day: ProgramDayItem): string {
+  if (day.wibDateKey) return day.wibDateKey;
+  if (day.unlockDate) return formatWibDateKey(day.unlockDate);
+  return formatWibDateKey(new Date());
 }
 
 export function useDashboardProgress({
   currentProgram,
   calendarDay,
+  initialDailyLogs = [],
   setActionNotice,
   onRefresh,
 }: UseDashboardProgressParams) {
+  // Global universal biomarkers keyed strictly by WIB calendar date ("YYYY-MM-DD")
+  // so switching between overlapping programs immediately reflects live updates!
+  const [dailyLogsByDate, setDailyLogsByDate] = useState<Record<string, DailyLogDTO>>(() => {
+    const map: Record<string, DailyLogDTO> = {};
+    for (const log of initialDailyLogs) {
+      map[log.logDate] = log;
+    }
+    return map;
+  });
+
   const [dayChecklists, setDayChecklists] = useState<Record<string, string[]>>({});
   const [dayVideoWatched, setDayVideoWatched] = useState<Record<string, boolean>>({});
   const [dayAssessments, setDayAssessments] = useState<Record<string, string>>({});
@@ -57,43 +90,119 @@ export function useDashboardProgress({
   const resolveTargetDay = (dayId?: string) =>
     dayId ? currentProgram?.days.find((d) => d.id === dayId) || null : calendarDay;
 
-  const overlayDay = (day: ProgramDayItem): ProgramDayItem => ({
-    ...day,
-    customTasks: (day.customTasks || []).map((ct) => ({
-      ...ct,
-      submission: customSubmissionsByTaskId[ct.id] ?? ct.submission ?? null,
-    })),
-    userProgress: {
-      ...(day.userProgress || {
-        id: "",
-        videoWatched: false,
-        isCompleted: false,
-        checklistCompleted: null,
-      }),
-      isCompleted: dayCompletedOverride[day.id] ?? !!day.userProgress?.isCompleted,
-      videoWatched: dayVideoWatched[day.id] ?? !!day.userProgress?.videoWatched,
-      checklistCompleted:
-        dayChecklists[day.id] !== undefined
-          ? JSON.stringify(dayChecklists[day.id])
-          : day.userProgress?.checklistCompleted || null,
-      eventFeedback: dayEventFeedback[day.id] ?? day.userProgress?.eventFeedback,
-      mealCompliance: dayMealCompliance[day.id] ?? day.userProgress?.mealCompliance,
-      mealNotes:
-        dayMealNotes[day.id] !== undefined
-          ? dayMealNotes[day.id]
-          : day.userProgress?.mealNotes,
-      dailyReflection:
-        dayReflections[day.id] !== undefined
-          ? dayReflections[day.id]
-          : day.userProgress?.dailyReflection,
-      happinessRate: dayHappiness[day.id] ?? day.userProgress?.happinessRate,
-      bedtime: dayBedtimes[day.id] ?? day.userProgress?.bedtime,
-      wakeTime: dayWakeTimes[day.id] ?? day.userProgress?.wakeTime,
-      workoutNotes: dayWorkoutNotes[day.id] ?? day.userProgress?.workoutNotes,
-      selectedWorkout: dayWorkouts[day.id] ?? day.userProgress?.selectedWorkout,
-      assessmentResponse: dayAssessments[day.id] ?? day.userProgress?.assessmentResponse,
-    },
-  });
+  const ensureDateLog = (dateKey: string): DailyLogDTO =>
+    dailyLogsByDate[dateKey] ?? {
+      id: "",
+      logDate: dateKey,
+      bedtime: null,
+      wakeTime: null,
+      sleepDurationMinutes: null,
+      sleepFeeling: null,
+      waterMl: 0,
+      stepsCount: 0,
+      stepsBurnedKcal: 0,
+      mealsCount: null,
+      caloriesKcal: 0,
+      carbsG: 0,
+      proteinG: 0,
+      fatG: 0,
+      mealQualityMode: null,
+      mealFeeling: null,
+      mealEntriesJson: null,
+      extraWorkouts: [],
+    };
+
+  const overlayDay = (day: ProgramDayItem): ProgramDayItem => {
+    const dateKey = getDayDateKey(day);
+    const gLog = dailyLogsByDate[dateKey];
+    const inheritedComp = mapMealQualityToProgramCompliance(gLog?.mealQualityMode);
+    const resolvedCompliance =
+      dayMealCompliance[day.id] ?? day.userProgress?.mealCompliance ?? inheritedComp ?? null;
+    const resolvedWaterMl =
+      gLog !== undefined
+        ? gLog.waterMl
+        : day.userProgress?.waterMl ?? extractWaterMl(dayMealNotes[day.id] ?? day.userProgress?.mealNotes);
+    const resolvedSteps =
+      gLog !== undefined ? gLog.stepsCount : day.userProgress?.stepsCount ?? 0;
+    const resolvedStepsBurned =
+      gLog !== undefined
+        ? gLog.stepsBurnedKcal
+        : day.userProgress?.stepsBurnedKcal ?? computeStepsBurnedKcal(resolvedSteps);
+    const resolvedExtraWorkouts: ExtraWorkoutDTO[] =
+      gLog !== undefined ? gLog.extraWorkouts : day.userProgress?.extraWorkouts ?? [];
+
+    return {
+      ...day,
+      wibDateKey: dateKey,
+      customTasks: (day.customTasks || []).map((ct) => ({
+        ...ct,
+        submission: customSubmissionsByTaskId[ct.id] ?? ct.submission ?? null,
+      })),
+      userProgress: {
+        ...(day.userProgress || {
+          id: "",
+          videoWatched: false,
+          isCompleted: false,
+          checklistCompleted: null,
+        }),
+        isCompleted: dayCompletedOverride[day.id] ?? !!day.userProgress?.isCompleted,
+        videoWatched: dayVideoWatched[day.id] ?? !!day.userProgress?.videoWatched,
+        checklistCompleted:
+          dayChecklists[day.id] !== undefined
+            ? JSON.stringify(dayChecklists[day.id])
+            : day.userProgress?.checklistCompleted || null,
+        eventFeedback: dayEventFeedback[day.id] ?? day.userProgress?.eventFeedback,
+        mealCompliance: resolvedCompliance,
+        mealNotes:
+          dayMealNotes[day.id] !== undefined
+            ? dayMealNotes[day.id]
+            : day.userProgress?.mealNotes,
+        dailyReflection:
+          dayReflections[day.id] !== undefined
+            ? dayReflections[day.id]
+            : day.userProgress?.dailyReflection,
+        happinessRate: dayHappiness[day.id] ?? day.userProgress?.happinessRate,
+        bedtime: gLog?.bedtime ?? dayBedtimes[day.id] ?? day.userProgress?.bedtime,
+        wakeTime: gLog?.wakeTime ?? dayWakeTimes[day.id] ?? day.userProgress?.wakeTime,
+        sleepDurationMinutes:
+          gLog?.sleepDurationMinutes ?? day.userProgress?.sleepDurationMinutes,
+        workoutNotes: dayWorkoutNotes[day.id] ?? day.userProgress?.workoutNotes,
+        selectedWorkout: dayWorkouts[day.id] ?? day.userProgress?.selectedWorkout,
+        assessmentResponse:
+          (gLog?.sleepFeeling ? `Sleep Feeling: ${gLog.sleepFeeling}` : undefined) ??
+          dayAssessments[day.id] ??
+          day.userProgress?.assessmentResponse,
+        waterMl: resolvedWaterMl,
+        stepsCount: resolvedSteps,
+        stepsBurnedKcal: resolvedStepsBurned,
+        caloriesKcal:
+          gLog && (gLog.mealQualityMode != null || gLog.caloriesKcal > 0)
+            ? gLog.caloriesKcal
+            : day.userProgress?.caloriesKcal ??
+              extractNutritionFromMealNotes(dayMealNotes[day.id] ?? day.userProgress?.mealNotes).calories,
+        carbsG:
+          gLog && (gLog.mealQualityMode != null || gLog.carbsG > 0)
+            ? gLog.carbsG
+            : day.userProgress?.carbsG ??
+              extractNutritionFromMealNotes(dayMealNotes[day.id] ?? day.userProgress?.mealNotes).carbsG,
+        proteinG:
+          gLog && (gLog.mealQualityMode != null || gLog.proteinG > 0)
+            ? gLog.proteinG
+            : day.userProgress?.proteinG ??
+              extractNutritionFromMealNotes(dayMealNotes[day.id] ?? day.userProgress?.mealNotes).proteinG,
+        fatG:
+          gLog && (gLog.mealQualityMode != null || gLog.fatG > 0)
+            ? gLog.fatG
+            : day.userProgress?.fatG ??
+              extractNutritionFromMealNotes(dayMealNotes[day.id] ?? day.userProgress?.mealNotes).fatG,
+        mealQualityMode: gLog?.mealQualityMode ?? day.userProgress?.mealQualityMode ?? null,
+        extraWorkouts: resolvedExtraWorkouts,
+        mealSyncedFromDailyLog: Boolean(
+          !dayMealCompliance[day.id] && !day.userProgress?.mealCompliance && inheritedComp
+        ),
+      },
+    };
+  };
 
   const getCheckedItems = (day: ProgramDayItem): string[] => {
     if (dayChecklists[day.id] !== undefined) {
@@ -167,21 +276,30 @@ export function useDashboardProgress({
       videoWatched?: boolean;
     }
   ) => {
-    const bed = overrides?.bedtime ?? dayBedtimes[targetDay.id] ?? targetDay.userProgress?.bedtime;
-    const wake = overrides?.wakeTime ?? dayWakeTimes[targetDay.id] ?? targetDay.userProgress?.wakeTime;
+    const dateKey = getDayDateKey(targetDay);
+    const gLog = dailyLogsByDate[dateKey];
+
+    const bed = overrides?.bedtime ?? gLog?.bedtime ?? dayBedtimes[targetDay.id] ?? targetDay.userProgress?.bedtime;
+    const wake = overrides?.wakeTime ?? gLog?.wakeTime ?? dayWakeTimes[targetDay.id] ?? targetDay.userProgress?.wakeTime;
     const sleepDone = Boolean(bed && wake && bed !== "SKIPPED" && wake !== "SKIPPED");
 
     const mealComp =
       overrides?.mealCompliance ??
       dayMealCompliance[targetDay.id] ??
-      targetDay.userProgress?.mealCompliance;
+      targetDay.userProgress?.mealCompliance ??
+      mapMealQualityToProgramCompliance(gLog?.mealQualityMode);
     const mealDone = Boolean(mealComp && mealComp !== "SKIPPED");
 
     const mNotes =
       overrides?.mealNotes ??
       dayMealNotes[targetDay.id] ??
       targetDay.userProgress?.mealNotes;
-    const waterDone = extractWaterMl(mNotes) > 0;
+    const effectiveWaterMl =
+      gLog !== undefined
+        ? gLog.waterMl
+        : targetDay.userProgress?.waterMl ?? extractWaterMl(mNotes);
+    const waterDone = effectiveWaterMl > 0;
+    const stepsDone = (gLog?.stepsCount ?? targetDay.userProgress?.stepsCount ?? 0) > 0;
 
     const wNotes =
       overrides?.workoutNotes ??
@@ -216,14 +334,30 @@ export function useDashboardProgress({
             Boolean((wNotes && wNotes !== "SKIPPED") || updatedChecklist.length > 0)
           : Boolean(evFb && evFb !== "SKIPPED");
 
-    // All core tasks (Sleep, Activity, Meal Control, Water Intake) and custom tasks are required
+    // All 5 core tasks (Sleep, Activity, Meal Control, Water Intake, Daily Steps) + custom tasks
     const allCustomDone = (targetDay.customTasks || []).every((ct) =>
       Boolean(customSubmissionsByTaskId[ct.id] ?? ct.submission)
     );
 
-    return sleepDone && activityDone && mealDone && waterDone && allCustomDone;
+    return sleepDone && activityDone && mealDone && waterDone && stepsDone && allCustomDone;
   };
 
+  const syncCompletedFromServer = (dayId: string, data: unknown) => {
+    const serverCompleted =
+      data && typeof data === "object" && "isCompleted" in data
+        ? Boolean((data as { isCompleted?: unknown }).isCompleted)
+        : undefined;
+    if (serverCompleted !== undefined) {
+      setDayCompletedOverride((prev) => ({ ...prev, [dayId]: serverCompleted }));
+    }
+  };
+
+  const applyServerCompletions = (completions?: Record<string, boolean>) => {
+    if (!completions || Object.keys(completions).length === 0) return;
+    setDayCompletedOverride((prev) => ({ ...prev, ...completions }));
+  };
+
+  // Send only workout/checklist fields on checklist changes so we never overwrite cross-plan meal/sleep state
   const submitChecklistSnapshot = async (
     targetDay: ProgramDayItem,
     updated: string[],
@@ -236,26 +370,6 @@ export function useDashboardProgress({
       isCompleted,
       selectedWorkout:
         dayWorkouts[targetDay.id] || targetDay.userProgress?.selectedWorkout || undefined,
-      mealCompliance:
-        dayMealCompliance[targetDay.id] ||
-        targetDay.userProgress?.mealCompliance ||
-        undefined,
-      mealNotes:
-        dayMealNotes[targetDay.id] !== undefined
-          ? dayMealNotes[targetDay.id]
-          : targetDay.userProgress?.mealNotes || undefined,
-      dailyReflection:
-        dayReflections[targetDay.id] !== undefined
-          ? dayReflections[targetDay.id]
-          : targetDay.userProgress?.dailyReflection || undefined,
-      happinessRate:
-        dayHappiness[targetDay.id] || targetDay.userProgress?.happinessRate || undefined,
-      bedtime: dayBedtimes[targetDay.id] || targetDay.userProgress?.bedtime || undefined,
-      wakeTime: dayWakeTimes[targetDay.id] || targetDay.userProgress?.wakeTime || undefined,
-      assessmentResponse:
-        dayAssessments[targetDay.id] !== undefined
-          ? dayAssessments[targetDay.id]
-          : targetDay.userProgress?.assessmentResponse || "",
     });
 
   const handleOpenVideo = async (dayId?: string): Promise<boolean> => {
@@ -272,6 +386,7 @@ export function useDashboardProgress({
       setDayVideoWatched((prev) => ({ ...prev, [targetDay.id]: false }));
       return false;
     }
+    syncCompletedFromServer(targetDay.id, res.data);
     return true;
   };
 
@@ -297,6 +412,7 @@ export function useDashboardProgress({
       return false;
     }
 
+    syncCompletedFromServer(targetDay.id, res.data);
     if (autoComplete) {
       setActionNotice(
         { type: "success", text: `Day ${targetDay.dayNumber} checklist completed.` },
@@ -341,6 +457,7 @@ export function useDashboardProgress({
       return;
     }
 
+    syncCompletedFromServer(targetDay.id, res.data);
     if (autoComplete) {
       setActionNotice(
         { type: "success", text: `Day ${targetDay.dayNumber} checklist completed.` },
@@ -349,81 +466,52 @@ export function useDashboardProgress({
     }
   };
 
-  const syncCompletedFromServer = (dayId: string, data: unknown) => {
-    const serverCompleted =
-      data && typeof data === "object" && "isCompleted" in data
-        ? Boolean((data as { isCompleted?: unknown }).isCompleted)
-        : undefined;
-    if (serverCompleted !== undefined) {
-      setDayCompletedOverride((prev) => ({ ...prev, [dayId]: serverCompleted }));
-    }
-  };
-
   const handleSaveSleep = async (
     bedtime: string,
     wakeTime: string,
     sleepDurationMinutes: number,
     dayId?: string,
-    sleepFeeling?: string
+    sleepFeeling?: string,
+    explicitDateKey?: string
   ): Promise<boolean> => {
-    const targetDay = resolveTargetDay(dayId);
-    if (!targetDay) return false;
-    const prevBed = dayBedtimes[targetDay.id];
-    const prevWake = dayWakeTimes[targetDay.id];
-    const prevAssess = dayAssessments[targetDay.id];
-    const formattedAssessment =
-      bedtime === "SKIPPED"
-        ? ""
-        : sleepFeeling
-          ? `Sleep Feeling: ${sleepFeeling}`
-          : undefined;
-    setDayBedtimes((prev) => ({ ...prev, [targetDay.id]: bedtime }));
-    setDayWakeTimes((prev) => ({ ...prev, [targetDay.id]: wakeTime }));
-    if (formattedAssessment !== undefined) {
-      setDayAssessments((prev) => ({ ...prev, [targetDay.id]: formattedAssessment }));
-    }
+    const targetDay = dayId ? resolveTargetDay(dayId) : null;
+    const dateKey = explicitDateKey || (targetDay ? getDayDateKey(targetDay) : formatWibDateKey(new Date()));
+    const prevLog = dailyLogsByDate[dateKey];
 
-    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
+    setDailyLogsByDate((prev) => ({
+      ...prev,
+      [dateKey]: {
+        ...ensureDateLog(dateKey),
+        ...(prev[dateKey] || {}),
+        bedtime,
+        wakeTime,
+        sleepDurationMinutes,
+        sleepFeeling: sleepFeeling ?? prev[dateKey]?.sleepFeeling ?? null,
+      },
+    }));
+
+    const res = await wellnessSaveDailySleep({
+      logDate: dateKey,
       bedtime,
       wakeTime,
-    });
-    const res = await wellnessUserSubmitDayProgress({
-      programDayId: targetDay.id,
-      isCompleted: autoComplete,
-      checklistCompleted: getCheckedItems(targetDay),
-      videoWatched: getVideoWatched(targetDay),
-      bedtime,
-      wakeTime,
-      sleepDurationMinutes,
-      ...(formattedAssessment !== undefined ? { assessmentResponse: formattedAssessment } : {}),
+      sleepFeeling: sleepFeeling ?? null,
+      programDayId: targetDay?.id ?? null,
     });
 
-    if (!res.success) {
-      setDayBedtimes((prev) => {
+    if (!res.success || !res.data) {
+      setDailyLogsByDate((prev) => {
         const next = { ...prev };
-        if (prevBed === undefined) delete next[targetDay.id];
-        else next[targetDay.id] = prevBed;
+        if (prevLog) next[dateKey] = prevLog;
+        else delete next[dateKey];
         return next;
       });
-      setDayWakeTimes((prev) => {
-        const next = { ...prev };
-        if (prevWake === undefined) delete next[targetDay.id];
-        else next[targetDay.id] = prevWake;
-        return next;
-      });
-      if (formattedAssessment !== undefined) {
-        setDayAssessments((prev) => {
-          const next = { ...prev };
-          if (prevAssess === undefined) delete next[targetDay.id];
-          else next[targetDay.id] = prevAssess;
-          return next;
-        });
-      }
       setActionNotice({ type: "error", text: res.message || "Failed to save sleep log." }, 4000);
       return false;
     }
-    syncCompletedFromServer(targetDay.id, res.data);
-    setActionNotice({ type: "success", text: "Sleep log saved successfully." }, 3000);
+
+    setDailyLogsByDate((prev) => ({ ...prev, [dateKey]: res.data!.dailyLog }));
+    applyServerCompletions(res.data.completionsByDayId);
+    setActionNotice({ type: "success", text: "Sleep log saved & synced." }, 3000);
     return true;
   };
 
@@ -572,43 +660,118 @@ export function useDashboardProgress({
   const handleSaveMeal = async (
     compliance: string,
     notes: string,
-    dayId?: string
+    dayId?: string,
+    explicitDateKey?: string
   ): Promise<boolean> => {
-    const targetDay = resolveTargetDay(dayId);
-    if (!targetDay) return false;
-    const prevCompliance = dayMealCompliance[targetDay.id];
-    const prevMealNotes = dayMealNotes[targetDay.id];
-    const existingNotes =
-      prevMealNotes !== undefined ? prevMealNotes : targetDay.userProgress?.mealNotes;
+    const targetDay = dayId ? resolveTargetDay(dayId) : null;
+    const dateKey =
+      explicitDateKey || (targetDay ? getDayDateKey(targetDay) : formatWibDateKey(new Date()));
+    const prevLog = dailyLogsByDate[dateKey];
+    const prevCompliance = targetDay ? dayMealCompliance[targetDay.id] : undefined;
+    const prevMealNotes = targetDay ? dayMealNotes[targetDay.id] : undefined;
+
+    const existingNotes = targetDay
+      ? prevMealNotes !== undefined
+        ? prevMealNotes
+        : targetDay.userProgress?.mealNotes
+      : null;
     const mergedNotes = mergeMealNotesPayload(existingNotes, notes) ?? notes;
+    const nutr = extractNutritionFromMealNotes(mergedNotes);
 
-    setDayMealCompliance((prev) => ({ ...prev, [targetDay.id]: compliance }));
-    setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: mergedNotes }));
+    let parsedMealsCount = 1;
+    let parsedMealFeeling: string | null = null;
+    let parsedEntries: Array<{
+      status: "followed" | "similar" | "off_track" | "self_logged";
+      mealItem?: string;
+      calories?: number | null;
+      carbsG?: number | null;
+      proteinG?: number | null;
+      fatG?: number | null;
+    }> = [];
+    try {
+      const obj = JSON.parse(mergedNotes) as {
+        mealsCount?: number;
+        mealFeeling?: string;
+        mealEntries?: typeof parsedEntries;
+      };
+      if (typeof obj?.mealsCount === "number" && obj.mealsCount >= 1 && obj.mealsCount <= 6) {
+        parsedMealsCount = Math.round(obj.mealsCount);
+      }
+      if (typeof obj?.mealFeeling === "string" && obj.mealFeeling.trim()) {
+        parsedMealFeeling = obj.mealFeeling.trim();
+      }
+      if (Array.isArray(obj?.mealEntries)) {
+        parsedEntries = obj.mealEntries.slice(0, 6);
+      }
+    } catch {
+      // plain text fallback
+    }
 
-    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
-      mealCompliance: compliance,
-      mealNotes: mergedNotes,
+    const qualityMode =
+      compliance === "SELF_LOGGED"
+        ? "SELF_LOGGED"
+        : mapProgramComplianceToMealQuality(compliance) ?? "SELF_LOGGED";
+
+    if (targetDay) {
+      setDayMealCompliance((prev) => ({ ...prev, [targetDay.id]: compliance }));
+      setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: mergedNotes }));
+    }
+    setDailyLogsByDate((prev) => ({
+      ...prev,
+      [dateKey]: {
+        ...ensureDateLog(dateKey),
+        ...(prev[dateKey] || {}),
+        mealsCount: parsedMealsCount,
+        caloriesKcal: nutr.calories,
+        carbsG: nutr.carbsG,
+        proteinG: nutr.proteinG,
+        fatG: nutr.fatG,
+        mealQualityMode: qualityMode,
+        mealFeeling: parsedMealFeeling,
+        mealEntriesJson: parsedEntries,
+      },
+    }));
+
+    const validProgComp = ["FULL", "SIMILAR", "PARTIAL", "OFF_TRACK", "SKIPPED"].includes(
+      compliance
+    )
+      ? (compliance as "FULL" | "SIMILAR" | "PARTIAL" | "OFF_TRACK" | "SKIPPED")
+      : null;
+
+    const res = await wellnessSaveDailyMeal({
+      logDate: dateKey,
+      mealsCount: parsedMealsCount,
+      caloriesKcal: nutr.calories,
+      carbsG: nutr.carbsG,
+      proteinG: nutr.proteinG,
+      fatG: nutr.fatG,
+      mealQualityMode: qualityMode,
+      mealFeeling: parsedMealFeeling,
+      mealEntries: parsedEntries,
+      programDayId: targetDay?.id ?? null,
+      programMealCompliance: targetDay ? validProgComp : null,
+      legacyMealNotesJson: targetDay ? mergedNotes : null,
     });
-    const res = await wellnessUserSubmitDayProgress({
-      programDayId: targetDay.id,
-      isCompleted: autoComplete,
-      checklistCompleted: getCheckedItems(targetDay),
-      videoWatched: getVideoWatched(targetDay),
-      mealCompliance: compliance,
-      mealNotes: mergedNotes,
-    });
 
-    if (!res.success) {
-      setDayMealCompliance((prev) => {
+    if (!res.success || !res.data) {
+      if (targetDay) {
+        setDayMealCompliance((prev) => {
+          const next = { ...prev };
+          if (prevCompliance === undefined) delete next[targetDay.id];
+          else next[targetDay.id] = prevCompliance;
+          return next;
+        });
+        setDayMealNotes((prev) => {
+          const next = { ...prev };
+          if (prevMealNotes === undefined) delete next[targetDay.id];
+          else next[targetDay.id] = prevMealNotes;
+          return next;
+        });
+      }
+      setDailyLogsByDate((prev) => {
         const next = { ...prev };
-        if (prevCompliance === undefined) delete next[targetDay.id];
-        else next[targetDay.id] = prevCompliance;
-        return next;
-      });
-      setDayMealNotes((prev) => {
-        const next = { ...prev };
-        if (prevMealNotes === undefined) delete next[targetDay.id];
-        else next[targetDay.id] = prevMealNotes;
+        if (prevLog) next[dateKey] = prevLog;
+        else delete next[dateKey];
         return next;
       });
       setActionNotice(
@@ -617,40 +780,44 @@ export function useDashboardProgress({
       );
       return false;
     }
-    syncCompletedFromServer(targetDay.id, res.data);
-    setActionNotice({ type: "success", text: "Meal control saved successfully." }, 3000);
+
+    setDailyLogsByDate((prev) => ({ ...prev, [dateKey]: res.data!.dailyLog }));
+    applyServerCompletions(res.data.completionsByDayId);
+    setActionNotice({ type: "success", text: "Meal log saved & synced." }, 3000);
     return true;
   };
 
   const handleSaveWater = async (
     waterMl: number,
-    dayId?: string
+    dayId?: string,
+    explicitDateKey?: string
   ): Promise<boolean> => {
-    const targetDay = resolveTargetDay(dayId);
-    if (!targetDay) return false;
-    const prevMealNotes = dayMealNotes[targetDay.id];
-    const existingNotes =
-      prevMealNotes !== undefined ? prevMealNotes : targetDay.userProgress?.mealNotes;
-    const mergedNotes = buildWaterOnlyMealNotes(existingNotes, waterMl);
+    const targetDay = dayId ? resolveTargetDay(dayId) : null;
+    const dateKey =
+      explicitDateKey || (targetDay ? getDayDateKey(targetDay) : formatWibDateKey(new Date()));
+    const prevLog = dailyLogsByDate[dateKey];
+    const safeWater = Math.max(0, Math.min(15000, Math.round(waterMl)));
 
-    setDayMealNotes((prev) => ({ ...prev, [targetDay.id]: mergedNotes }));
+    setDailyLogsByDate((prev) => ({
+      ...prev,
+      [dateKey]: {
+        ...ensureDateLog(dateKey),
+        ...(prev[dateKey] || {}),
+        waterMl: safeWater,
+      },
+    }));
 
-    const autoComplete = computeAutoComplete(targetDay, getCheckedItems(targetDay), {
-      mealNotes: mergedNotes,
+    const res = await wellnessSaveDailyWater({
+      logDate: dateKey,
+      waterMl: safeWater,
+      programDayId: targetDay?.id ?? null,
     });
-    const res = await wellnessUserSubmitDayProgress({
-      programDayId: targetDay.id,
-      isCompleted: autoComplete,
-      checklistCompleted: getCheckedItems(targetDay),
-      videoWatched: getVideoWatched(targetDay),
-      mealNotes: mergedNotes,
-    });
 
-    if (!res.success) {
-      setDayMealNotes((prev) => {
+    if (!res.success || !res.data) {
+      setDailyLogsByDate((prev) => {
         const next = { ...prev };
-        if (prevMealNotes === undefined) delete next[targetDay.id];
-        else next[targetDay.id] = prevMealNotes;
+        if (prevLog) next[dateKey] = prevLog;
+        else delete next[dateKey];
         return next;
       });
       setActionNotice(
@@ -659,14 +826,130 @@ export function useDashboardProgress({
       );
       return false;
     }
-    syncCompletedFromServer(targetDay.id, res.data);
+
+    setDailyLogsByDate((prev) => ({ ...prev, [dateKey]: res.data!.dailyLog }));
+    applyServerCompletions(res.data.completionsByDayId);
     setActionNotice(
       {
         type: "success",
-        text: `Water intake saved (${(waterMl / 1000).toFixed(1)} L).`,
+        text: `Water intake saved (${(safeWater / 1000).toFixed(1)} L).`,
       },
       3000
     );
+    return true;
+  };
+
+  const handleSaveSteps = async (
+    stepsCount: number,
+    dayId?: string,
+    explicitDateKey?: string
+  ): Promise<boolean> => {
+    const targetDay = dayId ? resolveTargetDay(dayId) : null;
+    const dateKey =
+      explicitDateKey || (targetDay ? getDayDateKey(targetDay) : formatWibDateKey(new Date()));
+    const prevLog = dailyLogsByDate[dateKey];
+    const safeSteps = Math.max(0, Math.min(100000, Math.round(stepsCount)));
+
+    setDailyLogsByDate((prev) => ({
+      ...prev,
+      [dateKey]: {
+        ...ensureDateLog(dateKey),
+        ...(prev[dateKey] || {}),
+        stepsCount: safeSteps,
+        stepsBurnedKcal: computeStepsBurnedKcal(safeSteps),
+      },
+    }));
+
+    const res = await wellnessSaveDailySteps({
+      logDate: dateKey,
+      stepsCount: safeSteps,
+      programDayId: targetDay?.id ?? null,
+    });
+
+    if (!res.success || !res.data) {
+      setDailyLogsByDate((prev) => {
+        const next = { ...prev };
+        if (prevLog) next[dateKey] = prevLog;
+        else delete next[dateKey];
+        return next;
+      });
+      setActionNotice(
+        { type: "error", text: res.message || "Failed to save daily steps." },
+        4000
+      );
+      return false;
+    }
+
+    setDailyLogsByDate((prev) => ({ ...prev, [dateKey]: res.data!.dailyLog }));
+    applyServerCompletions(res.data.completionsByDayId);
+    setActionNotice(
+      { type: "success", text: `Daily steps saved (${safeSteps.toLocaleString()} steps).` },
+      3000
+    );
+    return true;
+  };
+
+  const handleAddExtraWorkout = async (payload: {
+    logDate: string;
+    activityType: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom";
+    title: string;
+    durationMinutes: number;
+    customKcal?: number | null;
+    excludeFromNetBurn?: boolean;
+    notes?: string | null;
+    programDayId?: string | null;
+  }): Promise<boolean> => {
+    const res = await wellnessAddExtraWorkout(payload);
+    if (!res.success || !res.data) {
+      setActionNotice(
+        { type: "error", text: res.message || "Failed to log extra training." },
+        4000
+      );
+      return false;
+    }
+    setDailyLogsByDate((prev) => ({ ...prev, [payload.logDate]: res.data!.dailyLog }));
+    setActionNotice({ type: "success", text: "Extra training logged." }, 3000);
+    return true;
+  };
+
+  const handleUpdateExtraWorkout = async (payload: {
+    id: string;
+    logDate: string;
+    title?: string;
+    durationMinutes?: number;
+    customKcal?: number | null;
+    excludeFromNetBurn?: boolean;
+    notes?: string | null;
+    programDayId?: string | null;
+  }): Promise<boolean> => {
+    const res = await wellnessUpdateExtraWorkout(payload);
+    if (!res.success || !res.data) {
+      setActionNotice(
+        { type: "error", text: res.message || "Failed to update extra training." },
+        4000
+      );
+      return false;
+    }
+    setDailyLogsByDate((prev) => ({ ...prev, [payload.logDate]: res.data!.dailyLog }));
+    setActionNotice({ type: "success", text: "Extra training updated." }, 3000);
+    return true;
+  };
+
+  const handleDeleteExtraWorkout = async (
+    id: string,
+    logDate: string,
+    programDayId?: string | null
+  ): Promise<boolean> => {
+    const res = await wellnessDeleteExtraWorkout({ id, programDayId: programDayId ?? null });
+    if (!res.success || !res.data) {
+      setActionNotice(
+        { type: "error", text: res.message || "Failed to remove extra training." },
+        4000
+      );
+      return false;
+    }
+    setDailyLogsByDate((prev) => ({ ...prev, [logDate]: res.data!.dailyLog }));
+    setActionNotice({ type: "success", text: "Extra training removed." }, 2500);
     return true;
   };
 
@@ -725,6 +1008,7 @@ export function useDashboardProgress({
   };
 
   return {
+    dailyLogsByDate,
     dayChecklists,
     overlayDay,
     setDayCompletedOverride,
@@ -738,6 +1022,10 @@ export function useDashboardProgress({
     handleSaveEventFeedback,
     handleSaveMeal,
     handleSaveWater,
+    handleSaveSteps,
+    handleAddExtraWorkout,
+    handleUpdateExtraWorkout,
+    handleDeleteExtraWorkout,
     handleSaveReflection,
     handleCompleteProgramDay,
   };

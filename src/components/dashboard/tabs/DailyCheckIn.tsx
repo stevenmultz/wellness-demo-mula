@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import {
+  AlertTriangle,
   Check,
   Dumbbell,
   Footprints,
+  Loader2,
   MessageCircle,
   Plus,
   RotateCcw,
@@ -14,6 +16,12 @@ import {
 } from "lucide-react";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
+import { formatWibDateKey } from "@/wellness/utils/timezone";
+import {
+  EXTRA_WORKOUT_PRESETS,
+  computeExtraWorkoutKcal,
+  detectHighTrainingLoad,
+} from "@/wellness/utils/wellness-metrics";
 import { HeaderBackButton, InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
@@ -118,6 +126,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       weekday: "short",
       day: "numeric",
       month: "short",
+      timeZone: "Asia/Jakarta",
     }).format(new Date());
   }, []);
 
@@ -157,55 +166,36 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const currentTask = tasks[step] || tasks[0];
 
   const handleFinishTask = () => {
-    if (!selectedLocked && isSelectedToday) {
+    // Water task (step === 3) reflects live waterMl > 0 from parent props so resetting to 0 ml never shows done
+    if (!selectedLocked && isSelectedToday && step !== 3) {
       markDone(step);
     }
     setDetailOpen(false);
   };
 
   const customTasksList = selectedDay.customTasks || [];
+  const selectedDateKey =
+    selectedDay.wibDateKey ||
+    (selectedDay.unlockDate ? formatWibDateKey(selectedDay.unlockDate) : formatWibDateKey(new Date()));
 
   const { locale } = useLocale();
   const isId = locale === "id";
   const programTitle = props.programTitle || "Program";
 
-  // ── Daily Steps Task State (reduces net daily calories at ~0.04 kcal/step) ──
-  const [steps, setSteps] = useState<number>(0);
+  // ── Daily Steps Task State (PostgreSQL-backed via UserDailyLog, Multi-Plan Synced) ──
+  const steps = selectedDay.userProgress?.stepsCount ?? 0;
   const [stepsModalOpen, setStepsModalOpen] = useState(false);
-  const [draftSteps, setDraftSteps] = useState<number>(0);
+  const [draftSteps, setDraftSteps] = useState<number>(steps);
+  const [stepsBusy, setStepsBusy] = useState(false);
   const [showCustomSteps, setShowCustomSteps] = useState(false);
   const [customStepsInput, setCustomStepsInput] = useState("");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(`zera_daily_steps_${selectedDay.id}`);
-      const parsed = raw ? parseInt(raw, 10) : 0;
-      const valid = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-      setSteps(valid);
-      setDraftSteps(valid);
-    } catch {
-      setSteps(0);
-      setDraftSteps(0);
-    }
+    setDraftSteps(selectedDay.userProgress?.stepsCount ?? 0);
     setStepsModalOpen(false);
     setShowCustomSteps(false);
     setCustomStepsInput("");
-  }, [selectedDay.id]);
-
-  const persistSteps = (nextSteps: number) => {
-    const clamped = Math.max(0, Math.min(100000, Math.round(nextSteps)));
-    setSteps(clamped);
-    setDraftSteps(clamped);
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(`zera_daily_steps_${selectedDay.id}`, String(clamped));
-        window.dispatchEvent(new CustomEvent("zera:steps-updated"));
-      } catch {
-        // ignore storage errors
-      }
-    }
-  };
+  }, [selectedDay.id, selectedDay.userProgress?.stepsCount]);
 
   const openStepsModal = () => {
     if (isSelectedFuture) return;
@@ -228,14 +218,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
   };
 
-  const handleSaveStepsModal = () => {
+  const handleSaveStepsModal = async () => {
+    if (stepsBusy) return;
     if (!selectedLocked || isAnytime) {
-      persistSteps(draftSteps);
+      setStepsBusy(true);
+      try {
+        const ok = await props.onSaveSteps?.(draftSteps, selectedDay.id);
+        if (ok === false) return;
+      } finally {
+        setStepsBusy(false);
+      }
     }
     setStepsModalOpen(false);
   };
 
-  const stepsDone = steps > 0;
+  const stepsDone = steps > 0 || Boolean(selectedDay.userProgress?.isCompleted);
   const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
   const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
   const totalTasks = tasks.length + 1 + customTasksList.length;
@@ -243,76 +240,82 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // ── More Training (Extra / Bonus Workouts per Day) ───────────────────────
-  interface ExtraTrainingSession {
-    id: string;
-    name: string;
-    durationMins: number;
-    kcal: number;
-  }
-
-  const EXTRA_TRAINING_PRESETS = [
-    { id: "run", label: isId ? "Lari / Jogging" : "Cardio / Run", kcalPerMin: 9 },
-    { id: "strength", label: isId ? "Latihan Beban / Gym" : "Strength / Gym", kcalPerMin: 6 },
-    { id: "hiit", label: "HIIT / Circuit", kcalPerMin: 11 },
-    { id: "mobility", label: isId ? "Mobility / Yoga" : "Mobility / Yoga", kcalPerMin: 3 },
-    { id: "cycling", label: isId ? "Bersepeda" : "Cycling", kcalPerMin: 8 },
-    { id: "swim", label: isId ? "Berenang" : "Swimming", kcalPerMin: 9 },
-  ];
-
-  const [extraSessions, setExtraSessions] = useState<ExtraTrainingSession[]>([]);
+  // ── More Training (PostgreSQL-backed via UserExtraWorkoutLog, Multi-Plan Synced) ──
+  const extraSessions = selectedDay.userProgress?.extraWorkouts ?? [];
   const [moreTrainingOpen, setMoreTrainingOpen] = useState(false);
-  const [selectedExtraType, setSelectedExtraType] = useState<string>("run");
+  const [extraBusy, setExtraBusy] = useState(false);
+  const [selectedExtraType, setSelectedExtraType] = useState<
+    "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom"
+  >("run");
   const [customExtraName, setCustomExtraName] = useState<string>("");
   const [extraDurationMins, setExtraDurationMins] = useState<number>(30);
+  const [extraCustomKcal, setExtraCustomKcal] = useState<string>("");
+  const [excludeFromNetBurn, setExcludeFromNetBurn] = useState<boolean>(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(`zera_more_training_${selectedDay.id}`);
-      const parsed = raw ? JSON.parse(raw) : [];
-      setExtraSessions(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setExtraSessions([]);
-    }
     setMoreTrainingOpen(false);
   }, [selectedDay.id]);
 
-  const persistExtraSessions = (next: ExtraTrainingSession[]) => {
-    setExtraSessions(next);
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(`zera_more_training_${selectedDay.id}`, JSON.stringify(next));
-      } catch {
-        // ignore storage errors
+  const handleSelectPresetType = (
+    typeId: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom"
+  ) => {
+    setSelectedExtraType(typeId);
+    const preset = EXTRA_WORKOUT_PRESETS.find((p) => p.id === typeId);
+    // Smart default: if user already logged Steps and picks Run, default hint for double-count guard
+    setExcludeFromNetBurn(Boolean(preset?.oftenCountedInSteps && steps > 0));
+  };
+
+  const handleAddExtraSession = async () => {
+    if (extraBusy || (selectedLocked && !isAnytime) || isSelectedFuture) return;
+    const preset =
+      EXTRA_WORKOUT_PRESETS.find((p) => p.id === selectedExtraType) || EXTRA_WORKOUT_PRESETS[0];
+    const mins = Math.max(1, Math.min(360, Math.round(extraDurationMins || 30)));
+    const title = customExtraName.trim() || (isId ? preset.labelId : preset.labelEn);
+    const parsedWatchKcal =
+      extraCustomKcal.trim() !== "" && Number.isFinite(Number(extraCustomKcal))
+        ? Math.max(0, Math.min(3500, Math.round(Number(extraCustomKcal))))
+        : null;
+
+    setExtraBusy(true);
+    try {
+      const ok = await props.onAddExtraWorkout?.({
+        logDate: selectedDateKey,
+        activityType: selectedExtraType,
+        title,
+        durationMinutes: mins,
+        customKcal: parsedWatchKcal,
+        excludeFromNetBurn,
+        programDayId: selectedDay.id,
+      });
+      if (ok !== false) {
+        setCustomExtraName("");
+        setExtraDurationMins(30);
+        setExtraCustomKcal("");
+        setExcludeFromNetBurn(false);
+        setMoreTrainingOpen(false);
       }
+    } finally {
+      setExtraBusy(false);
     }
   };
 
-  const handleAddExtraSession = () => {
-    const preset =
-      EXTRA_TRAINING_PRESETS.find((p) => p.id === selectedExtraType) || EXTRA_TRAINING_PRESETS[0];
-    const mins = Math.max(5, Math.min(300, Math.round(extraDurationMins || 30)));
-    const name = customExtraName.trim() || preset.label;
-    const kcal = Math.round(mins * preset.kcalPerMin);
-    const nextItem: ExtraTrainingSession = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      name,
-      durationMins: mins,
-      kcal,
-    };
-    persistExtraSessions([...extraSessions, nextItem]);
-    setCustomExtraName("");
-    setExtraDurationMins(30);
-    setMoreTrainingOpen(false);
+  const handleRemoveExtraSession = async (id: string) => {
+    if (extraBusy || (selectedLocked && !isAnytime) || isSelectedFuture) return;
+    setExtraBusy(true);
+    try {
+      await props.onDeleteExtraWorkout?.(id, selectedDateKey, selectedDay.id);
+    } finally {
+      setExtraBusy(false);
+    }
   };
 
-  const handleRemoveExtraSession = (id: string) => {
-    persistExtraSessions(extraSessions.filter((s) => s.id !== id));
-  };
-
-  const totalExtraMins = extraSessions.reduce((acc, s) => acc + s.durationMins, 0);
-  const totalExtraKcal = extraSessions.reduce((acc, s) => acc + s.kcal, 0);
+  const totalExtraMins = extraSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+  const totalExtraKcal = extraSessions.reduce((acc, s) => acc + s.estimatedKcal, 0);
+  const loadAdvisory = detectHighTrainingLoad({
+    dayType: selectedDay.dayType,
+    overlappingTrainingProgramsCount: props.overlappingTrainingCount,
+    extraWorkouts: extraSessions,
+  });
 
   const todayFocusTitle =
     selectedDay.title?.trim() ||
@@ -532,6 +535,31 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           {todayFocusTitle}
         </p>
       </div>
+
+      {/* Overtraining / Recovery Non-Blocking Advisory */}
+      {loadAdvisory.isHighLoad && (
+        <div className="w-full rounded-2xl bg-[var(--semantic-yellow-bg)] dark:bg-[var(--semantic-yellow-bg)] border border-[var(--semantic-yellow-border)]/30 p-3.5 sm:p-4 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-[var(--semantic-yellow)] shrink-0 mt-0.5" />
+          <div className="space-y-0.5 text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+            <p className="font-semibold text-zinc-950 dark:text-white">
+              {isId ? "Catatan Pemulihan & Beban Latihan" : "Recovery & Training Load Advisory"}
+            </p>
+            <p>
+              {loadAdvisory.reasonCode === "REST_DAY_INTENSE_EXTRA"
+                ? isId
+                  ? "Hari ini adalah Hari Istirahat, namun Anda mencatat sesi intensitas tinggi. Pastikan tidur minimal 7.5 jam & hidrasi optimal."
+                  : "Today is a Rest Day with high-intensity extra training logged. Prioritize 7.5h+ sleep and hydration for recovery."
+                : loadAdvisory.reasonCode === "MULTI_PROGRAM_TRAINING"
+                  ? isId
+                    ? "Anda memiliki 2+ jadwal latihan aktif di hari yang sama. Jaga kualitas gerak & hindari overtraining."
+                    : "You have 2+ scheduled training programs on the same day. Manage intensity and prioritize recovery."
+                  : isId
+                    ? "Volume latihan ekstra hari ini cukup tinggi (>60 mnt). Pastikan asupan protein & hidrasi tercukupi."
+                    : "High extra workout volume logged today (>60 min). Fuel with adequate protein and hydration."}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
@@ -934,9 +962,14 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                   <div className="flex justify-end pt-2">
                     <button
                       type="submit"
-                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+                      disabled={stepsBusy}
+                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 disabled:opacity-40 transition cursor-pointer"
                     >
-                      <Check className="w-4 h-4" />
+                      {stepsBusy ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
                       <span>
                         {selectedLocked && !isAnytime
                           ? isId
@@ -990,7 +1023,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    handleAddExtraSession();
+                    void handleAddExtraSession();
                   }}
                   className="flex-1 flex flex-col justify-between gap-8 pt-6 min-w-0"
                 >
@@ -1001,8 +1034,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       </h2>
                       <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                         {isId
-                          ? "Pilih jenis latihan dan durasi untuk mencatat sesi bonus Anda."
-                          : "Choose an activity type and duration to log your bonus workout."}
+                          ? "Pilih jenis latihan dan durasi untuk mencatat sesi bonus Anda (otomatis tersinkron lintas program)."
+                          : "Choose an activity type and duration to log your bonus workout (synced across all plans)."}
                       </p>
                     </div>
 
@@ -1025,18 +1058,24 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                             >
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                                  {session.name}
+                                  {session.title}
                                 </p>
                                 <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                                  {session.durationMins} min · -{session.kcal} kcal
+                                  {session.durationMinutes} min · -{session.estimatedKcal} kcal
+                                  {session.excludeFromNetBurn
+                                    ? isId
+                                      ? " · termasuk di Steps"
+                                      : " · counted in Steps"
+                                    : ""}
                                 </p>
                               </div>
                               {!(selectedLocked && !isAnytime) && !isSelectedFuture && (
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveExtraSession(session.id)}
-                                  aria-label={`Remove ${session.name}`}
-                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer shrink-0"
+                                  disabled={extraBusy}
+                                  onClick={() => void handleRemoveExtraSession(session.id)}
+                                  aria-label={`Remove ${session.title}`}
+                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 transition cursor-pointer shrink-0"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -1047,19 +1086,27 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       </div>
                     )}
 
-                    {/* Activity Type Grid */}
+                    {/* Activity Type Grid & Add Form (hidden when day cutoff 23:59 WIB passed) */}
+                    {selectedLocked && !isAnytime ? (
+                      <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400">
+                        {isId
+                          ? "Batas pengisian 23:59 WIB untuk hari ini telah berakhir. Latihan tambahan hanya dapat dilihat."
+                          : "This day's 23:59 WIB cutoff has passed. Extra workouts are read-only."}
+                      </div>
+                    ) : (
+                    <>
                     <div className="space-y-2">
                       <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
                         {isId ? "Jenis Latihan" : "Activity Type"}
                       </span>
                       <div className="grid grid-cols-2 gap-2.5">
-                        {EXTRA_TRAINING_PRESETS.map((preset) => {
+                        {EXTRA_WORKOUT_PRESETS.map((preset) => {
                           const active = selectedExtraType === preset.id;
                           return (
                             <button
                               key={preset.id}
                               type="button"
-                              onClick={() => setSelectedExtraType(preset.id)}
+                              onClick={() => handleSelectPresetType(preset.id)}
                               className={`p-3.5 rounded-2xl border text-left transition active:scale-95 cursor-pointer flex items-center gap-2.5 ${
                                 active
                                   ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
@@ -1067,7 +1114,9 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                               }`}
                             >
                               <Dumbbell className="w-4 h-4 shrink-0" />
-                              <span className="text-xs font-semibold truncate">{preset.label}</span>
+                              <span className="text-xs font-semibold truncate">
+                                {isId ? preset.labelId : preset.labelEn}
+                              </span>
                             </button>
                           );
                         })}
@@ -1082,10 +1131,10 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         </span>
                         <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300">
                           ~
-                          {Math.round(
-                            (extraDurationMins || 0) *
-                              (EXTRA_TRAINING_PRESETS.find((p) => p.id === selectedExtraType)
-                                ?.kcalPerMin || 6)
+                          {computeExtraWorkoutKcal(
+                            selectedExtraType,
+                            extraDurationMins || 30,
+                            extraCustomKcal.trim() ? Number(extraCustomKcal) : null
                           )}{" "}
                           kcal
                         </span>
@@ -1114,13 +1163,53 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       <input
                         type="number"
                         inputMode="numeric"
-                        min={5}
-                        max={300}
+                        min={1}
+                        max={360}
                         value={extraDurationMins}
                         onChange={(e) => setExtraDurationMins(parseInt(e.target.value, 10) || 0)}
                         placeholder="30"
                         className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white"
                       />
+                    </div>
+
+                    {/* Optional Watch Calories + Double-Count Guard */}
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+                          {isId
+                            ? "Kalori dari Smartwatch (Opsional — kosongkan untuk estimasi otomatis)"
+                            : "Smartwatch Active Calories (Optional — leave empty for auto estimate)"}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={3500}
+                          value={extraCustomKcal}
+                          onChange={(e) => setExtraCustomKcal(e.target.value)}
+                          placeholder={isId ? "mis. 320 kcal (Garmin / Apple Watch)" : "e.g. 320 kcal (Garmin / Apple Watch)"}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
+                        />
+                      </div>
+
+                      <label className="flex items-start gap-2.5 p-3 rounded-xl bg-white/80 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={excludeFromNetBurn}
+                          onChange={(e) => setExcludeFromNetBurn(e.target.checked)}
+                          className="mt-0.5 rounded border-zinc-300 accent-zinc-950 dark:accent-white"
+                        />
+                        <span className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                          <strong className="text-zinc-950 dark:text-white block">
+                            {isId
+                              ? "Sudah termasuk dalam hitungan Daily Steps?"
+                              : "Already counted in Daily Steps?"}
+                          </strong>
+                          {isId
+                            ? "Centang agar kalori lari/jalan tidak dikurangkan dua kali pada Net Calories."
+                            : "Check this so walking/running calories are not deducted twice from Net Calories."}
+                        </span>
+                      </label>
                     </div>
 
                     {/* Optional Custom Workout Title */}
@@ -1130,7 +1219,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       </span>
                       <input
                         type="text"
-                        maxLength={60}
+                        maxLength={80}
                         value={customExtraName}
                         onChange={(e) => setCustomExtraName(e.target.value)}
                         placeholder={
@@ -1141,17 +1230,26 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                         className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
                       />
                     </div>
+                    </>
+                    )}
                   </div>
 
+                  {!(selectedLocked && !isAnytime) && (
                   <div className="flex justify-end pt-2">
                     <button
                       type="submit"
-                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+                      disabled={extraBusy}
+                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 disabled:opacity-40 transition cursor-pointer"
                     >
-                      <Check className="w-4 h-4" />
+                      {extraBusy ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
                       <span>{isId ? "Simpan Latihan" : "Save Training"}</span>
                     </button>
                   </div>
+                  )}
                 </form>
               </div>
             </div>

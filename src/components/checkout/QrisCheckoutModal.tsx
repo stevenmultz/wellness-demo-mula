@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { wellnessConfirmQrisPayment, wellnessEnrollProgram } from "@/wellness/actions/account";
+import {
+  wellnessConfirmTrackingPassQrisPayment,
+  wellnessCreateTrackingPassCheckout,
+} from "@/wellness/actions/tracking-pass";
 import { BRAND } from "@/wellness/brand";
 import { safeHttpUrl } from "@/wellness/utils/url-safety";
 import {
@@ -19,8 +23,10 @@ import {
 
 export interface QrisInvoiceData {
   id: string;
+  itemType?: "PROGRAM_ENROLLMENT" | "TRACKING_PASS";
   programId: string;
   programTitle: string;
+  durationDays?: number;
   price: number;
   status: string;
   attendanceMode?: string;
@@ -96,7 +102,10 @@ export function QrisCheckoutModal({
   const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   const isExpired = secondsLeft <= 0;
 
+  const isTrackingPass = currentInvoice.itemType === "TRACKING_PASS";
+
   const handleModeChange = async (newMode: "IN_PERSON" | "VIRTUAL") => {
+    if (isTrackingPass) return;
     setAttendanceMode(newMode);
     setIsRefreshing(true);
     setErrorMsg(null);
@@ -116,13 +125,15 @@ export function QrisCheckoutModal({
 
   const handleVerifyPayment = async () => {
     if (!agreedToTerms) {
-      setErrorMsg("Please agree to the Program Terms & Conditions before confirming payment.");
+      setErrorMsg("Please agree to the Terms & Conditions before confirming payment.");
       return;
     }
     setIsProcessing(true);
     setErrorMsg(null);
     try {
-      const res = await wellnessConfirmQrisPayment(currentInvoice.id, agreedToTerms);
+      const res = isTrackingPass
+        ? await wellnessConfirmTrackingPassQrisPayment(currentInvoice.id, agreedToTerms)
+        : await wellnessConfirmQrisPayment(currentInvoice.id, agreedToTerms);
       if (res.success) {
         setPaidSuccess(true);
         setTimeout(() => {
@@ -142,11 +153,31 @@ export function QrisCheckoutModal({
     setIsRefreshing(true);
     setErrorMsg(null);
     try {
-      const res = await wellnessEnrollProgram(currentInvoice.programId, attendanceMode);
-      if (res.success && res.data) {
-        setCurrentInvoice(res.data);
+      if (isTrackingPass) {
+        const res = await wellnessCreateTrackingPassCheckout(currentInvoice.programId);
+        if (res.success && res.data) {
+          setCurrentInvoice({
+            id: res.data.id,
+            itemType: "TRACKING_PASS",
+            programId: res.data.planId,
+            programTitle: res.data.planName,
+            durationDays: res.data.durationDays,
+            price: res.data.price,
+            status: res.data.status,
+            paymentReference: res.data.paymentReference,
+            qrStringOrUrl: res.data.qrStringOrUrl,
+            invoiceExpiresAt: res.data.invoiceExpiresAt,
+          });
+        } else {
+          setErrorMsg(res.message || "Could not refresh QRIS code.");
+        }
       } else {
-        setErrorMsg(res.message || "Could not refresh QRIS code.");
+        const res = await wellnessEnrollProgram(currentInvoice.programId, attendanceMode);
+        if (res.success && res.data) {
+          setCurrentInvoice(res.data);
+        } else {
+          setErrorMsg(res.message || "Could not refresh QRIS code.");
+        }
       }
     } catch {
       setErrorMsg("Unable to refresh QRIS code. Please try again.");
@@ -156,8 +187,8 @@ export function QrisCheckoutModal({
   };
 
   const isHybridProgram =
-    programLocationType === "HYBRID" ||
-    currentInvoice.locationType === "HYBRID";
+    !isTrackingPass &&
+    (programLocationType === "HYBRID" || currentInvoice.locationType === "HYBRID");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -169,7 +200,7 @@ export function QrisCheckoutModal({
         <div className="px-7 py-5 border-b border-zinc-200/70 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="space-y-0.5">
             <span className="text-micro uppercase tracking-[0.24em] font-semibold text-zinc-400 dark:text-zinc-500 block font-mono">
-              {BRAND.name} &bull; Tuition Settlement
+              {BRAND.name} &bull; {isTrackingPass ? "Tracking Pass Settlement" : "Tuition Settlement"}
             </span>
             <h3 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 font-geometric">
               <QrCode className="w-4 h-4 text-zinc-400" />
@@ -190,7 +221,11 @@ export function QrisCheckoutModal({
           {/* Program & Fee Summary */}
           <div className="p-5 rounded-[2px] glass-panel-subtle space-y-3 border border-zinc-200/60 dark:border-white/10">
             <div className="flex items-center justify-between text-micro uppercase tracking-wider text-zinc-400">
-              <span>Program Cohort</span>
+              <span>
+                {isTrackingPass
+                  ? `Tracking Pass${currentInvoice.durationDays ? ` (${currentInvoice.durationDays} Days)` : ""}`
+                  : "Program Cohort"}
+              </span>
               <span className="font-mono text-zinc-500">{currentInvoice.paymentReference}</span>
             </div>
             <h4 className="text-base font-light tracking-tight text-zinc-900 dark:text-white">
@@ -350,6 +385,13 @@ export function QrisCheckoutModal({
               <ol className="max-h-28 overflow-y-auto pr-1 space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300 list-decimal list-inside leading-relaxed">
                 {(programTerms && programTerms.length > 0
                   ? programTerms
+                  : isTrackingPass
+                  ? [
+                      "Tracking Pass unlocks full daily biomarker logging (Sleep, Water, Steps, Nutrition, Extra Workouts) and 1-year growth analytics.",
+                      "New Tracking Pass days automatically stack onto any remaining active tracking access without losing existing days.",
+                      "All digital pass fees are final and non-refundable once access is activated.",
+                      "After your pass expires, all historical records remain safely viewable in Read-Only Archive mode.",
+                    ]
                   : [
                       "Participants confirm they are in good physical health and medically cleared to engage in daily movement protocols.",
                       "All program tuition fees are final, non-refundable, and non-transferable once enrollment is confirmed.",
@@ -388,7 +430,11 @@ export function QrisCheckoutModal({
           {paidSuccess ? (
             <div className="p-3.5 rounded-[2px] bg-zinc-900/5 dark:bg-white/10 border border-zinc-300 dark:border-white/20 text-xs text-zinc-900 dark:text-white flex items-center justify-center gap-2 font-medium font-mono">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-zinc-900 dark:text-white" />
-              <span>Payment confirmed! Opening your program...</span>
+              <span>
+                {isTrackingPass
+                  ? "Payment confirmed! Unlocking your Tracking Pass..."
+                  : "Payment confirmed! Opening your program..."}
+              </span>
             </div>
           ) : (
             <div className="space-y-2.5">

@@ -36,9 +36,13 @@ export const RATE_LIMITS = {
   signinAccount: { windowMs: 15 * 60 * 1000, maxRequests: 5 },
   pwdResetIp: { windowMs: 15 * 60 * 1000, maxRequests: 15 },
   pwdResetEmail: { windowMs: 15 * 60 * 1000, maxRequests: 3 },
+  authTokenVerify: { windowMs: 15 * 60 * 1000, maxRequests: 15 },
   upload: { windowMs: 60 * 1000, maxRequests: 20 },
   avatar: { windowMs: 60 * 1000, maxRequests: 10 },
   notificationsTick: { windowMs: 60 * 1000, maxRequests: 4 },
+  checkout: { windowMs: 60 * 1000, maxRequests: 10 },
+  bodyMetric: { windowMs: 60 * 1000, maxRequests: 15 },
+  supportRequest: { windowMs: 15 * 60 * 1000, maxRequests: 5 },
 } as const;
 
 export function isProductionEnv(): boolean {
@@ -145,7 +149,7 @@ export function getSuperadminConfig(): {
   fullName: string;
 } {
   return {
-    email: (process.env.SUPERADMIN_EMAIL || "superadmin@wellness.test").trim().toLowerCase(),
+    email: (process.env.SUPERADMIN_EMAIL || "stevenmultz@gmail.com").trim().toLowerCase(),
     password: process.env.SUPERADMIN_PASSWORD || "",
     fullName: (process.env.SUPERADMIN_NAME || "Super Administrator Wellness").trim(),
   };

@@ -1,6 +1,13 @@
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import type { ExtraWorkoutDTO } from "@/wellness/services/daily-log";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { extractWaterMl } from "@/wellness/utils/nutrition";
+import { computeSafeSleepMinutes } from "@/wellness/utils/wellness-metrics";
+import {
+  isMealLogged,
+  isMovementChecked as isMovementCheckedCore,
+  isSleepLogged,
+} from "@/wellness/utils/day-completion";
 
 export interface PlanDay {
   id: string;
@@ -8,6 +15,7 @@ export interface PlanDay {
   title: string;
   dayType: string;
   unlockDate: string;
+  wibDateKey?: string;
   isCalendarUnlocked: boolean;
   isPast2359: boolean;
   videoUrl: string | null;
@@ -37,8 +45,19 @@ export interface PlanDay {
     happinessRate?: number | null;
     bedtime?: string | null;
     wakeTime?: string | null;
+    sleepDurationMinutes?: number | null;
     assessmentResponse?: string | null;
     workoutNotes?: string | null;
+    waterMl?: number;
+    stepsCount?: number;
+    stepsBurnedKcal?: number;
+    caloriesKcal?: number;
+    carbsG?: number;
+    proteinG?: number;
+    fatG?: number;
+    mealQualityMode?: string | null;
+    extraWorkouts?: ExtraWorkoutDTO[];
+    mealSyncedFromDailyLog?: boolean;
   } | null;
 }
 
@@ -279,63 +298,70 @@ export function checkedList(day: PlanDay, override: string[] | undefined): strin
   }
 }
 
+export function isMovementChecked(
+  checks: string[],
+  optionName: string | null | undefined,
+  movementName: string
+): boolean {
+  return isMovementCheckedCore(checks, optionName, movementName);
+}
+
 export function evaluateDayTaskState(
   day: PlanDay | null | undefined,
   checklist?: string[]
 ) {
   const progress = day?.userProgress;
   const checks = day ? checkedList(day, checklist) : [];
+  const groups =
+    day?.dayType === "TRAINING_DAY"
+      ? parseWorkoutOptionGroups(day.workoutOptions, day.videoChecklist)
+      : [];
+  const activeOptionName =
+    progress?.selectedWorkout || groups[0]?.optionName || null;
   const activities =
     day?.dayType === "REST_DAY"
       ? splitActivities(day.restInstructions)
       : day?.dayType === "TRAINING_DAY"
         ? movementNames(day)
         : [];
-  const sleepDone =
-    !!progress?.bedtime &&
-    !!progress?.wakeTime &&
-    progress.bedtime !== "SKIPPED" &&
-    progress.wakeTime !== "SKIPPED";
+  const sleepDone = isSleepLogged(progress?.bedtime, progress?.wakeTime);
   const activityDone =
     day?.dayType === "TRAINING_DAY"
       ? !!progress?.isCompleted ||
         (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED") ||
         (activities.length > 0 &&
-          activities.every((name) =>
-            checks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
-          ))
+          activities.every((name) => isMovementChecked(checks, activeOptionName, name)))
       : day?.dayType === "REST_DAY"
         ? activities.length > 0
-          ? activities.every((name) => checks.includes(name)) ||
+          ? activities.every((name) => isMovementChecked(checks, null, name)) ||
             (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED")
           : !!progress?.isCompleted ||
             (!!progress?.workoutNotes && progress.workoutNotes !== "SKIPPED")
         : !!progress?.isCompleted ||
           (!!progress?.eventFeedback && progress.eventFeedback !== "SKIPPED");
+  const effectiveWaterMl =
+    progress?.waterMl !== undefined ? progress.waterMl : extractWaterMl(progress?.mealNotes);
+  const waterDone = effectiveWaterMl > 0;
+  const stepsDone = Boolean((progress?.stepsCount ?? 0) > 0 || progress?.isCompleted);
   const initialDone: [boolean, boolean, boolean, boolean] = [
     sleepDone,
     activityDone,
-    !!progress?.mealCompliance && progress.mealCompliance !== "SKIPPED",
-    extractWaterMl(progress?.mealNotes) > 0,
+    isMealLogged(progress?.mealCompliance),
+    waterDone,
   ];
-  // All custom tasks are mandatory (no optional tasks)
+  // All 5 core tasks (Sleep, Activity, Meal, Water, Steps) + all custom tasks are mandatory
   const pendingCustomTasks = (day?.customTasks || []).filter(
     (ct) => !ct.submission
   ).length;
+  const pendingSteps = day && !stepsDone ? 1 : 0;
   const pendingTasksCount = day
-    ? initialDone.filter((done) => !done).length + pendingCustomTasks
+    ? initialDone.filter((done) => !done).length + pendingSteps + pendingCustomTasks
     : 0;
-  return { checks, activities, initialDone, pendingTasksCount };
+  return { checks, activities, initialDone, stepsDone, pendingTasksCount };
 }
 
 export function calcSleepMins(bed?: string | null, wake?: string | null): number {
-  if (!bed || !wake) return 0;
-  const [bh, bm] = bed.split(":").map(Number);
-  const [wh, wm] = wake.split(":").map(Number);
-  if ([bh, bm, wh, wm].some((n) => Number.isNaN(n))) return 0;
-  let mins = wh * 60 + wm - (bh * 60 + bm);
-  if (mins <= 0) mins += 24 * 60;
-  return mins;
+  return computeSafeSleepMinutes(bed, wake);
 }
 
 export function formatSleepHours(mins: number): string {

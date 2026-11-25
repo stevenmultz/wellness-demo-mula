@@ -39,6 +39,7 @@ interface ExploreProgramItem {
   actualPrice: number;
   discountPercentage: number;
   durationDays: number;
+  bonusTrackingDays: number;
   locationType: string;
   city: string | null;
   minQuota: number;
@@ -167,6 +168,7 @@ export async function GET(req: NextRequest) {
           actualPrice: effectiveActualPrice,
           discountPercentage: effectiveDiscount,
           durationDays: p.durationDays,
+          bonusTrackingDays: p.bonusTrackingDays ?? 0,
           locationType: p.locationType,
           city: p.city,
           minQuota: p.minQuota,

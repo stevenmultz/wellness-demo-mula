@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockRequireAuth,
   mockLockProgramRow,
+  mockLockUserRow,
   mockRateLimit,
   mockCreateQrisAdapter,
   mockCreateNotifications,
@@ -24,6 +25,8 @@ const {
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    trackingPassOrder: { updateMany: vi.fn() },
+    userTrackingGrant: { updateMany: vi.fn() },
     paymentTransaction: {
       create: vi.fn(),
       update: vi.fn(),
@@ -32,7 +35,7 @@ const {
     userIdentity: { deleteMany: vi.fn() },
     userPushSubscription: { deleteMany: vi.fn() },
     userPasswordResetToken: { deleteMany: vi.fn(), updateMany: vi.fn() },
-    userEmailVerificationToken: { deleteMany: vi.fn() },
+    userEmailVerificationToken: { deleteMany: vi.fn(), updateMany: vi.fn() },
     userProgressShare: { updateMany: vi.fn() },
   };
   const prisma = {
@@ -50,6 +53,7 @@ const {
   return {
     mockRequireAuth: vi.fn(),
     mockLockProgramRow: vi.fn(),
+    mockLockUserRow: vi.fn(),
     mockRateLimit: vi.fn(),
     mockCreateQrisAdapter: vi.fn(),
     mockCreateNotifications: vi.fn(),
@@ -109,6 +113,7 @@ vi.mock("@/wellness/integrations/audit-log", () => ({
 vi.mock("@/wellness/db", () => ({
   prisma: mockPrisma,
   lockProgramRow: mockLockProgramRow,
+  lockUserRow: mockLockUserRow,
 }));
 
 import {
@@ -354,14 +359,23 @@ describe("Server Actions: Checkout, Seat-Hold Quota, Production Payment Guard & 
 
     const delOk = await wellnessDeleteAccount({ password: "OldPass123!" });
     expect(delOk.success).toBe(true);
+    expect(mockLockUserRow).toHaveBeenCalledWith(mockTx, "u_member");
     expect(mockTx.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           fullName: "Deleted User",
           status: "SUSPENDED",
+          role: "USER",
+          organizationId: null,
+          coachProfileId: null,
           passwordHash: null,
           tokenVersion: { increment: 1 },
         }),
+      })
+    );
+    expect(mockTx.trackingPassOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: "u_member", status: { in: ["ACTIVE", "PENDING"] } }),
       })
     );
     expect(mockTx.userProgressShare.updateMany).toHaveBeenCalledWith(
@@ -370,12 +384,24 @@ describe("Server Actions: Checkout, Seat-Hold Quota, Production Payment Guard & 
     expect(mockDeleteStorageObjects).toHaveBeenCalledWith(["sb://avatars/u_member/a.webp"]);
     expect(mockClearSessionCookie).toHaveBeenCalledOnce();
 
-    // 4. Password change bumps tokenVersion, invalidates reset tokens, and sets fresh JWT cookie
+    // 4. Password change bumps tokenVersion, invalidates reset + email verification tokens, writes AuditLog, and sets fresh JWT cookie
     mockPrisma.user.findUnique.mockResolvedValueOnce({
       passwordHash: currentHash,
       tokenVersion: 4,
       email: "member@zera.id",
       role: "USER",
+    });
+    mockTx.user.findUnique.mockResolvedValueOnce({
+      id: "u_member",
+      email: "member@zera.id",
+      status: "ACTIVE",
+      deletedAt: null,
+      emailVerifiedAt: new Date(),
+      tokenVersion: 4,
+    });
+    mockTx.user.update.mockResolvedValueOnce({
+      email: "member@zera.id",
+      tokenVersion: 5,
     });
     const pwdOk = await wellnessChangePassword({
       currentPassword: "OldPass123!",
@@ -383,8 +409,14 @@ describe("Server Actions: Checkout, Seat-Hold Quota, Production Payment Guard & 
       confirmPassword: "NewStrongPass9!",
     });
     expect(pwdOk.success).toBe(true);
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockTx.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ tokenVersion: 5 }) })
+    );
+    expect(mockTx.userPasswordResetToken.updateMany).toHaveBeenCalled();
+    expect(mockTx.userEmailVerificationToken.updateMany).toHaveBeenCalled();
+    expect(mockRecordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "PASSWORD_CHANGED", entityId: "u_member" }),
+      mockTx
     );
     expect(mockSetSessionCookie).toHaveBeenCalledOnce();
   });
@@ -518,6 +550,7 @@ describe("Server Actions: Checkout, Seat-Hold Quota, Production Payment Guard & 
     mockTx.programEnrollment.findUnique.mockResolvedValueOnce({
       status: "PENDING",
       paymentReference: "QRIS-OK-1",
+      user: { status: "ACTIVE", deletedAt: null },
     });
     mockTx.programEnrollment.count.mockResolvedValueOnce(3);
     mockTx.programEnrollment.update.mockResolvedValueOnce({ id: "enr_ok_1", status: "ACTIVE" });

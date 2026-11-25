@@ -161,6 +161,7 @@ export const CreateProgramSchema = z
     actualPrice: z.number().min(0, "Actual price must be 0 or higher").default(0),
     discountPercentage: z.number().int().min(0).max(100).default(0),
     price: z.number().min(0, "Price must be 0 or higher").default(0),
+    bonusTrackingDays: z.number().int().min(0).max(365).optional(),
     minQuota: z.number().int().min(1, "Minimum quota must be at least 1 participant").default(1),
     maxQuota: z.number().int().min(1, "Quota must be at least 1 participant").default(35),
     communityLink: z
@@ -276,6 +277,7 @@ export const UpdateProgramMetaSchema = z
     actualPrice: z.number().min(0, "Actual price must be 0 or higher").default(0),
     discountPercentage: z.number().int().min(0).max(100).default(0),
     price: z.number().min(0, "Price must be 0 or higher").default(0),
+    bonusTrackingDays: z.number().int().min(0).max(365).optional(),
     minQuota: z.number().int().min(1, "Minimum quota must be at least 1 participant").default(1),
     maxQuota: z.number().int().min(1, "Quota must be at least 1 participant").default(35),
     communityLink: z

@@ -146,6 +146,11 @@ export function MyPlanOverview({
   onSaveSleep,
   onSaveMeal,
   onSaveWater,
+  onSaveSteps,
+  onAddExtraWorkout,
+  onUpdateExtraWorkout,
+  onDeleteExtraWorkout,
+  overlappingTrainingCount,
   onSaveReflection,
   onSaveAttendance,
   onSaveWorkoutNotes,
@@ -156,6 +161,9 @@ export function MyPlanOverview({
   userAvatarUrl,
   userSubtitle,
   userEmail,
+  userGender,
+  userAge,
+  onOpenGrowthAnalytics,
   plans,
   selectedProgramId,
   onSelectPlan,
@@ -179,6 +187,27 @@ export function MyPlanOverview({
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => Promise<void | boolean>;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;
   onSaveWater: (waterMl: number, dayId: string) => Promise<void | boolean>;
+  onSaveSteps?: (stepsCount: number, dayId: string) => Promise<void | boolean>;
+  onAddExtraWorkout?: (payload: {
+    logDate: string;
+    activityType: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom";
+    title: string;
+    durationMinutes: number;
+    customKcal?: number | null;
+    excludeFromNetBurn?: boolean;
+    notes?: string | null;
+  }) => Promise<void | boolean>;
+  onUpdateExtraWorkout?: (payload: {
+    id: string;
+    logDate: string;
+    title?: string;
+    durationMinutes?: number;
+    customKcal?: number | null;
+    excludeFromNetBurn?: boolean;
+    notes?: string | null;
+  }) => Promise<void | boolean>;
+  onDeleteExtraWorkout?: (id: string, logDate: string) => Promise<void | boolean>;
+  overlappingTrainingCount?: number;
   onSaveReflection?: (reflection: string, happiness: number, dayId: string) => Promise<void | boolean>;
   onSaveAttendance: (notes: string, dayId: string) => Promise<void | boolean>;
   onSaveWorkoutNotes: (
@@ -198,6 +227,9 @@ export function MyPlanOverview({
   userAvatarUrl?: string | null;
   userSubtitle?: string | null;
   userEmail?: string | null;
+  userGender?: string | null;
+  userAge?: number | null;
+  onOpenGrowthAnalytics?: () => void;
   plans?: PlanOption[];
   selectedProgramId?: string;
   onSelectPlan?: (programId: string) => void;
@@ -569,6 +601,11 @@ export function MyPlanOverview({
                   onSaveWorkoutNotes={onSaveWorkoutNotes}
                   onSaveMeal={onSaveMeal}
                   onSaveWater={onSaveWater}
+                  onSaveSteps={onSaveSteps}
+                  onAddExtraWorkout={onAddExtraWorkout}
+                  onUpdateExtraWorkout={onUpdateExtraWorkout}
+                  onDeleteExtraWorkout={onDeleteExtraWorkout}
+                  overlappingTrainingCount={overlappingTrainingCount}
                   onSaveReflection={onSaveReflection}
                   onCompleteDay={onCompleteDay}
                   onCustomTaskSubmitted={onCustomTaskSubmitted}
@@ -588,6 +625,9 @@ export function MyPlanOverview({
                 currentDayNumber={currentDayNumber}
                 bodyMetricLogs={bodyMetricLogs}
                 programId={program.id}
+                userGender={userGender}
+                userAge={userAge}
+                onOpenGrowthAnalytics={onOpenGrowthAnalytics}
                 onSwitchWidget={setWidgetIndex}
               />
             </div>

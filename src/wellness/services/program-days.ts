@@ -278,13 +278,28 @@ export async function deleteProgramDayService(
       };
     }
 
-    const activeEnrollments = await tx.programEnrollment.count({
-      where: { programId, status: "ACTIVE" },
-    });
-    if (activeEnrollments > 0) {
+    const [activeOrPendingEnrollments, historicalProgressCount, historicalSubmissionCount] =
+      await Promise.all([
+        tx.programEnrollment.count({
+          where: { programId, status: { in: ["ACTIVE", "PENDING"] } },
+        }),
+        tx.programDayProgress.count({
+          where: { programDayId: existingDay.id },
+        }),
+        tx.programDayCustomSubmission.count({
+          where: { programDayId: existingDay.id },
+        }),
+      ]);
+    if (activeOrPendingEnrollments > 0) {
       return {
         success: false as const,
-        message: `Cannot clear Day ${dayNumber}: ${activeEnrollments} active participant(s) are currently enrolled.`,
+        message: `Cannot clear Day ${dayNumber}: ${activeOrPendingEnrollments} active or pending participant(s) are currently enrolled.`,
+      };
+    }
+    if (historicalProgressCount > 0 || historicalSubmissionCount > 0) {
+      return {
+        success: false as const,
+        message: `Cannot clear Day ${dayNumber}: historical member progress or submissions exist for this day.`,
       };
     }
 

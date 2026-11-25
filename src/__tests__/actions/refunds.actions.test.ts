@@ -161,7 +161,7 @@ describe("Server Actions: Financial Refunds & Under-Quota Batch Cancellation", (
       })
     );
     expect(mockRefundMidtrans).toHaveBeenCalledWith(
-      expect.objectContaining({ orderId: "QRIS-001", amountIdr: 240_000 })
+      expect.objectContaining({ orderId: "QRIS-001", amountIdr: 240_000, refundKey: "REF-tx1" })
     );
     // tx1 marked REFUND, tx2 kept REFUND_REQUESTED with fallback audit note
     expect(mockPrisma.paymentTransaction.update).toHaveBeenCalledWith(
@@ -224,6 +224,29 @@ describe("Server Actions: Financial Refunds & Under-Quota Batch Cancellation", (
     });
     expect(overRes.success).toBe(false);
     expect(overRes.message).toContain("cannot exceed gross amount");
+
+    // 2b. Over-deduction blocked (refundAmount + adminFeeDeduction > grossAmount)
+    mockTx.paymentTransaction.findUnique
+      .mockResolvedValueOnce({
+        id: "tx2b",
+        orderId: "QRIS-002B",
+        programId: "p1",
+        enrollmentId: "e2",
+        userId: "u2",
+        grossAmount: 200_000,
+        status: "REFUND_REQUESTED",
+        program: { title: "Core" },
+      })
+      .mockResolvedValueOnce({ status: "REFUND_REQUESTED", grossAmount: 200_000 });
+
+    const overComboRes = await wellnessAdminRecordManualRefund({
+      transactionId: "tx2b",
+      refundAmount: 195_000,
+      adminFeeDeduction: 10_000,
+      note: "Fee + refund exceeds gross",
+    });
+    expect(overComboRes.success).toBe(false);
+    expect(overComboRes.message).toContain("cannot exceed gross amount");
 
     // 3. Valid manual refund succeeds, cancels enrollment, logs audit, and notifies user
     mockTx.paymentTransaction.findUnique

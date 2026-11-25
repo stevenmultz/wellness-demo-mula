@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { lockProgramRow, prisma } from "../db";
+import { lockProgramRow, lockUserRow, prisma } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { refundMidtransTransactionAdapter } from "../integrations/payment-gateway";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { recordAuditLog } from "../integrations/audit-log";
 import { reportCriticalIncident, reportServerError } from "../observability";
+import { revokeTrackingGrantBySourceInTx } from "../services/tracking-entitlement";
+import { revokeEntitlementOnRefundInTx } from "../services/payment-orchestrator";
 import type { WellnessActionResult } from "./auth";
 
 export interface UnderQuotaProgramItem {
@@ -23,14 +25,16 @@ export interface UnderQuotaProgramItem {
 
 export interface AdminRefundTransactionItem {
   id: string;
-  enrollmentId: string;
+  itemType: "PROGRAM_ENROLLMENT" | "TRACKING_PASS";
+  enrollmentId: string | null;
+  trackingPassOrderId: string | null;
   orderId: string;
   provider: string;
   grossAmount: number;
   status: string;
   userFullName: string;
   userEmail: string;
-  programId: string;
+  programId: string | null;
   programTitle: string;
   settledAt: string | null;
   refundAmount: number | null;
@@ -100,6 +104,7 @@ export async function wellnessAdminGetRefundDashboardData(): Promise<
       include: {
         user: { select: { fullName: true, email: true } },
         program: { select: { id: true, title: true } },
+        trackingPassOrder: { select: { id: true, plan: { select: { name: true } } } },
       },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -123,15 +128,18 @@ export async function wellnessAdminGetRefundDashboardData(): Promise<
 
   const transactions: AdminRefundTransactionItem[] = txRows.map((tx) => ({
     id: tx.id,
-    enrollmentId: tx.enrollmentId,
+    itemType: tx.itemType === "TRACKING_PASS" ? "TRACKING_PASS" : "PROGRAM_ENROLLMENT",
+    enrollmentId: tx.enrollmentId ?? null,
+    trackingPassOrderId: tx.trackingPassOrderId ?? null,
     orderId: tx.orderId,
     provider: tx.provider,
     grossAmount: tx.grossAmount,
     status: tx.status,
     userFullName: tx.user.fullName,
     userEmail: tx.user.email,
-    programId: tx.programId,
-    programTitle: tx.program.title,
+    programId: tx.programId ?? null,
+    programTitle:
+      tx.program?.title ?? tx.trackingPassOrder?.plan?.name ?? "Independent Tracking Pass",
     settledAt: tx.settledAt ? tx.settledAt.toISOString() : null,
     refundAmount: tx.refundAmount,
     refundFeeAmount: tx.refundFeeAmount,
@@ -209,12 +217,19 @@ export async function wellnessAdminCancelBatchAndRefund(
         },
       });
 
-      // Cancel enrollments & archive program atomically before external Midtrans API calls
+      // Cancel enrollments & revoke associated bonus tracking grants atomically
       if (activeEnrollments.length > 0) {
         await tx.programEnrollment.updateMany({
           where: { programId, status: { in: ["ACTIVE", "PENDING"] } },
           data: { status: "CANCELLED", cancellationReason: reason },
         });
+        for (const enr of activeEnrollments) {
+          await revokeTrackingGrantBySourceInTx(tx, {
+            userId: enr.userId,
+            programEnrollmentId: enr.id,
+            reason,
+          });
+        }
       }
 
       await tx.program.update({
@@ -265,6 +280,7 @@ export async function wellnessAdminCancelBatchAndRefund(
           orderId: ptx.orderId,
           amountIdr: netRefund,
           reason,
+          refundKey: `REF-${ptx.id}`.slice(0, 64),
         });
         if (gwRes.success) {
           await prisma.paymentTransaction.update({
@@ -362,12 +378,17 @@ export async function wellnessAdminRecordManualRefund(
         where: { id: transactionId },
         include: {
           program: { select: { title: true } },
+          trackingPassOrder: { select: { id: true, plan: { select: { name: true } } } },
         },
       });
       if (!existing) {
         throw new Error("Payment transaction not found.");
       }
-      await lockProgramRow(tx, existing.programId);
+      if (existing.programId) {
+        await lockProgramRow(tx, existing.programId);
+      } else if (typeof (tx as { $queryRaw?: unknown }).$queryRaw === "function") {
+        await lockUserRow(tx, existing.userId);
+      }
 
       const freshTx = await tx.paymentTransaction.findUnique({
         where: { id: transactionId },
@@ -376,9 +397,9 @@ export async function wellnessAdminRecordManualRefund(
       if (!freshTx || !["SETTLEMENT", "MANUAL_APPROVED", "REFUND_REQUESTED"].includes(freshTx.status)) {
         throw new Error(`Cannot refund transaction in status ${freshTx?.status || existing.status}.`);
       }
-      if (refundAmount > existing.grossAmount) {
+      if (refundAmount + adminFeeDeduction > freshTx.grossAmount) {
         throw new Error(
-          `Refund amount (Rp ${refundAmount.toLocaleString("id-ID")}) cannot exceed gross amount (Rp ${existing.grossAmount.toLocaleString("id-ID")}).`
+          `Refund amount (Rp ${refundAmount.toLocaleString("id-ID")}) + admin fee deduction (Rp ${adminFeeDeduction.toLocaleString("id-ID")}) cannot exceed gross amount (Rp ${freshTx.grossAmount.toLocaleString("id-ID")}).`
         );
       }
 
@@ -395,29 +416,30 @@ export async function wellnessAdminRecordManualRefund(
         },
       });
 
-      await tx.programEnrollment.updateMany({
-        where: { id: existing.enrollmentId, status: { in: ["ACTIVE", "PENDING"] } },
-        data: { status: "CANCELLED", cancellationReason: note },
+      await revokeEntitlementOnRefundInTx(tx, {
+        userId: existing.userId,
+        enrollmentId: existing.enrollmentId,
+        trackingPassOrderId: existing.trackingPassOrderId,
+        reason: note,
+        actorUserId: admin.userId,
+        auditAction: "ADMIN_RECORD_MANUAL_REFUND",
+        auditEntityType: "PaymentTransaction",
+        auditEntityId: existing.id,
+        auditMetadata: {
+          itemType: existing.itemType,
+          orderId: existing.orderId,
+          grossAmount: existing.grossAmount,
+          refundAmount,
+          adminFeeDeduction,
+          note,
+        },
       });
 
-      await recordAuditLog(
-        {
-          actorUserId: admin.userId,
-          action: "ADMIN_RECORD_MANUAL_REFUND",
-          entityType: "PaymentTransaction",
-          entityId: existing.id,
-          metadata: {
-            orderId: existing.orderId,
-            grossAmount: existing.grossAmount,
-            refundAmount,
-            adminFeeDeduction,
-            note,
-          },
-        },
-        tx
-      );
-
-      return { row, programTitle: existing.program.title, userId: existing.userId };
+      const itemTitle =
+        existing.program?.title ??
+        existing.trackingPassOrder?.plan?.name ??
+        "Independent Tracking Pass";
+      return { row, programTitle: itemTitle, userId: existing.userId };
     });
 
     await createUserNotifications([

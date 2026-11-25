@@ -124,10 +124,15 @@ async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.rateLimitBucket.deleteMany();
   await prisma.cohortSupportRequest.deleteMany();
+  await prisma.userTrackingGrant.deleteMany();
   await prisma.paymentTransaction.deleteMany();
+  await prisma.trackingPassOrder.deleteMany();
+  await prisma.trackingPassPlan.deleteMany();
   await prisma.programDayCustomSubmission.deleteMany();
   await prisma.programDayCustomTask.deleteMany();
   await prisma.programDayProgress.deleteMany();
+  await prisma.userExtraWorkoutLog.deleteMany();
+  await prisma.userDailyLog.deleteMany();
   await prisma.userBodyMetricLog.deleteMany();
   await prisma.userNotification.deleteMany();
   await prisma.userPushSubscription.deleteMany();
@@ -150,7 +155,7 @@ async function main() {
   console.log("✅ All tables cleanly wiped.");
 
   // 2. Hash default passwords (Superadmin reads from SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD in .env)
-  const superadminEmail = (process.env.SUPERADMIN_EMAIL || "superadmin@wellness.test").trim().toLowerCase();
+  const superadminEmail = (process.env.SUPERADMIN_EMAIL || "stevenmultz@gmail.com").trim().toLowerCase();
   const superadminRawPassword = process.env.SUPERADMIN_PASSWORD || "SuperAdmin123!";
   const superadminPassword = await bcrypt.hash(superadminRawPassword, 12);
   const userPassword = await bcrypt.hash("UserBudi123!", 12);
@@ -1009,6 +1014,41 @@ async function main() {
       }
     }
   }
+
+  // Seed default Standalone Tracking Pass Catalog (Rp 500.000 / 6 Months = 180 Days)
+  await prisma.trackingPassPlan.upsert({
+    where: { slug: "tracking-pass-6m" },
+    update: {},
+    create: {
+      slug: "tracking-pass-6m",
+      name: "6-Month Independent Tracking Pass",
+      description:
+        "Full access to Zera daily biomarkers (Sleep, Water, Daily Steps, Self-Guided Meal & Macro Calculator, Extra Workouts) and 1-year growth analytics for 6 months.",
+      durationDays: 180,
+      actualPrice: 500000,
+      discountPercentage: 0,
+      price: 500000,
+      isActive: true,
+      sortOrder: 1,
+    },
+  });
+
+  // Grant bonus tracking entitlement to seeded member Steven (60 days post-program)
+  const stevenBonusEnd = new Date(today00.getTime() + 75 * oneDayMs);
+  await prisma.userTrackingGrant.create({
+    data: {
+      userId: userSteven.id,
+      sourceType: "ADMIN_COMP",
+      status: "ACTIVE",
+      durationDays: 60,
+      startsAt: today00,
+      endsAt: stevenBonusEnd,
+    },
+  });
+  await prisma.user.update({
+    where: { id: userSteven.id },
+    data: { trackingAccessUntil: stevenBonusEnd },
+  });
 
   console.log("🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY!");
   console.log("  Seeded 12 Programs:", [prog1.slug, prog2.slug, prog3.slug, prog4.slug, prog5.slug, prog6.slug, prog7.slug, prog8.slug, prog9.slug, prog10.slug, prog11.slug, prog12.slug].join(", "));

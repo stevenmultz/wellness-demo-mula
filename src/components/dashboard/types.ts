@@ -1,5 +1,10 @@
 import type { ProgramTermChapter } from "@/wellness/utils/json";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
+import type { DailyLogDTO, ExtraWorkoutDTO } from "@/wellness/services/daily-log";
+import type { TrackingAccessStatusDTO } from "@/wellness/services/tracking-entitlement";
+import type { TrackingPassPlanDTO } from "@/wellness/actions/tracking-pass";
+
+export type { DailyLogDTO, ExtraWorkoutDTO, TrackingAccessStatusDTO, TrackingPassPlanDTO };
 
 export interface ProgramDayItem {
   id: string;
@@ -9,6 +14,7 @@ export interface ProgramDayItem {
   workoutOptions?: string[];
   sleepRecommendation?: string | null;
   unlockDate: string;
+  wibDateKey?: string;
   isCalendarUnlocked: boolean;
   isPast2359: boolean;
   isSkipped: boolean;
@@ -41,6 +47,16 @@ export interface ProgramDayItem {
     wakeTime?: string | null;
     sleepDurationMinutes?: number | null;
     assessmentResponse?: string | null;
+    waterMl?: number;
+    stepsCount?: number;
+    stepsBurnedKcal?: number;
+    caloriesKcal?: number;
+    carbsG?: number;
+    proteinG?: number;
+    fatG?: number;
+    mealQualityMode?: string | null;
+    extraWorkouts?: ExtraWorkoutDTO[];
+    mealSyncedFromDailyLog?: boolean;
   } | null;
 }
 
@@ -140,6 +156,7 @@ export interface UserProfile {
   emergencyContactPhone?: string | null;
   role: string;
   status: string;
+  trackingAccessUntil?: string | null;
   createdAt: Date | string;
 }
 

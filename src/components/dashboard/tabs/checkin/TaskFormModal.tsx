@@ -113,7 +113,9 @@ export function TaskForm({
   const [mealDraft, setMealDraft] = useState<MealDraft>(() =>
     readMealDraft(progress?.mealCompliance, progress?.mealNotes, recommendedMeals)
   );
-  const [waterMl, setWaterMl] = useState<number>(() => extractWaterMl(progress?.mealNotes));
+  const [waterMl, setWaterMl] = useState<number>(() =>
+    progress?.waterMl !== undefined ? progress.waterMl : extractWaterMl(progress?.mealNotes)
+  );
   const [review] = useState(
     progress?.dailyReflection === "Skipped reflection journal today." ||
       progress?.dailyReflection === "SKIPPED"
@@ -444,9 +446,9 @@ export function TaskForm({
       case "meal_nutrition":
         return null;
       case "water_intake":
-        return waterMl > 0
+        return waterMl >= 0
           ? null
-          : "Please log your water intake today (tap +250 ml or enter an amount).";
+          : "Water intake cannot be negative.";
       case "meal_mood":
         return mealDraft.mealFeeling
           ? null
@@ -534,7 +536,10 @@ export function TaskForm({
           : "PARTIAL";
 
       const totals = computeMealTotals(activeEntries, mealCount);
-      const existingWater = waterMl > 0 ? waterMl : extractWaterMl(progress?.mealNotes);
+      const existingWater =
+        waterMl > 0
+          ? waterMl
+          : progress?.waterMl ?? extractWaterMl(progress?.mealNotes);
       const mealPayload = {
         v: 5,
         mode: compliance.toLowerCase(),
@@ -762,6 +767,7 @@ export function TaskForm({
                 mealDraft={mealDraft}
                 setMealDraft={setMealDraft}
                 clearError={() => setError(null)}
+                mealSyncedFromDailyLog={day.userProgress?.mealSyncedFromDailyLog}
               />
             )}
 

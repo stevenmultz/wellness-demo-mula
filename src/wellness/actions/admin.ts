@@ -3,7 +3,7 @@
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma, lockProgramRow } from "../db";
+import { prisma } from "../db";
 import { requireSuperadmin } from "../security/guards";
 import { sanitizeUserScopeForRole } from "../security/roles";
 import { hashPassword } from "../security/password";
@@ -14,6 +14,9 @@ import { recordAuditLog } from "../integrations/audit-log";
 import { AdminUpdateCustomerProfileSchema, calculateAgeFromDob } from "../validators/auth";
 import { cleanupUserUploadedFiles } from "../utils/image-processor";
 import { reportServerError } from "../observability";
+import { rotateUserCredentialsInTx } from "../services/auth-core";
+import { softDeleteAndAnonymizeUserInTx, updateUserStatusInTx } from "../services/user-governance";
+import { activateProgramEnrollmentInTx } from "../services/payment-orchestrator";
 import type { WellnessActionResult } from "./auth";
 
 const AdminTargetUserIdSchema = z.string().trim().min(1, "User ID is required").max(128);
@@ -66,6 +69,7 @@ export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, o
       avatarPath: true,
       role: true,
       status: true,
+      trackingAccessUntil: true,
       createdAt: true,
       enrollments: {
         select: {
@@ -251,29 +255,14 @@ export async function wellnessAdminUpdateUserStatus(
     return { success: false, message: "User not found." };
   }
 
-  const updatedUser = await prisma.$transaction(async (tx) => {
-    const row = await tx.user.update({
-      where: { id: targetUserId },
-      data: {
-        status: newStatus,
-        tokenVersion: { increment: 1 },
-      },
-      select: { id: true, email: true, fullName: true, status: true },
-    });
-
-    await recordAuditLog(
-      {
-        actorUserId: currentAdmin.userId,
-        action: "ADMIN_UPDATE_USER_STATUS",
-        entityType: "User",
-        entityId: targetUserId,
-        metadata: { status: newStatus },
-      },
-      tx
-    );
-
-    return row;
-  });
+  const updatedUser = await prisma.$transaction((tx) =>
+    updateUserStatusInTx(tx, {
+      targetUserId,
+      newStatus,
+      actorUserId: currentAdmin.userId,
+      auditAction: "ADMIN_UPDATE_USER_STATUS",
+    })
+  );
 
   revalidateAdminRoutes();
   return {
@@ -302,67 +291,31 @@ export async function wellnessAdminApprovePayment(
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      await lockProgramRow(tx, enrollment.programId);
-
-      const activeCount = await tx.programEnrollment.count({
-        where: {
+    const result = await prisma.$transaction((tx) =>
+      activateProgramEnrollmentInTx(tx, {
+        enrollmentId,
+        programId: enrollment.programId,
+        userId: enrollment.userId,
+        program: enrollment.program,
+        channel: "ADMIN_MANUAL",
+        actorUserId: currentAdmin.userId,
+        approvedById: currentAdmin.userId,
+        txStatusToSet: "MANUAL_APPROVED",
+        auditAction: "ADMIN_MANUAL_APPROVE_PAYMENT",
+        auditMetadata: {
           programId: enrollment.programId,
-          status: "ACTIVE",
+          targetUserId: enrollment.userId,
         },
-      });
+        onQuotaOverflow: "THROW",
+        onInactiveAccount: "THROW",
+      })
+    );
 
-      if (activeCount >= enrollment.program.maxQuota) {
-        throw new Error(
-          `Cannot approve: Cohort "${enrollment.program.title}" has reached its maximum quota of ${enrollment.program.maxQuota} participants.`
-        );
-      }
+    if (result.status === "ALREADY_ACTIVE") {
+      return { success: true, message: "Enrollment is already active.", data: enrollment };
+    }
 
-      const paidAt = new Date();
-      const validUntilAt =
-        enrollment.program.locationType === "ONLINE" || !enrollment.program.endAt
-          ? null
-          : enrollment.program.endAt > paidAt
-            ? enrollment.program.endAt
-            : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-      if (enrollment.paymentReference) {
-        await tx.paymentTransaction.updateMany({
-          where: { orderId: enrollment.paymentReference, status: "PENDING" },
-          data: { status: "MANUAL_APPROVED", settledAt: paidAt },
-        });
-      }
-
-      const saved = await tx.programEnrollment.update({
-        where: { id: enrollmentId },
-        data: {
-          status: "ACTIVE",
-          paidAt,
-          validUntilAt,
-          approvedById: currentAdmin.userId,
-          approvedAt: paidAt,
-          termsAgreedAt: enrollment.termsAgreedAt ?? paidAt,
-          termsAgreedVersion: enrollment.termsAgreedVersion ?? "v1.0",
-        },
-      });
-
-      await recordAuditLog(
-        {
-          actorUserId: currentAdmin.userId,
-          action: "ADMIN_MANUAL_APPROVE_PAYMENT",
-          entityType: "ProgramEnrollment",
-          entityId: enrollmentId,
-          metadata: {
-            programId: enrollment.programId,
-            targetUserId: enrollment.userId,
-            paymentReference: enrollment.paymentReference,
-          },
-        },
-        tx
-      );
-
-      return saved;
-    });
+    const updated = result.status === "ACTIVATED" ? result.enrollment : enrollment;
 
     await createUserNotifications([
       {
@@ -405,78 +358,14 @@ export async function wellnessAdminDeleteUser(
   }
 
   try {
-    const deletedTarget = await prisma.$transaction(async (tx) => {
-      const targetUser = await tx.user.findFirst({
-        where: { id: targetUserId, deletedAt: null },
-        select: { id: true, fullName: true, email: true, role: true, avatarPath: true },
-      });
-
-      if (!targetUser) {
-        throw new Error("User not found.");
-      }
-
-      if (targetUser.role === "SUPERADMIN") {
-        const superadminCount = await tx.user.count({
-          where: { role: "SUPERADMIN", deletedAt: null },
-        });
-        if (superadminCount <= 1) {
-          throw new Error("Cannot delete the last remaining Superadmin on the platform.");
-        }
-      }
-
-      const now = new Date();
-      await tx.user.update({
-        where: { id: targetUserId },
-        data: {
-          deletedAt: now,
-          deletedById: currentAdmin.userId,
-          status: "SUSPENDED",
-          email: `deleted_${targetUserId}_${now.getTime()}@deleted.invalid`,
-          fullName: "Deleted User",
-          phone: null,
-          gender: null,
-          occupation: null,
-          birthDate: null,
-          address: null,
-          city: null,
-          province: null,
-          emergencyContactName: null,
-          emergencyContactPhone: null,
-          avatarPath: null,
-          passwordHash: null,
-          tokenVersion: { increment: 1 },
-        },
-      });
-      await tx.programEnrollment.updateMany({
-        where: { userId: targetUserId, status: { in: ["ACTIVE", "PENDING"] } },
-        data: { status: "CANCELLED", cancellationReason: "Account deleted by administrator" },
-      });
-      await tx.paymentTransaction.updateMany({
-        where: { userId: targetUserId, status: "PENDING" },
-        data: { status: "CANCEL" },
-      });
-      await tx.userIdentity.deleteMany({ where: { userId: targetUserId } });
-      await tx.userPushSubscription.deleteMany({ where: { userId: targetUserId } });
-      await tx.userPasswordResetToken.deleteMany({ where: { userId: targetUserId } });
-      await tx.userEmailVerificationToken.deleteMany({ where: { userId: targetUserId } });
-      await tx.userProgressShare.updateMany({
-        where: { OR: [{ ownerUserId: targetUserId }, { viewerUserId: targetUserId }], status: "ACTIVE" },
-        data: { status: "REVOKED", revokedAt: now },
-      });
-
-      await recordAuditLog(
-        {
-          actorUserId: currentAdmin.userId,
-          action: "ADMIN_DELETE_USER",
-          entityType: "User",
-          entityId: targetUserId,
-          metadata: { formerEmail: targetUser.email },
-        },
-        tx
-      );
-
-      return targetUser;
-    });
+    const deletedTarget = await prisma.$transaction((tx) =>
+      softDeleteAndAnonymizeUserInTx(tx, {
+        targetUserId,
+        actorUserId: currentAdmin.userId,
+        cancellationReason: "Account deleted by administrator",
+        auditAction: "ADMIN_DELETE_USER",
+      })
+    );
 
     await deleteStorageObjects([deletedTarget.avatarPath]);
     await cleanupUserUploadedFiles(targetUserId);
@@ -524,24 +413,15 @@ export async function wellnessAdminResetUserPassword(
     const tempPassword = `Temp-${crypto.randomBytes(8).toString("base64url")}9!`;
     const passwordHash = await hashPassword(tempPassword);
 
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: cleanTargetId },
-        data: {
-          passwordHash,
-          tokenVersion: { increment: 1 },
-        },
-      });
-      await recordAuditLog(
-        {
-          actorUserId: currentAdmin.userId,
-          action: "ADMIN_RESET_USER_PASSWORD",
-          entityType: "User",
-          entityId: cleanTargetId,
-        },
-        tx
-      );
-    });
+    await prisma.$transaction((tx) =>
+      rotateUserCredentialsInTx(tx, {
+        targetUserId: cleanTargetId,
+        newPasswordHash: passwordHash,
+        actorUserId: currentAdmin.userId,
+        auditAction: "ADMIN_RESET_USER_PASSWORD",
+        requireActive: false,
+      })
+    );
 
     await resetDistributedRateLimit(`signin-email:${user.email.toLowerCase()}`);
 

@@ -119,6 +119,37 @@ enum ProgressShareStatus {
   REVOKED
 }
 
+enum PaymentItemType {
+  PROGRAM_ENROLLMENT
+  TRACKING_PASS
+}
+
+enum TrackingPassOrderStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum TrackingGrantSourceType {
+  PROGRAM_BONUS
+  STANDALONE_PASS
+  ADMIN_COMP
+}
+
+enum TrackingGrantStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum DailyMealQualityMode {
+  ON_PLAN
+  PARTIAL
+  OFF_TRACK
+  SELF_LOGGED
+}
+
 // ============================================================================
 // 1. USERS, AUTHENTICATION & ACCESS MANAGEMENT
 // ============================================================================
@@ -144,6 +175,7 @@ model User {
   preferredLocale       String    @default("id") @map("preferred_locale")
   organizationId        String?   @map("organization_id")
   coachProfileId        String?   @map("coach_profile_id")
+  trackingAccessUntil   DateTime? @map("tracking_access_until")
   tokenVersion          Int       @default(0) @map("token_version")
   deletedAt             DateTime? @map("deleted_at")
   deletedById           String?   @map("deleted_by_id")
@@ -156,9 +188,13 @@ model User {
   emailVerificationTokens UserEmailVerificationToken[]
   passwordResetTokens     UserPasswordResetToken[]
   enrollments             ProgramEnrollment[]
+  trackingPassOrders      TrackingPassOrder[]
+  trackingGrants          UserTrackingGrant[]
   paymentTransactions     PaymentTransaction[]
   pushSubscriptions       UserPushSubscription[]
   dayProgresses           ProgramDayProgress[]
+  dailyLogs               UserDailyLog[]
+  extraWorkoutLogs        UserExtraWorkoutLog[]
   customSubmissions       ProgramDayCustomSubmission[]
   bodyMetricLogs          UserBodyMetricLog[]
   notifications           UserNotification[]
@@ -170,6 +206,7 @@ model User {
   @@index([status])
   @@index([organizationId])
   @@index([coachProfileId])
+  @@index([trackingAccessUntil])
   @@index([createdAt])
   @@index([deletedAt])
   @@index([deletedAt, createdAt])
@@ -330,6 +367,7 @@ model Program {
   actualPrice                Int                    @default(0) @map("actual_price")
   discountPercentage         Int                    @default(0) @map("discount_percentage")
   price                      Int                    @default(0) @map("price")
+  bonusTrackingDays          Int                    @default(60) @map("bonus_tracking_days")
   minQuota                   Int                    @default(1) @map("min_quota")
   maxQuota                   Int                    @default(50) @map("max_quota")
 
@@ -591,6 +629,7 @@ model ProgramEnrollment {
   program         Program                @relation(fields: [programId], references: [id], onDelete: Restrict)
   transactions    PaymentTransaction[]
   supportRequests CohortSupportRequest[]
+  trackingGrant   UserTrackingGrant?
 
   @@unique([userId, programId])
   @@index([programId, status])
@@ -601,11 +640,89 @@ model ProgramEnrollment {
   @@map("program_enrollments")
 }
 
+model TrackingPassPlan {
+  id                 String   @id @default(cuid()) @map("id")
+  slug               String   @unique @map("slug")
+  name               String   @map("name")
+  description        String?  @map("description")
+  durationDays       Int      @default(180) @map("duration_days")
+  actualPrice        Int      @default(500000) @map("actual_price")
+  discountPercentage Int      @default(0) @map("discount_percentage")
+  price              Int      @default(500000) @map("price")
+  isActive           Boolean  @default(true) @map("is_active")
+  sortOrder          Int      @default(0) @map("sort_order")
+  customTerms        String?  @map("custom_terms")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  orders TrackingPassOrder[]
+
+  @@index([isActive, sortOrder])
+  @@map("tracking_pass_plans")
+}
+
+model TrackingPassOrder {
+  id                   String                  @id @default(cuid()) @map("id")
+  userId               String                  @map("user_id")
+  planId               String                  @map("plan_id")
+  status               TrackingPassOrderStatus @default(PENDING) @map("status")
+  paymentReference     String?                 @unique @map("payment_reference")
+  invoiceExpiresAt     DateTime?               @map("invoice_expires_at")
+  paidAt               DateTime?               @map("paid_at")
+  durationDaysSnapshot Int                     @map("duration_days_snapshot")
+  priceSnapshot        Int                     @map("price_snapshot")
+  termsAgreedAt        DateTime?               @map("terms_agreed_at")
+  termsAgreedVersion   String?                 @default("v1.0") @map("terms_agreed_version")
+  approvedById         String?                 @map("approved_by_id")
+  approvedAt           DateTime?               @map("approved_at")
+  cancellationReason   String?                 @map("cancellation_reason")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plan          TrackingPassPlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  transactions  PaymentTransaction[]
+  trackingGrant UserTrackingGrant?
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([status, invoiceExpiresAt])
+  @@index([planId])
+  @@map("tracking_pass_orders")
+}
+
+model UserTrackingGrant {
+  id                  String                  @id @default(cuid()) @map("id")
+  userId              String                  @map("user_id")
+  sourceType          TrackingGrantSourceType @map("source_type")
+  status              TrackingGrantStatus     @default(ACTIVE) @map("status")
+  programEnrollmentId String?                 @unique @map("program_enrollment_id")
+  trackingPassOrderId String?                 @unique @map("tracking_pass_order_id")
+  durationDays        Int                     @map("duration_days")
+  startsAt            DateTime                @map("starts_at")
+  endsAt              DateTime                @map("ends_at")
+  grantedById         String?                 @map("granted_by_id")
+  revokedAt           DateTime?               @map("revoked_at")
+  revokeReason        String?                 @map("revoke_reason")
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  programEnrollment ProgramEnrollment? @relation(fields: [programEnrollmentId], references: [id], onDelete: SetNull)
+  trackingPassOrder TrackingPassOrder? @relation(fields: [trackingPassOrderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, endsAt])
+  @@index([status, endsAt])
+  @@map("user_tracking_grants")
+}
+
 model PaymentTransaction {
   id                   String                   @id @default(cuid()) @map("id")
-  enrollmentId         String                   @map("enrollment_id")
+  itemType             PaymentItemType          @default(PROGRAM_ENROLLMENT) @map("item_type")
+  enrollmentId         String?                  @map("enrollment_id")
+  trackingPassOrderId  String?                  @map("tracking_pass_order_id")
   userId               String                   @map("user_id")
-  programId            String                   @map("program_id")
+  programId            String?                  @map("program_id")
   orderId              String                   @unique @map("order_id")
   gatewayTransactionId String?                  @map("gateway_transaction_id")
   provider             String                   @map("provider")
@@ -625,12 +742,15 @@ model PaymentTransaction {
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 
-  enrollment ProgramEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  program    Program           @relation(fields: [programId], references: [id], onDelete: Restrict)
+  enrollment        ProgramEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  trackingPassOrder TrackingPassOrder? @relation(fields: [trackingPassOrderId], references: [id], onDelete: Restrict)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  program           Program?           @relation(fields: [programId], references: [id], onDelete: Restrict)
 
   @@index([enrollmentId])
   @@index([enrollmentId, status, createdAt])
+  @@index([trackingPassOrderId, status, createdAt])
+  @@index([itemType, status, createdAt])
   @@index([userId, createdAt])
   @@index([status, expiresAt])
   @@index([status, createdAt])
@@ -698,6 +818,61 @@ model ProgramDayProgress {
   @@index([userId, isCompleted])
   @@index([userId, completedAt])
   @@map("program_day_progresses")
+}
+
+model UserDailyLog {
+  id                   String                @id @default(cuid()) @map("id")
+  userId               String                @map("user_id")
+  logDate              DateTime              @map("log_date") @db.Date
+  // Universal Sleep Biomarkers
+  bedtime              String?               @map("bedtime")
+  wakeTime             String?               @map("wake_time")
+  sleepDurationMinutes Int?                  @map("sleep_duration_minutes")
+  sleepFeeling         String?               @map("sleep_feeling")
+  // Universal Hydration
+  waterMl              Int                   @default(0) @map("water_ml")
+  // Universal Daily Steps
+  stepsCount           Int                   @default(0) @map("steps_count")
+  stepsBurnedKcal      Int                   @default(0) @map("steps_burned_kcal")
+  // Universal Objective Meal Intake
+  mealsCount           Int?                  @map("meals_count")
+  caloriesKcal         Int                   @default(0) @map("calories_kcal")
+  carbsG               Int                   @default(0) @map("carbs_g")
+  proteinG             Int                   @default(0) @map("protein_g")
+  fatG                 Int                   @default(0) @map("fat_g")
+  mealQualityMode      DailyMealQualityMode? @map("meal_quality_mode")
+  mealFeeling          String?               @map("meal_feeling")
+  mealEntriesJson      Json?                 @map("meal_entries_json")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extraWorkouts UserExtraWorkoutLog[]
+
+  @@unique([userId, logDate])
+  @@index([userId, logDate(sort: Desc)])
+  @@map("user_daily_logs")
+}
+
+model UserExtraWorkoutLog {
+  id                 String   @id @default(cuid()) @map("id")
+  dailyLogId         String   @map("daily_log_id")
+  userId             String   @map("user_id")
+  activityType       String   @map("activity_type")
+  title              String   @map("title")
+  durationMinutes    Int      @map("duration_minutes")
+  estimatedKcal      Int      @map("estimated_kcal")
+  excludeFromNetBurn Boolean  @default(false) @map("exclude_from_net_burn")
+  notes              String?  @map("notes")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  dailyLog UserDailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([dailyLogId])
+  @@index([userId, createdAt])
+  @@map("user_extra_workout_logs")
 }
 
 model UserPushSubscription {

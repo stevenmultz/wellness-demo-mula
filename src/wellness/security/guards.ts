@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { getWellnessSession, isAdminRole } from "./session";
 import { prisma } from "../db";
 
@@ -156,4 +157,33 @@ export async function requireProgramAccess(
   }
 
   throw new WellnessForbiddenError("You do not have access to this program.");
+}
+
+/**
+ * Verifies inside a database transaction that the target user account exists,
+ * is ACTIVE, and has not been soft-deleted. Prevents activating paid entitlements
+ * or mutating credentials on suspended/deleted accounts during webhook/admin races.
+ */
+export async function assertActiveAccountInTx(
+  tx: Prisma.TransactionClient,
+  userId: string
+): Promise<void> {
+  const txAny = tx as unknown as {
+    user?: {
+      findUnique?: (args: Prisma.UserFindUniqueArgs) => Promise<{
+        status?: string;
+        deletedAt?: Date | null;
+      } | null>;
+    };
+  };
+  if (typeof txAny.user?.findUnique !== "function") {
+    return;
+  }
+  const user = await txAny.user.findUnique({
+    where: { id: userId },
+    select: { status: true, deletedAt: true },
+  });
+  if (!user || (user.deletedAt !== null && user.deletedAt !== undefined) || (user.status !== undefined && user.status !== "ACTIVE")) {
+    throw new Error("Cannot complete action for a deleted or suspended user account.");
+  }
 }

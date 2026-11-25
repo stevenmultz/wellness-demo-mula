@@ -37,6 +37,7 @@ describe("Data Hygiene: Database Retention Cleanup Safety", () => {
 
     expect(summary).toEqual({
       expiredEnrollments: 3,
+      expiredTrackingPassOrders: 0,
       expiredTransactions: 3,
       purgedTokens: 6,
       purgedRateBuckets: 15,

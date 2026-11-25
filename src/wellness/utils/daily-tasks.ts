@@ -8,6 +8,7 @@
  */
 import { extractWaterMl } from "./nutrition";
 import { WIB_OFFSET_MS, getProgramDayWibWindow } from "./timezone";
+import { isMealLogged, isSleepLogged } from "./day-completion";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,6 +17,7 @@ export type DailyTaskKind =
   | "WORKOUT"
   | "MEAL"
   | "WATER"
+  | "STEPS"
   | "REFLECTION"
   | "REST"
   | "EVENT"
@@ -57,6 +59,8 @@ export interface DailyTaskDayInput {
     checklistCompleted?: string | null;
     workoutNotes?: string | null;
     selectedWorkout?: string | null;
+    waterMl?: number;
+    stepsCount?: number;
   } | null;
 }
 
@@ -86,9 +90,7 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
   const p = day.progress;
   const tasks: DailyTask[] = [];
 
-  const sleepDone = Boolean(
-    p?.bedtime && p?.wakeTime && p.bedtime !== "SKIPPED" && p.wakeTime !== "SKIPPED"
-  );
+  const sleepDone = isSleepLogged(p?.bedtime, p?.wakeTime);
   tasks.push({
     id: `${day.id}:SLEEP`,
     kind: "SLEEP",
@@ -139,15 +141,24 @@ export function buildDayTasks(day: DailyTaskDayInput): DailyTask[] {
     kind: "MEAL",
     name: "Meal Control",
     description: "Log whether you followed today's meal plan & calories.",
-    isDone: Boolean(p?.mealCompliance && p.mealCompliance !== "SKIPPED"),
+    isDone: isMealLogged(p?.mealCompliance),
   });
 
+  const effectiveWaterMl = p?.waterMl !== undefined ? p.waterMl : extractWaterMl(p?.mealNotes);
   tasks.push({
     id: `${day.id}:WATER`,
     kind: "WATER",
     name: "Water Intake",
     description: "Log your daily hydration intake (resets daily at 00:00 WIB).",
-    isDone: extractWaterMl(p?.mealNotes) > 0,
+    isDone: effectiveWaterMl > 0,
+  });
+
+  tasks.push({
+    id: `${day.id}:STEPS`,
+    kind: "STEPS",
+    name: "Daily Steps",
+    description: "Log your daily steps to track active movement and net calories.",
+    isDone: Boolean((p?.stepsCount ?? 0) > 0 || p?.isCompleted),
   });
 
   if (Array.isArray(day.customTasks)) {

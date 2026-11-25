@@ -6,9 +6,10 @@ import { type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
 import { requireAuth, requireProgramAccess } from "../security/guards";
-import { getProgramDayWibWindow } from "../utils/timezone";
+import { getProgramDayWibWindow, toWibDateOnly } from "../utils/timezone";
 import { safeJsonParse } from "../utils/json";
 import { computeVerifiedDayCompletionInTx } from "../services/program-progress";
+import { mapMealQualityToProgramCompliance } from "../utils/wellness-metrics";
 import {
   extractBodyMetricsFromValues,
   parseCustomTaskFields,
@@ -217,6 +218,7 @@ export async function wellnessUserSubmitCustomTask(
       };
       programDayCustomTask?: { findMany?: typeof tx.programDayCustomTask.findMany };
       programDayCustomSubmission?: { count?: typeof tx.programDayCustomSubmission.count };
+      userDailyLog?: { findUnique?: typeof tx.userDailyLog.findUnique };
     };
     const existingProg =
       typeof txAny.programDayProgress?.findUnique === "function"
@@ -235,20 +237,51 @@ export async function wellnessUserSubmitCustomTask(
       typeof txAny.programDayCustomTask?.findMany === "function" &&
       typeof txAny.programDayCustomSubmission?.count === "function"
     ) {
+      const unlockDate = effectiveStartAt
+        ? getProgramDayWibWindow(effectiveStartAt, customTask.programDay.dayNumber).unlockDate
+        : new Date();
+      const globalDailyLog =
+        typeof txAny.userDailyLog?.findUnique === "function"
+          ? await tx.userDailyLog.findUnique({
+              where: {
+                userId_logDate: {
+                  userId: session.userId,
+                  logDate: toWibDateOnly(unlockDate),
+                },
+              },
+              select: {
+                bedtime: true,
+                wakeTime: true,
+                waterMl: true,
+                stepsCount: true,
+                mealQualityMode: true,
+              },
+            })
+          : null;
+
       computedDayCompleted = await computeVerifiedDayCompletionInTx(
         tx,
         session.userId,
-        customTask.programDay,
+        {
+          ...customTask.programDay,
+          locationType: customTask.programDay.program.locationType,
+        },
         {
           isVideoWatched: existingProg.isVideoWatched,
           checklistCompleted: safeJsonParse<string[]>(existingProg.checklistCompletedJson, []),
           selectedWorkout: existingProg.selectedWorkout,
           workoutNotes: existingProg.workoutNotes,
           eventFeedback: existingProg.eventFeedback,
-          mealCompliance: existingProg.mealCompliance,
+          mealCompliance:
+            existingProg.mealCompliance ??
+            mapMealQualityToProgramCompliance(globalDailyLog?.mealQualityMode),
           mealNotes: existingProg.mealNotes,
-          bedtime: existingProg.bedtime,
-          wakeTime: existingProg.wakeTime,
+          bedtime: globalDailyLog?.bedtime ?? existingProg.bedtime,
+          wakeTime: globalDailyLog?.wakeTime ?? existingProg.wakeTime,
+          ...(globalDailyLog ? { waterMlOverride: globalDailyLog.waterMl } : {}),
+          ...(typeof txAny.userDailyLog?.findUnique === "function"
+            ? { stepsCountOverride: globalDailyLog?.stepsCount ?? 0 }
+            : {}),
         }
       );
       if (

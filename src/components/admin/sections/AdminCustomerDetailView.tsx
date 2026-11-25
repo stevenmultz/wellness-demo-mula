@@ -1,12 +1,13 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
   ArrowLeft,
   ArrowUpRight,
   Ban,
+  Gift,
   KeyRound,
   Layers,
   Mail,
@@ -16,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { wellnessAdminUpdateUserRole } from "@/wellness/actions/admin";
+import { wellnessAdminGrantCompTrackingDays } from "@/wellness/actions/tracking-pass";
 import type { MasterDataPayload } from "@/wellness/actions/master";
 import type {
   AdminFeedbackMessage,
@@ -78,6 +80,11 @@ export function AdminCustomerDetailView({
   setExpandedResponseIds,
 }: AdminCustomerDetailViewProps) {
   const router = useRouter();
+  const [compModalOpen, setCompModalOpen] = useState(false);
+  const [compDays, setCompDays] = useState(30);
+  const [compReason, setCompReason] = useState("Complimentary loyalty extension");
+  const [compSaving, setCompSaving] = useState(false);
+
   const enrollments = u.enrollments || [];
   const dayProgress = u.dayProgress || [];
   const completedDaysCount = dayProgress.filter((p) => p.isCompleted).length;
@@ -395,14 +402,111 @@ return (
         </div>
 
         <div className="p-3 rounded-xl bg-zinc-50/70 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            Account Status
-          </span>
-          <p className="text-sm font-bold text-zinc-900 dark:text-white mt-0.5">
-            {u.status}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+              Tracking Access
+            </span>
+            {isSuperadminUser && (
+              <button
+                type="button"
+                onClick={() => setCompModalOpen((v) => !v)}
+                className="text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Gift className="w-3 h-3" />
+                <span>+Grant</span>
+              </button>
+            )}
+          </div>
+          <p className="text-sm font-bold text-zinc-900 dark:text-white mt-0.5 truncate">
+            {u.trackingAccessUntil
+              ? new Date(u.trackingAccessUntil).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "None"}
           </p>
         </div>
       </div>
+
+      {compModalOpen && isSuperadminUser && (
+        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="w-full sm:w-32 space-y-1">
+            <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block">
+              Days to Add
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={730}
+              value={compDays}
+              onChange={(e) => setCompDays(Math.max(1, Math.min(730, Number(e.target.value) || 30)))}
+              className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/15 text-xs font-mono"
+            />
+          </div>
+          <div className="flex-1 space-y-1">
+            <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block">
+              Audit Reason
+            </label>
+            <input
+              type="text"
+              value={compReason}
+              onChange={(e) => setCompReason(e.target.value)}
+              placeholder="e.g. Loyalty bonus / compensation"
+              className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/15 text-xs"
+            />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setCompModalOpen(false)}
+              className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={compSaving}
+              onClick={async () => {
+                setCompSaving(true);
+                try {
+                  const res = await wellnessAdminGrantCompTrackingDays({
+                    targetUserId: u.id,
+                    durationDays: compDays,
+                    reason: compReason.trim() || "Admin complimentary grant",
+                  });
+                  if (res.success && res.data) {
+                    const nextEnds = res.data.endsAt;
+                    setUsers((prev) =>
+                      prev.map((item) =>
+                        item.id === u.id ? { ...item, trackingAccessUntil: nextEnds } : item
+                      )
+                    );
+                    setInspectingUserHealth((prev) =>
+                      prev && prev.id === u.id
+                        ? { ...prev, trackingAccessUntil: nextEnds }
+                        : prev
+                    );
+                    setFeedback({ type: "success", text: res.message || "Comp days granted." });
+                    setCompModalOpen(false);
+                    router.refresh();
+                  } else {
+                    setFeedback({
+                      type: "error",
+                      text: res.message || "Failed to grant complimentary tracking days.",
+                    });
+                  }
+                } finally {
+                  setCompSaving(false);
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50 cursor-pointer"
+            >
+              {compSaving ? "Granting..." : "Grant Days"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
 
     {/* Simplified Navigation Option Cards */}

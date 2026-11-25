@@ -4,16 +4,16 @@ import { prisma } from "@/wellness/db";
 import {
   getGoogleOAuthConfig,
   getJwtSecretKey,
-  getSuperadminConfig,
   GOOGLE_OAUTH_COOKIE,
 } from "@/wellness/config";
-import {
-  createSessionToken,
-  isAdminRole,
-  setSessionCookie,
-} from "@/wellness/security/session";
+import { isAdminRole } from "@/wellness/security/session";
 import { recordAuditLog } from "@/wellness/integrations/audit-log";
-import { buildOAuthLinkUserUpdate } from "@/wellness/security/oauth-linking";
+import {
+  buildPostVerificationUserUpdate,
+  isConfiguredSuperadminEmail,
+  issueAuthenticatedSession,
+  linkPendingProgressSharesInTx,
+} from "@/wellness/services/auth-core";
 import { isUserOnboardingComplete } from "@/wellness/validators/auth";
 import { reportServerError } from "@/wellness/observability";
 
@@ -104,8 +104,7 @@ export async function GET(request: NextRequest) {
       return redirectWithError(request, "google_email_not_verified");
     }
 
-    const superadminEmail = getSuperadminConfig().email;
-    const isSuperadminMatch = Boolean(superadminEmail) && email === superadminEmail;
+    const isSuperadminMatch = isConfiguredSuperadminEmail(email);
 
     const user = await prisma.$transaction(async (tx) => {
       const existingIdentity = await tx.userIdentity.findUnique({
@@ -123,17 +122,14 @@ export async function GET(request: NextRequest) {
         if (linked.deletedAt !== null || linked.status !== "ACTIVE") {
           throw new Error("ACCOUNT_DISABLED");
         }
-        if (!linked.emailVerifiedAt || (isSuperadminMatch && linked.role !== "SUPERADMIN")) {
+        const postVerify = buildPostVerificationUserUpdate(linked);
+        if (!linked.emailVerifiedAt || postVerify.promotedToSuperadmin) {
           linked = await tx.user.update({
             where: { id: linked.id },
-            data: {
-              emailVerifiedAt: linked.emailVerifiedAt ?? new Date(),
-              ...(isSuperadminMatch
-                ? { role: "SUPERADMIN", organizationId: null, coachProfileId: null }
-                : {}),
-            },
+            data: postVerify.data,
           });
         }
+        await linkPendingProgressSharesInTx(tx, linked.id, linked.email);
         await recordAuditLog(
           {
             actorUserId: linked.id,
@@ -143,6 +139,18 @@ export async function GET(request: NextRequest) {
           },
           tx
         );
+        if (postVerify.promotedToSuperadmin) {
+          await recordAuditLog(
+            {
+              actorUserId: linked.id,
+              action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+              entityType: "User",
+              entityId: linked.id,
+              metadata: { channel: "GOOGLE_OAUTH" },
+            },
+            tx
+          );
+        }
         return linked;
       }
 
@@ -163,35 +171,42 @@ export async function GET(request: NextRequest) {
             email,
           },
         });
-        const linkUpdate = buildOAuthLinkUserUpdate(existingByEmail);
-        const roleUpgrade =
-          isSuperadminMatch && existingByEmail.role !== "SUPERADMIN"
-            ? { role: "SUPERADMIN" as const, organizationId: null, coachProfileId: null }
-            : {};
-        const updated =
-          linkUpdate || Object.keys(roleUpgrade).length > 0
-            ? await tx.user.update({
-                where: { id: existingByEmail.id },
-                data: { ...(linkUpdate || {}), ...roleUpgrade },
-              })
-            : existingByEmail;
-        await tx.userProgressShare.updateMany({
-          where: {
-            viewerEmail: updated.email.trim().toLowerCase(),
-            viewerUserId: null,
-            status: "ACTIVE",
-          },
-          data: { viewerUserId: updated.id },
-        });
+        const postVerify = buildPostVerificationUserUpdate(existingByEmail);
+        const needsUpdate =
+          !existingByEmail.emailVerifiedAt ||
+          postVerify.revokedUnverifiedCredentials ||
+          postVerify.promotedToSuperadmin;
+        const updated = needsUpdate
+          ? await tx.user.update({
+              where: { id: existingByEmail.id },
+              data: postVerify.data,
+            })
+          : existingByEmail;
+        await linkPendingProgressSharesInTx(tx, updated.id, updated.email);
         await recordAuditLog(
           {
             actorUserId: updated.id,
             action: "GOOGLE_ACCOUNT_LINKED",
             entityType: "User",
             entityId: updated.id,
+            ...(postVerify.revokedUnverifiedCredentials
+              ? { metadata: { preHijackCredentialsCleared: true } }
+              : {}),
           },
           tx
         );
+        if (postVerify.promotedToSuperadmin) {
+          await recordAuditLog(
+            {
+              actorUserId: updated.id,
+              action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+              entityType: "User",
+              entityId: updated.id,
+              metadata: { channel: "GOOGLE_OAUTH_LINK" },
+            },
+            tx
+          );
+        }
         return updated;
       }
 
@@ -215,14 +230,7 @@ export async function GET(request: NextRequest) {
           },
         },
       });
-      await tx.userProgressShare.updateMany({
-        where: {
-          viewerEmail: created.email.trim().toLowerCase(),
-          viewerUserId: null,
-          status: "ACTIVE",
-        },
-        data: { viewerUserId: created.id },
-      });
+      await linkPendingProgressSharesInTx(tx, created.id, created.email);
       await recordAuditLog(
         {
           actorUserId: created.id,
@@ -232,16 +240,22 @@ export async function GET(request: NextRequest) {
         },
         tx
       );
+      if (isSuperadminMatch) {
+        await recordAuditLog(
+          {
+            actorUserId: created.id,
+            action: "SUPERADMIN_BOOTSTRAP_PROMOTED",
+            entityType: "User",
+            entityId: created.id,
+            metadata: { channel: "GOOGLE_OAUTH_SIGNUP" },
+          },
+          tx
+        );
+      }
       return created;
     });
 
-    const sessionJwt = await createSessionToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      tokenVersion: user.tokenVersion,
-    });
-    await setSessionCookie(sessionJwt);
+    await issueAuthenticatedSession(user);
 
     const dest = isAdminRole(user.role)
       ? "/admin"

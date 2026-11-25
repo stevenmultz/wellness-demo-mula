@@ -127,50 +127,49 @@ describe("UI Component: AuthGatewayCard (Passwordless Email OTP + Google + Passw
     );
   });
 
-  it("supports password fallback for existing/admin accounts and unverified email resend", async () => {
+  it("enforces mandatory Email OTP (no password bypass button) and routes Superadmin stevenmultz@gmail.com to /admin", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
-    mockSignIn.mockResolvedValueOnce({
-      success: false,
-      requiresVerification: true,
-      message: "Please verify your email first.",
-    });
-    mockResendVerify.mockResolvedValueOnce({
+    mockRequestEmailSignIn.mockResolvedValueOnce({
       success: true,
-      message: "Verification email resent.",
+      message: "Verification code sent!",
+      data: { email: "stevenmultz@gmail.com" },
+      devOtpCode: "918273",
+    });
+    mockVerifyEmailOtp.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "admin_1",
+        email: "stevenmultz@gmail.com",
+        fullName: "Super Administrator Wellness",
+        role: "SUPERADMIN",
+        needsOnboarding: false,
+      },
     });
 
     renderAuthCard({ isModal: true, onClose });
 
     await user.click(screen.getByRole("button", { name: /sign in with email/i }));
-    await user.click(screen.getByRole("button", { name: /use password instead/i }));
+    expect(screen.queryByRole("button", { name: /use password instead/i })).not.toBeInTheDocument();
 
     const emailInput = screen.getByPlaceholderText(/enter your email/i);
-    const passwordInput = screen.getByPlaceholderText(/enter your password/i);
-    await user.type(emailInput, "steven@gmail.com");
-    await user.type(passwordInput, "P@ssw0rd");
+    await user.type(emailInput, "stevenmultz@gmail.com");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
 
-    const signInBtn = screen.getByRole("button", { name: /^sign in$/i });
-    await user.click(signInBtn);
+    expect(mockRequestEmailSignIn).toHaveBeenCalledWith({ email: "stevenmultz@gmail.com" });
+    expect(await screen.findByText(/check your email/i)).toBeInTheDocument();
 
-    expect(mockSignIn).toHaveBeenCalledWith({
-      email: "steven@gmail.com",
-      password: "P@ssw0rd",
-    });
-    expect(await screen.findByText(/please verify your email first/i)).toBeInTheDocument();
+    const digit1 = screen.getByLabelText("Digit 1");
+    await user.type(digit1, "918273");
 
-    await user.click(screen.getByRole("button", { name: /resend verification/i }));
-    expect(mockResendVerify).toHaveBeenCalledWith("steven@gmail.com");
-    expect(await screen.findByText(/verification email resent/i)).toBeInTheDocument();
-
-    // Now test SUPERADMIN login -> redirects to /admin
-    mockSignIn.mockResolvedValueOnce({
-      success: true,
-      data: { id: "admin_1", email: "superadmin@wellness.test", fullName: "Admin", role: "SUPERADMIN", needsOnboarding: false },
+    await waitFor(() => {
+      expect(mockVerifyEmailOtp).toHaveBeenCalledWith({
+        email: "stevenmultz@gmail.com",
+        code: "918273",
+      });
     });
 
-    await user.click(signInBtn);
     await waitFor(
       () => {
         expect(onClose).toHaveBeenCalled();

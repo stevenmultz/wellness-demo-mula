@@ -319,6 +319,12 @@ export async function createProgramService(
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
         price: resolvedFinalPrice,
+        bonusTrackingDays:
+          validation.data.bonusTrackingDays !== undefined
+            ? validation.data.bonusTrackingDays
+            : resolvedFinalPrice > 0
+              ? 60
+              : 0,
         minQuota: clampMinQuota(minQuota, maxQuota || 50),
         maxQuota: maxQuota || 50,
         communityLink: communityLink?.trim() || null,
@@ -483,19 +489,42 @@ export async function updateProgramMetaService(
     };
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const txResult = await prisma.$transaction(async (tx) => {
     await lockProgramRow(tx, input.programId);
 
     const resolvedDuration = nextIsOnline
       ? Math.max(1, existingProgram.days.length)
       : input.durationDays || existingProgram.durationDays || 21;
     if (!nextIsOnline && resolvedDuration < existingProgram.durationDays) {
-      await tx.programDay.deleteMany({
+      const daysToTrim = await tx.programDay.findMany({
         where: {
           programId: input.programId,
           dayNumber: { gt: resolvedDuration },
         },
+        select: { id: true },
       });
+      if (daysToTrim.length > 0) {
+        const trimIds = daysToTrim.map((d) => d.id);
+        const [progressCount, customSubCount, liveEnrollmentCount] = await Promise.all([
+          tx.programDayProgress.count({ where: { programDayId: { in: trimIds } } }),
+          tx.programDayCustomSubmission.count({ where: { programDayId: { in: trimIds } } }),
+          tx.programEnrollment.count({
+            where: {
+              programId: input.programId,
+              status: { in: ["ACTIVE", "PENDING"] },
+            },
+          }),
+        ]);
+        if (progressCount > 0 || customSubCount > 0 || liveEnrollmentCount > 0) {
+          return {
+            blocked: true as const,
+            message: `Cannot shorten duration to ${resolvedDuration} days while participants or submissions exist on days after Day ${resolvedDuration}.`,
+          };
+        }
+        await tx.programDay.deleteMany({
+          where: { id: { in: trimIds } },
+        });
+      }
     }
 
     const startD = nextIsOnline
@@ -583,6 +612,9 @@ export async function updateProgramMetaService(
         actualPrice: resolvedActualPrice,
         discountPercentage: resolvedDiscount,
         price: resolvedFinalPrice,
+        ...(input.bonusTrackingDays !== undefined
+          ? { bonusTrackingDays: input.bonusTrackingDays }
+          : {}),
         minQuota: clampMinQuota(
           input.minQuota !== undefined ? input.minQuota : existingProgram.minQuota,
           Math.max(1, Number(input.maxQuota) || existingProgram.maxQuota || 50)
@@ -612,14 +644,23 @@ export async function updateProgramMetaService(
           : existingTax.dailyCommitment,
     });
 
-    return tx.program.findUniqueOrThrow({
+    const savedProgram = await tx.program.findUniqueOrThrow({
       where: { id: input.programId },
       include: {
         ...PROGRAM_TAXONOMY_INCLUDE,
         days: { orderBy: { dayNumber: "asc" } },
       },
     });
+    return { blocked: false as const, program: savedProgram };
   });
+
+  if (txResult.blocked) {
+    return {
+      success: false,
+      message: txResult.message,
+    };
+  }
+  const updated = txResult.program;
 
   revalidateWellnessRoutes();
 

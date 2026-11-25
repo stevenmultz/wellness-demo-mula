@@ -22,6 +22,13 @@ import {
   serializeProgramTaxonomy,
 } from "@/wellness/services/program-taxonomy";
 import { calculateAgeFromDob } from "@/wellness/validators/auth";
+import { mapMealQualityToProgramCompliance } from "@/wellness/utils/wellness-metrics";
+import {
+  buildUserDatePairKey,
+  fetchDailyLogsByUserDatePairs,
+  resolveEffectiveProgramStart,
+  resolveProgramDayWibDateOnly,
+} from "@/wellness/services/daily-log-hydration";
 
 function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
   if (!pathOrUrl) return null;
@@ -156,6 +163,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
         status: true,
         organizationId: true,
         coachProfileId: true,
+        trackingAccessUntil: true,
         createdAt: true,
         enrollments: {
           where:
@@ -259,6 +267,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
       organizationId: p.organizationId || null,
       organizationCache: tax.organizationName || null,
       durationDays: p.durationDays,
+      bonusTrackingDays: p.bonusTrackingDays,
       actualPrice: p.actualPrice,
       discountPercentage: p.discountPercentage,
       price: p.price,
@@ -364,6 +373,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
           organizationId: directProg.organizationId || null,
           organizationCache: tax.organizationName || null,
           durationDays: directProg.durationDays,
+          bonusTrackingDays: directProg.bonusTrackingDays,
           actualPrice: directProg.actualPrice,
           discountPercentage: directProg.discountPercentage,
           price: directProg.price,
@@ -451,6 +461,9 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     bedtime: string | null;
     wakeTime: string | null;
     sleepDurationMinutes: number | null;
+    waterMl?: number;
+    stepsCount?: number;
+    caloriesKcal?: number;
     assessmentResponse: string | null;
     completedAt: Date | null;
     updatedAt: Date;
@@ -506,6 +519,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
           status: true,
           organizationId: true,
           coachProfileId: true,
+          trackingAccessUntil: true,
           createdAt: true,
           enrollments: {
             where: session.role === "SUPERADMIN" ? {} : { program: programScopeWhere },
@@ -541,7 +555,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
       redirect("/admin/customers");
     }
     resolvedCustomerId = matchedCustomer.id;
-    const [rawProgress, rawCustomSubs] = await Promise.all([
+    const [rawProgress, rawCustomSubs, customerEnrollmentsMeta] = await Promise.all([
       prisma.programDayProgress.findMany({
         where: {
           userId: matchedCustomer.id,
@@ -579,6 +593,8 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
                 select: {
                   id: true,
                   title: true,
+                  locationType: true,
+                  startAt: true,
                 },
               },
             },
@@ -604,12 +620,57 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
               title: true,
               dayType: true,
               programId: true,
-              program: { select: { id: true, title: true } },
+              program: {
+                select: { id: true, title: true, locationType: true, startAt: true },
+              },
             },
           },
         },
       }),
+      prisma.programEnrollment.findMany({
+        where: {
+          userId: matchedCustomer.id,
+          ...(session.role === "SUPERADMIN" ? {} : { program: programScopeWhere }),
+        },
+        select: { programId: true, paidAt: true, approvedAt: true, createdAt: true },
+        take: 100,
+      }),
     ]);
+
+    const enrollmentMetaByProgram = new Map(
+      customerEnrollmentsMeta.map((e) => [e.programId, e])
+    );
+    const resolveLogDateForDay = (
+      programId: string,
+      dayNumber: number,
+      prog: { locationType: string; startAt: Date | null }
+    ): Date | null => {
+      const enr = enrollmentMetaByProgram.get(programId);
+      const effStart = resolveEffectiveProgramStart(prog, enr, {
+        fallbackToEnrollmentForHybrid: true,
+      });
+      return resolveProgramDayWibDateOnly(effStart, dayNumber);
+    };
+
+    const logPairs: Array<{ userId: string; logDate: Date }> = [];
+    for (const dp of rawProgress) {
+      const d = resolveLogDateForDay(
+        dp.programDay.programId,
+        dp.programDay.dayNumber,
+        dp.programDay.program
+      );
+      if (d) logPairs.push({ userId: matchedCustomer.id, logDate: d });
+    }
+    for (const cs of rawCustomSubs) {
+      const d = resolveLogDateForDay(
+        cs.programDay.programId,
+        cs.programDay.dayNumber,
+        cs.programDay.program
+      );
+      if (d) logPairs.push({ userId: matchedCustomer.id, logDate: d });
+    }
+
+    const dailyLogByUserDate = await fetchDailyLogsByUserDatePairs(logPairs);
 
     const customByDayId = new Map<
       string,
@@ -638,8 +699,24 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     const seenDayIds = new Set<string>();
     inspectedDayProgress = rawProgress.map((dp) => {
       seenDayIds.add(dp.programDay.id);
+      const logDate = resolveLogDateForDay(
+        dp.programDay.programId,
+        dp.programDay.dayNumber,
+        dp.programDay.program
+      );
+      const gLog = logDate
+        ? dailyLogByUserDate.get(buildUserDatePairKey(matchedCustomer.id, logDate))
+        : undefined;
       return {
         ...dp,
+        bedtime: gLog?.bedtime ?? dp.bedtime,
+        wakeTime: gLog?.wakeTime ?? dp.wakeTime,
+        sleepDurationMinutes: gLog?.sleepDurationMinutes ?? dp.sleepDurationMinutes,
+        mealCompliance:
+          dp.mealCompliance ?? mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ?? null,
+        waterMl: gLog?.waterMl,
+        stepsCount: gLog?.stepsCount,
+        caloriesKcal: gLog?.caloriesKcal,
         videoWatched: dp.isVideoWatched,
         checklistCompleted: toJsonString(dp.checklistCompletedJson),
         customSubmissions: customByDayId.get(dp.programDay.id) ?? [],
@@ -648,6 +725,14 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
 
     for (const [pDayId, meta] of customDayMeta.entries()) {
       if (seenDayIds.has(pDayId)) continue;
+      const logDate = resolveLogDateForDay(
+        meta.programDay.programId,
+        meta.programDay.dayNumber,
+        meta.programDay.program
+      );
+      const gLog = logDate
+        ? dailyLogByUserDate.get(buildUserDatePairKey(matchedCustomer.id, logDate))
+        : undefined;
       inspectedDayProgress.push({
         id: `custom-only:${pDayId}`,
         videoWatched: false,
@@ -656,13 +741,16 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
         selectedWorkout: null,
         workoutNotes: null,
         eventFeedback: null,
-        mealCompliance: null,
+        mealCompliance: mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ?? null,
         mealNotes: null,
         dailyReflection: null,
         happinessRate: null,
-        bedtime: null,
-        wakeTime: null,
-        sleepDurationMinutes: null,
+        bedtime: gLog?.bedtime ?? null,
+        wakeTime: gLog?.wakeTime ?? null,
+        sleepDurationMinutes: gLog?.sleepDurationMinutes ?? null,
+        waterMl: gLog?.waterMl,
+        stepsCount: gLog?.stepsCount,
+        caloriesKcal: gLog?.caloriesKcal,
         assessmentResponse: null,
         completedAt: null,
         updatedAt: meta.updatedAt,

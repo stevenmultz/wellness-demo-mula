@@ -116,6 +116,7 @@ export interface AdminProgram {
   organizationId?: string | null;
   organizationCache?: string | null;
   durationDays: number;
+  bonusTrackingDays?: number;
   actualPrice?: number;
   discountPercentage?: number;
   price: number;
@@ -162,6 +163,7 @@ export interface AdminUserItem {
   status: string;
   organizationId?: string | null;
   coachProfileId?: string | null;
+  trackingAccessUntil?: Date | string | null;
   createdAt: Date | string;
   enrollments: {
     id: string;
@@ -340,6 +342,7 @@ export interface ProgramHeaderFormState {
   organizationId: string;
   organizationCache: string;
   durationDays: number;
+  bonusTrackingDays: number;
   startDate: string;
   endDate: string;
   registrationOpenDate: string;

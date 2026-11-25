@@ -14,6 +14,8 @@ import {
   resolveProgramDailyPlan,
   type DailyTaskDayInput,
 } from "@/wellness/utils/daily-tasks";
+import { computeProgramEndWibCutoffMs } from "@/wellness/utils/timezone";
+import { isMovementChecked } from "@/components/dashboard/tabs/my-plan/myPlanUtils";
 import {
   buildWaterOnlyMealNotes,
   extractNutritionFromMealNotes,
@@ -188,8 +190,13 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
       ["WORKOUT", true],
       ["MEAL", true],
       ["WATER", true],
+      ["STEPS", false],
       ["CUSTOM", true],
     ]);
+
+    // Empty day still surfaces Daily Steps as a mandatory core task
+    const emptyTasks = buildDayTasks(makeDay({ id: "d_empty", progress: null }));
+    expect(emptyTasks.some((t) => t.kind === "STEPS" && !t.isDone)).toBe(true);
 
     const restTasks = buildDayTasks(
       makeDay({
@@ -325,5 +332,22 @@ describe("Utils: Daily Tasks Resolution (WIB)", () => {
     const plan = resolveProgramDailyPlan("prog_online", null, days, new Date(), "ONLINE");
     expect(plan.today?.dayNumber).toBe(2);
     expect(plan.tomorrow?.dayNumber).toBe(3);
+  });
+
+  it("matches workout movements strictly by scoped/exact key (Plank never falsely matches Side Plank)", () => {
+    expect(isMovementChecked(["[Home] Side Plank"], "Home", "Plank")).toBe(false);
+    expect(isMovementChecked(["[Home] Side Plank"], "Home", "Side Plank")).toBe(true);
+    expect(isMovementChecked(["[Home] Plank=3x60s"], "Home", "Plank")).toBe(true);
+    expect(isMovementChecked(["Plank"], "Home", "Plank")).toBe(true);
+  });
+
+  it("computes exact 23:59:59.999 WIB cutoff for 14-day ONLINE and HYBRID programs", () => {
+    // Paid Jan 1 2026 08:00 WIB -> 14-day program ends Jan 14 2026 23:59:59.999 WIB (= 16:59:59.999 UTC)
+    const cutoff = computeProgramEndWibCutoffMs({
+      locationType: "ONLINE",
+      durationDays: 14,
+      paidAt: new Date("2026-01-01T01:00:00.000Z"),
+    });
+    expect(cutoff).toBe(new Date("2026-01-14T16:59:59.999Z").getTime());
   });
 });

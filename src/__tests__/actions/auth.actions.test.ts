@@ -437,4 +437,132 @@ describe("Server Actions: Auth Lifecycle (SignUp, Verify, SignIn, SignOut & Rese
     const badFormat = await wellnessVerifyEmailOtp({ email: "fresh@zera.id", code: "123" });
     expect(badFormat.success).toBe(false);
   });
+
+  it("AUTH-01/02/03/04: blocks verification link replay, wipes unverified pre-hijack passwords, bootstraps stevenmultz@gmail.com to SUPERADMIN only after OTP verify, and blocks inactive reset", async () => {
+    // 1. AUTH-01: Already-used verification link MUST NEVER re-mint a session cookie
+    mockPrisma.userEmailVerificationToken.findUnique.mockResolvedValueOnce({
+      id: "vt_used",
+      userId: "u_1",
+      usedAt: new Date(Date.now() - 60_000),
+      expiresAt: new Date(Date.now() + 60_000),
+      user: {
+        id: "u_1",
+        email: "u1@zera.id",
+        emailVerifiedAt: new Date(Date.now() - 60_000),
+        role: "USER",
+        status: "ACTIVE",
+        deletedAt: null,
+        tokenVersion: 3,
+      },
+    });
+    const replayRes = await wellnessVerifyEmailToken("b".repeat(64));
+    expect(replayRes.success).toBe(false);
+    expect(replayRes.message).toMatch(/already been used/i);
+    expect(mockSetSessionCookie).not.toHaveBeenCalled();
+
+    // 2. AUTH-03 + AUTH-02: stevenmultz@gmail.com requests OTP on fresh DB -> created as USER (NOT SUPERADMIN),
+    //    then promoted to SUPERADMIN with passwordHash=null + tokenVersion bump ONLY upon OTP verification!
+    process.env.SUPERADMIN_EMAIL = "stevenmultz@gmail.com";
+    mockPrisma.user.findFirst.mockResolvedValueOnce(null);
+    mockPrisma.user.create.mockResolvedValueOnce({
+      id: "u_steven",
+      email: "stevenmultz@gmail.com",
+      fullName: "",
+      role: "USER",
+      status: "ACTIVE",
+    });
+
+    const adminOtpReq = await wellnessRequestEmailSignIn({ email: "stevenmultz@gmail.com" });
+    expect(adminOtpReq.success).toBe(true);
+    expect(mockPrisma.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ email: "stevenmultz@gmail.com", role: "USER" }),
+      })
+    );
+
+    mockPrisma.userEmailVerificationToken.findUnique.mockResolvedValueOnce({
+      id: "tok_admin_1",
+      userId: "u_steven",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      user: {
+        id: "u_steven",
+        email: "stevenmultz@gmail.com",
+        fullName: "",
+        birthDate: null,
+        gender: null,
+        phone: null,
+        city: null,
+        emailVerifiedAt: null,
+        role: "USER",
+        status: "ACTIVE",
+        deletedAt: null,
+        tokenVersion: 0,
+      },
+    });
+    mockTx.userEmailVerificationToken.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockTx.user.update.mockResolvedValueOnce({
+      id: "u_steven",
+      email: "stevenmultz@gmail.com",
+      fullName: "Super Administrator Wellness",
+      birthDate: null,
+      gender: null,
+      phone: null,
+      city: null,
+      role: "SUPERADMIN",
+      status: "ACTIVE",
+      tokenVersion: 1,
+    });
+
+    const adminVerify = await wellnessVerifyEmailOtp({
+      email: "stevenmultz@gmail.com",
+      code: adminOtpReq.devOtpCode!,
+    });
+    expect(adminVerify.success).toBe(true);
+    expect(adminVerify.data?.role).toBe("SUPERADMIN");
+    expect(mockTx.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: "SUPERADMIN",
+          organizationId: null,
+          coachProfileId: null,
+          passwordHash: null,
+          tokenVersion: { increment: 1 },
+        }),
+      })
+    );
+    expect(mockRecordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "SUPERADMIN_BOOTSTRAP_PROMOTED", entityId: "u_steven" }),
+      mockTx
+    );
+
+    // 3. AUTH-04: Suspended user cannot complete password reset confirmation
+    mockPrisma.userPasswordResetToken.findUnique.mockResolvedValueOnce({
+      id: "rt_sus",
+      userId: "u_sus",
+      isUsed: false,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockTx.userPasswordResetToken.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockTx.user.findUnique.mockResolvedValueOnce({
+      id: "u_sus",
+      email: "sus@zera.id",
+      status: "SUSPENDED",
+      deletedAt: null,
+      emailVerifiedAt: new Date(),
+    });
+
+    const susReset = await wellnessConfirmPasswordReset({
+      token: "c".repeat(64),
+      newPassword: "NewStrongPassword9!",
+      confirmPassword: "NewStrongPassword9!",
+    });
+    expect(susReset.success).toBe(false);
+
+    // 4. AUTH-04: Rate limit enforced on token verify & password reset confirm
+    mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetMs: 60_000 });
+    const rlToken = await wellnessVerifyEmailToken("d".repeat(64));
+    expect(rlToken.success).toBe(false);
+    expect(rlToken.message).toMatch(/Too many verification attempts/i);
+  });
 });

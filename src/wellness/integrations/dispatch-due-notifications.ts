@@ -4,7 +4,10 @@ import { sendWebPushNotification } from "@/wellness/integrations/web-push";
 import { createUserNotifications } from "@/wellness/integrations/user-notifications";
 import { safeJsonParse } from "@/wellness/utils/json";
 import { BRAND } from "@/wellness/brand";
-import { getProgramDayWibWindow } from "@/wellness/utils/timezone";
+import {
+  computeProgramEndWibCutoffMs,
+  getProgramDayWibWindow,
+} from "@/wellness/utils/timezone";
 import {
   buildCadenceDedupeKey,
   getDueSlots,
@@ -59,6 +62,7 @@ export interface DispatchSummary {
 
 export interface RetentionCleanupSummary {
   expiredEnrollments: number;
+  expiredTrackingPassOrders?: number;
   expiredTransactions: number;
   purgedTokens: number;
   purgedRateBuckets: number;
@@ -96,13 +100,127 @@ export async function runDatabaseRetentionCleanup(nowUtc = new Date()): Promise<
       }),
     ]);
 
+  let expiredPassCount = 0;
+  if (
+    typeof (prisma as { trackingPassOrder?: { updateMany?: unknown } }).trackingPassOrder
+      ?.updateMany === "function"
+  ) {
+    const passRes = await prisma.trackingPassOrder.updateMany({
+      where: { status: "PENDING", invoiceExpiresAt: { lt: nowUtc } },
+      data: { status: "EXPIRED" },
+    });
+    expiredPassCount = passRes.count;
+  }
+
   return {
     expiredEnrollments: expiredEnr.count,
+    expiredTrackingPassOrders: expiredPassCount,
     expiredTransactions: expiredTx.count,
     purgedTokens: delReset.count + delVerify.count,
     purgedRateBuckets: delBuckets.count,
     purgedOldNotifications: delOldNotif.count,
   };
+}
+
+/**
+ * Sends H-7 and H-3 renewal reminder notifications for members whose Maintenance / Tracking Pass
+ * is approaching expiration. Uses indexed `users.tracking_access_until` + `dedupeKey` (Zero N+1).
+ */
+export async function dispatchTrackingExpiryReminders(nowUtc = new Date()): Promise<number> {
+  if (typeof (prisma as { user?: { findMany?: unknown } }).user?.findMany !== "function") {
+    return 0;
+  }
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const in7DaysEnd = new Date(nowUtc.getTime() + 7.5 * DAY_MS);
+  const BATCH_SIZE = 200;
+  const MAX_PAGES = 50;
+
+  let cursorId: string | undefined;
+  let totalSent = 0;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const expiringUsers = await prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        status: "ACTIVE",
+        trackingAccessUntil: {
+          gt: nowUtc,
+          lte: in7DaysEnd,
+        },
+      },
+      select: {
+        id: true,
+        trackingAccessUntil: true,
+        enrollments: {
+          where: { status: "ACTIVE", program: { deletedAt: null } },
+          select: {
+            paidAt: true,
+            approvedAt: true,
+            createdAt: true,
+            program: {
+              select: {
+                locationType: true,
+                startAt: true,
+                endAt: true,
+                durationDays: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { id: "asc" },
+      take: BATCH_SIZE,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+    });
+
+    if (expiringUsers.length === 0) break;
+    cursorId = expiringUsers[expiringUsers.length - 1].id;
+
+    const notifications = expiringUsers
+      .map((u) => {
+        if (!u.trackingAccessUntil) return null;
+
+        // Skip expiry nudges while the member is still inside an active guided cohort
+        const hasActiveCohort = (u.enrollments || []).some((e) => {
+          const cutoffMs = computeProgramEndWibCutoffMs({
+            locationType: e.program.locationType,
+            endAt: e.program.endAt,
+            startAt: e.program.startAt,
+            durationDays: e.program.durationDays,
+            paidAt: e.paidAt ?? e.approvedAt ?? e.createdAt,
+          });
+          return cutoffMs !== null && nowUtc.getTime() <= cutoffMs;
+        });
+        if (hasActiveCohort) return null;
+
+        const daysLeft = Math.ceil((u.trackingAccessUntil.getTime() - nowUtc.getTime()) / DAY_MS);
+        const milestone = daysLeft <= 3 ? "3d" : daysLeft <= 7 ? "7d" : null;
+        if (!milestone) return null;
+        const dateStamp = u.trackingAccessUntil.toISOString().slice(0, 10);
+        return {
+          userId: u.id,
+          type: "REMINDER" as const,
+          title:
+            daysLeft <= 3
+              ? `Tracking access expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+              : `Tracking access expires in ${daysLeft} days`,
+          body: "Join a new guided coach batch (14 days + 2 months app bonus) or extend with a 6-Month Independent Tracking Pass to keep logging daily.",
+          url: "/dashboard",
+          dedupeKey: `tracking-expiry:${milestone}:${u.id}:${dateStamp}`,
+        };
+      })
+      .filter((n): n is NonNullable<typeof n> => n !== null);
+
+    if (notifications.length > 0) {
+      await createUserNotifications(notifications);
+      totalSent += notifications.length;
+    }
+
+    if (expiringUsers.length < BATCH_SIZE) break;
+  }
+
+  return totalSent;
 }
 
 /**

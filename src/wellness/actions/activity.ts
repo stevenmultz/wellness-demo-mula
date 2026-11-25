@@ -21,11 +21,12 @@ export interface NotificationsPayload {
 
 export interface PaymentHistoryItem {
   enrollmentId: string;
+  itemType?: "PROGRAM_ENROLLMENT" | "TRACKING_PASS";
   programTitle: string;
   amount: number;
   isFree: boolean;
-  status: string; // PENDING | ACTIVE | EXPIRED | CANCELLED
-  statusLabel: "Paid" | "Pending" | "Expired" | "Cancelled";
+  status: string; // PENDING | ACTIVE | EXPIRED | CANCELLED | REFUNDED
+  statusLabel: "Paid" | "Pending" | "Expired" | "Cancelled" | "Refunded";
   transactionDate: string; // paidAt, else createdAt
   reference: string | null;
 }
@@ -49,6 +50,7 @@ const STATUS_LABEL: Record<string, PaymentHistoryItem["statusLabel"]> = {
   PENDING: "Pending",
   EXPIRED: "Expired",
   CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
 };
 
 /** The authenticated user's inbox (most recent 100). userId always comes from the session. */
@@ -111,26 +113,65 @@ export async function wellnessMarkAllNotificationsRead(): Promise<WellnessAction
 export async function wellnessGetHistory(): Promise<WellnessActionResult<HistoryPayload>> {
   const session = await requireAuth();
 
-  const enrollments = await prisma.programEnrollment.findMany({
-    where: { userId: session.userId },
-    take: 100,
-    include: { program: { select: { title: true, price: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const prismaAny = prisma as unknown as {
+    trackingPassOrder?: { findMany?: typeof prisma.trackingPassOrder.findMany };
+  };
 
-  const payments: PaymentHistoryItem[] = enrollments.map((e) => ({
-    enrollmentId: e.id,
-    programTitle: e.program.title,
-    amount: e.program.price,
-    isFree: e.program.price <= 0,
-    status: e.status,
-    statusLabel: STATUS_LABEL[e.status] ?? "Pending",
-    transactionDate: (e.paidAt ?? e.createdAt).toISOString(),
-    reference: e.paymentReference,
-  }));
+  const [enrollments, passOrders] = await Promise.all([
+    prisma.programEnrollment.findMany({
+      where: { userId: session.userId },
+      take: 100,
+      include: {
+        program: { select: { title: true, price: true } },
+        transactions: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: { grossAmount: true, status: true, settledAt: true, orderId: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    typeof prismaAny.trackingPassOrder?.findMany === "function"
+      ? prisma.trackingPassOrder.findMany({
+          where: { userId: session.userId },
+          take: 100,
+          include: {
+            plan: { select: { name: true, durationDays: true } },
+            transactions: {
+              orderBy: { createdAt: "desc" },
+              take: 5,
+              select: { grossAmount: true, status: true, settledAt: true, orderId: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
+  const payments: PaymentHistoryItem[] = [];
   const activities: MembershipActivityItem[] = [];
+
   for (const e of enrollments) {
+    const settledTx = e.transactions?.find(
+      (tx) => tx.status === "SETTLEMENT" || tx.status === "MANUAL_APPROVED" || tx.status === "REFUND"
+    );
+    const latestTx = settledTx ?? e.transactions?.[0] ?? null;
+    const immutableAmount = latestTx ? latestTx.grossAmount : e.program.price;
+    const isRefunded = settledTx?.status === "REFUND";
+    const effectiveStatus = isRefunded ? "REFUNDED" : e.status;
+
+    payments.push({
+      enrollmentId: e.id,
+      itemType: "PROGRAM_ENROLLMENT",
+      programTitle: e.program.title,
+      amount: immutableAmount,
+      isFree: immutableAmount <= 0,
+      status: effectiveStatus,
+      statusLabel: STATUS_LABEL[effectiveStatus] ?? "Pending",
+      transactionDate: (e.paidAt ?? e.createdAt).toISOString(),
+      reference: e.paymentReference ?? latestTx?.orderId ?? null,
+    });
+
     activities.push({
       id: `${e.id}:reg`,
       programTitle: e.program.title,
@@ -160,6 +201,64 @@ export async function wellnessGetHistory(): Promise<WellnessActionResult<History
       });
     }
   }
+
+  for (const o of passOrders) {
+    const settledTx = o.transactions?.find(
+      (tx) => tx.status === "SETTLEMENT" || tx.status === "MANUAL_APPROVED" || tx.status === "REFUND"
+    );
+    const latestTx = settledTx ?? o.transactions?.[0] ?? null;
+    const immutableAmount = latestTx ? latestTx.grossAmount : o.priceSnapshot;
+    const effectiveStatus = settledTx?.status === "REFUND" ? "REFUNDED" : o.status;
+    const title = `${o.plan.name} (${o.durationDaysSnapshot}d Tracking Pass)`;
+
+    payments.push({
+      enrollmentId: o.id,
+      itemType: "TRACKING_PASS",
+      programTitle: title,
+      amount: immutableAmount,
+      isFree: immutableAmount <= 0,
+      status: effectiveStatus,
+      statusLabel: STATUS_LABEL[effectiveStatus] ?? "Pending",
+      transactionDate: (o.paidAt ?? o.createdAt).toISOString(),
+      reference: o.paymentReference ?? latestTx?.orderId ?? null,
+    });
+
+    activities.push({
+      id: `pass:${o.id}:reg`,
+      programTitle: title,
+      event: "REGISTERED",
+      label: "Tracking Pass ordered",
+      date: o.createdAt.toISOString(),
+      detail: null,
+    });
+    if (o.paidAt && o.status === "ACTIVE") {
+      activities.push({
+        id: `pass:${o.id}:act`,
+        programTitle: title,
+        event: "ACTIVATED",
+        label: "Tracking Pass activated",
+        date: o.paidAt.toISOString(),
+        detail: `${o.durationDaysSnapshot} days unlocked`,
+      });
+    }
+    if (o.status === "EXPIRED" || o.status === "CANCELLED" || o.status === "REFUNDED") {
+      activities.push({
+        id: `pass:${o.id}:end`,
+        programTitle: title,
+        event: o.status === "EXPIRED" ? "EXPIRED" : "CANCELLED",
+        label:
+          o.status === "EXPIRED"
+            ? "Tracking Pass invoice expired"
+            : o.status === "REFUNDED"
+              ? "Tracking Pass refunded"
+              : "Tracking Pass cancelled",
+        date: o.updatedAt.toISOString(),
+        detail: null,
+      });
+    }
+  }
+
+  payments.sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
   activities.sort((a, b) => b.date.localeCompare(a.date));
 
   return { success: true, message: "OK", data: { payments, activities } };

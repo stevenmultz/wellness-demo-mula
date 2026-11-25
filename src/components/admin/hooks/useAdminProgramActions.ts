@@ -163,6 +163,7 @@ export function useAdminProgramActions({
         (prog.locationType || "ONLINE") === "ONLINE"
           ? Math.max(1, prog.days?.length || prog.durationDays || 1)
           : prog.durationDays || 7,
+      bonusTrackingDays: prog.bonusTrackingDays ?? (prog.price > 0 ? 60 : 0),
       actualPrice: prog.actualPrice ?? prog.price,
       discountPercentage: prog.discountPercentage ?? 0,
       price: prog.price,
@@ -233,6 +234,10 @@ export function useAdminProgramActions({
         durationDays: payload.isOnline
           ? Math.max(1, prog.days.length, Number(metaForm.durationDays) || 1)
           : Number(metaForm.durationDays) || 7,
+        bonusTrackingDays: Math.max(
+          0,
+          Math.min(365, Math.round(Number(metaForm.bonusTrackingDays) || 0))
+        ),
         actualPrice: Number(metaForm.actualPrice) || 0,
         discountPercentage: Number(metaForm.discountPercentage) || 0,
         price: payload.calculatedFinalPrice,
@@ -292,6 +297,10 @@ export function useAdminProgramActions({
                   organizationCache:
                     payload.selectedOrgObj?.name || metaForm.organizationCache || null,
                   durationDays: nextDurationDays,
+                  bonusTrackingDays: Math.max(
+                    0,
+                    Math.min(365, Math.round(Number(metaForm.bonusTrackingDays) || 0))
+                  ),
                   actualPrice: Number(metaForm.actualPrice) || 0,
                   discountPercentage: Number(metaForm.discountPercentage) || 0,
                   price: payload.calculatedFinalPrice,
@@ -389,6 +398,10 @@ export function useAdminProgramActions({
         organizationCache:
           payload.selectedOrgObj?.name || createForm.organizationCache || null,
         durationDays: payload.isOnline ? 1 : Number(createForm.durationDays) || 7,
+        bonusTrackingDays: Math.max(
+          0,
+          Math.min(365, Math.round(Number(createForm.bonusTrackingDays) || 0))
+        ),
         actualPrice: Number(createForm.actualPrice) || 0,
         discountPercentage: Number(createForm.discountPercentage) || 0,
         price: payload.calculatedFinalPrice,
@@ -447,6 +460,9 @@ export function useAdminProgramActions({
           organizationCache:
             created.organizationCache || payload.selectedOrgObj?.name || null,
           durationDays: created.durationDays,
+          bonusTrackingDays:
+            created.bonusTrackingDays ??
+            Math.max(0, Math.min(365, Math.round(Number(createForm.bonusTrackingDays) || 0))),
           actualPrice: created.actualPrice ?? createForm.actualPrice,
           discountPercentage: created.discountPercentage ?? createForm.discountPercentage,
           price: created.price ?? payload.calculatedFinalPrice,

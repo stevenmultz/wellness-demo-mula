@@ -553,16 +553,39 @@ export async function wellnessUpdateMasterOrganization(input: {
 export async function wellnessDeleteMasterOrganization(
   id: string
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  const session = await requireSuperadmin();
   try {
     const res = await prisma.$transaction(async (tx) => {
-      const usedCount = await tx.program.count({ where: { organizationId: id, deletedAt: null } });
-      if (usedCount > 0) {
+      const [usedPrograms, usedStaff, usedCoaches] = await Promise.all([
+        tx.program.count({ where: { organizationId: id, deletedAt: null } }),
+        tx.user.count({ where: { organizationId: id, deletedAt: null } }),
+        tx.masterCoach.count({ where: { organizationId: id } }),
+      ]);
+      if (usedPrograms > 0) {
         return {
-          blocked: `Cannot delete this Community / Brand because it is linked to ${usedCount} program(s).`,
+          blocked: `Cannot delete this Community / Brand because it is linked to ${usedPrograms} program(s).`,
+        };
+      }
+      if (usedStaff > 0) {
+        return {
+          blocked: `Cannot delete this Community / Brand because ${usedStaff} active team account(s) are still assigned to it.`,
+        };
+      }
+      if (usedCoaches > 0) {
+        return {
+          blocked: `Cannot delete this Community / Brand because ${usedCoaches} coach profile(s) are still assigned to it.`,
         };
       }
       await tx.masterOrganization.delete({ where: { id } });
+      await recordAuditLog(
+        {
+          actorUserId: session.userId,
+          action: "MASTER_ORGANIZATION_DELETED",
+          entityType: "MasterOrganization",
+          entityId: id,
+        },
+        tx
+      );
       return { blocked: null };
     });
     if (res.blocked) return { success: false, message: res.blocked };

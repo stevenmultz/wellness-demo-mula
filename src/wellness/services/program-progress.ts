@@ -4,8 +4,38 @@ import { requireAuth, requireProgramAccess } from "../security/guards";
 import { parseCustomSubmissionValues } from "../utils/custom-tasks";
 import { SubmitDayProgressSchema } from "../validators/program";
 import { parseWorkoutOptionGroups, safeJsonParse } from "../utils/json";
-import { extractWaterMl, mergeMealNotesPayload } from "../utils/nutrition";
-import { calculateSleepDuration, getProgramDayWibWindow } from "../utils/timezone";
+import {
+  extractNutritionFromMealNotes,
+  extractWaterMl,
+  mergeMealNotesPayload,
+} from "../utils/nutrition";
+import {
+  calculateSleepDuration,
+  formatDateOnlyKey,
+  formatWibDateKey,
+  getProgramDayWibWindow,
+  toWibDateOnly,
+} from "../utils/timezone";
+import {
+  WATER_MAX_ML,
+  computeSafeSleepMinutes,
+  mapMealQualityToProgramCompliance,
+  mapProgramComplianceToMealQuality,
+} from "../utils/wellness-metrics";
+import {
+  buildCheckedMovementSet,
+  hasProgramDayActivityInput,
+  isMealLogged,
+  isMovementCheckedInSet,
+  isSleepLogged,
+  normalizeProgramDayType,
+} from "../utils/day-completion";
+import {
+  buildUserDatePairKey,
+  fetchDailyLogsByUserDatePairs,
+  resolveEffectiveProgramStart,
+  resolveProgramDayWibDateOnly,
+} from "./daily-log-hydration";
 import type { WellnessActionResult } from "../actions/auth";
 
 export interface ProgramSubmissionItem {
@@ -31,6 +61,9 @@ export interface ProgramSubmissionItem {
   wakeTime: string | null;
   sleepDurationMinutes: number | null;
   assessmentResponse: string | null;
+  waterMl?: number;
+  stepsCount?: number;
+  caloriesKcal?: number;
   customSubmissions?: Array<{
     id: string;
     customTaskId: string;
@@ -61,11 +94,14 @@ export interface DayCompletionCandidate {
   mealNotes?: string | null;
   bedtime: string | null;
   wakeTime: string | null;
+  waterMlOverride?: number;
+  stepsCountOverride?: number;
 }
 
 export interface DayCompletionDayMeta {
   id: string;
   dayType: string;
+  locationType?: string | null;
   videoUrl: string | null;
   workoutOptionsJson: Prisma.JsonValue | null;
   videoChecklistJson: Prisma.JsonValue | null;
@@ -74,7 +110,7 @@ export interface DayCompletionDayMeta {
 /**
  * Authoritative server-side day completion evaluator (Single Source of Truth).
  * Every task is required (no optional tasks):
- * - Core tasks (4): Sleep + Activity (Training/Rest/Connect) + Meal Control + Water Intake
+ * - Core tasks (5): Sleep + Activity (Training/Rest/Connect) + Meal Control + Water Intake + Daily Steps
  * - Custom tasks: ALL custom tasks attached to the day must be submitted.
  */
 export async function computeVerifiedDayCompletionInTx(
@@ -83,37 +119,33 @@ export async function computeVerifiedDayCompletionInTx(
   programDay: DayCompletionDayMeta,
   state: DayCompletionCandidate
 ): Promise<boolean> {
-  const sleepDone = Boolean(
-    state.bedtime &&
-      state.wakeTime &&
-      state.bedtime !== "SKIPPED" &&
-      state.wakeTime !== "SKIPPED"
+  const effectiveDayType = normalizeProgramDayType(
+    programDay.locationType,
+    programDay.dayType
   );
-  const mealDone = Boolean(
-    state.mealCompliance && state.mealCompliance !== "SKIPPED"
-  );
-  const waterDone = extractWaterMl(state.mealNotes) > 0;
-  const activityHasInput =
-    programDay.dayType === "TRAINING_DAY"
-      ? Boolean(
-          state.isVideoWatched ||
-            (state.workoutNotes && state.workoutNotes !== "SKIPPED") ||
-            (state.selectedWorkout && state.selectedWorkout !== "SKIPPED") ||
-            state.checklistCompleted.length > 0
-        )
-      : programDay.dayType === "REST_DAY"
-        ? Boolean(
-            (state.workoutNotes && state.workoutNotes !== "SKIPPED") ||
-              state.checklistCompleted.length > 0
-          )
-        : Boolean(state.eventFeedback && state.eventFeedback !== "SKIPPED");
+  const sleepDone = isSleepLogged(state.bedtime, state.wakeTime);
+  const mealDone = isMealLogged(state.mealCompliance);
+  const effectiveWaterMl =
+    state.waterMlOverride !== undefined
+      ? state.waterMlOverride
+      : extractWaterMl(state.mealNotes);
+  const waterDone = effectiveWaterMl > 0;
+  const stepsDone =
+    state.stepsCountOverride !== undefined ? state.stepsCountOverride > 0 : true;
+  const activityHasInput = hasProgramDayActivityInput(effectiveDayType, {
+    isVideoWatched: state.isVideoWatched,
+    workoutNotes: state.workoutNotes,
+    selectedWorkout: state.selectedWorkout,
+    eventFeedback: state.eventFeedback,
+    checklistCount: state.checklistCompleted.length,
+  });
 
-  if (!sleepDone || !mealDone || !waterDone || !activityHasInput) {
+  if (!sleepDone || !mealDone || !waterDone || !stepsDone || !activityHasInput) {
     return false;
   }
 
   if (
-    programDay.dayType === "TRAINING_DAY" &&
+    effectiveDayType === "TRAINING_DAY" &&
     programDay.videoUrl &&
     !state.isVideoWatched
   ) {
@@ -124,7 +156,7 @@ export async function computeVerifiedDayCompletionInTx(
     programDay.videoChecklistJson,
     []
   );
-  if (targetChecklist.length > 0 && programDay.dayType === "TRAINING_DAY") {
+  if (targetChecklist.length > 0 && effectiveDayType === "TRAINING_DAY") {
     const groups = parseWorkoutOptionGroups(
       safeJsonParse<string[]>(programDay.workoutOptionsJson, []),
       targetChecklist
@@ -138,16 +170,10 @@ export async function computeVerifiedDayCompletionInTx(
       ) || groups[0];
 
     if (activeGroup && activeGroup.movements.length > 0) {
-      const checkedSet = new Set(
-        state.checklistCompleted.map((item) =>
-          (item.includes("=") ? item.split("=")[0] : item).trim().toLowerCase()
-        )
+      const checkedSet = buildCheckedMovementSet(state.checklistCompleted);
+      const allMovementsDone = activeGroup.movements.every((m) =>
+        isMovementCheckedInSet(checkedSet, activeGroup.optionName, m.name)
       );
-      const allMovementsDone = activeGroup.movements.every((m) => {
-        const scopedKey = `[${activeGroup.optionName.trim()}] ${m.name.trim()}`.toLowerCase();
-        const plainKey = m.name.trim().toLowerCase();
-        return checkedSet.has(scopedKey) || checkedSet.has(plainKey);
-      });
       if (!allMovementsDone) return false;
     } else {
       const allChecklistDone = targetChecklist.every((item) =>
@@ -325,20 +351,113 @@ export async function submitDayProgressService(
           ? assessmentResponse || null
           : existingProgress?.assessmentResponse ?? null;
 
+      // Write-through & merge with Universal UserDailyLog (when table delegate is available)
+      const txAny = tx as unknown as {
+        userDailyLog?: {
+          findUnique?: typeof tx.userDailyLog.findUnique;
+          upsert?: typeof tx.userDailyLog.upsert;
+        };
+      };
+      const dayUnlockDate = effectiveStartAt
+        ? getProgramDayWibWindow(effectiveStartAt, programDay.dayNumber).unlockDate
+        : new Date();
+      const dayLogDate = toWibDateOnly(dayUnlockDate);
+
+      let syncedDailyLog: {
+        bedtime: string | null;
+        wakeTime: string | null;
+        waterMl: number;
+        stepsCount: number;
+        mealQualityMode: string | null;
+      } | null = null;
+
+      if (typeof txAny.userDailyLog?.upsert === "function") {
+        const nutr = extractNutritionFromMealNotes(finalMealNotes);
+        const sleepValid =
+          finalBedtime &&
+          finalWakeTime &&
+          finalBedtime !== "SKIPPED" &&
+          finalWakeTime !== "SKIPPED";
+        const safeSleepMins = sleepValid
+          ? computeSafeSleepMinutes(finalBedtime, finalWakeTime) || null
+          : null;
+        const sleepFeelingMatch = (finalAssessmentResponse || "").match(/Sleep Feeling:\s*(.+)/i);
+        const sleepFeeling = sleepFeelingMatch ? sleepFeelingMatch[1].trim().slice(0, 120) : undefined;
+        const qualityMode = mapProgramComplianceToMealQuality(finalMealCompliance);
+
+        const updatePatch: Prisma.UserDailyLogUpdateInput = {};
+        if (bedtime !== undefined && sleepValid) {
+          updatePatch.bedtime = finalBedtime;
+          updatePatch.wakeTime = finalWakeTime;
+          if (safeSleepMins) updatePatch.sleepDurationMinutes = safeSleepMins;
+          if (sleepFeeling !== undefined) updatePatch.sleepFeeling = sleepFeeling;
+        }
+        if (mealNotes !== undefined && nutr.hasWaterData) {
+          updatePatch.waterMl = Math.min(WATER_MAX_ML, Math.max(0, nutr.waterMl));
+        }
+        if (mealNotes !== undefined && nutr.hasMealData) {
+          updatePatch.caloriesKcal = Math.min(15000, Math.max(0, nutr.calories));
+          updatePatch.carbsG = Math.min(3000, Math.max(0, nutr.carbsG));
+          updatePatch.proteinG = Math.min(1500, Math.max(0, nutr.proteinG));
+          updatePatch.fatG = Math.min(1000, Math.max(0, nutr.fatG));
+        }
+        if (mealCompliance !== undefined && qualityMode) {
+          updatePatch.mealQualityMode = qualityMode;
+        }
+
+        syncedDailyLog = await tx.userDailyLog.upsert({
+          where: { userId_logDate: { userId: session.userId, logDate: dayLogDate } },
+          create: {
+            userId: session.userId,
+            logDate: dayLogDate,
+            bedtime: sleepValid ? finalBedtime : null,
+            wakeTime: sleepValid ? finalWakeTime : null,
+            sleepDurationMinutes: safeSleepMins,
+            sleepFeeling: sleepFeeling ?? null,
+            waterMl: nutr.hasWaterData ? Math.min(WATER_MAX_ML, Math.max(0, nutr.waterMl)) : 0,
+            caloriesKcal: nutr.hasMealData ? Math.min(15000, Math.max(0, nutr.calories)) : 0,
+            carbsG: nutr.hasMealData ? Math.min(3000, Math.max(0, nutr.carbsG)) : 0,
+            proteinG: nutr.hasMealData ? Math.min(1500, Math.max(0, nutr.proteinG)) : 0,
+            fatG: nutr.hasMealData ? Math.min(1000, Math.max(0, nutr.fatG)) : 0,
+            mealQualityMode: qualityMode,
+          },
+          update: updatePatch,
+          select: {
+            bedtime: true,
+            wakeTime: true,
+            waterMl: true,
+            stepsCount: true,
+            mealQualityMode: true,
+          },
+        });
+      }
+
+      const effectiveMealCompliance =
+        finalMealCompliance ?? mapMealQualityToProgramCompliance(syncedDailyLog?.mealQualityMode);
+
       const verifiedCompleted = await computeVerifiedDayCompletionInTx(
         tx,
         session.userId,
-        programDay,
+        {
+          ...programDay,
+          locationType: programDay.program.locationType,
+        },
         {
           isVideoWatched: nextVideoWatched,
           checklistCompleted: finalChecklist,
           selectedWorkout: finalSelectedWorkout,
           workoutNotes: finalWorkoutNotes,
           eventFeedback: finalEventFeedback,
-          mealCompliance: finalMealCompliance,
+          mealCompliance: effectiveMealCompliance,
           mealNotes: finalMealNotes,
-          bedtime: finalBedtime,
-          wakeTime: finalWakeTime,
+          bedtime: syncedDailyLog?.bedtime ?? finalBedtime,
+          wakeTime: syncedDailyLog?.wakeTime ?? finalWakeTime,
+          ...(syncedDailyLog
+            ? {
+                waterMlOverride: syncedDailyLog.waterMl,
+                stepsCountOverride: syncedDailyLog.stepsCount,
+              }
+            : {}),
         }
       );
 
@@ -418,7 +537,7 @@ export async function getProgramSubmissionsService(
 
   const limit = filters?.limit ? Math.min(500, Math.max(1, filters.limit)) : 200;
 
-  const [rawRecords, rawCustomSubs] = await Promise.all([
+  const [rawRecords, rawCustomSubs, programMeta, memberEnrollments] = await Promise.all([
     prisma.programDayProgress.findMany({
       where: {
         programDay: { programId, ...dayNumberFilter },
@@ -448,7 +567,47 @@ export async function getProgramSubmissionsService(
         customTask: { select: { id: true, title: true, taskType: true } },
       },
     }),
+    typeof (prisma as { program?: { findUnique?: unknown } }).program?.findUnique === "function"
+      ? prisma.program.findUnique({
+          where: { id: programId },
+          select: { locationType: true, startAt: true },
+        })
+      : Promise.resolve(null),
+    typeof (prisma as { programEnrollment?: { findMany?: unknown } }).programEnrollment?.findMany ===
+    "function"
+      ? prisma.programEnrollment.findMany({
+          where: { programId, status: "ACTIVE", ...userFilter },
+          select: { userId: true, paidAt: true, approvedAt: true, createdAt: true },
+          take: 500,
+        })
+      : Promise.resolve([]),
   ]);
+
+  // Batched 1-query hydration of Universal Daily Biomarkers via centralized Pintu 5 (Zero N+1 & Multi-Coach Privacy)
+  const enrollmentStartByUserId = new Map<string, Date | null>();
+  for (const e of memberEnrollments) {
+    const effStart = programMeta
+      ? resolveEffectiveProgramStart(programMeta, e, { fallbackToEnrollmentForHybrid: true })
+      : e.paidAt ?? e.approvedAt ?? e.createdAt ?? null;
+    enrollmentStartByUserId.set(e.userId, effStart);
+  }
+
+  const logPairs: Array<{ userId: string; logDate: Date }> = [];
+  const registerPair = (userId: string, dayNumber: number) => {
+    const start = enrollmentStartByUserId.get(userId) ?? programMeta?.startAt;
+    const logDate = resolveProgramDayWibDateOnly(start, dayNumber);
+    if (logDate) {
+      logPairs.push({ userId, logDate });
+    }
+  };
+  for (const r of rawRecords) {
+    registerPair(r.userId, r.programDay.dayNumber);
+  }
+  for (const cs of rawCustomSubs) {
+    registerPair(cs.userId, cs.programDay.dayNumber);
+  }
+
+  const dailyLogByUserDateKey = await fetchDailyLogsByUserDatePairs(logPairs);
 
   const customSubsByPair = new Map<string, NonNullable<ProgramSubmissionItem["customSubmissions"]>>();
   const customOnlyMetaByPair = new Map<
@@ -502,6 +661,12 @@ export async function getProgramSubmissionsService(
     uniqueUserIds.add(r.userId);
     if (r.isCompleted) completedCount++;
 
+    const start = enrollmentStartByUserId.get(r.userId) ?? programMeta?.startAt;
+    const dayDateKey = start
+      ? formatWibDateKey(getProgramDayWibWindow(start, r.programDay.dayNumber).unlockDate)
+      : null;
+    const globalLog = dayDateKey ? dailyLogByUserDateKey.get(`${r.userId}:${dayDateKey}`) : null;
+
     return {
       id: r.id,
       userId: r.userId,
@@ -521,10 +686,14 @@ export async function getProgramSubmissionsService(
       mealNotes: r.mealNotes,
       dailyReflection: r.dailyReflection,
       happinessRate: r.happinessRate,
-      bedtime: r.bedtime,
-      wakeTime: r.wakeTime,
-      sleepDurationMinutes: r.sleepDurationMinutes,
+      bedtime: globalLog?.bedtime ?? r.bedtime,
+      wakeTime: globalLog?.wakeTime ?? r.wakeTime,
+      sleepDurationMinutes: globalLog?.sleepDurationMinutes ?? r.sleepDurationMinutes,
       assessmentResponse: r.assessmentResponse,
+      waterMl: globalLog?.waterMl ?? extractWaterMl(r.mealNotes),
+      stepsCount: globalLog?.stepsCount ?? 0,
+      caloriesKcal:
+        globalLog?.caloriesKcal ?? extractNutritionFromMealNotes(r.mealNotes).calories,
       customSubmissions: customSubsByPair.get(pairKey) ?? [],
       completedAt: r.completedAt ? r.completedAt.toISOString() : null,
       updatedAt: r.updatedAt.toISOString(),

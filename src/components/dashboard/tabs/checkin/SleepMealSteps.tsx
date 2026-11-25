@@ -332,6 +332,7 @@ export function MealStepView({
   mealDraft,
   setMealDraft,
   clearError,
+  mealSyncedFromDailyLog,
 }: {
   currentSubStep: SubStepId;
   dayNumber: number;
@@ -339,12 +340,18 @@ export function MealStepView({
   mealDraft: MealDraft;
   setMealDraft: React.Dispatch<React.SetStateAction<MealDraft>>;
   clearError: () => void;
+  mealSyncedFromDailyLog?: boolean;
 }) {
   void dayNumber;
   if (currentSubStep === "meal_count") {
     return (
       <div className="space-y-6 min-w-0">
         <StepHeader title="How many meals did you eat today?" />
+        {mealSyncedFromDailyLog && (
+          <div className="px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-800 dark:text-emerald-300">
+            Synced from today&apos;s daily log — confirm or adjust adherence for this program.
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-3 pt-1">
           {([1, 2, 3] as const).map((count) => {
             const active = mealDraft.mealsCount === count;

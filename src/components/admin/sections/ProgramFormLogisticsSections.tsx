@@ -268,10 +268,17 @@ export function ProgramFormLogisticsSections({
                   onChange={(e) => {
                     const actual = Number(e.target.value) || 0;
                     const disc = Number(form.discountPercentage) || 0;
+                    const nextPrice = Math.max(0, Math.round(actual * (1 - disc / 100)));
                     setForm((p) => ({
                       ...p,
                       actualPrice: actual,
-                      price: Math.max(0, Math.round(actual * (1 - disc / 100))),
+                      price: nextPrice,
+                      bonusTrackingDays:
+                        p.price === 0 && nextPrice > 0 && p.bonusTrackingDays === 0
+                          ? 60
+                          : nextPrice === 0 && p.actualPrice > 0 && p.bonusTrackingDays === 60
+                            ? 0
+                            : p.bonusTrackingDays,
                     }));
                   }}
                   placeholder="0 for Free intro program..."
@@ -303,6 +310,32 @@ export function ProgramFormLogisticsSections({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Bonus Tracking Days (Post-Program)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={365}
+                  disabled={isLocked}
+                  value={form.bonusTrackingDays}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      bonusTrackingDays: Math.max(
+                        0,
+                        Math.min(365, Math.round(Number(e.target.value) || 0))
+                      ),
+                    }))
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/15 text-xs font-mono text-zinc-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                />
+                <span className="text-[10px] text-zinc-400 block">
+                  Free maintenance tracking after cohort ends (e.g. 60 days = 2 months for paid programs, 0 for free)
+                </span>
               </div>
 
               <div className="space-y-2 sm:col-span-2 lg:col-span-2">

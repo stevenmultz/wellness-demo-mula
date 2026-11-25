@@ -6,7 +6,13 @@ import { prisma, lockProgramRow } from "../db";
 import { requireAuth } from "../security/guards";
 import { checkDistributedRateLimit } from "../security/rate-limit";
 import { hashPassword, verifyPassword } from "../security/password";
-import { createSessionToken, setSessionCookie, clearSessionCookie } from "../security/session";
+import { clearSessionCookie } from "../security/session";
+import { issueAuthenticatedSession, rotateUserCredentialsInTx } from "../services/auth-core";
+import { softDeleteAndAnonymizeUserInTx } from "../services/user-governance";
+import {
+  activateProgramEnrollmentInTx,
+  computeProgramValidUntilAt,
+} from "../services/payment-orchestrator";
 import {
   UpdateProfileSchema,
   CompleteOnboardingSchema,
@@ -21,8 +27,14 @@ import { recordAuditLog } from "../integrations/audit-log";
 import { isRegistrationClosedInWib } from "../utils/timezone";
 import { normalizeProgramStatus, resolvePublicBadge } from "../utils/timeline";
 import { cleanupUserUploadedFiles } from "../utils/image-processor";
-import { getPaymentProvider, isPaymentSimulationAllowed, QRIS_INVOICE_TTL_MS } from "../config";
+import {
+  getPaymentProvider,
+  isPaymentSimulationAllowed,
+  QRIS_INVOICE_TTL_MS,
+  RATE_LIMITS,
+} from "../config";
 import { reportServerError } from "../observability";
+import { grantProgramBonusTrackingInTx } from "../services/tracking-entitlement";
 import type { WellnessActionResult } from "./auth";
 
 export async function wellnessGetProfile() {
@@ -276,27 +288,23 @@ export async function wellnessChangePassword(
   const newPasswordHash = await hashPassword(newPassword);
   const nextTokenVersion = user.tokenVersion + 1;
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: session.userId },
-      data: {
-        passwordHash: newPasswordHash,
-        tokenVersion: nextTokenVersion,
-      },
-    }),
-    prisma.userPasswordResetToken.updateMany({
-      where: { userId: session.userId, isUsed: false },
-      data: { isUsed: true },
-    }),
-  ]);
+  await prisma.$transaction((tx) =>
+    rotateUserCredentialsInTx(tx, {
+      targetUserId: session.userId,
+      newPasswordHash,
+      actorUserId: session.userId,
+      auditAction: "PASSWORD_CHANGED",
+      requireActive: false,
+      explicitTokenVersion: nextTokenVersion,
+    })
+  );
 
-  const newToken = await createSessionToken({
-    userId: session.userId,
+  await issueAuthenticatedSession({
+    id: session.userId,
     email: user.email,
     role: user.role,
     tokenVersion: nextTokenVersion,
   });
-  await setSessionCookie(newToken);
 
   return {
     success: true,
@@ -321,6 +329,17 @@ export async function wellnessEnrollProgram(
   }>
 > {
   const session = await requireAuth();
+
+  const checkoutRl = await checkDistributedRateLimit(
+    `program-checkout:${session.userId}`,
+    RATE_LIMITS.checkout
+  );
+  if (!checkoutRl.allowed) {
+    return {
+      success: false,
+      message: "Too many checkout attempts. Please wait a moment and try again.",
+    };
+  }
 
   const program = await prisma.program.findFirst({
     where: { id: programId, deletedAt: null },
@@ -391,12 +410,7 @@ export async function wellnessEnrollProgram(
   // Free Program: Atomic activation
   if (program.price <= 0) {
     const paidAt = new Date();
-    const validUntilAt =
-      program.locationType === "ONLINE" || !program.endAt
-        ? null
-        : program.endAt > paidAt
-          ? program.endAt
-          : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const validUntilAt = computeProgramValidUntilAt(program, paidAt);
 
     try {
       const enrollment = await prisma.$transaction(async (tx) => {
@@ -455,6 +469,7 @@ export async function wellnessEnrollProgram(
 
         await tx.paymentTransaction.create({
           data: {
+            itemType: "PROGRAM_ENROLLMENT",
             enrollmentId: saved.id,
             userId: session.userId,
             programId: program.id,
@@ -467,6 +482,24 @@ export async function wellnessEnrollProgram(
             createdById: session.userId,
           },
         });
+
+        await grantProgramBonusTrackingInTx(tx, {
+          userId: session.userId,
+          enrollmentId: saved.id,
+          program,
+          paidAt,
+        });
+
+        await recordAuditLog(
+          {
+            actorUserId: session.userId,
+            action: "FREE_PROGRAM_ENROLLED",
+            entityType: "ProgramEnrollment",
+            entityId: saved.id,
+            metadata: { programId: program.id, paymentReference: freeRef },
+          },
+          tx
+        );
 
         return saved;
       });
@@ -507,116 +540,133 @@ export async function wellnessEnrollProgram(
   // Paid Program: Lock quota + create/reuse PENDING enrollment & transaction ledger BEFORE external gateway charge
   try {
     const provider = getPaymentProvider();
-    const { enrollment, paymentTx, reusedValidInvoice } = await prisma.$transaction(async (tx) => {
-      await lockProgramRow(tx, program.id);
-      const freshProgram = await tx.program.findFirst({
-        where: { id: program.id, status: "PUBLISHED", deletedAt: null },
-        select: { maxQuota: true, price: true },
-      });
-      if (!freshProgram) {
-        throw new Error("This cohort program is no longer open for public enrollment.");
-      }
-      const txNow = new Date();
-
-      const txExisting = await tx.programEnrollment.findUnique({
-        where: { userId_programId: { userId: session.userId, programId: program.id } },
-        include: {
-          transactions: {
-            where: { status: "PENDING", expiresAt: { gt: txNow } },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-        },
-      });
-
-      if (txExisting && txExisting.status === "ACTIVE") {
-        throw new Error("You are already an active member of this cohort batch.");
-      }
-
-      const liveHoldCount = await tx.programEnrollment.count({
-        where: {
-          programId: program.id,
-          OR: [
-            { status: "ACTIVE" },
-            {
-              status: "PENDING",
-              invoiceExpiresAt: { gt: txNow },
-              userId: { not: session.userId },
-            },
-          ],
-        },
-      });
-
-      if (liveHoldCount >= freshProgram.maxQuota) {
-        throw new Error(
-          `This cohort batch has reached its maximum quota of ${freshProgram.maxQuota} participants (including active checkout holds).`
-        );
-      }
-
-      const activePendingTx = txExisting?.transactions[0] ?? null;
-      if (
-        txExisting &&
-        txExisting.status === "PENDING" &&
-        txExisting.invoiceExpiresAt &&
-        txNow < txExisting.invoiceExpiresAt &&
-        activePendingTx &&
-        activePendingTx.grossAmount === freshProgram.price &&
-        (provider !== "MIDTRANS" || Boolean(activePendingTx.qrisStringOrUrl))
-      ) {
-        const refreshed = await tx.programEnrollment.update({
-          where: { id: txExisting.id },
-          data: { attendanceMode: effectiveAttendanceMode },
+    const { enrollment, paymentTx, reusedValidInvoice, lockedPrice, lockedTitle } =
+      await prisma.$transaction(async (tx) => {
+        await lockProgramRow(tx, program.id);
+        const freshProgram = await tx.program.findFirst({
+          where: { id: program.id, status: "PUBLISHED", deletedAt: null },
+          select: { maxQuota: true, price: true, title: true },
         });
-        return { enrollment: refreshed, paymentTx: activePendingTx, reusedValidInvoice: true };
-      }
+        if (!freshProgram) {
+          throw new Error("This cohort program is no longer open for public enrollment.");
+        }
+        if (freshProgram.price <= 0) {
+          throw new Error("This program price has changed to free. Please refresh and enroll again.");
+        }
+        const txNow = new Date();
 
-      const newOrderId = generateQrisOrderId();
-      const provisionalExpiresAt = new Date(txNow.getTime() + QRIS_INVOICE_TTL_MS);
+        const txExisting = await tx.programEnrollment.findUnique({
+          where: { userId_programId: { userId: session.userId, programId: program.id } },
+          include: {
+            transactions: {
+              where: { status: "PENDING", expiresAt: { gt: txNow } },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        });
 
-      const savedEnrollment = txExisting
-        ? await tx.programEnrollment.update({
+        if (txExisting && txExisting.status === "ACTIVE") {
+          throw new Error("You are already an active member of this cohort batch.");
+        }
+
+        const liveHoldCount = await tx.programEnrollment.count({
+          where: {
+            programId: program.id,
+            OR: [
+              { status: "ACTIVE" },
+              {
+                status: "PENDING",
+                invoiceExpiresAt: { gt: txNow },
+                userId: { not: session.userId },
+              },
+            ],
+          },
+        });
+
+        if (liveHoldCount >= freshProgram.maxQuota) {
+          throw new Error(
+            `This cohort batch has reached its maximum quota of ${freshProgram.maxQuota} participants (including active checkout holds).`
+          );
+        }
+
+        const activePendingTx = txExisting?.transactions[0] ?? null;
+        if (
+          txExisting &&
+          txExisting.status === "PENDING" &&
+          txExisting.invoiceExpiresAt &&
+          txNow < txExisting.invoiceExpiresAt &&
+          activePendingTx &&
+          activePendingTx.grossAmount === freshProgram.price &&
+          (provider !== "MIDTRANS" || Boolean(activePendingTx.qrisStringOrUrl))
+        ) {
+          const refreshed = await tx.programEnrollment.update({
             where: { id: txExisting.id },
-            data: {
-              status: "PENDING",
-              attendanceMode: effectiveAttendanceMode,
-              paymentReference: newOrderId,
-              invoiceExpiresAt: provisionalExpiresAt,
-            },
-          })
-        : await tx.programEnrollment.create({
-            data: {
-              userId: session.userId,
-              programId: program.id,
-              status: "PENDING",
-              attendanceMode: effectiveAttendanceMode,
-              paymentReference: newOrderId,
-              invoiceExpiresAt: provisionalExpiresAt,
-            },
+            data: { attendanceMode: effectiveAttendanceMode },
           });
+          return {
+            enrollment: refreshed,
+            paymentTx: activePendingTx,
+            reusedValidInvoice: true,
+            lockedPrice: freshProgram.price,
+            lockedTitle: freshProgram.title,
+          };
+        }
 
-      // Expire any stale pending transactions for this enrollment before creating the new ledger entry
-      await tx.paymentTransaction.updateMany({
-        where: { enrollmentId: savedEnrollment.id, status: "PENDING" },
-        data: { status: "EXPIRE" },
+        const newOrderId = generateQrisOrderId();
+        const provisionalExpiresAt = new Date(txNow.getTime() + QRIS_INVOICE_TTL_MS);
+
+        const savedEnrollment = txExisting
+          ? await tx.programEnrollment.update({
+              where: { id: txExisting.id },
+              data: {
+                status: "PENDING",
+                attendanceMode: effectiveAttendanceMode,
+                paymentReference: newOrderId,
+                invoiceExpiresAt: provisionalExpiresAt,
+              },
+            })
+          : await tx.programEnrollment.create({
+              data: {
+                userId: session.userId,
+                programId: program.id,
+                status: "PENDING",
+                attendanceMode: effectiveAttendanceMode,
+                paymentReference: newOrderId,
+                invoiceExpiresAt: provisionalExpiresAt,
+              },
+            });
+
+        // Expire any stale pending transactions for this enrollment before creating the new ledger entry
+        await tx.paymentTransaction.updateMany({
+          where: { enrollmentId: savedEnrollment.id, status: "PENDING" },
+          data: { status: "EXPIRE" },
+        });
+
+        const createdTx = await tx.paymentTransaction.create({
+          data: {
+            itemType: "PROGRAM_ENROLLMENT",
+            enrollmentId: savedEnrollment.id,
+            userId: session.userId,
+            programId: program.id,
+            orderId: newOrderId,
+            provider,
+            paymentType: "qris",
+            grossAmount: freshProgram.price,
+            status: "PENDING",
+            expiresAt: provisionalExpiresAt,
+            createdById: session.userId,
+          },
+        });
+
+        return {
+          enrollment: savedEnrollment,
+          paymentTx: createdTx,
+          reusedValidInvoice: false,
+          lockedPrice: freshProgram.price,
+          lockedTitle: freshProgram.title,
+        };
       });
-
-      const createdTx = await tx.paymentTransaction.create({
-        data: {
-          enrollmentId: savedEnrollment.id,
-          userId: session.userId,
-          programId: program.id,
-          orderId: newOrderId,
-          provider,
-          paymentType: "qris",
-          grossAmount: program.price,
-          status: "PENDING",
-          expiresAt: provisionalExpiresAt,
-          createdById: session.userId,
-        },
-      });
-
-      return { enrollment: savedEnrollment, paymentTx: createdTx, reusedValidInvoice: false };
-    });
 
     let finalExpiresAt = paymentTx.expiresAt ?? enrollment.invoiceExpiresAt;
     let qrStringOrUrl = paymentTx.qrisStringOrUrl;
@@ -629,8 +679,8 @@ export async function wellnessEnrollProgram(
           userId: session.userId,
           userEmail: session.email,
           userName: session.fullName,
-          programTitle: program.title,
-          amountIdr: program.price,
+          programTitle: lockedTitle,
+          amountIdr: lockedPrice,
         });
 
         finalExpiresAt = gatewayInvoice.invoiceExpiresAt;
@@ -674,7 +724,7 @@ export async function wellnessEnrollProgram(
           userId: session.userId,
           type: "PAYMENT",
           title: "Payment pending",
-          body: `Complete your QRIS payment for "${program.title}" before the invoice expires.`,
+          body: `Complete your QRIS payment for "${lockedTitle}" before the invoice expires.`,
           url: "/dashboard",
           dedupeKey: `payment-pending:${enrollment.id}:${paymentTx.orderId}`,
         },
@@ -685,12 +735,12 @@ export async function wellnessEnrollProgram(
       success: true,
       message: reusedValidInvoice
         ? "QRIS checkout invoice ready."
-        : `QRIS invoice generated for ${program.title}. Valid for 15 minutes.`,
+        : `QRIS invoice generated for ${lockedTitle}. Valid for 15 minutes.`,
       data: {
         id: enrollment.id,
         programId: program.id,
-        programTitle: program.title,
-        price: program.price,
+        programTitle: lockedTitle,
+        price: lockedPrice,
         status: enrollment.status,
         attendanceMode: enrollment.attendanceMode,
         paymentReference: paymentTx.orderId,
@@ -711,6 +761,17 @@ export async function wellnessConfirmQrisPayment(
   termsAgreed: boolean = true
 ): Promise<WellnessActionResult> {
   const session = await requireAuth();
+
+  const confirmRl = await checkDistributedRateLimit(
+    `program-confirm:${session.userId}`,
+    RATE_LIMITS.checkout
+  );
+  if (!confirmRl.allowed) {
+    return {
+      success: false,
+      message: "Too many payment verification attempts. Please wait a moment.",
+    };
+  }
 
   if (!termsAgreed) {
     return {
@@ -774,61 +835,21 @@ export async function wellnessConfirmQrisPayment(
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      await lockProgramRow(tx, enrollment.programId);
-      const current = await tx.programEnrollment.findUnique({
-        where: { id: enrollment.id },
-        select: { status: true, paymentReference: true },
-      });
-      if (!current || current.status !== "PENDING") {
-        throw new Error("This invoice is no longer payable. Please start a new checkout.");
-      }
-      const activeCount = await tx.programEnrollment.count({
-        where: { programId: enrollment.programId, status: "ACTIVE" },
-      });
-      if (activeCount >= enrollment.program.maxQuota) {
-        throw new Error("Cohort quota was just filled. Please contact support.");
-      }
-
-      const paidAt = new Date();
-      const validUntilAt =
-        enrollment.program.locationType === "ONLINE" || !enrollment.program.endAt
-          ? null
-          : enrollment.program.endAt > paidAt
-            ? enrollment.program.endAt
-            : new Date(paidAt.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-      if (current.paymentReference) {
-        await tx.paymentTransaction.updateMany({
-          where: { orderId: current.paymentReference, status: "PENDING" },
-          data: { status: "SETTLEMENT", settledAt: paidAt },
-        });
-      }
-
-      const row = await tx.programEnrollment.update({
-        where: { id: enrollment.id },
-        data: {
-          status: "ACTIVE",
-          paidAt,
-          validUntilAt,
-          termsAgreedAt: paidAt,
-          termsAgreedVersion: "v1.0",
-        },
-      });
-
-      await recordAuditLog(
-        {
-          actorUserId: session.userId,
-          action: "PAYMENT_SIMULATION_CONFIRMED",
-          entityType: "ProgramEnrollment",
-          entityId: enrollment.id,
-          metadata: { orderId: current.paymentReference },
-        },
-        tx
-      );
-
-      return row;
-    });
+    const result = await prisma.$transaction((tx) =>
+      activateProgramEnrollmentInTx(tx, {
+        enrollmentId: enrollment.id,
+        programId: enrollment.programId,
+        userId: session.userId,
+        program: enrollment.program,
+        channel: "SIMULATION",
+        actorUserId: session.userId,
+        txStatusToSet: "SETTLEMENT",
+        auditAction: "PAYMENT_SIMULATION_CONFIRMED",
+        onQuotaOverflow: "THROW",
+        onInactiveAccount: "THROW",
+      })
+    );
+    const updated = result.status === "ACTIVATED" ? result.enrollment : enrollment;
 
     try {
       revalidatePath("/dashboard");
@@ -916,73 +937,14 @@ export async function wellnessDeleteAccount(
   const oldAvatarPath = user.avatarPath;
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const current = await tx.user.findUnique({
-        where: { id: session.userId },
-        select: { role: true, deletedAt: true },
-      });
-      if (!current || current.deletedAt !== null) {
-        throw new Error("User not found.");
-      }
-      if (current.role === "SUPERADMIN") {
-        const superadminCount = await tx.user.count({
-          where: { role: "SUPERADMIN", deletedAt: null },
-        });
-        if (superadminCount <= 1) {
-          throw new Error("Cannot delete the sole Superadmin account on the platform.");
-        }
-      }
-
-      const now = new Date();
-      await tx.user.update({
-        where: { id: session.userId },
-        data: {
-          deletedAt: now,
-          deletedById: session.userId,
-          status: "SUSPENDED",
-          email: `deleted_${session.userId}_${now.getTime()}@deleted.invalid`,
-          fullName: "Deleted User",
-          phone: null,
-          gender: null,
-          occupation: null,
-          birthDate: null,
-          address: null,
-          city: null,
-          province: null,
-          emergencyContactName: null,
-          emergencyContactPhone: null,
-          avatarPath: null,
-          passwordHash: null,
-          tokenVersion: { increment: 1 },
-        },
-      });
-      await tx.programEnrollment.updateMany({
-        where: { userId: session.userId, status: { in: ["ACTIVE", "PENDING"] } },
-        data: { status: "CANCELLED", cancellationReason: "Account self-deleted by member" },
-      });
-      await tx.paymentTransaction.updateMany({
-        where: { userId: session.userId, status: "PENDING" },
-        data: { status: "CANCEL" },
-      });
-      await tx.userIdentity.deleteMany({ where: { userId: session.userId } });
-      await tx.userPushSubscription.deleteMany({ where: { userId: session.userId } });
-      await tx.userPasswordResetToken.deleteMany({ where: { userId: session.userId } });
-      await tx.userEmailVerificationToken.deleteMany({ where: { userId: session.userId } });
-      await tx.userProgressShare.updateMany({
-        where: { OR: [{ ownerUserId: session.userId }, { viewerUserId: session.userId }], status: "ACTIVE" },
-        data: { status: "REVOKED", revokedAt: now },
-      });
-
-      await recordAuditLog(
-        {
-          actorUserId: session.userId,
-          action: "ACCOUNT_SELF_DELETED",
-          entityType: "User",
-          entityId: session.userId,
-        },
-        tx
-      );
-    });
+    await prisma.$transaction((tx) =>
+      softDeleteAndAnonymizeUserInTx(tx, {
+        targetUserId: session.userId,
+        actorUserId: session.userId,
+        cancellationReason: "Account self-deleted by member",
+        auditAction: "ACCOUNT_SELF_DELETED",
+      })
+    );
   } catch (err) {
     return {
       success: false,

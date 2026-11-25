@@ -135,7 +135,7 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
     expect(formatIntensityBadge("BEGINNER", "en")).toBe("Low Intensity");
 
     expect(calcSleepMins("23:00", "06:30")).toBe(450);
-    expect(calcSleepMins("00:00", "00:00")).toBe(1440);
+    expect(calcSleepMins("00:00", "00:00")).toBe(0);
     expect(calcSleepMins("bad", "06:00")).toBe(0);
     expect(formatSleepHours(450)).toBe("7h 30m");
     expect(formatSleepHours(0)).toBe("—");
@@ -210,6 +210,7 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
         dailyReflection: "Great morning!",
         bedtime: "22:30",
         wakeTime: "06:00",
+        stepsCount: 8500,
       },
     };
 
@@ -218,7 +219,7 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
 
     const state = evaluateDayTaskState(day);
     expect(state.initialDone).toEqual([true, true, true, true]);
-    // 1 pending mandatory custom task
+    // 1 pending mandatory custom task (all 5 core tasks including steps are complete)
     expect(state.pendingTasksCount).toBe(1);
 
     const noWaterState = evaluateDayTaskState({
@@ -227,6 +228,12 @@ describe("Frontend Utils: My Plan & Daily Check-In Helpers", () => {
     });
     expect(noWaterState.initialDone).toEqual([true, true, true, false]);
     expect(noWaterState.pendingTasksCount).toBe(2);
+
+    const noStepsState = evaluateDayTaskState({
+      ...day,
+      userProgress: { ...day.userProgress!, stepsCount: 0 },
+    });
+    expect(noStepsState.pendingTasksCount).toBe(2);
   });
 });
 

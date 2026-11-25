@@ -4,6 +4,7 @@ const {
   mockRequireSuperadmin,
   mockRequireAdminAccess,
   mockLockProgramRow,
+  mockLockUserRow,
   mockCreateNotifications,
   mockRecordAuditLog,
   mockSendEmail,
@@ -13,6 +14,7 @@ const {
   const tx = {
     user: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
       create: vi.fn(),
@@ -23,9 +25,15 @@ const {
       create: vi.fn(),
     },
     masterCoach: { findUnique: vi.fn() },
-    programEnrollment: { count: vi.fn(), update: vi.fn() },
+    programEnrollment: { findUnique: vi.fn(), count: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    trackingPassOrder: { updateMany: vi.fn() },
+    userTrackingGrant: { updateMany: vi.fn() },
     paymentTransaction: { updateMany: vi.fn() },
-    userPasswordResetToken: { create: vi.fn() },
+    userIdentity: { deleteMany: vi.fn() },
+    userPushSubscription: { deleteMany: vi.fn() },
+    userPasswordResetToken: { create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+    userEmailVerificationToken: { updateMany: vi.fn(), deleteMany: vi.fn() },
+    userProgressShare: { updateMany: vi.fn() },
   };
   const prisma = {
     user: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -37,6 +45,7 @@ const {
     mockRequireSuperadmin: vi.fn(),
     mockRequireAdminAccess: vi.fn(),
     mockLockProgramRow: vi.fn(),
+    mockLockUserRow: vi.fn(),
     mockCreateNotifications: vi.fn(),
     mockRecordAuditLog: vi.fn(),
     mockSendEmail: vi.fn(),
@@ -59,6 +68,7 @@ vi.mock("@/wellness/security/guards", async (importOriginal) => {
 vi.mock("@/wellness/db", () => ({
   prisma: mockPrisma,
   lockProgramRow: mockLockProgramRow,
+  lockUserRow: mockLockUserRow,
 }));
 
 vi.mock("@/wellness/integrations/user-notifications", () => ({
@@ -76,6 +86,7 @@ vi.mock("@/wellness/integrations/email-service", async (importOriginal) => {
 
 import {
   wellnessAdminApprovePayment,
+  wellnessAdminDeleteUser,
   wellnessAdminUpdateUserRole,
   wellnessAdminUpdateUserStatus,
 } from "@/wellness/actions/admin";
@@ -155,11 +166,51 @@ describe("Server Actions: Admin Governance & Payment Approval Integrity", () => 
 
     const ok = await wellnessAdminUpdateUserStatus("user_2", "SUSPENDED");
     expect(ok.success).toBe(true);
+    expect(mockLockUserRow).toHaveBeenCalledWith(mockTx, "user_2");
     expect(mockTx.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "SUSPENDED", tokenVersion: { increment: 1 } }),
       })
     );
+    expect(mockTx.userPasswordResetToken.updateMany).toHaveBeenCalled();
+    expect(mockTx.userEmailVerificationToken.updateMany).toHaveBeenCalled();
+    expect(mockTx.userProgressShare.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "REVOKED" }) })
+    );
+
+    // Admin deletion uses centralized Pintu 2: locks user row, cancels ACTIVE+PENDING pass orders, strips role/org, and never leaks plaintext formerEmail PII to AuditLog
+    mockTx.user.findUnique.mockResolvedValueOnce({
+      id: "staff_2",
+      fullName: "Old Partner",
+      email: "pii-secret@example.com",
+      role: "PARTNER_ADMIN",
+      deletedAt: null,
+      avatarPath: null,
+    });
+    const delRes = await wellnessAdminDeleteUser("staff_2");
+    expect(delRes.success).toBe(true);
+    expect(mockLockUserRow).toHaveBeenCalledWith(mockTx, "staff_2");
+    expect(mockTx.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: "USER",
+          organizationId: null,
+          coachProfileId: null,
+          status: "SUSPENDED",
+        }),
+      })
+    );
+    expect(mockTx.trackingPassOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "staff_2", status: { in: ["ACTIVE", "PENDING"] } },
+      })
+    );
+    const deleteAuditCall = mockRecordAuditLog.mock.calls.find(
+      (c) => c[0]?.action === "ADMIN_DELETE_USER"
+    );
+    expect(deleteAuditCall).toBeTruthy();
+    expect(deleteAuditCall?.[0]?.metadata?.formerEmail).toBeUndefined();
+    expect(deleteAuditCall?.[0]?.metadata?.formerEmailSha256Prefix).toMatch(/^[a-f0-9]{16}$/);
   });
 
   it("prevents manual payment approval from exceeding cohort maxQuota (anti-overbooking)", async () => {
@@ -180,12 +231,68 @@ describe("Server Actions: Admin Governance & Payment Approval Integrity", () => 
       },
       user: { id: "u_1", email: "u1@zera.id", fullName: "User 1" },
     });
+    mockTx.programEnrollment.findUnique.mockResolvedValueOnce({
+      status: "PENDING",
+      paymentReference: "QRIS-555",
+      termsAgreedAt: null,
+      termsAgreedVersion: null,
+      user: { status: "ACTIVE", deletedAt: null },
+    });
     mockTx.programEnrollment.count.mockResolvedValueOnce(10); // Full!
 
     const res = await wellnessAdminApprovePayment("enr_1");
     expect(res.success).toBe(false);
     expect(res.message).toContain("reached its maximum quota");
     expect(mockLockProgramRow).toHaveBeenCalledWith(mockTx, "prog_1");
+    expect(mockTx.programEnrollment.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks manual payment approval on CANCELLED enrollments and soft-deleted accounts", async () => {
+    mockPrisma.programEnrollment.findUnique.mockResolvedValueOnce({
+      id: "enr_cancelled",
+      programId: "prog_1",
+      userId: "u_1",
+      status: "PENDING",
+      paymentReference: "QRIS-999",
+      termsAgreedAt: null,
+      termsAgreedVersion: null,
+      program: { id: "prog_1", title: "Cohort", maxQuota: 20, locationType: "ONLINE", endAt: null },
+      user: { id: "u_1", email: "u1@zera.id", fullName: "User 1" },
+    });
+    mockTx.programEnrollment.findUnique.mockResolvedValueOnce({
+      status: "CANCELLED",
+      paymentReference: "QRIS-999",
+      termsAgreedAt: null,
+      termsAgreedVersion: null,
+      user: { status: "ACTIVE", deletedAt: null },
+    });
+
+    const cancelledRes = await wellnessAdminApprovePayment("enr_cancelled");
+    expect(cancelledRes.success).toBe(false);
+    expect(cancelledRes.message).toMatch(/Only PENDING enrollments can be approved/i);
+
+    mockPrisma.programEnrollment.findUnique.mockResolvedValueOnce({
+      id: "enr_del",
+      programId: "prog_1",
+      userId: "u_del",
+      status: "PENDING",
+      paymentReference: "QRIS-DEL",
+      termsAgreedAt: null,
+      termsAgreedVersion: null,
+      program: { id: "prog_1", title: "Cohort", maxQuota: 20, locationType: "ONLINE", endAt: null },
+      user: { id: "u_del", email: "del@zera.id", fullName: "Deleted User" },
+    });
+    mockTx.programEnrollment.findUnique.mockResolvedValueOnce({
+      status: "PENDING",
+      paymentReference: "QRIS-DEL",
+      termsAgreedAt: null,
+      termsAgreedVersion: null,
+      user: { status: "SUSPENDED", deletedAt: new Date("2026-11-20T00:00:00.000Z") },
+    });
+
+    const deletedRes = await wellnessAdminApprovePayment("enr_del");
+    expect(deletedRes.success).toBe(false);
+    expect(deletedRes.message).toMatch(/deleted or suspended/i);
     expect(mockTx.programEnrollment.update).not.toHaveBeenCalled();
   });
 });

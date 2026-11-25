@@ -10,6 +10,13 @@ import { checkDistributedRateLimit } from "../security/rate-limit";
 import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { createUserNotifications } from "../integrations/user-notifications";
 import { recordAuditLog } from "../integrations/audit-log";
+import { mapMealQualityToProgramCompliance } from "../utils/wellness-metrics";
+import {
+  buildUserDatePairKey,
+  fetchDailyLogsByUserDatePairs,
+  resolveEffectiveProgramStart,
+  resolveProgramDayWibDateOnly,
+} from "../services/daily-log-hydration";
 import type { WellnessActionResult } from "./auth";
 
 const CreateShareSchema = z.object({
@@ -34,6 +41,8 @@ export interface SharedDaySummary {
   selectedWorkout: string | null;
   mealCompliance: string | null;
   sleepDurationMinutes: number | null;
+  waterMl?: number;
+  stepsCount?: number;
   happinessRate: number | null;
   completedAt: string | null;
 }
@@ -115,6 +124,7 @@ export async function wellnessGetShareProgressOverview(): Promise<
                       select: {
                         id: true,
                         title: true,
+                        locationType: true,
                         durationDays: true,
                         startAt: true,
                         endAt: true,
@@ -179,6 +189,27 @@ export async function wellnessGetShareProgressOverview(): Promise<
     progressByOwnerDay.set(`${row.userId}:${row.programDayId}`, row);
   }
 
+  // Hydrate Universal UserDailyLog biomarkers for shared days via centralized Pintu 5 (Zero N+1)
+  const logPairs: Array<{ userId: string; logDate: Date }> = [];
+  if (ownerIds.length > 0) {
+    for (const share of incomingRows) {
+      for (const en of share.owner.enrollments) {
+        if (en.program.deletedAt !== null) continue;
+        const effectiveStart = resolveEffectiveProgramStart(en.program, en, {
+          fallbackToEnrollmentForHybrid: true,
+        });
+        if (!effectiveStart) continue;
+        for (const d of en.program.days) {
+          const logDate = resolveProgramDayWibDateOnly(effectiveStart, d.dayNumber);
+          if (logDate) {
+            logPairs.push({ userId: share.owner.id, logDate });
+          }
+        }
+      }
+    }
+  }
+  const dailyLogByOwnerDate = await fetchDailyLogsByUserDatePairs(logPairs);
+
   return {
     success: true,
     data: {
@@ -195,16 +226,29 @@ export async function wellnessGetShareProgressOverview(): Promise<
           .filter((en) => en.program.deletedAt === null)
           .map((en) => {
             const p = en.program;
+            const effectiveStart = resolveEffectiveProgramStart(p, en, {
+              fallbackToEnrollmentForHybrid: true,
+            });
             const days: SharedDaySummary[] = p.days.map((d) => {
               const dp = progressByOwnerDay.get(`${share.owner.id}:${d.id}`);
+              const logDate = resolveProgramDayWibDateOnly(effectiveStart, d.dayNumber);
+              const gLog = logDate
+                ? dailyLogByOwnerDate.get(buildUserDatePairKey(share.owner.id, logDate))
+                : undefined;
               return {
                 dayNumber: d.dayNumber,
                 title: d.title,
                 dayType: d.dayType,
                 isCompleted: Boolean(dp?.isCompleted),
                 selectedWorkout: dp?.selectedWorkout ?? null,
-                mealCompliance: dp?.mealCompliance ?? null,
-                sleepDurationMinutes: dp?.sleepDurationMinutes ?? null,
+                mealCompliance:
+                  dp?.mealCompliance ??
+                  mapMealQualityToProgramCompliance(gLog?.mealQualityMode) ??
+                  null,
+                sleepDurationMinutes:
+                  gLog?.sleepDurationMinutes ?? dp?.sleepDurationMinutes ?? null,
+                waterMl: gLog?.waterMl,
+                stepsCount: gLog?.stepsCount,
                 happinessRate: dp?.happinessRate ?? null,
                 completedAt: dp?.completedAt ? dp.completedAt.toISOString() : null,
               };

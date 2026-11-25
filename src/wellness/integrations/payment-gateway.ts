@@ -180,9 +180,10 @@ export async function refundMidtransTransactionAdapter(params: {
   orderId: string;
   amountIdr: number;
   reason: string;
+  refundKey?: string;
 }): Promise<MidtransRefundResult> {
   const provider = getPaymentProvider();
-  const refundKey = `REF-${params.orderId}-${Date.now()}`.slice(0, 64);
+  const refundKey = (params.refundKey || `REF-${params.orderId}`).slice(0, 64);
 
   if (provider !== "MIDTRANS") {
     return {

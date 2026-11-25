@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import {
   dispatchDueNotifications,
+  dispatchTrackingExpiryReminders,
   runDatabaseRetentionCleanup,
 } from "@/wellness/integrations/dispatch-due-notifications";
 import { normalizeWibTime } from "@/wellness/utils/notification-schedule";
@@ -106,7 +107,7 @@ async function handleCronDispatch(req: NextRequest) {
     const lookback =
       Number.isFinite(lookbackParam) && lookbackParam >= 1 ? Math.min(lookbackParam, 120) : DEFAULT_LOOKBACK_MINUTES;
 
-    const [summary, retentionCleanup] = await Promise.all([
+    const [summary, retentionCleanup, expiryRemindersSent] = await Promise.all([
       dispatchDueNotifications({
         lookbackMinutes: lookback,
         simulateTime,
@@ -115,9 +116,18 @@ async function handleCronDispatch(req: NextRequest) {
         console.warn("[Cron Retention Cleanup Warning]:", err);
         return null;
       }),
+      dispatchTrackingExpiryReminders().catch((err) => {
+        console.warn("[Cron Tracking Expiry Reminder Warning]:", err);
+        return 0;
+      }),
     ]);
 
-    return NextResponse.json({ success: true, ...summary, retentionCleanup });
+    return NextResponse.json({
+      success: true,
+      ...summary,
+      retentionCleanup,
+      expiryRemindersSent,
+    });
   } catch (error: unknown) {
     reportServerError("cron", "dispatch_notifications", error);
     return NextResponse.json({ success: false, error: "Server error during cron dispatch" }, { status: 500 });

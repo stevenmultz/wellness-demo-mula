@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
-import { getWellnessSession } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
 import {
   DEFAULT_METHODOLOGY,
   DEFAULT_PROGRAM_BENEFITS,
@@ -55,35 +55,43 @@ export async function GET(
       );
     }
 
-    const p = await prisma.program.findFirst({
-      where: {
-        id: programId,
-        deletedAt: null,
-        status: "PUBLISHED",
-      },
-      include: {
-        ...PROGRAM_TAXONOMY_INCLUDE,
-        _count: {
-          select: {
-            enrollments: { where: { status: "ACTIVE" } },
+    const [p, userEnrollment] = await Promise.all([
+      prisma.program.findFirst({
+        where: {
+          id: programId,
+          deletedAt: null,
+          status: "PUBLISHED",
+        },
+        include: {
+          ...PROGRAM_TAXONOMY_INCLUDE,
+          _count: {
+            select: {
+              enrollments: { where: { status: "ACTIVE" } },
+            },
+          },
+          days: {
+            select: {
+              id: true,
+              dayNumber: true,
+              title: true,
+              dayType: true,
+              mapLink: true,
+              eventTitle: true,
+              eventHost: true,
+              onsiteVenue: true,
+              onsiteSchedule: true,
+            },
+            orderBy: { dayNumber: "asc" },
           },
         },
-        days: {
-          select: {
-            id: true,
-            dayNumber: true,
-            title: true,
-            dayType: true,
-            mapLink: true,
-            eventTitle: true,
-            eventHost: true,
-            onsiteVenue: true,
-            onsiteSchedule: true,
-          },
-          orderBy: { dayNumber: "asc" },
+      }),
+      prisma.programEnrollment.findUnique({
+        where: {
+          userId_programId: { userId: session.userId, programId },
         },
-      },
-    });
+        select: { status: true },
+      }),
+    ]);
 
     if (!p) {
       return NextResponse.json(
@@ -91,6 +99,9 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    const canViewPrivateCommunityLink =
+      userEnrollment?.status === "ACTIVE" || isAdminRole(session.role);
 
     const tax = serializeProgramTaxonomy(p);
     const normalizedStatus =
@@ -117,6 +128,7 @@ export async function GET(
       difficultyLevel: p.difficultyLevel,
       dailyCommitment: tax.dailyCommitment,
       durationDays: p.durationDays,
+      bonusTrackingDays: p.bonusTrackingDays ?? 0,
       actualPrice: p.actualPrice ?? p.price,
       discountPercentage: p.discountPercentage ?? 0,
       price: p.price,
@@ -127,7 +139,7 @@ export async function GET(
       city: p.city,
       venueAddress: p.venueAddress,
       enrolledCount: p._count.enrollments,
-      communityLink: p.communityLink,
+      communityLink: canViewPrivateCommunityLink ? p.communityLink : null,
       status: normalizedStatus,
       startDate: p.startAt,
       endDate: p.endAt,

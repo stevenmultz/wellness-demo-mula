@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, Search, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Plus, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import {
   wellnessAdminCancelBatchAndRefund,
   wellnessAdminGetRefundDashboardData,
@@ -9,6 +9,13 @@ import {
   type AdminRefundTransactionItem,
   type UnderQuotaProgramItem,
 } from "@/wellness/actions/refunds";
+import {
+  wellnessAdminApproveTrackingPassOrder,
+  wellnessAdminGetPendingTrackingPassOrders,
+  wellnessAdminUpsertTrackingPassPlan,
+  wellnessGetTrackingPassPlans,
+  type TrackingPassPlanDTO,
+} from "@/wellness/actions/tracking-pass";
 import { PaginationBar } from "../AdminFormPickers";
 import type {
   AdminFeedbackMessage,
@@ -61,6 +68,36 @@ export function AdminPaymentsView({
   const [refundTxs, setRefundTxs] = useState<AdminRefundTransactionItem[]>([]);
   const [refundLoading, setRefundLoading] = useState(true);
 
+  // Tracking Pass Catalog & Pending Orders
+  const [passPlans, setPassPlans] = useState<TrackingPassPlanDTO[]>([]);
+  const [pendingPassOrders, setPendingPassOrders] = useState<
+    Array<{
+      id: string;
+      userId: string;
+      userFullName: string;
+      userEmail: string;
+      planName: string;
+      durationDays: number;
+      price: number;
+      paymentReference: string | null;
+      createdAt: string;
+    }>
+  >([]);
+  const [approvingPassId, setApprovingPassId] = useState<string | null>(null);
+  const [editingPassPlan, setEditingPassPlan] = useState<{
+    id?: string;
+    slug: string;
+    name: string;
+    description: string;
+    durationDays: number;
+    actualPrice: number;
+    discountPercentage: number;
+    price: number;
+    isActive: boolean;
+    sortOrder: number;
+  } | null>(null);
+  const [savingPassPlan, setSavingPassPlan] = useState(false);
+
   // Batch cancel & refund modal
   const [cancellingProgram, setCancellingProgram] = useState<UnderQuotaProgramItem | null>(null);
   const [tryMidtransAuto, setTryMidtransAuto] = useState(true);
@@ -78,15 +115,61 @@ export function AdminPaymentsView({
   const loadRefundData = useCallback(async () => {
     setRefundLoading(true);
     try {
-      const res = await wellnessAdminGetRefundDashboardData();
+      const [res, plansRes, pendingPassRes] = await Promise.all([
+        wellnessAdminGetRefundDashboardData(),
+        wellnessGetTrackingPassPlans(true),
+        wellnessAdminGetPendingTrackingPassOrders(),
+      ]);
       if (res.success && res.data) {
         setUnderQuotaPrograms(res.data.underQuotaPrograms);
         setRefundTxs(res.data.transactions);
+      }
+      if (plansRes.success && plansRes.data) {
+        setPassPlans(plansRes.data);
+      }
+      if (pendingPassRes.success && pendingPassRes.data) {
+        setPendingPassOrders(pendingPassRes.data);
       }
     } finally {
       setRefundLoading(false);
     }
   }, []);
+
+  const handleApprovePassOrder = async (orderId: string) => {
+    setApprovingPassId(orderId);
+    try {
+      const res = await wellnessAdminApproveTrackingPassOrder(orderId);
+      if (res.success) {
+        setFeedback?.({ type: "success", text: res.message || "Tracking Pass order approved." });
+        await loadRefundData();
+      } else {
+        setFeedback?.({ type: "error", text: res.message || "Failed to approve order." });
+      }
+    } finally {
+      setApprovingPassId(null);
+    }
+  };
+
+  const handleSavePassPlan = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingPassPlan) return;
+    setSavingPassPlan(true);
+    try {
+      const res = await wellnessAdminUpsertTrackingPassPlan({
+        ...editingPassPlan,
+        description: editingPassPlan.description.trim() || null,
+      });
+      if (res.success) {
+        setFeedback?.({ type: "success", text: res.message || "Tracking Pass plan saved." });
+        setEditingPassPlan(null);
+        await loadRefundData();
+      } else {
+        setFeedback?.({ type: "error", text: res.message || "Failed to save plan." });
+      }
+    } finally {
+      setSavingPassPlan(false);
+    }
+  };
 
   useEffect(() => {
     void loadRefundData();
@@ -337,6 +420,15 @@ export function AdminPaymentsView({
                     <span className="text-[11px] text-zinc-400">{tx.userEmail}</span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase ${
+                        tx.itemType === "TRACKING_PASS"
+                          ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
+                          : "bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300"
+                      }`}
+                    >
+                      {tx.itemType === "TRACKING_PASS" ? "Tracking Pass" : "Program"}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase ${
                         tx.status === "REFUND"
                           ? "bg-zinc-200 dark:bg-white/15 text-zinc-700 dark:text-zinc-200"
                           : tx.status === "REFUND_REQUESTED"
@@ -388,6 +480,285 @@ export function AdminPaymentsView({
           </div>
         )}
       </div>
+
+      {/* Pending Standalone Tracking Pass Orders */}
+      {pendingPassOrders.length > 0 && (
+        <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-500" />
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+                Pending Tracking Pass Orders ({pendingPassOrders.length})
+              </h2>
+            </div>
+          </div>
+          <div className="divide-y divide-zinc-100 dark:divide-white/5">
+            {pendingPassOrders.map((ord) => (
+              <div
+                key={ord.id}
+                className="p-5 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-white">
+                      {ord.userFullName}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">{ord.userEmail}</span>
+                  </div>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300">
+                    {ord.planName} ({ord.durationDays} days) •{" "}
+                    <strong className="font-mono">Rp {ord.price.toLocaleString("id-ID")}</strong>
+                  </p>
+                  {ord.paymentReference && (
+                    <p className="text-[11px] font-mono text-zinc-400">Ref: {ord.paymentReference}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={approvingPassId === ord.id}
+                  onClick={() => void handleApprovePassOrder(ord.id)}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                >
+                  {approvingPassId === ord.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Approve Pass</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Standalone Tracking Pass Plans Catalog */}
+      <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-zinc-400" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+              Tracking Pass Plans ({passPlans.length})
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setEditingPassPlan({
+                slug: `tracking-pass-${Date.now().toString().slice(-4)}`,
+                name: "Independent Tracking Pass",
+                description: "",
+                durationDays: 180,
+                actualPrice: 500000,
+                discountPercentage: 0,
+                price: 500000,
+                isActive: true,
+                sortOrder: passPlans.length,
+              })
+            }
+            className="px-3 py-1.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Plan</span>
+          </button>
+        </div>
+
+        {passPlans.length === 0 ? (
+          <div className="p-8 text-center text-xs text-zinc-500">
+            No Tracking Pass plans configured yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-zinc-100 dark:divide-white/5">
+            {passPlans.map((plan) => (
+              <div
+                key={plan.id}
+                className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">
+                      {plan.name}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase ${
+                        plan.isActive
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          : "bg-zinc-200 dark:bg-white/10 text-zinc-500"
+                      }`}
+                    >
+                      {plan.isActive ? "Active" : "Hidden"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-mono text-zinc-500">
+                    {plan.durationDays} days • Rp {plan.price.toLocaleString("id-ID")} • slug: {plan.slug}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingPassPlan({
+                      id: plan.id,
+                      slug: plan.slug,
+                      name: plan.name,
+                      description: plan.description || "",
+                      durationDays: plan.durationDays,
+                      actualPrice: plan.actualPrice,
+                      discountPercentage: plan.discountPercentage,
+                      price: plan.price,
+                      isActive: plan.isActive,
+                      sortOrder: plan.sortOrder,
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/15 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/5 shrink-0 cursor-pointer"
+                >
+                  Edit Plan
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Upsert Tracking Pass Plan */}
+      {editingPassPlan && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                {editingPassPlan.id ? "Edit Tracking Pass Plan" : "Create Tracking Pass Plan"}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setEditingPassPlan(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePassPlan} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                  Plan Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingPassPlan.name}
+                  onChange={(e) =>
+                    setEditingPassPlan((p) => (p ? { ...p, name: e.target.value } : p))
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                    Slug *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingPassPlan.slug}
+                    onChange={(e) =>
+                      setEditingPassPlan((p) => (p ? { ...p, slug: e.target.value } : p))
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                    Duration (Days) *
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={730}
+                    required
+                    value={editingPassPlan.durationDays}
+                    onChange={(e) =>
+                      setEditingPassPlan((p) =>
+                        p ? { ...p, durationDays: Math.max(1, Number(e.target.value) || 30) } : p
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                    Price (IDR) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    required
+                    value={editingPassPlan.price}
+                    onChange={(e) => {
+                      const v = Math.max(0, Number(e.target.value) || 0);
+                      setEditingPassPlan((p) =>
+                        p ? { ...p, price: v, actualPrice: Math.max(v, p.actualPrice) } : p
+                      );
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs font-mono"
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingPassPlan.isActive}
+                      onChange={(e) =>
+                        setEditingPassPlan((p) =>
+                          p ? { ...p, isActive: e.target.checked } : p
+                        )
+                      }
+                    />
+                    <span>Visible to members</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingPassPlan.description}
+                  onChange={(e) =>
+                    setEditingPassPlan((p) => (p ? { ...p, description: e.target.value } : p))
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPassPlan(null)}
+                  className="px-4 py-2 rounded-xl text-xs text-zinc-600 dark:text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPassPlan}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50"
+                >
+                  {savingPassPlan ? "Saving..." : "Save Plan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Cohort Support & Withdrawal Requests */}
       <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">

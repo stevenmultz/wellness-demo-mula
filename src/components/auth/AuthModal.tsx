@@ -23,7 +23,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Mail,
-  KeyRound,
   RefreshCw,
 } from "lucide-react";
 
@@ -756,16 +755,11 @@ export function AuthGatewayCard({
             )}
           </button>
 
-          <div className="pt-1 text-center">
-            <button
-              type="button"
-              onClick={() => goToStep("password")}
-              className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white transition"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>{isId ? "Gunakan kata sandi" : "Use password instead"}</span>
-            </button>
-          </div>
+          <p className="pt-1 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
+            {isId
+              ? "Login menggunakan kode OTP 6 digit ke email untuk keamanan akun."
+              : "Sign in is secured with a one-time 6-digit email verification code."}
+          </p>
         </form>
       )}
 
@@ -962,7 +956,7 @@ export function AuthGatewayCard({
 
             <button
               type="button"
-              onClick={() => goToStep("password")}
+              onClick={() => goToStep("email")}
               className="w-full py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white flex items-center justify-center gap-1.5 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />

@@ -19,7 +19,22 @@ import {
   DEFAULT_TARGET_STATE,
   DEFAULT_METHODOLOGY,
 } from "@/wellness/utils/json";
-import { getProgramDayWibWindow } from "@/wellness/utils/timezone";
+import {
+  addWibDays,
+  computeProgramEndWibCutoffMs,
+  formatWibDateKey,
+  getProgramDayWibWindow,
+  toWibDateOnly,
+} from "@/wellness/utils/timezone";
+import { extractNutritionFromMealNotes, extractWaterMl } from "@/wellness/utils/nutrition";
+import {
+  mapMealQualityToProgramCompliance,
+  computeStepsBurnedKcal,
+} from "@/wellness/utils/wellness-metrics";
+import { serializeDailyLog, type DailyLogDTO } from "@/wellness/services/daily-log";
+import {
+  resolveTrackingAccessStatus,
+} from "@/wellness/services/tracking-entitlement";
 import { resolveProgramDailyPlan, ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { getServerLocale } from "@/wellness/i18n/server";
 import { resolveLocalizedField } from "@/wellness/i18n/types";
@@ -28,6 +43,8 @@ import {
   PROGRAM_TAXONOMY_INCLUDE,
   serializeProgramTaxonomy,
 } from "@/wellness/services/program-taxonomy";
+import { resolveEffectiveProgramStart } from "@/wellness/services/daily-log-hydration";
+import { normalizeProgramDayType } from "@/wellness/utils/day-completion";
 
 function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
   if (!pathOrUrl) return null;
@@ -73,10 +90,16 @@ async function DashboardContent() {
 
   const locale = await getServerLocale(session.preferredLocale);
 
-  // Single parallel round-trip: fetch ONLY the user's enrolled programs (with days, progresses,
-  // customTasks & submissions in one query) + body metric logs. Unenrolled Explore catalog programs
-  // are loaded lazily on-demand via /api/explore/programs and /api/programs/[id] instead of blocking startup.
-  const [enrollments, bodyMetricLogsRaw] = await Promise.all([
+  const now = new Date();
+  const todayDateOnly = toWibDateOnly(now);
+  const yearAgoDateOnly = addWibDays(todayDateOnly, -365);
+
+  // Single parallel round-trip (Zero N+1):
+  // 1. Enrolled programs (with days, progresses, customTasks & submissions)
+  // 2. Global body metric logs
+  // 3. Universal UserDailyLog (past 365 days + extraWorkouts)
+  // 4. Active Standalone Tracking Pass catalog plans
+  const [enrollments, bodyMetricLogsRaw, dailyLogsRaw, trackingPassPlansRaw] = await Promise.all([
     prisma.programEnrollment.findMany({
       where: { userId: session.userId },
       include: {
@@ -119,10 +142,31 @@ async function DashboardContent() {
       .findMany({
         where: { userId: session.userId },
         orderBy: { recordedAt: "desc" },
-        take: 100,
+        take: 150,
       })
       .then((rows) => rows.reverse()),
+    prisma.userDailyLog.findMany({
+      where: {
+        userId: session.userId,
+        logDate: { gte: yearAgoDateOnly },
+      },
+      include: {
+        extraWorkouts: { orderBy: { createdAt: "asc" } },
+      },
+      orderBy: { logDate: "asc" },
+      take: 366,
+    }),
+    prisma.trackingPassPlan.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      take: 20,
+    }),
   ]);
+
+  const initialDailyLogs: DailyLogDTO[] = dailyLogsRaw.map(serializeDailyLog);
+  const dailyLogByDateKey = new Map<string, DailyLogDTO>(
+    initialDailyLogs.map((l) => [l.logDate, l])
+  );
 
   const validEnrollments = enrollments.filter(
     (e) => e.program && e.program.deletedAt === null
@@ -161,10 +205,7 @@ async function DashboardContent() {
 
   const myPrograms = validEnrollments.map((e) => {
     const tax = serializeProgramTaxonomy(e.program);
-    const effectiveStart =
-      e.program.locationType === "ONLINE"
-        ? e.paidAt ?? e.approvedAt ?? e.createdAt ?? e.program.startAt
-        : e.program.startAt;
+    const effectiveStart = resolveEffectiveProgramStart(e.program, e);
     return {
       enrollmentId: e.id,
       programId: e.program.id,
@@ -199,26 +240,24 @@ async function DashboardContent() {
     };
   });
 
-  const now = new Date();
-
   // Today's / tomorrow's tasks per ACTIVE program, resolved on the server in WIB (app timezone)
   const dailyPlans: ProgramDailyPlan[] = activeProgramsFull
     .map((p) => {
       const enr = activeEnrollmentByProgramId.get(p.id);
-      const effectiveStart =
-        p.locationType === "ONLINE"
-          ? enr?.paidAt ?? enr?.approvedAt ?? enr?.createdAt ?? p.startAt
-          : p.startAt;
+      const effectiveStart = resolveEffectiveProgramStart(p, enr);
       return resolveProgramDailyPlan(
         p.id,
         effectiveStart,
         p.days.map((d) => {
           const prog = d.progresses[0] || null;
-          const normalizedDayType =
-            p.locationType === "ONLINE" &&
-            (d.dayType === "CONNECTION_DAY" || (d.dayType as string) === "MEETUP_DAY")
-              ? "REST_DAY"
-              : d.dayType;
+          const dayUnlock = effectiveStart
+            ? getProgramDayWibWindow(effectiveStart, d.dayNumber, now).unlockDate
+            : null;
+          const dateKey = dayUnlock ? formatWibDateKey(dayUnlock) : null;
+          const gLog = dateKey ? dailyLogByDateKey.get(dateKey) ?? null : null;
+          const normalizedDayType = normalizeProgramDayType(p.locationType, d.dayType);
+          const effectiveMealComp =
+            prog?.mealCompliance ?? mapMealQualityToProgramCompliance(gLog?.mealQualityMode);
           return {
             id: d.id,
             dayNumber: d.dayNumber,
@@ -240,21 +279,24 @@ async function DashboardContent() {
               ) || null,
               isDone: ct.submissions.length > 0,
             })),
-            progress: prog
-              ? {
-                  videoWatched: prog.isVideoWatched,
-                  isCompleted: prog.isCompleted,
-                  mealCompliance: prog.mealCompliance,
-                  mealNotes: prog.mealNotes,
-                  dailyReflection: prog.dailyReflection,
-                  bedtime: prog.bedtime,
-                  wakeTime: prog.wakeTime,
-                  eventFeedback: prog.eventFeedback,
-                  checklistCompleted: toJsonString(prog.checklistCompletedJson),
-                  workoutNotes: prog.workoutNotes,
-                  selectedWorkout: prog.selectedWorkout,
-                }
-              : null,
+            progress:
+              prog || gLog
+                ? {
+                    videoWatched: prog?.isVideoWatched ?? false,
+                    isCompleted: prog?.isCompleted ?? false,
+                    mealCompliance: effectiveMealComp ?? null,
+                    mealNotes: prog?.mealNotes ?? null,
+                    dailyReflection: prog?.dailyReflection ?? null,
+                    bedtime: gLog?.bedtime ?? prog?.bedtime ?? null,
+                    wakeTime: gLog?.wakeTime ?? prog?.wakeTime ?? null,
+                    eventFeedback: prog?.eventFeedback ?? null,
+                    checklistCompleted: toJsonString(prog?.checklistCompletedJson),
+                    workoutNotes: prog?.workoutNotes ?? null,
+                    selectedWorkout: prog?.selectedWorkout ?? null,
+                    waterMl: gLog?.waterMl ?? extractWaterMl(prog?.mealNotes),
+                    stepsCount: gLog?.stepsCount ?? 0,
+                  }
+                : null,
           };
         }),
         now,
@@ -327,6 +369,9 @@ async function DashboardContent() {
               : getProgramDayWibWindow(effectiveStartAt!, d.dayNumber, now);
 
             const progRecord = d.progresses[0] || null;
+            const wibDateKey = unlockDate ? formatWibDateKey(unlockDate) : formatWibDateKey(now);
+            const gLog = dailyLogByDateKey.get(wibDateKey) ?? null;
+
             const checklistItems: string[] = safeJsonParse<string[]>(d.videoChecklistJson, []);
             const completedChecklist: string[] = safeJsonParse<string[]>(
               progRecord?.checklistCompletedJson,
@@ -368,15 +413,45 @@ async function DashboardContent() {
             // ALL custom tasks on the day are required (no optional custom tasks)
             const allCustomDone = d.customTasks.every((ct) => ct.submissions.length > 0);
 
+            const effectiveBedtime = gLog?.bedtime ?? progRecord?.bedtime ?? null;
+            const effectiveWakeTime = gLog?.wakeTime ?? progRecord?.wakeTime ?? null;
+            const effectiveSleepMins =
+              gLog?.sleepDurationMinutes ?? progRecord?.sleepDurationMinutes ?? null;
+            const effectiveAssessment =
+              progRecord?.assessmentResponse ??
+              (gLog?.sleepFeeling ? `Sleep Feeling: ${gLog.sleepFeeling}` : null);
+            const legacyNutr = extractNutritionFromMealNotes(progRecord?.mealNotes);
+            const effectiveWaterMl =
+              gLog && gLog.waterMl > 0 ? gLog.waterMl : legacyNutr.waterMl;
+            const effectiveStepsCount = gLog?.stepsCount ?? 0;
+            const effectiveStepsBurned =
+              gLog?.stepsBurnedKcal ?? computeStepsBurnedKcal(effectiveStepsCount);
+            const effectiveCaloriesKcal =
+              gLog && gLog.caloriesKcal > 0 ? gLog.caloriesKcal : legacyNutr.calories;
+            const effectiveCarbsG =
+              gLog && gLog.carbsG > 0 ? gLog.carbsG : legacyNutr.carbsG;
+            const effectiveProteinG =
+              gLog && gLog.proteinG > 0 ? gLog.proteinG : legacyNutr.proteinG;
+            const effectiveFatG =
+              gLog && gLog.fatG > 0 ? gLog.fatG : legacyNutr.fatG;
+            const inheritedCompliance = mapMealQualityToProgramCompliance(gLog?.mealQualityMode);
+            const effectiveMealCompliance =
+              progRecord?.mealCompliance ?? inheritedCompliance ?? null;
+            const mealSyncedFromDailyLog = Boolean(
+              !progRecord?.mealCompliance && inheritedCompliance
+            );
+
             const sleepDone = Boolean(
-              progRecord?.bedtime &&
-                progRecord?.wakeTime &&
-                progRecord.bedtime !== "SKIPPED" &&
-                progRecord.wakeTime !== "SKIPPED"
+              effectiveBedtime &&
+                effectiveWakeTime &&
+                effectiveBedtime !== "SKIPPED" &&
+                effectiveWakeTime !== "SKIPPED"
             );
             const mealDone = Boolean(
-              progRecord?.mealCompliance && progRecord.mealCompliance !== "SKIPPED"
+              effectiveMealCompliance && effectiveMealCompliance !== "SKIPPED"
             );
+            const waterDone = effectiveWaterMl > 0;
+            const stepsDone = effectiveStepsCount > 0;
             const activityDone =
               normalizedDayType === "TRAINING_DAY"
                 ? videoDone &&
@@ -399,10 +474,11 @@ async function DashboardContent() {
                         (progRecord?.eventFeedback && progRecord.eventFeedback !== "SKIPPED")
                     );
 
-            // Daily Reflection removed: 3 core tasks (Sleep + Activity + Meal) + ALL custom tasks
+            // Unified 5 Core Tasks (Sleep + Activity + Meal + Water + Steps) + ALL custom tasks
+            // Legacy guard: past rows already marked isCompleted=true in DB are preserved
             const isFullyCompleted =
               (!!progRecord?.isCompleted ||
-                (!!progRecord && sleepDone && activityDone && mealDone)) &&
+                (sleepDone && activityDone && mealDone && waterDone && stepsDone)) &&
               allCustomDone;
 
             const isSkipped = hasScheduleStart && isPast2359 && !isFullyCompleted;
@@ -422,6 +498,7 @@ async function DashboardContent() {
                   )
                 : [],
               unlockDate: unlockDate ? unlockDate.toISOString() : "",
+              wibDateKey,
               isCalendarUnlocked,
               isPast2359,
               isSkipped,
@@ -466,25 +543,36 @@ async function DashboardContent() {
                     };
                   })
                 : [],
-              userProgress: progRecord
-                ? {
-                    id: progRecord.id,
-                    videoWatched: progRecord.isVideoWatched,
-                    isCompleted: isFullyCompleted,
-                    checklistCompleted: toJsonString(progRecord.checklistCompletedJson),
-                    selectedWorkout: progRecord.selectedWorkout,
-                    workoutNotes: progRecord.workoutNotes,
-                    eventFeedback: progRecord.eventFeedback,
-                    mealCompliance: progRecord.mealCompliance,
-                    mealNotes: progRecord.mealNotes,
-                    dailyReflection: progRecord.dailyReflection,
-                    happinessRate: progRecord.happinessRate,
-                    bedtime: progRecord.bedtime,
-                    wakeTime: progRecord.wakeTime,
-                    sleepDurationMinutes: progRecord.sleepDurationMinutes,
-                    assessmentResponse: progRecord.assessmentResponse,
-                  }
-                : null,
+              userProgress:
+                progRecord || gLog
+                  ? {
+                      id: progRecord?.id ?? "",
+                      videoWatched: progRecord?.isVideoWatched ?? false,
+                      isCompleted: isFullyCompleted,
+                      checklistCompleted: toJsonString(progRecord?.checklistCompletedJson),
+                      selectedWorkout: progRecord?.selectedWorkout ?? null,
+                      workoutNotes: progRecord?.workoutNotes ?? null,
+                      eventFeedback: progRecord?.eventFeedback ?? null,
+                      mealCompliance: effectiveMealCompliance,
+                      mealNotes: progRecord?.mealNotes ?? null,
+                      dailyReflection: progRecord?.dailyReflection ?? null,
+                      happinessRate: progRecord?.happinessRate ?? null,
+                      bedtime: effectiveBedtime,
+                      wakeTime: effectiveWakeTime,
+                      sleepDurationMinutes: effectiveSleepMins,
+                      assessmentResponse: effectiveAssessment,
+                      waterMl: effectiveWaterMl,
+                      stepsCount: effectiveStepsCount,
+                      stepsBurnedKcal: effectiveStepsBurned,
+                      caloriesKcal: effectiveCaloriesKcal,
+                      carbsG: effectiveCarbsG,
+                      proteinG: effectiveProteinG,
+                      fatG: effectiveFatG,
+                      mealQualityMode: gLog?.mealQualityMode ?? null,
+                      extraWorkouts: gLog?.extraWorkouts ?? [],
+                      mealSyncedFromDailyLog,
+                    }
+                  : null,
             };
           });
 
@@ -554,8 +642,54 @@ async function DashboardContent() {
     emergencyContactPhone: session.emergencyContactPhone,
     role: session.role,
     status: session.status,
+    trackingAccessUntil: session.trackingAccessUntil
+      ? session.trackingAccessUntil.toISOString()
+      : null,
     createdAt: session.createdAt,
   };
+
+  const mappedProgramById = new Map(allPrograms.map((p) => [p.id, p]));
+  const hasActiveNonEndedCohort = validEnrollments.some((e) => {
+    if (e.status !== "ACTIVE") return false;
+    const mappedProg = mappedProgramById.get(e.programId);
+    if (
+      mappedProg &&
+      mappedProg.days.length > 0 &&
+      mappedProg.days.every((d) => Boolean(d.userProgress?.isCompleted))
+    ) {
+      return false;
+    }
+    const endCutoffMs = computeProgramEndWibCutoffMs({
+      locationType: e.program.locationType,
+      endAt: e.program.endAt,
+      startAt: e.program.startAt,
+      durationDays: e.program.durationDays,
+      paidAt: e.paidAt ?? e.approvedAt ?? e.createdAt,
+    });
+    return endCutoffMs === null || now.getTime() <= endCutoffMs;
+  });
+
+  const trackingAccess = resolveTrackingAccessStatus({
+    trackingAccessUntil: session.trackingAccessUntil,
+    hasActiveCohort: hasActiveNonEndedCohort,
+    hasAnyEnrollmentOrLog:
+      validEnrollments.length > 0 || initialDailyLogs.length > 0 || bodyMetricLogsRaw.length > 0,
+    now,
+  });
+
+  const trackingPassPlans = trackingPassPlansRaw.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    description: p.description,
+    durationDays: p.durationDays,
+    actualPrice: p.actualPrice,
+    discountPercentage: p.discountPercentage,
+    price: p.price,
+    isActive: p.isActive,
+    sortOrder: p.sortOrder,
+    customTerms: p.customTerms,
+  }));
 
   const bodyMetricLogs = bodyMetricLogsRaw.map((m) => ({
     id: m.id,
@@ -580,6 +714,9 @@ async function DashboardContent() {
       allPrograms={allPrograms}
       dailyPlans={dailyPlans}
       initialBodyMetricLogs={bodyMetricLogs}
+      initialDailyLogs={initialDailyLogs}
+      trackingAccess={trackingAccess}
+      trackingPassPlans={trackingPassPlans}
     />
   );
 }

@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { mockQueryRaw, mockDispatchDue, mockRetentionCleanup } = vi.hoisted(() => ({
-  mockQueryRaw: vi.fn(),
-  mockDispatchDue: vi.fn(),
-  mockRetentionCleanup: vi.fn(),
-}));
+const { mockQueryRaw, mockDispatchDue, mockRetentionCleanup, mockTrackingReminders } = vi.hoisted(
+  () => ({
+    mockQueryRaw: vi.fn(),
+    mockDispatchDue: vi.fn(),
+    mockRetentionCleanup: vi.fn(),
+    mockTrackingReminders: vi.fn(),
+  })
+);
 
 vi.mock("@/wellness/db", () => ({
   prisma: {
@@ -16,6 +19,7 @@ vi.mock("@/wellness/db", () => ({
 vi.mock("@/wellness/integrations/dispatch-due-notifications", () => ({
   dispatchDueNotifications: mockDispatchDue,
   runDatabaseRetentionCleanup: mockRetentionCleanup,
+  dispatchTrackingExpiryReminders: mockTrackingReminders,
 }));
 
 import { GET as healthGet } from "@/app/api/health/route";
@@ -56,6 +60,8 @@ describe("API Route: /api/cron/dispatch-notifications", () => {
   beforeEach(() => {
     mockDispatchDue.mockReset();
     mockRetentionCleanup.mockReset();
+    mockTrackingReminders.mockReset();
+    mockTrackingReminders.mockResolvedValue({ remindersSent: 0 });
     process.env.CRON_SECRET = "cron_super_secret_token_2026";
   });
 

@@ -4,13 +4,26 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { QrisCheckoutModal, QrisInvoiceData } from "@/components/checkout/QrisCheckoutModal";
 import { wellnessEnrollProgram } from "@/wellness/actions/account";
+import { wellnessLogSelfBodyMetric } from "@/wellness/actions/daily-log";
+import {
+  wellnessCreateTrackingPassCheckout,
+  type TrackingPassPlanDTO,
+} from "@/wellness/actions/tracking-pass";
 import { wellnessSignOut } from "@/wellness/actions/auth";
+import type { DailyLogDTO } from "@/wellness/services/daily-log";
+import type { TrackingAccessStatusDTO } from "@/wellness/services/tracking-entitlement";
 import { resolvePublicBadge } from "@/wellness/utils/timeline";
-import { WIB_OFFSET_MS, getWibCalendarDate } from "@/wellness/utils/timezone";
+import {
+  WIB_OFFSET_MS,
+  formatWibDateKey,
+  getWibCalendarDate,
+} from "@/wellness/utils/timezone";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import { extractBodyMetricsFromValues } from "@/wellness/utils/custom-tasks";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import type { BodyMetricPoint } from "./tabs/BodyProgressWidget";
+import { GrowthAnalyticsView } from "./tabs/GrowthAnalyticsView";
+import { MaintenanceWellnessView } from "./tabs/my-plan/MaintenanceWellnessView";
 import {
   evaluateDayTaskState,
   MyPlanAllPage,
@@ -112,6 +125,9 @@ interface DashboardProps {
   allPrograms: ProgramItem[];
   dailyPlans: ProgramDailyPlan[];
   initialBodyMetricLogs?: BodyMetricPoint[];
+  initialDailyLogs?: DailyLogDTO[];
+  trackingAccess?: TrackingAccessStatusDTO;
+  trackingPassPlans?: TrackingPassPlanDTO[];
 }
 
 export function DashboardClient({
@@ -120,6 +136,9 @@ export function DashboardClient({
   allPrograms,
   dailyPlans,
   initialBodyMetricLogs = [],
+  initialDailyLogs = [],
+  trackingAccess,
+  trackingPassPlans = [],
 }: DashboardProps) {
   const router = useRouter();
   const { t } = useLocale();
@@ -169,8 +188,26 @@ export function DashboardClient({
       )
     );
   });
+  const resolvedTrackingAccess: TrackingAccessStatusDTO = trackingAccess ?? {
+    mode: hasInitialActivePlan
+      ? "COHORT_ACTIVE"
+      : myPrograms.length > 0
+        ? "EXPIRED_ARCHIVE"
+        : "NEW_USER",
+    canWriteDailyLogs: hasInitialActivePlan,
+    trackingAccessUntil: user.trackingAccessUntil ?? null,
+    daysRemaining: 0,
+    hasActiveCohort: hasInitialActivePlan,
+    hasAnyHistory: myPrograms.length > 0 || initialDailyLogs.length > 0,
+  };
+  const hasMaintenanceOrArchive =
+    resolvedTrackingAccess.mode === "MAINTENANCE_PASS" ||
+    resolvedTrackingAccess.mode === "EXPIRED_ARCHIVE";
+  const initialLandingTab: "my_plan" | "all_plan" =
+    hasInitialActivePlan || hasMaintenanceOrArchive ? "my_plan" : "all_plan";
+
   const [activeTab, setActiveTab] = useState<"my_plan" | "all_plan" | "notifications" | "profile">(
-    hasInitialActivePlan ? "my_plan" : "all_plan"
+    initialLandingTab
   );
   const [myPlanView, setMyPlanView] = useState<MyPlanSubView>("intro");
   const [lastMyPlanPage, setLastMyPlanPage] = useState<"intro" | "all" | "ongoing" | "upcoming" | "done">("intro");
@@ -183,8 +220,10 @@ export function DashboardClient({
   } | null>(null);
   const [historySection, setHistorySection] = useState<"notifications" | "history">("notifications");
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({
-    [hasInitialActivePlan ? "my_plan" : "all_plan"]: true,
+    [initialLandingTab]: true,
   });
+  const [showGrowthAnalytics, setShowGrowthAnalytics] = useState(false);
+  const [passCheckoutLoadingId, setPassCheckoutLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     setVisitedTabs((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
@@ -308,6 +347,7 @@ export function DashboardClient({
   const calendarDay = currentDay;
 
   const {
+    dailyLogsByDate,
     dayChecklists,
     overlayDay,
     setDayCompletedOverride,
@@ -321,14 +361,92 @@ export function DashboardClient({
     handleSaveEventFeedback,
     handleSaveMeal,
     handleSaveWater,
+    handleSaveSteps,
+    handleAddExtraWorkout,
+    handleUpdateExtraWorkout,
+    handleDeleteExtraWorkout,
     handleSaveReflection,
     handleCompleteProgramDay,
   } = useDashboardProgress({
     currentProgram,
     calendarDay,
+    initialDailyLogs,
     setActionNotice,
     onRefresh: () => router.refresh(),
   });
+
+  const handleOpenTrackingPassCheckout = async (planId: string) => {
+    setPassCheckoutLoadingId(planId);
+    try {
+      const res = await wellnessCreateTrackingPassCheckout(planId);
+      if (res.success && res.data) {
+        if (res.data.status === "ACTIVE") {
+          setActionNotice(
+            { type: "success", text: `${res.data.planName} activated!` },
+            4000
+          );
+          router.refresh();
+          return;
+        }
+        setQrisInvoice({
+          id: res.data.id,
+          itemType: "TRACKING_PASS",
+          programId: res.data.planId,
+          programTitle: res.data.planName,
+          durationDays: res.data.durationDays,
+          price: res.data.price,
+          status: res.data.status,
+          paymentReference: res.data.paymentReference,
+          qrStringOrUrl: res.data.qrStringOrUrl,
+          invoiceExpiresAt: res.data.invoiceExpiresAt,
+        });
+      } else {
+        setActionNotice(
+          { type: "error", text: res.message || "Unable to initiate Tracking Pass checkout." },
+          4000
+        );
+      }
+    } finally {
+      setPassCheckoutLoadingId(null);
+    }
+  };
+
+  const handleLogSelfBodyWeight = async (
+    weightKg: number,
+    waistCm?: number | null
+  ): Promise<boolean> => {
+    const res = await wellnessLogSelfBodyMetric({
+      weightKg,
+      waistCm: waistCm ?? undefined,
+    });
+    if (!res.success || !res.data) {
+      setActionNotice(
+        { type: "error", text: res.message || "Failed to log body measurement." },
+        4000
+      );
+      return false;
+    }
+    setBodyMetricLogs((prev) => [
+      ...prev,
+      {
+        id: res.data!.id,
+        programId: null,
+        programDayId: null,
+        source: "SELF",
+        weightKg: res.data!.weightKg,
+        heightCm: res.data!.heightCm,
+        waistCm: res.data!.waistCm,
+        chestCm: null,
+        hipsCm: null,
+        bodyFatPct: res.data!.bodyFatPct,
+        restingHr: null,
+        notes: null,
+        recordedAt: res.data!.recordedAt,
+      },
+    ]);
+    setActionNotice({ type: "success", text: `Weight logged (${weightKg} kg).` }, 3000);
+    return true;
+  };
 
   const liveDay = currentDay ? overlayDay(currentDay) : null;
   const historyDays = (currentProgram?.days || [])
@@ -517,6 +635,25 @@ export function DashboardClient({
       fullProg?.days
     );
   });
+  const todayWibDateKey = formatWibDateKey(new Date());
+  const overlappingTrainingCount = useMemo(() => {
+    let count = 0;
+    for (const enr of activeEnrollments) {
+      const prog = programById.get(enr.programId);
+      if (!prog) continue;
+      const hasTrainingToday = prog.days.some(
+        (d) =>
+          d.dayType === "TRAINING_DAY" &&
+          (d.wibDateKey === todayWibDateKey || (d.isCalendarUnlocked && !d.isPast2359))
+      );
+      if (hasTrainingToday) count++;
+    }
+    return count;
+  }, [activeEnrollments, programById, todayWibDateKey]);
+  const showMaintenanceHub =
+    activeEnrollments.length === 0 &&
+    (hasMaintenanceOrArchive || resolvedTrackingAccess.hasAnyHistory) &&
+    myPlanView === "intro";
   const planOptions = allActiveEnrollments.map((e) => ({ programId: e.programId, title: e.title }));
   const myPlanIndexItems = allActiveEnrollments.map((e) => {
     const fullProg = programById.get(e.programId);
@@ -732,13 +869,49 @@ export function DashboardClient({
         )}
 
         <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
-          {allActiveEnrollments.length === 0 ? (
+          {showMaintenanceHub ? (
+            <MaintenanceWellnessView
+              trackingAccess={resolvedTrackingAccess}
+              todayDateKey={todayWibDateKey}
+              dailyLogsByDate={dailyLogsByDate}
+              bodyMetricLogs={bodyMetricLogs}
+              trackingPassPlans={trackingPassPlans}
+              completedPrograms={myPlanIndexItems.filter((p) => p.isCompleted)}
+              userGender={user.gender}
+              userAge={user.age}
+              checkoutLoadingPlanId={passCheckoutLoadingId}
+              onSaveSleep={handleSaveSleep}
+              onSaveWater={handleSaveWater}
+              onSaveSteps={handleSaveSteps}
+              onSaveMeal={handleSaveMeal}
+              onAddExtraWorkout={handleAddExtraWorkout}
+              onDeleteExtraWorkout={handleDeleteExtraWorkout}
+              onLogSelfBodyWeight={handleLogSelfBodyWeight}
+              onOpenGrowthAnalytics={() => setShowGrowthAnalytics(true)}
+              onOpenExplore={() => {
+                setExploreView("catalog");
+                setActiveTab("all_plan");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              onSelectTrackingPass={handleOpenTrackingPassCheckout}
+              onOpenPastProgram={(programId) => {
+                setLastMyPlanPage("intro");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+            />
+          ) : allActiveEnrollments.length === 0 ? (
             <MyPlanNoPlanPage
               onExplore={() => {
                 setExploreView("catalog");
                 setActiveTab("all_plan");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
+              trackingPassPlans={trackingPassPlans}
+              onSelectTrackingPass={handleOpenTrackingPassCheckout}
+              checkoutLoadingPlanId={passCheckoutLoadingId}
             />
           ) : myPlanView === "all" ? (
             <MyPlanAllPage
@@ -910,6 +1083,11 @@ export function DashboardClient({
               onSaveSleep={handleSaveSleep}
               onSaveMeal={handleSaveMeal}
               onSaveWater={handleSaveWater}
+              onSaveSteps={handleSaveSteps}
+              onAddExtraWorkout={handleAddExtraWorkout}
+              onUpdateExtraWorkout={handleUpdateExtraWorkout}
+              onDeleteExtraWorkout={handleDeleteExtraWorkout}
+              overlappingTrainingCount={overlappingTrainingCount}
               onSaveReflection={handleSaveReflection}
               onSaveAttendance={handleSaveEventFeedback}
               onCompleteDay={handleCompleteProgramDay}
@@ -917,6 +1095,9 @@ export function DashboardClient({
               userName={user.fullName}
               userAvatarUrl={user.avatarUrl}
               userEmail={user.email}
+              userGender={user.gender}
+              userAge={user.age}
+              onOpenGrowthAnalytics={() => setShowGrowthAnalytics(true)}
               plans={planOptions}
               selectedProgramId={overviewEnrollment?.programId ?? ""}
               onViewAllPrograms={() => {
@@ -1062,28 +1243,60 @@ export function DashboardClient({
         isOpen={!!qrisInvoice}
         invoice={qrisInvoice}
         onClose={() => setQrisInvoice(null)}
-        onSuccess={(progId) => {
+        onSuccess={(targetId) => {
+          const wasTrackingPass = qrisInvoice?.itemType === "TRACKING_PASS";
           setQrisInvoice(null);
-          setSelectedProgId(progId);
-          setMyPlanView("detail");
-          setActiveTab("my_plan");
+          if (wasTrackingPass) {
+            setMyPlanView("intro");
+            setActiveTab("my_plan");
+            setActionNotice(
+              { type: "success", text: "Tracking Pass unlocked! You can now log daily biomarkers." },
+              4000
+            );
+          } else {
+            setSelectedProgId(targetId);
+            setMyPlanView("detail");
+            setActiveTab("my_plan");
+          }
           router.refresh();
         }}
         programLocationType={
-          qrisInvoice?.programId
+          qrisInvoice?.itemType !== "TRACKING_PASS" && qrisInvoice?.programId
             ? programById.get(qrisInvoice.programId)?.locationType
             : undefined
         }
         programVenue={
-          qrisInvoice?.programId
+          qrisInvoice?.itemType !== "TRACKING_PASS" && qrisInvoice?.programId
             ? programById.get(qrisInvoice.programId)?.venueAddress
             : undefined
         }
         programTerms={
-          qrisInvoice?.programId
-            ? programById.get(qrisInvoice.programId)?.termsList
-            : undefined
+          qrisInvoice?.itemType === "TRACKING_PASS"
+            ? (() => {
+                const plan = trackingPassPlans.find((p) => p.id === qrisInvoice.programId);
+                return plan?.customTerms
+                  ? plan.customTerms
+                      .split(/\r?\n/)
+                      .map((l) => l.trim())
+                      .filter(Boolean)
+                  : undefined;
+              })()
+            : qrisInvoice?.programId
+              ? programById.get(qrisInvoice.programId)?.termsList
+              : undefined
         }
+      />
+
+      {/* 1-Year Longitudinal Growth Analytics Drawer */}
+      <GrowthAnalyticsView
+        isOpen={showGrowthAnalytics}
+        onClose={() => setShowGrowthAnalytics(false)}
+        trackingAccess={resolvedTrackingAccess}
+        onOpenRenewal={() => {
+          setMyPlanView("intro");
+          setActiveTab("my_plan");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
       />
 
       {detailedProgram && (

@@ -14,6 +14,12 @@ import {
 } from "lucide-react";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { extractWaterMl } from "@/wellness/utils/nutrition";
+import { computeSafeSleepMinutes } from "@/wellness/utils/wellness-metrics";
+import {
+  isMealLogged,
+  isMovementChecked,
+  isSleepLogged,
+} from "@/wellness/utils/day-completion";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { PlanDay } from "../MyPlanTab";
 
@@ -52,6 +58,33 @@ export interface DailyCheckInProps {
   ) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveWater: (waterMl: number, dayId: string) => SaveResult;
+  onSaveSteps?: (stepsCount: number, dayId: string) => SaveResult;
+  onAddExtraWorkout?: (payload: {
+    logDate: string;
+    activityType: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom";
+    title: string;
+    durationMinutes: number;
+    customKcal?: number | null;
+    excludeFromNetBurn?: boolean;
+    notes?: string | null;
+    programDayId?: string | null;
+  }) => SaveResult;
+  onUpdateExtraWorkout?: (payload: {
+    id: string;
+    logDate: string;
+    title?: string;
+    durationMinutes?: number;
+    customKcal?: number | null;
+    excludeFromNetBurn?: boolean;
+    notes?: string | null;
+    programDayId?: string | null;
+  }) => SaveResult;
+  onDeleteExtraWorkout?: (
+    id: string,
+    logDate: string,
+    programDayId?: string | null
+  ) => SaveResult;
+  overlappingTrainingCount?: number;
   onSaveReflection?: (reflection: string, happiness: number, dayId: string) => SaveResult;
   onCompleteDay: (dayId: string) => SaveResult;
   onCustomTaskSubmitted?: (
@@ -220,13 +253,23 @@ export interface MealSlotEntry {
 
 export function computeMealTotals(
   entries: MealSlotEntry[],
-  mealsCount: number
+  mealsCount: number,
+  dailyTargetKcal?: number | null
 ): { calories: number; carbsG: number; proteinG: number; fatG: number } {
-  const count = Math.max(1, Math.min(3, mealsCount || 1));
-  const recCalPerMeal = Math.round(1950 / count);
-  const recCarbsPerMeal = Math.round(195 / count);
-  const recProteinPerMeal = Math.round(140 / count);
-  const recFatPerMeal = Math.round(65 / count);
+  const count = Math.max(1, Math.min(6, mealsCount || 1));
+  const targetKcal =
+    typeof dailyTargetKcal === "number" && Number.isFinite(dailyTargetKcal) && dailyTargetKcal > 0
+      ? Math.round(dailyTargetKcal)
+      : 1925;
+  // Balanced 40% Carbs / 30% Protein / 30% Fat macro distribution aligned mathematically to targetKcal
+  const dailyCarbsG = dailyTargetKcal ? Math.round((targetKcal * 0.4) / 4) : 195;
+  const dailyProteinG = dailyTargetKcal ? Math.round((targetKcal * 0.3) / 4) : 140;
+  const dailyFatG = dailyTargetKcal ? Math.round((targetKcal * 0.3) / 9) : 65;
+
+  const recCalPerMeal = Math.round(targetKcal / count);
+  const recCarbsPerMeal = Math.round(dailyCarbsG / count);
+  const recProteinPerMeal = Math.round(dailyProteinG / count);
+  const recFatPerMeal = Math.round(dailyFatG / count);
 
   let totalCal = 0;
   let totalCarbs = 0;
@@ -299,12 +342,7 @@ export function stripMealLabelPrefix(line: string): string {
 }
 
 export function sleepMinutes(bed: string, wake: string): number {
-  const [bh, bm] = bed.split(":").map(Number);
-  const [wh, wm] = wake.split(":").map(Number);
-  if ([bh, bm, wh, wm].some((n) => Number.isNaN(n))) return 0;
-  let mins = wh * 60 + wm - (bh * 60 + bm);
-  if (mins <= 0) mins += 24 * 60;
-  return mins;
+  return computeSafeSleepMinutes(bed, wake);
 }
 
 export function formatDuration(mins: number): string {
@@ -573,6 +611,7 @@ export function formatDayDate(unlockDate: string | undefined, dayNumber: number)
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Jakarta",
   });
 }
 
@@ -626,11 +665,12 @@ export function deriveDayDone(
   chks: string[]
 ): [boolean, boolean, boolean, boolean] {
   const p = d.userProgress;
-  const sleepDone =
-    !!p?.bedtime &&
-    !!p?.wakeTime &&
-    p.bedtime !== "SKIPPED" &&
-    p.wakeTime !== "SKIPPED";
+  const groups =
+    d.dayType === "TRAINING_DAY"
+      ? parseWorkoutOptionGroups(d.workoutOptions, d.videoChecklist)
+      : [];
+  const activeOptionName = p?.selectedWorkout || groups[0]?.optionName || null;
+  const sleepDone = isSleepLogged(p?.bedtime, p?.wakeTime);
   const activityDone =
     d.dayType === "TRAINING_DAY"
       ? !!p?.videoWatched ||
@@ -638,19 +678,19 @@ export function deriveDayDone(
         (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED") ||
         (!!p?.selectedWorkout && p.selectedWorkout !== "SKIPPED") ||
         (acts.length > 0 &&
-          acts.every((name) =>
-            chks.some((c) => c.toLowerCase().includes(name.toLowerCase()))
-          ))
+          acts.every((name) => isMovementChecked(chks, activeOptionName, name)))
       : d.dayType === "REST_DAY"
         ? acts.length > 0
-          ? acts.every((name) => chks.includes(name)) ||
+          ? acts.every((name) => isMovementChecked(chks, null, name)) ||
             (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED")
           : !!p?.isCompleted || (!!p?.workoutNotes && p.workoutNotes !== "SKIPPED")
         : (!!p?.eventFeedback && p.eventFeedback !== "SKIPPED") || !!p?.isCompleted;
+  const effectiveWaterMl =
+    p?.waterMl !== undefined ? p.waterMl : extractWaterMl(p?.mealNotes);
   return [
     sleepDone,
     activityDone,
-    !!p?.mealCompliance && p.mealCompliance !== "SKIPPED",
-    extractWaterMl(p?.mealNotes) > 0,
+    isMealLogged(p?.mealCompliance),
+    effectiveWaterMl > 0,
   ];
 }

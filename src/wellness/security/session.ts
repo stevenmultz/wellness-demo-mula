@@ -109,6 +109,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
   organizationName: string | null;
   coachProfileId: string | null;
   coachProfileName: string | null;
+  trackingAccessUntil: Date | null;
   createdAt: Date;
 } | null> => {
   try {
@@ -145,6 +146,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
         coachProfileId: true,
         organization: { select: { name: true } },
         coachProfile: { select: { name: true } },
+        trackingAccessUntil: true,
         createdAt: true,
         tokenVersion: true,
       },
@@ -177,6 +179,7 @@ export const getWellnessSession = safeCache(async (): Promise<{
       organizationName: user.organization?.name ?? null,
       coachProfileId: user.coachProfileId,
       coachProfileName: user.coachProfile?.name ?? null,
+      trackingAccessUntil: user.trackingAccessUntil ?? null,
       createdAt: user.createdAt,
     };
   } catch {
