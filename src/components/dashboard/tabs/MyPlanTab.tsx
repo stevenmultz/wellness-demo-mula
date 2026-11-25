@@ -157,6 +157,7 @@ export function MyPlanOverview({
   onSaveMeal,
   onSaveWater,
   onSaveSteps,
+  onLogSelfBodyWeight,
   onAddExtraWorkout,
   onUpdateExtraWorkout,
   onDeleteExtraWorkout,
@@ -205,6 +206,7 @@ export function MyPlanOverview({
   onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;
   onSaveWater: (waterMl: number, dayId: string) => Promise<void | boolean>;
   onSaveSteps?: (stepsCount: number, dayId: string) => Promise<void | boolean>;
+  onLogSelfBodyWeight?: (weightKg: number, waistCm?: number | null) => Promise<boolean>;
   onAddExtraWorkout?: (payload: {
     logDate: string;
     activityType: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom";
@@ -883,6 +885,13 @@ export function MyPlanOverview({
                     onSaveMeal={onSaveMeal}
                     onSaveWater={onSaveWater}
                     onSaveSteps={onSaveSteps}
+                    onLogSelfBodyWeight={onLogSelfBodyWeight}
+                    latestWeightKg={
+                      [...bodyMetricLogs]
+                        .filter((m) => typeof m.weightKg === "number" && m.weightKg > 20 && m.weightKg < 300)
+                        .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0]
+                        ?.weightKg ?? null
+                    }
                     onAddExtraWorkout={onAddExtraWorkout}
                     onUpdateExtraWorkout={onUpdateExtraWorkout}
                     onDeleteExtraWorkout={onDeleteExtraWorkout}

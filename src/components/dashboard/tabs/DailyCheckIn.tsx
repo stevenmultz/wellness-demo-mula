@@ -17,11 +17,6 @@ import {
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { formatWibDateKey } from "@/wellness/utils/timezone";
-import {
-  EXTRA_WORKOUT_PRESETS,
-  computeExtraWorkoutKcal,
-  detectHighTrainingLoad,
-} from "@/wellness/utils/wellness-metrics";
 import { HeaderBackButton, InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
@@ -255,82 +250,46 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // ── More Training (PostgreSQL-backed via UserExtraWorkoutLog, Multi-Plan Synced) ──
-  const extraSessions = selectedDay.userProgress?.extraWorkouts ?? [];
-  const [moreTrainingOpen, setMoreTrainingOpen] = useState(false);
-  const [extraBusy, setExtraBusy] = useState(false);
-  const [selectedExtraType, setSelectedExtraType] = useState<
-    "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom"
-  >("run");
-  const [customExtraName, setCustomExtraName] = useState<string>("");
-  const [extraDurationMins, setExtraDurationMins] = useState<number>(30);
-  const [extraCustomKcal, setExtraCustomKcal] = useState<string>("");
-  const [excludeFromNetBurn, setExcludeFromNetBurn] = useState<boolean>(false);
+  // ── Optional Body Weight Log (PostgreSQL-backed via UserBodyMetricLog) ──
+  const latestWeightKg = props.latestWeightKg ?? null;
+  const [weightModalOpen, setWeightModalOpen] = useState(false);
+  const [weightBusy, setWeightBusy] = useState(false);
+  const [weightInput, setWeightInput] = useState<string>(
+    latestWeightKg ? String(latestWeightKg) : ""
+  );
+  const [waistInput, setWaistInput] = useState<string>("");
 
   useEffect(() => {
-    setMoreTrainingOpen(false);
+    setWeightModalOpen(false);
   }, [selectedDay.id]);
 
-  const handleSelectPresetType = (
-    typeId: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom"
-  ) => {
-    setSelectedExtraType(typeId);
-    const preset = EXTRA_WORKOUT_PRESETS.find((p) => p.id === typeId);
-    // Smart default: if user already logged Steps and picks Run, default hint for double-count guard
-    setExcludeFromNetBurn(Boolean(preset?.oftenCountedInSteps && steps > 0));
+  const openWeightModal = () => {
+    if (isFeatureLocked || isSelectedFuture) return;
+    setWeightInput(latestWeightKg ? String(latestWeightKg) : "");
+    setWaistInput("");
+    setWeightModalOpen(true);
   };
 
-  const handleAddExtraSession = async () => {
-    if (extraBusy || (selectedLocked && !isAnytime) || isSelectedFuture) return;
-    const preset =
-      EXTRA_WORKOUT_PRESETS.find((p) => p.id === selectedExtraType) || EXTRA_WORKOUT_PRESETS[0];
-    const mins = Math.max(1, Math.min(360, Math.round(extraDurationMins || 30)));
-    const title = customExtraName.trim() || (isId ? preset.labelId : preset.labelEn);
-    const parsedWatchKcal =
-      extraCustomKcal.trim() !== "" && Number.isFinite(Number(extraCustomKcal))
-        ? Math.max(0, Math.min(3500, Math.round(Number(extraCustomKcal))))
+  const handleSaveWeightModal = async () => {
+    if (weightBusy || isFeatureLocked) return;
+    const w = Number(weightInput);
+    if (!Number.isFinite(w) || w < 20 || w > 300) return;
+    const parsedWaist = waistInput.trim() ? Number(waistInput) : null;
+    const validWaist =
+      parsedWaist !== null && Number.isFinite(parsedWaist) && parsedWaist >= 40 && parsedWaist <= 200
+        ? parsedWaist
         : null;
 
-    setExtraBusy(true);
+    setWeightBusy(true);
     try {
-      const ok = await props.onAddExtraWorkout?.({
-        logDate: selectedDateKey,
-        activityType: selectedExtraType,
-        title,
-        durationMinutes: mins,
-        customKcal: parsedWatchKcal,
-        excludeFromNetBurn,
-        programDayId: selectedDay.id,
-      });
+      const ok = await props.onLogSelfBodyWeight?.(w, validWaist);
       if (ok !== false) {
-        setCustomExtraName("");
-        setExtraDurationMins(30);
-        setExtraCustomKcal("");
-        setExcludeFromNetBurn(false);
-        setMoreTrainingOpen(false);
+        setWeightModalOpen(false);
       }
     } finally {
-      setExtraBusy(false);
+      setWeightBusy(false);
     }
   };
-
-  const handleRemoveExtraSession = async (id: string) => {
-    if (extraBusy || (selectedLocked && !isAnytime) || isSelectedFuture) return;
-    setExtraBusy(true);
-    try {
-      await props.onDeleteExtraWorkout?.(id, selectedDateKey, selectedDay.id);
-    } finally {
-      setExtraBusy(false);
-    }
-  };
-
-  const totalExtraMins = extraSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
-  const totalExtraKcal = extraSessions.reduce((acc, s) => acc + s.estimatedKcal, 0);
-  const loadAdvisory = detectHighTrainingLoad({
-    dayType: selectedDay.dayType,
-    overlappingTrainingProgramsCount: props.overlappingTrainingCount,
-    extraWorkouts: extraSessions,
-  });
 
   const todayFocusTitle =
     selectedDay.title?.trim() ||
@@ -458,34 +417,32 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }),
     {
       key: "core-daily-steps",
-      title: "Daily Steps",
+      title: "Steps",
       durationLabel: steps > 0 ? `${steps.toLocaleString()} steps` : "1 min",
       isDone: stepsDone,
       Icon: FillFootprintsIcon,
       disabled: isFeatureLocked || isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
       onOpen: openStepsModal,
     },
-    {
-      key: "core-more-training",
-      title: "More Training",
-      durationLabel:
-        extraSessions.length > 0
-          ? `${totalExtraMins} min`
-          : isId
-            ? "Opsional"
-            : "Optional",
-      isDone: extraSessions.length > 0,
-      isOptional: true,
-      Icon: FillFlameIcon,
-      disabled:
-        isFeatureLocked ||
-        isSelectedFuture ||
-        (selectedLocked && !isSelectedPast && extraSessions.length === 0),
-      onOpen: () => {
-        if (isFeatureLocked) return;
-        setMoreTrainingOpen(true);
-      },
-    },
+    ...(props.onLogSelfBodyWeight
+      ? [
+          {
+            key: "core-body-weight",
+            title: "Weight",
+            durationLabel:
+              latestWeightKg && latestWeightKg > 0
+                ? `${latestWeightKg.toFixed(1)} kg`
+                : isId
+                  ? "Opsional"
+                  : "Optional",
+            isDone: false,
+            isOptional: true,
+            Icon: FillScaleIcon,
+            disabled: isFeatureLocked || isSelectedFuture,
+            onOpen: openWeightModal,
+          },
+        ]
+      : []),
     ...(isStandalone
       ? []
       : customTasksList.map((ct) => {
@@ -560,31 +517,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white leading-snug">
             {todayFocusTitle}
           </p>
-        </div>
-      )}
-
-      {/* Overtraining / Recovery Non-Blocking Advisory */}
-      {loadAdvisory.isHighLoad && (
-        <div className="w-full rounded-2xl bg-[var(--semantic-yellow-bg)] dark:bg-[var(--semantic-yellow-bg)] border border-[var(--semantic-yellow-border)]/30 p-3.5 sm:p-4 flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 text-[var(--semantic-yellow)] shrink-0 mt-0.5" />
-          <div className="space-y-0.5 text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
-            <p className="font-semibold text-zinc-950 dark:text-white">
-              {isId ? "Catatan Pemulihan & Beban Latihan" : "Recovery & Training Load Advisory"}
-            </p>
-            <p>
-              {loadAdvisory.reasonCode === "REST_DAY_INTENSE_EXTRA"
-                ? isId
-                  ? "Hari ini adalah Hari Istirahat, namun Anda mencatat sesi intensitas tinggi. Pastikan tidur minimal 7.5 jam & hidrasi optimal."
-                  : "Today is a Rest Day with high-intensity extra training logged. Prioritize 7.5h+ sleep and hydration for recovery."
-                : loadAdvisory.reasonCode === "MULTI_PROGRAM_TRAINING"
-                  ? isId
-                    ? "Anda memiliki 2+ jadwal latihan aktif di hari yang sama. Jaga kualitas gerak & hindari overtraining."
-                    : "You have 2+ scheduled training programs on the same day. Manage intensity and prioritize recovery."
-                  : isId
-                    ? "Volume latihan ekstra hari ini cukup tinggi (>60 mnt). Pastikan asupan protein & hidrasi tercukupi."
-                    : "High extra workout volume logged today (>60 min). Fuel with adequate protein and hydration."}
-            </p>
-          </div>
         </div>
       )}
 
@@ -1014,8 +946,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           </div>,
           document.body
         )}
-      {/* More Training Fullscreen Modal */}
-      {moreTrainingOpen &&
+      {/* Optional Body Weight Fullscreen Modal */}
+      {weightModalOpen &&
         typeof document !== "undefined" &&
         createPortal(
           <div
@@ -1031,12 +963,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               >
                 <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
                   <HeaderBackButton
-                    onClick={() => setMoreTrainingOpen(false)}
+                    onClick={() => setWeightModalOpen(false)}
                     ariaLabel="Back to dashboard"
                   />
 
                   <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-[60%]">
-                    More Training · 1 / 1
+                    Weight · 1 / 1
                   </span>
                 </div>
               </header>
@@ -1052,233 +984,86 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void handleAddExtraSession();
+                    void handleSaveWeightModal();
                   }}
                   className="flex-1 flex flex-col justify-between gap-8 pt-6 min-w-0"
                 >
                   <div className="space-y-6 min-w-0">
                     <div className="space-y-1.5">
                       <h2 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-tight">
-                        {isId ? "Latihan tambahan apa hari ini?" : "What extra training did you do?"}
+                        {isId ? "Catat berat badan Anda" : "Log your body weight"}
                       </h2>
                       <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                         {isId
-                          ? "Pilih jenis latihan dan durasi untuk mencatat sesi bonus Anda (otomatis tersinkron lintas program)."
-                          : "Choose an activity type and duration to log your bonus workout (synced across all plans)."}
+                          ? "Opsional — otomatis memperbarui metrik Weight bulanan dan target kalori personal Anda."
+                          : "Optional — automatically updates your monthly Weight metric and personalized calorie target."}
                       </p>
                     </div>
 
-                    {/* Logged Extra Sessions Summary (if any) */}
-                    {extraSessions.length > 0 && (
-                      <div className="p-4 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-zinc-950 dark:text-white">
-                            {isId ? "Sesi Tercatat Hari Ini" : "Logged Extra Sessions"}
-                          </span>
-                          <span className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-300">
-                            {totalExtraMins} min · -{totalExtraKcal} kcal
-                          </span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {extraSessions.map((session) => (
-                            <div
-                              key={session.id}
-                              className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10"
-                            >
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold text-zinc-950 dark:text-white truncate">
-                                  {session.title}
-                                </p>
-                                <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                                  {session.durationMinutes} min · -{session.estimatedKcal} kcal
-                                  {session.excludeFromNetBurn
-                                    ? isId
-                                      ? " · termasuk di Steps"
-                                      : " · counted in Steps"
-                                    : ""}
-                                </p>
-                              </div>
-                              {!(selectedLocked && !isAnytime) && !isSelectedFuture && (
-                                <button
-                                  type="button"
-                                  disabled={extraBusy}
-                                  onClick={() => void handleRemoveExtraSession(session.id)}
-                                  aria-label={`Remove ${session.title}`}
-                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 transition cursor-pointer shrink-0"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Activity Type Grid & Add Form (hidden when day cutoff 23:59 WIB passed) */}
-                    {selectedLocked && !isAnytime ? (
-                      <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/10 text-xs text-zinc-600 dark:text-zinc-400">
-                        {isId
-                          ? "Batas pengisian 23:59 WIB untuk hari ini telah berakhir. Latihan tambahan hanya dapat dilihat."
-                          : "This day's 23:59 WIB cutoff has passed. Extra workouts are read-only."}
-                      </div>
-                    ) : (
-                    <>
-                    <div className="space-y-2">
-                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
-                        {isId ? "Jenis Latihan" : "Activity Type"}
-                      </span>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {EXTRA_WORKOUT_PRESETS.map((preset) => {
-                          const active = selectedExtraType === preset.id;
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              onClick={() => handleSelectPresetType(preset.id)}
-                              className={`p-3.5 rounded-2xl border text-left transition active:scale-95 cursor-pointer flex items-center gap-2.5 ${
-                                active
-                                  ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
-                                  : "border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-400 dark:hover:border-white/30"
-                              }`}
-                            >
-                              <Dumbbell className="w-4 h-4 shrink-0" />
-                              <span className="text-xs font-semibold truncate">
-                                {isId ? preset.labelId : preset.labelEn}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Duration Selector */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                          {isId ? "Durasi (menit)" : "Duration (minutes)"}
-                        </span>
-                        <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-                          ~
-                          {computeExtraWorkoutKcal(
-                            selectedExtraType,
-                            extraDurationMins || 30,
-                            extraCustomKcal.trim() ? Number(extraCustomKcal) : null
-                          )}{" "}
-                          kcal
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-2">
-                        {[15, 30, 45, 60].map((mins) => {
-                          const active = extraDurationMins === mins;
-                          return (
-                            <button
-                              key={mins}
-                              type="button"
-                              onClick={() => setExtraDurationMins(mins)}
-                              className={`py-2.5 rounded-xl border text-xs font-mono font-semibold transition active:scale-95 cursor-pointer ${
-                                active
-                                  ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                                  : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-400"
-                              }`}
-                            >
-                              {mins}m
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={360}
-                        value={extraDurationMins}
-                        onChange={(e) => setExtraDurationMins(parseInt(e.target.value, 10) || 0)}
-                        placeholder="30"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white outline-none focus:border-zinc-950 dark:focus:border-white"
-                      />
-                    </div>
-
-                    {/* Optional Watch Calories + Double-Count Guard */}
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
-                          {isId
-                            ? "Kalori dari Smartwatch (Opsional — kosongkan untuk estimasi otomatis)"
-                            : "Smartwatch Active Calories (Optional — leave empty for auto estimate)"}
-                        </span>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="daily-weight-kg-input"
+                          className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block"
+                        >
+                          {isId ? "Berat Badan (kg)" : "Body Weight (kg)"}
+                        </label>
                         <input
+                          id="daily-weight-kg-input"
                           type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={3500}
-                          value={extraCustomKcal}
-                          onChange={(e) => setExtraCustomKcal(e.target.value)}
-                          placeholder={isId ? "mis. 320 kcal (Garmin / Apple Watch)" : "e.g. 320 kcal (Garmin / Apple Watch)"}
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
+                          step="0.1"
+                          min={20}
+                          max={300}
+                          required
+                          autoFocus
+                          value={weightInput}
+                          onChange={(e) => setWeightInput(e.target.value)}
+                          placeholder={latestWeightKg ? String(latestWeightKg) : "68.5"}
+                          className="w-full h-12 px-4 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-base font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
                         />
                       </div>
 
-                      <label className="flex items-start gap-2.5 p-3 rounded-xl bg-white/80 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 cursor-pointer select-none">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="daily-waist-cm-input"
+                          className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block"
+                        >
+                          {isId ? "Lingkar Pinggang (cm · Opsional)" : "Waist Circumference (cm · Optional)"}
+                        </label>
                         <input
-                          type="checkbox"
-                          checked={excludeFromNetBurn}
-                          onChange={(e) => setExcludeFromNetBurn(e.target.checked)}
-                          className="mt-0.5 rounded border-zinc-300 accent-zinc-950 dark:accent-white"
+                          id="daily-waist-cm-input"
+                          type="number"
+                          step="0.5"
+                          min={40}
+                          max={200}
+                          value={waistInput}
+                          onChange={(e) => setWaistInput(e.target.value)}
+                          placeholder="80"
+                          className="w-full h-12 px-4 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-base font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
                         />
-                        <span className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                          <strong className="text-zinc-950 dark:text-white block">
-                            {isId
-                              ? "Sudah termasuk dalam hitungan Daily Steps?"
-                              : "Already counted in Daily Steps?"}
-                          </strong>
-                          {isId
-                            ? "Centang agar kalori lari/jalan tidak dikurangkan dua kali pada Net Calories."
-                            : "Check this so walking/running calories are not deducted twice from Net Calories."}
-                        </span>
-                      </label>
+                      </div>
                     </div>
-
-                    {/* Optional Custom Workout Title */}
-                    <div className="space-y-2">
-                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
-                        {isId ? "Nama Latihan (Opsional)" : "Workout Name (Optional)"}
-                      </span>
-                      <input
-                        type="text"
-                        maxLength={80}
-                        value={customExtraName}
-                        onChange={(e) => setCustomExtraName(e.target.value)}
-                        placeholder={
-                          isId
-                            ? "mis. Easy Run 5K / Core Finisher"
-                            : "e.g. Easy 5K Run / Core Finisher"
-                        }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
-                      />
-                    </div>
-                    </>
-                    )}
                   </div>
 
-                  {!(selectedLocked && !isAnytime) && (
                   <div className="flex justify-end pt-2">
                     <button
                       type="submit"
-                      disabled={extraBusy}
+                      disabled={
+                        weightBusy ||
+                        !Number.isFinite(Number(weightInput)) ||
+                        Number(weightInput) < 20 ||
+                        Number(weightInput) > 300
+                      }
                       className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 disabled:opacity-40 transition cursor-pointer"
                     >
-                      {extraBusy ? (
+                      {weightBusy ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Check className="w-4 h-4" />
                       )}
-                      <span>{isId ? "Simpan Latihan" : "Save Training"}</span>
+                      <span>{isId ? "Simpan Berat" : "Save Weight"}</span>
                     </button>
                   </div>
-                  )}
                 </form>
               </div>
             </div>

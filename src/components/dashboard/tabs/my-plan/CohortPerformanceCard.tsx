@@ -1275,7 +1275,7 @@ function CaloriesWidget({
   const todaySummary = getDayCalSummary(todayDay);
   const todayNetKcal = todaySummary.netKcal;
 
-  // Apples-to-apples Net Calories delta (anchored strictly to today if food is logged)
+  // Delta: 30-day average including today − 30-day average before today (matching Training & Sleep)
   const priorLoggedNet = elapsedDays
     .filter((d) => d.dayNumber < todayDayNum)
     .map(getDayCalSummary)
@@ -1283,9 +1283,10 @@ function CaloriesWidget({
 
   let caloriesDelta: number | undefined;
   if (todaySummary.hasFoodLogged && priorLoggedNet.length >= 1) {
-    const prevAvg =
-      priorLoggedNet.reduce((acc, s) => acc + s.netKcal, 0) / priorLoggedNet.length;
-    caloriesDelta = Math.round(todayNetKcal - prevAvg);
+    const prevSum = priorLoggedNet.reduce((acc, s) => acc + s.netKcal, 0);
+    const prevAvg = prevSum / priorLoggedNet.length;
+    const currentAvg = (prevSum + todayNetKcal) / (priorLoggedNet.length + 1);
+    caloriesDelta = Math.round(currentAvg - prevAvg);
   }
 
   const caloriesStatus = rateNetCalories(
@@ -1429,7 +1430,7 @@ function HydrationWidget({
   const todayDay = elapsedDays.find((d) => d.dayNumber === todayDayNum);
   const todayWaterMl = getWaterMl(todayDay);
 
-  // Anchor delta strictly to today (never display yesterday's stale delta when today is 0L)
+  // Delta: 30-day average including today − 30-day average before today (matching Training & Sleep)
   const priorLoggedWater = elapsedDays
     .filter((d) => d.dayNumber < todayDayNum)
     .map(getWaterMl)
@@ -1437,9 +1438,10 @@ function HydrationWidget({
 
   let waterDeltaMl: number | undefined;
   if (todayWaterMl > 0 && priorLoggedWater.length >= 1) {
-    const prevAvg =
-      priorLoggedWater.reduce((acc, ml) => acc + ml, 0) / priorLoggedWater.length;
-    waterDeltaMl = Math.round(todayWaterMl - prevAvg);
+    const prevSum = priorLoggedWater.reduce((acc, ml) => acc + ml, 0);
+    const prevAvg = prevSum / priorLoggedWater.length;
+    const currentAvg = (prevSum + todayWaterMl) / (priorLoggedWater.length + 1);
+    waterDeltaMl = Math.round(currentAvg - prevAvg);
   }
 
   const waterStatus = rateWaterMl(todayWaterMl, true);
@@ -1500,8 +1502,10 @@ function DailyStepsMetricWidget({
 
   let stepsDelta: number | undefined;
   if (todaySteps > 0 && priorLogged.length >= 1) {
-    const prevAvg = priorLogged.reduce((acc, s) => acc + s, 0) / priorLogged.length;
-    stepsDelta = Math.round(todaySteps - prevAvg);
+    const prevSum = priorLogged.reduce((acc, s) => acc + s, 0);
+    const prevAvg = prevSum / priorLogged.length;
+    const currentAvg = (prevSum + todaySteps) / (priorLogged.length + 1);
+    stepsDelta = Math.round(currentAvg - prevAvg);
   }
 
   const stepsStatus = rateStepsCount(todaySteps, true);

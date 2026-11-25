@@ -59,6 +59,8 @@ export interface DailyCheckInProps {
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveWater: (waterMl: number, dayId: string) => SaveResult;
   onSaveSteps?: (stepsCount: number, dayId: string) => SaveResult;
+  onLogSelfBodyWeight?: (weightKg: number, waistCm?: number | null) => Promise<boolean>;
+  latestWeightKg?: number | null;
   onAddExtraWorkout?: (payload: {
     logDate: string;
     activityType: "run" | "strength" | "hiit" | "mobility" | "cycling" | "swim" | "custom";

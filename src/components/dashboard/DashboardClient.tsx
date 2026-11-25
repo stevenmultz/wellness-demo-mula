@@ -1024,6 +1024,7 @@ export function DashboardClient({
               onSaveSteps={(stepsCount, dayId) =>
                 handleSaveSteps(stepsCount, undefined, extractStandaloneDateKey(dayId))
               }
+              onLogSelfBodyWeight={handleLogSelfBodyWeight}
               onAddExtraWorkout={(payload) =>
                 handleAddExtraWorkout({ ...payload, programDayId: null })
               }
@@ -1225,6 +1226,7 @@ export function DashboardClient({
               onSaveMeal={handleSaveMeal}
               onSaveWater={handleSaveWater}
               onSaveSteps={handleSaveSteps}
+              onLogSelfBodyWeight={handleLogSelfBodyWeight}
               onAddExtraWorkout={handleAddExtraWorkout}
               onUpdateExtraWorkout={handleUpdateExtraWorkout}
               onDeleteExtraWorkout={handleDeleteExtraWorkout}
