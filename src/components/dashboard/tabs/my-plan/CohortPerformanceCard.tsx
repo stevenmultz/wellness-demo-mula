@@ -185,7 +185,7 @@ function FlippableMetricCard({
     status === "good"
       ? "bg-[var(--semantic-green)] text-white"
       : status === "avg"
-        ? "bg-amber-500/90 dark:bg-amber-500/80 text-white"
+        ? "bg-[var(--semantic-yellow)] text-white"
         : "bg-[var(--semantic-red)] text-white";
 
   return (
@@ -1646,7 +1646,7 @@ export function CohortPerformanceCard({
             <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-green)] text-white font-mono text-[10px] font-bold">
               GOOD
             </span>
-            <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-amber-500/90 text-white font-mono text-[10px] font-bold">
+            <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-yellow)] text-white font-mono text-[10px] font-bold">
               AVG
             </span>
             <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-red)] text-white font-mono text-[10px] font-bold">

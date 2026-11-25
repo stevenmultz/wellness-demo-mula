@@ -32,6 +32,11 @@
   --semantic-green-border: #4f6658;
   --semantic-green-dot: #5e7868;
   --semantic-green-bg: #eaefed;
+  /* Yellow + Gray — Mineral Ochre Gray / Warm Ash Brass */
+  --semantic-yellow: #7d7150;
+  --semantic-yellow-border: #6c6144;
+  --semantic-yellow-dot: #7d7150;
+  --semantic-yellow-bg: #f1efe8;
   /* Legacy aliases pointing to global semantic tokens */
   --semantic-ruby: var(--semantic-red);
   --semantic-ruby-border: var(--semantic-red-border);
@@ -73,6 +78,10 @@
   --semantic-green-border: #789483;
   --semantic-green-dot: #85a190;
   --semantic-green-bg: rgba(94, 120, 104, 0.22);
+  --semantic-yellow: #857855;
+  --semantic-yellow-border: #9e906b;
+  --semantic-yellow-dot: #aba07a;
+  --semantic-yellow-bg: rgba(125, 113, 80, 0.22);
   --semantic-ruby: var(--semantic-red);
   --semantic-ruby-border: var(--semantic-red-border);
   --semantic-ruby-bg: var(--semantic-red-bg);

@@ -264,12 +264,6 @@ export function MyPlanOverview({
     year: "numeric",
     timeZone: "Asia/Jakarta",
   }).format(activeBannerDate);
-  const activeDayTypeLabel =
-    activeSelectedDay?.dayType === "REST_DAY"
-      ? "Rest"
-      : activeSelectedDay?.dayType === "TRAINING_DAY"
-      ? "Training"
-      : "Connect";
   const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
 
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
@@ -407,10 +401,10 @@ export function MyPlanOverview({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
         </div>
 
-        {/* Top Row: Community Profile/Logo (Left) */}
+        {/* Top Row: Community Profile/Logo (Left) & Date Picker (Right) */}
         <div className="relative z-10 flex items-center justify-between gap-2">
           <div
-            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[75%]"
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[55%] min-w-0"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
           >
             {program?.organizationLogo ? (
@@ -429,54 +423,45 @@ export function MyPlanOverview({
               {program?.organizationName || program?.coachName || "Community"}
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+              setCalendarMonth(new Date(w.year, w.month, 1));
+              setShowCalendarModal(true);
+            }}
+            aria-label="Select date from calendar"
+            className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+          >
+            <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
+              {activeFullDateStr}
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
+          </button>
         </div>
 
-        {/* Bottom Row: Type + Sports Side-by-Side & Date Button (Left) */}
+        {/* Bottom Row: Type + Sports Side-by-Side (Left) */}
         <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
-          <div className="flex flex-col items-start gap-1.5 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                  ? "Hybrid"
-                  : (program?.locationType || "").toUpperCase() === "ONSITE"
-                    ? "Onsite"
-                    : "Online"}
-              </span>
-
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-                setCalendarMonth(new Date(w.year, w.month, 1));
-                setShowCalendarModal(true);
-              }}
-              aria-label="Select date from calendar"
-              className="group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/10 min-w-0"
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span
+              className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
               style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
             >
-              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-                {activeFullDateStr}
-              </span>
-              <span className="text-[10px] font-mono text-white/50 leading-tight select-none">
-                •
-              </span>
-              <span className="text-[11px] font-mono font-medium text-white/85 leading-tight truncate">
-                {activeDayTypeLabel}
-              </span>
+              {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                ? "Hybrid"
+                : (program?.locationType || "").toUpperCase() === "ONSITE"
+                  ? "Onsite"
+                  : "Online"}
+            </span>
 
-              <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
-            </button>
+            <span
+              className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
+            </span>
           </div>
         </div>
       </section>

@@ -68,6 +68,14 @@ export function FillDropletIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
   );
 }
 
+export function FillFootprintsIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M7.5 3C5.3 3 4 5.2 4 7.7c0 2.1.8 4 2.2 4.9.9.6 2.1.5 2.8-.3.9-1 1.2-2.8 1.2-4.6C10.2 5 9.3 3 7.5 3Zm-.6 11.4c-1.4 0-2.4 1.1-2.4 2.4 0 1.4 1 2.7 2.4 2.7s2.3-1.2 2.3-2.6c0-1.4-.9-2.5-2.3-2.5Zm9.6-9.9c-1.8 0-2.7 2-2.7 4.7 0 1.8.3 3.6 1.2 4.6.7.8 1.9.9 2.8.3 1.4-.9 2.2-2.8 2.2-4.9C20 6.7 18.7 4.5 16.5 4.5Zm.6 11.4c-1.4 0-2.3 1.1-2.3 2.5 0 1.4.9 2.6 2.3 2.6s2.4-1.3 2.4-2.7c0-1.3-1-2.4-2.4-2.4Z" />
+    </svg>
+  );
+}
+
 export function FillHeartIcon({ className = "w-3.5 h-3.5" }: FillIconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>

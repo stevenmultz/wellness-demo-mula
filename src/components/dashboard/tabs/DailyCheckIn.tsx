@@ -13,13 +13,14 @@ import {
 } from "lucide-react";
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
-import { InfoPopupModal } from "./shared";
+import { HeaderBackButton, InfoPopupModal } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
   FillCameraIcon,
   FillChecklistIcon,
   FillDropletIcon,
   FillDumbbellIcon,
+  FillFootprintsIcon,
   FillHeartIcon,
   FillLockIcon,
   FillMoonIcon,
@@ -161,19 +162,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   };
 
   const customTasksList = selectedDay.customTasks || [];
-  const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
-  const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
-  const totalTasks = tasks.length + customTasksList.length;
-  const completedTasks = coreDoneCount + customDoneCount;
-  const progressPct =
-    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const { locale } = useLocale();
   const isId = locale === "id";
   const programTitle = props.programTitle || "Program";
 
-  // ── Daily Steps Tracker (reduces net daily calories at ~0.04 kcal/step) ──
+  // ── Daily Steps Task State (reduces net daily calories at ~0.04 kcal/step) ──
   const [steps, setSteps] = useState<number>(0);
+  const [stepsModalOpen, setStepsModalOpen] = useState(false);
+  const [draftSteps, setDraftSteps] = useState<number>(0);
   const [showCustomSteps, setShowCustomSteps] = useState(false);
   const [customStepsInput, setCustomStepsInput] = useState("");
 
@@ -182,17 +179,22 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     try {
       const raw = window.localStorage.getItem(`zera_daily_steps_${selectedDay.id}`);
       const parsed = raw ? parseInt(raw, 10) : 0;
-      setSteps(Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
+      const valid = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+      setSteps(valid);
+      setDraftSteps(valid);
     } catch {
       setSteps(0);
+      setDraftSteps(0);
     }
+    setStepsModalOpen(false);
     setShowCustomSteps(false);
     setCustomStepsInput("");
   }, [selectedDay.id]);
 
-  const updateSteps = (nextSteps: number) => {
+  const persistSteps = (nextSteps: number) => {
     const clamped = Math.max(0, Math.min(100000, Math.round(nextSteps)));
     setSteps(clamped);
+    setDraftSteps(clamped);
     if (typeof window !== "undefined") {
       try {
         window.localStorage.setItem(`zera_daily_steps_${selectedDay.id}`, String(clamped));
@@ -203,16 +205,41 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
   };
 
+  const openStepsModal = () => {
+    if (isSelectedFuture) return;
+    setDraftSteps(steps);
+    setShowCustomSteps(false);
+    setCustomStepsInput("");
+    setStepsModalOpen(true);
+  };
+
+  const handleAddDraftSteps = (inc: number) => {
+    setDraftSteps((prev) => Math.max(0, Math.min(100000, prev + inc)));
+  };
+
   const handleCustomStepsSubmit = () => {
     const val = parseInt(customStepsInput, 10);
     if (!Number.isNaN(val) && val > 0) {
-      updateSteps(steps + val);
+      handleAddDraftSteps(val);
       setCustomStepsInput("");
       setShowCustomSteps(false);
     }
   };
 
-  const stepsBurnedKcal = Math.round(steps * 0.04);
+  const handleSaveStepsModal = () => {
+    if (!selectedLocked || isAnytime) {
+      persistSteps(draftSteps);
+    }
+    setStepsModalOpen(false);
+  };
+
+  const stepsDone = steps > 0;
+  const coreDoneCount = tasks.filter((_, i) => selectedDone[i]).length;
+  const customDoneCount = customTasksList.filter((ct) => Boolean(ct.submission)).length;
+  const totalTasks = tasks.length + 1 + customTasksList.length;
+  const completedTasks = coreDoneCount + (stepsDone ? 1 : 0) + customDoneCount;
+  const progressPct =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // ── Day Info & Today's Focus derived metadata ────────────────────────────
   const totalProgramDays = Math.max(
@@ -247,19 +274,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         : isId
           ? "Sesi Komunitas & Evaluasi Bersama"
           : "Community Session & Cohort Check-In");
-
-  const todayFocusSubtitle =
-    selectedDay.dayType === "TRAINING_DAY"
-      ? isId
-        ? "Selesaikan sesi latihan utama, jaga pola makan, hidrasi, dan kualitas tidur."
-        : "Complete today's workout session, stay on meal plan, hydrate, and prioritize sleep."
-      : selectedDay.dayType === "REST_DAY"
-        ? isId
-          ? "Fokus istirahat, peregangan ringan, nutrisi bersih, dan tidur yang cukup."
-          : "Focus on rest, light mobility, clean nutrition, and restorative sleep."
-        : isId
-          ? "Ikuti sesi pertemuan komunitas, catat pembelajaran, dan jaga rutinitas harian."
-          : "Join the community meetup, log your takeaways, and maintain daily habits.";
 
   const handleOpenGroupChat = () => {
     if (props.onOpenCommunity) {
@@ -370,6 +384,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         onOpen: () => openDetail(index),
       };
     }),
+    {
+      key: "core-daily-steps",
+      title: "Daily Steps",
+      durationLabel: steps > 0 ? `${steps.toLocaleString()} steps` : "1 min",
+      isDone: stepsDone,
+      Icon: FillFootprintsIcon,
+      disabled: isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
+      onOpen: openStepsModal,
+    },
     ...customTasksList.map((ct) => {
       const isDone = Boolean(ct.submission);
       return {
@@ -424,36 +447,26 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Day Info & Today's Focus Widget */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-2">
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-              <CalendarDays className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-              {isId
-                ? `Hari ke-${selectedDay.dayNumber} dari ${totalProgramDays}`
-                : `Day ${selectedDay.dayNumber} of ${totalProgramDays}`}
-            </span>
-          </div>
-
-          <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] font-mono font-semibold shrink-0 leading-normal">
+      {/* Day Info Widget (Day X of Y · Day Type + Today's Title) */}
+      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+            <CalendarDays className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-xs font-semibold text-zinc-950 dark:text-white leading-normal">
+            {isId
+              ? `Hari ke-${selectedDay.dayNumber} dari ${totalProgramDays}`
+              : `Day ${selectedDay.dayNumber} of ${totalProgramDays}`}
+          </span>
+          <span className="text-zinc-400 dark:text-zinc-500 text-xs select-none">·</span>
+          <span className="text-xs font-mono font-medium text-zinc-600 dark:text-zinc-400 leading-normal">
             {dayTypeLabel}
           </span>
         </div>
 
-        <div className="space-y-0.5 pt-0.5">
-          <p className="text-[11px] font-mono uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            {isId ? "Fokus Hari Ini" : "Today's Focus"}
-          </p>
-          <p className="text-sm font-semibold text-zinc-950 dark:text-white leading-snug">
-            {todayFocusTitle}
-          </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            {todayFocusSubtitle}
-          </p>
-        </div>
+        <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white leading-snug">
+          {todayFocusTitle}
+        </p>
       </div>
 
       {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
@@ -563,112 +576,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* Add Steps Widget (Daily Steps to Burn / Reduce Calories) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-3">
-        <div className="flex items-start justify-between gap-2 min-w-0">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-                <Footprints className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-                {isId ? "Tambah Langkah (Steps)" : "Add Daily Steps"}
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
-                {steps.toLocaleString()}
-              </span>
-              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                steps
-              </span>
-              {stepsBurnedKcal > 0 && (
-                <span className="semantic-badge-box px-2 py-0.5 rounded-md bg-[var(--semantic-green)] text-white text-[10px] font-mono font-semibold tabular-nums">
-                  -{stepsBurnedKcal} kcal
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {steps > 0 && (
-              <button
-                type="button"
-                disabled={isSelectedFuture}
-                onClick={() => updateSteps(0)}
-                aria-label="Reset steps"
-                className="px-2.5 py-1.5 rounded-xl text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 transition cursor-pointer inline-flex items-center gap-1"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset</span>
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={isSelectedFuture}
-              onClick={() => setShowCustomSteps((prev) => !prev)}
-              className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 text-[11px] font-semibold text-zinc-900 dark:text-white hover:border-zinc-400 disabled:opacity-40 transition cursor-pointer inline-flex items-center gap-1"
-            >
-              <Plus className="w-3 h-3" />
-              <span>{showCustomSteps ? (isId ? "Tutup" : "Close") : "Custom"}</span>
-            </button>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          {isId
-            ? "Catat langkah harian untuk mengurangi estimasi kalori bersih hari ini (~40 kcal per 1.000 langkah)."
-            : "Log your daily steps to deduct estimated calories burned from today's net calories (~40 kcal per 1,000 steps)."}
-        </p>
-
-        {/* Quick Step Increment Buttons */}
-        <div className="grid grid-cols-3 gap-2">
-          {[1000, 2500, 5000].map((inc) => (
-            <button
-              key={inc}
-              type="button"
-              disabled={isSelectedFuture}
-              onClick={() => updateSteps(steps + inc)}
-              className="py-2 px-2 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/30 text-xs font-mono font-semibold text-zinc-950 dark:text-white transition active:scale-95 disabled:opacity-40 cursor-pointer"
-            >
-              +{inc.toLocaleString()}
-            </button>
-          ))}
-        </div>
-
-        {/* Optional Custom Steps Input */}
-        {showCustomSteps && (
-          <div className="flex items-center gap-2 pt-1 animate-in fade-in duration-150">
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={100000}
-              step={100}
-              placeholder={isId ? "Jumlah langkah (mis. 3500)" : "Steps count (e.g. 3500)"}
-              value={customStepsInput}
-              onChange={(e) => setCustomStepsInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleCustomStepsSubmit();
-                }
-              }}
-              className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
-            />
-            <button
-              type="button"
-              disabled={!customStepsInput || parseInt(customStepsInput, 10) <= 0}
-              onClick={handleCustomStepsSubmit}
-              className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
-            >
-              {isId ? "Tambah" : "Add"}
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Community Group Chat Widget */}
       <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
         <div className="space-y-0.5 min-w-0">
@@ -736,6 +643,248 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               onClose={() => setDetailOpen(false)}
               props={props}
             />
+          </div>,
+          document.body
+        )}
+
+      {/* Daily Steps Fullscreen Task Modal (matches TaskForm & WaterStepView) */}
+      {stepsModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[80] h-[100dvh] w-full bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 overflow-hidden"
+          >
+            <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 flex flex-col">
+              <header
+                style={{ paddingTop: "env(safe-area-inset-top)" }}
+                className="sticky top-0 z-10 w-full bg-[#f6f6f4]/95 dark:bg-[#0e0e0e]/95 backdrop-blur-md"
+              >
+                <div className="max-w-5xl mx-auto px-4 sm:px-8 min-h-14 py-2 flex items-center justify-between gap-3">
+                  <HeaderBackButton
+                    onClick={() => setStepsModalOpen(false)}
+                    ariaLabel="Back to dashboard"
+                  />
+
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-[60%]">
+                    Daily Steps · 1 / 1
+                  </span>
+                </div>
+              </header>
+
+              <div
+                className="w-full max-w-xl mx-auto flex-1 flex flex-col px-4 sm:px-6 pt-6 sm:pt-8"
+                style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
+              >
+                <div className="flex items-center gap-1.5 w-full">
+                  <div className="h-1 flex-1 rounded-full bg-zinc-950 dark:bg-white" />
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveStepsModal();
+                  }}
+                  className="flex-1 flex flex-col justify-between gap-8 pt-6 min-w-0"
+                >
+                  <div className="space-y-6 min-w-0">
+                    <div className="space-y-1.5">
+                      <h2 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-tight">
+                        {isId
+                          ? "Berapa langkah yang Anda tempuh hari ini?"
+                          : "How many steps did you take today?"}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        {isId
+                          ? "Catat langkah harian untuk mengurangi estimasi kalori bersih (~40 kcal per 1.000 langkah)."
+                          : "Log your daily steps to deduct estimated calories burned from net daily calories (~40 kcal per 1,000 steps)."}
+                      </p>
+                    </div>
+
+                    {/* Progress & Live Total Card */}
+                    {(() => {
+                      const TARGET_STEPS = 10000;
+                      const stepsPct = Math.min(100, Math.round((draftSteps / TARGET_STEPS) * 100));
+                      const draftBurnedKcal = Math.round(draftSteps * 0.04);
+                      const isReadOnly = selectedLocked && !isAnytime;
+
+                      return (
+                        <>
+                          <div className="p-5 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-3">
+                            <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
+                                  {draftSteps.toLocaleString()}
+                                </span>
+                                <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                                  / {TARGET_STEPS.toLocaleString()} steps
+                                </span>
+                              </div>
+
+                              <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                                {draftBurnedKcal > 0
+                                  ? `-${draftBurnedKcal} kcal (${stepsPct}%)`
+                                  : `${stepsPct}%`}
+                              </span>
+                            </div>
+
+                            <div className="w-full h-2.5 rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
+                                style={{ width: `${stepsPct}%` }}
+                              />
+                            </div>
+
+                            {!isReadOnly && (
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-200/60 dark:border-white/10">
+                                <button
+                                  type="button"
+                                  disabled={draftSteps <= 0}
+                                  onClick={() => setDraftSteps(0)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 disabled:hover:text-zinc-600 disabled:hover:bg-transparent transition cursor-pointer disabled:cursor-default"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <span>{isId ? "Reset Langkah" : "Reset Steps"}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCustomSteps((prev) => !prev)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>
+                                    {showCustomSteps
+                                      ? isId
+                                        ? "Tutup Custom"
+                                        : "Close Custom"
+                                      : isId
+                                        ? "Tambah Custom"
+                                        : "Add Custom"}
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+
+                            {!isReadOnly && showCustomSteps && (
+                              <div className="pt-2 flex items-center gap-2 animate-in fade-in duration-150">
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={1}
+                                  max={100000}
+                                  step={100}
+                                  placeholder={
+                                    isId ? "Jumlah langkah (mis. 3500)" : "Steps count (e.g. 3500)"
+                                  }
+                                  value={customStepsInput}
+                                  onChange={(e) => setCustomStepsInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleCustomStepsSubmit();
+                                    }
+                                  }}
+                                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#18181b] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={!customStepsInput || parseInt(customStepsInput, 10) <= 0}
+                                  onClick={handleCustomStepsSubmit}
+                                  className="px-4 py-2.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
+                                >
+                                  {isId ? "Tambah" : "Add"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 4 Quick Step Tap Cards */}
+                          {!isReadOnly && (
+                            <div className="space-y-2.5">
+                              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+                                {isId
+                                  ? "Pilih Tambahan Cepat (Tap untuk menambah)"
+                                  : "Quick Add (Tap to add steps)"}
+                              </span>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                {[
+                                  {
+                                    inc: 1000,
+                                    name: isId ? "Jalan Singkat" : "Short Walk",
+                                    kcal: 40,
+                                  },
+                                  {
+                                    inc: 2500,
+                                    name: isId ? "Jalan Santai" : "Casual Walk",
+                                    kcal: 100,
+                                  },
+                                  {
+                                    inc: 5000,
+                                    name: isId ? "Jalan Aktif" : "Active Walk",
+                                    kcal: 200,
+                                  },
+                                  {
+                                    inc: 10000,
+                                    name: isId ? "Target Harian" : "Daily Goal",
+                                    kcal: 400,
+                                  },
+                                ].map((preset) => (
+                                  <button
+                                    key={preset.inc}
+                                    type="button"
+                                    onClick={() => handleAddDraftSteps(preset.inc)}
+                                    className="group relative p-4 rounded-2xl border border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] hover:border-zinc-400 dark:hover:border-white/30 text-left transition active:scale-95 cursor-pointer shadow-2xs flex flex-col justify-between min-h-[108px]"
+                                  >
+                                    <div className="flex items-center justify-between w-full">
+                                      <span className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                        <Footprints className="w-5 h-5" />
+                                      </span>
+
+                                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
+                                        +{preset.inc.toLocaleString()}
+                                      </span>
+                                    </div>
+
+                                    <div className="pt-3">
+                                      <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-tight">
+                                        {preset.name}
+                                      </span>
+                                      <span className="block text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal mt-0.5">
+                                        -{preset.kcal} kcal · Tap +{preset.inc.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>
+                        {selectedLocked && !isAnytime
+                          ? isId
+                            ? "Tutup"
+                            : "Close"
+                          : "Save & Finish"}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>,
           document.body
         )}
