@@ -418,7 +418,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     {
       key: "core-daily-steps",
       title: "Steps",
-      durationLabel: steps > 0 ? `${steps.toLocaleString()} steps` : "1 min",
+      durationLabel: "1 min",
       isDone: stepsDone,
       Icon: FillFootprintsIcon,
       disabled: isFeatureLocked || isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
@@ -429,12 +429,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           {
             key: "core-body-weight",
             title: "Weight",
-            durationLabel:
-              latestWeightKg && latestWeightKg > 0
-                ? `${latestWeightKg.toFixed(1)} kg`
-                : isId
-                  ? "Opsional"
-                  : "Optional",
+            durationLabel: isId ? "Opsional" : "Optional",
             isDone: false,
             isOptional: true,
             Icon: FillScaleIcon,

@@ -5,17 +5,14 @@ import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   ArrowRight,
-  BookOpen,
   Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
   ExternalLink,
-  FileText,
   Loader2,
   Lock,
-  MoreHorizontal,
   Shield,
   Sparkles,
   User as UserIcon,
@@ -290,7 +287,6 @@ export function MyPlanOverview({
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
-  const [showBannerMenu, setShowBannerMenu] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
@@ -665,76 +661,6 @@ export function MyPlanOverview({
                 <span className="text-white/50 select-none">·</span>
                 <span className="truncate">{activeDayTypeLabel}</span>
               </div>
-            </div>
-
-            {/* Bottom-Right Program Menu Button */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowBannerMenu((prev) => !prev)}
-                aria-label={isId ? "Menu program" : "Program menu"}
-                aria-expanded={showBannerMenu}
-                className="w-9 h-9 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-black/60 inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.48)" }}
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-
-              {showBannerMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setShowBannerMenu(false)}
-                  />
-                  <div className="absolute right-0 bottom-11 z-40 w-52 rounded-2xl bg-white dark:bg-[#161616] border border-zinc-200 dark:border-white/10 shadow-xl p-1.5 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowBannerMenu(false);
-                        setWidgetIndex(0);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
-                    >
-                      <BookOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                      <span>{isId ? "Panduan Program" : "Program Guides"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowBannerMenu(false);
-                        setShowReportModal(true);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                      <span>{isId ? "Laporan Program" : "Program Report"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowBannerMenu(false);
-                        setShowCommunityModal(true);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
-                    >
-                      <Users className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                      <span>{isId ? "Grup Komunitas" : "Community Group"}</span>
-                    </button>
-                    <div className="my-1 border-t border-zinc-200/70 dark:border-white/10" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowBannerMenu(false);
-                        (onViewAllPrograms || onExplore)();
-                      }}
-                      className="w-full px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-xs font-medium flex items-center gap-2.5 text-left transition cursor-pointer"
-                    >
-                      <Compass className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                      <span>{isId ? "Semua Program Saya" : "All My Programs"}</span>
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </section>
