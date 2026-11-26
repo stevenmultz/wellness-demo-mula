@@ -498,8 +498,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </ul>
       </InfoPopupModal>
 
-      {/* Today's Focus Widget (Program mode only) */}
-      {!isStandalone && (
+      {/* Today's Focus Widget (legacy fallback only; Program Banner displays it in Program Detail) */}
+      {!isStandalone && !isProgramOnly && (
         <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 space-y-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
@@ -516,7 +516,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       )}
 
-      {/* Standalone Daily Tasks Progress Widget (Home only; hidden in Program Detail) */}
+      {/* Standalone Task Progress Widget (Home only; hidden in Program Detail) */}
       {!isProgramOnly && (
         <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
           <div className="space-y-2">
@@ -525,7 +525,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <FillTargetIcon className="w-3.5 h-3.5" />
               </span>
               <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-                Daily Tasks Progress
+                Task Progress
               </span>
               <span className="text-[10px] font-mono font-normal text-zinc-400 dark:text-zinc-500 shrink-0 leading-none">
                 / day
@@ -628,8 +628,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })}
       </ol>
 
-      {/* Community Group Chat Widget (Program mode only) */}
-      {!isStandalone && (
+      {/* Community Group Chat Widget (moved to Info tab in Program Detail) */}
+      {!isStandalone && !isProgramOnly && (
         <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">

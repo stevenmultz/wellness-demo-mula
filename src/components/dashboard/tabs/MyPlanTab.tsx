@@ -16,6 +16,7 @@ import {
   Heart,
   Loader2,
   Lock,
+  MessageCircle,
   Shield,
   Sparkles,
   User as UserIcon,
@@ -303,6 +304,7 @@ export function MyPlanOverview({
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "online" | "hybrid">("all");
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
@@ -452,11 +454,32 @@ export function MyPlanOverview({
         { index: 2 as const, label: t.myPlan.subtabMetrics, count: 0 },
       ] as const)
     : isUpcoming
-      ? ([{ index: 0 as const, label: t.myPlan.subtabGuides, count: 0 }] as const)
+      ? ([{ index: 0 as const, label: "Info", count: 0 }] as const)
       : ([
           { index: 1 as const, label: isId ? "Latihan" : "Training", count: pendingTasksCount },
-          { index: 0 as const, label: t.myPlan.subtabGuides, count: 0 },
+          { index: 0 as const, label: "Info", count: 0 },
         ] as const);
+
+  const bannerTodayFocusTitle =
+    activeSelectedDay?.title?.trim() ||
+    (activeSelectedDay?.dayType === "TRAINING_DAY"
+      ? isId
+        ? "Latihan Terjadwal & Pemulihan Aktif"
+        : "Scheduled Training & Active Conditioning"
+      : activeSelectedDay?.dayType === "REST_DAY"
+        ? isId
+          ? "Pemulihan Tubuh, Tidur & Nutrisi"
+          : "Full Body Recovery, Sleep & Nutrition"
+        : isId
+          ? "Sesi Komunitas & Evaluasi Bersama"
+          : "Community Session & Cohort Check-In");
+
+  const filteredActivePrograms = activeEnrolledPrograms.filter((prog) => {
+    if (programTypeFilter === "all") return true;
+    const loc = (prog.locationType || "ONLINE").toUpperCase();
+    if (programTypeFilter === "online") return loc === "ONLINE";
+    return loc === "HYBRID" || loc === "ONSITE";
+  });
 
   const displayName = (userName || "Member").trim() || "Member";
   const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
@@ -620,28 +643,35 @@ export function MyPlanOverview({
             </button>
           </div>
 
-          {/* Bottom Row: Type + Sports + Boxed Day X of Y (Left) & Menu Button (Right) */}
-          <div className="relative z-20 flex items-end justify-between gap-2 pt-8">
-            <div className="flex flex-col items-start gap-2 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                <span
-                  className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-                >
-                  {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                    ? "Hybrid"
-                    : (program?.locationType || "").toUpperCase() === "ONSITE"
-                      ? "Onsite"
-                      : "Online"}
-                </span>
+          {/* Bottom Row: Today's Focus + Type/Sports + Boxed Day X of Y */}
+          <div className="relative z-20 flex flex-col items-start gap-2 pt-7">
+            <div className="space-y-0.5 max-w-full">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-white/70 block">
+                {isId ? "Fokus Hari Ini" : "Today's Focus"}
+              </span>
+              <h2 className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
+                {bannerTodayFocusTitle}
+              </h2>
+            </div>
 
-                <span
-                  className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-                >
-                  {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
-                </span>
-              </div>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                  ? "Hybrid"
+                  : (program?.locationType || "").toUpperCase() === "ONSITE"
+                    ? "Onsite"
+                    : "Online"}
+              </span>
+
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
+                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+              >
+                {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
+              </span>
 
               <div
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide max-w-full"
@@ -763,7 +793,35 @@ export function MyPlanOverview({
           className="transition-all duration-200"
         >
           {!isStandalone && program && (
-            <div className={activeWidget === 0 ? "block" : "hidden"}>
+            <div className={activeWidget === 0 ? "block space-y-4" : "hidden"}>
+              {/* Community Group Chat Widget (in Program Info tab) */}
+              <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                      <Users className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                      {isId ? "Grup Komunitas Cohort" : "Cohort Community Chat"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
+                    {isId
+                      ? "Diskusi dan berbagi progres bersama sesama anggota cohort."
+                      : "Chat and share progress with fellow cohort members."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCommunityModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>{isId ? "Buka Group Chat" : "Group Chat"}</span>
+                </button>
+              </div>
+
               <ProgramPreparationWidgets
                 program={program}
                 days={fullProgramDays}
@@ -830,28 +888,47 @@ export function MyPlanOverview({
                   <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
                 )}
 
-                {/* 3. Enrolled Programs List (Program cover image as full-bleed widget background) */}
+                {/* 3. Enrolled Programs List with inline All / Online / Hybrid filter (no separate All Programs page) */}
                 {isStandalone && (
                   <div className="space-y-3 pt-1">
-                    <div className="flex items-center justify-between gap-2 px-0.5">
-                      <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
-                        {isId ? "Program Saya" : "My Programs"}
-                      </span>
-                      {enrolledPrograms.length > 0 && onViewAllPrograms && (
-                        <button
-                          type="button"
-                          onClick={onViewAllPrograms}
-                          className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-0.5 transition cursor-pointer"
-                        >
-                          <span>{isId ? "Semua" : "All"}</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                    {activeEnrolledPrograms.length > 0 && (
+                      <div
+                        role="tablist"
+                        aria-label="Filter programs by mode"
+                        className="inline-flex items-center gap-1 rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10"
+                      >
+                        {(
+                          [
+                            { key: "all", label: isId ? "Semua" : "All" },
+                            { key: "online", label: "Online" },
+                            { key: "hybrid", label: "Hybrid" },
+                          ] as const
+                        ).map(({ key, label }) => {
+                          const active = programTypeFilter === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              onClick={() => setProgramTypeFilter(key)}
+                              className={`h-7 px-3 rounded-lg text-[11px] font-semibold transition active:scale-[0.98] cursor-pointer ${
+                                active
+                                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
+                                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {activeEnrolledPrograms.length > 0 ? (
-                      <div className="space-y-3">
-                        {activeEnrolledPrograms.map((prog) => {
+                      filteredActivePrograms.length > 0 ? (
+                        <div className="space-y-3">
+                          {filteredActivePrograms.map((prog) => {
                           const dayType = (prog.todayDayType || "").toUpperCase();
                           const isRest = dayType === "REST_DAY";
                           const isConnect =
@@ -952,6 +1029,17 @@ export function MyPlanOverview({
                           );
                         })}
                       </div>
+                      ) : (
+                        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                          {programTypeFilter === "online"
+                            ? isId
+                              ? "Belum ada program Online yang aktif."
+                              : "No active Online programs yet."
+                            : isId
+                              ? "Belum ada program Hybrid yang aktif."
+                              : "No active Hybrid programs yet."}
+                        </div>
+                      )
                     ) : (
                       <button
                         type="button"

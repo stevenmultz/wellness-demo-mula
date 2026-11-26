@@ -1004,11 +1004,6 @@ export function DashboardClient({
                 setIsOverHero(true);
                 window.scrollTo({ top: 0 });
               }}
-              onViewAllPrograms={() => {
-                setLastMyPlanPage("intro");
-                setMyPlanView("all");
-                window.scrollTo({ top: 0 });
-              }}
               program={null}
               plan={null}
               day={standaloneTodayDay}
@@ -1072,76 +1067,6 @@ export function DashboardClient({
               trackingPassPlans={trackingPassPlans}
               onSelectTrackingPass={handleOpenTrackingPassCheckout}
               checkoutLoadingPlanId={passCheckoutLoadingId}
-            />
-          ) : myPlanView === "all" ? (
-            <MyPlanAllPage
-              plans={myPlanIndexItems}
-              onSelectPlan={(programId) => {
-                setLastMyPlanPage("all");
-                setSelectedProgId(programId);
-                setMyPlanView("detail");
-                setIsOverHero(true);
-                window.scrollTo({ top: 0 });
-              }}
-              onOpenSection={(sec) => {
-                const targetPage = sec === "completed" ? "done" : sec;
-                setLastMyPlanPage(targetPage);
-                setMyPlanView(targetPage);
-                window.scrollTo({ top: 0 });
-              }}
-              onExplore={() => {
-                setExploreView("catalog");
-                setActiveTab("all_plan");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-            />
-          ) : myPlanView === "ongoing" ? (
-            <MyPlanOngoingPage
-              plans={myPlanIndexItems}
-              onSelectPlan={(programId) => {
-                setLastMyPlanPage("ongoing");
-                setSelectedProgId(programId);
-                setMyPlanView("detail");
-                setIsOverHero(true);
-                window.scrollTo({ top: 0 });
-              }}
-              onExplore={() => {
-                setExploreView("catalog");
-                setActiveTab("all_plan");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-            />
-          ) : myPlanView === "upcoming" ? (
-            <MyPlanUpcomingPage
-              plans={myPlanIndexItems}
-              onSelectPlan={(programId) => {
-                setLastMyPlanPage("upcoming");
-                setSelectedProgId(programId);
-                setMyPlanView("detail");
-                setIsOverHero(true);
-                window.scrollTo({ top: 0 });
-              }}
-              onExplore={() => {
-                setExploreView("catalog");
-                setActiveTab("all_plan");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-            />
-          ) : myPlanView === "done" ? (
-            <MyPlanDonePage
-              plans={myPlanIndexItems}
-              onSelectPlan={(programId) => {
-                setLastMyPlanPage("done");
-                setSelectedProgId(programId);
-                setMyPlanView("detail");
-                setIsOverHero(true);
-                window.scrollTo({ top: 0 });
-              }}
-              onExplore={() => {
-                setExploreView("catalog");
-                setActiveTab("all_plan");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
             />
           ) : (
             <MyPlanOverview
