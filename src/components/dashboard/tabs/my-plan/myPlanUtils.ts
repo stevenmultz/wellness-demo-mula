@@ -429,8 +429,8 @@ export function deriveBodySignals(params: {
         tone: "neutral",
         label: isId ? "Dengarkan Tubuhmu" : "Listen to your body",
         message: isId
-          ? "Aktifkan tracking untuk membaca sinyal tidur, air, makan, dan langkah harianmu."
-          : "Unlock tracking to hear daily signals for sleep, water, food, and steps.",
+          ? "Aktifkan tracking, nanti aku ingatkan soal tidur, air, makan, dan langkahmu."
+          : "Unlock tracking and I will nudge you about sleep, water, food, and steps.",
       },
     ];
   }
@@ -469,8 +469,8 @@ export function deriveBodySignals(params: {
         tone: "attention",
         label: isId ? "Tidur" : "Sleep",
         message: isId
-          ? "Kita perlu cek tidur semalam — seberapa segar tubuh kita hari ini?"
-          : "We need to check last night's sleep — how rested do we feel today?",
+          ? "Semalam tidurmu gimana? Yuk dicatat!"
+          : "How did you sleep last night? Let's log it!",
         actionLabel: isId ? "Catat tidur" : "Log sleep",
       },
     });
@@ -485,8 +485,8 @@ export function deriveBodySignals(params: {
         tone: "attention",
         label: isId ? "Tidur" : "Sleep",
         message: isId
-          ? `Kita butuh tidur lebih cukup — semalam baru ${hrs} jam. Targetkan 7 jam+ malam ini.`
-          : `We need more sleep — only ${hrs}h last night. Let's aim for 7h+ tonight.`,
+          ? `Semalam kamu cuma tidur ${hrs} jam. Malam ini coba 7 jam+ ya?`
+          : `You only slept ${hrs}h last night. Try for 7h+ tonight, okay?`,
         actionLabel: isId ? "Lihat tidur" : "Review sleep",
       },
     });
@@ -506,11 +506,11 @@ export function deriveBodySignals(params: {
         message:
           effectiveWaterMl === 0
             ? isId
-              ? "Kita perlu minum lebih banyak air — yuk mulai dari segelas sekarang."
-              : "We need to drink more water — let's start with a glass right now."
+              ? "Kamu belum minum sama sekali nih. Yuk minum segelas!"
+              : "You haven't had any water yet. Grab a glass with me?"
             : isId
-              ? `Kita perlu minum lebih banyak air — kurang ${remainingMl.toLocaleString()} ml lagi hari ini.`
-              : `We need to drink more water — ${remainingMl.toLocaleString()} ml left for today.`,
+              ? `Tinggal ${remainingMl.toLocaleString()} ml lagi buat target airmu. Semangat!`
+              : `Only ${remainingMl.toLocaleString()} ml to go for your water goal. You can do it!`,
         actionLabel: isId ? "Tambah air" : "Add water",
       },
     });
@@ -528,11 +528,11 @@ export function deriveBodySignals(params: {
         label: isId ? "Makan" : "Food",
         message: mealOffTrack
           ? isId
-            ? "Kita perlu kontrol makanan — yuk seimbangkan porsi makan berikutnya."
-            : "We need to control your food — let's keep the next meal balanced."
+            ? "Makan berikutnya kita seimbangkan ya?"
+            : "Let's keep your next meal balanced, okay?"
           : isId
-            ? "Kita perlu kontrol makanan hari ini — catat makanmu agar tetap on track."
-            : "We need to control your food — log today's meal to stay on track.",
+            ? "Hari ini kamu makan apa? Yuk dicatat biar tetap on track."
+            : "What have you eaten today? Let's log it to stay on track.",
         actionLabel: isId ? "Catat makan" : "Log meal",
       },
     });
@@ -552,11 +552,11 @@ export function deriveBodySignals(params: {
         message:
           stepsCount === 0
             ? isId
-              ? "Kita butuh lebih banyak langkah — yuk jalan sebentar untuk gerakkan kaki."
-              : "We need more steps — let's get moving and stretch our legs."
+              ? "Jalan santai yuk? Langkahmu masih nol nih."
+              : "Let's go for a little walk? Your steps are still at zero."
             : isId
-              ? `Kita butuh lebih banyak langkah — kurang ${remainingSteps.toLocaleString()} langkah lagi.`
-              : `We need more steps — ${remainingSteps.toLocaleString()} steps left to hit our goal.`,
+              ? `${remainingSteps.toLocaleString()} langkah lagi buat capai targetmu. Yuk jalan!`
+              : `${remainingSteps.toLocaleString()} more steps to hit your goal. Let's walk!`,
         actionLabel: isId ? "Tambah langkah" : "Add steps",
       },
     });
@@ -576,11 +576,11 @@ export function deriveBodySignals(params: {
         label: isRest ? (isId ? "Pemulihan" : "Recovery") : isId ? "Latihan" : "Training",
         message: isRest
           ? isId
-            ? `Waktunya pemulihan — cek aktivitas istirahat di "${pendingProgram.title}".`
-            : `We need active recovery — check today's rest activity in "${pendingProgram.title}".`
+            ? `Waktunya pemulihan. Cek aktivitas istirahat hari ini di "${pendingProgram.title}".`
+            : `Time for recovery. Check today's rest activity in "${pendingProgram.title}".`
           : isId
-            ? `Tubuh siap bergerak — sesi hari ini di "${pendingProgram.title}" menunggu.`
-            : `We're ready to move — today's session in "${pendingProgram.title}" is waiting.`,
+            ? `Sesi kamu di "${pendingProgram.title}" sudah menunggu. Siap gerak?`
+            : `Your session in "${pendingProgram.title}" is waiting. Ready to move?`,
         actionLabel: isId ? "Buka sesi" : "Open session",
         programId: pendingProgram.programId,
       },
@@ -596,8 +596,8 @@ export function deriveBodySignals(params: {
         tone: "positive",
         label: isId ? "Seimbang" : "Balanced",
         message: isId
-          ? "Tubuh terasa bugar, terhidrasi, dan seimbang hari ini. Pertahankan!"
-          : "We're feeling strong, hydrated, and balanced today. Keep it up!",
+          ? "Kamu hebat hari ini! Aku bangga banget."
+          : "You are doing great today! I am so proud of you.",
       },
     ];
   }
