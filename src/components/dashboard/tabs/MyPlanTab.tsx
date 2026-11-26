@@ -523,10 +523,15 @@ export function MyPlanOverview({
     activePrograms: activeEnrolledPrograms,
     isFeatureLocked,
     isId,
+    totalPendingTasks: pendingTasksCount,
   });
 
   const handleTriggerBodySignal = (signal: BodySignal) => {
     if (isFeatureLocked) return;
+    if (signal.action === "program" && signal.programId) {
+      onOpenProgram?.(signal.programId);
+      return;
+    }
     if (signal.action === "training" && signal.programId) {
       (onOpenProgramTask || onOpenProgram)?.(signal.programId);
       return;

@@ -94,6 +94,7 @@ export interface MyPlanIndexItem {
   currentDayNumber: number;
   todayDayType?: string | null;
   todayCoreTaskDone?: boolean;
+  tomorrowDayType?: string | null;
   pendingTasksCount?: number;
   todayTotalTasksCount?: number;
   todayCompletedTasksCount?: number;
@@ -393,17 +394,21 @@ export function formatShortDayDate(
   }).format(d);
 }
 
-export type BodyZone = "head" | "chest" | "core" | "legs" | "all";
-export type BodyHabitAction = "sleep" | "water" | "meal" | "steps" | "training" | "none";
+export type BodyHabitAction =
+  | "sleep"
+  | "water"
+  | "meal"
+  | "steps"
+  | "training"
+  | "program"
+  | "info"
+  | "none";
 
 export interface BodySignal {
   id: string;
-  zone: BodyZone;
   action: BodyHabitAction;
   tone: "attention" | "positive" | "neutral";
-  label: string;
   message: string;
-  actionLabel?: string;
   programId?: string;
 }
 
@@ -416,6 +421,7 @@ export function deriveBodySignals(params: {
   activePrograms: MyPlanIndexItem[];
   isFeatureLocked: boolean;
   isId: boolean;
+  totalPendingTasks?: number;
   wibHour?: number;
 }): BodySignal[] {
   const { day, activePrograms, isFeatureLocked, isId } = params;
@@ -424,10 +430,8 @@ export function deriveBodySignals(params: {
     return [
       {
         id: "locked",
-        zone: "all",
         action: "none",
         tone: "neutral",
-        label: isId ? "Dengarkan Tubuhmu" : "Listen to your body",
         message: isId
           ? "Aktifkan tracking, nanti aku ingatkan soal tidur, air, makan, dan langkahmu."
           : "Unlock tracking and I will nudge you about sleep, water, food, and steps.",
@@ -456,53 +460,43 @@ export function deriveBodySignals(params: {
     (p) => !p.isUpcoming && !p.isCompleted && !p.todayCoreTaskDone
   );
 
-  const candidates: Array<{ key: BodyHabitAction; signal: BodySignal }> = [];
+  const habits: Array<{ key: BodyHabitAction; signal: BodySignal }> = [];
 
-  // 1. Sleep (Head)
   if (!sleepLogged) {
-    candidates.push({
+    habits.push({
       key: "sleep",
       signal: {
         id: "sleep-unlogged",
-        zone: "head",
         action: "sleep",
         tone: "attention",
-        label: isId ? "Tidur" : "Sleep",
         message: isId
           ? "Semalam tidurmu gimana? Yuk dicatat!"
           : "How did you sleep last night? Let's log it!",
-        actionLabel: isId ? "Catat tidur" : "Log sleep",
       },
     });
   } else if (sleepMins > 0 && sleepMins < SLEEP_TARGET_MINS) {
     const hrs = (sleepMins / 60).toFixed(1).replace(/\.0$/, "");
-    candidates.push({
+    habits.push({
       key: "sleep",
       signal: {
         id: "sleep-low",
-        zone: "head",
         action: "sleep",
         tone: "attention",
-        label: isId ? "Tidur" : "Sleep",
         message: isId
           ? `Semalam kamu cuma tidur ${hrs} jam. Malam ini coba 7 jam+ ya?`
           : `You only slept ${hrs}h last night. Try for 7h+ tonight, okay?`,
-        actionLabel: isId ? "Lihat tidur" : "Review sleep",
       },
     });
   }
 
-  // 2. Water (Core)
   if (effectiveWaterMl < WATER_TARGET_ML) {
     const remainingMl = WATER_TARGET_ML - effectiveWaterMl;
-    candidates.push({
+    habits.push({
       key: "water",
       signal: {
         id: "water-low",
-        zone: "core",
         action: "water",
         tone: "attention",
-        label: isId ? "Air" : "Water",
         message:
           effectiveWaterMl === 0
             ? isId
@@ -511,21 +505,17 @@ export function deriveBodySignals(params: {
             : isId
               ? `Tinggal ${remainingMl.toLocaleString()} ml lagi buat target airmu. Semangat!`
               : `Only ${remainingMl.toLocaleString()} ml to go for your water goal. You can do it!`,
-        actionLabel: isId ? "Tambah air" : "Add water",
       },
     });
   }
 
-  // 3. Meal (Core)
   if (!mealLogged || mealOffTrack) {
-    candidates.push({
+    habits.push({
       key: "meal",
       signal: {
         id: mealOffTrack ? "meal-offtrack" : "meal-unlogged",
-        zone: "core",
         action: "meal",
         tone: "attention",
-        label: isId ? "Makan" : "Food",
         message: mealOffTrack
           ? isId
             ? "Makan berikutnya kita seimbangkan ya?"
@@ -533,22 +523,18 @@ export function deriveBodySignals(params: {
           : isId
             ? "Hari ini kamu makan apa? Yuk dicatat biar tetap on track."
             : "What have you eaten today? Let's log it to stay on track.",
-        actionLabel: isId ? "Catat makan" : "Log meal",
       },
     });
   }
 
-  // 4. Steps (Legs)
   if (stepsCount < STEPS_TARGET) {
     const remainingSteps = STEPS_TARGET - stepsCount;
-    candidates.push({
+    habits.push({
       key: "steps",
       signal: {
         id: "steps-low",
-        zone: "legs",
         action: "steps",
         tone: "attention",
-        label: isId ? "Langkah" : "Steps",
         message:
           stepsCount === 0
             ? isId
@@ -557,23 +543,19 @@ export function deriveBodySignals(params: {
             : isId
               ? `${remainingSteps.toLocaleString()} langkah lagi buat capai targetmu. Yuk jalan!`
               : `${remainingSteps.toLocaleString()} more steps to hit your goal. Let's walk!`,
-        actionLabel: isId ? "Tambah langkah" : "Add steps",
       },
     });
   }
 
-  // 5. Program Training (Chest)
   if (pendingProgram) {
-    const dt = (pendingProgram.todayDayType || "").toUpperCase();
-    const isRest = dt === "REST_DAY";
-    candidates.push({
+    const isRest = (pendingProgram.todayDayType || "").toUpperCase() === "REST_DAY";
+    habits.push({
       key: "training",
       signal: {
         id: `program-${pendingProgram.programId}`,
-        zone: "chest",
         action: "training",
         tone: "attention",
-        label: isRest ? (isId ? "Pemulihan" : "Recovery") : isId ? "Latihan" : "Training",
+        programId: pendingProgram.programId,
         message: isRest
           ? isId
             ? `Waktunya pemulihan. Cek aktivitas istirahat hari ini di "${pendingProgram.title}".`
@@ -581,25 +563,8 @@ export function deriveBodySignals(params: {
           : isId
             ? `Sesi kamu di "${pendingProgram.title}" sudah menunggu. Siap gerak?`
             : `Your session in "${pendingProgram.title}" is waiting. Ready to move?`,
-        actionLabel: isId ? "Buka sesi" : "Open session",
-        programId: pendingProgram.programId,
       },
     });
-  }
-
-  if (candidates.length === 0) {
-    return [
-      {
-        id: "all-good",
-        zone: "all",
-        action: "none",
-        tone: "positive",
-        label: isId ? "Seimbang" : "Balanced",
-        message: isId
-          ? "Kamu hebat hari ini! Aku bangga banget."
-          : "You are doing great today! I am so proud of you.",
-      },
-    ];
   }
 
   // Time-of-day smart ordering (WIB / UTC+7)
@@ -613,14 +578,70 @@ export function deriveBodySignals(params: {
             timeZone: "Asia/Jakarta",
           }).format(new Date())
         ) || 12;
-
   const order: BodyHabitAction[] =
     wibHour < 11
       ? ["sleep", "water", "training", "meal", "steps"]
       : wibHour < 17
         ? ["water", "meal", "training", "steps", "sleep"]
         : ["steps", "water", "meal", "training", "sleep"];
+  habits.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
-  candidates.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
-  return candidates.map((c) => c.signal);
+  const result: BodySignal[] = [];
+
+  // Proactive: how many tasks are left today
+  const pendingTasks = params.totalPendingTasks ?? 0;
+  if (pendingTasks > 0) {
+    result.push({
+      id: "tasks-left",
+      action: "info",
+      tone: "attention",
+      message: isId
+        ? `Kamu masih punya ${pendingTasks} task hari ini. Semangat!`
+        : `You still have ${pendingTasks} task${pendingTasks > 1 ? "s" : ""} left today. You can do it!`,
+    });
+  }
+
+  // Proactive: meetup tomorrow
+  for (const p of activePrograms) {
+    const tomorrow = (p.tomorrowDayType || "").toUpperCase();
+    if (p.isUpcoming || p.isCompleted || !tomorrow) continue;
+    if (tomorrow === "TRAINING_DAY" || tomorrow === "REST_DAY") continue;
+    result.push({
+      id: `meetup-${p.programId}`,
+      action: "program",
+      tone: "neutral",
+      programId: p.programId,
+      message: isId
+        ? `Info: besok ada meetup di "${p.title}". Jangan sampai ketinggalan ya!`
+        : `Heads up! Tomorrow there's a meetup in "${p.title}". Don't miss it!`,
+    });
+  }
+
+  for (const h of habits) result.push(h.signal);
+
+  // Proactive: how many programs the user is following
+  const followed = activePrograms.filter((p) => !p.isCompleted).length;
+  if (followed > 0) {
+    result.push({
+      id: "programs-count",
+      action: "info",
+      tone: "positive",
+      message: isId
+        ? `Kamu lagi ikut ${followed} program. Pertahankan semangatnya!`
+        : `You're in ${followed} program${followed > 1 ? "s" : ""} right now. Keep the momentum going!`,
+    });
+  }
+
+  if (habits.length === 0 && pendingTasks === 0) {
+    result.push({
+      id: "all-good",
+      action: "none",
+      tone: "positive",
+      message: isId
+        ? "Kamu hebat hari ini! Aku bangga banget."
+        : "You are doing great today! I am so proud of you.",
+    });
+  }
+
+  return result;
 }

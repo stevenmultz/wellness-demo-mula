@@ -821,6 +821,8 @@ export function DashboardClient({
       dailyCommitment: fullProg?.dailyCommitment || "15–20 Mins / Day",
       todayDayType: !isCompleted && !isUpcoming && liveDay ? liveDay.dayType : null,
       todayCoreTaskDone: Boolean(liveEval?.initialDone[1]),
+      tomorrowDayType:
+        !isCompleted && !isUpcoming && liveIdx >= 0 ? (days[liveIdx + 1]?.dayType ?? null) : null,
       pendingTasksCount,
       todayTotalTasksCount,
       todayCompletedTasksCount,

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BodySignal } from "./myPlanUtils";
 
 interface SnoozeEntry {
@@ -11,7 +11,9 @@ type SnoozeMap = Record<string, SnoozeEntry>;
 
 const FIRST_SNOOZE_MS = 35 * 60 * 1000;
 const REPEAT_SNOOZE_MS = 2 * 60 * 60 * 1000;
+const DISMISS_MS = 12 * 60 * 60 * 1000;
 const NEXT_MESSAGE_GAP_MS = 6 * 1000;
+const LEAVE_MS = 220;
 
 function wibDateKey(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -34,84 +36,54 @@ function saveSnooze(key: string, map: SnoozeMap) {
   }
 }
 
-/** Buddy: a cute round mascot (static SVG, no continuous animation). */
-const BuddyCharacter = memo(function BuddyCharacter({
-  mood,
-}: {
-  mood: "attention" | "positive" | "neutral";
-}) {
+type Mood = "attention" | "positive" | "neutral";
+
+/** Simple round buddy. Static SVG; motion is CSS transform-only (see globals.css). */
+const BuddyCharacter = memo(function BuddyCharacter({ mood }: { mood: Mood }) {
+  const fillBody = "fill-zinc-900 dark:fill-white";
+  const fillFace = "fill-white dark:fill-zinc-900";
+  const strokeFace = "stroke-white dark:stroke-zinc-900";
   return (
-    <svg
-      viewBox="0 0 120 120"
-      className="h-28 sm:h-32 w-auto select-none"
-      aria-hidden="true"
-    >
-      {/* Sprout on top */}
-      <path
-        d="M60 30 C60 22 59 18 57 14"
-        fill="none"
-        strokeWidth="3"
-        strokeLinecap="round"
-        className="stroke-emerald-600 dark:stroke-emerald-400"
-      />
-      <path
-        d="M58 16 C50 8 40 12 42 20 C50 22 55 20 58 16 Z"
-        className="fill-emerald-500 dark:fill-emerald-400"
-      />
-      <path
-        d="M58 16 C64 6 76 8 74 17 C67 20 61 19 58 16 Z"
-        className="fill-emerald-600 dark:fill-emerald-500"
-      />
-      {/* Little arms (waving up when happy) */}
-      <ellipse
-        cx="16"
-        cy={mood === "positive" ? 68 : 86}
-        rx="9"
-        ry="13"
-        transform={`rotate(${mood === "positive" ? 28 : 12} 16 ${mood === "positive" ? 68 : 86})`}
-        className="fill-zinc-800 dark:fill-zinc-100"
-      />
-      <ellipse
-        cx="104"
-        cy={mood === "positive" ? 68 : 86}
-        rx="9"
-        ry="13"
-        transform={`rotate(${mood === "positive" ? -28 : -12} 104 ${mood === "positive" ? 68 : 86})`}
-        className="fill-zinc-800 dark:fill-zinc-100"
-      />
-      {/* Round body (cut at the bottom edge of the card) */}
-      <path
-        d="M60 28 C92 28 108 52 108 82 C108 104 98 120 98 120 L22 120 C22 120 12 104 12 82 C12 52 28 28 60 28 Z"
-        className="fill-zinc-900 dark:fill-white"
-      />
-      {/* Belly highlight */}
-      <ellipse cx="60" cy="102" rx="26" ry="16" className="fill-white/10 dark:fill-zinc-900/10" />
-      {/* Big sparkly eyes */}
-      <g>
-        <ellipse cx="44" cy="64" rx="9" ry="10.5" className="fill-white dark:fill-zinc-900" />
-        <ellipse cx="76" cy="64" rx="9" ry="10.5" className="fill-white dark:fill-zinc-900" />
-        <circle cx="46" cy="66" r="5.2" className="fill-zinc-900 dark:fill-white" />
-        <circle cx="74" cy="66" r="5.2" className="fill-zinc-900 dark:fill-white" />
-        <circle cx="48" cy="63.5" r="1.8" className="fill-white dark:fill-zinc-900" />
-        <circle cx="76" cy="63.5" r="1.8" className="fill-white dark:fill-zinc-900" />
-      </g>
-      {/* Blush */}
-      <ellipse cx="30" cy="80" rx="6" ry="3.6" fill="#fb7185" fillOpacity="0.55" />
-      <ellipse cx="90" cy="80" rx="6" ry="3.6" fill="#fb7185" fillOpacity="0.55" />
-      {/* Mouth */}
-      {mood === "positive" ? (
-        <path d="M51 79 Q60 92 69 79 Z" className="fill-white dark:fill-zinc-900" />
-      ) : mood === "attention" ? (
-        <ellipse cx="60" cy="84" rx="4" ry="4.6" className="fill-white dark:fill-zinc-900" />
-      ) : (
+    <svg viewBox="0 0 100 100" className="h-24 sm:h-28 w-auto select-none" aria-hidden="true">
+      <g className="buddy-bob">
+        {/* Feet */}
+        <ellipse cx="34" cy="93" rx="9" ry="5" className={fillBody} />
+        <ellipse cx="66" cy="93" rx="9" ry="5" className={fillBody} />
+        {/* Body */}
         <path
-          d="M52 82 Q60 89 68 82"
+          d="M50 6 C78 6 93 28 93 54 C93 78 77 91 50 91 C23 91 7 78 7 54 C7 28 22 6 50 6 Z"
+          className={fillBody}
+        />
+        {/* Eyes (look around + blink) */}
+        <g className="buddy-look">
+          <g className="buddy-blink">
+            <ellipse cx="35" cy="50" rx="5" ry="6.5" className={fillFace} />
+            <ellipse cx="65" cy="50" rx="5" ry="6.5" className={fillFace} />
+          </g>
+        </g>
+        {/* Blush */}
+        <ellipse cx="24" cy="66" rx="5.5" ry="3.2" fill="#fb7185" fillOpacity="0.55" />
+        <ellipse cx="76" cy="66" rx="5.5" ry="3.2" fill="#fb7185" fillOpacity="0.55" />
+        {/* Mouths crossfade by mood */}
+        <path
+          d="M42 66 Q50 76 58 66 Z"
+          className={`${fillFace} transition-opacity duration-200 ${mood === "positive" ? "opacity-100" : "opacity-0"}`}
+        />
+        <ellipse
+          cx="50"
+          cy="70"
+          rx="3.6"
+          ry="4.2"
+          className={`${fillFace} transition-opacity duration-200 ${mood === "attention" ? "opacity-100" : "opacity-0"}`}
+        />
+        <path
+          d="M43 67 Q50 73 57 67"
           fill="none"
           strokeWidth="3"
           strokeLinecap="round"
-          className="stroke-white dark:stroke-zinc-900"
+          className={`${strokeFace} transition-opacity duration-200 ${mood === "neutral" ? "opacity-100" : "opacity-0"}`}
         />
-      )}
+      </g>
     </svg>
   );
 });
@@ -132,22 +104,44 @@ export function BodyChatHero({
   const [quietUntil, setQuietUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [entered, setEntered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [hopCount, setHopCount] = useState(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const leaveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setSnooze(loadSnooze(storageKey));
     setNow(Date.now());
   }, [storageKey]);
 
+  useEffect(
+    () => () => {
+      if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
+    },
+    []
+  );
+
+  // Pause CSS animations when the buddy is off-screen (no re-render involved).
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) => {
+      el.dataset.paused = entry.isIntersecting ? "false" : "true";
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   const actionable = signals.filter((s) => s.action !== "none");
   const passive = signals.find((s) => s.action === "none") ?? null;
+  const quiet = now < quietUntil;
 
-  const active =
-    now < quietUntil
-      ? null
-      : (actionable.find((s) => (snooze[s.id]?.until ?? 0) <= now) ?? null);
-  const shown: BodySignal | null = active ?? (actionable.length === 0 ? passive : null);
+  const active = quiet
+    ? null
+    : (actionable.find((s) => (snooze[s.id]?.until ?? 0) <= now) ?? null);
+  const shown: BodySignal | null = active ?? (quiet ? null : passive);
 
-  // One timeout to the next moment something can change; paused while tab is hidden.
+  // One timeout to the next moment something can change; re-synced when tab becomes visible.
   useEffect(() => {
     const candidates: number[] = [];
     if (quietUntil > now) candidates.push(quietUntil);
@@ -169,7 +163,7 @@ export function BodyChatHero({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snooze, quietUntil, now, signals]);
 
-  // Single fade/slide-in per message (opacity + transform only).
+  // Smooth fade/slide-in per message (opacity + transform only).
   const shownId = shown?.id ?? null;
   useEffect(() => {
     setEntered(false);
@@ -178,92 +172,94 @@ export function BodyChatHero({
     return () => window.cancelAnimationFrame(raf);
   }, [shownId]);
 
+  const commitSnooze = useCallback(
+    (id: string, ms: number, bumpCount: boolean) => {
+      // Let the bubble fade out first, then apply state.
+      setLeaving(true);
+      if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = window.setTimeout(() => {
+        const t = Date.now();
+        setSnooze((prev) => {
+          const count = (prev[id]?.count ?? 0) + (bumpCount ? 1 : 0);
+          const next: SnoozeMap = { ...prev, [id]: { count, until: t + ms } };
+          saveSnooze(storageKey, next);
+          return next;
+        });
+        setQuietUntil(t + NEXT_MESSAGE_GAP_MS);
+        setNow(t);
+        setLeaving(false);
+      }, LEAVE_MS);
+    },
+    [storageKey]
+  );
+
   const handleLater = useCallback(() => {
     if (!shown) return;
-    const t = Date.now();
-    const prev = snooze[shown.id];
-    const next: SnoozeMap = {
-      ...snooze,
-      [shown.id]: {
-        count: (prev?.count ?? 0) + 1,
-        until: t + ((prev?.count ?? 0) >= 1 ? REPEAT_SNOOZE_MS : FIRST_SNOOZE_MS),
-      },
-    };
-    setSnooze(next);
-    saveSnooze(storageKey, next);
-    setQuietUntil(t + NEXT_MESSAGE_GAP_MS);
-    setNow(t);
-  }, [shown, snooze, storageKey]);
+    const count = snooze[shown.id]?.count ?? 0;
+    commitSnooze(shown.id, count >= 1 ? REPEAT_SNOOZE_MS : FIRST_SNOOZE_MS, true);
+  }, [shown, snooze, commitSnooze]);
 
   const handleOkay = useCallback(() => {
     if (!shown) return;
-    onAccept(shown);
-    // Short snooze so the same nudge does not instantly reappear while the user acts.
-    const t = Date.now();
-    const next: SnoozeMap = {
-      ...snooze,
-      [shown.id]: { count: snooze[shown.id]?.count ?? 0, until: t + FIRST_SNOOZE_MS },
-    };
-    setSnooze(next);
-    saveSnooze(storageKey, next);
-    setQuietUntil(t + NEXT_MESSAGE_GAP_MS);
-    setNow(t);
-  }, [shown, snooze, storageKey, onAccept]);
+    if (shown.action !== "info") onAccept(shown);
+    const long = shown.action === "info" || shown.action === "program";
+    commitSnooze(shown.id, long ? DISMISS_MS : FIRST_SNOOZE_MS, false);
+  }, [shown, onAccept, commitSnooze]);
 
-  const mood = shown?.tone ?? "neutral";
+  const mood: Mood = shown?.tone ?? "neutral";
   const canAnswer = Boolean(shown && shown.action !== "none" && !isFeatureLocked);
 
   return (
-    <section className="w-full space-y-2.5">
-      <h2 className="text-sm sm:text-base font-geometric font-semibold text-zinc-950 dark:text-white leading-tight">
-        Buddy
-      </h2>
-      <div className="relative w-full rounded-3xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 min-h-[170px] sm:min-h-[190px] px-4 sm:px-6 pt-4 sm:pt-5 overflow-hidden">
-      <div className="w-full grid grid-cols-[104px_1fr] sm:grid-cols-[128px_1fr] gap-3 sm:gap-4 items-end">
-        <div className="flex items-end justify-center self-end">
-          <BuddyCharacter mood={mood} />
-        </div>
-
-        <div className="min-w-0 self-center pb-4 sm:pb-5 min-h-[104px] flex items-center">
-          {shown ? (
-            <div
-              key={shown.id}
-              className={`relative w-full rounded-2xl rounded-bl-md bg-white/90 dark:bg-zinc-900/75 border border-zinc-200/70 dark:border-white/10 px-3.5 py-3 shadow-xs space-y-3 transition duration-200 motion-reduce:transition-none ${
-                entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
-              }`}
-              role="status"
-              aria-live="polite"
-            >
-              <p className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white leading-snug">
-                {shown.message}
-              </p>
-
-              {canAnswer && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleOkay}
-                    className="h-8 px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer"
-                  >
-                    {isId ? "Oke" : "Okay"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLater}
-                    className="h-8 px-4 rounded-full bg-zinc-200/80 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-200 text-[11px] font-semibold hover:bg-zinc-300/70 dark:hover:bg-white/[0.14] transition active:scale-95 cursor-pointer"
-                  >
-                    {isId ? "Nanti" : "Later"}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-lg leading-none text-zinc-400 dark:text-zinc-500 tracking-widest" aria-hidden="true">
-              …
-            </p>
-          )}
-        </div>
+    <section ref={rootRef} className="buddy w-full flex items-end gap-3 sm:gap-4 min-h-[112px]">
+      {/* Free-standing character (tap to make it hop) */}
+      <div key={shownId ?? "idle"} className={`shrink-0 ${shownId ? "buddy-pop" : ""}`}>
+        <button
+          type="button"
+          onClick={() => setHopCount((c) => c + 1)}
+          aria-label={isId ? "Sapa teman" : "Say hi"}
+          className="block cursor-pointer outline-none active:scale-95 transition-transform"
+        >
+          <div key={hopCount} className={hopCount > 0 ? "buddy-hop" : ""}>
+            <BuddyCharacter mood={mood} />
+          </div>
+        </button>
       </div>
+
+      {/* Speech: soft tinted bubble, no border */}
+      <div className="min-w-0 flex-1 pb-3 min-h-[84px] flex items-center">
+        {shown ? (
+          <div
+            key={shown.id}
+            role="status"
+            aria-live="polite"
+            className={`relative w-full rounded-2xl rounded-bl-sm bg-zinc-200/70 dark:bg-white/[0.07] px-3.5 py-3 space-y-2.5 transition duration-200 motion-reduce:transition-none ${
+              entered && !leaving ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+            }`}
+          >
+            <p className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white leading-snug">
+              {shown.message}
+            </p>
+
+            {canAnswer && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOkay}
+                  className="h-8 px-4 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer"
+                >
+                  {isId ? "Oke" : "Okay"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLater}
+                  className="h-8 px-4 rounded-full bg-zinc-300/70 dark:bg-white/[0.1] text-zinc-800 dark:text-zinc-200 text-[11px] font-semibold hover:bg-zinc-300 dark:hover:bg-white/[0.16] transition active:scale-95 cursor-pointer"
+                >
+                  {isId ? "Nanti" : "Later"}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );
