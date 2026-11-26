@@ -464,70 +464,34 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Top Control Bar: Program Index Switcher (when active) side-by-side with Date Picker */}
-      <div className="w-full flex items-center justify-between gap-2">
-        {!isStandalone && program ? (
-          <div className="flex-1 min-w-0 flex items-center justify-between gap-1 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-1">
+      {/* 0. Home Top Date Picker (Program Detail places Date Picker directly inside the Program Banner) */}
+      {isStandalone && (
+        <div className="w-full flex items-center justify-end gap-2">
+          {!isFeatureLocked ? (
             <button
               type="button"
-              onClick={handlePrevPlan}
-              disabled={!plans || plans.length <= 1}
-              aria-label="Previous program"
-              className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
+              onClick={() => {
+                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+                setCalendarMonth(new Date(w.year, w.month, 1));
+                setShowCalendarModal(true);
+              }}
+              aria-label="Select date from calendar"
+              className="group h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-zinc-300/60 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer shrink-0"
             >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onViewAllPrograms || onExplore}
-              title="All my programs"
-              className="flex-1 min-w-0 h-8 px-1.5 rounded-xl hover:bg-zinc-300/40 dark:hover:bg-white/[0.06] flex items-center justify-center transition active:scale-[0.99] cursor-pointer"
-            >
-              <span className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate leading-normal">
-                {program.title}
+              <Calendar className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
+              <span className="text-xs font-geometric font-semibold text-zinc-950 dark:text-white leading-tight whitespace-nowrap">
+                {activeFullDateStr}
               </span>
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
             </button>
-
-            <button
-              type="button"
-              onClick={handleNextPlan}
-              disabled={!plans || plans.length <= 1}
-              aria-label="Next program"
-              className="w-8 h-8 rounded-xl hover:bg-zinc-300/50 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center justify-center shrink-0 disabled:opacity-25 transition active:scale-95 cursor-pointer disabled:cursor-default"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex-1" />
-        )}
-
-        {/* Date Picker Box (side-by-side with Program Index, always accessible even when no program) */}
-        {!isStandalone || isSubscribed ? (
-          <button
-            type="button"
-            onClick={() => {
-              const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-              setCalendarMonth(new Date(w.year, w.month, 1));
-              setShowCalendarModal(true);
-            }}
-            aria-label="Select date from calendar"
-            className="group h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-zinc-300/60 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer shrink-0"
-          >
-            <Calendar className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
-            <span className="text-xs font-geometric font-semibold text-zinc-950 dark:text-white leading-tight whitespace-nowrap">
-              {activeFullDateStr}
+          ) : (
+            <span className="h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 text-xs font-geometric font-semibold text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap opacity-65">
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
+              <span>{activeFullDateStr}</span>
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
-          </button>
-        ) : (
-          <span className="h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 text-xs font-geometric font-semibold text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap opacity-65">
-            <Calendar className="w-3.5 h-3.5 shrink-0" />
-            <span>{activeFullDateStr}</span>
-          </span>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* 1. Hero Visual: Simple Human Body Visual (Home) vs Program Cover Banner (Program Detail) */}
       {isStandalone ? (
@@ -614,10 +578,10 @@ export function MyPlanOverview({
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
           </div>
 
-          {/* Top Row: Community Profile/Logo */}
+          {/* Top Row: Community Profile/Logo (Left) & Date Picker (Right) */}
           <div className="relative z-10 flex items-center justify-between gap-2">
             <div
-              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[75%] min-w-0"
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[55%] min-w-0"
               style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
             >
               {program?.organizationLogo ? (
@@ -636,6 +600,24 @@ export function MyPlanOverview({
                 {program?.organizationName || program?.coachName || "Community"}
               </span>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
+                setCalendarMonth(new Date(w.year, w.month, 1));
+                setShowCalendarModal(true);
+              }}
+              aria-label="Select date from calendar"
+              className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+            >
+              <Calendar className="w-3.5 h-3.5 text-white/80 shrink-0" />
+              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
+                {activeFullDateStr}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
+            </button>
           </div>
 
           {/* Bottom Row: Type + Sports + Boxed Day X of Y (Left) & Menu Button (Right) */}
@@ -795,137 +777,7 @@ export function MyPlanOverview({
           {!isUpcoming && (
             <>
               <div className={activeWidget === 1 ? "block space-y-5" : "hidden"}>
-                {/* Home Training Section: 1 widget card per enrolled program (or Explore CTA if none) */}
-                {isStandalone && (
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between gap-2 px-0.5">
-                      <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
-                        {isId ? "Latihan Program" : "Training"}
-                      </span>
-                      {enrolledPrograms.length > 0 && onViewAllPrograms && (
-                        <button
-                          type="button"
-                          onClick={onViewAllPrograms}
-                          className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-0.5 transition cursor-pointer"
-                        >
-                          <span>{isId ? "Semua" : "All"}</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {activeEnrolledPrograms.length > 0 ? (
-                      <div className="space-y-2.5">
-                        {activeEnrolledPrograms.map((prog) => {
-                          const dayType = (prog.todayDayType || "").toUpperCase();
-                          const isRest = dayType === "REST_DAY";
-                          const isConnect = dayType !== "TRAINING_DAY" && dayType !== "REST_DAY" && Boolean(dayType);
-                          const DayIcon = isRest ? Heart : isConnect ? Users : Dumbbell;
-                          const dayTypeLabel = prog.isUpcoming
-                            ? isId
-                              ? "Segera Dimulai"
-                              : "Upcoming"
-                            : isRest
-                              ? isId
-                                ? "Hari Istirahat"
-                                : "Rest Day"
-                              : isConnect
-                                ? isId
-                                  ? "Hari Pertemuan"
-                                  : "Connect Day"
-                                : isId
-                                  ? "Hari Latihan"
-                                  : "Training Day";
-                          const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
-                          const isDoneToday = !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
-
-                          return (
-                            <button
-                              key={prog.programId}
-                              type="button"
-                              onClick={() => onOpenProgram?.(prog.programId)}
-                              className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07] border border-zinc-200/60 dark:border-white/10 p-3.5 sm:p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99] cursor-pointer"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-zinc-900 dark:bg-white/10 text-white shrink-0 flex items-center justify-center">
-                                  {prog.coverImage ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={prog.coverImage}
-                                      alt=""
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <DayIcon className="w-5 h-5" />
-                                  )}
-                                  {hasPending && (
-                                    <span
-                                      aria-label="Pending training"
-                                      className="semantic-badge-box absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
-                                    />
-                                  )}
-                                  {isDoneToday && (
-                                    <span
-                                      aria-label="Completed"
-                                      className="semantic-badge-box absolute top-1 right-1 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center"
-                                    >
-                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="min-w-0 space-y-0.5">
-                                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate leading-snug">
-                                    {prog.title}
-                                  </p>
-                                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
-                                    {prog.isUpcoming
-                                      ? dayTypeLabel
-                                      : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={onExplore}
-                        className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07] border border-zinc-200/60 dark:border-white/10 p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99] cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-10 h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
-                            <Compass className="w-4 h-4" />
-                          </span>
-                          <div className="min-w-0 space-y-0.5">
-                            <p className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
-                              {isId ? "Jelajahi Program Training" : "Explore Training Programs"}
-                            </p>
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                              {isId
-                                ? "Belum ada program aktif · Ikuti program coach pilihan"
-                                : "No active programs · Discover guided coach cohorts"}
-                            </p>
-                          </div>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {isStandalone && (
-                  <div className="px-0.5 pt-1">
-                    <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
-                      {isId ? "Kebiasaan Harian" : "Daily Habits"}
-                    </span>
-                  </div>
-                )}
-
+                {/* 1 & 2. Daily Tasks Progress / day + Sleep, Meal, Water, Steps (or Program-only tasks in detail view) */}
                 {day ? (
                   <DailyCheckIn
                     key={day.id}
@@ -976,6 +828,155 @@ export function MyPlanOverview({
                   />
                 ) : (
                   <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
+                )}
+
+                {/* 3. Enrolled Programs List (Program cover image as full-bleed widget background) */}
+                {isStandalone && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between gap-2 px-0.5">
+                      <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                        {isId ? "Program Saya" : "My Programs"}
+                      </span>
+                      {enrolledPrograms.length > 0 && onViewAllPrograms && (
+                        <button
+                          type="button"
+                          onClick={onViewAllPrograms}
+                          className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-0.5 transition cursor-pointer"
+                        >
+                          <span>{isId ? "Semua" : "All"}</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {activeEnrolledPrograms.length > 0 ? (
+                      <div className="space-y-3">
+                        {activeEnrolledPrograms.map((prog) => {
+                          const dayType = (prog.todayDayType || "").toUpperCase();
+                          const isRest = dayType === "REST_DAY";
+                          const isConnect =
+                            dayType !== "TRAINING_DAY" &&
+                            dayType !== "REST_DAY" &&
+                            Boolean(dayType);
+                          const dayTypeLabel = prog.isUpcoming
+                            ? isId
+                              ? "Segera Dimulai"
+                              : "Upcoming"
+                            : isRest
+                              ? isId
+                                ? "Hari Istirahat"
+                                : "Rest Day"
+                              : isConnect
+                                ? isId
+                                  ? "Hari Pertemuan"
+                                  : "Connect Day"
+                                : isId
+                                  ? "Hari Latihan"
+                                  : "Training Day";
+                          const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
+                          const isDoneToday =
+                            !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
+
+                          return (
+                            <button
+                              key={prog.programId}
+                              type="button"
+                              onClick={() => onOpenProgram?.(prog.programId)}
+                              className="group relative w-full min-h-[124px] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/70 dark:border-white/10 p-4 flex flex-col justify-between text-left text-white shadow-sm transition active:scale-[0.99] cursor-pointer"
+                            >
+                              {/* Full-bleed program cover image background */}
+                              <div className="absolute inset-0 pointer-events-none">
+                                {prog.coverImage ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={prog.coverImage}
+                                    alt=""
+                                    className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+                              </div>
+
+                              {/* Top Row: Day pill (Left) & Status indicator (Right) */}
+                              <div className="relative z-10 flex items-center justify-between gap-2 w-full">
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[10px] font-mono font-semibold text-white/95"
+                                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+                                >
+                                  {prog.isUpcoming
+                                    ? dayTypeLabel
+                                    : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
+                                </span>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {hasPending && (
+                                    <span
+                                      aria-label="Pending training"
+                                      className="semantic-badge-box w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-black/40"
+                                    />
+                                  )}
+                                  {isDoneToday && (
+                                    <span
+                                      aria-label="Completed"
+                                      className="semantic-badge-box w-5 h-5 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center shadow-xs"
+                                    >
+                                      <Check className="w-3 h-3 stroke-[3]" />
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Bottom Row: Program Title & Arrow */}
+                              <div className="relative z-10 flex items-end justify-between gap-3 pt-6 w-full">
+                                <div className="min-w-0 space-y-0.5">
+                                  <p className="text-base font-geometric font-semibold text-white truncate leading-snug">
+                                    {prog.title}
+                                  </p>
+                                  {(prog.organizationName || prog.coachName) && (
+                                    <p className="text-[11px] text-white/75 truncate">
+                                      {prog.organizationName || prog.coachName}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <span
+                                  className="w-8 h-8 rounded-full backdrop-blur-md border border-white/20 text-white flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
+                                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onExplore}
+                        className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07] border border-zinc-200/60 dark:border-white/10 p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99] cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-10 h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+                            <Compass className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                              {isId ? "Jelajahi Program Training" : "Explore Training Programs"}
+                            </p>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                              {isId
+                                ? "Belum ada program aktif · Ikuti program coach pilihan"
+                                : "No active programs · Discover guided coach cohorts"}
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 

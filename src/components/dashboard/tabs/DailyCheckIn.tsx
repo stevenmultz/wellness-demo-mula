@@ -439,20 +439,6 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           },
         ]
       : []),
-    ...(!isProgramOnly && props.onLogSelfBodyWeight
-      ? [
-          {
-            key: "core-body-weight",
-            title: "Weight",
-            durationLabel: isId ? "Opsional" : "Optional",
-            isDone: false,
-            isOptional: true,
-            Icon: FillScaleIcon,
-            disabled: isFeatureLocked || isSelectedFuture,
-            onOpen: openWeightModal,
-          },
-        ]
-      : []),
     ...(isStandalone
       ? []
       : customTasksList.map((ct) => {
@@ -530,51 +516,56 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       )}
 
-      {/* Standalone Daily Tasks Progress Widget (Per-Task Segmented Bar) */}
-      <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-              <FillTargetIcon className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-              Daily Tasks Progress
-            </span>
+      {/* Standalone Daily Tasks Progress Widget (Home only; hidden in Program Detail) */}
+      {!isProgramOnly && (
+        <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 space-y-3 border border-zinc-200/50 dark:border-white/5">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
+                <FillTargetIcon className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
+                Daily Tasks Progress
+              </span>
+              <span className="text-[10px] font-mono font-normal text-zinc-400 dark:text-zinc-500 shrink-0 leading-none">
+                / day
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
+                {progressPct}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
+                %
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl sm:text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-[1.08]">
-              {progressPct}
-            </span>
-            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 leading-normal">
-              %
-            </span>
+          <div
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Daily Tasks Progress ${progressPct}%`}
+            className="w-full flex items-center gap-1.5"
+          >
+            {Array.from({ length: Math.max(1, totalTasks) }, (_, idx) => {
+              const isFilled = idx < completedTasks;
+              return (
+                <div
+                  key={idx}
+                  className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                    isFilled
+                      ? "bg-zinc-950 dark:bg-white"
+                      : "bg-zinc-300/80 dark:bg-white/15"
+                  }`}
+                />
+              );
+            })}
           </div>
         </div>
-
-        <div
-          role="progressbar"
-          aria-valuenow={progressPct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`Daily Tasks Progress ${progressPct}%`}
-          className="w-full flex items-center gap-1.5"
-        >
-          {Array.from({ length: Math.max(1, totalTasks) }, (_, idx) => {
-            const isFilled = idx < completedTasks;
-            return (
-              <div
-                key={idx}
-                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                  isFilled
-                    ? "bg-zinc-950 dark:bg-white"
-                    : "bg-zinc-300/80 dark:bg-white/15"
-                }`}
-              />
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* Free-Order 2-Column Task Tiles Grid */}
       <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
