@@ -601,20 +601,41 @@ export function deriveBodySignals(params: {
     });
   }
 
-  // Proactive: meetup tomorrow
+  // Proactive: what's scheduled tomorrow across active programs
   for (const p of activePrograms) {
     const tomorrow = (p.tomorrowDayType || "").toUpperCase();
     if (p.isUpcoming || p.isCompleted || !tomorrow) continue;
-    if (tomorrow === "TRAINING_DAY" || tomorrow === "REST_DAY") continue;
-    result.push({
-      id: `meetup-${p.programId}`,
-      action: "program",
-      tone: "neutral",
-      programId: p.programId,
-      message: isId
-        ? `Info: besok ada meetup di "${p.title}". Jangan sampai ketinggalan ya!`
-        : `Heads up! Tomorrow there's a meetup in "${p.title}". Don't miss it!`,
-    });
+    if (tomorrow === "TRAINING_DAY") {
+      result.push({
+        id: `tomorrow-training-${p.programId}`,
+        action: "program",
+        tone: "neutral",
+        programId: p.programId,
+        message: isId
+          ? `Besok ada sesi latihan di "${p.title}". Siapin tenagamu ya!`
+          : `Tomorrow you have a training session in "${p.title}". Get ready!`,
+      });
+    } else if (tomorrow === "REST_DAY") {
+      result.push({
+        id: `tomorrow-rest-${p.programId}`,
+        action: "program",
+        tone: "positive",
+        programId: p.programId,
+        message: isId
+          ? `Besok hari istirahat di "${p.title}" — waktunya recharge.`
+          : `Tomorrow is a rest day in "${p.title}" — time to recharge.`,
+      });
+    } else {
+      result.push({
+        id: `meetup-${p.programId}`,
+        action: "program",
+        tone: "neutral",
+        programId: p.programId,
+        message: isId
+          ? `Besok ada meetup di "${p.title}". Jangan sampai ketinggalan ya!`
+          : `Tomorrow there's a meetup in "${p.title}". Don't miss it!`,
+      });
+    }
   }
 
   for (const h of habits) result.push(h.signal);

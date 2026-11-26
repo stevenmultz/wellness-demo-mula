@@ -38,13 +38,30 @@ function saveSnooze(key: string, map: SnoozeMap) {
 
 type Mood = "attention" | "positive" | "neutral";
 
-/** Simple round buddy. Static SVG; motion is CSS transform-only (see globals.css). */
+const POKE_REACTIONS_EN = ["Ouchh! Btw, ", "Heyy! Also, ", "Boop! Oh, "];
+const POKE_REACTIONS_ID = ["Aduh! Btw, ", "Eits! Oh iya, ", "Hehe! Terus, "];
+
+function formatPokeMessage(reaction: string, message: string): string {
+  if (!message) return reaction.trim();
+  const first = message.charAt(0);
+  const next = message.charAt(1);
+  // Keep "I" or acronyms uppercase; lowercase normal sentence starters after "Btw, "
+  const shouldLower =
+    first >= "A" &&
+    first <= "Z" &&
+    !(first === "I" && (next === " " || next === "'")) &&
+    !(next >= "A" && next <= "Z");
+  const body = shouldLower ? first.toLowerCase() + message.slice(1) : message;
+  return `${reaction}${body}`;
+}
+
+/** Simple round head buddy. Static SVG; motion is CSS transform-only (see globals.css). */
 const BuddyCharacter = memo(function BuddyCharacter({ mood }: { mood: Mood }) {
   const fillBody = "fill-zinc-900 dark:fill-white";
   const fillFace = "fill-white dark:fill-zinc-900";
   const strokeFace = "stroke-white dark:stroke-zinc-900";
   return (
-    <svg viewBox="0 0 100 100" className="h-20 sm:h-24 w-auto select-none" aria-hidden="true">
+    <svg viewBox="0 0 100 100" className="h-24 sm:h-28 w-auto select-none" aria-hidden="true">
       <g className="buddy-bob">
         {/* Head only */}
         <circle cx="50" cy="50" r="44" className={fillBody} />
@@ -100,6 +117,7 @@ export function BodyChatHero({
   const [entered, setEntered] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [hopCount, setHopCount] = useState(0);
+  const [pokeIndex, setPokeIndex] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const leaveTimerRef = useRef<number | null>(null);
 
@@ -128,12 +146,20 @@ export function BodyChatHero({
 
   const actionable = signals.filter((s) => s.action !== "none");
   const passive = signals.find((s) => s.action === "none") ?? null;
+  const tapQueue = actionable.length > 0 ? actionable : signals;
   const quiet = now < quietUntil;
 
-  const active = quiet
+  const autoActive = quiet
     ? null
     : (actionable.find((s) => (snooze[s.id]?.until ?? 0) <= now) ?? null);
-  const shown: BodySignal | null = active ?? (quiet ? null : passive);
+  const autoShown: BodySignal | null = autoActive ?? (quiet ? null : passive);
+
+  const pokedSignal =
+    pokeIndex !== null && tapQueue.length > 0
+      ? tapQueue[pokeIndex % tapQueue.length]
+      : null;
+  const shown: BodySignal | null = pokedSignal ?? autoShown;
+  const isPokedMessage = Boolean(pokedSignal);
 
   // One timeout to the next moment something can change; re-synced when tab becomes visible.
   useEffect(() => {
@@ -157,14 +183,32 @@ export function BodyChatHero({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snooze, quietUntil, now, signals]);
 
-  // Smooth fade/slide-in per message (opacity + transform only).
-  const shownId = shown?.id ?? null;
+  // Smooth fade/slide-in per message or poke step (opacity + transform only).
+  const shownId = shown ? `${shown.id}:${pokeIndex ?? "auto"}` : null;
   useEffect(() => {
     setEntered(false);
     if (!shownId) return;
     const raf = window.requestAnimationFrame(() => setEntered(true));
     return () => window.cancelAnimationFrame(raf);
   }, [shownId]);
+
+  const handlePoke = useCallback(() => {
+    setHopCount((c) => c + 1);
+    if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
+    setLeaving(false);
+    setQuietUntil(0);
+    setNow(Date.now());
+    if (tapQueue.length === 0) return;
+
+    setPokeIndex((prev) => {
+      if (prev !== null) return (prev + 1) % tapQueue.length;
+      if (autoShown) {
+        const curIdx = tapQueue.findIndex((s) => s.id === autoShown.id);
+        if (curIdx >= 0 && tapQueue.length > 1) return (curIdx + 1) % tapQueue.length;
+      }
+      return 0;
+    });
+  }, [tapQueue, autoShown]);
 
   const commitSnooze = useCallback(
     (id: string, ms: number, bumpCount: boolean) => {
@@ -179,6 +223,7 @@ export function BodyChatHero({
           saveSnooze(storageKey, next);
           return next;
         });
+        setPokeIndex(null);
         setQuietUntil(t + NEXT_MESSAGE_GAP_MS);
         setNow(t);
         setLeaving(false);
@@ -204,16 +249,23 @@ export function BodyChatHero({
   const canAnswer = Boolean(shown && shown.action !== "none" && !isFeatureLocked);
   const bubbleVisible = Boolean(shown && entered && !leaving);
 
+  const reactions = isId ? POKE_REACTIONS_ID : POKE_REACTIONS_EN;
+  const displayMessage = shown
+    ? isPokedMessage
+      ? formatPokeMessage(reactions[(Math.max(1, hopCount) - 1) % reactions.length], shown.message)
+      : shown.message
+    : "";
+
   return (
     <section
       ref={rootRef}
-      className="buddy w-full flex items-center justify-center min-h-[104px] sm:min-h-[116px] py-1"
+      className="buddy w-full flex items-center justify-center min-h-[148px] sm:min-h-[168px] py-5 sm:py-6 px-1"
     >
-      {/* Free-standing character: centered when idle, glides smoothly left when talking (tap to hop) */}
-      <div className="shrink-0">
+      {/* Free-standing character: generous breathing room, centered when idle, glides smoothly left when talking */}
+      <div className="shrink-0 p-1">
         <button
           type="button"
-          onClick={() => setHopCount((c) => c + 1)}
+          onClick={handlePoke}
           aria-label={isId ? "Sapa teman" : "Say hi"}
           className="block cursor-pointer outline-none active:scale-95 transition-transform"
         >
@@ -227,19 +279,19 @@ export function BodyChatHero({
       <div
         className={`min-w-0 overflow-hidden transition-[max-width,margin,opacity] duration-300 ease-out motion-reduce:transition-none ${
           bubbleVisible
-            ? "flex-1 max-w-[480px] ml-3 sm:ml-4 opacity-100"
+            ? "flex-1 max-w-[480px] ml-4 sm:ml-5 opacity-100"
             : "flex-none max-w-0 ml-0 opacity-0 pointer-events-none"
         }`}
       >
         {shown && (
           <div
-            key={shown.id}
+            key={shownId ?? shown.id}
             role="status"
             aria-live="polite"
-            className="w-full min-w-[180px] rounded-2xl rounded-bl-sm bg-zinc-200/70 dark:bg-white/[0.07] px-3.5 py-3 space-y-2.5"
+            className="w-full min-w-[180px] rounded-2xl rounded-bl-sm bg-zinc-200/70 dark:bg-white/[0.07] px-4 py-3.5 space-y-2.5"
           >
             <p className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white leading-snug">
-              {shown.message}
+              {displayMessage}
             </p>
 
             {canAnswer && (
