@@ -102,6 +102,8 @@ export interface DailyCheckInProps {
   isStandalone?: boolean;
   isProgramOnly?: boolean;
   isFeatureLocked?: boolean;
+  extraTotalTasks?: number;
+  extraCompletedTasks?: number;
 }
 
 export function getTasksForDay(dayType: string) {

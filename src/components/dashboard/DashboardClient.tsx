@@ -790,11 +790,14 @@ export function DashboardClient({
       !isCompleted && !isUpcoming && resolvedLiveDay
         ? evaluateDayTaskState(resolvedLiveDay)
         : null;
-    const pendingTasksCount =
+    const todayTotalTasksCount =
+      liveEval && resolvedLiveDay ? 1 + (resolvedLiveDay.customTasks?.length ?? 0) : 0;
+    const todayCompletedTasksCount =
       liveEval && resolvedLiveDay
-        ? (!liveEval.initialDone[1] ? 1 : 0) +
-          (resolvedLiveDay.customTasks ?? []).filter((ct) => !ct.submission).length
+        ? (liveEval.initialDone[1] ? 1 : 0) +
+          (resolvedLiveDay.customTasks ?? []).filter((ct) => Boolean(ct.submission)).length
         : 0;
+    const pendingTasksCount = Math.max(0, todayTotalTasksCount - todayCompletedTasksCount);
     return {
       programId: e.programId,
       title: e.title,
@@ -817,6 +820,8 @@ export function DashboardClient({
       dailyCommitment: fullProg?.dailyCommitment || "15–20 Mins / Day",
       todayDayType: !isCompleted && !isUpcoming && liveDay ? liveDay.dayType : null,
       pendingTasksCount,
+      todayTotalTasksCount,
+      todayCompletedTasksCount,
     };
   });
   const overviewEnrollment =

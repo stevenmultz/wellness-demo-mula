@@ -276,11 +276,21 @@ export function MyPlanOverview({
   const primaryPassPlan = trackingPassPlans[0] ?? null;
 
   const { checks, activities, initialDone, pendingTasksCount: rawPendingCount } = evaluateDayTaskState(day, checklist);
+  const programTodayTotalTasks = activeEnrolledPrograms.reduce(
+    (acc, p) => acc + (p.todayTotalTasksCount ?? 0),
+    0
+  );
+  const programTodayCompletedTasks = activeEnrolledPrograms.reduce(
+    (acc, p) => acc + (p.todayCompletedTasksCount ?? 0),
+    0
+  );
+  const programTodayPendingTasks = Math.max(0, programTodayTotalTasks - programTodayCompletedTasks);
   const standalonePendingCount =
     (initialDone[0] ? 0 : 1) +
     (initialDone[2] ? 0 : 1) +
     (initialDone[3] ? 0 : 1) +
-    ((day?.userProgress?.stepsCount ?? 0) > 0 ? 0 : 1);
+    ((day?.userProgress?.stepsCount ?? 0) > 0 ? 0 : 1) +
+    programTodayPendingTasks;
   const programTrainingPendingCount =
     (day && !initialDone[1] ? 1 : 0) +
     (day?.customTasks ?? []).filter((ct) => !ct.submission).length;
@@ -305,7 +315,7 @@ export function MyPlanOverview({
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "online" | "hybrid">("all");
-  const [programStatusFilter, setProgramStatusFilter] = useState<"all" | "todo" | "done">("all");
+  const [programStatusFilter, setProgramStatusFilter] = useState<"todo" | "done">("todo");
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
@@ -481,13 +491,10 @@ export function MyPlanOverview({
       if (programTypeFilter === "online" && loc !== "ONLINE") return false;
       if (programTypeFilter === "hybrid" && loc !== "HYBRID" && loc !== "ONSITE") return false;
     }
-    if (programStatusFilter !== "all") {
-      const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
-      const isDoneToday = !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
-      if (programStatusFilter === "todo" && !hasPending) return false;
-      if (programStatusFilter === "done" && !isDoneToday) return false;
-    }
-    return true;
+    const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
+    const isDoneToday = !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
+    if (programStatusFilter === "done") return isDoneToday;
+    return !isDoneToday;
   });
 
   const displayName = (userName || "Member").trim() || "Member";
@@ -602,14 +609,44 @@ export function MyPlanOverview({
             </button>
           </div>
 
-          {/* Bottom Row: Today's Focus only (clean & minimal) */}
-          <div className="relative z-20 flex flex-col items-start gap-1 pt-8">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-white/70 block">
-              {isId ? "Fokus Hari Ini" : "Today's Focus"}
-            </span>
-            <h2 className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
-              {bannerTodayFocusTitle}
-            </h2>
+          {/* Bottom Row: Today's Focus + Day X of Y Progress Bar */}
+          <div className="relative z-20 flex flex-col items-start gap-2.5 pt-7 w-full">
+            <div className="space-y-0.5 max-w-full">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-white/70 block">
+                {isId ? "Fokus Hari Ini" : "Today's Focus"}
+              </span>
+              <h2 className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
+                {bannerTodayFocusTitle}
+              </h2>
+            </div>
+
+            {(() => {
+              const total = Math.max(totalProgramDays, activeDayNum, 1);
+              const pct = Math.min(100, Math.max(0, Math.round((activeDayNum / total) * 100)));
+              return (
+                <div className="w-full space-y-1.5 pt-0.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-white/85">
+                    <span>
+                      {isId ? `Hari ${activeDayNum} dari ${total}` : `Day ${activeDayNum} of ${total}`}
+                    </span>
+                    <span className="tabular-nums">{pct}%</span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-valuenow={pct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`Program progress Day ${activeDayNum} of ${total}`}
+                    className="w-full h-1.5 rounded-full bg-white/25 overflow-hidden"
+                  >
+                    <div
+                      className="h-full rounded-full bg-white transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </section>
       )}
@@ -717,41 +754,14 @@ export function MyPlanOverview({
           className="transition-all duration-200"
         >
           {!isStandalone && program && (
-            <div className={activeWidget === 0 ? "block space-y-4" : "hidden"}>
-              {/* Community Group Chat Widget (in Program Info tab) */}
-              <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] p-4 sm:p-5 border border-zinc-200/50 dark:border-white/5 flex items-center justify-between gap-3">
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-zinc-900 dark:text-white shrink-0 flex items-center">
-                      <Users className="w-3.5 h-3.5" />
-                    </span>
-                    <span className="text-xs font-semibold text-zinc-950 dark:text-white truncate leading-normal py-[1px]">
-                      {isId ? "Grup Komunitas Cohort" : "Cohort Community Chat"}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed truncate">
-                    {isId
-                      ? "Diskusi dan berbagi progres bersama sesama anggota cohort."
-                      : "Chat and share progress with fellow cohort members."}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowCommunityModal(true)}
-                  className="px-3.5 py-2 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold shrink-0 hover:opacity-90 active:scale-95 transition cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>{isId ? "Buka Group Chat" : "Group Chat"}</span>
-                </button>
-              </div>
-
+            <div className={activeWidget === 0 ? "block" : "hidden"}>
               <ProgramPreparationWidgets
                 program={program}
                 days={fullProgramDays}
                 currentDayId={day?.id}
                 onSwitchWidget={setWidgetIndex}
                 onOpenReport={() => setShowReportModal(true)}
+                onOpenCommunity={() => setShowCommunityModal(true)}
               />
             </div>
           )}
@@ -776,6 +786,8 @@ export function MyPlanOverview({
                     isStandalone={isStandalone}
                     isProgramOnly={!isStandalone}
                     isFeatureLocked={isFeatureLocked}
+                    extraTotalTasks={isStandalone ? programTodayTotalTasks : 0}
+                    extraCompletedTasks={isStandalone ? programTodayCompletedTasks : 0}
                     activities={activities}
                     checks={checks}
                     initialDone={initialDone}
@@ -856,7 +868,6 @@ export function MyPlanOverview({
                         >
                           {(
                             [
-                              { key: "all", label: isId ? "Semua" : "All" },
                               { key: "todo", label: isId ? "Belum" : "To Do" },
                               { key: "done", label: isId ? "Selesai" : "Done" },
                             ] as const
@@ -944,12 +955,9 @@ export function MyPlanOverview({
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
                                 </div>
 
-                                {/* Top Row: Day pill (Left) & High-Contrast Status Pill (Right) */}
+                                {/* Top Row: Plain Day text (no box/border) & High-Contrast Status Pill (Right) */}
                                 <div className="relative z-10 flex items-center justify-between gap-2 w-full">
-                                  <span
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[10px] font-mono font-semibold text-white/95"
-                                    style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-                                  >
+                                  <span className="text-[11px] font-mono font-semibold text-white/90 drop-shadow-xs truncate">
                                     {prog.isUpcoming
                                       ? dayTypeLabel
                                       : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}

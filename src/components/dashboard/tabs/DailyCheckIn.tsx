@@ -249,12 +249,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     ? 0
     : customTasksList.filter((ct) => Boolean(ct.submission)).length;
   const includeStepsTile = !isProgramOnly;
+  const programExtraTotal =
+    isStandalone && isSelectedToday ? Math.max(0, props.extraTotalTasks ?? 0) : 0;
+  const programExtraCompleted =
+    isStandalone && isSelectedToday
+      ? Math.max(0, Math.min(programExtraTotal, props.extraCompletedTasks ?? 0))
+      : 0;
   const totalTasks =
     activeCoreTaskEntries.length +
     (includeStepsTile ? 1 : 0) +
-    (isStandalone ? 0 : customTasksList.length);
+    (isStandalone ? programExtraTotal : customTasksList.length);
   const completedTasks =
-    coreDoneCount + (includeStepsTile && stepsDone ? 1 : 0) + customDoneCount;
+    coreDoneCount +
+    (includeStepsTile && stepsDone ? 1 : 0) +
+    (isStandalone ? programExtraCompleted : customDoneCount);
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
