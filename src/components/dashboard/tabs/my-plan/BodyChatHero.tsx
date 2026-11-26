@@ -44,16 +44,10 @@ const BuddyCharacter = memo(function BuddyCharacter({ mood }: { mood: Mood }) {
   const fillFace = "fill-white dark:fill-zinc-900";
   const strokeFace = "stroke-white dark:stroke-zinc-900";
   return (
-    <svg viewBox="0 0 100 100" className="h-24 sm:h-28 w-auto select-none" aria-hidden="true">
+    <svg viewBox="0 0 100 100" className="h-20 sm:h-24 w-auto select-none" aria-hidden="true">
       <g className="buddy-bob">
-        {/* Feet */}
-        <ellipse cx="34" cy="93" rx="9" ry="5" className={fillBody} />
-        <ellipse cx="66" cy="93" rx="9" ry="5" className={fillBody} />
-        {/* Body */}
-        <path
-          d="M50 6 C78 6 93 28 93 54 C93 78 77 91 50 91 C23 91 7 78 7 54 C7 28 22 6 50 6 Z"
-          className={fillBody}
-        />
+        {/* Head only */}
+        <circle cx="50" cy="50" r="44" className={fillBody} />
         {/* Eyes (look around + blink) */}
         <g className="buddy-look">
           <g className="buddy-blink">
@@ -208,11 +202,15 @@ export function BodyChatHero({
 
   const mood: Mood = shown?.tone ?? "neutral";
   const canAnswer = Boolean(shown && shown.action !== "none" && !isFeatureLocked);
+  const bubbleVisible = Boolean(shown && entered && !leaving);
 
   return (
-    <section ref={rootRef} className="buddy w-full flex items-end gap-3 sm:gap-4 min-h-[112px]">
-      {/* Free-standing character (tap to make it hop) */}
-      <div key={shownId ?? "idle"} className={`shrink-0 ${shownId ? "buddy-pop" : ""}`}>
+    <section
+      ref={rootRef}
+      className="buddy w-full flex items-center justify-center min-h-[104px] sm:min-h-[116px] py-1"
+    >
+      {/* Free-standing character: centered when idle, glides smoothly left when talking (tap to hop) */}
+      <div className="shrink-0">
         <button
           type="button"
           onClick={() => setHopCount((c) => c + 1)}
@@ -225,16 +223,20 @@ export function BodyChatHero({
         </button>
       </div>
 
-      {/* Speech: soft tinted bubble, no border */}
-      <div className="min-w-0 flex-1 pb-3 min-h-[84px] flex items-center">
-        {shown ? (
+      {/* Speech: smoothly expands beside character when talking, collapses to 0 width when idle */}
+      <div
+        className={`min-w-0 overflow-hidden transition-[max-width,margin,opacity] duration-300 ease-out motion-reduce:transition-none ${
+          bubbleVisible
+            ? "flex-1 max-w-[480px] ml-3 sm:ml-4 opacity-100"
+            : "flex-none max-w-0 ml-0 opacity-0 pointer-events-none"
+        }`}
+      >
+        {shown && (
           <div
             key={shown.id}
             role="status"
             aria-live="polite"
-            className={`relative w-full rounded-2xl rounded-bl-sm bg-zinc-200/70 dark:bg-white/[0.07] px-3.5 py-3 space-y-2.5 transition duration-200 motion-reduce:transition-none ${
-              entered && !leaving ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
-            }`}
+            className="w-full min-w-[180px] rounded-2xl rounded-bl-sm bg-zinc-200/70 dark:bg-white/[0.07] px-3.5 py-3 space-y-2.5"
           >
             <p className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white leading-snug">
               {shown.message}
@@ -259,7 +261,7 @@ export function BodyChatHero({
               </div>
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </section>
   );
