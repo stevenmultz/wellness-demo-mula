@@ -392,3 +392,235 @@ export function formatShortDayDate(
     timeZone: "Asia/Jakarta",
   }).format(d);
 }
+
+export type BodyZone = "head" | "chest" | "core" | "legs" | "all";
+export type BodyHabitAction = "sleep" | "water" | "meal" | "steps" | "training" | "none";
+
+export interface BodySignal {
+  id: string;
+  zone: BodyZone;
+  action: BodyHabitAction;
+  tone: "attention" | "positive" | "neutral";
+  label: string;
+  message: string;
+  actionLabel?: string;
+  programId?: string;
+}
+
+const SLEEP_TARGET_MINS = 420; // 7h
+const WATER_TARGET_ML = 2000;
+const STEPS_TARGET = 7000;
+
+export function deriveBodySignals(params: {
+  day: PlanDay | null | undefined;
+  activePrograms: MyPlanIndexItem[];
+  isFeatureLocked: boolean;
+  isId: boolean;
+  wibHour?: number;
+}): BodySignal[] {
+  const { day, activePrograms, isFeatureLocked, isId } = params;
+
+  if (isFeatureLocked) {
+    return [
+      {
+        id: "locked",
+        zone: "all",
+        action: "none",
+        tone: "neutral",
+        label: isId ? "Dengarkan Tubuhmu" : "Listen to your body",
+        message: isId
+          ? "Aktifkan tracking untuk membaca sinyal tidur, air, makan, dan langkah harianmu."
+          : "Unlock tracking to hear daily signals for sleep, water, food, and steps.",
+      },
+    ];
+  }
+
+  const progress = day?.userProgress;
+  const sleepMins =
+    progress?.sleepDurationMinutes && progress.sleepDurationMinutes > 0
+      ? progress.sleepDurationMinutes
+      : computeSafeSleepMinutes(progress?.bedtime, progress?.wakeTime);
+  const sleepLogged = isSleepLogged(progress?.bedtime, progress?.wakeTime);
+  const effectiveWaterMl =
+    progress?.waterMl !== undefined ? progress.waterMl : extractWaterMl(progress?.mealNotes);
+  const mealLogged = isMealLogged(progress?.mealCompliance);
+  const mealComplianceUpper = (progress?.mealCompliance || "").toUpperCase();
+  const mealOffTrack =
+    mealLogged &&
+    (mealComplianceUpper.includes("OFF") ||
+      mealComplianceUpper.includes("MISSED") ||
+      mealComplianceUpper.includes("POOR"));
+  const stepsCount = progress?.stepsCount ?? 0;
+
+  const pendingProgram = activePrograms.find(
+    (p) => !p.isUpcoming && !p.isCompleted && !p.todayCoreTaskDone
+  );
+
+  const candidates: Array<{ key: BodyHabitAction; signal: BodySignal }> = [];
+
+  // 1. Sleep (Head)
+  if (!sleepLogged) {
+    candidates.push({
+      key: "sleep",
+      signal: {
+        id: "sleep-unlogged",
+        zone: "head",
+        action: "sleep",
+        tone: "attention",
+        label: isId ? "Tidur" : "Sleep",
+        message: isId
+          ? "Kita perlu cek tidur semalam — seberapa segar tubuh kita hari ini?"
+          : "We need to check last night's sleep — how rested do we feel today?",
+        actionLabel: isId ? "Catat tidur" : "Log sleep",
+      },
+    });
+  } else if (sleepMins > 0 && sleepMins < SLEEP_TARGET_MINS) {
+    const hrs = (sleepMins / 60).toFixed(1).replace(/\.0$/, "");
+    candidates.push({
+      key: "sleep",
+      signal: {
+        id: "sleep-low",
+        zone: "head",
+        action: "sleep",
+        tone: "attention",
+        label: isId ? "Tidur" : "Sleep",
+        message: isId
+          ? `Kita butuh tidur lebih cukup — semalam baru ${hrs} jam. Targetkan 7 jam+ malam ini.`
+          : `We need more sleep — only ${hrs}h last night. Let's aim for 7h+ tonight.`,
+        actionLabel: isId ? "Lihat tidur" : "Review sleep",
+      },
+    });
+  }
+
+  // 2. Water (Core)
+  if (effectiveWaterMl < WATER_TARGET_ML) {
+    const remainingMl = WATER_TARGET_ML - effectiveWaterMl;
+    candidates.push({
+      key: "water",
+      signal: {
+        id: "water-low",
+        zone: "core",
+        action: "water",
+        tone: "attention",
+        label: isId ? "Air" : "Water",
+        message:
+          effectiveWaterMl === 0
+            ? isId
+              ? "Kita perlu minum lebih banyak air — yuk mulai dari segelas sekarang."
+              : "We need to drink more water — let's start with a glass right now."
+            : isId
+              ? `Kita perlu minum lebih banyak air — kurang ${remainingMl.toLocaleString()} ml lagi hari ini.`
+              : `We need to drink more water — ${remainingMl.toLocaleString()} ml left for today.`,
+        actionLabel: isId ? "Tambah air" : "Add water",
+      },
+    });
+  }
+
+  // 3. Meal (Core)
+  if (!mealLogged || mealOffTrack) {
+    candidates.push({
+      key: "meal",
+      signal: {
+        id: mealOffTrack ? "meal-offtrack" : "meal-unlogged",
+        zone: "core",
+        action: "meal",
+        tone: "attention",
+        label: isId ? "Makan" : "Food",
+        message: mealOffTrack
+          ? isId
+            ? "Kita perlu kontrol makanan — yuk seimbangkan porsi makan berikutnya."
+            : "We need to control your food — let's keep the next meal balanced."
+          : isId
+            ? "Kita perlu kontrol makanan hari ini — catat makanmu agar tetap on track."
+            : "We need to control your food — log today's meal to stay on track.",
+        actionLabel: isId ? "Catat makan" : "Log meal",
+      },
+    });
+  }
+
+  // 4. Steps (Legs)
+  if (stepsCount < STEPS_TARGET) {
+    const remainingSteps = STEPS_TARGET - stepsCount;
+    candidates.push({
+      key: "steps",
+      signal: {
+        id: "steps-low",
+        zone: "legs",
+        action: "steps",
+        tone: "attention",
+        label: isId ? "Langkah" : "Steps",
+        message:
+          stepsCount === 0
+            ? isId
+              ? "Kita butuh lebih banyak langkah — yuk jalan sebentar untuk gerakkan kaki."
+              : "We need more steps — let's get moving and stretch our legs."
+            : isId
+              ? `Kita butuh lebih banyak langkah — kurang ${remainingSteps.toLocaleString()} langkah lagi.`
+              : `We need more steps — ${remainingSteps.toLocaleString()} steps left to hit our goal.`,
+        actionLabel: isId ? "Tambah langkah" : "Add steps",
+      },
+    });
+  }
+
+  // 5. Program Training (Chest)
+  if (pendingProgram) {
+    const dt = (pendingProgram.todayDayType || "").toUpperCase();
+    const isRest = dt === "REST_DAY";
+    candidates.push({
+      key: "training",
+      signal: {
+        id: `program-${pendingProgram.programId}`,
+        zone: "chest",
+        action: "training",
+        tone: "attention",
+        label: isRest ? (isId ? "Pemulihan" : "Recovery") : isId ? "Latihan" : "Training",
+        message: isRest
+          ? isId
+            ? `Waktunya pemulihan — cek aktivitas istirahat di "${pendingProgram.title}".`
+            : `We need active recovery — check today's rest activity in "${pendingProgram.title}".`
+          : isId
+            ? `Tubuh siap bergerak — sesi hari ini di "${pendingProgram.title}" menunggu.`
+            : `We're ready to move — today's session in "${pendingProgram.title}" is waiting.`,
+        actionLabel: isId ? "Buka sesi" : "Open session",
+        programId: pendingProgram.programId,
+      },
+    });
+  }
+
+  if (candidates.length === 0) {
+    return [
+      {
+        id: "all-good",
+        zone: "all",
+        action: "none",
+        tone: "positive",
+        label: isId ? "Seimbang" : "Balanced",
+        message: isId
+          ? "Tubuh terasa bugar, terhidrasi, dan seimbang hari ini. Pertahankan!"
+          : "We're feeling strong, hydrated, and balanced today. Keep it up!",
+      },
+    ];
+  }
+
+  // Time-of-day smart ordering (WIB / UTC+7)
+  const wibHour =
+    typeof params.wibHour === "number"
+      ? params.wibHour
+      : Number(
+          new Intl.DateTimeFormat("en-GB", {
+            hour: "2-digit",
+            hour12: false,
+            timeZone: "Asia/Jakarta",
+          }).format(new Date())
+        ) || 12;
+
+  const order: BodyHabitAction[] =
+    wibHour < 11
+      ? ["sleep", "water", "training", "meal", "steps"]
+      : wibHour < 17
+        ? ["water", "meal", "training", "steps", "sleep"]
+        : ["steps", "water", "meal", "training", "sleep"];
+
+  candidates.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  return candidates.map((c) => c.signal);
+}

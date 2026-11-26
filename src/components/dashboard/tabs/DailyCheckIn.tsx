@@ -91,6 +91,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [step, setStep] = useState(0);
   const [openCustomTaskId, setOpenCustomTaskId] = useState<string | null>(null);
   const lastAutoOpenNonceRef = useRef<number>(0);
+  const lastAutoOpenHabitNonceRef = useRef<number>(0);
 
   const programDays = useMemo(() => {
     const list =
@@ -226,6 +227,34 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setCustomStepsInput("");
     setStepsModalOpen(true);
   };
+
+  useEffect(() => {
+    const req = props.autoOpenHabitRequest;
+    if (
+      !req ||
+      !req.nonce ||
+      req.nonce === lastAutoOpenHabitNonceRef.current ||
+      isFeatureLocked ||
+      isSelectedFuture
+    ) {
+      return;
+    }
+    lastAutoOpenHabitNonceRef.current = req.nonce;
+    if (req.habit === "steps") {
+      setDraftSteps(steps);
+      setShowCustomSteps(false);
+      setCustomStepsInput("");
+      setStepsModalOpen(true);
+      return;
+    }
+    const stepMap: Record<"sleep" | "meal" | "water", number> = {
+      sleep: 0,
+      meal: 2,
+      water: 3,
+    };
+    setStep(stepMap[req.habit]);
+    setDetailOpen(true);
+  }, [props.autoOpenHabitRequest, isFeatureLocked, isSelectedFuture, steps]);
 
   const handleAddDraftSteps = (inc: number) => {
     setDraftSteps((prev) => Math.max(0, Math.min(100000, prev + inc)));

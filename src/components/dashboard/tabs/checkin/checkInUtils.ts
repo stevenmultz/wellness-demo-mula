@@ -105,6 +105,10 @@ export interface DailyCheckInProps {
   extraTotalTasks?: number;
   extraCompletedTasks?: number;
   autoOpenProgramTaskNonce?: number;
+  autoOpenHabitRequest?: {
+    habit: "sleep" | "meal" | "water" | "steps";
+    nonce: number;
+  } | null;
 }
 
 export function getTasksForDay(dayType: string) {

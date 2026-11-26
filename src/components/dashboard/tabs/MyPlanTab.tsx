@@ -57,8 +57,11 @@ import { CohortPerformanceCard } from "./my-plan/CohortPerformanceCard";
 import { ProgramReportPageView } from "./my-plan/ProgramReportPageView";
 import { ProgramPreparationWidgets } from "./my-plan/ProgramPreparationWidgets";
 import {
+  deriveBodySignals,
   evaluateDayTaskState,
   formatStartsIn,
+  type BodySignal,
+  type BodyZone,
   type MyPlanIndexItem,
   type PlanDay,
   type PlanOption,
@@ -326,6 +329,11 @@ export function MyPlanOverview({
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "online" | "hybrid">("all");
   const [programStatusFilter, setProgramStatusFilter] = useState<"todo" | "done">("todo");
+  const [bodySignalIndex, setBodySignalIndex] = useState<number>(0);
+  const [habitOpenRequest, setHabitOpenRequest] = useState<{
+    habit: "sleep" | "meal" | "water" | "steps";
+    nonce: number;
+  } | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
@@ -511,6 +519,59 @@ export function MyPlanOverview({
   const totalProgramDays = program?.totalDays || program?.durationDays || fullProgramDays.length || 0;
   const displayDayNumber = currentDayNumber > 0 ? currentDayNumber : 1;
 
+  const bodySignals = useMemo(
+    () =>
+      deriveBodySignals({
+        day: activeSelectedDay,
+        activePrograms: activeEnrolledPrograms,
+        isFeatureLocked,
+        isId,
+      }),
+    [activeSelectedDay, activeEnrolledPrograms, isFeatureLocked, isId]
+  );
+
+  const safeBodySignalIndex =
+    bodySignals.length > 0 ? bodySignalIndex % bodySignals.length : 0;
+  const activeBodySignal = bodySignals[safeBodySignalIndex] ?? bodySignals[0];
+
+  const handleSelectBodyZone = (zone: BodyZone) => {
+    const idx = bodySignals.findIndex((s) => s.zone === zone);
+    if (idx >= 0) {
+      setBodySignalIndex(idx);
+    }
+  };
+
+  const handleTriggerBodySignal = (signal: BodySignal | undefined) => {
+    if (!signal || isFeatureLocked) return;
+    if (signal.action === "training" && signal.programId) {
+      (onOpenProgramTask || onOpenProgram)?.(signal.programId);
+      return;
+    }
+    if (
+      signal.action === "sleep" ||
+      signal.action === "water" ||
+      signal.action === "meal" ||
+      signal.action === "steps"
+    ) {
+      setWidgetIndex(1);
+      setHabitOpenRequest({ habit: signal.action, nonce: Date.now() });
+    }
+  };
+
+  const bodyZoneCoords: Record<Exclude<BodyZone, "all">, { cx: number; cy: number }> = {
+    head: { cx: 60, cy: 28 },
+    chest: { cx: 60, cy: 74 },
+    core: { cx: 60, cy: 104 },
+    legs: { cx: 60, cy: 162 },
+  };
+  const pendingBodyZones = Array.from(
+    new Set(
+      bodySignals
+        .filter((s) => s.tone === "attention" && s.zone !== "all")
+        .map((s) => s.zone as Exclude<BodyZone, "all">)
+    )
+  );
+
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
       {/* 0. Home Top Date Picker (Program Detail places Date Picker directly inside the Program Banner) */}
@@ -542,28 +603,154 @@ export function MyPlanOverview({
         </div>
       )}
 
-      {/* 1. Hero Visual: Simple Solid-Fill Human Body Silhouette (Home) vs Program Cover Banner (Program Detail) */}
+      {/* 1. Hero Visual: Interactive "Listen to your body" Silhouette + Signals (Home) vs Program Cover Banner (Program Detail) */}
       {isStandalone ? (
-        <section className="relative w-full rounded-3xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 min-h-[195px] sm:min-h-[215px] flex items-center justify-center p-5 sm:p-6 overflow-hidden">
-          {/* Subtle minimal concentric ring backdrop */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-zinc-300/60 dark:border-white/[0.08]" />
-            <div className="absolute w-52 h-52 sm:w-56 sm:h-56 rounded-full border border-zinc-300/35 dark:border-white/[0.04]" />
-          </div>
+        <section className="relative w-full rounded-3xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 min-h-[195px] sm:min-h-[215px] p-4 sm:p-6 overflow-hidden">
+          <div className="relative z-10 w-full h-full grid grid-cols-[96px_1fr] sm:grid-cols-[120px_1fr] gap-4 sm:gap-5 items-center">
+            {/* Left: Solid-Fill Human Body Silhouette with Interactive Hotspot Dots */}
+            <div className="relative flex items-center justify-center">
+              <div
+                className={`absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full pointer-events-none transition-colors duration-300 ${
+                  activeBodySignal?.tone === "positive"
+                    ? "bg-emerald-500/12 border border-emerald-500/25"
+                    : "border border-zinc-300/60 dark:border-white/[0.08]"
+                }`}
+              />
+              <svg
+                viewBox="0 0 120 220"
+                className="relative z-10 h-36 sm:h-40 w-auto text-zinc-900 dark:text-white select-none"
+                fill="currentColor"
+                role="img"
+                aria-label={isId ? "Visual tubuh" : "Body visual"}
+              >
+                {/* Head */}
+                <circle cx="60" cy="28" r="14.5" />
+                {/* Torso + Arms + Legs (clean solid fill silhouette) */}
+                <path d="M51 45 C51 47.5 47 49.5 40 51.5 C31 54 25.5 60.5 23.5 70.5 L17.5 112 C16.5 117.5 20 121 24.5 121 C28 121 30.5 118 31.5 112.5 L36.5 80 L38.5 80 L37 118 L34 196 C34 202.5 38 207 43.5 207 C48.5 207 51.5 202.5 52.5 196 L57.5 136 L62.5 136 L67.5 196 C68.5 202.5 71.5 207 76.5 207 C82 207 86 202.5 86 196 L83 118 L81.5 80 L83.5 80 L88.5 112.5 C89.5 118 92 121 95.5 121 C100 121 103.5 117.5 102.5 112 L96.5 70.5 C94.5 60.5 89 54 80 51.5 C73 49.5 69 47.5 69 45 Z" />
 
-          {/* Solid Fill Minimalist Human Body Silhouette (SVG) */}
-          <svg
-            viewBox="0 0 120 220"
-            className="relative z-10 h-40 sm:h-44 w-auto text-zinc-900 dark:text-white"
-            fill="currentColor"
-            role="img"
-            aria-label={isId ? "Visual tubuh" : "Body visual"}
-          >
-            {/* Head */}
-            <circle cx="60" cy="28" r="14.5" />
-            {/* Torso + Arms + Legs (clean solid fill silhouette) */}
-            <path d="M51 45 C51 47.5 47 49.5 40 51.5 C31 54 25.5 60.5 23.5 70.5 L17.5 112 C16.5 117.5 20 121 24.5 121 C28 121 30.5 118 31.5 112.5 L36.5 80 L38.5 80 L37 118 L34 196 C34 202.5 38 207 43.5 207 C48.5 207 51.5 202.5 52.5 196 L57.5 136 L62.5 136 L67.5 196 C68.5 202.5 71.5 207 76.5 207 C82 207 86 202.5 86 196 L83 118 L81.5 80 L83.5 80 L88.5 112.5 C89.5 118 92 121 95.5 121 C100 121 103.5 117.5 102.5 112 L96.5 70.5 C94.5 60.5 89 54 80 51.5 C73 49.5 69 47.5 69 45 Z" />
-          </svg>
+                {/* Interactive Hotspot Beacons for Body Areas */}
+                {!isFeatureLocked &&
+                  pendingBodyZones.map((zone) => {
+                    const { cx, cy } = bodyZoneCoords[zone];
+                    const isActiveZone = activeBodySignal?.zone === zone;
+                    return (
+                      <g
+                        key={zone}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Focus ${zone}`}
+                        onClick={() => handleSelectBodyZone(zone)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSelectBodyZone(zone);
+                          }
+                        }}
+                        className="cursor-pointer outline-none"
+                      >
+                        {isActiveZone && (
+                          <circle
+                            cx={cx}
+                            cy={cy}
+                            r="13"
+                            fill="var(--semantic-red-dot)"
+                            fillOpacity="0.28"
+                            className="animate-ping origin-center"
+                            style={{ transformBox: "fill-box" }}
+                          />
+                        )}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={isActiveZone ? "7" : "4.5"}
+                          fill="var(--semantic-red-dot)"
+                          stroke="#ffffff"
+                          strokeWidth={isActiveZone ? "2.5" : "1.8"}
+                        />
+                      </g>
+                    );
+                  })}
+              </svg>
+            </div>
+
+            {/* Right: "Listen to your body" Message Bubble + Direct Task Action */}
+            <div className="min-w-0 flex flex-col justify-between gap-3">
+              {/* Top Eyebrow & Pager */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="inline-flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      activeBodySignal?.tone === "positive"
+                        ? "bg-[var(--semantic-green)]"
+                        : activeBodySignal?.tone === "attention"
+                          ? "bg-[var(--semantic-red-dot)]"
+                          : "bg-zinc-400"
+                    }`}
+                  />
+                  <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate">
+                    {isId ? "Dengarkan Tubuhmu" : "Listen to your body"}
+                  </span>
+                </div>
+
+                {bodySignals.length > 1 && (
+                  <div className="inline-flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums mr-0.5">
+                      {safeBodySignalIndex + 1}/{bodySignals.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBodySignalIndex(
+                          (prev) => (prev - 1 + bodySignals.length) % bodySignals.length
+                        )
+                      }
+                      aria-label={isId ? "Pesan sebelumnya" : "Previous body message"}
+                      className="w-6 h-6 rounded-full bg-white/80 dark:bg-white/[0.08] hover:bg-white dark:hover:bg-white/[0.14] border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-200 transition active:scale-95 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBodySignalIndex((prev) => (prev + 1) % bodySignals.length)
+                      }
+                      aria-label={isId ? "Pesan berikutnya" : "Next body message"}
+                      className="w-6 h-6 rounded-full bg-white/80 dark:bg-white/[0.08] hover:bg-white dark:hover:bg-white/[0.14] border border-zinc-200/80 dark:border-white/10 flex items-center justify-center text-zinc-700 dark:text-zinc-200 transition active:scale-95 cursor-pointer"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Body Message Speech Bubble */}
+              <div className="rounded-2xl bg-white/85 dark:bg-zinc-900/70 border border-zinc-200/70 dark:border-white/10 px-3.5 py-3 shadow-xs space-y-2.5">
+                <p className="text-xs sm:text-sm font-geometric font-semibold text-zinc-950 dark:text-white leading-snug">
+                  “{activeBodySignal?.message}”
+                </p>
+
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <span className="text-[10px] font-mono font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                    {activeBodySignal?.label}
+                  </span>
+
+                  {activeBodySignal &&
+                    activeBodySignal.action !== "none" &&
+                    activeBodySignal.actionLabel &&
+                    !isFeatureLocked && (
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerBodySignal(activeBodySignal)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer shrink-0"
+                      >
+                        <span>{activeBodySignal.actionLabel}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       ) : (
         <section className="relative w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
@@ -799,6 +986,7 @@ export function MyPlanOverview({
                     extraTotalTasks={isStandalone ? programTodayTotalTasks : 0}
                     extraCompletedTasks={isStandalone ? programTodayCompletedTasks : 0}
                     autoOpenProgramTaskNonce={!isStandalone ? autoOpenTaskNonce : 0}
+                    autoOpenHabitRequest={isStandalone ? habitOpenRequest : null}
                     activities={activities}
                     checks={checks}
                     initialDone={initialDone}
