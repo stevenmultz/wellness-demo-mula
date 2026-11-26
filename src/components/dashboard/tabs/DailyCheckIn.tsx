@@ -144,6 +144,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   );
 
   const isStandalone = Boolean(props.isStandalone);
+  const isProgramOnly = Boolean(props.isProgramOnly);
   const isFeatureLocked = Boolean(props.isFeatureLocked);
   const selectedLocked = isFeatureLocked
     ? true
@@ -240,13 +241,20 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const stepsDone = steps > 0 || Boolean(selectedDay.userProgress?.isCompleted);
   const activeCoreTaskEntries = tasks
     .map((t, index) => ({ t, index }))
-    .filter(({ index }) => (!isStandalone ? true : index !== 1));
+    .filter(({ index }) =>
+      isProgramOnly ? index === 1 : isStandalone ? index !== 1 : true
+    );
   const coreDoneCount = activeCoreTaskEntries.filter(({ index }) => selectedDone[index]).length;
   const customDoneCount = isStandalone
     ? 0
     : customTasksList.filter((ct) => Boolean(ct.submission)).length;
-  const totalTasks = activeCoreTaskEntries.length + 1 + (isStandalone ? 0 : customTasksList.length);
-  const completedTasks = coreDoneCount + (stepsDone ? 1 : 0) + customDoneCount;
+  const includeStepsTile = !isProgramOnly;
+  const totalTasks =
+    activeCoreTaskEntries.length +
+    (includeStepsTile ? 1 : 0) +
+    (isStandalone ? 0 : customTasksList.length);
+  const completedTasks =
+    coreDoneCount + (includeStepsTile && stepsDone ? 1 : 0) + customDoneCount;
   const progressPct =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -415,16 +423,23 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         onOpen: () => openDetail(index),
       };
     }),
-    {
-      key: "core-daily-steps",
-      title: "Steps",
-      durationLabel: "1 min",
-      isDone: stepsDone,
-      Icon: FillFootprintsIcon,
-      disabled: isFeatureLocked || isSelectedFuture || (selectedLocked && !isSelectedPast && !stepsDone),
-      onOpen: openStepsModal,
-    },
-    ...(props.onLogSelfBodyWeight
+    ...(includeStepsTile
+      ? [
+          {
+            key: "core-daily-steps",
+            title: "Steps",
+            durationLabel: "1 min",
+            isDone: stepsDone,
+            Icon: FillFootprintsIcon,
+            disabled:
+              isFeatureLocked ||
+              isSelectedFuture ||
+              (selectedLocked && !isSelectedPast && !stepsDone),
+            onOpen: openStepsModal,
+          },
+        ]
+      : []),
+    ...(!isProgramOnly && props.onLogSelfBodyWeight
       ? [
           {
             key: "core-body-weight",

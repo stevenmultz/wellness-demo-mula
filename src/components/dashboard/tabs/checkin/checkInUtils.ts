@@ -100,6 +100,7 @@ export interface DailyCheckInProps {
   selectedDayId?: string;
   onSelectDayId?: (dayId: string) => void;
   isStandalone?: boolean;
+  isProgramOnly?: boolean;
   isFeatureLocked?: boolean;
 }
 

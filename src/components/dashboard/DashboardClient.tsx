@@ -655,9 +655,7 @@ export function DashboardClient({
     }
     return count;
   }, [activeEnrollments, programById, todayWibDateKey]);
-  const showStandaloneNoProgram =
-    activeEnrollments.length === 0 &&
-    myPlanView === "intro";
+  const showHomeHub = myPlanView === "intro";
 
   const standaloneDays = useMemo<PlanDay[]>(() => {
     const base = parseWibDateKey(todayWibDateKey);
@@ -786,8 +784,17 @@ export function DashboardClient({
     );
     const isUpcoming =
       !isCompleted && isCohortUpcoming(e.startDate || fullProg?.startDate, locType);
+    const resolvedLiveDay =
+      liveDay && e.programId === currentProgram?.id ? overlayDay(liveDay) : liveDay;
+    const liveEval =
+      !isCompleted && !isUpcoming && resolvedLiveDay
+        ? evaluateDayTaskState(resolvedLiveDay)
+        : null;
     const pendingTasksCount =
-      !isCompleted && !isUpcoming && liveDay ? evaluateDayTaskState(liveDay).pendingTasksCount : 0;
+      liveEval && resolvedLiveDay
+        ? (!liveEval.initialDone[1] ? 1 : 0) +
+          (resolvedLiveDay.customTasks ?? []).filter((ct) => !ct.submission).length
+        : 0;
     return {
       programId: e.programId,
       title: e.title,
@@ -944,10 +951,9 @@ export function DashboardClient({
       {/* Main Content Area with safe-area spacing below seamless top header and above bottom dock */}
       <main
         style={{
-          paddingTop:
-            (activeTab === "my_plan" && myPlanView === "detail") || isFullBleedFirstPage
-              ? "0px"
-              : "calc(4.5rem + env(safe-area-inset-top))",
+          paddingTop: isFullBleedFirstPage
+            ? "0px"
+            : "calc(4.5rem + env(safe-area-inset-top))",
           paddingBottom: isFullBleedFirstPage
             ? "0px"
             : "calc(3.5rem + env(safe-area-inset-bottom, 0px))",
@@ -982,7 +988,7 @@ export function DashboardClient({
         )}
 
         <div className={activeTab === "my_plan" ? "flex-1 flex flex-col" : "hidden"} hidden={activeTab !== "my_plan"}>
-          {showStandaloneNoProgram ? (
+          {showHomeHub ? (
             <MyPlanOverview
               isStandalone
               isSubscribed={resolvedTrackingAccess.canWriteDailyLogs}
@@ -990,6 +996,19 @@ export function DashboardClient({
               trackingPassPlans={trackingPassPlans}
               onSelectTrackingPass={handleOpenTrackingPassCheckout}
               checkoutLoadingPlanId={passCheckoutLoadingId}
+              enrolledPrograms={myPlanIndexItems}
+              onOpenProgram={(programId) => {
+                setLastMyPlanPage("intro");
+                setSelectedProgId(programId);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onViewAllPrograms={() => {
+                setLastMyPlanPage("intro");
+                setMyPlanView("all");
+                window.scrollTo({ top: 0 });
+              }}
               program={null}
               plan={null}
               day={standaloneTodayDay}

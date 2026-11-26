@@ -6,11 +6,14 @@ import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   ArrowRight,
   Calendar,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
+  Dumbbell,
   ExternalLink,
+  Heart,
   Loader2,
   Lock,
   Shield,
@@ -111,7 +114,11 @@ export function MyPlanHeader({
 }) {
   const { t } = useLocale();
   const isListSubPage =
-    mode === "all" || mode === "ongoing" || mode === "upcoming" || mode === "done";
+    mode === "all" ||
+    mode === "ongoing" ||
+    mode === "upcoming" ||
+    mode === "done" ||
+    mode === "detail";
 
   return (
     <FloatingHeader visible={visible} transparent={overlay}>
@@ -183,6 +190,8 @@ export function MyPlanOverview({
   onSelectTrackingPass,
   checkoutLoadingPlanId,
   globalMonthlyDays,
+  enrolledPrograms = [],
+  onOpenProgram,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -256,10 +265,13 @@ export function MyPlanOverview({
   onSelectTrackingPass?: (planId: string) => void;
   checkoutLoadingPlanId?: string | null;
   globalMonthlyDays?: PlanDay[];
+  enrolledPrograms?: MyPlanIndexItem[];
+  onOpenProgram?: (programId: string) => void;
 }) {
   const { locale, t } = useLocale();
   const isId = locale === "id";
-  const isFeatureLocked = isStandalone && !isSubscribed;
+  const activeEnrolledPrograms = enrolledPrograms.filter((p) => !p.isCompleted);
+  const isFeatureLocked = isStandalone && !isSubscribed && activeEnrolledPrograms.length === 0;
   const primaryPassPlan = trackingPassPlans[0] ?? null;
 
   const { checks, activities, initialDone, pendingTasksCount: rawPendingCount } = evaluateDayTaskState(day, checklist);
@@ -268,11 +280,15 @@ export function MyPlanOverview({
     (initialDone[2] ? 0 : 1) +
     (initialDone[3] ? 0 : 1) +
     ((day?.userProgress?.stepsCount ?? 0) > 0 ? 0 : 1);
+  const programTrainingPendingCount =
+    (day && !initialDone[1] ? 1 : 0) +
+    (day?.customTasks ?? []).filter((ct) => !ct.submission).length;
   const pendingTasksCount = isStandalone
     ? isFeatureLocked
       ? 0
       : standalonePendingCount
-    : rawPendingCount;
+    : programTrainingPendingCount;
+  void rawPendingCount;
 
   const currentDayNumber = day?.dayNumber || plan?.today?.dayNumber || 0;
   // Both HYBRID (from batch start) and ONLINE (from join date) obey WIB calendar drip windows
@@ -419,9 +435,10 @@ export function MyPlanOverview({
     touchStartYRef.current = null;
     // Only switch tabs on clear, deliberate horizontal swipes (not vertical scrolling)
     const minTab = isStandalone ? 1 : 0;
+    const maxTab = isStandalone ? 2 : 1;
     if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
       if (deltaX < -80) {
-        setWidgetIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
+        setWidgetIndex((prev) => (prev < maxTab ? ((prev + 1) as 0 | 1 | 2) : prev));
       } else if (deltaX > 80) {
         setWidgetIndex((prev) => (prev > minTab ? ((prev - 1) as 0 | 1 | 2) : prev));
       }
@@ -437,9 +454,8 @@ export function MyPlanOverview({
     : isUpcoming
       ? ([{ index: 0 as const, label: t.myPlan.subtabGuides, count: 0 }] as const)
       : ([
+          { index: 1 as const, label: isId ? "Latihan" : "Training", count: pendingTasksCount },
           { index: 0 as const, label: t.myPlan.subtabGuides, count: 0 },
-          { index: 1 as const, label: t.myPlan.subtabTasks, count: pendingTasksCount },
-          { index: 2 as const, label: t.myPlan.subtabMetrics, count: 0 },
         ] as const);
 
   const displayName = (userName || "Member").trim() || "Member";
@@ -513,82 +529,78 @@ export function MyPlanOverview({
         )}
       </div>
 
-      {/* 1. Contained Image Banner (Program Banner vs Explore Program Banner when no active program) */}
+      {/* 1. Hero Visual: Simple Human Body Visual (Home) vs Program Cover Banner (Program Detail) */}
       {isStandalone ? (
-        <section className="relative w-full rounded-3xl bg-zinc-950 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="w-full h-full bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.14),_rgba(24,24,27,0.96)_60%)]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20" />
+        <section className="relative w-full rounded-3xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 min-h-[195px] sm:min-h-[215px] flex items-center justify-center p-5 sm:p-6 overflow-hidden">
+          {/* Subtle minimal concentric ring backdrop */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-zinc-300/60 dark:border-white/[0.08]" />
+            <div className="absolute w-52 h-52 sm:w-56 sm:h-56 rounded-full border border-zinc-300/35 dark:border-white/[0.04]" />
           </div>
 
-          {/* Top Row: Subscription Status Badge */}
-          <div className="relative z-10 flex items-center justify-between gap-2">
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[80%] min-w-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              {isSubscribed ? (
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              ) : (
-                <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              )}
-              <span className="text-[11px] font-mono font-semibold text-white truncate leading-tight">
-                {isSubscribed
+          {/* Minimalist Subscription / Active Badge (Top-Left) */}
+          <div className="absolute top-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/85 dark:bg-white/[0.07] border border-zinc-200/70 dark:border-white/10">
+            {!isFeatureLocked ? (
+              <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            ) : (
+              <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+            )}
+            <span className="text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 leading-none">
+              {!isFeatureLocked
+                ? activeEnrolledPrograms.length > 0
                   ? isId
-                    ? `Tracking Aktif · ${trackingAccess?.daysRemaining ?? 0}h`
-                    : `Active Pass · ${trackingAccess?.daysRemaining ?? 0}d left`
+                    ? `${activeEnrolledPrograms.length} Program Aktif`
+                    : `${activeEnrolledPrograms.length} Active ${activeEnrolledPrograms.length === 1 ? "Plan" : "Plans"}`
                   : isId
-                    ? "Belum Berlangganan"
-                    : "Not Subscribed"}
-              </span>
-            </div>
+                    ? `Pass Aktif · ${trackingAccess?.daysRemaining ?? 0}h`
+                    : `Active Pass · ${trackingAccess?.daysRemaining ?? 0}d`
+                : isId
+                  ? "Belum Berlangganan"
+                  : "Not Subscribed"}
+            </span>
           </div>
 
-          {/* Bottom Row: Explore Programs CTA */}
-          <div className="relative z-20 flex flex-col items-start gap-2.5 pt-6">
-            <div className="space-y-1 max-w-lg">
-              <h2 className="text-lg sm:text-xl font-geometric font-semibold tracking-tight text-white leading-snug">
-                {isId ? "Jelajahi Program Coach" : "Explore Coach Programs"}
-              </h2>
-              <p className="text-xs text-white/75 leading-relaxed">
-                {isId
-                  ? "Ikuti program latihan terstruktur dari coach pilihan — sudah termasuk bonus akses tracking harian."
-                  : "Join structured coach-led programs — includes bonus access to daily wellness tracking."}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <button
-                type="button"
-                onClick={onExplore}
-                className="px-4 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer shadow-sm"
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>{isId ? "Explore Program" : "Explore Programs"}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-
-              {!isSubscribed && primaryPassPlan && onSelectTrackingPass && (
-                <button
-                  type="button"
-                  disabled={checkoutLoadingPlanId === primaryPassPlan.id}
-                  onClick={() => onSelectTrackingPass(primaryPassPlan.id)}
-                  className="px-4 py-2 rounded-full bg-white/12 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer disabled:opacity-50"
-                >
-                  {checkoutLoadingPlanId === primaryPassPlan.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                  <span>
-                    {isId
-                      ? `Subscribe Pass · Rp ${primaryPassPlan.price.toLocaleString("id-ID")}`
-                      : `Subscribe Pass · Rp ${primaryPassPlan.price.toLocaleString("id-ID")}`}
-                  </span>
-                </button>
-              )}
-            </div>
-          </div>
+          {/* Clean Minimalist Human Body Silhouette (SVG) */}
+          <svg
+            viewBox="0 0 120 220"
+            className="relative z-10 h-40 sm:h-44 w-auto text-zinc-900 dark:text-white/90"
+            fill="none"
+            role="img"
+            aria-label={isId ? "Visual tubuh" : "Body visual"}
+          >
+            {/* Head */}
+            <circle
+              cx="60"
+              cy="28"
+              r="14"
+              fill="currentColor"
+              fillOpacity="0.12"
+              stroke="currentColor"
+              strokeWidth="2.4"
+            />
+            {/* Neck & Shoulders + Torso + Arms + Legs (minimal continuous silhouette) */}
+            <path
+              d="M52 44 C52 47 48 49 41 51 C32 53 26 60 24 70 L18 112 C17 117 20 120 24 120 C27 120 30 117 31 112 L36 78 L38 78 L37 118 L34 196 C34 202 38 206 43 206 C48 206 51 202 52 196 L57 136 L63 136 L68 196 C69 202 72 206 77 206 C82 206 86 202 86 196 L83 118 L82 78 L84 78 L89 112 C90 117 93 120 96 120 C100 120 103 117 102 112 L96 70 C94 60 88 53 79 51 C72 49 68 47 68 44"
+              fill="currentColor"
+              fillOpacity="0.1"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Subtle center alignment line */}
+            <line
+              x1="60"
+              y1="56"
+              x2="60"
+              y2="122"
+              stroke="currentColor"
+              strokeOpacity="0.22"
+              strokeWidth="1.5"
+              strokeDasharray="3 4"
+              strokeLinecap="round"
+            />
+          </svg>
         </section>
       ) : (
         <section className="relative w-full rounded-3xl bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-white/10 min-h-[195px] sm:min-h-[225px] flex flex-col justify-between p-4 sm:p-6 text-white">
@@ -726,7 +738,7 @@ export function MyPlanOverview({
             role="tablist"
             aria-label="Program sections"
             className={`rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10 grid gap-1 ${
-              isUpcoming ? "grid-cols-1" : isStandalone ? "grid-cols-2" : "grid-cols-3"
+              isUpcoming ? "grid-cols-1" : "grid-cols-2"
             }`}
           >
             {subtabs.map(({ index, label, count }) => {
@@ -782,7 +794,138 @@ export function MyPlanOverview({
 
           {!isUpcoming && (
             <>
-              <div className={activeWidget === 1 ? "block" : "hidden"}>
+              <div className={activeWidget === 1 ? "block space-y-5" : "hidden"}>
+                {/* Home Training Section: 1 widget card per enrolled program (or Explore CTA if none) */}
+                {isStandalone && (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 px-0.5">
+                      <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                        {isId ? "Latihan Program" : "Training"}
+                      </span>
+                      {enrolledPrograms.length > 0 && onViewAllPrograms && (
+                        <button
+                          type="button"
+                          onClick={onViewAllPrograms}
+                          className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white inline-flex items-center gap-0.5 transition cursor-pointer"
+                        >
+                          <span>{isId ? "Semua" : "All"}</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {activeEnrolledPrograms.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {activeEnrolledPrograms.map((prog) => {
+                          const dayType = (prog.todayDayType || "").toUpperCase();
+                          const isRest = dayType === "REST_DAY";
+                          const isConnect = dayType !== "TRAINING_DAY" && dayType !== "REST_DAY" && Boolean(dayType);
+                          const DayIcon = isRest ? Heart : isConnect ? Users : Dumbbell;
+                          const dayTypeLabel = prog.isUpcoming
+                            ? isId
+                              ? "Segera Dimulai"
+                              : "Upcoming"
+                            : isRest
+                              ? isId
+                                ? "Hari Istirahat"
+                                : "Rest Day"
+                              : isConnect
+                                ? isId
+                                  ? "Hari Pertemuan"
+                                  : "Connect Day"
+                                : isId
+                                  ? "Hari Latihan"
+                                  : "Training Day";
+                          const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
+                          const isDoneToday = !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
+
+                          return (
+                            <button
+                              key={prog.programId}
+                              type="button"
+                              onClick={() => onOpenProgram?.(prog.programId)}
+                              className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07] border border-zinc-200/60 dark:border-white/10 p-3.5 sm:p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99] cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-zinc-900 dark:bg-white/10 text-white shrink-0 flex items-center justify-center">
+                                  {prog.coverImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={prog.coverImage}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <DayIcon className="w-5 h-5" />
+                                  )}
+                                  {hasPending && (
+                                    <span
+                                      aria-label="Pending training"
+                                      className="semantic-badge-box absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                                    />
+                                  )}
+                                  {isDoneToday && (
+                                    <span
+                                      aria-label="Completed"
+                                      className="semantic-badge-box absolute top-1 right-1 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center"
+                                    >
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="min-w-0 space-y-0.5">
+                                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate leading-snug">
+                                    {prog.title}
+                                  </p>
+                                  <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+                                    {prog.isUpcoming
+                                      ? dayTypeLabel
+                                      : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onExplore}
+                        className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07] border border-zinc-200/60 dark:border-white/10 p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99] cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-10 h-10 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 flex items-center justify-center shrink-0">
+                            <Compass className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                              {isId ? "Jelajahi Program Training" : "Explore Training Programs"}
+                            </p>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                              {isId
+                                ? "Belum ada program aktif · Ikuti program coach pilihan"
+                                : "No active programs · Discover guided coach cohorts"}
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {isStandalone && (
+                  <div className="px-0.5 pt-1">
+                    <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                      {isId ? "Kebiasaan Harian" : "Daily Habits"}
+                    </span>
+                  </div>
+                )}
+
                 {day ? (
                   <DailyCheckIn
                     key={day.id}
@@ -797,6 +940,7 @@ export function MyPlanOverview({
                     locked={isFeatureLocked ? true : locked}
                     isAnytime={!hasCalendarSchedule}
                     isStandalone={isStandalone}
+                    isProgramOnly={!isStandalone}
                     isFeatureLocked={isFeatureLocked}
                     activities={activities}
                     checks={checks}
