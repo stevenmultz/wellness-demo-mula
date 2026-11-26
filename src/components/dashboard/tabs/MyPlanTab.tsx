@@ -305,6 +305,7 @@ export function MyPlanOverview({
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "online" | "hybrid">("all");
+  const [programStatusFilter, setProgramStatusFilter] = useState<"all" | "todo" | "done">("all");
   const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
   useEffect(() => {
     if (day?.id) {
@@ -475,10 +476,18 @@ export function MyPlanOverview({
           : "Community Session & Cohort Check-In");
 
   const filteredActivePrograms = activeEnrolledPrograms.filter((prog) => {
-    if (programTypeFilter === "all") return true;
-    const loc = (prog.locationType || "ONLINE").toUpperCase();
-    if (programTypeFilter === "online") return loc === "ONLINE";
-    return loc === "HYBRID" || loc === "ONSITE";
+    if (programTypeFilter !== "all") {
+      const loc = (prog.locationType || "ONLINE").toUpperCase();
+      if (programTypeFilter === "online" && loc !== "ONLINE") return false;
+      if (programTypeFilter === "hybrid" && loc !== "HYBRID" && loc !== "ONSITE") return false;
+    }
+    if (programStatusFilter !== "all") {
+      const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
+      const isDoneToday = !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
+      if (programStatusFilter === "todo" && !hasPending) return false;
+      if (programStatusFilter === "done" && !isDoneToday) return false;
+    }
+    return true;
   });
 
   const displayName = (userName || "Member").trim() || "Member";
@@ -516,7 +525,7 @@ export function MyPlanOverview({
         </div>
       )}
 
-      {/* 1. Hero Visual: Simple Human Body Visual (Home) vs Program Cover Banner (Program Detail) */}
+      {/* 1. Hero Visual: Simple Solid-Fill Human Body Silhouette (Home) vs Program Cover Banner (Program Detail) */}
       {isStandalone ? (
         <section className="relative w-full rounded-3xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/70 dark:border-white/10 min-h-[195px] sm:min-h-[215px] flex items-center justify-center p-5 sm:p-6 overflow-hidden">
           {/* Subtle minimal concentric ring backdrop */}
@@ -525,68 +534,18 @@ export function MyPlanOverview({
             <div className="absolute w-52 h-52 sm:w-56 sm:h-56 rounded-full border border-zinc-300/35 dark:border-white/[0.04]" />
           </div>
 
-          {/* Minimalist Subscription / Active Badge (Top-Left) */}
-          <div className="absolute top-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/85 dark:bg-white/[0.07] border border-zinc-200/70 dark:border-white/10">
-            {!isFeatureLocked ? (
-              <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            ) : (
-              <Lock className="w-3 h-3 text-amber-500 shrink-0" />
-            )}
-            <span className="text-[10px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 leading-none">
-              {!isFeatureLocked
-                ? activeEnrolledPrograms.length > 0
-                  ? isId
-                    ? `${activeEnrolledPrograms.length} Program Aktif`
-                    : `${activeEnrolledPrograms.length} Active ${activeEnrolledPrograms.length === 1 ? "Plan" : "Plans"}`
-                  : isId
-                    ? `Pass Aktif · ${trackingAccess?.daysRemaining ?? 0}h`
-                    : `Active Pass · ${trackingAccess?.daysRemaining ?? 0}d`
-                : isId
-                  ? "Belum Berlangganan"
-                  : "Not Subscribed"}
-            </span>
-          </div>
-
-          {/* Clean Minimalist Human Body Silhouette (SVG) */}
+          {/* Solid Fill Minimalist Human Body Silhouette (SVG) */}
           <svg
             viewBox="0 0 120 220"
-            className="relative z-10 h-40 sm:h-44 w-auto text-zinc-900 dark:text-white/90"
-            fill="none"
+            className="relative z-10 h-40 sm:h-44 w-auto text-zinc-900 dark:text-white"
+            fill="currentColor"
             role="img"
             aria-label={isId ? "Visual tubuh" : "Body visual"}
           >
             {/* Head */}
-            <circle
-              cx="60"
-              cy="28"
-              r="14"
-              fill="currentColor"
-              fillOpacity="0.12"
-              stroke="currentColor"
-              strokeWidth="2.4"
-            />
-            {/* Neck & Shoulders + Torso + Arms + Legs (minimal continuous silhouette) */}
-            <path
-              d="M52 44 C52 47 48 49 41 51 C32 53 26 60 24 70 L18 112 C17 117 20 120 24 120 C27 120 30 117 31 112 L36 78 L38 78 L37 118 L34 196 C34 202 38 206 43 206 C48 206 51 202 52 196 L57 136 L63 136 L68 196 C69 202 72 206 77 206 C82 206 86 202 86 196 L83 118 L82 78 L84 78 L89 112 C90 117 93 120 96 120 C100 120 103 117 102 112 L96 70 C94 60 88 53 79 51 C72 49 68 47 68 44"
-              fill="currentColor"
-              fillOpacity="0.1"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {/* Subtle center alignment line */}
-            <line
-              x1="60"
-              y1="56"
-              x2="60"
-              y2="122"
-              stroke="currentColor"
-              strokeOpacity="0.22"
-              strokeWidth="1.5"
-              strokeDasharray="3 4"
-              strokeLinecap="round"
-            />
+            <circle cx="60" cy="28" r="14.5" />
+            {/* Torso + Arms + Legs (clean solid fill silhouette) */}
+            <path d="M51 45 C51 47.5 47 49.5 40 51.5 C31 54 25.5 60.5 23.5 70.5 L17.5 112 C16.5 117.5 20 121 24.5 121 C28 121 30.5 118 31.5 112.5 L36.5 80 L38.5 80 L37 118 L34 196 C34 202.5 38 207 43.5 207 C48.5 207 51.5 202.5 52.5 196 L57.5 136 L62.5 136 L67.5 196 C68.5 202.5 71.5 207 76.5 207 C82 207 86 202.5 86 196 L83 118 L81.5 80 L83.5 80 L88.5 112.5 C89.5 118 92 121 95.5 121 C100 121 103.5 117.5 102.5 112 L96.5 70.5 C94.5 60.5 89 54 80 51.5 C73 49.5 69 47.5 69 45 Z" />
           </svg>
         </section>
       ) : (
@@ -643,49 +602,14 @@ export function MyPlanOverview({
             </button>
           </div>
 
-          {/* Bottom Row: Today's Focus + Type/Sports + Boxed Day X of Y */}
-          <div className="relative z-20 flex flex-col items-start gap-2 pt-7">
-            <div className="space-y-0.5 max-w-full">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/70 block">
-                {isId ? "Fokus Hari Ini" : "Today's Focus"}
-              </span>
-              <h2 className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
-                {bannerTodayFocusTitle}
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                {(program?.locationType || "ONLINE").toUpperCase() === "HYBRID"
-                  ? "Hybrid"
-                  : (program?.locationType || "").toUpperCase() === "ONSITE"
-                    ? "Onsite"
-                    : "Online"}
-              </span>
-
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide shrink-0"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                {program?.category || (locale === "id" ? "Olahraga" : "Sports")}
-              </span>
-
-              <div
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold text-white/95 tracking-wide max-w-full"
-                style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-              >
-                <span className="whitespace-nowrap">
-                  {locale === "id"
-                    ? `Hari ke-${activeDayNum} dari ${Math.max(totalProgramDays, activeDayNum)}`
-                    : `Day ${activeDayNum} of ${Math.max(totalProgramDays, activeDayNum)}`}
-                </span>
-                <span className="text-white/50 select-none">·</span>
-                <span className="truncate">{activeDayTypeLabel}</span>
-              </div>
-            </div>
+          {/* Bottom Row: Today's Focus only (clean & minimal) */}
+          <div className="relative z-20 flex flex-col items-start gap-1 pt-8">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-white/70 block">
+              {isId ? "Fokus Hari Ini" : "Today's Focus"}
+            </span>
+            <h2 className="text-base sm:text-lg font-geometric font-semibold text-white leading-snug line-clamp-2">
+              {bannerTodayFocusTitle}
+            </h2>
           </div>
         </section>
       )}
@@ -888,40 +812,74 @@ export function MyPlanOverview({
                   <EmptyState title={t.myPlan.noTasksToday} description={t.myPlan.noTasksTodayDesc} />
                 )}
 
-                {/* 3. Enrolled Programs List with inline All / Online / Hybrid filter (no separate All Programs page) */}
+                {/* 3. Enrolled Programs List with inline Mode (All/Online/Hybrid) & Status (All/To Do/Done) filters */}
                 {isStandalone && (
                   <div className="space-y-3 pt-1">
                     {activeEnrolledPrograms.length > 0 && (
-                      <div
-                        role="tablist"
-                        aria-label="Filter programs by mode"
-                        className="inline-flex items-center gap-1 rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10"
-                      >
-                        {(
-                          [
-                            { key: "all", label: isId ? "Semua" : "All" },
-                            { key: "online", label: "Online" },
-                            { key: "hybrid", label: "Hybrid" },
-                          ] as const
-                        ).map(({ key, label }) => {
-                          const active = programTypeFilter === key;
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              role="tab"
-                              aria-selected={active}
-                              onClick={() => setProgramTypeFilter(key)}
-                              className={`h-7 px-3 rounded-lg text-[11px] font-semibold transition active:scale-[0.98] cursor-pointer ${
-                                active
-                                  ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
-                                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div
+                          role="tablist"
+                          aria-label="Filter programs by mode"
+                          className="inline-flex items-center gap-1 rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10"
+                        >
+                          {(
+                            [
+                              { key: "all", label: isId ? "Semua" : "All" },
+                              { key: "online", label: "Online" },
+                              { key: "hybrid", label: "Hybrid" },
+                            ] as const
+                          ).map(({ key, label }) => {
+                            const active = programTypeFilter === key;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                role="tab"
+                                aria-selected={active}
+                                onClick={() => setProgramTypeFilter(key)}
+                                className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold transition active:scale-[0.98] cursor-pointer ${
+                                  active
+                                    ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
+                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div
+                          role="tablist"
+                          aria-label="Filter programs by status"
+                          className="inline-flex items-center gap-1 rounded-xl p-1 bg-zinc-200/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-white/10"
+                        >
+                          {(
+                            [
+                              { key: "all", label: isId ? "Semua" : "All" },
+                              { key: "todo", label: isId ? "Belum" : "To Do" },
+                              { key: "done", label: isId ? "Selesai" : "Done" },
+                            ] as const
+                          ).map(({ key, label }) => {
+                            const active = programStatusFilter === key;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                role="tab"
+                                aria-selected={active}
+                                onClick={() => setProgramStatusFilter(key)}
+                                className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold transition active:scale-[0.98] cursor-pointer ${
+                                  active
+                                    ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-xs"
+                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
@@ -929,115 +887,116 @@ export function MyPlanOverview({
                       filteredActivePrograms.length > 0 ? (
                         <div className="space-y-3">
                           {filteredActivePrograms.map((prog) => {
-                          const dayType = (prog.todayDayType || "").toUpperCase();
-                          const isRest = dayType === "REST_DAY";
-                          const isConnect =
-                            dayType !== "TRAINING_DAY" &&
-                            dayType !== "REST_DAY" &&
-                            Boolean(dayType);
-                          const dayTypeLabel = prog.isUpcoming
-                            ? isId
-                              ? "Segera Dimulai"
-                              : "Upcoming"
-                            : isRest
+                            const dayType = (prog.todayDayType || "").toUpperCase();
+                            const isRest = dayType === "REST_DAY";
+                            const isConnect =
+                              dayType !== "TRAINING_DAY" &&
+                              dayType !== "REST_DAY" &&
+                              Boolean(dayType);
+                            const dayTypeLabel = prog.isUpcoming
                               ? isId
-                                ? "Hari Istirahat"
-                                : "Rest Day"
-                              : isConnect
+                                ? "Segera Dimulai"
+                                : "Upcoming"
+                              : isRest
                                 ? isId
-                                  ? "Hari Pertemuan"
-                                  : "Connect Day"
-                                : isId
-                                  ? "Hari Latihan"
-                                  : "Training Day";
-                          const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
-                          const isDoneToday =
-                            !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
+                                  ? "Hari Istirahat"
+                                  : "Rest Day"
+                                : isConnect
+                                  ? isId
+                                    ? "Hari Pertemuan"
+                                    : "Connect Day"
+                                  : isId
+                                    ? "Hari Latihan"
+                                    : "Training Day";
+                            const hasPending = !prog.isUpcoming && (prog.pendingTasksCount ?? 0) > 0;
+                            const isDoneToday =
+                              !prog.isUpcoming && !hasPending && (prog.currentDayNumber || 0) > 0;
+                            const locLabel =
+                              (prog.locationType || "ONLINE").toUpperCase() === "HYBRID"
+                                ? "Hybrid"
+                                : (prog.locationType || "").toUpperCase() === "ONSITE"
+                                  ? "Onsite"
+                                  : "Online";
+                            const orgLabel = prog.organizationName || prog.coachName || "Community";
+                            const metaLine = [orgLabel, prog.category || null, locLabel]
+                              .filter(Boolean)
+                              .join(" · ");
 
-                          return (
-                            <button
-                              key={prog.programId}
-                              type="button"
-                              onClick={() => onOpenProgram?.(prog.programId)}
-                              className="group relative w-full min-h-[124px] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/70 dark:border-white/10 p-4 flex flex-col justify-between text-left text-white shadow-sm transition active:scale-[0.99] cursor-pointer"
-                            >
-                              {/* Full-bleed program cover image background */}
-                              <div className="absolute inset-0 pointer-events-none">
-                                {prog.coverImage ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={prog.coverImage}
-                                    alt=""
-                                    className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
-                              </div>
-
-                              {/* Top Row: Day pill (Left) & Status indicator (Right) */}
-                              <div className="relative z-10 flex items-center justify-between gap-2 w-full">
-                                <span
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[10px] font-mono font-semibold text-white/95"
-                                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-                                >
-                                  {prog.isUpcoming
-                                    ? dayTypeLabel
-                                    : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
-                                </span>
-
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  {hasPending && (
-                                    <span
-                                      aria-label="Pending training"
-                                      className="semantic-badge-box w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-black/40"
+                            return (
+                              <button
+                                key={prog.programId}
+                                type="button"
+                                onClick={() => onOpenProgram?.(prog.programId)}
+                                className="group relative w-full min-h-[124px] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/70 dark:border-white/10 p-4 flex flex-col justify-between text-left text-white shadow-sm transition active:scale-[0.99] cursor-pointer"
+                              >
+                                {/* Full-bleed program cover image background */}
+                                <div className="absolute inset-0 pointer-events-none">
+                                  {prog.coverImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={prog.coverImage}
+                                      alt=""
+                                      className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
                                     />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
                                   )}
-                                  {isDoneToday && (
-                                    <span
-                                      aria-label="Completed"
-                                      className="semantic-badge-box w-5 h-5 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center shadow-xs"
-                                    >
-                                      <Check className="w-3 h-3 stroke-[3]" />
-                                    </span>
-                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
                                 </div>
-                              </div>
 
-                              {/* Bottom Row: Program Title & Arrow */}
-                              <div className="relative z-10 flex items-end justify-between gap-3 pt-6 w-full">
-                                <div className="min-w-0 space-y-0.5">
+                                {/* Top Row: Day pill (Left) & High-Contrast Status Pill (Right) */}
+                                <div className="relative z-10 flex items-center justify-between gap-2 w-full">
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/15 text-[10px] font-mono font-semibold text-white/95"
+                                    style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
+                                  >
+                                    {prog.isUpcoming
+                                      ? dayTypeLabel
+                                      : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
+                                  </span>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {hasPending && (
+                                      <span
+                                        aria-label="To Do"
+                                        className="semantic-badge-box inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/95 text-zinc-950 text-[10px] font-mono font-bold shadow-sm"
+                                      >
+                                        <span className="w-2 h-2 rounded-full bg-[var(--semantic-red-dot)] shrink-0" />
+                                        <span>{isId ? "Belum" : "To Do"}</span>
+                                      </span>
+                                    )}
+                                    {isDoneToday && (
+                                      <span
+                                        aria-label="Done"
+                                        className="semantic-badge-box inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 text-zinc-950 text-[10px] font-mono font-bold shadow-sm"
+                                      >
+                                        <span className="w-3.5 h-3.5 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center shrink-0">
+                                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                        </span>
+                                        <span>{isId ? "Selesai" : "Done"}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Bottom Row: Program Title + Organization · Sports · Online/Hybrid (no arrow) */}
+                                <div className="relative z-10 pt-6 w-full min-w-0 space-y-0.5">
                                   <p className="text-base font-geometric font-semibold text-white truncate leading-snug">
                                     {prog.title}
                                   </p>
-                                  {(prog.organizationName || prog.coachName) && (
-                                    <p className="text-[11px] text-white/75 truncate">
-                                      {prog.organizationName || prog.coachName}
-                                    </p>
-                                  )}
+                                  <p className="text-[11px] font-mono text-white/80 truncate">
+                                    {metaLine}
+                                  </p>
                                 </div>
-
-                                <span
-                                  className="w-8 h-8 rounded-full backdrop-blur-md border border-white/20 text-white flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5"
-                                  style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-                                >
-                                  <ChevronRight className="w-4 h-4" />
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <div className="w-full rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 p-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                          {programTypeFilter === "online"
-                            ? isId
-                              ? "Belum ada program Online yang aktif."
-                              : "No active Online programs yet."
-                            : isId
-                              ? "Belum ada program Hybrid yang aktif."
-                              : "No active Hybrid programs yet."}
+                          {isId
+                            ? "Tidak ada program yang sesuai filter."
+                            : "No programs match the selected filter."}
                         </div>
                       )
                     ) : (

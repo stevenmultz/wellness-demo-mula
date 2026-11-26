@@ -807,6 +807,7 @@ export function DashboardClient({
       startDate: e.startDate,
       endDate: e.endDate,
       locationType: e.locationType || fullProg?.locationType,
+      category: fullProg?.category || null,
       city: e.city || fullProg?.city || null,
       isUpcoming,
       isCompleted,

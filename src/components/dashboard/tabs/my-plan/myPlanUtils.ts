@@ -84,6 +84,7 @@ export interface MyPlanIndexItem {
   startDate: Date | string | null;
   endDate: Date | string | null;
   locationType?: string;
+  category?: string | null;
   city?: string | null;
   dailyCommitment?: string | null;
   isUpcoming: boolean;
