@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -90,6 +90,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [openCustomTaskId, setOpenCustomTaskId] = useState<string | null>(null);
+  const lastAutoOpenNonceRef = useRef<number>(0);
 
   const programDays = useMemo(() => {
     const list =
@@ -162,6 +163,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setStep(index);
     setDetailOpen(true);
   };
+
+  useEffect(() => {
+    const nonce = props.autoOpenProgramTaskNonce ?? 0;
+    if (
+      isProgramOnly &&
+      nonce > 0 &&
+      nonce !== lastAutoOpenNonceRef.current &&
+      !isFeatureLocked &&
+      !isSelectedFuture
+    ) {
+      lastAutoOpenNonceRef.current = nonce;
+      setStep(1);
+      setDetailOpen(true);
+    }
+  }, [props.autoOpenProgramTaskNonce, isProgramOnly, isFeatureLocked, isSelectedFuture]);
 
   const markDone = (index: number) => {
     if (isSelectedToday) {

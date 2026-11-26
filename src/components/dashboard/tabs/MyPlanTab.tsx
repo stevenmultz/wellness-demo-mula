@@ -30,6 +30,12 @@ import type { TrackingPassPlanDTO } from "@/wellness/actions/tracking-pass";
 import { getWibCalendarDate } from "@/wellness/utils/timezone";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { DailyCheckIn } from "./DailyCheckIn";
+import {
+  FillDumbbellIcon,
+  FillHeartIcon,
+  FillLockIcon,
+  FillUsersIcon,
+} from "./sharedFillIcons";
 import { BodyProgressWidget, type BodyMetricPoint } from "./BodyProgressWidget";
 import {
   BrandWordmark,
@@ -193,6 +199,8 @@ export function MyPlanOverview({
   globalMonthlyDays,
   enrolledPrograms = [],
   onOpenProgram,
+  onOpenProgramTask,
+  autoOpenTaskNonce,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -268,6 +276,8 @@ export function MyPlanOverview({
   globalMonthlyDays?: PlanDay[];
   enrolledPrograms?: MyPlanIndexItem[];
   onOpenProgram?: (programId: string) => void;
+  onOpenProgramTask?: (programId: string) => void;
+  autoOpenTaskNonce?: number;
 }) {
   const { locale, t } = useLocale();
   const isId = locale === "id";
@@ -788,6 +798,7 @@ export function MyPlanOverview({
                     isFeatureLocked={isFeatureLocked}
                     extraTotalTasks={isStandalone ? programTodayTotalTasks : 0}
                     extraCompletedTasks={isStandalone ? programTodayCompletedTasks : 0}
+                    autoOpenProgramTaskNonce={!isStandalone ? autoOpenTaskNonce : 0}
                     activities={activities}
                     checks={checks}
                     initialDone={initialDone}
@@ -932,71 +943,149 @@ export function MyPlanOverview({
                             const metaLine = [orgLabel, prog.category || null, locLabel]
                               .filter(Boolean)
                               .join(" · ");
+                            const isCoreDone = Boolean(prog.todayCoreTaskDone);
+                            const isCorePending = !prog.isUpcoming && !isCoreDone;
+                            const TaskFillIcon = prog.isUpcoming
+                              ? FillLockIcon
+                              : isRest
+                                ? FillHeartIcon
+                                : isConnect
+                                  ? FillUsersIcon
+                                  : FillDumbbellIcon;
+                            const taskWidgetTitle = prog.isUpcoming
+                              ? isId
+                                ? "Segera"
+                                : "Upcoming"
+                              : isRest
+                                ? "Rest Activity"
+                                : isConnect
+                                  ? "Connect"
+                                  : "Online Training";
+                            const taskWidgetDuration = prog.isUpcoming
+                              ? isId
+                                ? "Terkunci"
+                                : "Locked"
+                              : isRest || isConnect
+                                ? "2 min"
+                                : "15 min";
 
                             return (
-                              <button
+                              <div
                                 key={prog.programId}
-                                type="button"
-                                onClick={() => onOpenProgram?.(prog.programId)}
-                                className="group relative w-full min-h-[124px] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/70 dark:border-white/10 p-4 flex flex-col justify-between text-left text-white shadow-sm transition active:scale-[0.99] cursor-pointer"
+                                className="w-full grid grid-cols-[124px_1fr] sm:grid-cols-[148px_1fr] gap-2.5 sm:gap-3 items-stretch"
                               >
-                                {/* Full-bleed program cover image background */}
-                                <div className="absolute inset-0 pointer-events-none">
-                                  {prog.coverImage ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={prog.coverImage}
-                                      alt=""
-                                      className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
-                                  )}
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
-                                </div>
-
-                                {/* Top Row: Plain Day text (no box/border) & High-Contrast Status Pill (Right) */}
-                                <div className="relative z-10 flex items-center justify-between gap-2 w-full">
-                                  <span className="text-[11px] font-mono font-semibold text-white/90 drop-shadow-xs truncate">
-                                    {prog.isUpcoming
-                                      ? dayTypeLabel
-                                      : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
-                                  </span>
-
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    {hasPending && (
-                                      <span
-                                        aria-label="To Do"
-                                        className="semantic-badge-box inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/95 text-zinc-950 text-[10px] font-mono font-bold shadow-sm"
-                                      >
-                                        <span className="w-2 h-2 rounded-full bg-[var(--semantic-red-dot)] shrink-0" />
-                                        <span>{isId ? "Belum" : "To Do"}</span>
-                                      </span>
-                                    )}
-                                    {isDoneToday && (
-                                      <span
-                                        aria-label="Done"
-                                        className="semantic-badge-box inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 text-zinc-950 text-[10px] font-mono font-bold shadow-sm"
-                                      >
-                                        <span className="w-3.5 h-3.5 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center shrink-0">
+                                {/* Left Side: Today's Program Task Tile (Direct 1-tap open to Training/Rest/Connect) */}
+                                <button
+                                  type="button"
+                                  disabled={prog.isUpcoming}
+                                  onClick={() =>
+                                    (onOpenProgramTask || onOpenProgram)?.(prog.programId)
+                                  }
+                                  aria-label={`${taskWidgetTitle} - ${prog.title}`}
+                                  className={`group relative w-full h-full min-h-[124px] rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between text-left border transition cursor-pointer disabled:cursor-default ${
+                                    isCoreDone
+                                      ? "opacity-65 bg-[#e4e4e1] dark:bg-white/[0.03] border-zinc-300/50 dark:border-white/5"
+                                      : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/60 dark:border-white/10 hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07]"
+                                  } ${prog.isUpcoming ? "opacity-60" : "active:scale-[0.98]"}`}
+                                >
+                                  <div className="w-full flex items-start">
+                                    <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
+                                      <TaskFillIcon
+                                        className={`w-6 h-6 ${
+                                          prog.isUpcoming ? "text-zinc-400 dark:text-zinc-500" : ""
+                                        }`}
+                                      />
+                                      {isCorePending && (
+                                        <span
+                                          aria-label="Not completed"
+                                          className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                                        />
+                                      )}
+                                      {isCoreDone && (
+                                        <span
+                                          aria-label="Completed"
+                                          className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
+                                        >
                                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                                         </span>
-                                        <span>{isId ? "Selesai" : "Done"}</span>
-                                      </span>
-                                    )}
+                                      )}
+                                    </span>
                                   </div>
-                                </div>
 
-                                {/* Bottom Row: Program Title + Organization · Sports · Online/Hybrid (no arrow) */}
-                                <div className="relative z-10 pt-6 w-full min-w-0 space-y-0.5">
-                                  <p className="text-base font-geometric font-semibold text-white truncate leading-snug">
-                                    {prog.title}
-                                  </p>
-                                  <p className="text-[11px] font-mono text-white/80 truncate">
-                                    {metaLine}
-                                  </p>
-                                </div>
-                              </button>
+                                  <div className="pt-3 w-full min-w-0 space-y-0.5">
+                                    <span className="block text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white leading-snug truncate w-full">
+                                      {taskWidgetTitle}
+                                    </span>
+                                    <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal truncate">
+                                      {taskWidgetDuration}
+                                    </span>
+                                  </div>
+                                </button>
+
+                                {/* Right Side: Program Card with Cover Image Background (Opens Program Detail) */}
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenProgram?.(prog.programId)}
+                                  className="group relative w-full min-h-[124px] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-200/70 dark:border-white/10 p-3.5 sm:p-4 flex flex-col justify-between text-left text-white shadow-sm transition active:scale-[0.99] cursor-pointer min-w-0"
+                                >
+                                  {/* Full-bleed program cover image background */}
+                                  <div className="absolute inset-0 pointer-events-none">
+                                    {prog.coverImage ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={prog.coverImage}
+                                        alt=""
+                                        className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+                                  </div>
+
+                                  {/* Top Row: Plain Day text (no box/border) & High-Contrast Status Pill (Right) */}
+                                  <div className="relative z-10 flex items-center justify-between gap-2 w-full">
+                                    <span className="text-[11px] font-mono font-semibold text-white/90 drop-shadow-xs truncate">
+                                      {prog.isUpcoming
+                                        ? dayTypeLabel
+                                        : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
+                                    </span>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {hasPending && (
+                                        <span
+                                          aria-label="To Do"
+                                          className="semantic-badge-box inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/95 text-zinc-950 text-[10px] font-mono font-bold shadow-sm"
+                                        >
+                                          <span className="w-2 h-2 rounded-full bg-[var(--semantic-red-dot)] shrink-0" />
+                                          <span>{isId ? "Belum" : "To Do"}</span>
+                                        </span>
+                                      )}
+                                      {isDoneToday && (
+                                        <span
+                                          aria-label="Done"
+                                          className="semantic-badge-box inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 text-zinc-950 text-[10px] font-mono font-bold shadow-sm"
+                                        >
+                                          <span className="w-3.5 h-3.5 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center shrink-0">
+                                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                          </span>
+                                          <span>{isId ? "Selesai" : "Done"}</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Bottom Row: Program Title + Organization · Sports · Online/Hybrid (no arrow) */}
+                                  <div className="relative z-10 pt-5 w-full min-w-0 space-y-0.5">
+                                    <p className="text-sm sm:text-base font-geometric font-semibold text-white truncate leading-snug">
+                                      {prog.title}
+                                    </p>
+                                    <p className="text-[11px] font-mono text-white/80 truncate">
+                                      {metaLine}
+                                    </p>
+                                  </div>
+                                </button>
+                              </div>
                             );
                           })}
                         </div>

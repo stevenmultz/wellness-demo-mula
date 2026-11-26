@@ -273,6 +273,7 @@ export function DashboardClient({
   });
   const defaultProgramId = ongoingOrUpcomingEnrollment?.programId || allActiveEnrollments[0]?.programId || "";
   const [selectedProgId, setSelectedProgId] = useState<string>(defaultProgramId);
+  const [autoOpenTaskNonce, setAutoOpenTaskNonce] = useState<number>(0);
   const [bodyMetricLogs, setBodyMetricLogs] = useState<BodyMetricPoint[]>(initialBodyMetricLogs);
   const [actionNotice, setActionNoticeState] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -819,6 +820,7 @@ export function DashboardClient({
       currentDayNumber,
       dailyCommitment: fullProg?.dailyCommitment || "15–20 Mins / Day",
       todayDayType: !isCompleted && !isUpcoming && liveDay ? liveDay.dayType : null,
+      todayCoreTaskDone: Boolean(liveEval?.initialDone[1]),
       pendingTasksCount,
       todayTotalTasksCount,
       todayCompletedTasksCount,
@@ -1006,6 +1008,15 @@ export function DashboardClient({
               onOpenProgram={(programId) => {
                 setLastMyPlanPage("intro");
                 setSelectedProgId(programId);
+                setAutoOpenTaskNonce(0);
+                setMyPlanView("detail");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
+              onOpenProgramTask={(programId) => {
+                setLastMyPlanPage("intro");
+                setSelectedProgId(programId);
+                setAutoOpenTaskNonce(Date.now());
                 setMyPlanView("detail");
                 setIsOverHero(true);
                 window.scrollTo({ top: 0 });
@@ -1077,6 +1088,7 @@ export function DashboardClient({
           ) : (
             <MyPlanOverview
               globalMonthlyDays={standaloneDays}
+              autoOpenTaskNonce={autoOpenTaskNonce}
               program={
                 overviewEnrollment && currentProgram
                   ? {

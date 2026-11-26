@@ -93,6 +93,7 @@ export interface MyPlanIndexItem {
   totalDays: number;
   currentDayNumber: number;
   todayDayType?: string | null;
+  todayCoreTaskDone?: boolean;
   pendingTasksCount?: number;
   todayTotalTasksCount?: number;
   todayCompletedTasksCount?: number;
