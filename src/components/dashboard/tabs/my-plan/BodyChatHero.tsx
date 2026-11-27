@@ -1,13 +1,45 @@
 "use client";
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BodySignal } from "./myPlanUtils";
 
-const LEAVE_MS = 220;
 const TYPE_STEP_MS = 24;
+const POKE_REVERT_MS = 2500;
+/** 15-minute autonomous mood window (zero background polling needed) */
+const SHAPE_WINDOW_MS = 15 * 60 * 1000;
+/** Sparse autonomous whim range ONLY while actively viewing Buddy on-screen (45s - 90s) */
+const WHIM_MIN_MS = 45_000;
+const WHIM_MAX_MS = 90_000;
 
-type BodyForm = "orb" | "sixpack" | "flex" | "zen" | "star";
-const BODY_FORMS: readonly BodyForm[] = ["orb", "sixpack", "flex", "zen", "star"];
+type BuddyShape = "circle" | "star" | "heart" | "octagon";
+const BUDDY_SHAPES: readonly BuddyShape[] = ["circle", "star", "heart", "octagon"];
+
+const POKE_LINES_EN = [
+  "Ouch! Easy there — you pushed me!",
+  "Aww! Hey, that tickles!",
+  "Whoa! Almost squished me flat!",
+  "Oof! Good thing I'm bouncy!",
+  "Eep! Watch it, partner!",
+] as const;
+
+const POKE_LINES_ID = [
+  "Ouch! Pelan-pelan dong mencetnya!",
+  "Aww! Geli tau didorong gitu!",
+  "Whoa! Aku hampir gepeng nih!",
+  "Oof! Untung bentukku kenyal!",
+  "Eits! Hati-hati dong, partner!",
+] as const;
+
+/**
+ * Deterministic shape picker anchored to 15-minute clock windows.
+ * Costs O(1) integer math and 0 timers — even if the app was closed,
+ * Buddy naturally settles into a new shape when the time window shifts.
+ */
+function computeWindowShapeIdx(nowMs: number): number {
+  const slot = Math.floor(nowMs / SHAPE_WINDOW_MS);
+  const hashed = ((slot * 2654435761) >>> 0) % BUDDY_SHAPES.length;
+  return hashed;
+}
 
 function wibDateKey(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -29,136 +61,101 @@ function saveIntroSeen(key: string) {
   }
 }
 
-const FORM_EYE_LAYOUT: Record<
-  BodyForm,
+const SHAPE_EYE_LAYOUT: Record<
+  BuddyShape,
   { top: string; gapClass: string; eyeClass: string }
 > = {
-  orb: {
-    top: "44%",
-    gapClass: "gap-[18px] sm:gap-[21px]",
-    eyeClass: "w-[8.5px] h-[12px] sm:w-[9.5px] sm:h-[13.5px]",
+  circle: {
+    top: "43%",
+    gapClass: "gap-[18px] sm:gap-[20px]",
+    eyeClass: "w-[8px] h-[11.5px] sm:w-[9px] sm:h-[13px]",
   },
-  sixpack: {
-    top: "16.5%",
-    gapClass: "gap-[8px] sm:gap-[9px]",
-    eyeClass: "w-[4.5px] h-[6.5px] sm:w-[5px] sm:h-[7px]",
+  octagon: {
+    top: "43%",
+    gapClass: "gap-[18px] sm:gap-[20px]",
+    eyeClass: "w-[8px] h-[11.5px] sm:w-[9px] sm:h-[13px]",
   },
-  flex: {
-    top: "23.5%",
-    gapClass: "gap-[9px] sm:gap-[10px]",
-    eyeClass: "w-[5px] h-[7px] sm:w-[5.5px] sm:h-[7.5px]",
-  },
-  zen: {
-    top: "21.5%",
-    gapClass: "gap-[8.5px] sm:gap-[9.5px]",
-    eyeClass: "w-[4.5px] h-[6.5px] sm:w-[5px] sm:h-[7px]",
+  heart: {
+    top: "40.5%",
+    gapClass: "gap-[16px] sm:gap-[18px]",
+    eyeClass: "w-[7.5px] h-[10.5px] sm:w-[8.5px] sm:h-[12px]",
   },
   star: {
     top: "45%",
-    gapClass: "gap-[13px] sm:gap-[15px]",
-    eyeClass: "w-[6.5px] h-[9.5px] sm:w-[7.5px] sm:h-[10.5px]",
+    gapClass: "gap-[14px] sm:gap-[16px]",
+    eyeClass: "w-[7px] h-[10px] sm:w-[8px] sm:h-[11px]",
   },
 };
 
 /**
- * Interactive morphing Buddy inside a strictly fixed frame (never alters surrounding UI).
- * Architecture for ultra-low phone power:
- * - Static <svg> silhouette (zero inner CSS animations -> cached once as a single GPU bitmap).
- * - Outer HTML <div class="buddy-bob"> + overlaid HTML <div> eyes use ONLY GPU-composited translate3d / scale3d.
+ * Pure simple geometric Buddy (Circle, Star, Heart, Octagon) in a strictly fixed frame.
+ * Ultra-low power architecture:
+ * - Static single-node <svg> silhouette (cached once as a tiny GPU bitmap, zero SVG re-rasterization).
+ * - Outer div & eyes animate strictly via GPU compositor transforms (translate3d / scale3d).
  */
-const BuddyCharacter = memo(function BuddyCharacter({ form }: { form: BodyForm }) {
-  const eyeSpec = FORM_EYE_LAYOUT[form];
+const BuddyCharacter = memo(function BuddyCharacter({
+  shape,
+  wincing,
+}: {
+  shape: BuddyShape;
+  wincing: boolean;
+}) {
+  const eyeSpec = SHAPE_EYE_LAYOUT[shape];
 
   return (
     <div
-      className="buddy-bob relative w-[86px] h-[86px] sm:w-[96px] sm:h-[96px] flex items-center justify-center select-none"
+      className="buddy-bob relative w-[84px] h-[84px] sm:w-[94px] sm:h-[94px] flex items-center justify-center select-none text-[#18181b] dark:text-zinc-100"
       aria-hidden="true"
     >
       <svg viewBox="0 0 100 100" className="w-full h-full block" focusable="false">
-        {form === "orb" && <circle cx="50" cy="52" r="38" fill="#18181b" />}
+        {shape === "circle" && <circle cx="50" cy="50" r="38" fill="currentColor" />}
 
-        {form === "sixpack" && (
-          <>
-            {/* Head + heroic shoulders + V-torso */}
-            <circle cx="50" cy="22" r="15" fill="#18181b" />
-            <circle cx="21" cy="51" r="10.5" fill="#18181b" />
-            <circle cx="79" cy="51" r="10.5" fill="#18181b" />
-            <rect x="21" y="38" width="58" height="54" rx="18" fill="#18181b" />
-            {/* Subtle pec line */}
-            <rect x="34" y="46" width="14" height="2.6" rx="1.3" fill="#f6f6f4" opacity="0.85" />
-            <rect x="52" y="46" width="14" height="2.6" rx="1.3" fill="#f6f6f4" opacity="0.85" />
-            {/* Chiseled 6-pack abs cutouts */}
-            <rect x="38" y="53" width="10.5" height="7.8" rx="2.4" fill="#f6f6f4" />
-            <rect x="51.5" y="53" width="10.5" height="7.8" rx="2.4" fill="#f6f6f4" />
-            <rect x="38" y="63.2" width="10.5" height="7.8" rx="2.4" fill="#f6f6f4" />
-            <rect x="51.5" y="63.2" width="10.5" height="7.8" rx="2.4" fill="#f6f6f4" />
-            <rect x="38" y="73.4" width="10.5" height="7.8" rx="2.4" fill="#f6f6f4" />
-            <rect x="51.5" y="73.4" width="10.5" height="7.8" rx="2.4" fill="#f6f6f4" />
-          </>
-        )}
-
-        {form === "flex" && (
-          <>
-            {/* Double-bicep flex pose */}
-            <circle cx="50" cy="29" r="16" fill="#18181b" />
-            <rect x="30" y="46" width="40" height="45" rx="15" fill="#18181b" />
-            <path
-              d="M32 54 C18 54 12 44 14 27"
-              stroke="#18181b"
-              strokeWidth="12"
-              strokeLinecap="round"
-              fill="none"
-            />
-            <circle cx="23" cy="45" r="7.2" fill="#18181b" />
-            <circle cx="14" cy="24" r="6.2" fill="#18181b" />
-            <path
-              d="M68 54 C82 54 88 44 86 27"
-              stroke="#18181b"
-              strokeWidth="12"
-              strokeLinecap="round"
-              fill="none"
-            />
-            <circle cx="77" cy="45" r="7.2" fill="#18181b" />
-            <circle cx="86" cy="24" r="6.2" fill="#18181b" />
-          </>
-        )}
-
-        {form === "zen" && (
-          <>
-            {/* Calm meditating lotus pose + floating aura orbs */}
-            <circle cx="16" cy="34" r="3.8" fill="#18181b" />
-            <circle cx="84" cy="34" r="3.8" fill="#18181b" />
-            <circle cx="50" cy="27" r="15.5" fill="#18181b" />
-            <ellipse cx="50" cy="55" rx="21" ry="16" fill="#18181b" />
-            <ellipse cx="50" cy="73" rx="35" ry="14.5" fill="#18181b" />
-          </>
-        )}
-
-        {form === "star" && (
+        {shape === "star" && (
           <path
-            d="M50 13 L60 36 L85 38 L66 55 L72 80 L50 67 L28 80 L34 55 L15 38 L40 36 Z"
-            fill="#18181b"
-            stroke="#18181b"
-            strokeWidth="11"
+            d="M50 14 L60 36 L84 38.5 L66 55 L71.5 79 L50 66.5 L28.5 79 L34 55 L16 38.5 L40 36 Z"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="10"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {shape === "heart" && (
+          <path
+            d="M50 83 C45 79 14 57 14 35.5 C14 22.5 24.5 14 36.5 14 C43.5 14 48 17.8 50 22 C52 17.8 56.5 14 63.5 14 C75.5 14 86 22.5 86 35.5 C86 57 55 79 50 83 Z"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="5"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {shape === "octagon" && (
+          <path
+            d="M35 14 L65 14 L86 35 L86 65 L65 86 L35 86 L14 65 L14 35 Z"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="7"
             strokeLinejoin="round"
           />
         )}
       </svg>
 
-      {/* GPU-only animated eyes overlaid at the active form's head position */}
+      {/* GPU-composited eyes (squint briefly when pushed!) */}
       <div
         className="absolute inset-x-0 flex items-center justify-center pointer-events-none"
         style={{ top: eyeSpec.top }}
       >
         <div className="buddy-look flex items-center justify-center">
-          <div className={`buddy-blink flex items-center justify-center ${eyeSpec.gapClass}`}>
+          <div
+            className={`buddy-blink flex items-center justify-center transition-transform duration-150 ${eyeSpec.gapClass}`}
+            style={wincing ? { transform: "scale3d(1.22, 0.22, 1)" } : undefined}
+          >
             <span
-              className={`block rounded-full ${eyeSpec.eyeClass}`}
-              style={{ backgroundColor: "#ffffff" }}
+              className={`block rounded-full bg-white dark:bg-zinc-950 ${eyeSpec.eyeClass}`}
             />
             <span
-              className={`block rounded-full ${eyeSpec.eyeClass}`}
-              style={{ backgroundColor: "#ffffff" }}
+              className={`block rounded-full bg-white dark:bg-zinc-950 ${eyeSpec.eyeClass}`}
             />
           </div>
         </div>
@@ -182,55 +179,100 @@ export function BodyChatHero({
   const [introSeen, setIntroSeen] = useState(true);
   const [deckIdx, setDeckIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
-  const [thankedReply, setThankedReply] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const [leaving, setLeaving] = useState(false);
   const [entered, setEntered] = useState(false);
-  const [formIdx, setFormIdx] = useState(0);
-  const [hopCount, setHopCount] = useState(0);
+
+  // Autonomous shape state (NEVER mutated on user tap; changes only on Buddy's own timing)
+  const [shapeIdx, setShapeIdx] = useState<number>(0);
+
+  // One-shot GPU animation trigger ("push" on poke, "morph" on autonomous shape shift)
+  const [animTrigger, setAnimTrigger] = useState<{
+    kind: "none" | "push" | "morph";
+    seq: number;
+  }>({ kind: "none", seq: 0 });
+
+  // Poke / push-in state ("Ouch!", "Aww!")
+  const [pokeLineIdx, setPokeLineIdx] = useState<number | null>(null);
+  const [wincing, setWincing] = useState(false);
   const [typedLen, setTypedLen] = useState(0);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const avatarSlotRef = useRef<HTMLDivElement | null>(null);
-  const prevAvatarLeftRef = useRef<number | null>(null);
-  const leaveTimerRef = useRef<number | null>(null);
+  const pokeRevertTimerRef = useRef<number | null>(null);
+  const winceTimerRef = useRef<number | null>(null);
   const inViewportRef = useRef(true);
+  const [isActivelyVisible, setIsActivelyVisible] = useState(true);
+  const pokeSeqRef = useRef(0);
 
   useEffect(() => {
     setIntroSeen(loadIntroSeen(introStorageKey));
+    setShapeIdx(computeWindowShapeIdx(Date.now()));
   }, [introStorageKey]);
 
   useEffect(
     () => () => {
-      if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
+      if (pokeRevertTimerRef.current) window.clearTimeout(pokeRevertTimerRef.current);
+      if (winceTimerRef.current) window.clearTimeout(winceTimerRef.current);
     },
     []
   );
 
-  // Pause CSS animations whenever Buddy scrolls off-screen OR tab/PWA is backgrounded (zero idle battery drain).
+  // Visibility & viewport gate: pauses all CSS animations AND cancels autonomous timers when off-screen or backgrounded.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const syncPaused = () => {
+
+    const syncVisibility = () => {
       const docHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
-      el.dataset.paused = !inViewportRef.current || docHidden ? "true" : "false";
+      const active = inViewportRef.current && !docHidden;
+      el.dataset.paused = active ? "false" : "true";
+      setIsActivelyVisible(active);
+      // When user returns to the app after time passed, check if the 15-min autonomous window shifted:
+      if (active) {
+        setShapeIdx((prev) => {
+          const slotIdx = computeWindowShapeIdx(Date.now());
+          return slotIdx !== prev ? slotIdx : prev;
+        });
+      }
     };
-    syncPaused();
+    syncVisibility();
 
     let io: IntersectionObserver | null = null;
     if (typeof IntersectionObserver !== "undefined") {
       io = new IntersectionObserver(([entry]) => {
         inViewportRef.current = entry.isIntersecting;
-        syncPaused();
+        syncVisibility();
       });
       io.observe(el);
     }
-    document.addEventListener("visibilitychange", syncPaused);
+    document.addEventListener("visibilitychange", syncVisibility);
     return () => {
       io?.disconnect();
-      document.removeEventListener("visibilitychange", syncPaused);
+      document.removeEventListener("visibilitychange", syncVisibility);
     };
   }, []);
+
+  // Sparse autonomous "whim" shape shift ONLY while actively visible on screen (1 lazy timeout every 45s-90s; 0 timers when hidden).
+  useEffect(() => {
+    if (!isActivelyVisible) return;
+    let timerId: number | null = null;
+
+    const scheduleNextWhim = () => {
+      const delay =
+        WHIM_MIN_MS + Math.floor(Math.random() * (WHIM_MAX_MS - WHIM_MIN_MS));
+      timerId = window.setTimeout(() => {
+        setShapeIdx((prev) => {
+          const offset = 1 + Math.floor(Math.random() * (BUDDY_SHAPES.length - 1));
+          return (prev + offset) % BUDDY_SHAPES.length;
+        });
+        setAnimTrigger((prev) => ({ kind: "morph", seq: prev.seq + 1 }));
+        scheduleNextWhim();
+      }, delay);
+    };
+
+    scheduleNextWhim();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [isActivelyVisible]);
 
   const introSignal: BodySignal = useMemo(
     () => ({
@@ -239,11 +281,11 @@ export function BodyChatHero({
       action: "info",
       tone: "positive",
       message: isId
-        ? "Hai partner! Siap kita taklukkan hari ini bareng?"
+        ? "Hai partner! Siap jalanin hari ini bareng?"
         : "Hey partner! Ready to take on today together?",
       detail: isId
-        ? "Kita satu tim! Tap tubuhku buat ubah wujud (bisa sixpack!), atau klik Lanjut buat cek task kita."
-        : "We're one team! Tap my body to morph forms (even a sixpack!), or hit Next to check our tasks.",
+        ? "Kita satu tim hari ini! Aku bakal bantu ingetin tidur, minum, makan, langkah, dan program kita satu per satu."
+        : "We're one team today! I'll keep track of our sleep, water, meals, steps, and workouts step by step.",
     }),
     [isId]
   );
@@ -253,47 +295,21 @@ export function BodyChatHero({
     return introSeen ? signals : [introSignal, ...signals];
   }, [isFeatureLocked, introSeen, introSignal, signals]);
 
-  const currentCard: BodySignal | null =
+  const shown: BodySignal | null =
     deck.length > 0 ? deck[deckIdx % deck.length] : null;
-  const shown: BodySignal | null = hidden ? null : currentCard;
-  const hasSpeech = Boolean(shown);
 
-  // FLIP transform glide when switching between centered (hidden) and speaking (left):
-  useLayoutEffect(() => {
-    const el = avatarSlotRef.current;
-    if (!el || typeof window === "undefined") return;
-    const newLeft = el.getBoundingClientRect().left;
-    const prevLeft = prevAvatarLeftRef.current;
-    prevAvatarLeftRef.current = newLeft;
-
-    if (prevLeft === null) return;
-    const deltaX = prevLeft - newLeft;
-    if (Math.abs(deltaX) < 1) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-
-    el.style.transition = "none";
-    el.style.transform = `translate3d(${deltaX}px, 0, 0)`;
-    const raf = window.requestAnimationFrame(() => {
-      el.style.transition = "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
-      el.style.transform = "translate3d(0, 0, 0)";
-    });
-    return () => window.cancelAnimationFrame(raf);
-  }, [hasSpeech]);
+  const pokeLines = isId ? POKE_LINES_ID : POKE_LINES_EN;
+  const activePokeText =
+    pokeLineIdx !== null ? pokeLines[pokeLineIdx % pokeLines.length] : null;
 
   const fullText = useMemo(() => {
+    if (activePokeText) return activePokeText;
     if (!shown) return "";
-    if (thankedReply) {
-      return isId
-        ? "Sama-sama, partner! Kita selalu saling jaga."
-        : "Anytime, partner! Always got our back.";
-    }
-    if (expanded && shown.detail) {
-      return shown.detail;
-    }
+    if (expanded && shown.detail) return shown.detail;
     return shown.message;
-  }, [shown, thankedReply, expanded, isId]);
+  }, [activePokeText, shown, expanded]);
 
-  // Game-style typewriter effect: runs ONLY for ~0.8s while typing short text, then 0 timers active!
+  // Game-style typewriter effect (~0.6-0.8s burst, then 0 timers active)
   useEffect(() => {
     if (!fullText) {
       setTypedLen(0);
@@ -309,7 +325,7 @@ export function BodyChatHero({
     }
 
     setTypedLen(1);
-    const stepSize = fullText.length > 64 ? 2 : 1;
+    const stepSize = fullText.length > 68 ? 2 : 1;
     let cur = 1;
     let timerId: number | null = null;
 
@@ -328,7 +344,7 @@ export function BodyChatHero({
   }, [fullText]);
 
   const cardRenderKey = shown
-    ? `${shown.id}:${expanded ? "detail" : "msg"}:${thankedReply ? "thx" : "0"}`
+    ? `${shown.id}:${expanded ? "detail" : "msg"}`
     : null;
 
   useEffect(() => {
@@ -338,110 +354,113 @@ export function BodyChatHero({
     return () => window.cancelAnimationFrame(raf);
   }, [cardRenderKey]);
 
+  const clearPokeReaction = useCallback(() => {
+    if (pokeRevertTimerRef.current) {
+      window.clearTimeout(pokeRevertTimerRef.current);
+      pokeRevertTimerRef.current = null;
+    }
+    setPokeLineIdx(null);
+  }, []);
+
   const markIntroDoneIfNeeded = useCallback(() => {
-    if (!introSeen && currentCard?.id === "daily-intro") {
+    if (!introSeen && shown?.id === "daily-intro") {
       setIntroSeen(true);
       saveIntroSeen(introStorageKey);
       return true;
     }
     return false;
-  }, [introSeen, currentCard?.id, introStorageKey]);
+  }, [introSeen, shown?.id, introStorageKey]);
 
-  // Tap Buddy: morph body form inside fixed frame + bounce + wake speech if hidden!
-  const handleTapBuddy = useCallback(() => {
-    if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
-    setLeaving(false);
-    setHopCount((c) => c + 1);
-    setFormIdx((prev) => (prev + 1) % BODY_FORMS.length);
+  // Press Buddy: shrinks inward like pushed ("mengecil terdorong") + says "Ouch! / Aww!" WITHOUT changing shape!
+  const handlePressBuddy = useCallback(() => {
+    setAnimTrigger((prev) => ({ kind: "push", seq: prev.seq + 1 }));
+    setWincing(true);
+    if (winceTimerRef.current) window.clearTimeout(winceTimerRef.current);
+    winceTimerRef.current = window.setTimeout(() => {
+      setWincing(false);
+    }, 320);
 
-    if (hidden) {
-      setHidden(false);
-      setExpanded(false);
-      setThankedReply(false);
-    }
-  }, [hidden]);
+    const nextIdx = pokeSeqRef.current;
+    pokeSeqRef.current += 1;
+    setPokeLineIdx(nextIdx);
+
+    if (pokeRevertTimerRef.current) window.clearTimeout(pokeRevertTimerRef.current);
+    pokeRevertTimerRef.current = window.setTimeout(() => {
+      setPokeLineIdx(null);
+      pokeRevertTimerRef.current = null;
+    }, POKE_REVERT_MS);
+  }, []);
 
   const handleTellMeMore = useCallback(() => {
     if (!shown) return;
-    if (typedLen < fullText.length) {
-      setTypedLen(fullText.length);
-    }
+    clearPokeReaction();
     setExpanded(true);
-  }, [shown, typedLen, fullText.length]);
+  }, [shown, clearPokeReaction]);
 
-  const handleNext = useCallback(() => {
+  const handleAdvanceCard = useCallback(() => {
+    clearPokeReaction();
     setExpanded(false);
-    setThankedReply(false);
     const removedIntro = markIntroDoneIfNeeded();
     if (removedIntro) {
       setDeckIdx(0);
     } else if (deck.length > 0) {
       setDeckIdx((prev) => (prev + 1) % deck.length);
     }
-  }, [markIntroDoneIfNeeded, deck.length]);
+  }, [clearPokeReaction, markIntroDoneIfNeeded, deck.length]);
 
-  const handleThanks = useCallback(() => {
-    setHopCount((c) => c + 1);
-    // Morph proudly into sixpack or flex on appreciation!
-    setFormIdx((prev) => (BODY_FORMS[prev] === "sixpack" ? 2 : 1));
-    setThankedReply(true);
-  }, []);
-
-  const handleHide = useCallback(() => {
-    markIntroDoneIfNeeded();
-    setLeaving(true);
-    if (leaveTimerRef.current) window.clearTimeout(leaveTimerRef.current);
-    leaveTimerRef.current = window.setTimeout(() => {
-      setHidden(true);
-      setLeaving(false);
-      setExpanded(false);
-      setThankedReply(false);
-    }, LEAVE_MS);
-  }, [markIntroDoneIfNeeded]);
-
-  const handleOpenAction = useCallback(() => {
+  const handleLetsGo = useCallback(() => {
     if (!shown || isFeatureLocked) return;
-    if (shown.action !== "none" && shown.action !== "info") {
-      onAccept(shown);
+    clearPokeReaction();
+    onAccept(shown);
+    // Advance cleanly so next time Buddy shows the next item in rotation
+    setExpanded(false);
+    const removedIntro = markIntroDoneIfNeeded();
+    if (removedIntro) {
+      setDeckIdx(0);
+    } else if (deck.length > 0) {
+      setDeckIdx((prev) => (prev + 1) % deck.length);
     }
-  }, [shown, isFeatureLocked, onAccept]);
+  }, [shown, isFeatureLocked, clearPokeReaction, onAccept, markIntroDoneIfNeeded, deck.length]);
 
-  const activeForm = BODY_FORMS[formIdx % BODY_FORMS.length];
-  const bubbleVisible = Boolean(shown && entered && !leaving);
-  const isReassurance = shown?.kind === "reassurance";
-  const hasActionLink =
-    Boolean(shown && !isFeatureLocked && shown.action !== "none" && shown.action !== "info");
-
+  const activeShape = BUDDY_SHAPES[shapeIdx % BUDDY_SHAPES.length];
+  const bubbleVisible = Boolean(shown && entered);
   const typedSlice = fullText.slice(0, typedLen);
   const untypedSlice = fullText.slice(typedLen);
 
   return (
     <section
       ref={rootRef}
-      className="buddy w-full flex items-center justify-center min-h-[148px] sm:min-h-[164px] py-4 sm:py-5 px-1"
+      className="buddy w-full flex items-center justify-center min-h-[144px] sm:min-h-[160px] py-3.5 sm:py-4 px-1"
     >
-      {/* Strictly Fixed Character Frame: morphing forms never change box size or push surrounding UI */}
-      <div
-        ref={avatarSlotRef}
-        className="w-[96px] h-[96px] sm:w-[108px] sm:h-[108px] shrink-0 flex items-center justify-center overflow-hidden"
-      >
+      {/* Strictly Fixed Character Frame: shapes & push recoil never shift adjacent UI */}
+      <div className="w-[96px] h-[96px] sm:w-[108px] sm:h-[108px] shrink-0 flex items-center justify-center overflow-hidden">
         <button
           type="button"
-          onClick={handleTapBuddy}
-          aria-label={
-            isId
-              ? "Tap karakter untuk ubah bentuk atau berbincang"
-              : "Tap buddy to morph body form or chat"
-          }
-          className="w-full h-full flex items-center justify-center cursor-pointer outline-none active:scale-95 transition-transform duration-150"
+          onClick={handlePressBuddy}
+          onPointerDown={() => setWincing(true)}
+          onPointerUp={() => {
+            if (!winceTimerRef.current) setWincing(false);
+          }}
+          onPointerCancel={() => setWincing(false)}
+          aria-label={isId ? "Sentuh karakter Buddy" : "Poke Buddy"}
+          className="w-full h-full flex items-center justify-center cursor-pointer outline-none select-none active:scale-[0.80] transition-transform duration-150 ease-out"
         >
-          <div key={hopCount} className={hopCount > 0 ? "buddy-hop" : ""}>
-            <BuddyCharacter form={activeForm} />
+          <div
+            key={animTrigger.seq}
+            className={
+              animTrigger.kind === "push"
+                ? "buddy-push"
+                : animTrigger.kind === "morph"
+                  ? "buddy-morph"
+                  : ""
+            }
+          >
+            <BuddyCharacter shape={activeShape} wincing={wincing} />
           </div>
         </button>
       </div>
 
-      {/* RPG Typewriter Speech Box (Fixed text height via invisible untyped remainder -> zero layout jitter) */}
+      {/* Game-Style Typewriter Speech Bubble: strictly 2-button pairs (Tell me more / Next -> Let's go / Skip) */}
       {shown && (
         <div
           key={shown.id}
@@ -468,63 +487,38 @@ export function BodyChatHero({
 
           {!isFeatureLocked && (
             <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
-              {isReassurance && !thankedReply ? (
+              {!expanded ? (
                 <>
                   <button
                     type="button"
-                    onClick={handleThanks}
+                    onClick={handleTellMeMore}
                     className="h-7 px-3.5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer"
                   >
-                    {isId ? "Makasih" : "Thanks"}
+                    {isId ? "Info lanjut" : "Tell me more"}
                   </button>
                   <button
                     type="button"
-                    onClick={handleHide}
-                    className="h-7 px-3 rounded-full bg-zinc-300/75 dark:bg-white/[0.1] text-zinc-700 dark:text-zinc-300 text-[11px] font-semibold hover:bg-zinc-300 dark:hover:bg-white/[0.16] transition active:scale-95 cursor-pointer"
+                    onClick={handleAdvanceCard}
+                    className="h-7 px-3.5 rounded-full bg-zinc-300/80 dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-100 text-[11px] font-semibold hover:bg-zinc-300 dark:hover:bg-white/[0.18] transition active:scale-95 cursor-pointer"
                   >
-                    {isId ? "Tutup" : "Hide"}
+                    {isId ? "Lanjut" : "Next"}
                   </button>
                 </>
               ) : (
                 <>
-                  {!expanded && Boolean(shown.detail) && !thankedReply && (
-                    <button
-                      type="button"
-                      onClick={handleTellMeMore}
-                      className="h-7 px-3.5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer"
-                    >
-                      {isId ? "Info lanjut" : "Tell me more"}
-                    </button>
-                  )}
-
-                  {expanded && hasActionLink && (
-                    <button
-                      type="button"
-                      onClick={handleOpenAction}
-                      className="h-7 px-3.5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer"
-                    >
-                      {isId ? "Yuk mulai" : "Let's go"}
-                    </button>
-                  )}
-
                   <button
                     type="button"
-                    onClick={handleNext}
-                    className={`h-7 px-3.5 rounded-full text-[11px] font-semibold transition active:scale-95 cursor-pointer ${
-                      (expanded && !hasActionLink) || (!shown.detail && !thankedReply) || thankedReply
-                        ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:opacity-90"
-                        : "bg-zinc-300/80 dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-white/[0.18]"
-                    }`}
+                    onClick={handleLetsGo}
+                    className="h-7 px-3.5 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-semibold hover:opacity-90 transition active:scale-95 cursor-pointer"
                   >
-                    {isId ? "Lanjut" : "Next"}
+                    {isId ? "Yuk mulai" : "Let's go"}
                   </button>
-
                   <button
                     type="button"
-                    onClick={handleHide}
-                    className="h-7 px-3 rounded-full bg-zinc-300/60 dark:bg-white/[0.08] text-zinc-600 dark:text-zinc-300 text-[11px] font-semibold hover:bg-zinc-300/90 dark:hover:bg-white/[0.14] transition active:scale-95 cursor-pointer"
+                    onClick={handleAdvanceCard}
+                    className="h-7 px-3.5 rounded-full bg-zinc-300/80 dark:bg-white/[0.12] text-zinc-900 dark:text-zinc-100 text-[11px] font-semibold hover:bg-zinc-300 dark:hover:bg-white/[0.18] transition active:scale-95 cursor-pointer"
                   >
-                    {isId ? "Tutup" : "Hide"}
+                    {isId ? "Lewati" : "Skip"}
                   </button>
                 </>
               )}

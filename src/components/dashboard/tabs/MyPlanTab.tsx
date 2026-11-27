@@ -618,14 +618,16 @@ export function MyPlanOverview({
     ) {
       setWidgetIndex(1);
       setHabitOpenRequest({ habit: signal.action, nonce: Date.now() });
+      return;
     }
+    setWidgetIndex(1);
   };
 
 
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Home Top Centered 5-Date Index Strip (Month + Date only; Selected always centered; Future dimmed & disabled; Tap opens Calendar) */}
+      {/* 0. Home Top Centered 5-Date Index Strip (Other dates switch date; Current center index opens Calendar) */}
       {isStandalone && (
         <div
           className={`w-full grid grid-cols-5 gap-1.5 sm:gap-2 select-none ${
@@ -641,14 +643,20 @@ export function MyPlanOverview({
                 disabled={isDisabled}
                 onClick={() => {
                   if (isDisabled) return;
-                  setCalendarViewMonth({ year: slot.year, month: slot.month });
-                  setShowHomeCalendarModal(true);
+                  if (slot.isSelectedCenter) {
+                    setCalendarViewMonth({ year: slot.year, month: slot.month });
+                    setShowHomeCalendarModal(true);
+                  } else {
+                    handleChooseCalendarDate(slot.dateKey);
+                  }
                 }}
                 aria-pressed={slot.isSelectedCenter}
                 aria-label={
                   slot.isFuture
                     ? `${slot.monthLabel} ${slot.dayLabel} (${isId ? "Akan datang" : "Upcoming"})`
-                    : `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Pilih tanggal dari kalender" : "Open calendar"}`
+                    : slot.isSelectedCenter
+                      ? `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Buka kalender" : "Open calendar"}`
+                      : `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Pindah ke tanggal ini" : "Switch to this date"}`
                 }
                 className={`relative py-2.5 px-1 rounded-2xl flex flex-col items-center justify-center text-center transition ${
                   slot.isFuture

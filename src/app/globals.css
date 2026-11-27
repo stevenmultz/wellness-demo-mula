@@ -448,9 +448,14 @@ body,
   transform-origin: center;
   backface-visibility: hidden;
 }
-.buddy-hop {
-  animation: buddy-hop 0.52s cubic-bezier(0.22, 1, 0.36, 1) 1;
-  transform-origin: center bottom;
+.buddy-push {
+  animation: buddy-push 0.42s cubic-bezier(0.22, 1, 0.36, 1) 1;
+  transform-origin: center;
+  backface-visibility: hidden;
+}
+.buddy-morph {
+  animation: buddy-morph 0.38s cubic-bezier(0.22, 1, 0.36, 1) 1;
+  transform-origin: center;
   backface-visibility: hidden;
 }
 .buddy[data-paused="true"] *,
@@ -473,18 +478,23 @@ body,
   0%, 93%, 100% { transform: scale3d(1, 1, 1); }
   96% { transform: scale3d(1.06, 0.08, 1); }
 }
-@keyframes buddy-hop {
+@keyframes buddy-push {
   0% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
-  22% { transform: translate3d(0, 1px, 0) scale3d(1.07, 0.92, 1); }
-  54% { transform: translate3d(0, -13px, 0) scale3d(0.95, 1.05, 1); }
-  80% { transform: translate3d(0, 0, 0) scale3d(1.02, 0.98, 1); }
+  28% { transform: translate3d(0, 2px, 0) scale3d(0.74, 0.74, 1); }
+  68% { transform: translate3d(0, -1px, 0) scale3d(1.05, 1.05, 1); }
   100% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
+}
+@keyframes buddy-morph {
+  0% { transform: scale3d(0.84, 0.84, 1); }
+  60% { transform: scale3d(1.05, 1.05, 1); }
+  100% { transform: scale3d(1, 1, 1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .buddy-bob,
   .buddy-look,
   .buddy-blink,
-  .buddy-hop {
+  .buddy-push,
+  .buddy-morph {
     animation: none !important;
   }
 }
