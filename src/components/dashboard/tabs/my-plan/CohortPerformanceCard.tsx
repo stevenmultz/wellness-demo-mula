@@ -13,6 +13,7 @@ import {
   STEPS_TARGET_DAILY,
   WATER_BOTTLE_ML,
   WATER_TARGET_ML,
+  buildCalorieTargetBands,
   computeDailyCaloriesSummary,
   computeDayCommitmentScore,
   computeMacroCalorieSplit,
@@ -1251,7 +1252,6 @@ function CaloriesWidget({
   calorieTarget: ReturnType<typeof computePersonalizedCalorieTarget>;
 }) {
   const BOWL_COUNT = 5;
-  const bowlSizeKcal = Math.max(250, Math.round(calorieTarget.targetKcal / BOWL_COUNT));
 
   const todayDayNum =
     currentDayNumber && currentDayNumber > 0 ? currentDayNumber : 1;
@@ -1275,6 +1275,21 @@ function CaloriesWidget({
   const todaySummary = getDayCalSummary(todayDay);
   const todayNetKcal = todaySummary.netKcal;
 
+  // Avoid double-deducting movement: when active burn (Steps / Extra Workouts) is subtracted into Net Calories,
+  // evaluate Net Calories against the sedentary resting baseline (BMR × 1.2) rather than BMR × 1.375.
+  const effectiveTarget =
+    todaySummary.totalBurnKcal > 0
+      ? buildCalorieTargetBands(
+          calorieTarget.restingTargetKcal,
+          calorieTarget.restingTargetKcal,
+          calorieTarget.isPersonalized
+        )
+      : calorieTarget;
+  const effectiveBowlSizeKcal = Math.max(
+    250,
+    Math.round(effectiveTarget.targetKcal / BOWL_COUNT)
+  );
+
   // Delta: 30-day average including today − 30-day average before today (matching Training & Sleep)
   const priorLoggedNet = elapsedDays
     .filter((d) => d.dayNumber < todayDayNum)
@@ -1292,7 +1307,7 @@ function CaloriesWidget({
   const caloriesStatus = rateNetCalories(
     todayNetKcal,
     todaySummary.hasFoodLogged,
-    calorieTarget
+    effectiveTarget
   );
 
   return (
@@ -1316,12 +1331,13 @@ function CaloriesWidget({
       {/* 5 Monochrome Rice Bowls scaled to personalized daily calorie target */}
       <div className="flex items-end justify-between gap-1 pt-1 h-9 sm:h-10">
         {Array.from({ length: BOWL_COUNT }, (_, idx) => {
-          const fillRatio = (todayNetKcal - idx * bowlSizeKcal) / bowlSizeKcal;
+          const fillRatio =
+            (todayNetKcal - idx * effectiveBowlSizeKcal) / effectiveBowlSizeKcal;
           return (
             <MonochromeRiceBowl
               key={idx}
               bowlIndex={idx}
-              bowlKcal={bowlSizeKcal}
+              bowlKcal={effectiveBowlSizeKcal}
               fillRatio={fillRatio}
             />
           );
@@ -1582,6 +1598,8 @@ export function CohortPerformanceCard({
   days,
   globalMonthlyDays,
   currentDayNumber,
+  selectedDateKey,
+  selectedFocusDay,
   bodyMetricLogs = [],
   programId,
   userGender,
@@ -1592,6 +1610,8 @@ export function CohortPerformanceCard({
   days: PlanDay[];
   globalMonthlyDays?: PlanDay[];
   currentDayNumber: number;
+  selectedDateKey?: string;
+  selectedFocusDay?: PlanDay | null;
   bodyMetricLogs?: BodyMetricPoint[];
   programId?: string;
   userGender?: string | null;
@@ -1600,6 +1620,7 @@ export function CohortPerformanceCard({
   onSwitchWidget?: (index: 0 | 1 | 2) => void;
 }) {
   void _onSwitchWidget;
+  void onOpenGrowthAnalytics;
   const { locale } = useLocale();
   const isId = locale === "id";
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
@@ -1611,6 +1632,20 @@ export function CohortPerformanceCard({
     : currentDayNumber && currentDayNumber > 0
       ? currentDayNumber
       : 1;
+
+  // Daily widgets (/ day) follow the date selected on the Home 5-date strip,
+  // while monthly widgets (/ mo) stay anchored to the rolling 30-day window up to todayDayNum.
+  const resolvedFocusDay =
+    useGlobalMonth && selectedDateKey
+      ? sorted.find((d) => d.wibDateKey === selectedDateKey) ??
+        selectedFocusDay ??
+        sorted[sorted.length - 1]
+      : sorted.find((d) => d.dayNumber === todayDayNum);
+  const focusDayNum = resolvedFocusDay?.dayNumber ?? todayDayNum;
+  const dailyWidgetDays =
+    resolvedFocusDay && !sorted.some((d) => d.dayNumber === resolvedFocusDay.dayNumber)
+      ? [resolvedFocusDay, ...sorted].sort((a, b) => a.dayNumber - b.dayNumber)
+      : sorted;
 
   // Personalized Mifflin-St Jeor calorie target from chronologically latest weight & height + user profile
   const sortedBodyLogsDesc = [...bodyMetricLogs].sort(
@@ -1817,17 +1852,17 @@ export function CohortPerformanceCard({
           programId={programId}
           currentDayNumber={todayDayNum}
         />
-        <DailyStepsMetricWidget days={sorted} currentDayNumber={todayDayNum} />
+        <DailyStepsMetricWidget days={dailyWidgetDays} currentDayNumber={focusDayNum} />
       </div>
 
       {/* Row 2 (50/50): Calories (/day) & Water (/day) */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <CaloriesWidget
-          days={sorted}
-          currentDayNumber={todayDayNum}
+          days={dailyWidgetDays}
+          currentDayNumber={focusDayNum}
           calorieTarget={calorieTarget}
         />
-        <HydrationWidget days={sorted} currentDayNumber={todayDayNum} />
+        <HydrationWidget days={dailyWidgetDays} currentDayNumber={focusDayNum} />
       </div>
 
       {/* Row 3: Training (/mo - Global 30-Day Heatmap Grid, WIB Weekday Aligned) */}

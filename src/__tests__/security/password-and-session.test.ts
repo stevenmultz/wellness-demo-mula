@@ -46,6 +46,7 @@ import {
   matchesCoachNameToken,
   requireAdminAccess,
   requireAuth,
+  requirePlatformAdmin,
   requireProgramAccess,
   requireSuperadmin,
 } from "@/wellness/security/guards";
@@ -240,9 +241,18 @@ describe("Security: Authorization Guards & Program Scoping", () => {
 
     await mockSessionUser({ role: "COACH", coachProfileId: "c1" });
     expect((await requireAdminAccess()).role).toBe("COACH");
+    await expect(requirePlatformAdmin()).rejects.toBeInstanceOf(WellnessForbiddenError);
+    await expect(requireSuperadmin()).rejects.toBeInstanceOf(WellnessForbiddenError);
+
+    await mockSessionUser({ role: "PARTNER_ADMIN", organizationId: "org_1" });
+    await expect(requirePlatformAdmin()).rejects.toBeInstanceOf(WellnessForbiddenError);
+
+    await mockSessionUser({ role: "ADMIN" });
+    expect((await requirePlatformAdmin()).role).toBe("ADMIN");
     await expect(requireSuperadmin()).rejects.toBeInstanceOf(WellnessForbiddenError);
 
     await mockSessionUser({ role: "SUPERADMIN" });
+    expect((await requirePlatformAdmin()).role).toBe("SUPERADMIN");
     expect((await requireSuperadmin()).role).toBe("SUPERADMIN");
   });
 

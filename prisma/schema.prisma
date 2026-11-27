@@ -16,6 +16,7 @@ enum UserRole {
   USER
   COACH
   PARTNER_ADMIN
+  ADMIN
   SUPERADMIN
 }
 
@@ -173,6 +174,7 @@ model User {
   role                  UserRole  @default(USER) @map("role")
   status                UserStatus @default(ACTIVE) @map("status")
   preferredLocale       String    @default("id") @map("preferred_locale")
+  preferencesJson       Json?     @map("preferences_json")
   organizationId        String?   @map("organization_id")
   coachProfileId        String?   @map("coach_profile_id")
   trackingAccessUntil   DateTime? @map("tracking_access_until")
@@ -831,6 +833,7 @@ model UserDailyLog {
   sleepFeeling         String?               @map("sleep_feeling")
   // Universal Hydration
   waterMl              Int                   @default(0) @map("water_ml")
+  urineColor           String?               @map("urine_color")
   // Universal Daily Steps
   stepsCount           Int                   @default(0) @map("steps_count")
   stepsBurnedKcal      Int                   @default(0) @map("steps_burned_kcal")

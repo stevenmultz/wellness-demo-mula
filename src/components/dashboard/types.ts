@@ -48,6 +48,7 @@ export interface ProgramDayItem {
     sleepDurationMinutes?: number | null;
     assessmentResponse?: string | null;
     waterMl?: number;
+    urineColor?: string | null;
     stepsCount?: number;
     stepsBurnedKcal?: number;
     caloriesKcal?: number;

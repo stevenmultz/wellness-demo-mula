@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_ROLES,
+  PLATFORM_ADMIN_ROLES,
   USER_ROLES,
   ensureCoachNameIncluded,
   isAdminRole,
+  isPlatformAdminRole,
   isSuperadminRole,
   sanitizeUserScopeForRole,
 } from "@/wellness/security/roles";
@@ -15,20 +17,28 @@ import {
 import { buildOAuthLinkUserUpdate } from "@/wellness/security/oauth-linking";
 
 describe("Security: Roles & Scoping (RBAC)", () => {
-  describe("isAdminRole & isSuperadminRole", () => {
+  describe("isAdminRole, isPlatformAdminRole & isSuperadminRole", () => {
     it("identifies all configured admin roles accurately", () => {
-      expect(USER_ROLES).toEqual(["USER", "COACH", "PARTNER_ADMIN", "SUPERADMIN"]);
-      expect(ADMIN_ROLES).toEqual(["SUPERADMIN", "COACH", "PARTNER_ADMIN"]);
+      expect(USER_ROLES).toEqual(["USER", "COACH", "PARTNER_ADMIN", "ADMIN", "SUPERADMIN"]);
+      expect(PLATFORM_ADMIN_ROLES).toEqual(["SUPERADMIN", "ADMIN"]);
+      expect(ADMIN_ROLES).toEqual(["SUPERADMIN", "ADMIN", "COACH", "PARTNER_ADMIN"]);
 
       expect(isAdminRole("SUPERADMIN")).toBe(true);
+      expect(isAdminRole("ADMIN")).toBe(true);
       expect(isAdminRole("PARTNER_ADMIN")).toBe(true);
       expect(isAdminRole("COACH")).toBe(true);
+
+      expect(isPlatformAdminRole("SUPERADMIN")).toBe(true);
+      expect(isPlatformAdminRole("ADMIN")).toBe(true);
+      expect(isPlatformAdminRole("PARTNER_ADMIN")).toBe(false);
+      expect(isPlatformAdminRole("COACH")).toBe(false);
+      expect(isPlatformAdminRole("USER")).toBe(false);
     });
 
     it("rejects standard users, invalid strings, wrong casing, and nullish values", () => {
       expect(isAdminRole("USER")).toBe(false);
       expect(isAdminRole("superadmin")).toBe(false);
-      expect(isAdminRole("ADMIN")).toBe(false);
+      expect(isAdminRole("admin")).toBe(false);
       expect(isAdminRole("")).toBe(false);
       expect(isAdminRole(null)).toBe(false);
       expect(isAdminRole(undefined)).toBe(false);
@@ -36,6 +46,7 @@ describe("Security: Roles & Scoping (RBAC)", () => {
 
     it("strictly identifies SUPERADMIN only", () => {
       expect(isSuperadminRole("SUPERADMIN")).toBe(true);
+      expect(isSuperadminRole("ADMIN")).toBe(false);
       expect(isSuperadminRole("PARTNER_ADMIN")).toBe(false);
       expect(isSuperadminRole("COACH")).toBe(false);
       expect(isSuperadminRole("USER")).toBe(false);
@@ -87,10 +98,18 @@ describe("Security: Roles & Scoping (RBAC)", () => {
       ).toEqual({ organizationId: "org-partner", coachProfileId: "coach-2" });
     });
 
-    it("strips both organizationId and coachProfileId for USER and SUPERADMIN", () => {
+    it("strips both organizationId and coachProfileId for USER, ADMIN, and SUPERADMIN", () => {
       expect(
         sanitizeUserScopeForRole(
           "USER",
+          { organizationId: "org-1", coachProfileId: "coach-1" },
+          { organizationId: "org-2", coachProfileId: "coach-2" }
+        )
+      ).toEqual({ organizationId: null, coachProfileId: null });
+
+      expect(
+        sanitizeUserScopeForRole(
+          "ADMIN",
           { organizationId: "org-1", coachProfileId: "coach-1" },
           { organizationId: "org-2", coachProfileId: "coach-2" }
         )

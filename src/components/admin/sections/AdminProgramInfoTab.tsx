@@ -19,6 +19,7 @@ interface AdminProgramInfoTabProps {
   setAllDetailSections: (expanded: boolean) => void;
   masterData: MasterDataPayload;
   isSuperadminUser: boolean;
+  canManagePrograms?: boolean;
   currentAdminOrgId: string | null;
   navigateToDirectory: (tab: StandardMasterTab) => void;
   handleInitiatePublish: (prog: AdminProgram) => void;
@@ -41,6 +42,7 @@ export function AdminProgramInfoTab({
   setAllDetailSections,
   masterData,
   isSuperadminUser,
+  canManagePrograms = false,
   currentAdminOrgId,
   navigateToDirectory,
   handleInitiatePublish,
@@ -53,10 +55,19 @@ export function AdminProgramInfoTab({
   onSaveHeaderTemplate,
   onDeleteTemplate,
 }: AdminProgramInfoTabProps) {
+  const isReadOnly = !canManagePrograms || selectedProgram.isPublished;
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
+      {!canManagePrograms && (
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl p-4 border border-zinc-200/80 dark:border-white/10 flex items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
+          <Lock className="w-4 h-4 text-zinc-400 shrink-0" />
+          <span>
+            Program configuration is centrally curated by ZERA Admin. You can inspect all blueprint details below and monitor participant progress under <strong>Responses</strong>.
+          </span>
+        </div>
+      )}
       {/* Lock Warning Card if Program is Published */}
-      {selectedProgram.isPublished && (
+      {canManagePrograms && selectedProgram.isPublished && (
         <div className="bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl p-5 border border-zinc-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <Lock className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
@@ -116,19 +127,21 @@ export function AdminProgramInfoTab({
         </div>
       </div>
 
-      <ProgramTemplateBar
-        templateType="PROGRAM_HEADER"
-        templates={templates}
-        disabled={selectedProgram.isPublished}
-        onApply={(tpl) => onApplyHeaderTemplate(tpl, "edit")}
-        onSaveAsTemplate={(name) => onSaveHeaderTemplate(name, metaForm)}
-        onDeleteTemplate={onDeleteTemplate}
-      />
+      {canManagePrograms && (
+        <ProgramTemplateBar
+          templateType="PROGRAM_HEADER"
+          templates={templates}
+          disabled={selectedProgram.isPublished}
+          onApply={(tpl) => onApplyHeaderTemplate(tpl, "edit")}
+          onSaveAsTemplate={(name) => onSaveHeaderTemplate(name, metaForm)}
+          onDeleteTemplate={onDeleteTemplate}
+        />
+      )}
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (selectedProgram.isPublished) return;
+          if (isReadOnly) return;
           handleSaveMeta(selectedProgram);
         }}
         className="space-y-6"
@@ -139,9 +152,9 @@ export function AdminProgramInfoTab({
           setForm={setMetaForm}
           expandedSections={expandedDetailSections}
           onToggleSection={toggleDetailSection}
-          isLocked={selectedProgram.isPublished}
+          isLocked={isReadOnly}
           masterData={masterData}
-          isSuperadminUser={isSuperadminUser}
+          isSuperadminUser={isSuperadminUser || canManagePrograms}
           currentAdminOrgId={currentAdminOrgId}
           navigateToDirectory={navigateToDirectory}
         />
@@ -152,9 +165,10 @@ export function AdminProgramInfoTab({
           setForm={setMetaForm}
           expandedSections={expandedDetailSections}
           onToggleSection={toggleDetailSection}
-          isLocked={selectedProgram.isPublished}
+          isLocked={isReadOnly}
         />
 
+        {canManagePrograms && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-2xl bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-white/10 shadow-xs">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {selectedProgram.isPublished
@@ -182,6 +196,7 @@ export function AdminProgramInfoTab({
             </button>
           )}
         </div>
+        )}
 
         {metaError && (
           <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-400 animate-in fade-in duration-200">

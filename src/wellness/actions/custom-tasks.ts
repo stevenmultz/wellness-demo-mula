@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
-import { requireAuth, requireProgramAccess } from "../security/guards";
+import { requireAuth, requirePlatformAdmin } from "../security/guards";
 import { getProgramDayWibWindow, toWibDateOnly } from "../utils/timezone";
 import { safeJsonParse } from "../utils/json";
 import { computeVerifiedDayCompletionInTx } from "../services/program-progress";
@@ -362,7 +362,7 @@ export async function wellnessAdminSaveDayCustomTasks(
   programDayId: string,
   rawTasks: unknown[]
 ): Promise<WellnessActionResult> {
-  await requireProgramAccess(programId);
+  await requirePlatformAdmin();
 
   const parsedTasks = z.array(ProgramDayCustomTaskInputSchema).safeParse(rawTasks);
   if (!parsedTasks.success) {

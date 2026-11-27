@@ -35,6 +35,7 @@ interface AdminProgramDetailViewProps {
   handleDeleteProgram: (prog: AdminProgram) => void;
   loadProgramSubmissions: (progId: string) => void;
   submissionsCount: number;
+  canManagePrograms?: boolean;
   children: ReactNode;
 }
 
@@ -52,6 +53,7 @@ export function AdminProgramDetailView({
   handleDeleteProgram,
   loadProgramSubmissions,
   submissionsCount,
+  canManagePrograms = false,
   children,
 }: AdminProgramDetailViewProps) {
   const router = useRouter();
@@ -146,81 +148,90 @@ export function AdminProgramDetailView({
               </span>
             </div>
 
-            {/* Publish / Unpublish Program Button */}
-            {selectedProgram.isPublished ? (
-              <button
-                type="button"
-                onClick={() => handleInitiatePublish(selectedProgram)}
-                disabled={publishingId === selectedProgram.id}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 transition flex items-center gap-1.5"
-                title="Unpublish program to return to review state"
-              >
-                {publishingId === selectedProgram.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Lock className="w-3.5 h-3.5 text-zinc-500" />
-                )}
-                <span>Unpublish Program</span>
-              </button>
-            ) : !isReadyToPublish ? (
-              <button
-                type="button"
-                disabled
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-white/10 opacity-40 cursor-not-allowed flex items-center gap-1.5 shadow-none"
-                title={
-                  !headerCheck.isComplete
-                    ? `Publish locked: Complete all 8 Program Header sections (${headerCheck.completedCount}/8 completed).`
-                    : `Publish locked: Complete all ${targetDays} daily modules (${filledCount}/${targetDays} completed).`
-                }
-              >
-                <Lock className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-                <span>Publish Locked</span>
-              </button>
+            {!canManagePrograms ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-white/10">
+                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Managed by ZERA Admin · Read-Only</span>
+              </span>
             ) : (
-              <button
-                type="button"
-                onClick={() => handleInitiatePublish(selectedProgram)}
-                disabled={publishingId === selectedProgram.id}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition flex items-center gap-1.5 shadow-sm hover:scale-[1.02] duration-150"
-                title="Validate completeness and launch program"
-              >
-                {publishingId === selectedProgram.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <>
+                {/* Publish / Unpublish Program Button */}
+                {selectedProgram.isPublished ? (
+                  <button
+                    type="button"
+                    onClick={() => handleInitiatePublish(selectedProgram)}
+                    disabled={publishingId === selectedProgram.id}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 transition flex items-center gap-1.5"
+                    title="Unpublish program to return to review state"
+                  >
+                    {publishingId === selectedProgram.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                    )}
+                    <span>Unpublish Program</span>
+                  </button>
+                ) : !isReadyToPublish ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-white/10 opacity-40 cursor-not-allowed flex items-center gap-1.5 shadow-none"
+                    title={
+                      !headerCheck.isComplete
+                        ? `Publish locked: Complete all 8 Program Header sections (${headerCheck.completedCount}/8 completed).`
+                        : `Publish locked: Complete all ${targetDays} daily modules (${filledCount}/${targetDays} completed).`
+                    }
+                  >
+                    <Lock className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+                    <span>Publish Locked</span>
+                  </button>
                 ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <button
+                    type="button"
+                    onClick={() => handleInitiatePublish(selectedProgram)}
+                    disabled={publishingId === selectedProgram.id}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition flex items-center gap-1.5 shadow-sm hover:scale-[1.02] duration-150"
+                    title="Validate completeness and launch program"
+                  >
+                    {publishingId === selectedProgram.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>Publish Program</span>
+                  </button>
                 )}
-                <span>Publish Program</span>
-              </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDuplicateProgram(selectedProgram, true)}
+                  disabled={duplicatingId === selectedProgram.id}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 transition flex items-center gap-1.5"
+                  title="Duplicate header + curriculum as a fresh Draft (Next Batch)"
+                >
+                  {duplicatingId === selectedProgram.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-zinc-500" />
+                  )}
+                  <span>{isOnlineProgram ? "Duplicate Program" : "Create Next Batch"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProgram(selectedProgram)}
+                  disabled={deletingProgId === selectedProgram.id}
+                  className="p-2 rounded-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition border border-zinc-200/70 dark:border-white/10 hover:border-red-200 dark:hover:border-red-900/50"
+                  title="Delete Program"
+                >
+                  {deletingProgId === selectedProgram.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </>
             )}
-
-            <button
-              type="button"
-              onClick={() => handleDuplicateProgram(selectedProgram, true)}
-              disabled={duplicatingId === selectedProgram.id}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 transition flex items-center gap-1.5"
-              title="Duplicate header + curriculum as a fresh Draft (Next Batch)"
-            >
-              {duplicatingId === selectedProgram.id ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Copy className="w-3.5 h-3.5 text-zinc-500" />
-              )}
-              <span>{isOnlineProgram ? "Duplicate Program" : "Create Next Batch"}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDeleteProgram(selectedProgram)}
-              disabled={deletingProgId === selectedProgram.id}
-              className="p-2 rounded-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition border border-zinc-200/70 dark:border-white/10 hover:border-red-200 dark:hover:border-red-900/50"
-              title="Delete Program"
-            >
-              {deletingProgId === selectedProgram.id ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="w-3.5 h-3.5" />
-              )}
-            </button>
           </div>
         </div>
 

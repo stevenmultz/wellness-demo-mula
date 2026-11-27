@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole, isPlatformAdminRole } from "@/wellness/security/session";
 import { buildProgramScopeWhere } from "@/wellness/security/guards";
 import { prisma } from "@/wellness/db";
 import { AdminClient, AdminInitialRoute } from "@/components/admin/AdminClient";
@@ -83,6 +83,8 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
   let requestedProgramIdentifier: string | null = null;
   let requestedCustomerIdentifier: string | null = null;
 
+  const isPlatformAdmin = isPlatformAdminRole(session.role);
+
   if (!primarySegment || primarySegment === "overview" || primarySegment === "dashboard") {
     if (slugSegments.length > 1) {
       redirect("/admin");
@@ -91,12 +93,15 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
   } else if (primarySegment === "programs" || primarySegment === "program") {
     activeMenu = "programs";
     if (secondarySegment === "new" || secondarySegment === "create") {
+      if (!isPlatformAdmin) {
+        redirect("/admin/programs");
+      }
       isCreatingProgram = true;
     } else if (secondarySegment) {
       requestedProgramIdentifier = secondarySegment;
     }
   } else if (primarySegment === "directories" || primarySegment === "master") {
-    if (session.role !== "SUPERADMIN") {
+    if (!isPlatformAdmin) {
       redirect("/admin");
     }
     activeMenu = "master";
@@ -106,12 +111,12 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
       requestedCustomerIdentifier = secondarySegment;
     }
   } else if (primarySegment === "community" || primarySegment === "profile") {
-    if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+    if (!isPlatformAdmin && session.role !== "PARTNER_ADMIN") {
       redirect("/admin");
     }
     activeMenu = "community";
   } else if (primarySegment === "team" || primarySegment === "coaches") {
-    if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+    if (!isPlatformAdmin && session.role !== "PARTNER_ADMIN") {
       redirect("/admin");
     }
     activeMenu = "team";
@@ -137,7 +142,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     prisma.user.findMany({
       where: {
         deletedAt: null,
-        ...(session.role === "SUPERADMIN"
+        ...(isPlatformAdmin
           ? {}
           : {
               enrollments: {
@@ -166,10 +171,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
         trackingAccessUntil: true,
         createdAt: true,
         enrollments: {
-          where:
-            session.role === "SUPERADMIN"
-              ? {}
-              : { program: programScopeWhere },
+          where: isPlatformAdmin ? {} : { program: programScopeWhere },
           select: {
             id: true,
             status: true,
@@ -218,7 +220,7 @@ export default async function AdminPage(props: AdminCatchAllPageProps) {
     }),
     prisma.programEnrollment.groupBy({
       by: ["programId", "status"],
-      where: session.role === "SUPERADMIN" ? undefined : { program: programScopeWhere },
+      where: isPlatformAdmin ? undefined : { program: programScopeWhere },
       _count: { id: true },
     }),
     wellnessGetMasterData(),

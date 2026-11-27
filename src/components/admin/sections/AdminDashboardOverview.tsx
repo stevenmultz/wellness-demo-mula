@@ -11,6 +11,7 @@ interface AdminDashboardOverviewProps {
   pendingEnrollments: AdminPendingEnrollmentItem[];
   approvingId: string | null;
   isSuperadminUser?: boolean;
+  canManagePrograms?: boolean;
   setActiveMenu: (menu: AdminMenuKey) => void;
   setSelectedProgramId: (id: string | null) => void;
   setIsCreatingProgram: (val: boolean) => void;
@@ -25,6 +26,7 @@ export function AdminDashboardOverview({
   pendingEnrollments,
   approvingId,
   isSuperadminUser = false,
+  canManagePrograms = false,
   setActiveMenu,
   setSelectedProgramId,
   setIsCreatingProgram,
@@ -51,20 +53,22 @@ export function AdminDashboardOverview({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveMenu("programs");
-              setSelectedProgramId(null);
-              resetCreateForm();
-              setIsCreatingProgram(true);
-              router.push("/admin/programs/new");
-            }}
-            className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium flex items-center gap-1.5 transition hover:opacity-90 shadow-xs whitespace-nowrap"
-          >
-            <Plus className="w-3.5 h-3.5 shrink-0" />
-            <span>New Program</span>
-          </button>
+          {canManagePrograms && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMenu("programs");
+                setSelectedProgramId(null);
+                resetCreateForm();
+                setIsCreatingProgram(true);
+                router.push("/admin/programs/new");
+              }}
+              className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-medium flex items-center gap-1.5 transition hover:opacity-90 shadow-xs whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span>New Program</span>
+            </button>
+          )}
 
           {isSuperadminUser && (
             <button

@@ -212,6 +212,7 @@ export function useDashboardProgress({
       sleepDurationMinutes: null,
       sleepFeeling: null,
       waterMl: 0,
+      urineColor: null,
       stepsCount: 0,
       stepsBurnedKcal: 0,
       mealsCount: null,
@@ -244,6 +245,24 @@ export function useDashboardProgress({
     const resolvedExtraWorkouts: ExtraWorkoutDTO[] =
       gLog !== undefined ? gLog.extraWorkouts : day.userProgress?.extraWorkouts ?? [];
 
+    const synthesizedGlobalMealNotes =
+      gLog &&
+      (gLog.mealQualityMode != null ||
+        gLog.caloriesKcal > 0 ||
+        gLog.carbsG > 0 ||
+        gLog.proteinG > 0 ||
+        gLog.fatG > 0)
+        ? JSON.stringify({
+            mealsCount: gLog.mealsCount || 1,
+            mealFeeling: gLog.mealFeeling || undefined,
+            calories: gLog.caloriesKcal,
+            carbsG: gLog.carbsG,
+            proteinG: gLog.proteinG,
+            fatG: gLog.fatG,
+            mealEntries: Array.isArray(gLog.mealEntriesJson) ? gLog.mealEntriesJson : [],
+          })
+        : null;
+
     return {
       ...day,
       wibDateKey: dateKey,
@@ -269,7 +288,7 @@ export function useDashboardProgress({
         mealNotes:
           dayMealNotes[day.id] !== undefined
             ? dayMealNotes[day.id]
-            : day.userProgress?.mealNotes,
+            : day.userProgress?.mealNotes || synthesizedGlobalMealNotes,
         dailyReflection:
           dayReflections[day.id] !== undefined
             ? dayReflections[day.id]
@@ -286,6 +305,7 @@ export function useDashboardProgress({
           dayAssessments[day.id] ??
           day.userProgress?.assessmentResponse,
         waterMl: resolvedWaterMl,
+        urineColor: gLog?.urineColor ?? day.userProgress?.urineColor ?? null,
         stepsCount: resolvedSteps,
         stepsBurnedKcal: resolvedStepsBurned,
         caloriesKcal:
@@ -809,6 +829,9 @@ export function useDashboardProgress({
     let parsedMealFeeling: string | null = null;
     let parsedEntries: Array<{
       status: "followed" | "similar" | "off_track" | "self_logged";
+      slot?: "breakfast" | "lunch" | "dinner" | "snack";
+      cooking?: "steamed" | "stir_fry" | "fried" | "coconut";
+      items?: Record<string, number>;
       mealItem?: string;
       calories?: number | null;
       carbsG?: number | null;
@@ -917,13 +940,20 @@ export function useDashboardProgress({
   const handleSaveWater = async (
     waterMl: number,
     dayId?: string,
-    explicitDateKey?: string
+    explicitDateKey?: string,
+    urineColor?: string | null
   ): Promise<boolean> => {
     const targetDay = dayId ? resolveTargetDay(dayId) : null;
     const dateKey =
       explicitDateKey || (targetDay ? getDayDateKey(targetDay) : formatWibDateKey(new Date()));
     const prevLog = dailyLogsByDate[dateKey];
     const safeWater = Math.max(0, Math.min(15000, Math.round(waterMl)));
+    const validUrine =
+      urineColor === "clear" || urineColor === "normal" || urineColor === "dark"
+        ? urineColor
+        : urineColor === null
+          ? null
+          : undefined;
 
     setDailyLogsByDate((prev) => ({
       ...prev,
@@ -931,12 +961,14 @@ export function useDashboardProgress({
         ...ensureDateLog(dateKey),
         ...(prev[dateKey] || {}),
         waterMl: safeWater,
+        ...(validUrine !== undefined ? { urineColor: validUrine } : {}),
       },
     }));
 
     const res = await wellnessSaveDailyWater({
       logDate: dateKey,
       waterMl: safeWater,
+      ...(validUrine !== undefined ? { urineColor: validUrine } : {}),
       programDayId: targetDay?.id ?? null,
     });
 

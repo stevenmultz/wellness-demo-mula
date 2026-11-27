@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "../db";
-import { requireAdminAccess, WellnessForbiddenError } from "../security/guards";
+import { requireAdminAccess, requirePlatformAdmin } from "../security/guards";
+import { isPlatformAdminRole } from "../security/roles";
 import { recordAuditLog } from "../integrations/audit-log";
 import type { WellnessActionResult } from "./auth";
 
@@ -83,12 +84,11 @@ export async function wellnessGetProgramTemplates(): Promise<
 > {
   const session = await requireAdminAccess();
 
-  const where =
-    session.role === "SUPERADMIN"
-      ? undefined
-      : session.organizationId
-        ? { OR: [{ organizationId: null }, { organizationId: session.organizationId }] }
-        : { organizationId: null };
+  const where = isPlatformAdminRole(session.role)
+    ? undefined
+    : session.organizationId
+      ? { OR: [{ organizationId: null }, { organizationId: session.organizationId }] }
+      : { organizationId: null };
 
   const rows = await prisma.programTemplate.findMany({
     where,
@@ -109,11 +109,7 @@ export async function wellnessGetProgramTemplates(): Promise<
       description: row.description,
       payload: (row.payloadJson || {}) as ProgramHeaderTemplatePayload | DayRoutineTemplatePayload,
       isPlatformDefault: row.organizationId === null,
-      canEdit:
-        session.role === "SUPERADMIN" ||
-        (session.role === "PARTNER_ADMIN" &&
-          Boolean(session.organizationId) &&
-          row.organizationId === session.organizationId),
+      canEdit: isPlatformAdminRole(session.role),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     })),
@@ -123,10 +119,7 @@ export async function wellnessGetProgramTemplates(): Promise<
 export async function wellnessSaveProgramTemplate(
   rawInput: unknown
 ): Promise<WellnessActionResult<ProgramTemplateDTO>> {
-  const session = await requireAdminAccess();
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
-    throw new WellnessForbiddenError("Only Superadmin or Community Admin can manage templates.");
-  }
+  const session = await requirePlatformAdmin();
 
   const parsed = SaveTemplateSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -143,29 +136,13 @@ export async function wellnessSaveProgramTemplate(
       message: "Template payload is too large (max 100 KB).",
     };
   }
-  const resolvedOrgId =
-    session.role === "SUPERADMIN"
-      ? organizationId?.trim() || null
-      : session.organizationId;
-
-  if (session.role === "PARTNER_ADMIN" && !resolvedOrgId) {
-    return {
-      success: false,
-      message: "Your Community account is not linked to an organization.",
-    };
-  }
+  const resolvedOrgId = organizationId?.trim() || null;
 
   let saved;
   if (id) {
     const existing = await prisma.programTemplate.findUnique({ where: { id } });
     if (!existing) {
       return { success: false, message: "Template not found." };
-    }
-    if (
-      session.role !== "SUPERADMIN" &&
-      (!session.organizationId || existing.organizationId !== session.organizationId)
-    ) {
-      throw new WellnessForbiddenError("You can only edit templates belonging to your Community.");
     }
     saved = await prisma.programTemplate.update({
       where: { id },
@@ -225,20 +202,11 @@ export async function wellnessSaveProgramTemplate(
 }
 
 export async function wellnessDeleteProgramTemplate(id: string): Promise<WellnessActionResult> {
-  const session = await requireAdminAccess();
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
-    throw new WellnessForbiddenError("Forbidden.");
-  }
+  await requirePlatformAdmin();
 
   const existing = await prisma.programTemplate.findUnique({ where: { id } });
   if (!existing) {
     return { success: false, message: "Template not found." };
-  }
-  if (
-    session.role !== "SUPERADMIN" &&
-    (!session.organizationId || existing.organizationId !== session.organizationId)
-  ) {
-    throw new WellnessForbiddenError("You can only delete templates belonging to your Community.");
   }
 
   await prisma.programTemplate.delete({ where: { id } });

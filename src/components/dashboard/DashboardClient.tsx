@@ -258,10 +258,10 @@ export function DashboardClient({
 
   // Filter ONLY programs the user has enrolled in
   const enrolledProgramIds = new Set(myPrograms.map((e) => e.programId));
-  const myEnrolledPrograms = allPrograms.filter((p) => enrolledProgramIds.has(p.id));
+  const myEnrolledPrograms = useMemo(() => { const ids = new Set(myPrograms.map((e) => e.programId)); return allPrograms.filter((p) => ids.has(p.id)); }, [myPrograms, allPrograms]);
 
-  const allActiveEnrollments = myPrograms.filter((e) => e.status === "ACTIVE");
-  const ongoingOrUpcomingEnrollment = allActiveEnrollments.find((e) => {
+  void enrolledProgramIds; const allActiveEnrollments = useMemo(() => myPrograms.filter((e) => e.status === "ACTIVE"), [myPrograms]);
+  const ongoingOrUpcomingEnrollment = useMemo(() => allActiveEnrollments.find((e) => {
     const fullProg = programById.get(e.programId);
     return !isCohortEnded(
       e.startDate,
@@ -270,7 +270,7 @@ export function DashboardClient({
       e.locationType || fullProg?.locationType,
       fullProg?.days
     );
-  });
+  }), [allActiveEnrollments, programById]);
   const defaultProgramId = ongoingOrUpcomingEnrollment?.programId || allActiveEnrollments[0]?.programId || "";
   const [selectedProgId, setSelectedProgId] = useState<string>(defaultProgramId);
   const [autoOpenTaskNonce, setAutoOpenTaskNonce] = useState<number>(0);
@@ -344,10 +344,13 @@ export function DashboardClient({
     router.refresh();
   };
 
-  const currentProgram =
-    myEnrolledPrograms.find((p) => p.id === selectedProgId) ||
-    myEnrolledPrograms[0] ||
-    null;
+  const currentProgram = useMemo(
+    () =>
+      myEnrolledPrograms.find((p) => p.id === selectedProgId) ||
+      myEnrolledPrograms[0] ||
+      null,
+    [myEnrolledPrograms, selectedProgId]
+  );
   const todayIndex = findCurrentProgramDayIndex(currentProgram?.days);
   const currentDay = todayIndex >= 0 ? currentProgram?.days?.[todayIndex] || null : null;
   const calendarDay = currentDay;
@@ -624,7 +627,7 @@ export function DashboardClient({
     currentProgram?.days?.filter((d) => d.isSkipped && !d.userProgress?.isCompleted).length || 0;
 
   // Separate completed/ended cohorts from active/upcoming cohorts
-  const completedEnrollments = allActiveEnrollments.filter((e) => {
+  const completedEnrollments = useMemo(() => allActiveEnrollments.filter((e) => {
     const fullProg = programById.get(e.programId);
     return isCohortEnded(
       e.startDate,
@@ -633,10 +636,10 @@ export function DashboardClient({
       e.locationType || fullProg?.locationType,
       fullProg?.days
     );
-  });
+  }), [allActiveEnrollments, programById]);
 
   // My Plan tab: includes all active-status enrollments (ongoing, upcoming, and completed)
-  const activeEnrollments = allActiveEnrollments.filter((e) => {
+  const activeEnrollments = useMemo(() => allActiveEnrollments.filter((e) => {
     const fullProg = programById.get(e.programId);
     return !isCohortEnded(
       e.startDate,
@@ -645,7 +648,7 @@ export function DashboardClient({
       e.locationType || fullProg?.locationType,
       fullProg?.days
     );
-  });
+  }), [allActiveEnrollments, programById]);
   const todayWibDateKey = formatWibDateKey(new Date());
   const [selectedHomeDateKey, setSelectedHomeDateKey] = useState<string>(todayWibDateKey);
   const overlappingTrainingCount = useMemo(() => {
@@ -753,6 +756,7 @@ export function DashboardClient({
               mealCompliance: mealComp,
               mealNotes: serializedMealNotes,
               waterMl: gLog.waterMl,
+              urineColor: gLog.urineColor ?? null,
               stepsCount: gLog.stepsCount,
               stepsBurnedKcal: gLog.stepsBurnedKcal,
               caloriesKcal: gLog.caloriesKcal,
@@ -766,7 +770,7 @@ export function DashboardClient({
       });
     }
     return list;
-  }, [todayWibDateKey, dailyLogsByDate, myEnrolledPrograms, currentProgram?.id, overlayDay]);
+  }, [todayWibDateKey, dailyLogsByDate, myEnrolledPrograms, currentProgram, overlayDay]);
 
   const standaloneTodayDay = standaloneDays[standaloneDays.length - 1] ?? null;
 
@@ -843,6 +847,7 @@ export function DashboardClient({
             mealCompliance: mealComp,
             mealNotes: serializedMealNotes,
             waterMl: gLog.waterMl,
+            urineColor: gLog.urineColor ?? null,
             stepsCount: gLog.stepsCount,
             stepsBurnedKcal: gLog.stepsBurnedKcal,
             caloriesKcal: gLog.caloriesKcal,
@@ -1179,8 +1184,8 @@ export function DashboardClient({
               onSaveMeal={(comp, notes, dayId) =>
                 handleSaveMeal(comp, notes, undefined, extractStandaloneDateKey(dayId))
               }
-              onSaveWater={(waterMl, dayId) =>
-                handleSaveWater(waterMl, undefined, extractStandaloneDateKey(dayId))
+              onSaveWater={(waterMl, dayId, urineColor) =>
+                handleSaveWater(waterMl, undefined, extractStandaloneDateKey(dayId), urineColor)
               }
               onSaveSteps={(stepsCount, dayId) =>
                 handleSaveSteps(stepsCount, undefined, extractStandaloneDateKey(dayId))
@@ -1322,7 +1327,7 @@ export function DashboardClient({
               onSyncChecklist={handleSyncChecklist}
               onSaveSleep={handleSaveSleep}
               onSaveMeal={handleSaveMeal}
-              onSaveWater={handleSaveWater}
+              onSaveWater={(waterMl, dayId, urineColor) => handleSaveWater(waterMl, dayId, undefined, urineColor)}
               onSaveSteps={handleSaveSteps}
               onLogSelfBodyWeight={handleLogSelfBodyWeight}
               onAddExtraWorkout={handleAddExtraWorkout}

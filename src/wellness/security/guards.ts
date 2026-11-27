@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { getWellnessSession, isAdminRole } from "./session";
+import { getWellnessSession, isAdminRole, isPlatformAdminRole } from "./session";
 import { prisma } from "../db";
 
 export class WellnessAuthError extends Error {
@@ -28,7 +28,7 @@ export async function requireAuth() {
 }
 
 /**
- * Guard for platform-wide Superadmin operations only.
+ * Guard for platform-wide Superadmin operations only (financial refunds, payment approvals, role grants).
  */
 export async function requireSuperadmin() {
   const session = await requireAuth();
@@ -39,7 +39,22 @@ export async function requireSuperadmin() {
 }
 
 /**
- * Guard for Admin Console roles (SUPERADMIN, PARTNER_ADMIN, COACH).
+ * Guard for internal ZERA Platform Admins (SUPERADMIN + ADMIN).
+ * Required for authoring/mutating Programs, Curriculum Days, Templates, and Master Directories.
+ * Community Admins (PARTNER_ADMIN) and Coaches (COACH) are strictly blocked from program authoring.
+ */
+export async function requirePlatformAdmin() {
+  const session = await requireAuth();
+  if (!isPlatformAdminRole(session.role)) {
+    throw new WellnessForbiddenError(
+      "Only ZERA Superadmin or Platform Admin can create or modify programs and platform directories."
+    );
+  }
+  return session;
+}
+
+/**
+ * Guard for Admin Console roles (SUPERADMIN, ADMIN, PARTNER_ADMIN, COACH).
  */
 export async function requireAdminAccess() {
   const session = await requireAuth();
@@ -68,7 +83,7 @@ export function matchesCoachNameToken(
 
 /**
  * Returns a Prisma `ProgramWhereInput` scoped to the caller's role:
- * - SUPERADMIN sees all programs.
+ * - SUPERADMIN & ADMIN see all programs across all communities.
  * - PARTNER_ADMIN sees programs belonging to their linked `organizationId`.
  * - COACH sees programs linked to their `coachProfileId` or exact CSV token match on `coachName`.
  */
@@ -78,7 +93,7 @@ export function buildProgramScopeWhere(session: {
   coachProfileId?: string | null;
   coachProfileName?: string | null;
 }) {
-  if (session.role === "SUPERADMIN") {
+  if (isPlatformAdminRole(session.role)) {
     return { deletedAt: null };
   }
 
@@ -107,14 +122,15 @@ export function buildProgramScopeWhere(session: {
 }
 
 /**
- * Verifies that an admin/partner/coach caller has permission to access or mutate a specific program.
+ * Verifies that an admin/partner/coach caller has READ/MONITOR access to a specific program
+ * (e.g. viewing member progress & submissions). Program mutations must use `requirePlatformAdmin()`.
  */
 export async function requireProgramAccess(
   programId: string,
   session?: Awaited<ReturnType<typeof requireAdminAccess>>
 ) {
   const activeSession = session ?? (await requireAdminAccess());
-  if (activeSession.role === "SUPERADMIN") {
+  if (isPlatformAdminRole(activeSession.role)) {
     return activeSession;
   }
 
@@ -161,8 +177,7 @@ export async function requireProgramAccess(
 
 /**
  * Verifies inside a database transaction that the target user account exists,
- * is ACTIVE, and has not been soft-deleted. Prevents activating paid entitlements
- * or mutating credentials on suspended/deleted accounts during webhook/admin races.
+ * is ACTIVE, and has not been soft-deleted.
  */
 export async function assertActiveAccountInTx(
   tx: Prisma.TransactionClient,

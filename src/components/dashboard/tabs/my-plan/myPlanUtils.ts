@@ -2,7 +2,11 @@ import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { ExtraWorkoutDTO } from "@/wellness/services/daily-log";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { extractWaterMl } from "@/wellness/utils/nutrition";
-import { computeSafeSleepMinutes } from "@/wellness/utils/wellness-metrics";
+import {
+  WATER_GOOD_MIN_ML,
+  WATER_TARGET_ML as GLOBAL_WATER_TARGET_ML,
+  computeSafeSleepMinutes,
+} from "@/wellness/utils/wellness-metrics";
 import {
   isMealLogged,
   isMovementChecked as isMovementCheckedCore,
@@ -52,6 +56,7 @@ export interface PlanDay {
     assessmentResponse?: string | null;
     workoutNotes?: string | null;
     waterMl?: number;
+    urineColor?: string | null;
     stepsCount?: number;
     stepsBurnedKcal?: number;
     caloriesKcal?: number;
@@ -417,7 +422,7 @@ export interface BodySignal {
 }
 
 const SLEEP_TARGET_MINS = 420; // 7h
-const WATER_TARGET_ML = 2000;
+const WATER_TARGET_ML = GLOBAL_WATER_TARGET_ML;
 const STEPS_TARGET = 7000;
 
 export function deriveBodySignals(params: {
@@ -510,7 +515,7 @@ export function deriveBodySignals(params: {
     });
   }
 
-  if (effectiveWaterMl < WATER_TARGET_ML) {
+  if (effectiveWaterMl < WATER_GOOD_MIN_ML) {
     const remainingMl = WATER_TARGET_ML - effectiveWaterMl;
     habits.push({
       key: "water",
@@ -525,11 +530,11 @@ export function deriveBodySignals(params: {
               ? "Kita belum minum air hari ini!"
               : "We haven't had any water yet!"
             : isId
-              ? `Kita kurang ${remainingMl.toLocaleString()} ml air lagi.`
-              : `We have ${remainingMl.toLocaleString()} ml water left.`,
+              ? `Kita kurang ${remainingMl.toLocaleString()} ml menuju target 2.5 L.`
+              : `We have ${remainingMl.toLocaleString()} ml left toward 2.5 L.`,
         detail: isId
-          ? `Progres hari ini: ${effectiveWaterMl.toLocaleString()} / 2.000 ml. Minum satu gelas sekarang bikin energi kita segar lagi!`
-          : `Today's hydration: ${effectiveWaterMl.toLocaleString()} / 2,000 ml. Grabbing a glass right now keeps our energy steady!`,
+          ? `Progres hari ini: ${effectiveWaterMl.toLocaleString()} / 2.500 ml. Minum satu gelas sekarang bikin energi kita segar lagi!`
+          : `Today's hydration: ${effectiveWaterMl.toLocaleString()} / 2,500 ml. Grabbing a glass right now keeps our energy steady!`,
       },
     });
   }

@@ -1,9 +1,8 @@
 import crypto from "crypto";
 import { Prisma, type Program, type ProgramDay } from "@prisma/client";
 import { prisma, lockProgramRow } from "../db";
-import { requireAdminAccess, requireProgramAccess } from "../security/guards";
+import { requirePlatformAdmin } from "../security/guards";
 import { clampMinQuota } from "../security/program-rules";
-import { ensureCoachNameIncluded } from "../security/roles";
 import { recordAuditLog } from "../integrations/audit-log";
 import {
   CreateProgramSchema,
@@ -148,20 +147,7 @@ function getIncompleteDaysPreview(
 export async function createProgramService(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
-  const session = await requireAdminAccess();
-
-  if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
-    return {
-      success: false,
-      message: "Your Community Admin account is not linked to a community yet. Contact Superadmin.",
-    };
-  }
-  if (session.role === "COACH" && (!session.coachProfileId || !session.coachProfileName)) {
-    return {
-      success: false,
-      message: "Your Coach account is not linked to a Coach Profile yet. Contact Superadmin.",
-    };
-  }
+  await requirePlatformAdmin();
 
   const validation = CreateProgramSchema.safeParse(rawInput);
   if (!validation.success) {
@@ -278,14 +264,7 @@ export async function createProgramService(
     DEFAULT_PROGRAM_GUIDELINES
   ) as Prisma.InputJsonValue;
 
-  const effectiveOrganizationId =
-    session.role === "SUPERADMIN"
-      ? organizationId?.trim() || null
-      : session.role === "PARTNER_ADMIN"
-        ? session.organizationId
-        : session.role === "COACH"
-          ? session.organizationId ?? null
-          : null;
+  const effectiveOrganizationId = organizationId?.trim() || null;
 
   const matchedOrg = effectiveOrganizationId
     ? await prisma.masterOrganization.findUnique({
@@ -294,10 +273,7 @@ export async function createProgramService(
       })
     : null;
 
-  const effectiveCoachName =
-    session.role === "COACH" && session.coachProfileName
-      ? ensureCoachNameIncluded(coachName, session.coachProfileName)
-      : (coachName || "").trim();
+  const effectiveCoachName = (coachName || "").trim();
 
   const newProgram = await prisma.$transaction(async (tx) => {
     const created = await tx.program.create({
@@ -405,7 +381,7 @@ export async function updateProgramMetaService(
   }
 
   const input = validation.data;
-  const session = await requireProgramAccess(input.programId);
+  await requirePlatformAdmin();
 
   const existingProgram = await prisma.program.findFirst({
     where: { id: input.programId, deletedAt: null },
@@ -551,13 +527,9 @@ export async function updateProgramMetaService(
         : existingProgram.registrationOpenAt;
 
     const requestedOrgId =
-      session.role === "SUPERADMIN"
-        ? input.organizationId !== undefined
-          ? input.organizationId?.trim() || null
-          : existingProgram.organizationId
-        : session.role === "PARTNER_ADMIN"
-          ? session.organizationId
-          : existingProgram.organizationId;
+      input.organizationId !== undefined
+        ? input.organizationId?.trim() || null
+        : existingProgram.organizationId;
 
     const orgRecord = requestedOrgId
       ? await tx.masterOrganization.findUnique({
@@ -566,13 +538,7 @@ export async function updateProgramMetaService(
         })
       : null;
 
-    const requestedCoachName =
-      session.role === "COACH" && session.coachProfileName
-        ? ensureCoachNameIncluded(
-            input.coachName ?? existingTax.coachName,
-            session.coachProfileName
-          )
-        : (input.coachName ?? existingTax.coachName).trim();
+    const requestedCoachName = (input.coachName ?? existingTax.coachName).trim();
 
     await tx.program.update({
       where: { id: input.programId },
@@ -675,7 +641,7 @@ export async function setProgramStatusService(
   programId: string,
   rawStatus: string
 ): Promise<WellnessActionResult<{ status: string; isPublished: boolean }>> {
-  const admin = await requireProgramAccess(programId);
+  const admin = await requirePlatformAdmin();
 
   const targetPrismaStatus = toPrismaProgramStatus(rawStatus);
   const normStatus = normalizeProgramStatus(rawStatus);
@@ -779,7 +745,7 @@ export async function togglePublishProgramService(
   programId: string,
   publish: boolean
 ): Promise<WellnessActionResult<{ isPublished: boolean; status: string }>> {
-  const admin = await requireProgramAccess(programId);
+  const admin = await requirePlatformAdmin();
 
   const result = await prisma.$transaction(async (tx) => {
     await lockProgramRow(tx, programId);
@@ -881,7 +847,7 @@ export async function togglePublishProgramService(
 export async function deleteProgramService(
   programId: string
 ): Promise<WellnessActionResult> {
-  const admin = await requireProgramAccess(programId);
+  const admin = await requirePlatformAdmin();
 
   const result = await prisma.$transaction(async (tx) => {
     await lockProgramRow(tx, programId);
@@ -961,7 +927,7 @@ export async function duplicateProgramService(
   sourceProgramId: string,
   options?: { asNextBatch?: boolean }
 ): Promise<WellnessActionResult> {
-  const admin = await requireProgramAccess(sourceProgramId);
+  const admin = await requirePlatformAdmin();
 
   const result = await prisma.$transaction(async (tx) => {
     const source = await tx.program.findFirst({

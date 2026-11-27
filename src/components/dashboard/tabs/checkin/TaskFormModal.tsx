@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { parseDayVideoLinks, parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import { evaluateStandardizedPlate } from "@/wellness/utils/food-catalog";
 import { extractWaterMl } from "@/wellness/utils/nutrition";
 import type { PlanDay } from "../MyPlanTab";
 import { HeaderBackButton } from "../shared";
@@ -117,6 +118,9 @@ export function TaskForm({
   const [waterMl, setWaterMl] = useState<number>(() =>
     progress?.waterMl !== undefined ? progress.waterMl : extractWaterMl(progress?.mealNotes)
   );
+  const [urineColor, setUrineColor] = useState<string | null>(
+    () => progress?.urineColor ?? null
+  );
   const [review] = useState(
     progress?.dailyReflection === "Skipped reflection journal today." ||
       progress?.dailyReflection === "SKIPPED"
@@ -209,25 +213,7 @@ export function TaskForm({
       return list;
     }
     if (step === 2) {
-      const count = mealDraft.mealsCount > 0 ? mealDraft.mealsCount : 1;
-      const list: SubStepId[] = ["meal_count", "meal_entry_1"];
-      if (mealDraft.mealEntries[0]?.status === "off_track") {
-        list.push("meal_off_1");
-      }
-      if (count >= 2) {
-        list.push("meal_entry_2");
-        if (mealDraft.mealEntries[1]?.status === "off_track") {
-          list.push("meal_off_2");
-        }
-      }
-      if (count >= 3) {
-        list.push("meal_entry_3");
-        if (mealDraft.mealEntries[2]?.status === "off_track") {
-          list.push("meal_off_3");
-        }
-      }
-      list.push("meal_mood");
-      return list;
+      return ["meal_plate", "meal_mood"];
     }
     if (step === 3) {
       return ["water_intake"];
@@ -242,8 +228,6 @@ export function TaskForm({
     groups.length,
     videos.length,
     movements.length,
-    mealDraft.mealsCount,
-    mealDraft.mealEntries,
   ]);
 
   const safeSubIndex = Math.min(subStepIndex, Math.max(0, subSteps.length - 1));
@@ -411,6 +395,15 @@ export function TaskForm({
         return connectRating > 0
           ? null
           : "Please rate your session experience from 1 to 5 stars.";
+      case "meal_plate": {
+        const evalPlate = evaluateStandardizedPlate(
+          mealDraft.plateSlots,
+          mealDraft.cookingBySlot
+        );
+        return evalPlate.totalPortions > 0 || (mealDraft.calories ?? 0) > 0
+          ? null
+          : "Please tap at least one food or drink item you had today.";
+      }
       case "meal_count":
         return mealDraft.mealsCount > 0
           ? null
@@ -514,6 +507,55 @@ export function TaskForm({
       );
     }
     if (step === 2) {
+      const evalPlate = evaluateStandardizedPlate(
+        mealDraft.plateSlots,
+        mealDraft.cookingBySlot
+      );
+      const existingWater =
+        waterMl > 0
+          ? waterMl
+          : progress?.waterMl ?? extractWaterMl(progress?.mealNotes);
+
+      if (evalPlate.totalPortions > 0) {
+        const standardizedEntries = evalPlate.slots.map((s) => ({
+          status: s.status,
+          slot: s.slot,
+          cooking: mealDraft.cookingBySlot?.[s.slot] || "stir_fry",
+          items: mealDraft.plateSlots?.[s.slot] || {},
+          mealItem: s.summaryText,
+          calories: s.calories,
+          carbsG: s.carbsG,
+          proteinG: s.proteinG,
+          fatG: s.fatG,
+        }));
+        const checkedMeals = standardizedEntries
+          .filter((e) => e.status === "followed" || e.status === "similar")
+          .map((e) => e.mealItem);
+
+        const mealPayload = {
+          v: 6,
+          mode: evalPlate.compliance.toLowerCase(),
+          plateSlots: mealDraft.plateSlots,
+          cookingBySlot: mealDraft.cookingBySlot,
+          checkedMeals,
+          mealsCount: evalPlate.mealsCount,
+          mealEntries: standardizedEntries,
+          mealFeeling: mealDraft.mealFeeling,
+          calories: evalPlate.calories,
+          carbsG: evalPlate.carbsG,
+          proteinG: evalPlate.proteinG,
+          fatG: evalPlate.fatG,
+          waterMl: existingWater > 0 ? existingWater : null,
+        };
+        return (
+          (await props.onSaveMeal(
+            evalPlate.compliance,
+            JSON.stringify(mealPayload),
+            day.id
+          )) !== false
+        );
+      }
+
       const mealCount = mealDraft.mealsCount || 1;
       const activeEntries = mealDraft.mealEntries.slice(0, mealCount);
       const checkedMeals = Array.from(
@@ -539,10 +581,6 @@ export function TaskForm({
           : "PARTIAL";
 
       const totals = computeMealTotals(activeEntries, mealCount);
-      const existingWater =
-        waterMl > 0
-          ? waterMl
-          : progress?.waterMl ?? extractWaterMl(progress?.mealNotes);
       const mealPayload = {
         v: 5,
         mode: compliance.toLowerCase(),
@@ -561,7 +599,7 @@ export function TaskForm({
       );
     }
     if (step === 3) {
-      return (await props.onSaveWater(waterMl, day.id)) !== false;
+      return (await props.onSaveWater(waterMl, day.id, urineColor)) !== false;
     }
     return true;
   };
@@ -642,6 +680,7 @@ export function TaskForm({
         connectRating={connectRating}
         mealDraft={mealDraft}
         waterMl={waterMl}
+        urineColor={urineColor}
         recommendedMealsCount={recommendedMeals.length}
         review={review}
         score={score}
@@ -778,6 +817,11 @@ export function TaskForm({
             {step === 3 && (
               <WaterStepView
                 waterMl={waterMl}
+                urineColor={urineColor}
+                onChangeUrineColor={(next) => {
+                  setUrineColor(next);
+                  setError(null);
+                }}
                 onChangeWaterMl={(next) => {
                   setWaterMl(next);
                   setError(null);

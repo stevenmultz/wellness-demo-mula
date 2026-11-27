@@ -19,6 +19,7 @@ import {
   wellnessGetAdminTeamData,
   wellnessResetPartnerCoachPassword,
   wellnessSuperadminCreatePartnerAdmin,
+  wellnessSuperadminCreatePlatformAdmin,
   wellnessTogglePartnerCoachStatus,
   wellnessUpdatePartnerCoachProfile,
   type AdminTeamCoachItem,
@@ -38,6 +39,7 @@ export function AdminTeamView({
   setFeedback,
 }: AdminTeamViewProps) {
   const isSuperadmin = currentAdminRole === "SUPERADMIN";
+  const isPlatformAdmin = isSuperadmin || currentAdminRole === "ADMIN";
   const isPartnerAdmin = currentAdminRole === "PARTNER_ADMIN";
 
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,13 @@ export function AdminTeamView({
     email: string;
     temporaryPassword: string;
   } | null>(null);
+
+  // Create Internal Platform Admin modal state (Superadmin only)
+  const [internalAdminModalOpen, setInternalAdminModalOpen] = useState(false);
+  const [internalAdminName, setInternalAdminName] = useState("");
+  const [internalAdminEmail, setInternalAdminEmail] = useState("");
+  const [internalAdminPhone, setInternalAdminPhone] = useState("");
+  const [savingInternalAdmin, setSavingInternalAdmin] = useState(false);
 
   // Create Partner Admin modal state (Superadmin only)
   const [partnerModalOpen, setPartnerModalOpen] = useState(false);
@@ -96,9 +105,40 @@ export function AdminTeamView({
     void loadTeam();
   }, [loadTeam]);
 
-  const handleCreatePartnerAdmin = async (e: FormEvent) => {
+  const handleCreateInternalAdmin = async (e: FormEvent) => {
     e.preventDefault();
     if (!isSuperadmin) return;
+    setSavingInternalAdmin(true);
+    try {
+      const res = await wellnessSuperadminCreatePlatformAdmin({
+        fullName: internalAdminName,
+        email: internalAdminEmail,
+        phone: internalAdminPhone || null,
+      });
+      if (!res.success || !res.data) {
+        setFeedback({ type: "error", text: res.message || "Failed to create Platform Admin." });
+        return;
+      }
+      setCredentialBanner({
+        roleLabel: "Internal Platform Admin (ZERA)",
+        name: res.data.user.fullName,
+        email: res.data.user.email,
+        temporaryPassword: res.data.temporaryPassword,
+      });
+      setInternalAdminModalOpen(false);
+      setInternalAdminName("");
+      setInternalAdminEmail("");
+      setInternalAdminPhone("");
+      setFeedback({ type: "success", text: res.message || "Platform Admin created." });
+      await loadTeam();
+    } finally {
+      setSavingInternalAdmin(false);
+    }
+  };
+
+  const handleCreatePartnerAdmin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isPlatformAdmin) return;
     setSavingPartner(true);
     try {
       const res = await wellnessSuperadminCreatePartnerAdmin({
@@ -134,7 +174,7 @@ export function AdminTeamView({
 
   const handleCreateCoach = async (e: FormEvent) => {
     e.preventDefault();
-    if (!isSuperadmin && !isPartnerAdmin) return;
+    if (!isPlatformAdmin && !isPartnerAdmin) return;
     setSavingCoach(true);
     try {
       const res = await wellnessCreatePartnerCoachAccount({
@@ -142,7 +182,7 @@ export function AdminTeamView({
         email: coachEmail,
         phone: coachPhone || null,
         coachTitle,
-        organizationId: isSuperadmin ? coachOrgId || null : undefined,
+        organizationId: isPlatformAdmin ? coachOrgId || null : undefined,
       });
       if (!res.success || !res.data) {
         setFeedback({ type: "error", text: res.message || "Failed to create Coach account." });
@@ -242,17 +282,17 @@ export function AdminTeamView({
       <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <span className="text-[10px] uppercase tracking-wider font-mono font-semibold text-zinc-400 block">
-            {isSuperadmin ? "Platform Access Delegation" : "Community Organization Team"}
+            {isPlatformAdmin ? "Platform Access Delegation" : "Community Organization Team"}
           </span>
           <h2 className="text-xl font-geometric font-light tracking-tight text-zinc-900 dark:text-white">
-            {isSuperadmin
-              ? "Communities, Community Admins & Coaches"
+            {isPlatformAdmin
+              ? "Internal Admins, Communities & Coaches"
               : `${team?.callerOrganizationName || "Community"} — Coaches`}
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {isSuperadmin
-              ? "Only Superadmin can create Community Admins. Community Admins manage Coaches locked strictly to their own community."
-              : "Create and manage Coach accounts scoped exclusively to your community."}
+            {isPlatformAdmin
+              ? "Programs are curated centrally by ZERA Admins & Superadmin. Community Admins & Coaches monitor participants."
+              : "Manage Coach accounts scoped to your community and monitor participant progress."}
           </p>
         </div>
 
@@ -260,12 +300,27 @@ export function AdminTeamView({
           {isSuperadmin && (
             <button
               type="button"
+              onClick={() => setInternalAdminModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:opacity-90 transition"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>New ZERA Admin</span>
+            </button>
+          )}
+
+          {isPlatformAdmin && (
+            <button
+              type="button"
               onClick={() => {
                 setPartnerOrgId(team?.organizations[0]?.id || "");
                 setPartnerOrgMode(team?.organizations.length ? "existing" : "new");
                 setPartnerModalOpen(true);
               }}
-              className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:opacity-90 transition"
+              className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                isSuperadmin
+                  ? "border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
+                  : "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-xs hover:opacity-90"
+              }`}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Community Admin</span>
@@ -276,11 +331,11 @@ export function AdminTeamView({
             <button
               type="button"
               onClick={() => {
-                setCoachOrgId(isSuperadmin ? "" : currentAdminOrgId || "");
+                setCoachOrgId(isPlatformAdmin ? "" : currentAdminOrgId || "");
                 setCoachModalOpen(true);
               }}
               className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
-                isSuperadmin
+                isPlatformAdmin
                   ? "border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/5 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10"
                   : "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-xs hover:opacity-90"
               }`}
@@ -341,8 +396,63 @@ export function AdminTeamView({
         </div>
       )}
 
-      {/* SUPERADMIN ONLY: Community Admins Directory */}
+      {/* SUPERADMIN ONLY: Internal ZERA Platform Admins */}
       {isSuperadmin && (
+        <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-zinc-400" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-900 dark:text-white">
+                Internal ZERA Admins ({team?.platformAdmins?.length ?? 0})
+              </h3>
+            </div>
+            <span className="text-[11px] font-mono text-zinc-400">
+              Programs, Directories &amp; Members
+            </span>
+          </div>
+
+          {(team?.platformAdmins?.length ?? 0) === 0 ? (
+            <div className="p-8 text-center text-xs text-zinc-500">
+              No internal Platform Admin accounts created yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-100 dark:divide-white/5">
+              {team!.platformAdmins.map((adm) => (
+                <div
+                  key={adm.id}
+                  className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">
+                        {adm.fullName}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase ${
+                          adm.status === "ACTIVE"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                            : "bg-red-500/10 text-red-600 dark:text-red-300"
+                        }`}
+                      >
+                        {adm.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-500 font-mono truncate">
+                      {adm.email} {adm.phone ? `• ${adm.phone}` : ""}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400 shrink-0">
+                    ADMIN
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PLATFORM ADMIN: Community Admins Directory */}
+      {isPlatformAdmin && (
         <div className="bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-white/10 shadow-xs overflow-hidden">
           <div className="px-6 py-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -406,7 +516,7 @@ export function AdminTeamView({
             </h3>
           </div>
           <span className="text-[11px] font-mono text-zinc-400">
-            {isSuperadmin ? "All Organizations" : "Organization Scoped"}
+            {isPlatformAdmin ? "All Organizations" : "Organization Scoped"}
           </span>
         </div>
 
@@ -669,7 +779,7 @@ export function AdminTeamView({
             </div>
 
             <form onSubmit={handleCreateCoach} className="space-y-3">
-              {isSuperadmin && (
+              {isPlatformAdmin && (
                 <div>
                   <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
                     Community Organization (optional)
@@ -755,6 +865,88 @@ export function AdminTeamView({
                   className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50"
                 >
                   {savingCoach ? "Creating..." : "Create Coach"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Create Internal Platform Admin (Superadmin only) */}
+      {internalAdminModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-zinc-500" />
+                <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  Create Internal ZERA Admin
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInternalAdminModalOpen(false)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Internal Admins can create, edit, and publish Programs, manage Directories, and oversee Communities &amp; Members. Financial approvals and refunds remain Superadmin-only.
+            </p>
+            <form onSubmit={handleCreateInternalAdmin} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                  Admin Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={internalAdminName}
+                  onChange={(e) => setInternalAdminName(e.target.value)}
+                  placeholder="e.g. Rina Wijaya"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={internalAdminEmail}
+                  onChange={(e) => setInternalAdminEmail(e.target.value)}
+                  placeholder="admin@zera.id"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                  Phone (optional)
+                </label>
+                <input
+                  type="text"
+                  value={internalAdminPhone}
+                  onChange={(e) => setInternalAdminPhone(e.target.value)}
+                  placeholder="+62..."
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-xs"
+                />
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInternalAdminModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs text-zinc-600 dark:text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingInternalAdmin}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-50"
+                >
+                  {savingInternalAdmin ? "Creating..." : "Create ZERA Admin"}
                 </button>
               </div>
             </form>

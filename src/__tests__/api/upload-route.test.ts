@@ -19,7 +19,9 @@ const {
 vi.mock("@/wellness/security/session", () => ({
   getWellnessSession: mockGetSession,
   isAdminRole: (role?: string | null) =>
-    role === "SUPERADMIN" || role === "PARTNER_ADMIN" || role === "COACH",
+    role === "SUPERADMIN" || role === "ADMIN" || role === "PARTNER_ADMIN" || role === "COACH",
+  isPlatformAdminRole: (role?: string | null) =>
+    role === "SUPERADMIN" || role === "ADMIN",
 }));
 
 vi.mock("@/wellness/security/csrf", () => ({
@@ -78,11 +80,15 @@ describe("API Route: POST /api/upload (CSRF, RBAC, Rate-Limit & Sharp Sanitizati
     expect((await uploadPost(makeUploadReq({}, "0"))).status).toBe(413);
   });
 
-  it("blocks regular USER from uploading admin branding assets (org-logo, program-cover)", async () => {
+  it("blocks regular USER and PARTNER_ADMIN/COACH from uploading program-cover assets", async () => {
     const res1 = await uploadPost(makeUploadReq({ type: "org-logo", dataUrl: "x" }));
     const res2 = await uploadPost(makeUploadReq({ type: "program-cover", dataUrl: "x" }));
     expect(res1.status).toBe(403);
     expect(res2.status).toBe(403);
+
+    mockGetSession.mockResolvedValueOnce({ userId: "pa_1", role: "PARTNER_ADMIN" });
+    const paCover = await uploadPost(makeUploadReq({ type: "program-cover", dataUrl: "x" }));
+    expect(paCover.status).toBe(403);
   });
 
   it("rejects SVG data URLs and polyglot/spoofed magic bytes masquerading as JPEG", async () => {

@@ -18,7 +18,9 @@ const {
 vi.mock("@/wellness/security/session", () => ({
   getWellnessSession: mockGetSession,
   isAdminRole: (role?: string | null) =>
-    role === "SUPERADMIN" || role === "PARTNER_ADMIN" || role === "COACH",
+    role === "SUPERADMIN" || role === "ADMIN" || role === "PARTNER_ADMIN" || role === "COACH",
+  isPlatformAdminRole: (role?: string | null) =>
+    role === "SUPERADMIN" || role === "ADMIN",
 }));
 
 vi.mock("@/wellness/integrations/supabase-storage", async (importOriginal) => {

@@ -23,7 +23,19 @@ export const UpsertDailySleepSchema = z.object({
 export const UpsertDailyWaterSchema = z.object({
   logDate: WibDateKeySchema,
   waterMl: z.number().int().min(0).max(WATER_MAX_ML),
+  urineColor: z.enum(["clear", "normal", "dark"]).optional().nullable(),
   programDayId: z.string().trim().min(1).max(128).optional().nullable(),
+});
+
+export const UpsertUserVesselPreferencesSchema = z.object({
+  waterVessels: z
+    .object({
+      glass: z.number().int().min(30).max(5000),
+      mug: z.number().int().min(30).max(5000),
+      bottle: z.number().int().min(30).max(5000),
+      tumbler: z.number().int().min(30).max(5000),
+    })
+    .optional(),
 });
 
 export const UpsertDailyStepsSchema = z.object({
@@ -34,6 +46,9 @@ export const UpsertDailyStepsSchema = z.object({
 
 export const MealSlotEntryInputSchema = z.object({
   status: z.enum(["followed", "similar", "off_track", "self_logged"]),
+  slot: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
+  cooking: z.enum(["steamed", "stir_fry", "fried", "coconut"]).optional(),
+  items: z.record(z.string().max(64), z.number().int().min(0).max(20)).optional(),
   mealItem: z.string().trim().max(240).optional(),
   calories: z.number().int().min(0).max(8000).optional().nullable(),
   carbsG: z.number().int().min(0).max(1500).optional().nullable(),

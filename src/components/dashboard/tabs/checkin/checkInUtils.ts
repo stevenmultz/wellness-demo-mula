@@ -22,6 +22,14 @@ import {
   type FillIconProps,
 } from "../sharedFillIcons";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
+import {
+  createDefaultSlotCooking,
+  createEmptyPlateSlots,
+  type CookingStyleId,
+  type MealSlotKey,
+  type PlateSlotsMap,
+  type SlotCookingMap,
+} from "@/wellness/utils/food-catalog";
 import { extractWaterMl } from "@/wellness/utils/nutrition";
 import { computeSafeSleepMinutes } from "@/wellness/utils/wellness-metrics";
 import {
@@ -66,7 +74,7 @@ export interface DailyCheckInProps {
     extra?: { selectedWorkout?: string; checklistCompleted?: string[]; videoWatched?: boolean }
   ) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
-  onSaveWater: (waterMl: number, dayId: string) => SaveResult;
+  onSaveWater: (waterMl: number, dayId: string, urineColor?: string | null) => SaveResult;
   onSaveSteps?: (stepsCount: number, dayId: string) => SaveResult;
   onLogSelfBodyWeight?: (weightKg: number, waistCm?: number | null) => Promise<boolean>;
   latestWeightKg?: number | null;
@@ -232,12 +240,32 @@ export function normalizeSleepFeelingLabel(raw: string): string {
   return trimmed;
 }
 
-export const MEAL_FEELINGS = [
-  { label: "Energized & Light", desc: "Clean steady fuel with comfortable digestion." },
-  { label: "Satisfied & Balanced", desc: "Nourished, content, and evenly satiated." },
-  { label: "Slightly Bloated", desc: "Mild digestive fullness or heaviness after eating." },
-  { label: "Still Hungry", desc: "Lower satiety or lingering appetite between meals." },
-  { label: "Sluggish / Heavy", desc: "Post-meal energy dip or lethargic heaviness." },
+export const MEAL_FEELINGS: readonly FeelingOption[] = [
+  {
+    label: "Light & Smooth Digestion",
+    desc: "Comfortable stomach and regular, smooth bowel movement.",
+    Icon: FillMoodHappyIcon,
+  },
+  {
+    label: "Satisfied & Balanced",
+    desc: "Evenly full with steady energy and normal digestion.",
+    Icon: FillMoodGoodIcon,
+  },
+  {
+    label: "Bloated / Gassy",
+    desc: "Stomach feels tight, heavy, or gassy after eating.",
+    Icon: FillMoodOkayIcon,
+  },
+  {
+    label: "Constipated / Irregular",
+    desc: "Sluggish gut or hard bowel movement; need extra water & fiber.",
+    Icon: FillMoodTiredIcon,
+  },
+  {
+    label: "Upset Stomach / Loose",
+    desc: "Sensitive gut, cramps, or loose stool today.",
+    Icon: FillMoodSickIcon,
+  },
 ];
 
 export const REST_FEELINGS = [
@@ -282,6 +310,7 @@ export type SubStepId =
   | "rest_mood"
   | "connect_attendance"
   | "connect_rating"
+  | "meal_plate"
   | "meal_count"
   | "meal_entry_1"
   | "meal_off_1"
@@ -296,7 +325,10 @@ export type SubStepId =
   | "reflection_mood";
 
 export interface MealSlotEntry {
-  status: "followed" | "similar" | "off_track";
+  status: "followed" | "similar" | "off_track" | "self_logged";
+  slot?: MealSlotKey;
+  cooking?: CookingStyleId;
+  items?: Record<string, number>;
   mealItem?: string;
   calories?: number | null;
   carbsG?: number | null;
@@ -369,9 +401,11 @@ export function computeMealTotals(
 }
 
 export interface MealDraft {
+  plateSlots: PlateSlotsMap;
+  cookingBySlot: SlotCookingMap;
   checkedMeals: string[];
   specialOption: "similar" | "off_track" | null;
-  mealsCount: 0 | 1 | 2 | 3;
+  mealsCount: number;
   mealEntries: MealSlotEntry[];
   mealFeeling: string;
   calories?: number | null;
@@ -452,15 +486,78 @@ function buildEntriesFromLegacy(
   });
 }
 
+function sanitizePlateState(
+  rawPlateSlots: unknown,
+  rawCookingBySlot: unknown,
+  entries: MealSlotEntry[]
+): { plateSlots: PlateSlotsMap; cookingBySlot: SlotCookingMap } {
+  const plateSlots = createEmptyPlateSlots();
+  const cookingBySlot = createDefaultSlotCooking();
+  const validSlots: MealSlotKey[] = ["breakfast", "lunch", "dinner", "snack"];
+  const validCooking: CookingStyleId[] = ["steamed", "stir_fry", "fried", "coconut"];
+
+  if (rawCookingBySlot && typeof rawCookingBySlot === "object" && !Array.isArray(rawCookingBySlot)) {
+    for (const s of validSlots) {
+      const val = (rawCookingBySlot as Record<string, unknown>)[s];
+      if (typeof val === "string" && validCooking.includes(val as CookingStyleId)) {
+        cookingBySlot[s] = val as CookingStyleId;
+      }
+    }
+  }
+
+  let hasDirectSlots = false;
+  if (rawPlateSlots && typeof rawPlateSlots === "object" && !Array.isArray(rawPlateSlots)) {
+    for (const s of validSlots) {
+      const slotObj = (rawPlateSlots as Record<string, unknown>)[s];
+      if (slotObj && typeof slotObj === "object" && !Array.isArray(slotObj)) {
+        for (const [foodId, qtyRaw] of Object.entries(slotObj as Record<string, unknown>)) {
+          const qty = Math.max(0, Math.min(12, Math.round(Number(qtyRaw) || 0)));
+          if (qty > 0) {
+            plateSlots[s][foodId] = qty;
+            hasDirectSlots = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (!hasDirectSlots && Array.isArray(entries)) {
+    for (const entry of entries) {
+      if (entry?.slot && validSlots.includes(entry.slot)) {
+        if (entry.cooking && validCooking.includes(entry.cooking)) {
+          cookingBySlot[entry.slot] = entry.cooking;
+        }
+        if (entry.items && typeof entry.items === "object") {
+          for (const [foodId, qtyRaw] of Object.entries(entry.items)) {
+            const qty = Math.max(0, Math.min(12, Math.round(Number(qtyRaw) || 0)));
+            if (qty > 0) {
+              plateSlots[entry.slot][foodId] = qty;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { plateSlots, cookingBySlot };
+}
+
 export function readMealDraft(
   compliance: string | null | undefined,
   notes: string | null | undefined,
   recommended: string[]
 ): MealDraft {
+  const emptyBase = () => ({
+    plateSlots: createEmptyPlateSlots(),
+    cookingBySlot: createDefaultSlotCooking(),
+  });
+
   if (notes) {
     try {
       const parsed = JSON.parse(notes) as {
         mode?: string;
+        plateSlots?: unknown;
+        cookingBySlot?: unknown;
         checkedMeals?: string[];
         mealsCount?: number;
         mealEntries?: MealSlotEntry[];
@@ -472,8 +569,8 @@ export function readMealDraft(
         waterMl?: number | null;
       };
       const mealsCount =
-        parsed?.mealsCount === 1 || parsed?.mealsCount === 2 || parsed?.mealsCount === 3
-          ? parsed.mealsCount
+        typeof parsed?.mealsCount === "number" && parsed.mealsCount >= 1 && parsed.mealsCount <= 6
+          ? Math.round(parsed.mealsCount)
           : 0;
       const mealFeeling = typeof parsed?.mealFeeling === "string" ? parsed.mealFeeling : "";
       const macros = {
@@ -488,13 +585,21 @@ export function readMealDraft(
           .filter(
             (e): e is MealSlotEntry =>
               !!e &&
-              (e.status === "followed" || e.status === "similar" || e.status === "off_track")
+              (e.status === "followed" ||
+                e.status === "similar" ||
+                e.status === "off_track" ||
+                e.status === "self_logged")
           )
-          .slice(0, 3);
+          .slice(0, 6);
+        const plateState = sanitizePlateState(
+          parsed.plateSlots,
+          parsed.cookingBySlot,
+          sanitized
+        );
         const checkedMeals = Array.from(
           new Set(
             sanitized
-              .filter((e) => e.status === "followed" && e.mealItem)
+              .filter((e) => (e.status === "followed" || e.status === "similar") && e.mealItem)
               .map((e) => e.mealItem!)
           )
         );
@@ -503,42 +608,48 @@ export function readMealDraft(
         const allOff =
           sanitized.length > 0 && sanitized.every((e) => e.status === "off_track");
         return {
+          ...plateState,
           checkedMeals,
           specialOption: allSimilar ? "similar" : allOff ? "off_track" : null,
-          mealsCount:
-            mealsCount || (Math.min(3, Math.max(1, sanitized.length)) as 1 | 2 | 3),
+          mealsCount: mealsCount || Math.max(1, sanitized.length),
           mealEntries: sanitized,
           mealFeeling,
           ...macros,
         };
       }
       if (parsed && parsed.mode === "similar") {
+        const legacyCount = (Math.min(3, Math.max(0, mealsCount)) as 0 | 1 | 2 | 3);
         return {
+          ...emptyBase(),
           checkedMeals: [],
           specialOption: "similar",
           mealsCount,
-          mealEntries: buildEntriesFromLegacy(mealsCount, [], "similar", recommended),
+          mealEntries: buildEntriesFromLegacy(legacyCount, [], "similar", recommended),
           mealFeeling,
           ...macros,
         };
       }
       if (parsed && parsed.mode === "off_track") {
+        const legacyCount = (Math.min(3, Math.max(0, mealsCount)) as 0 | 1 | 2 | 3);
         return {
+          ...emptyBase(),
           checkedMeals: [],
           specialOption: "off_track",
           mealsCount,
-          mealEntries: buildEntriesFromLegacy(mealsCount, [], "off_track", recommended),
+          mealEntries: buildEntriesFromLegacy(legacyCount, [], "off_track", recommended),
           mealFeeling,
           ...macros,
         };
       }
       if (parsed && Array.isArray(parsed.checkedMeals)) {
+        const legacyCount = (Math.min(3, Math.max(0, mealsCount)) as 0 | 1 | 2 | 3);
         return {
+          ...emptyBase(),
           checkedMeals: parsed.checkedMeals,
           specialOption: null,
           mealsCount,
           mealEntries: buildEntriesFromLegacy(
-            mealsCount,
+            legacyCount,
             parsed.checkedMeals,
             null,
             recommended
@@ -553,6 +664,7 @@ export function readMealDraft(
   }
   if (compliance === "SIMILAR") {
     return {
+      ...emptyBase(),
       checkedMeals: [],
       specialOption: "similar",
       mealsCount: 0,
@@ -562,6 +674,7 @@ export function readMealDraft(
   }
   if (compliance === "OFF_TRACK") {
     return {
+      ...emptyBase(),
       checkedMeals: [],
       specialOption: "off_track",
       mealsCount: 0,
@@ -571,6 +684,7 @@ export function readMealDraft(
   }
   if (compliance === "FULL") {
     return {
+      ...emptyBase(),
       checkedMeals: [...recommended],
       specialOption: null,
       mealsCount: 0,
@@ -579,6 +693,7 @@ export function readMealDraft(
     };
   }
   return {
+    ...emptyBase(),
     checkedMeals: [],
     specialOption: null,
     mealsCount: 0,

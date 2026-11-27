@@ -43,6 +43,7 @@ interface AdminDayCurriculumTabProps {
   savingDay: boolean;
   dayError: string | null;
   templates: ProgramTemplateDTO[];
+  canManagePrograms?: boolean;
   onApplyDayTemplate: (tpl: ProgramTemplateDTO) => void;
   onSaveDayTemplate: (name: string, dayForm: AdminDayFormState) => Promise<boolean>;
   onDeleteTemplate: (id: string) => Promise<void>;
@@ -62,6 +63,7 @@ export function AdminDayCurriculumTab({
   savingDay,
   dayError,
   templates,
+  canManagePrograms = false,
   onApplyDayTemplate,
   onSaveDayTemplate,
   onDeleteTemplate,
@@ -76,13 +78,15 @@ export function AdminDayCurriculumTab({
         handleSelectDay={handleSelectDay}
       />
 
-      <ProgramTemplateBar
-        templateType="DAY_ROUTINE"
-        templates={templates}
-        onApply={onApplyDayTemplate}
-        onSaveAsTemplate={(name) => onSaveDayTemplate(name, dayForm)}
-        onDeleteTemplate={onDeleteTemplate}
-      />
+      {canManagePrograms && (
+        <ProgramTemplateBar
+          templateType="DAY_ROUTINE"
+          templates={templates}
+          onApply={onApplyDayTemplate}
+          onSaveAsTemplate={(name) => onSaveDayTemplate(name, dayForm)}
+          onDeleteTemplate={onDeleteTemplate}
+        />
+      )}
 
 {/* Day Content Form (5-Point Accordion) */}
 <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-6 sm:p-8 space-y-6 border border-zinc-200/80 dark:border-white/10 shadow-xs">
@@ -131,15 +135,17 @@ export function AdminDayCurriculumTab({
             <button
               key={typeOpt.value}
               type="button"
-              onClick={() =>
+              disabled={!canManagePrograms}
+              onClick={() => {
+                if (!canManagePrograms) return;
                 setDayForm((p) => ({
                   ...p,
                   dayType: typeOpt.value,
                   dayNotifications: getDefaultNotificationsForType(
                     typeOpt.value
                   ),
-                }))
-              }
+                }));
+              }}
               className={`py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition whitespace-nowrap ${
                 active
                   ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
@@ -277,6 +283,7 @@ export function AdminDayCurriculumTab({
                   handleSaveDay={handleSaveDay}
                   savingDay={savingDay}
                   dayError={dayError}
+                  canManagePrograms={canManagePrograms}
                 />
               </div>
       </div>

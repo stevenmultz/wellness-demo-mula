@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/wellness/db";
 import { buildProgramScopeWhere } from "@/wellness/security/guards";
-import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole, isPlatformAdminRole } from "@/wellness/security/session";
 import {
   createSignedStorageUrl,
   parseStorageUri,
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const ownerPrefix = `${session.userId.replace(/[^A-Za-z0-9_-]/g, "")}/`;
     const isOwner = parsed.objectPath.startsWith(ownerPrefix);
 
-    if (!isOwner && session.role !== "SUPERADMIN") {
+    if (!isOwner && !isPlatformAdminRole(session.role)) {
       let authorized = false;
 
       if (isAdminRole(session.role)) {

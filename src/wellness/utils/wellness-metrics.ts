@@ -229,11 +229,28 @@ export interface CalorieTargetProfile {
 
 export interface PersonalizedCalorieTarget {
   targetKcal: number;
+  restingTargetKcal: number;
   isPersonalized: boolean;
   goodMinKcal: number;
   goodMaxKcal: number;
   avgLowMinKcal: number;
   avgHighMaxKcal: number;
+}
+
+export function buildCalorieTargetBands(
+  targetKcal: number,
+  restingTargetKcal: number,
+  isPersonalized: boolean
+): PersonalizedCalorieTarget {
+  return {
+    targetKcal,
+    restingTargetKcal,
+    isPersonalized,
+    goodMinKcal: Math.round(targetKcal * 0.75),
+    goodMaxKcal: Math.round(targetKcal * 1.1),
+    avgLowMinKcal: Math.round(targetKcal * 0.55),
+    avgHighMaxKcal: Math.round(targetKcal * 1.3),
+  };
 }
 
 export function computePersonalizedCalorieTarget(
@@ -248,6 +265,7 @@ export function computePersonalizedCalorieTarget(
   const a = profile?.age ?? null;
 
   let targetKcal = isFemale ? 1800 : isMale ? 2200 : 2000;
+  let restingTargetKcal = isFemale ? 1600 : isMale ? 2000 : 1800;
   let isPersonalized = false;
 
   if (
@@ -263,20 +281,16 @@ export function computePersonalizedCalorieTarget(
   ) {
     const sexOffset = isMale ? 5 : isFemale ? -161 : -78;
     const bmr = 10 * w + 6.25 * h - 5 * a + sexOffset;
-    // Lightly active baseline (1.375x) because active Steps & Extra Workouts are subtracted separately
+    // Sedentary resting baseline (1.2x) used when active Steps & Extra Workouts are deducted separately
+    const restingEst = Math.round((bmr * 1.2) / 50) * 50;
+    restingTargetKcal = Math.max(1250, Math.min(2700, restingEst));
+    // Lightly active daily target (1.375x) when no separate step burn is deducted
     const estimated = Math.round((bmr * 1.375) / 50) * 50;
     targetKcal = Math.max(1400, Math.min(3000, estimated));
     isPersonalized = true;
   }
 
-  return {
-    targetKcal,
-    isPersonalized,
-    goodMinKcal: Math.round(targetKcal * 0.75),
-    goodMaxKcal: Math.round(targetKcal * 1.1),
-    avgLowMinKcal: Math.round(targetKcal * 0.55),
-    avgHighMaxKcal: Math.round(targetKcal * 1.3),
-  };
+  return buildCalorieTargetBands(targetKcal, restingTargetKcal, isPersonalized);
 }
 
 export function rateNetCalories(

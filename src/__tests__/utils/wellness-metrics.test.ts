@@ -14,6 +14,11 @@ import {
   rateStepsCount,
   rateWaterMl,
 } from "@/wellness/utils/wellness-metrics";
+import {
+  createDefaultSlotCooking,
+  createEmptyPlateSlots,
+  evaluateStandardizedPlate,
+} from "@/wellness/utils/food-catalog";
 
 describe("wellness-metrics precision utilities", () => {
   describe("computeSafeSleepMinutes", () => {
@@ -213,6 +218,27 @@ describe("wellness-metrics precision utilities", () => {
       expect(rateStepsCount(8500)).toBe("good");
       expect(rateStepsCount(6000)).toBe("avg");
       expect(rateStepsCount(2000)).toBe("bad");
+    });
+
+    it("evaluates standardized Tap-to-Plate food selections and cooking modifiers deterministically", () => {
+      const slots = createEmptyPlateSlots();
+      const cooking = createDefaultSlotCooking();
+      slots.lunch = { nasi_putih: 1, ayam: 1, buncis: 1 };
+      cooking.lunch = "steamed";
+
+      const cleanEval = evaluateStandardizedPlate(slots, cooking, true);
+      expect(cleanEval.totalPortions).toBe(3);
+      expect(cleanEval.compliance).toBe("FULL");
+      expect(cleanEval.calories).toBe(130 + 175 + 35);
+      expect(cleanEval.proteinG).toBe(3 + 28 + 2);
+      expect(cleanEval.slots[0]?.summaryText).toContain("Nasi Putih");
+
+      // Deep-fried adds oil/batter calories and treat snacks shift compliance to OFF_TRACK when >50%
+      const treatSlots = createEmptyPlateSlots();
+      treatSlots.snack = { es_krim: 2, teh_manis_boba: 1 };
+      const treatEval = evaluateStandardizedPlate(treatSlots, cooking, false);
+      expect(treatEval.compliance).toBe("OFF_TRACK");
+      expect(treatEval.calories).toBeGreaterThan(500);
     });
   });
 });

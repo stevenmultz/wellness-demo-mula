@@ -11,49 +11,21 @@ import {
   ListChecks,
   MapPin,
   Minus,
-  Play,
   Plus,
   Star,
   User,
   Users,
   Video,
 } from "lucide-react";
-import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
+import {
+  extractVideoThumbnail,
+  normalizeVideoEmbed,
+} from "@/wellness/integrations/video-provider";
 import type { WorkoutOptionGroup } from "@/wellness/utils/json";
 import type { PlanDay } from "../MyPlanTab";
 import { safeHttpUrl } from "../shared";
 import { parseLines, REST_FEELINGS, TRAINING_FEELINGS, type SubStepId } from "./checkInUtils";
 import { FeelingSelector, StepHeader } from "./SleepMealSteps";
-
-function toEmbedVideoUrl(rawUrl: string): string | null {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) return null;
-  try {
-    const u = new URL(trimmed);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-    if (u.hostname.includes("youtube.com")) {
-      const v = u.searchParams.get("v");
-      if (v) return `https://www.youtube.com/embed/${v}?rel=0`;
-      if (u.pathname.startsWith("/shorts/")) {
-        const id = u.pathname.replace(/^\/shorts\//, "").split("/")[0];
-        if (id) return `https://www.youtube.com/embed/${id}?rel=0`;
-      }
-      if (u.pathname.startsWith("/embed/")) return trimmed;
-    }
-    if (u.hostname === "youtu.be") {
-      const id = u.pathname.replace(/^\//, "").split("/")[0];
-      if (id) return `https://www.youtube.com/embed/${id}?rel=0`;
-    }
-    if (u.hostname.includes("vimeo.com") && !u.hostname.includes("player.vimeo.com")) {
-      const id = u.pathname.replace(/^\//, "").split("/")[0];
-      if (/^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
-    }
-    if (u.hostname.includes("player.vimeo.com")) return trimmed;
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 interface ActivityStepProps {
   currentSubStep: SubStepId;
@@ -176,8 +148,12 @@ export function ActivityStepView({
 
   // Unified Online Training Page: Video + Movement Checklist Together
   if (currentSubStep === "training_movements" || currentSubStep === "training_video") {
-    const safeVideoUrl = activeVideo ? safeHttpUrl(activeVideo.url) : null;
-    const embedUrl = safeVideoUrl ? toEmbedVideoUrl(safeVideoUrl) : null;
+    const embed = activeVideo ? normalizeVideoEmbed(activeVideo.url) : null;
+    const isIframeProvider =
+      embed?.provider === "BUNNY_STREAM" ||
+      embed?.provider === "CLOUDFLARE_STREAM" ||
+      embed?.provider === "VIMEO" ||
+      embed?.provider === "YOUTUBE";
 
     return (
       <div className="space-y-6 min-w-0">
@@ -190,64 +166,46 @@ export function ActivityStepView({
           }
         />
 
-        {activeVideo && (
-          <div className="space-y-2.5">
-            {embedUrl ? (
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
+        {activeVideo && embed?.embedUrl && (
+          <div className="space-y-2">
+            {isIframeProvider ? (
+              <div
+                onContextMenu={(e) => e.preventDefault()}
+                className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15 select-none"
+              >
                 <iframe
-                  src={embedUrl}
+                  src={embed.embedUrl}
                   title={activeVideo.title}
                   onLoad={onOpenVideo}
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
+                  referrerPolicy="strict-origin-when-cross-origin"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
               </div>
             ) : (
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
-                  alt=""
-                  className="w-full h-full object-cover"
+              <div
+                onContextMenu={(e) => e.preventDefault()}
+                className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15 select-none"
+              >
+                <video
+                  src={embed.embedUrl}
+                  poster={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
+                  controls
+                  controlsList="nodownload noplaybackrate"
+                  disablePictureInPicture
+                  playsInline
+                  onPlay={onOpenVideo}
+                  className="w-full h-full object-contain bg-black"
                 />
-                {safeVideoUrl && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
-                    <a
-                      href={safeVideoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={onOpenVideo}
-                      className="w-14 h-14 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-                    >
-                      <Play className="w-6 h-6 fill-current ml-0.5" />
-                    </a>
-                  </div>
-                )}
-                <div className="absolute bottom-3 left-4 right-4 text-white">
-                  <p className="text-sm font-semibold truncate">{activeVideo.title}</p>
-                  <p className="text-xs text-white/80">Guided training movement cues</p>
-                </div>
               </div>
             )}
 
-            {safeVideoUrl && (
-              <div className="flex items-center justify-between gap-2 px-1">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
-                  {activeVideo.title}
-                </span>
-                <a
-                  href={safeVideoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={onOpenVideo}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-white hover:opacity-80 shrink-0"
-                >
-                  <span>Open in YouTube</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                </a>
-              </div>
-            )}
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
+                {activeVideo.title}
+              </span>
+            </div>
           </div>
         )}
 

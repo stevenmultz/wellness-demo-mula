@@ -84,7 +84,14 @@ export async function clearSessionCookie() {
 const safeCache = typeof cache === "function" ? cache : <T extends (...args: any[]) => any>(fn: T): T => fn;
 
 export const wellnessGetSessionType = {} as never;
-export { ADMIN_ROLES, isAdminRole, type AdminRole } from "./roles";
+export {
+  ADMIN_ROLES,
+  PLATFORM_ADMIN_ROLES,
+  isAdminRole,
+  isPlatformAdminRole,
+  type AdminRole,
+  type PlatformAdminRole,
+} from "./roles";
 
 /**
  * Fast in-memory JWT cookie check (~0.1ms, zero DB round-trip).

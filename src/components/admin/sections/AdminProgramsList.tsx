@@ -51,6 +51,7 @@ interface AdminProgramsListProps {
   setIsCreatingProgram: (val: boolean) => void;
   setSelectedProgramId: (id: string | null) => void;
   isSuperadminUser?: boolean;
+  canManagePrograms?: boolean;
   duplicatingId?: string | null;
   handleDuplicateProgram?: (prog: AdminProgram, asNextBatch?: boolean) => void;
   openProgramDetail: (
@@ -78,6 +79,7 @@ export function AdminProgramsList({
   setIsCreatingProgram,
   setSelectedProgramId,
   isSuperadminUser = false,
+  canManagePrograms = false,
   duplicatingId = null,
   handleDuplicateProgram,
   openProgramDetail,
@@ -116,19 +118,21 @@ export function AdminProgramsList({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              resetCreateForm();
-              setIsCreatingProgram(true);
-              setSelectedProgramId(null);
-              router.push("/admin/programs/new");
-            }}
-            className="px-5 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 whitespace-nowrap shadow-xs hover:opacity-90 transition shrink-0"
-          >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span>New Program</span>
-          </button>
+          {canManagePrograms && (
+            <button
+              type="button"
+              onClick={() => {
+                resetCreateForm();
+                setIsCreatingProgram(true);
+                setSelectedProgramId(null);
+                router.push("/admin/programs/new");
+              }}
+              className="px-5 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 whitespace-nowrap shadow-xs hover:opacity-90 transition shrink-0"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>New Program</span>
+            </button>
+          )}
         </div>
 
         {/* Row 2: Filters (Status Pills & Sort) - Visually Balanced */}
@@ -386,7 +390,7 @@ export function AdminProgramsList({
 
                     {/* Right: Action Buttons */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {handleDuplicateProgram && (
+                      {canManagePrograms && handleDuplicateProgram && (
                         <button
                           type="button"
                           disabled={duplicatingId === prog.id}
@@ -424,10 +428,16 @@ export function AdminProgramsList({
 
                       <button
                         type="button"
-                        onClick={() => openProgramDetail(prog)}
+                        onClick={() =>
+                          openProgramDetail(
+                            prog,
+                            undefined,
+                            !canManagePrograms && !isResponseDisabled ? "responses" : "info"
+                          )
+                        }
                         className="px-3.5 py-1.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition shadow-sm hover:scale-[1.02] duration-150"
                       >
-                        <span>Manage</span>
+                        <span>{canManagePrograms ? "Manage" : "Monitor"}</span>
                         <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                       </button>
                     </div>

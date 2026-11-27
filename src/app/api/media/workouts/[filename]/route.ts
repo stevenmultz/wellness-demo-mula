@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
-import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole, isPlatformAdminRole } from "@/wellness/security/session";
 import { buildProgramScopeWhere } from "@/wellness/security/guards";
 import { prisma } from "@/wellness/db";
 import {
@@ -48,7 +48,7 @@ export async function GET(
     if (!isAdminRole(session.role)) {
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
-    if (session.role !== "SUPERADMIN") {
+    if (!isPlatformAdminRole(session.role)) {
       const hasScopedAccess = await prisma.programEnrollment.count({
         where: {
           userId: ownerUserId,

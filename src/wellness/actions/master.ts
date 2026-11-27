@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
-import { requireAdminAccess, requireSuperadmin, WellnessForbiddenError } from "../security/guards";
+import { requireAdminAccess, requirePlatformAdmin, WellnessForbiddenError } from "../security/guards";
+import { isPlatformAdminRole } from "../security/roles";
 import { isSafePhotoUrl, safeHttpUrl, safeMediaUrl } from "../utils/url-safety";
 import { recordAuditLog } from "../integrations/audit-log";
 import { reportServerError } from "../observability";
@@ -43,28 +44,26 @@ export async function wellnessGetMasterData(): Promise<{
   try {
     const session = await requireAdminAccess();
 
-    const coachWhere =
-      session.role === "SUPERADMIN"
-        ? undefined
-        : session.role === "PARTNER_ADMIN"
-          ? session.organizationId
-            ? {
-                OR: [
-                  { organizationId: session.organizationId },
-                  { programs: { some: { program: { organizationId: session.organizationId, deletedAt: null } } } },
-                ],
-              }
-            : { id: "__unassigned_scope__" }
-          : session.role === "COACH" && session.coachProfileId
-            ? { id: session.coachProfileId }
-            : { id: "__unassigned_scope__" };
-
-    const orgWhere =
-      session.role === "SUPERADMIN"
-        ? undefined
-        : (session.role === "PARTNER_ADMIN" || session.role === "COACH") && session.organizationId
-          ? { id: session.organizationId }
+    const coachWhere = isPlatformAdminRole(session.role)
+      ? undefined
+      : session.role === "PARTNER_ADMIN"
+        ? session.organizationId
+          ? {
+              OR: [
+                { organizationId: session.organizationId },
+                { programs: { some: { program: { organizationId: session.organizationId, deletedAt: null } } } },
+              ],
+            }
+          : { id: "__unassigned_scope__" }
+        : session.role === "COACH" && session.coachProfileId
+          ? { id: session.coachProfileId }
           : { id: "__unassigned_scope__" };
+
+    const orgWhere = isPlatformAdminRole(session.role)
+      ? undefined
+      : (session.role === "PARTNER_ADMIN" || session.role === "COACH") && session.organizationId
+        ? { id: session.organizationId }
+        : { id: "__unassigned_scope__" };
 
     const [coaches, categories, equipment, dailyCommitments, organizations] =
       await Promise.all([
@@ -76,7 +75,7 @@ export async function wellnessGetMasterData(): Promise<{
       ]);
 
     const effectiveCoaches =
-      coaches.length > 0 || session.role !== "SUPERADMIN"
+      coaches.length > 0 || !isPlatformAdminRole(session.role)
         ? coaches
         : [
             { id: "mc-1", name: "Marcus Vance", title: "Movement & Mobility Lead", organizationId: null },
@@ -156,7 +155,7 @@ export async function wellnessCreateMasterCoach(input: {
   name: string;
   title: string;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   const name = input.name?.trim();
   const title = input.title?.trim();
 
@@ -173,7 +172,7 @@ export async function wellnessCreateMasterCoach(input: {
 }
 
 export async function wellnessDeleteMasterCoach(id: string): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   try {
     const res = await prisma.$transaction(async (tx) => {
       const usedCount = await tx.programCoach.count({ where: { coachId: id } });
@@ -201,7 +200,7 @@ export async function wellnessUpdateMasterCoach(input: {
   name: string;
   title: string;
 }): Promise<WellnessActionResult> {
-  const admin = await requireSuperadmin();
+  const admin = await requirePlatformAdmin();
   const name = input.name?.trim();
   const title = input.title?.trim();
 
@@ -251,10 +250,7 @@ async function createMasterTaxonomyItem(
   nameInput: string,
   labels: { minLengthMsg: string; duplicatePrefix: string; addedPrefix: string }
 ): Promise<WellnessActionResult> {
-  const session = await requireAdminAccess();
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
-    throw new WellnessForbiddenError("Only Superadmin or Community Admin can add taxonomy tags.");
-  }
+  await requirePlatformAdmin();
   const name = nameInput?.trim();
   if (!name || name.length < 2) {
     return { success: false, message: labels.minLengthMsg };
@@ -272,7 +268,7 @@ async function deleteMasterTaxonomyItem(
   runTx: (tx: TxClient) => Promise<{ blocked: string | null }>,
   labels: { titleCase: string; removedMsg: string }
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   try {
     const res = await prisma.$transaction(runTx);
     if (res.blocked) return { success: false, message: res.blocked };
@@ -319,7 +315,7 @@ export async function wellnessUpdateMasterCategory(input: {
   id: string;
   name: string;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   const name = input.name?.trim();
   if (!name || name.length < 2) {
     return { success: false, message: "Sport name must be at least 2 characters." };
@@ -365,7 +361,7 @@ export async function wellnessUpdateMasterEquipment(input: {
   id: string;
   name: string;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   const name = input.name?.trim();
   if (!name || name.length < 2) {
     return { success: false, message: "Equipment name must be at least 2 characters." };
@@ -411,7 +407,7 @@ export async function wellnessUpdateMasterDailyCommitment(input: {
   id: string;
   name: string;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   const name = input.name?.trim();
   if (!name || name.length < 2) {
     return { success: false, message: "Time commitment must be at least 2 characters." };
@@ -431,7 +427,7 @@ export async function wellnessCreateMasterOrganization(input: {
   websiteUrl?: string | null;
   isVerified?: boolean;
 }): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
   const name = input.name?.trim();
   if (!name || name.length < 2 || name.length > 120) {
     return { success: false, message: "Community / Brand name must be between 2 and 120 characters." };
@@ -491,14 +487,14 @@ export async function wellnessUpdateMasterOrganization(input: {
   isVerified?: boolean;
 }): Promise<WellnessActionResult> {
   const session = await requireAdminAccess();
-  if (session.role === "SUPERADMIN") {
+  if (isPlatformAdminRole(session.role)) {
     // Allowed across any community organization
   } else if (session.role === "PARTNER_ADMIN") {
     if (!session.organizationId || input.id !== session.organizationId) {
       throw new WellnessForbiddenError("You can only update your own Community profile & branding.");
     }
   } else {
-    throw new WellnessForbiddenError("Only Superadmin or Community Admin can update Community profiles.");
+    throw new WellnessForbiddenError("Only ZERA Admin or Community Admin can update Community profiles.");
   }
 
   const name = input.name?.trim();
@@ -532,7 +528,7 @@ export async function wellnessUpdateMasterOrganization(input: {
             ? (input.websiteUrl?.trim() ? safeHttpUrl(input.websiteUrl) : null)
             : oldItem.websiteUrl,
         isVerified:
-          session.role === "SUPERADMIN" && input.isVerified !== undefined
+          isPlatformAdminRole(session.role) && input.isVerified !== undefined
             ? input.isVerified
             : oldItem.isVerified,
       },
@@ -553,7 +549,7 @@ export async function wellnessUpdateMasterOrganization(input: {
 export async function wellnessDeleteMasterOrganization(
   id: string
 ): Promise<WellnessActionResult> {
-  const session = await requireSuperadmin();
+  const session = await requirePlatformAdmin();
   try {
     const res = await prisma.$transaction(async (tx) => {
       const [usedPrograms, usedStaff, usedCoaches] = await Promise.all([

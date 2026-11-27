@@ -60,6 +60,7 @@ vi.mock("@/wellness/security/guards", () => ({
 }));
 vi.mock("@/wellness/security/rate-limit", () => ({
   checkDistributedRateLimit: mockRateLimit,
+  checkRateLimit: mockRateLimit,
 }));
 vi.mock("@/wellness/db", () => ({
   prisma: mockPrisma,

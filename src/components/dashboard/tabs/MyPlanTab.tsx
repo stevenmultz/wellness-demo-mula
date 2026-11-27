@@ -226,7 +226,11 @@ export function MyPlanOverview({
   onOpenVideo: (dayId: string) => Promise<void | boolean>;
   onSaveSleep: (bedtime: string, wakeTime: string, minutes: number, dayId: string, sleepFeeling?: string) => Promise<void | boolean>;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => Promise<void | boolean>;
-  onSaveWater: (waterMl: number, dayId: string) => Promise<void | boolean>;
+  onSaveWater: (
+    waterMl: number,
+    dayId: string,
+    urineColor?: string | null
+  ) => Promise<void | boolean>;
   onSaveSteps?: (stepsCount: number, dayId: string) => Promise<void | boolean>;
   onLogSelfBodyWeight?: (weightKg: number, waistCm?: number | null) => Promise<boolean>;
   onAddExtraWorkout?: (payload: {
@@ -1281,6 +1285,8 @@ export function MyPlanOverview({
                   days={fullProgramDays}
                   globalMonthlyDays={globalMonthlyDays}
                   currentDayNumber={currentDayNumber}
+                  selectedDateKey={isStandalone ? effectiveSelectedKey : undefined}
+                  selectedFocusDay={isStandalone ? activeSelectedDay : undefined}
                   bodyMetricLogs={bodyMetricLogs}
                   programId={program?.id || "standalone-wellness"}
                   userGender={userGender}

@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  extractBunnyStreamIds,
   extractVideoThumbnail,
   extractYouTubeId,
   normalizeVideoEmbed,
 } from "@/wellness/integrations/video-provider";
+import {
+  signProgramDayVideoField,
+  signSingleVideoUrl,
+} from "@/wellness/integrations/video-signing";
 import { escapeHtml, sendTransactionalEmail } from "@/wellness/integrations/email-service";
 import {
   STORAGE_BUCKETS,
@@ -65,6 +70,41 @@ describe("Integrations: Video Provider Hardening", () => {
       "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
     );
     expect(extractVideoThumbnail("https://vimeo.com/123", "/fallback.webp")).toBe("/fallback.webp");
+  });
+
+  it("normalizes and signs Bunny.net Stream URLs (single & JSON array) with expiring SHA-256 token", () => {
+    expect(
+      extractBunnyStreamIds("https://iframe.mediadelivery.net/play/295102/550e8400-e29b-41d4-a716-446655440000")
+    ).toEqual({
+      libraryId: "295102",
+      videoId: "550e8400-e29b-41d4-a716-446655440000",
+      token: null,
+      expires: null,
+    });
+
+    const signed = signSingleVideoUrl(
+      "bunny://295102/550e8400-e29b-41d4-a716-446655440000",
+      {
+        nowSec: 1700000000,
+        ttlSeconds: 3600,
+        bunnyTokenKeyOverride: "zera_secret_key",
+      }
+    );
+    expect(signed).toContain(
+      "https://iframe.mediadelivery.net/embed/295102/550e8400-e29b-41d4-a716-446655440000?"
+    );
+    expect(signed).toContain("expires=1700003600");
+    expect(signed).toMatch(/token=[a-f0-9]{64}/);
+
+    const normalized = normalizeVideoEmbed(signed);
+    expect(normalized.provider).toBe("BUNNY_STREAM");
+    expect(normalized.embedUrl).toContain("token=");
+    expect(normalized.embedUrl).toContain("expires=1700003600");
+
+    const signedJson = signProgramDayVideoField(
+      JSON.stringify([{ title: "Option A", url: "bunny://295102/550e8400-e29b-41d4-a716-446655440000" }])
+    );
+    expect(signedJson).toContain("iframe.mediadelivery.net/embed/295102/");
   });
 });
 

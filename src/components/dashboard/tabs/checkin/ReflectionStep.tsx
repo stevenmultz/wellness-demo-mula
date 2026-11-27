@@ -145,6 +145,7 @@ export function LockedTaskSummaryView({
   connectRating,
   mealDraft,
   waterMl = 0,
+  urineColor,
   recommendedMealsCount,
   review,
   score,
@@ -170,6 +171,7 @@ export function LockedTaskSummaryView({
   connectRating: number;
   mealDraft: MealDraft;
   waterMl?: number;
+  urineColor?: string | null;
   recommendedMealsCount: number;
   review: string;
   score: number;
@@ -386,16 +388,18 @@ export function LockedTaskSummaryView({
                   </div>
                   {mealDraft.mealEntries.length > 0 ? (
                     mealDraft.mealEntries.map((entry, idx) => (
-                      <div key={idx} className="py-4 flex items-center justify-between gap-4">
-                        <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      <div key={idx} className="py-4 flex items-start justify-between gap-4">
+                        <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
                           Meal {idx + 1}
                         </dt>
-                        <dd className="font-medium text-zinc-950 dark:text-white text-right">
-                          {entry.status === "followed"
-                            ? "Followed Plan"
-                            : entry.status === "similar"
-                              ? "Similar Nutrition"
-                              : "Off Plan"}
+                        <dd className="font-medium text-zinc-950 dark:text-white text-right text-xs sm:text-sm">
+                          {entry.mealItem
+                            ? entry.mealItem
+                            : entry.status === "followed"
+                              ? "Followed Plan"
+                              : entry.status === "similar"
+                                ? "Similar Nutrition"
+                                : "Off Plan"}
                         </dd>
                       </div>
                     ))
@@ -427,7 +431,7 @@ export function LockedTaskSummaryView({
                   )}
                   <div className="py-4 flex items-center justify-between gap-4">
                     <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Post-Meal Mood
+                      Digestion &amp; Satiety
                     </dt>
                     <dd className="font-medium text-zinc-950 dark:text-white text-right">
                       {mealDraft.mealFeeling || "—"}
@@ -437,18 +441,34 @@ export function LockedTaskSummaryView({
               )}
 
               {step === 3 && (
-                <div className="py-4 flex items-center justify-between gap-4">
-                  <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    Water Intake
-                  </dt>
-                  <dd className="font-mono font-semibold text-zinc-950 dark:text-white text-right">
-                    {waterMl > 0
-                      ? `${(waterMl / 1000).toFixed(1)} L (${waterMl.toLocaleString()} ml)`
-                      : mealDraft.waterMl && mealDraft.waterMl > 0
-                        ? `${(mealDraft.waterMl / 1000).toFixed(1)} L (${mealDraft.waterMl.toLocaleString()} ml)`
-                        : "—"}
-                  </dd>
-                </div>
+                <>
+                  <div className="py-4 flex items-center justify-between gap-4">
+                    <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      Water Intake
+                    </dt>
+                    <dd className="font-mono font-semibold text-zinc-950 dark:text-white text-right">
+                      {waterMl > 0
+                        ? `${(waterMl / 1000).toFixed(1)} L (${waterMl.toLocaleString()} ml)`
+                        : mealDraft.waterMl && mealDraft.waterMl > 0
+                          ? `${(mealDraft.waterMl / 1000).toFixed(1)} L (${mealDraft.waterMl.toLocaleString()} ml)`
+                          : "—"}
+                    </dd>
+                  </div>
+                  {urineColor && (
+                    <div className="py-4 flex items-center justify-between gap-4">
+                      <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        Hydration Check
+                      </dt>
+                      <dd className="font-medium text-zinc-950 dark:text-white text-right">
+                        {urineColor === "clear"
+                          ? "Pale / Clear (Well Hydrated)"
+                          : urineColor === "normal"
+                            ? "Light Yellow (Normal)"
+                            : "Dark Amber (Need More Water)"}
+                      </dd>
+                    </div>
+                  )}
+                </>
               )}
             </dl>
           )}

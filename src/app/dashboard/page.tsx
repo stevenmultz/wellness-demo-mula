@@ -44,6 +44,7 @@ import {
   serializeProgramTaxonomy,
 } from "@/wellness/services/program-taxonomy";
 import { resolveEffectiveProgramStart } from "@/wellness/services/daily-log-hydration";
+import { signProgramDayVideoField, signSingleVideoUrl } from "@/wellness/integrations/video-signing";
 import { normalizeProgramDayType } from "@/wellness/utils/day-completion";
 
 function toClientMediaUrl(pathOrUrl: string | null | undefined): string | null {
@@ -301,7 +302,9 @@ async function DashboardContent() {
       slug: e.program.slug,
       description: e.program.description,
       coverImage: toClientMediaUrl(e.program.coverImagePath),
-      introVideoUrl: e.program.introVideoUrl || null,
+      introVideoUrl: e.program.introVideoUrl
+        ? signSingleVideoUrl(e.program.introVideoUrl)
+        : null,
       coachName: tax.coachName,
       organizationName: tax.organizationName || null,
       organizationLogo: toClientMediaUrl(tax.organizationLogoPath),
@@ -524,6 +527,25 @@ async function DashboardContent() {
             const inheritedCompliance = mapMealQualityToProgramCompliance(gLog?.mealQualityMode);
             const effectiveMealCompliance =
               progRecord?.mealCompliance ?? inheritedCompliance ?? null;
+            const inheritedMealNotes =
+              progRecord?.mealNotes ??
+              (gLog &&
+              (gLog.mealQualityMode != null ||
+                gLog.caloriesKcal > 0 ||
+                gLog.carbsG > 0 ||
+                gLog.proteinG > 0 ||
+                gLog.fatG > 0)
+                ? JSON.stringify({
+                    mealsCount: gLog.mealsCount || 1,
+                    mealFeeling: gLog.mealFeeling || undefined,
+                    calories: gLog.caloriesKcal,
+                    carbsG: gLog.carbsG,
+                    proteinG: gLog.proteinG,
+                    fatG: gLog.fatG,
+                    mealEntries: Array.isArray(gLog.mealEntriesJson) ? gLog.mealEntriesJson : [],
+                  })
+                : null);
+
             const mealSyncedFromDailyLog = Boolean(
               !progRecord?.mealCompliance && inheritedCompliance
             );
@@ -589,7 +611,7 @@ async function DashboardContent() {
               isCalendarUnlocked,
               isPast2359,
               isSkipped,
-              videoUrl: canAccessMedia ? d.videoUrl : null,
+              videoUrl: canAccessMedia ? signProgramDayVideoField(d.videoUrl) : null,
               videoChecklist: canAccessMedia ? checklistItems : [],
               mealRecommendation: d.mealRecommendation || null,
               meetupLink: isPaidMember ? d.meetupLink : null,
@@ -641,7 +663,7 @@ async function DashboardContent() {
                       workoutNotes: progRecord?.workoutNotes ?? null,
                       eventFeedback: progRecord?.eventFeedback ?? null,
                       mealCompliance: effectiveMealCompliance,
-                      mealNotes: progRecord?.mealNotes ?? null,
+                      mealNotes: inheritedMealNotes,
                       dailyReflection: progRecord?.dailyReflection ?? null,
                       happinessRate: progRecord?.happinessRate ?? null,
                       bedtime: effectiveBedtime,
@@ -649,6 +671,7 @@ async function DashboardContent() {
                       sleepDurationMinutes: effectiveSleepMins,
                       assessmentResponse: effectiveAssessment,
                       waterMl: effectiveWaterMl,
+                      urineColor: gLog?.urineColor ?? null,
                       stepsCount: effectiveStepsCount,
                       stepsBurnedKcal: effectiveStepsBurned,
                       caloriesKcal: effectiveCaloriesKcal,
@@ -670,7 +693,7 @@ async function DashboardContent() {
       slug: p.slug,
       description: p.description,
       coverImage: toClientMediaUrl(p.coverImagePath),
-      introVideoUrl: p.introVideoUrl || null,
+      introVideoUrl: p.introVideoUrl ? signSingleVideoUrl(p.introVideoUrl) : null,
       coachName: tax.coachName,
       coachTitle: tax.coachTitle,
       organizationName: tax.organizationName || null,

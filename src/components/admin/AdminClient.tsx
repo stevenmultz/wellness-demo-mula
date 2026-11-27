@@ -97,6 +97,7 @@ export function AdminClient({
 }: AdminClientProps) {
   const router = useRouter();
   const isSuperadminUser = currentAdminRole === "SUPERADMIN";
+  const canManagePrograms = isSuperadminUser || currentAdminRole === "ADMIN";
   void currentAdminCoachId;
 
   const [activeMenu, setActiveMenu] = useState<AdminMenuKey>(
@@ -121,7 +122,7 @@ export function AdminClient({
   const [feedback, setFeedback] = useState<AdminFeedbackMessage | null>(null);
 
   const [isCreatingProgram, setIsCreatingProgram] = useState(
-    Boolean(initialRoute?.isCreating)
+    Boolean(initialRoute?.isCreating && canManagePrograms)
   );
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
     initialRoute?.programId || null
@@ -622,6 +623,7 @@ export function AdminClient({
             pendingEnrollments={pendingEnrollments}
             approvingId={customerActions.approvingId}
             isSuperadminUser={isSuperadminUser}
+            canManagePrograms={canManagePrograms}
             setActiveMenu={setActiveMenu}
             setSelectedProgramId={setSelectedProgramId}
             setIsCreatingProgram={setIsCreatingProgram}
@@ -650,13 +652,14 @@ export function AdminClient({
             setIsCreatingProgram={setIsCreatingProgram}
             setSelectedProgramId={setSelectedProgramId}
             isSuperadminUser={isSuperadminUser}
+            canManagePrograms={canManagePrograms}
             duplicatingId={programActions.duplicatingId}
             handleDuplicateProgram={programActions.handleDuplicateProgram}
             openProgramDetail={openProgramDetail}
           />
         )}
 
-        {activeMenu === "programs" && isCreatingProgram && (
+        {activeMenu === "programs" && isCreatingProgram && canManagePrograms && (
           <AdminProgramCreateView
             createForm={programActions.createForm}
             setCreateForm={programActions.setCreateForm}
@@ -664,7 +667,7 @@ export function AdminClient({
             toggleCreateSection={programActions.toggleCreateSection}
             setAllCreateSections={programActions.setAllCreateSections}
             masterData={masterData}
-            isSuperadminUser={isSuperadminUser}
+            isSuperadminUser={canManagePrograms}
             currentAdminOrgId={currentAdminOrgId}
             navigateToDirectory={navigateToDirectory}
             setIsCreatingProgram={setIsCreatingProgram}
@@ -678,13 +681,13 @@ export function AdminClient({
           />
         )}
 
-        {activeMenu === "master" && (
+        {activeMenu === "master" && canManagePrograms && (
           <AdminMasterDirectories
             masterData={masterData}
             setMasterData={setMasterData}
             masterTab={masterTab}
             setMasterTab={setMasterTab}
-            isSuperadminUser={isSuperadminUser}
+            isSuperadminUser={canManagePrograms}
             setFeedback={setFeedback}
             masterActionLoading={masterDirectoryActions.masterActionLoading}
             activeDirectoryModal={masterDirectoryActions.activeDirectoryModal}
@@ -715,6 +718,7 @@ export function AdminClient({
             handleDeleteProgram={programActions.handleDeleteProgram}
             loadProgramSubmissions={submissionsActions.loadProgramSubmissions}
             submissionsCount={submissionsActions.programSubmissions.length}
+            canManagePrograms={canManagePrograms}
           >
             {programDetailTab === "info" && (
               <AdminProgramInfoTab
@@ -726,6 +730,7 @@ export function AdminClient({
                 setAllDetailSections={programActions.setAllDetailSections}
                 masterData={masterData}
                 isSuperadminUser={isSuperadminUser}
+                canManagePrograms={canManagePrograms}
                 currentAdminOrgId={currentAdminOrgId}
                 navigateToDirectory={navigateToDirectory}
                 handleInitiatePublish={programActions.handleInitiatePublish}
@@ -755,6 +760,7 @@ export function AdminClient({
                 savingDay={dayActions.savingDay}
                 dayError={dayActions.dayError}
                 templates={templates}
+                canManagePrograms={canManagePrograms}
                 onApplyDayTemplate={handleApplyDayTemplate}
                 onSaveDayTemplate={handleSaveDayTemplate}
                 onDeleteTemplate={handleDeleteTemplate}
@@ -836,11 +842,11 @@ export function AdminClient({
           />
         )}
 
-        {activeMenu === "community" && (isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
+        {activeMenu === "community" && (canManagePrograms || currentAdminRole === "PARTNER_ADMIN") && (
           <div className="bg-white dark:bg-zinc-900/90 rounded-2xl p-6 border border-zinc-200/80 dark:border-white/10 shadow-xs space-y-6">
             <AdminOrganizationsManager
               organizations={masterData.organizations || []}
-              isSuperadmin={isSuperadminUser}
+              isSuperadmin={canManagePrograms}
               currentAdminOrgId={currentAdminOrgId}
               onUpdated={(next) =>
                 setMasterData((prev) => ({ ...prev, organizations: next }))
@@ -850,7 +856,7 @@ export function AdminClient({
           </div>
         )}
 
-        {activeMenu === "team" && (isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
+        {activeMenu === "team" && (canManagePrograms || currentAdminRole === "PARTNER_ADMIN") && (
           <AdminTeamView
             currentAdminRole={currentAdminRole}
             currentAdminOrgId={currentAdminOrgId}

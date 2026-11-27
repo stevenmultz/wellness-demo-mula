@@ -1,7 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, ChevronDown, Coffee, GlassWater, Pencil, Plus, RotateCcw, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  Coffee,
+  GlassWater,
+  Minus,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Utensils,
+  X,
+} from "lucide-react";
+import {
+  wellnessGetUserPreferences,
+  wellnessSaveUserPreferences,
+} from "@/wellness/actions/daily-log";
+import { useLocale } from "@/wellness/i18n/LocaleContext";
+import {
+  COOKING_STYLES,
+  FOOD_CATALOG,
+  FOOD_CATEGORIES,
+  MEAL_SLOTS,
+  URINE_COLOR_OPTIONS,
+  evaluateStandardizedPlate,
+  type CookingStyleId,
+  type FoodCategoryId,
+  type MealSlotKey,
+} from "@/wellness/utils/food-catalog";
+import { WATER_TARGET_ML } from "@/wellness/utils/wellness-metrics";
 import {
   BEDTIME_PRESETS,
   HOURS_24,
@@ -16,7 +45,6 @@ import {
   stripMealLabelPrefix,
   type FeelingOption,
   type MealDraft,
-  type MealSlotEntry,
   type SubStepId,
 } from "./checkInUtils";
 
@@ -473,6 +501,29 @@ export function SleepStepView({
   );
 }
 
+function resolveInitialMealSlot(plateSlots: MealDraft["plateSlots"]): MealSlotKey {
+  for (const s of MEAL_SLOTS) {
+    const counts = plateSlots?.[s.key];
+    if (counts && Object.values(counts).some((q) => q > 0)) {
+      return s.key;
+    }
+  }
+  try {
+    const hourStr = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    }).format(new Date());
+    const h = Number(hourStr);
+    if (h >= 5 && h < 11) return "breakfast";
+    if (h >= 11 && h < 16) return "lunch";
+    if (h >= 16 && h < 21) return "dinner";
+    return "snack";
+  } catch {
+    return "lunch";
+  }
+}
+
 export function MealStepView({
   currentSubStep,
   dayNumber,
@@ -491,375 +542,487 @@ export function MealStepView({
   mealSyncedFromDailyLog?: boolean;
 }) {
   void dayNumber;
-  if (currentSubStep === "meal_count") {
+  const { locale } = useLocale();
+  const isId = locale === "id";
+
+  const [activeSlot, setActiveSlot] = useState<MealSlotKey>(() =>
+    resolveInitialMealSlot(mealDraft.plateSlots)
+  );
+  const [activeCategory, setActiveCategory] = useState<"all" | FoodCategoryId>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCoachMenu, setShowCoachMenu] = useState(false);
+
+  const evaluated = useMemo(
+    () =>
+      evaluateStandardizedPlate(
+        mealDraft.plateSlots,
+        mealDraft.cookingBySlot,
+        isId
+      ),
+    [mealDraft.plateSlots, mealDraft.cookingBySlot, isId]
+  );
+
+  const hasCustomCoachGuide = useMemo(() => {
+    if (!recommendedMeals || recommendedMeals.length === 0) return false;
+    return !recommendedMeals[0]?.startsWith("Nutrient-dense breakfast with clean protein");
+  }, [recommendedMeals]);
+
+  const filteredFoods = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return FOOD_CATALOG.filter((item) => {
+      if (activeCategory !== "all" && item.category !== activeCategory) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        item.nameId.toLowerCase().includes(q) ||
+        item.nameEn.toLowerCase().includes(q)
+      );
+    });
+  }, [activeCategory, searchQuery]);
+
+  const setFoodPortion = (slot: MealSlotKey, foodId: string, nextQty: number) => {
+    clearError();
+    const clamped = Math.max(0, Math.min(12, Math.round(nextQty)));
+    setMealDraft((prev) => {
+      const prevSlot = { ...(prev.plateSlots?.[slot] || {}) };
+      if (clamped <= 0) {
+        delete prevSlot[foodId];
+      } else {
+        prevSlot[foodId] = clamped;
+      }
+      const nextPlateSlots = {
+        ...prev.plateSlots,
+        [slot]: prevSlot,
+      };
+      const summary = evaluateStandardizedPlate(
+        nextPlateSlots,
+        prev.cookingBySlot,
+        isId
+      );
+      return {
+        ...prev,
+        plateSlots: nextPlateSlots,
+        mealsCount: summary.mealsCount,
+        calories: summary.calories,
+        carbsG: summary.carbsG,
+        proteinG: summary.proteinG,
+        fatG: summary.fatG,
+      };
+    });
+  };
+
+  const setSlotCooking = (slot: MealSlotKey, cooking: CookingStyleId) => {
+    clearError();
+    setMealDraft((prev) => {
+      const nextCooking = {
+        ...prev.cookingBySlot,
+        [slot]: cooking,
+      };
+      const summary = evaluateStandardizedPlate(
+        prev.plateSlots,
+        nextCooking,
+        isId
+      );
+      return {
+        ...prev,
+        cookingBySlot: nextCooking,
+        mealsCount: summary.mealsCount,
+        calories: summary.calories,
+        carbsG: summary.carbsG,
+        proteinG: summary.proteinG,
+        fatG: summary.fatG,
+      };
+    });
+  };
+
+  if (currentSubStep === "meal_plate") {
+    const slotCounts = mealDraft.plateSlots?.[activeSlot] || {};
+    const activeCooking = mealDraft.cookingBySlot?.[activeSlot] || "stir_fry";
+
     return (
-      <div className="space-y-6 min-w-0">
-        <StepHeader title="How many meals did you eat today?" />
+      <div className="space-y-4 min-w-0">
+        <StepHeader
+          title={isId ? "Apa isi piring makanmu hari ini?" : "What was on your plate today?"}
+          subtitle={
+            isId
+              ? "Tap makanan & minuman per waktu makan — kalori & makro terhitung otomatis."
+              : "Tap food & drink portions by meal — calories & macros calculate automatically."
+          }
+        />
+
         {mealSyncedFromDailyLog && (
           <div className="px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-800 dark:text-emerald-300">
-            Synced from today&apos;s daily log — confirm or adjust adherence for this program.
+            {isId
+              ? "Tersinkron dari catatan harianmu — cek atau sesuaikan porsinya."
+              : "Synced from today's daily log — review or adjust portions below."}
           </div>
         )}
-        <div className="grid grid-cols-3 gap-3 pt-1">
-          {([1, 2, 3] as const).map((count) => {
-            const active = mealDraft.mealsCount === count;
+
+        {hasCustomCoachGuide && (
+          <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowCoachMenu((prev) => !prev)}
+              className="w-full px-3.5 py-2.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer"
+            >
+              <span className="inline-flex items-center gap-1.5 truncate">
+                <Utensils className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                <span>{isId ? "Panduan Menu Coach Hari Ini" : "Today's Coach Meal Guide"}</span>
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-zinc-400 transition-transform ${
+                  showCoachMenu ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {showCoachMenu && (
+              <ul className="px-3.5 pb-3 pt-1 border-t border-zinc-100 dark:border-white/10 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                {recommendedMeals.map((line, idx) => (
+                  <li key={idx} className="leading-relaxed">
+                    • {stripMealLabelPrefix(line) || line}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* 1. Meal Session Tabs (Breakfast / Lunch / Dinner / Snacks) */}
+        <div
+          role="tablist"
+          aria-label="Meal time"
+          className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-zinc-200/70 dark:bg-white/[0.06] border border-zinc-200/80 dark:border-white/10"
+        >
+          {MEAL_SLOTS.map((s) => {
+            const active = activeSlot === s.key;
+            const slotTotalPortions = Object.values(
+              mealDraft.plateSlots?.[s.key] || {}
+            ).reduce((acc, n) => acc + (n > 0 ? n : 0), 0);
             return (
               <button
-                key={count}
+                key={s.key}
                 type="button"
-                onClick={() => {
-                  clearError();
-                  setMealDraft((prev) => {
-                    const nextEntries = prev.mealEntries.slice(0, count);
-                    const totals = computeMealTotals(nextEntries, count);
-                    return {
-                      ...prev,
-                      mealsCount: count,
-                      mealEntries: nextEntries,
-                      ...totals,
-                    };
-                  });
-                }}
-                className={`py-5 px-2 rounded-2xl border text-center transition active:scale-95 ${
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveSlot(s.key)}
+                className={`h-9 px-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] cursor-pointer ${
                   active
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
                 }`}
               >
-                <span className="block text-2xl font-geometric font-medium tabular-nums leading-none">
-                  {count}
-                </span>
-                <span
-                  className={`block text-xs font-medium mt-2 ${
-                    active
-                      ? "text-white/80 dark:text-zinc-950/80"
-                      : "text-zinc-500 dark:text-zinc-400"
-                  }`}
-                >
-                  {count === 1 ? "Meal" : "Meals"}
-                </span>
+                <span className="truncate">{isId ? s.labelId : s.labelEn}</span>
+                {slotTotalPortions > 0 && (
+                  <span
+                    className={`min-w-4 h-4 px-1 rounded-full text-[10px] font-mono font-bold inline-flex items-center justify-center ${
+                      active
+                        ? "bg-white/20 text-white dark:bg-zinc-950/15 dark:text-zinc-950"
+                        : "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    }`}
+                  >
+                    {slotTotalPortions}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+
+        {/* 2. Search + Category Filter Pills */}
+        <div className="space-y-2.5">
+          <div className="relative">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={
+                isId
+                  ? "Cari nasi, mie, ayam, sayur, biskuit..."
+                  : "Search rice, noodles, chicken, veggies, snacks..."
+              }
+              className="w-full h-10 pl-9 pr-9 rounded-xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-zinc-200 dark:bg-white/15 text-zinc-700 dark:text-zinc-200 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {FOOD_CATEGORIES.map((cat) => {
+              const active = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`h-7 px-3 rounded-full text-[11px] font-semibold whitespace-nowrap transition active:scale-95 cursor-pointer ${
+                    active
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                      : "bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300"
+                  }`}
+                >
+                  {isId ? cat.labelId : cat.labelEn}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Cooking Method Modifier (Main meals only) */}
+        {activeSlot !== "snack" && (
+          <div className="space-y-1.5">
+            <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              {isId ? "Cara Masak Dominan" : "Dominant Cooking Style"}
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {COOKING_STYLES.map((style) => {
+                const active = activeCooking === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => setSlotCooking(activeSlot, style.id)}
+                    className={`h-8 px-2.5 rounded-xl border text-[11px] font-medium truncate transition active:scale-95 cursor-pointer ${
+                      active
+                        ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold"
+                        : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                    }`}
+                  >
+                    {isId ? style.labelId : style.labelEn}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 4. 2-Column Standardized Tap-to-Plate Food Chips */}
+        <div className="grid grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto overscroll-contain pr-0.5 py-0.5">
+          {filteredFoods.map((food) => {
+            const qty = slotCounts[food.id] || 0;
+            const selected = qty > 0;
+            const title = isId ? food.nameId : food.nameEn;
+            const portion = isId ? food.portionLabelId : food.portionLabelEn;
+
+            return (
+              <div
+                key={food.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (!selected) {
+                    setFoodPortion(activeSlot, food.id, 1);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && !selected) {
+                    e.preventDefault();
+                    setFoodPortion(activeSlot, food.id, 1);
+                  }
+                }}
+                className={`p-3 rounded-2xl border text-left transition select-none flex flex-col justify-between gap-2 ${
+                  selected
+                    ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                    : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25 cursor-pointer active:scale-[0.98]"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p
+                    className={`text-xs sm:text-sm font-semibold truncate ${
+                      selected ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"
+                    }`}
+                  >
+                    {title}
+                  </p>
+                  <p
+                    className={`text-[11px] font-mono truncate mt-0.5 ${
+                      selected
+                        ? "text-white/75 dark:text-zinc-950/75"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }`}
+                  >
+                    {portion} · {food.calories} kcal
+                  </p>
+                </div>
+
+                {selected ? (
+                  <div
+                    className="flex items-center justify-between gap-1 pt-0.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setFoodPortion(activeSlot, food.id, qty - 1)}
+                      aria-label={`Decrease ${title}`}
+                      className="w-7 h-7 rounded-lg bg-white/15 dark:bg-zinc-950/10 hover:bg-white/25 dark:hover:bg-zinc-950/20 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-xs font-mono font-bold tabular-nums">
+                      {qty}×
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFoodPortion(activeSlot, food.id, qty + 1)}
+                      aria-label={`Increase ${title}`}
+                      className="w-7 h-7 rounded-lg bg-white/15 dark:bg-zinc-950/10 hover:bg-white/25 dark:hover:bg-zinc-950/20 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+                    <span>
+                      P {food.proteinG}g · C {food.carbsG}g
+                    </span>
+                    <Plus className="w-3.5 h-3.5 text-zinc-400" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 5. Live Auto-Calculated Plate Summary */}
+        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200/90 dark:border-white/15 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+              {isId ? "Total Piring Hari Ini" : "Today's Plate Total"}
+            </span>
+            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+              {evaluated.totalPortions > 0
+                ? `${evaluated.slots.length} ${
+                    isId ? "waktu makan" : evaluated.slots.length === 1 ? "meal" : "meals"
+                  }`
+                : isId
+                  ? "Belum ada item dipilih"
+                  : "Tap items above"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 text-xs font-mono">
+            <div>
+              <span className="text-zinc-400 block text-[10px]">Calories</span>
+              <span className="font-semibold text-zinc-950 dark:text-white tabular-nums">
+                {evaluated.totalPortions > 0
+                  ? `${evaluated.calories} kcal`
+                  : mealDraft.calories
+                    ? `${mealDraft.calories} kcal`
+                    : "0 kcal"}
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-400 block text-[10px]">Carbs</span>
+              <span className="font-semibold text-zinc-950 dark:text-white tabular-nums">
+                {evaluated.totalPortions > 0 ? evaluated.carbsG : mealDraft.carbsG ?? 0}g
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-400 block text-[10px]">Protein</span>
+              <span className="font-semibold text-zinc-950 dark:text-white tabular-nums">
+                {evaluated.totalPortions > 0 ? evaluated.proteinG : mealDraft.proteinG ?? 0}g
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-400 block text-[10px]">Fat</span>
+              <span className="font-semibold text-zinc-950 dark:text-white tabular-nums">
+                {evaluated.totalPortions > 0 ? evaluated.fatG : mealDraft.fatG ?? 0}g
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (
-    currentSubStep === "meal_entry_1" ||
-    currentSubStep === "meal_entry_2" ||
-    currentSubStep === "meal_entry_3"
-  ) {
-    const slotIndex =
-      currentSubStep === "meal_entry_1" ? 0 : currentSubStep === "meal_entry_2" ? 1 : 2;
-    const entry = mealDraft.mealEntries[slotIndex];
-    const isFollowedOrSimilar =
-      entry?.status === "followed" || entry?.status === "similar";
-    const defaultRec =
-      recommendedMeals[Math.min(slotIndex, recommendedMeals.length - 1)] ||
-      recommendedMeals[0];
-    const cleanDefaultRec = stripMealLabelPrefix(defaultRec) || defaultRec;
+  const fallbackTotals = computeMealTotals(
+    mealDraft.mealEntries,
+    mealDraft.mealsCount || 1
+  );
+  const displayCal =
+    evaluated.totalPortions > 0
+      ? evaluated.calories
+      : mealDraft.calories || fallbackTotals.calories;
+  const displayC =
+    evaluated.totalPortions > 0
+      ? evaluated.carbsG
+      : mealDraft.carbsG ?? fallbackTotals.carbsG;
+  const displayP =
+    evaluated.totalPortions > 0
+      ? evaluated.proteinG
+      : mealDraft.proteinG ?? fallbackTotals.proteinG;
+  const displayF =
+    evaluated.totalPortions > 0
+      ? evaluated.fatG
+      : mealDraft.fatG ?? fallbackTotals.fatG;
 
-    const setSlotEntry = (next: MealSlotEntry) => {
-      clearError();
-      setMealDraft((prev) => {
-        const nextEntries = [...prev.mealEntries];
-        nextEntries[slotIndex] = next;
-        const count = prev.mealsCount || 1;
-        const activeSlice = nextEntries.slice(0, count);
-        const checkedMeals = Array.from(
-          new Set(
-            activeSlice
-              .filter(
-                (e) =>
-                  (e?.status === "followed" || e?.status === "similar") && e.mealItem
-              )
-              .map((e) => e.mealItem!)
-          )
-        );
-        const allOff =
-          activeSlice.length > 0 && activeSlice.every((e) => e?.status === "off_track");
-        const totals = computeMealTotals(nextEntries, count);
-        return {
-          ...prev,
-          mealEntries: nextEntries,
-          checkedMeals,
-          specialOption: allOff ? "off_track" : null,
-          ...totals,
-        };
-      });
-    };
+  return (
+    <div className="space-y-5 min-w-0">
+      <StepHeader
+        title={
+          isId
+            ? "Bagaimana kondisi perut & pencernaanmu?"
+            : "How does your stomach & digestion feel?"
+        }
+        subtitle={
+          isId
+            ? "Cek rasa kenyang & kelancaran pencernaan setelah makan hari ini."
+            : "Quick gut comfort & satiety check after today's meals."
+        }
+      />
 
-    return (
-      <div className="space-y-6 min-w-0">
-        <StepHeader
-          title={`Did Meal ${slotIndex + 1} follow your plan?`}
-          subtitle={cleanDefaultRec ? `Recommended: ${cleanDefaultRec}` : null}
-        />
-
-        <div className="grid grid-cols-1 gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              setSlotEntry({
-                status: "followed",
-                mealItem: entry?.mealItem || defaultRec,
-              })
-            }
-            className={`w-full p-4 rounded-2xl border text-left transition select-none ${
-              isFollowedOrSimilar
-                ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-            }`}
-          >
-            <p
-              className={`text-sm font-semibold ${
-                isFollowedOrSimilar
-                  ? "text-white dark:text-zinc-950"
-                  : "text-zinc-950 dark:text-white"
-              }`}
-            >
-              Followed Plan / Similar
-            </p>
-            <p
-              className={`text-xs mt-0.5 ${
-                isFollowedOrSimilar
-                  ? "text-white/80 dark:text-zinc-950/80"
-                  : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              Ate recommended menu or a similar clean, balanced meal portion.
-            </p>
-          </button>
-
-          {isFollowedOrSimilar && recommendedMeals.length > 1 && (
-            <div className="p-3.5 rounded-2xl border border-zinc-200 dark:border-white/15 bg-zinc-50/70 dark:bg-white/[0.03] space-y-2">
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
-                Matched Menu Option
-              </span>
-              <div className="grid grid-cols-1 gap-1.5">
-                {recommendedMeals.map((mealLine, idx) => {
-                  const selected = (entry?.mealItem || defaultRec) === mealLine;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() =>
-                        setSlotEntry({ status: "followed", mealItem: mealLine })
-                      }
-                      className={`w-full px-3 py-2 rounded-xl border text-left text-xs transition ${
-                        selected
-                          ? "border-zinc-950 dark:border-white bg-white dark:bg-white/10 font-semibold text-zinc-950 dark:text-white"
-                          : "border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                      }`}
-                    >
-                      <span className="font-mono uppercase text-[10px] mr-1.5 opacity-70">
-                        #{idx + 1}
-                      </span>
-                      {stripMealLabelPrefix(mealLine) || mealLine}
-                    </button>
-                  );
-                })}
-              </div>
+      {displayCal > 0 && (
+        <div className="p-4 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2.5">
+          {evaluated.slots.length > 0 && (
+            <div className="space-y-1 pb-2 border-b border-zinc-100 dark:border-white/10">
+              {evaluated.slots.map((s) => (
+                <div
+                  key={s.slot}
+                  className="flex items-baseline justify-between gap-2 text-xs"
+                >
+                  <span className="text-zinc-700 dark:text-zinc-300 truncate">
+                    {s.summaryText}
+                  </span>
+                  <span className="font-mono text-[11px] text-zinc-500 shrink-0 tabular-nums">
+                    {s.calories} kcal
+                  </span>
+                </div>
+              ))}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() =>
-              setSlotEntry({
-                status: "off_track",
-                calories: entry?.calories ?? null,
-                carbsG: entry?.carbsG ?? null,
-                proteinG: entry?.proteinG ?? null,
-                fatG: entry?.fatG ?? null,
-              })
-            }
-            className={`w-full p-4 rounded-2xl border text-left transition select-none ${
-              entry?.status === "off_track"
-                ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-            }`}
-          >
-            <p
-              className={`text-sm font-semibold ${
-                entry?.status === "off_track"
-                  ? "text-white dark:text-zinc-950"
-                  : "text-zinc-950 dark:text-white"
-              }`}
-            >
-              Off Plan
-            </p>
-            <p
-              className={`text-xs mt-0.5 ${
-                entry?.status === "off_track"
-                  ? "text-white/80 dark:text-zinc-950/80"
-                  : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              Ate outside today&apos;s plan — input Meal {slotIndex + 1} macros on the next step.
-            </p>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    currentSubStep === "meal_off_1" ||
-    currentSubStep === "meal_off_2" ||
-    currentSubStep === "meal_off_3"
-  ) {
-    const slotIndex =
-      currentSubStep === "meal_off_1" ? 0 : currentSubStep === "meal_off_2" ? 1 : 2;
-    const entry = mealDraft.mealEntries[slotIndex] || { status: "off_track" as const };
-
-    const updateOffPlanMacro = (
-      field: "calories" | "carbsG" | "proteinG" | "fatG",
-      raw: string
-    ) => {
-      clearError();
-      const num = raw.trim() === "" ? null : Math.max(0, Math.round(Number(raw)));
-      setMealDraft((prev) => {
-        const nextEntries = [...prev.mealEntries];
-        const prevSlot = nextEntries[slotIndex] || { status: "off_track" as const };
-        const nextSlot: MealSlotEntry = {
-          ...prevSlot,
-          status: "off_track",
-          [field]: Number.isFinite(num as number) ? num : null,
-        };
-        if (field === "carbsG" || field === "proteinG" || field === "fatG") {
-          const c = nextSlot.carbsG || 0;
-          const p = nextSlot.proteinG || 0;
-          const f = nextSlot.fatG || 0;
-          if (c > 0 || p > 0 || f > 0) {
-            nextSlot.calories = Math.round(c * 4 + p * 4 + f * 9);
-          }
-        }
-        nextEntries[slotIndex] = nextSlot;
-        const count = prev.mealsCount || 1;
-        const totals = computeMealTotals(nextEntries, count);
-        return {
-          ...prev,
-          mealEntries: nextEntries,
-          ...totals,
-        };
-      });
-    };
-
-    const inputCls =
-      "w-full px-3.5 py-3 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-sm font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white transition";
-
-    return (
-      <div className="space-y-5 min-w-0">
-        <StepHeader
-          title={`What was the nutrition total for Meal ${slotIndex + 1} (Off Plan)?`}
-          subtitle="Enter macros or total calories for this off-plan meal."
-        />
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Carbs (g)
-            </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={1000}
-              placeholder="e.g. 95"
-              value={entry.carbsG ?? ""}
-              onChange={(e) => updateOffPlanMacro("carbsG", e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Protein (g)
-            </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={500}
-              placeholder="e.g. 30"
-              value={entry.proteinG ?? ""}
-              onChange={(e) => updateOffPlanMacro("proteinG", e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Fat (g)
-            </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={300}
-              placeholder="e.g. 35"
-              value={entry.fatG ?? ""}
-              onChange={(e) => updateOffPlanMacro("fatG", e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Calories (kcal)
-            </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={5000}
-              placeholder="e.g. 815"
-              value={entry.calories ?? ""}
-              onChange={(e) => updateOffPlanMacro("calories", e.target.value)}
-              className={inputCls}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const totals = computeMealTotals(mealDraft.mealEntries, mealDraft.mealsCount || 1);
-
-  return (
-    <div className="space-y-6 min-w-0">
-      <StepHeader title="How do you feel after today's meals?" />
-
-      {/* Daily Calculated Nutrition Summary from Meals 1..N (Pure Intake — Water tracked separately) */}
-      {totals.calories > 0 && (
-        <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-2">
-          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 block">
-            Today&apos;s Calculated Intake ({mealDraft.mealsCount || 1}{" "}
-            {(mealDraft.mealsCount || 1) === 1 ? "Meal" : "Meals"})
-          </span>
           <div className="grid grid-cols-4 gap-2 text-xs font-mono">
             <div>
               <span className="text-zinc-500 block text-[10px]">Calories</span>
               <span className="font-semibold text-zinc-950 dark:text-white">
-                {totals.calories} kcal
+                {displayCal} kcal
               </span>
             </div>
             <div>
               <span className="text-zinc-500 block text-[10px]">Carbs</span>
               <span className="font-semibold text-zinc-950 dark:text-white">
-                {totals.carbsG}g
+                {displayC}g
               </span>
             </div>
             <div>
               <span className="text-zinc-500 block text-[10px]">Protein</span>
               <span className="font-semibold text-zinc-950 dark:text-white">
-                {totals.proteinG}g
+                {displayP}g
               </span>
             </div>
             <div>
               <span className="text-zinc-500 block text-[10px]">Fat</span>
               <span className="font-semibold text-zinc-950 dark:text-white">
-                {totals.fatG}g
+                {displayF}g
               </span>
             </div>
           </div>
@@ -981,11 +1144,17 @@ function saveVesselSizes(sizes: VesselSizesMap) {
 export function WaterStepView({
   waterMl,
   onChangeWaterMl,
+  urineColor = null,
+  onChangeUrineColor,
 }: {
   waterMl: number;
   onChangeWaterMl: (next: number) => void;
+  urineColor?: string | null;
+  onChangeUrineColor?: (next: string | null) => void;
 }) {
-  const TARGET_ML = 2500;
+  const { locale } = useLocale();
+  const isId = locale === "id";
+  const TARGET_ML = WATER_TARGET_ML;
   const pct = Math.min(100, Math.round((Math.max(0, waterMl) / TARGET_ML) * 100));
   const [directInput, setDirectInput] = useState(() => (waterMl > 0 ? String(waterMl) : ""));
   const [vesselSizes, setVesselSizes] = useState<VesselSizesMap>(() => ({
@@ -998,6 +1167,24 @@ export function WaterStepView({
 
   useEffect(() => {
     setVesselSizes(loadVesselSizes());
+    let cancelled = false;
+    void wellnessGetUserPreferences().then((res) => {
+      if (cancelled || !res.success || !res.data?.waterVessels) return;
+      const dbVessels = res.data.waterVessels;
+      setVesselSizes((prev) => {
+        const merged: VesselSizesMap = {
+          glass: dbVessels.glass || prev.glass,
+          mug: dbVessels.mug || prev.mug,
+          bottle: dbVessels.bottle || prev.bottle,
+          tumbler: dbVessels.tumbler || prev.tumbler,
+        };
+        saveVesselSizes(merged);
+        return merged;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -1033,6 +1220,7 @@ export function WaterStepView({
     setVesselSizes((prev) => {
       const next = { ...prev, [id]: clamped };
       saveVesselSizes(next);
+      void wellnessSaveUserPreferences({ waterVessels: next });
       return next;
     });
   };
@@ -1205,6 +1393,70 @@ export function WaterStepView({
           })}
         </div>
       </div>
+
+      {/* Optional 1-Tap Urine Hydration Check */}
+      {onChangeUrineColor && (
+        <div className="space-y-2.5 pt-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              {isId
+                ? "Cek Hidrasi Warna Urin (Opsional)"
+                : "Hydration Check · Urine Color (Optional)"}
+            </span>
+            {urineColor && (
+              <button
+                type="button"
+                onClick={() => onChangeUrineColor(null)}
+                className="text-[11px] font-medium text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition cursor-pointer"
+              >
+                {isId ? "Hapus" : "Clear"}
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            {URINE_COLOR_OPTIONS.map((opt) => {
+              const active = urineColor === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onChangeUrineColor(active ? null : opt.id)}
+                  className={`p-3 rounded-2xl border text-left transition active:scale-95 cursor-pointer flex flex-col justify-between gap-2 ${
+                    active
+                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                      : "border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/25"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="w-4 h-4 rounded-full border border-black/15 shrink-0"
+                    style={{ backgroundColor: opt.swatchHex }}
+                  />
+                  <div className="min-w-0">
+                    <span
+                      className={`block text-xs font-semibold truncate ${
+                        active ? "text-white dark:text-zinc-950" : "text-zinc-950 dark:text-white"
+                      }`}
+                    >
+                      {isId ? opt.labelId : opt.labelEn}
+                    </span>
+                    <span
+                      className={`block text-[10px] truncate mt-0.5 ${
+                        active
+                          ? "text-white/75 dark:text-zinc-950/75"
+                          : "text-zinc-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      {isId ? opt.hintId : opt.hintEn}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

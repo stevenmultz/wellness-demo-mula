@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getWellnessSession, isAdminRole } from "@/wellness/security/session";
+import { getWellnessSession, isAdminRole, isPlatformAdminRole } from "@/wellness/security/session";
 import { verifySameOriginRequest } from "@/wellness/security/csrf";
 import { checkDistributedRateLimit } from "@/wellness/security/rate-limit";
 import { detectImageMime, processAndOptimizeImage } from "@/wellness/utils/image-processor";
@@ -65,6 +65,12 @@ export async function POST(request: NextRequest) {
     const { dataUrl, type } = body as { dataUrl?: string; type?: string };
     const safeType = type && ALLOWED_TYPES.has(type) ? type : "custom";
 
+    if (safeType === "program-cover" && !isPlatformAdminRole(session.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: Only ZERA Admin or Superadmin can upload program covers." },
+        { status: 403 }
+      );
+    }
     if (ADMIN_ONLY_TYPES.has(safeType) && !isAdminRole(session.role)) {
       return NextResponse.json(
         { success: false, message: "Forbidden: Admin privileges required for branding assets." },

@@ -143,20 +143,11 @@ export function MaintenanceWellnessView({
   const isExpired = trackingAccess.mode === "EXPIRED_ARCHIVE";
 
   const [selectedDateKey, setSelectedDateKey] = useState<string>(todayDateKey);
-  const recentDateKeys = useMemo(() => {
-    const base = parseWibDateKey(todayDateKey);
-    if (!base) return [todayDateKey];
-    const keys: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      keys.push(formatDateOnlyKey(addWibDays(base, -i)));
-    }
-    return keys;
-  }, [todayDateKey]);
-
-  const editableDateKeys = useMemo(
-    () => new Set(recentDateKeys.slice(0, 2)),
-    [recentDateKeys]
-  );
+  const baseDate = parseWibDateKey(todayDateKey);
+  const recentDateKeys = baseDate
+    ? [0, 1, 2, 3, 4, 5, 6].map((i) => formatDateOnlyKey(addWibDays(baseDate, -i)))
+    : [todayDateKey];
+  const editableDateKeys = new Set(recentDateKeys.slice(0, 2));
   const isSelectedDateEditable = canWrite && editableDateKeys.has(selectedDateKey);
 
   const currentLog = dailyLogsByDate[selectedDateKey] ?? null;

@@ -101,6 +101,8 @@ export function extractNutritionFromMealNotes(
 
 const MEAL_SPECIFIC_KEYS = [
   "mode",
+  "plateSlots",
+  "cookingBySlot",
   "checkedMeals",
   "mealsCount",
   "mealEntries",

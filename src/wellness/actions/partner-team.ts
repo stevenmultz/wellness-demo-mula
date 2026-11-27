@@ -9,9 +9,11 @@ import { getAppUrl, PASSWORD_RESET_TTL_MS } from "../config";
 import { hashPassword } from "../security/password";
 import {
   requireAdminAccess,
+  requirePlatformAdmin,
   requireSuperadmin,
   WellnessForbiddenError,
 } from "../security/guards";
+import { isPlatformAdminRole } from "../security/roles";
 import { escapeHtml, sendTransactionalEmail } from "../integrations/email-service";
 import { recordAuditLog } from "../integrations/audit-log";
 import { rotateUserCredentialsInTx } from "../services/auth-core";
@@ -60,14 +62,30 @@ export interface AdminTeamCoachItem {
   createdAt: string;
 }
 
+export interface AdminTeamPlatformAdminItem {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  createdAt: string;
+}
+
 export interface AdminTeamPayload {
   callerRole: string;
   callerOrganizationId: string | null;
   callerOrganizationName: string | null;
   organizations: Array<{ id: string; name: string; tagline: string | null; isVerified: boolean }>;
+  platformAdmins: AdminTeamPlatformAdminItem[];
   partnerAdmins: AdminTeamPartnerAdminItem[];
   coaches: AdminTeamCoachItem[];
 }
+
+const CreatePlatformAdminSchema = z.object({
+  fullName: z.string().trim().min(2, "Full name must be at least 2 characters.").max(60),
+  email: z.string().trim().toLowerCase().email("Invalid email address."),
+  phone: z.string().trim().max(24).optional().nullable(),
+});
 
 const CreatePartnerAdminSchema = z.object({
   fullName: z.string().trim().min(2, "Full name must be at least 2 characters.").max(60),
@@ -100,9 +118,10 @@ const UpdateCoachProfileSchema = z.object({
  */
 export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<AdminTeamPayload>> {
   const session = await requireAdminAccess();
+  const isPlatformAdmin = isPlatformAdminRole(session.role);
 
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
-    throw new WellnessForbiddenError("Only Superadmin or Community Admin can access team management.");
+  if (!isPlatformAdmin && session.role !== "PARTNER_ADMIN") {
+    throw new WellnessForbiddenError("Only ZERA Admin or Community Admin can access team management.");
   }
 
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
@@ -114,23 +133,20 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
         callerOrganizationId: null,
         callerOrganizationName: null,
         organizations: [],
+        platformAdmins: [],
         partnerAdmins: [],
         coaches: [],
       },
     };
   }
 
-  const orgWhere =
-    session.role === "SUPERADMIN"
-      ? undefined
-      : { id: session.organizationId! };
+  const orgWhere = isPlatformAdmin ? undefined : { id: session.organizationId! };
 
-  const coachUserWhere =
-    session.role === "SUPERADMIN"
-      ? { role: "COACH" as const, deletedAt: null }
-      : { role: "COACH" as const, organizationId: session.organizationId!, deletedAt: null };
+  const coachUserWhere = isPlatformAdmin
+    ? { role: "COACH" as const, deletedAt: null }
+    : { role: "COACH" as const, organizationId: session.organizationId!, deletedAt: null };
 
-  const [organizations, partnerAdminsRaw, coachesRaw] = await Promise.all([
+  const [organizations, platformAdminsRaw, partnerAdminsRaw, coachesRaw] = await Promise.all([
     prisma.masterOrganization.findMany({
       where: orgWhere,
       take: 500,
@@ -138,6 +154,21 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
       orderBy: { name: "asc" },
     }),
     session.role === "SUPERADMIN"
+      ? prisma.user.findMany({
+          where: { role: "ADMIN", deletedAt: null },
+          take: 200,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            status: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    isPlatformAdmin
       ? prisma.user.findMany({
           where: { role: "PARTNER_ADMIN", deletedAt: null },
           take: 500,
@@ -180,6 +211,14 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
       callerOrganizationId: session.organizationId,
       callerOrganizationName: session.organizationName,
       organizations,
+      platformAdmins: platformAdminsRaw.map((u) => ({
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        phone: u.phone,
+        status: u.status,
+        createdAt: u.createdAt.toISOString(),
+      })),
       partnerAdmins: partnerAdminsRaw.map((u) => ({
         id: u.id,
         fullName: u.fullName,
@@ -208,12 +247,128 @@ export async function wellnessGetAdminTeamData(): Promise<WellnessActionResult<A
 }
 
 /**
- * SUPERADMIN ONLY: Create a new Partner Admin account (linked to an existing or newly created MasterOrganization).
+ * SUPERADMIN ONLY: Create an internal ZERA Platform Admin (`ADMIN`) account.
+ * Internal Admins can manage all Programs, Directories, and Members, while financial approvals/refunds remain Superadmin-only.
+ */
+export async function wellnessSuperadminCreatePlatformAdmin(
+  rawInput: unknown
+): Promise<WellnessActionResult<{ user: AdminTeamPlatformAdminItem; temporaryPassword: string }>> {
+  const superadmin = await requireSuperadmin();
+
+  const parsed = CreatePlatformAdminSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      message:
+        Object.values(parsed.error.flatten().fieldErrors).flat()[0] ||
+        "Invalid Platform Admin details.",
+    };
+  }
+
+  const { fullName, email, phone } = parsed.data;
+  const tempPassword = generateTempStaffPassword();
+  const passwordHash = await hashPassword(tempPassword);
+  const setupToken = crypto.randomBytes(32).toString("hex");
+  const setupTokenExpires = new Date(
+    Date.now() + Math.max(PASSWORD_RESET_TTL_MS, 24 * 60 * 60 * 1000)
+  );
+
+  try {
+    const newUser = await prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findFirst({
+        where: { email: { equals: email, mode: "insensitive" }, deletedAt: null },
+        select: { id: true },
+      });
+      if (existingUser) {
+        throw new Error("An active account with this email already exists.");
+      }
+
+      const createdUser = await tx.user.create({
+        data: {
+          fullName,
+          email,
+          phone: phone?.trim() || null,
+          passwordHash,
+          emailVerifiedAt: new Date(),
+          role: "ADMIN",
+          status: "ACTIVE",
+          organizationId: null,
+          coachProfileId: null,
+          tokenVersion: 0,
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+
+      await tx.userPasswordResetToken.create({
+        data: {
+          tokenHash: hashToken(setupToken),
+          userId: createdUser.id,
+          expiresAt: setupTokenExpires,
+          isUsed: false,
+        },
+      });
+
+      await recordAuditLog(
+        {
+          actorUserId: superadmin.userId,
+          action: "SUPERADMIN_CREATE_PLATFORM_ADMIN",
+          entityType: "User",
+          entityId: createdUser.id,
+          metadata: { role: "ADMIN" },
+        },
+        tx
+      );
+
+      return createdUser;
+    });
+
+    const setupUrl = `${getAppUrl()}/reset-password?token=${setupToken}`;
+    await sendTransactionalEmail({
+      to: newUser.email,
+      subject: `${BRAND.fullName} — Platform Admin Account Ready`,
+      html: `<p>Hi ${escapeHtml(newUser.fullName)},</p><p>Your internal Platform Admin account on <strong>${escapeHtml(BRAND.fullName)}</strong> has been created.</p><p>Set your personal password here (valid for 24 hours): <a href="${setupUrl}">${setupUrl}</a></p>`,
+      text: `Your Platform Admin account is ready. Set your password: ${setupUrl}`,
+    }).catch(() => null);
+
+    revalidateTeamRoutes();
+
+    return {
+      success: true,
+      message: `Platform Admin "${newUser.fullName}" created.`,
+      data: {
+        user: {
+          id: newUser.id,
+          fullName: newUser.fullName,
+          email: newUser.email,
+          phone: newUser.phone,
+          status: newUser.status,
+          createdAt: newUser.createdAt.toISOString(),
+        },
+        temporaryPassword: tempPassword,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to create Platform Admin account.",
+    };
+  }
+}
+
+/**
+ * SUPERADMIN or PLATFORM ADMIN: Create a new Partner Admin account (linked to an existing or newly created MasterOrganization).
  */
 export async function wellnessSuperadminCreatePartnerAdmin(
   rawInput: unknown
 ): Promise<WellnessActionResult<{ user: AdminTeamPartnerAdminItem; temporaryPassword: string }>> {
-  const admin = await requireSuperadmin();
+  const admin = await requirePlatformAdmin();
 
   const parsed = CreatePartnerAdminSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -377,10 +532,10 @@ export async function wellnessCreatePartnerCoachAccount(
 ): Promise<WellnessActionResult<{ coach: AdminTeamCoachItem; temporaryPassword: string }>> {
   const session = await requireAdminAccess();
 
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+  if (!isPlatformAdminRole(session.role) && session.role !== "PARTNER_ADMIN") {
     return {
       success: false,
-      message: "Forbidden: Only Superadmin or Community Admin can create Coach accounts.",
+      message: "Forbidden: Only ZERA Admin or Community Admin can create Coach accounts.",
     };
   }
 
@@ -402,8 +557,9 @@ export async function wellnessCreatePartnerCoachAccount(
   const { fullName, email, phone, coachTitle, organizationId } = parsed.data;
 
   // Enforce strict tenant isolation: PARTNER_ADMIN can ONLY assign their own organizationId
-  const targetOrgId =
-    session.role === "SUPERADMIN" ? organizationId?.trim() || null : session.organizationId!;
+  const targetOrgId = isPlatformAdminRole(session.role)
+    ? organizationId?.trim() || null
+    : session.organizationId!;
 
   const tempPassword = generateTempStaffPassword();
   const passwordHash = await hashPassword(tempPassword);
@@ -535,7 +691,7 @@ export async function wellnessTogglePartnerCoachStatus(
   newStatus: "ACTIVE" | "SUSPENDED"
 ): Promise<WellnessActionResult> {
   const session = await requireAdminAccess();
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+  if (!isPlatformAdminRole(session.role) && session.role !== "PARTNER_ADMIN") {
     return { success: false, message: "Forbidden." };
   }
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
@@ -587,7 +743,7 @@ export async function wellnessResetPartnerCoachPassword(
   targetUserId: string
 ): Promise<WellnessActionResult<{ temporaryPassword: string }>> {
   const session = await requireAdminAccess();
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+  if (!isPlatformAdminRole(session.role) && session.role !== "PARTNER_ADMIN") {
     return { success: false, message: "Forbidden." };
   }
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {
@@ -642,7 +798,7 @@ export async function wellnessUpdatePartnerCoachProfile(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
   const session = await requireAdminAccess();
-  if (session.role !== "SUPERADMIN" && session.role !== "PARTNER_ADMIN") {
+  if (!isPlatformAdminRole(session.role) && session.role !== "PARTNER_ADMIN") {
     return { success: false, message: "Forbidden." };
   }
   if (session.role === "PARTNER_ADMIN" && !session.organizationId) {

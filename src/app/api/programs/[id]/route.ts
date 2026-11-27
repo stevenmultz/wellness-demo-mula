@@ -16,6 +16,7 @@ import {
   PROGRAM_TAXONOMY_INCLUDE,
   serializeProgramTaxonomy,
 } from "@/wellness/services/program-taxonomy";
+import { signSingleVideoUrl } from "@/wellness/integrations/video-signing";
 import { reportServerError } from "@/wellness/observability";
 
 export const dynamic = "force-dynamic";
@@ -118,7 +119,7 @@ export async function GET(
       slug: p.slug,
       description: p.description,
       coverImage: toClientMediaUrl(p.coverImagePath),
-      introVideoUrl: p.introVideoUrl || null,
+      introVideoUrl: p.introVideoUrl ? signSingleVideoUrl(p.introVideoUrl) : null,
       coachName: tax.coachName,
       coachTitle: tax.coachTitle,
       organizationName: tax.organizationName || null,

@@ -3,16 +3,24 @@
  * Safe to import in Edge Middleware, Server Components, Server Actions, and Client Components.
  */
 
-export const USER_ROLES = ["USER", "COACH", "PARTNER_ADMIN", "SUPERADMIN"] as const;
+export const USER_ROLES = ["USER", "COACH", "PARTNER_ADMIN", "ADMIN", "SUPERADMIN"] as const;
 export type UserRoleType = (typeof USER_ROLES)[number];
 
-export const ADMIN_ROLES = ["SUPERADMIN", "COACH", "PARTNER_ADMIN"] as const;
+export const PLATFORM_ADMIN_ROLES = ["SUPERADMIN", "ADMIN"] as const;
+export type PlatformAdminRole = (typeof PLATFORM_ADMIN_ROLES)[number];
+
+export const ADMIN_ROLES = ["SUPERADMIN", "ADMIN", "COACH", "PARTNER_ADMIN"] as const;
 export type AdminRole = (typeof ADMIN_ROLES)[number];
 
 const ADMIN_ROLE_SET = new Set<string>(ADMIN_ROLES);
+const PLATFORM_ADMIN_SET = new Set<string>(PLATFORM_ADMIN_ROLES);
 
 export function isAdminRole(role?: string | null): role is AdminRole {
   return Boolean(role && ADMIN_ROLE_SET.has(role));
+}
+
+export function isPlatformAdminRole(role?: string | null): role is PlatformAdminRole {
+  return Boolean(role && PLATFORM_ADMIN_SET.has(role));
 }
 
 export function isSuperadminRole(role?: string | null): boolean {
@@ -21,7 +29,7 @@ export function isSuperadminRole(role?: string | null): boolean {
 
 /**
  * Ensures `organizationId` and `coachProfileId` never leak or remain attached
- * after switching a user's role (e.g. PARTNER_ADMIN -> COACH or COACH -> USER).
+ * after switching a user's role (e.g. PARTNER_ADMIN -> COACH or COACH -> USER/ADMIN).
  */
 export function sanitizeUserScopeForRole(
   newRole: UserRoleType,
@@ -48,7 +56,7 @@ export function sanitizeUserScopeForRole(
     return { organizationId: nextOrgId, coachProfileId: nextCoachId };
   }
 
-  // USER and SUPERADMIN never carry partner organization or coach profile locks
+  // USER, ADMIN (internal platform admin), and SUPERADMIN never carry external org/coach locks
   return { organizationId: null, coachProfileId: null };
 }
 

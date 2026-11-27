@@ -5,11 +5,13 @@ import {
   deleteExtraWorkoutService,
   getDailyLogsByRangeService,
   getUserGrowthAnalyticsService,
+  getUserPreferencesService,
   logSelfBodyMetricService,
   saveDailyMealService,
   saveDailySleepService,
   saveDailyStepsService,
   saveDailyWaterService,
+  saveUserPreferencesService,
   updateExtraWorkoutService,
 } from "../services/daily-log";
 import type { WellnessActionResult } from "./auth";
@@ -119,5 +121,21 @@ export async function wellnessGetDailyLogsByRange(rawInput: {
     return await getDailyLogsByRangeService(rawInput);
   } catch (err) {
     return toSafeErrorResult(err, "Could not load logs for the selected date.");
+  }
+}
+
+export async function wellnessGetUserPreferences() {
+  try {
+    return await getUserPreferencesService();
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not load user preferences.");
+  }
+}
+
+export async function wellnessSaveUserPreferences(rawInput: unknown) {
+  try {
+    return await saveUserPreferencesService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save vessel preferences.");
   }
 }

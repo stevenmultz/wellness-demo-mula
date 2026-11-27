@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma, lockProgramRow } from "../db";
-import { requireProgramAccess } from "../security/guards";
+import { requirePlatformAdmin } from "../security/guards";
 import { parseCustomTaskFields } from "../utils/custom-tasks";
 import { SaveSingleDaySchema, validateProgramDay } from "../validators/program";
 import { safeJsonParse } from "../utils/json";
@@ -23,7 +23,7 @@ export async function saveProgramDayService(
   }
 
   const d = validation.data;
-  await requireProgramAccess(d.programId);
+  await requirePlatformAdmin();
 
   const parentProgram = await prisma.program.findFirst({
     where: { id: d.programId, deletedAt: null },
@@ -257,7 +257,7 @@ export async function deleteProgramDayService(
   programId: string,
   dayNumber: number
 ): Promise<WellnessActionResult> {
-  await requireProgramAccess(programId);
+  await requirePlatformAdmin();
 
   const result = await prisma.$transaction(async (tx) => {
     await lockProgramRow(tx, programId);

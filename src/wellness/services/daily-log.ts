@@ -14,6 +14,7 @@ import {
   UpsertSelfBodyMetricSchema,
   GetGrowthAnalyticsSchema,
   GetDailyLogsRangeSchema,
+  UpsertUserVesselPreferencesSchema,
 } from "../validators/daily-log";
 import {
   WIB_OFFSET_MS,
@@ -64,6 +65,7 @@ export interface DailyLogDTO {
   sleepDurationMinutes: number | null;
   sleepFeeling: string | null;
   waterMl: number;
+  urineColor?: string | null;
   stepsCount: number;
   stepsBurnedKcal: number;
   mealsCount: number | null;
@@ -86,6 +88,7 @@ export function serializeDailyLog(
     sleepDurationMinutes: number | null;
     sleepFeeling: string | null;
     waterMl: number;
+    urineColor?: string | null;
     stepsCount: number;
     stepsBurnedKcal: number;
     mealsCount: number | null;
@@ -117,6 +120,7 @@ export function serializeDailyLog(
     sleepDurationMinutes: row.sleepDurationMinutes,
     sleepFeeling: row.sleepFeeling,
     waterMl: row.waterMl,
+    urineColor: row.urineColor ?? null,
     stepsCount: row.stepsCount,
     stepsBurnedKcal: row.stepsBurnedKcal,
     mealsCount: row.mealsCount,
@@ -225,14 +229,8 @@ async function validateWriteEligibility(params: {
       return { ok: true, logDate: canonicalDateOnly, logDateKey: canonicalDayKey };
     }
   } else {
-    // Active cohort days strictly close at 23:59 WIB (no H-1 bypass while inside an active cohort)
-    if (access.hasActiveCohort && params.logDateKey < todayKey) {
-      return {
-        ok: false,
-        message: "Past cohort days closed at 23:59 WIB and cannot be modified.",
-      };
-    }
-    // Standalone / Maintenance mode: allow today (H-0) and yesterday (H-1 backfill)
+    // Universal Daily Habits (Home): allow Today (H-0) and Yesterday (H-1 backfill),
+    // while H-2 and older remain strictly Read-Only in the archive.
     const todayDateOnly = toWibDateOnly(now);
     const earliestAllowed = addWibDays(todayDateOnly, -STANDALONE_BACKFILL_DAYS);
     if (parsedDate < earliestAllowed) {
@@ -510,7 +508,7 @@ export async function saveDailyWaterService(
     };
   }
 
-  const { logDate: logDateKey, waterMl, programDayId } = parsed.data;
+  const { logDate: logDateKey, waterMl, urineColor, programDayId } = parsed.data;
   const gate = await validateWriteEligibility({
     userId: session.userId,
     logDateKey,
@@ -528,9 +526,11 @@ export async function saveDailyWaterService(
           userId: session.userId,
           logDate: gate.logDate,
           waterMl,
+          ...(urineColor !== undefined ? { urineColor } : {}),
         },
         update: {
           waterMl,
+          ...(urineColor !== undefined ? { urineColor } : {}),
         },
         include: { extraWorkouts: { orderBy: { createdAt: "asc" } } },
       });
@@ -1450,5 +1450,76 @@ export async function getDailyLogsByRangeService(
   return {
     success: true,
     data: rows.map(serializeDailyLog),
+  };
+}
+
+export interface UserVesselPreferencesDTO {
+  waterVessels?: {
+    glass: number;
+    mug: number;
+    bottle: number;
+    tumbler: number;
+  };
+}
+
+export async function getUserPreferencesService(): Promise<
+  WellnessActionResult<UserVesselPreferencesDTO>
+> {
+  const session = await requireAuth();
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { preferencesJson: true },
+  });
+  const parsed = UpsertUserVesselPreferencesSchema.safeParse(user?.preferencesJson ?? {});
+  return {
+    success: true,
+    data: parsed.success ? parsed.data : {},
+  };
+}
+
+export async function saveUserPreferencesService(
+  rawInput: unknown
+): Promise<WellnessActionResult<UserVesselPreferencesDTO>> {
+  const session = await requireAuth();
+  const rl = checkRateLimit(`user_prefs:${session.userId}`, {
+    windowMs: 60 * 1000,
+    maxRequests: 30,
+  });
+  if (!rl.allowed) {
+    return { success: false, message: "Too many preference updates. Please wait a moment." };
+  }
+
+  const parsed = UpsertUserVesselPreferencesSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: parsed.error.issues[0]?.message || "Invalid preferences.",
+    };
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { preferencesJson: true },
+  });
+  const prevObj =
+    existing?.preferencesJson &&
+    typeof existing.preferencesJson === "object" &&
+    !Array.isArray(existing.preferencesJson)
+      ? (existing.preferencesJson as Record<string, unknown>)
+      : {};
+
+  const merged = {
+    ...prevObj,
+    ...(parsed.data.waterVessels ? { waterVessels: parsed.data.waterVessels } : {}),
+  };
+
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { preferencesJson: merged as Prisma.InputJsonValue },
+  });
+
+  return {
+    success: true,
+    data: parsed.data,
   };
 }

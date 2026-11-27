@@ -4,8 +4,8 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "../db";
-import { requireSuperadmin } from "../security/guards";
-import { sanitizeUserScopeForRole } from "../security/roles";
+import { requirePlatformAdmin, requireSuperadmin } from "../security/guards";
+import { isPlatformAdminRole, sanitizeUserScopeForRole } from "../security/roles";
 import { hashPassword } from "../security/password";
 import { resetDistributedRateLimit } from "../security/rate-limit";
 import { createUserNotifications } from "../integrations/user-notifications";
@@ -22,7 +22,7 @@ import type { WellnessActionResult } from "./auth";
 const AdminTargetUserIdSchema = z.string().trim().min(1, "User ID is required").max(128);
 const AdminUpdateUserRoleSchema = z.object({
   targetUserId: AdminTargetUserIdSchema,
-  newRole: z.enum(["USER", "COACH", "PARTNER_ADMIN", "SUPERADMIN"]),
+  newRole: z.enum(["USER", "COACH", "PARTNER_ADMIN", "ADMIN", "SUPERADMIN"]),
   scope: z
     .object({
       organizationId: z.string().trim().max(128).nullable().optional(),
@@ -41,7 +41,7 @@ function revalidateAdminRoutes() {
 }
 
 export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, offset = 0) {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
 
   const whereClause = {
     deletedAt: null,
@@ -103,7 +103,7 @@ export async function wellnessAdminGetUsers(searchQuery?: string, limit = 100, o
 
 export async function wellnessAdminUpdateUserRole(
   targetUserId: string,
-  newRole: "USER" | "COACH" | "PARTNER_ADMIN" | "SUPERADMIN",
+  newRole: "USER" | "COACH" | "PARTNER_ADMIN" | "ADMIN" | "SUPERADMIN",
   scope?: { organizationId?: string | null; coachProfileId?: string | null }
 ): Promise<WellnessActionResult> {
   const currentAdmin = await requireSuperadmin();
@@ -238,21 +238,27 @@ export async function wellnessAdminUpdateUserStatus(
   targetUserId: string,
   newStatus: "ACTIVE" | "SUSPENDED"
 ): Promise<WellnessActionResult> {
-  const currentAdmin = await requireSuperadmin();
+  const currentAdmin = await requirePlatformAdmin();
 
   if (targetUserId === currentAdmin.userId && newStatus === "SUSPENDED") {
     return {
       success: false,
-      message: "You cannot suspend your own Superadmin account.",
+      message: "You cannot suspend your own account.",
     };
   }
 
   const targetUser = await prisma.user.findFirst({
     where: { id: targetUserId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, role: true },
   });
   if (!targetUser) {
     return { success: false, message: "User not found." };
+  }
+  if (currentAdmin.role !== "SUPERADMIN" && isPlatformAdminRole(targetUser.role)) {
+    return {
+      success: false,
+      message: "Only Superadmin can modify status for Platform Admin or Superadmin accounts.",
+    };
   }
 
   const updatedUser = await prisma.$transaction((tx) =>
@@ -385,7 +391,7 @@ export async function wellnessAdminDeleteUser(
 export async function wellnessAdminResetUserPassword(
   targetUserId: string
 ): Promise<WellnessActionResult<{ temporaryPassword: string }>> {
-  const currentAdmin = await requireSuperadmin();
+  const currentAdmin = await requirePlatformAdmin();
 
   const parsedId = AdminTargetUserIdSchema.safeParse(targetUserId);
   if (!parsedId.success) {
@@ -407,6 +413,12 @@ export async function wellnessAdminResetUserPassword(
       return {
         success: false,
         message: "Cannot reset another Superadmin's password.",
+      };
+    }
+    if (currentAdmin.role !== "SUPERADMIN" && isPlatformAdminRole(user.role) && user.id !== currentAdmin.userId) {
+      return {
+        success: false,
+        message: "Only Superadmin can reset another Platform Admin's password.",
       };
     }
 
@@ -451,7 +463,7 @@ export async function wellnessAdminUpdateCustomerProfile(
     emergencyContactPhone?: string | null;
   }
 ): Promise<WellnessActionResult> {
-  await requireSuperadmin();
+  await requirePlatformAdmin();
 
   const parsed = AdminUpdateCustomerProfileSchema.safeParse({ userId, ...(input || {}) });
   if (!parsed.success) {

@@ -34,6 +34,7 @@ interface AdminDayCurriculumTailSectionsProps {
   handleSaveDay: (prog: AdminProgram, goToNextDay?: boolean) => void;
   savingDay: boolean;
   dayError: string | null;
+  canManagePrograms?: boolean;
 }
 
 export function AdminDayCurriculumTailSections({
@@ -47,6 +48,7 @@ export function AdminDayCurriculumTailSections({
   handleSaveDay,
   savingDay,
   dayError,
+  canManagePrograms = true,
 }: AdminDayCurriculumTailSectionsProps) {
   const targetDays = selectedProgram.durationDays || 21;
 
@@ -351,7 +353,8 @@ export function AdminDayCurriculumTailSections({
       )}
     </div>
 
-  {/* Action Footer */}
+  {/* Action Footer (Only shown to ZERA Platform Admins) */}
+  {canManagePrograms && (
   <div className="pt-4 border-t border-zinc-100 dark:border-white/10 flex flex-wrap items-center justify-between gap-4">
     <div className="flex items-center gap-3">
       {selectedProgram.days.some(
@@ -406,6 +409,7 @@ export function AdminDayCurriculumTailSections({
       )}
     </div>
   </div>
+  )}
 
   {dayError && (
     <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-400 animate-in fade-in duration-200">

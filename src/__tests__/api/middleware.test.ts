@@ -100,8 +100,8 @@ describe("Edge Middleware: Route Protection, RBAC & Desktop Guard", () => {
     expect(res.headers.get("location")).toBe("https://zera.id/dashboard?error=unauthorized_admin");
   });
 
-  it("permits SUPERADMIN, PARTNER_ADMIN, and COACH on /admin with strict anti-cache & security headers", async () => {
-    for (const role of ["SUPERADMIN", "PARTNER_ADMIN", "COACH"]) {
+  it("permits SUPERADMIN, ADMIN, PARTNER_ADMIN, and COACH on /admin with strict anti-cache & security headers", async () => {
+    for (const role of ["SUPERADMIN", "ADMIN", "PARTNER_ADMIN", "COACH"]) {
       const token = await signTestToken({
         userId: `u_${role}`,
         email: `${role.toLowerCase()}@zera.id`,

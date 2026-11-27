@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockRequireSuperadmin,
+  mockRequirePlatformAdmin,
   mockRequireAdminAccess,
   mockLockProgramRow,
   mockLockUserRow,
@@ -43,6 +44,7 @@ const {
   };
   return {
     mockRequireSuperadmin: vi.fn(),
+    mockRequirePlatformAdmin: vi.fn(),
     mockRequireAdminAccess: vi.fn(),
     mockLockProgramRow: vi.fn(),
     mockLockUserRow: vi.fn(),
@@ -61,6 +63,7 @@ vi.mock("@/wellness/security/guards", async (importOriginal) => {
   return {
     ...actual,
     requireSuperadmin: mockRequireSuperadmin,
+    requirePlatformAdmin: mockRequirePlatformAdmin,
     requireAdminAccess: mockRequireAdminAccess,
   };
 });
@@ -100,6 +103,7 @@ describe("Server Actions: Admin Governance & Payment Approval Integrity", () => 
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperadmin.mockResolvedValue({ userId: "super_1", role: "SUPERADMIN" });
+    mockRequirePlatformAdmin.mockResolvedValue({ userId: "super_1", role: "SUPERADMIN" });
     mockRequireAdminAccess.mockResolvedValue({ userId: "super_1", role: "SUPERADMIN" });
     mockCreateNotifications.mockResolvedValue(undefined);
     mockSendEmail.mockResolvedValue({ delivered: true, provider: "CONSOLE_DEV" });
@@ -345,7 +349,7 @@ describe("Server Actions: Multi-Tenant Partner Team Isolation", () => {
   });
 
   it("blocks duplicate active emails when creating a Partner Admin", async () => {
-    mockRequireSuperadmin.mockResolvedValueOnce({ userId: "super_1", role: "SUPERADMIN" });
+    mockRequirePlatformAdmin.mockResolvedValueOnce({ userId: "super_1", role: "SUPERADMIN" });
     mockTx.user.findFirst.mockResolvedValueOnce({ id: "existing_user" });
 
     const dup = await wellnessSuperadminCreatePartnerAdmin({

@@ -54,6 +54,7 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const router = useRouter();
   const { t } = useLocale();
+  const isPlatformAdmin = isSuperadminUser || currentAdminRole === "ADMIN";
 
   return (
   <aside className="w-full lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b lg:border-b-0 lg:border-r border-zinc-200/80 dark:border-white/10 flex flex-col justify-between p-6 z-30">
@@ -130,7 +131,7 @@ export function AdminSidebar({
           </span>
         </button>
 
-        {isSuperadminUser && (
+        {isPlatformAdmin && (
           <button
             type="button"
             onClick={() => {
@@ -199,7 +200,7 @@ export function AdminSidebar({
           </button>
         )}
 
-        {(isSuperadminUser || currentAdminRole === "PARTNER_ADMIN") && (
+        {(isPlatformAdmin || currentAdminRole === "PARTNER_ADMIN") && (
           <button
             type="button"
             onClick={() => {
@@ -217,7 +218,7 @@ export function AdminSidebar({
           >
             <span className="flex items-center gap-2.5">
               <UserCheck className="w-4 h-4 shrink-0" />
-              <span>{isSuperadminUser ? "Communities & Team" : "Coaches & Team"}</span>
+              <span>{isPlatformAdmin ? "Communities & Team" : "Coaches & Team"}</span>
             </span>
           </button>
         )}

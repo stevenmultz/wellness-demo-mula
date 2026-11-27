@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ExternalLink, Play, Video } from "lucide-react";
 import {
   extractVideoThumbnail,
+  isProtectedStreamProvider,
   normalizeVideoEmbed,
 } from "@/wellness/integrations/video-provider";
 import { safeHttpUrl } from "./shared";
@@ -25,15 +26,16 @@ export function ProgramIntroVideoPlayer({
   programTitle,
 }: ProgramIntroVideoPlayerProps) {
   const [playing, setPlaying] = useState(false);
+  const embed = normalizeVideoEmbed(videoUrl);
+  if (!embed.embedUrl) return null;
   const safeUrl = safeHttpUrl(videoUrl);
-  if (!safeUrl) return null;
-
-  const embed = normalizeVideoEmbed(safeUrl);
-  const thumb = extractVideoThumbnail(safeUrl, fallbackImage || "/image.webp");
+  const thumb = extractVideoThumbnail(videoUrl, fallbackImage || "/image.webp");
+  const isProtected = isProtectedStreamProvider(embed.provider);
   const isEmbeddable =
-    embed.provider === "YOUTUBE" ||
+    embed.provider === "BUNNY_STREAM" ||
+    embed.provider === "CLOUDFLARE_STREAM" ||
     embed.provider === "VIMEO" ||
-    embed.provider === "CLOUDFLARE_STREAM";
+    embed.provider === "YOUTUBE";
 
   return (
     <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-white/[0.03] overflow-hidden">
@@ -45,32 +47,40 @@ export function ProgramIntroVideoPlayer({
             {coachName ? ` · Coach ${coachName}` : ""}
           </span>
         </div>
-        <a
-          href={safeUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[11px] font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white inline-flex items-center gap-1 shrink-0 transition"
-        >
-          <span>Open</span>
-          <ExternalLink className="w-3 h-3" />
-        </a>
+        {!isProtected && safeUrl && (
+          <a
+            href={safeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white inline-flex items-center gap-1 shrink-0 transition"
+          >
+            <span>Open</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
       </div>
 
-      <div className="relative aspect-video w-full bg-zinc-950">
+      <div
+        onContextMenu={isProtected ? (e) => e.preventDefault() : undefined}
+        className="relative aspect-video w-full bg-zinc-950"
+      >
         {playing && embed.embedUrl ? (
           isEmbeddable ? (
             <iframe
               src={
                 embed.provider === "YOUTUBE" && !embed.embedUrl.includes("autoplay=1")
                   ? `${embed.embedUrl}&autoplay=1`
-                  : embed.embedUrl
+                  : embed.provider === "BUNNY_STREAM"
+                    ? embed.embedUrl.replace("autoplay=false", "autoplay=true")
+                    : embed.embedUrl
               }
               title={
                 programTitle
                   ? `${programTitle} introduction video`
                   : "Program introduction video"
               }
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               className="w-full h-full border-0"
             />
@@ -78,6 +88,8 @@ export function ProgramIntroVideoPlayer({
             <video
               src={embed.embedUrl}
               controls
+              controlsList="nodownload"
+              disablePictureInPicture
               autoPlay
               playsInline
               className="w-full h-full object-contain bg-black"
