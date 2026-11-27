@@ -86,6 +86,23 @@ const safeCache = typeof cache === "function" ? cache : <T extends (...args: any
 export const wellnessGetSessionType = {} as never;
 export { ADMIN_ROLES, isAdminRole, type AdminRole } from "./roles";
 
+/**
+ * Fast in-memory JWT cookie check (~0.1ms, zero DB round-trip).
+ * Allows RSC pages to launch user-scoped read queries in parallel with
+ * `getWellnessSession()`, which MUST still be awaited and enforced before returning data.
+ */
+export const peekVerifiedSessionUserId = safeCache(async (): Promise<string | null> => {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (!token) return null;
+    const payload = await verifySessionToken(token);
+    return payload?.userId ?? null;
+  } catch {
+    return null;
+  }
+});
+
 export const getWellnessSession = safeCache(async (): Promise<{
   userId: string;
   email: string;

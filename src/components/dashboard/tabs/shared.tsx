@@ -18,6 +18,14 @@ import {
 /** App timezone: Western Indonesia Time. All user-facing dates use it (SSR and browser agree). */
 export const APP_TIMEZONE = "Asia/Jakarta";
 
+/** Safe portal mount point inside <body> to prevent RSC / browser-extension removeChild DOM crashes. */
+export function getModalPortalRoot(): HTMLElement {
+  if (typeof document === "undefined") {
+    throw new Error("getModalPortalRoot called on server");
+  }
+  return document.getElementById("zera-modal-root") ?? document.body;
+}
+
 export function formatDateWib(
   value: string | Date | null | undefined,
   opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" }
@@ -639,6 +647,6 @@ export function InfoPopupModal({
         </button>
       </div>
     </div>,
-    document.body
+    getModalPortalRoot()
   );
 }

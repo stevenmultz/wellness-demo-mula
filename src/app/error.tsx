@@ -3,6 +3,17 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
+import { RotateCcw } from "lucide-react";
+
+function isStaleDeploymentError(err: Error | undefined): boolean {
+  const msg = (err?.message || "").toLowerCase();
+  return (
+    msg.includes("failed to find server action") ||
+    msg.includes("chunkloaderror") ||
+    msg.includes("loading chunk") ||
+    msg.includes("dynamically imported module")
+  );
+}
 
 export default function AppError({
   error,
@@ -14,33 +25,56 @@ export default function AppError({
   useEffect(() => {
     console.error("[AppError Boundary]:", error);
     Sentry.captureException(error);
+
+    if (typeof window !== "undefined" && isStaleDeploymentError(error)) {
+      const key = "zera:auto-reload-ts";
+      const last = Number(window.sessionStorage.getItem(key) || "0");
+      if (Date.now() - last > 15_000) {
+        window.sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+      }
+    }
   }, [error]);
+
+  const stale = isStaleDeploymentError(error);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 bg-[#f6f6f4] dark:bg-[#0e0e0e] text-zinc-900 dark:text-zinc-100 font-sans">
-      <div className="max-w-md w-full rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#141414] p-8 text-center space-y-4 shadow-xs">
-        <p className="text-[11px] font-mono uppercase tracking-[0.22em] text-zinc-400">
-          System Notice
-        </p>
-        <h1 className="text-xl font-geometric font-medium tracking-tight">
-          Something went wrong
-        </h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          We encountered a temporary issue loading this view. Your progress and account data remain safe.
-        </p>
-        <div className="pt-2 flex items-center justify-center gap-3">
+      <div className="max-w-sm w-full text-center space-y-5">
+        <div className="w-11 h-11 rounded-2xl bg-zinc-200/80 dark:bg-white/10 text-zinc-900 dark:text-white mx-auto flex items-center justify-center">
+          <RotateCcw className="w-5 h-5" />
+        </div>
+
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-geometric font-semibold tracking-tight text-zinc-950 dark:text-white">
+            {stale ? "New update available" : "Something went wrong"}
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            {stale
+              ? "The app was just updated. Tap below to refresh and continue right where you left off."
+              : "A brief hiccup occurred while loading. Your data is safe — please try again."}
+          </p>
+        </div>
+
+        <div className="pt-1 flex items-center justify-center gap-2.5">
           <button
             type="button"
-            onClick={() => reset()}
-            className="px-5 py-2.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold"
+            onClick={() => {
+              if (stale && typeof window !== "undefined") {
+                window.location.reload();
+                return;
+              }
+              reset();
+            }}
+            className="h-10 px-5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold hover:opacity-90 active:scale-95 transition cursor-pointer"
           >
             Try Again
           </button>
           <Link
-            href="/"
-            className="px-5 py-2.5 rounded-full border border-zinc-200 dark:border-white/15 text-xs font-medium text-zinc-700 dark:text-zinc-300"
+            href="/dashboard"
+            className="h-10 px-5 rounded-full bg-zinc-200/75 dark:bg-white/10 text-xs font-semibold text-zinc-800 dark:text-zinc-200 inline-flex items-center justify-center hover:bg-zinc-300/70 dark:hover:bg-white/15 active:scale-95 transition"
           >
-            Home
+            Dashboard
           </Link>
         </div>
       </div>

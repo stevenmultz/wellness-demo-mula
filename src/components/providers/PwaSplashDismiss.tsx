@@ -16,7 +16,6 @@ export function PwaSplashDismiss() {
 
     let dismissed = false;
     let raf1: number | null = null;
-    let raf2: number | null = null;
     let removeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const fadeOutNow = () => {
@@ -25,16 +24,14 @@ export function PwaSplashDismiss() {
       observer.disconnect();
       clearTimeout(failsafeTimer);
 
-      // Wait two animation frames so the newly mounted page is painted underneath before cross-fading.
+      // Wait one animation frame so the newly mounted page is painted underneath before cross-fading.
       raf1 = requestAnimationFrame(() => {
-        raf2 = requestAnimationFrame(() => {
-          splash.classList.add("splash-dismissed");
-          splash.style.opacity = "0";
-          splash.style.pointerEvents = "none";
-          removeTimer = setTimeout(() => {
-            splash.remove();
-          }, 260);
-        });
+        splash.classList.add("splash-dismissed");
+        splash.style.opacity = "0";
+        splash.style.pointerEvents = "none";
+        removeTimer = setTimeout(() => {
+          splash.remove();
+        }, 150);
       });
     };
 
@@ -59,7 +56,6 @@ export function PwaSplashDismiss() {
       observer.disconnect();
       clearTimeout(failsafeTimer);
       if (raf1 !== null) cancelAnimationFrame(raf1);
-      if (raf2 !== null) cancelAnimationFrame(raf2);
       if (removeTimer) clearTimeout(removeTimer);
     };
   }, []);

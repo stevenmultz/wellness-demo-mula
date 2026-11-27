@@ -252,3 +252,64 @@ export function FillUserIcon({ className = "w-5 h-5" }: FillIconProps) {
     </svg>
   );
 }
+
+// ─── Sleep & Feeling Solid Fill Mood Icons (Happy -> Sick) ───────────────────
+export function FillMoodHappyIcon({ className = "w-5 h-5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM8.75 9.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm6.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm-7.4 4.4a.75.75 0 0 1 .9-.4h6.5a.75.75 0 0 1 .7.98A4.5 4.5 0 0 1 12 17.25a4.5 4.5 0 0 1-3.95-2.62.75.75 0 0 1-.2-.98Z"
+      />
+    </svg>
+  );
+}
+
+export function FillMoodGoodIcon({ className = "w-5 h-5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM8.75 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm6.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm-6.38 4.47a.75.75 0 0 1 1.06-.09 3.25 3.25 0 0 0 4.14 0 .75.75 0 1 1 .96 1.15 4.75 4.75 0 0 1-6.06 0 .75.75 0 0 1-.1-1.06Z"
+      />
+    </svg>
+  );
+}
+
+export function FillMoodOkayIcon({ className = "w-5 h-5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM8.75 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm6.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5ZM8.5 14.75a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Z"
+      />
+    </svg>
+  );
+}
+
+export function FillMoodTiredIcon({ className = "w-5 h-5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM7.47 10.22a.75.75 0 0 1 1.06 0 .9.9 0 0 0 1.24 0 .75.75 0 1 1 1.06 1.06 2.4 2.4 0 0 1-3.36 0 .75.75 0 0 1 0-1.06Zm5.7 0a.75.75 0 0 1 1.06 0 .9.9 0 0 0 1.24 0 .75.75 0 1 1 1.06 1.06 2.4 2.4 0 0 1-3.36 0 .75.75 0 0 1 0-1.06ZM12 13.75a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
+      />
+    </svg>
+  );
+}
+
+export function FillMoodSickIcon({ className = "w-5 h-5" }: FillIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM8.75 9.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm6.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5ZM8.97 16.28a.75.75 0 0 1-.1-1.05 4.75 4.75 0 0 1 6.06-.92l1.62-1.62a.9.9 0 1 1 1.28 1.28l-1.78 1.78a.75.75 0 0 1-1.08-.02 3.25 3.25 0 0 0-4.95.45.75.75 0 0 1-1.05.1Z"
+      />
+    </svg>
+  );
+}

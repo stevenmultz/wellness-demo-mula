@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { wellnessUserSubmitDayProgress as rawWellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import {
-  wellnessAddExtraWorkout,
-  wellnessDeleteExtraWorkout,
-  wellnessSaveDailyMeal,
-  wellnessSaveDailySleep,
-  wellnessSaveDailySteps,
-  wellnessSaveDailyWater,
-  wellnessUpdateExtraWorkout,
+  wellnessAddExtraWorkout as rawWellnessAddExtraWorkout,
+  wellnessDeleteExtraWorkout as rawWellnessDeleteExtraWorkout,
+  wellnessSaveDailyMeal as rawWellnessSaveDailyMeal,
+  wellnessSaveDailySleep as rawWellnessSaveDailySleep,
+  wellnessSaveDailySteps as rawWellnessSaveDailySteps,
+  wellnessSaveDailyWater as rawWellnessSaveDailyWater,
+  wellnessUpdateExtraWorkout as rawWellnessUpdateExtraWorkout,
 } from "@/wellness/actions/daily-log";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import {
@@ -26,18 +26,99 @@ import {
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { ActionNotice, DailyLogDTO, ExtraWorkoutDTO, ProgramDayItem, ProgramItem } from "./types";
 
-async function wellnessUserSubmitDayProgress(
-  payload: Parameters<typeof rawWellnessUserSubmitDayProgress>[0]
-): ReturnType<typeof rawWellnessUserSubmitDayProgress> {
+function isDeploymentSkewError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err || "").toLowerCase();
+  return (
+    msg.includes("failed to find server action") ||
+    msg.includes("chunkloaderror") ||
+    msg.includes("dynamically imported module")
+  );
+}
+
+async function safeInvokeAction<
+  TArgs extends unknown[],
+  TRes extends { success: boolean; message?: string }
+>(
+  fn: (...args: TArgs) => Promise<TRes>,
+  fallbackMessage: string,
+  ...args: TArgs
+): Promise<TRes> {
   try {
-    return await rawWellnessUserSubmitDayProgress(payload);
-  } catch {
+    return await fn(...args);
+  } catch (err) {
+    if (isDeploymentSkewError(err)) {
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => window.location.reload(), 1200);
+      }
+      return {
+        success: false,
+        message: "App was just updated — refreshing to sync the latest version...",
+      } as TRes;
+    }
     return {
       success: false,
-      message: "Network error while saving progress. Please check your connection and try again.",
-    };
+      message: fallbackMessage,
+    } as TRes;
   }
 }
+
+const wellnessUserSubmitDayProgress = (
+  payload: Parameters<typeof rawWellnessUserSubmitDayProgress>[0]
+) =>
+  safeInvokeAction(
+    rawWellnessUserSubmitDayProgress,
+    "Network error while saving progress. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessSaveDailySleep = (payload: Parameters<typeof rawWellnessSaveDailySleep>[0]) =>
+  safeInvokeAction(
+    rawWellnessSaveDailySleep,
+    "Network error while saving sleep. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessSaveDailyWater = (payload: Parameters<typeof rawWellnessSaveDailyWater>[0]) =>
+  safeInvokeAction(
+    rawWellnessSaveDailyWater,
+    "Network error while saving water intake. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessSaveDailySteps = (payload: Parameters<typeof rawWellnessSaveDailySteps>[0]) =>
+  safeInvokeAction(
+    rawWellnessSaveDailySteps,
+    "Network error while saving steps. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessSaveDailyMeal = (payload: Parameters<typeof rawWellnessSaveDailyMeal>[0]) =>
+  safeInvokeAction(
+    rawWellnessSaveDailyMeal,
+    "Network error while saving meal log. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessAddExtraWorkout = (payload: Parameters<typeof rawWellnessAddExtraWorkout>[0]) =>
+  safeInvokeAction(
+    rawWellnessAddExtraWorkout,
+    "Network error while saving workout. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessUpdateExtraWorkout = (payload: Parameters<typeof rawWellnessUpdateExtraWorkout>[0]) =>
+  safeInvokeAction(
+    rawWellnessUpdateExtraWorkout,
+    "Network error while updating workout. Please check your connection and try again.",
+    payload
+  );
+
+const wellnessDeleteExtraWorkout = (payload: Parameters<typeof rawWellnessDeleteExtraWorkout>[0]) =>
+  safeInvokeAction(
+    rawWellnessDeleteExtraWorkout,
+    "Network error while removing workout. Please check your connection and try again.",
+    payload
+  );
 
 interface UseDashboardProgressParams {
   currentProgram: ProgramItem | null;
@@ -561,14 +642,16 @@ export function useDashboardProgress({
   const handleSaveWorkoutNotes = async (
     notes: string,
     dayId?: string,
-    extra?: { selectedWorkout?: string; checklistCompleted?: string[] }
+    extra?: { selectedWorkout?: string; checklistCompleted?: string[]; videoWatched?: boolean }
   ): Promise<boolean> => {
     const targetDay = resolveTargetDay(dayId);
     if (!targetDay) return false;
     const prevNotes = dayWorkoutNotes[targetDay.id];
     const prevWorkout = dayWorkouts[targetDay.id];
     const prevChecklist = getCheckedItems(targetDay);
+    const prevVideoWatched = dayVideoWatched[targetDay.id];
     const nextChecklist = extra?.checklistCompleted ?? prevChecklist;
+    const nextVideoWatched = extra?.videoWatched ?? getVideoWatched(targetDay);
 
     setDayWorkoutNotes((prev) => ({ ...prev, [targetDay.id]: notes }));
     if (extra?.selectedWorkout) {
@@ -577,15 +660,19 @@ export function useDashboardProgress({
     if (extra?.checklistCompleted) {
       setDayChecklists((prev) => ({ ...prev, [targetDay.id]: extra.checklistCompleted! }));
     }
+    if (extra?.videoWatched !== undefined) {
+      setDayVideoWatched((prev) => ({ ...prev, [targetDay.id]: extra.videoWatched! }));
+    }
 
     const autoComplete = computeAutoComplete(targetDay, nextChecklist, {
       workoutNotes: notes,
+      videoWatched: nextVideoWatched,
     });
     const res = await wellnessUserSubmitDayProgress({
       programDayId: targetDay.id,
       isCompleted: autoComplete,
       checklistCompleted: nextChecklist,
-      videoWatched: getVideoWatched(targetDay),
+      videoWatched: nextVideoWatched,
       ...(extra?.selectedWorkout ? { selectedWorkout: extra.selectedWorkout } : {}),
       workoutNotes: notes,
     });
@@ -607,6 +694,14 @@ export function useDashboardProgress({
       }
       if (extra?.checklistCompleted) {
         setDayChecklists((prev) => ({ ...prev, [targetDay.id]: prevChecklist }));
+      }
+      if (extra?.videoWatched !== undefined) {
+        setDayVideoWatched((prev) => {
+          const next = { ...prev };
+          if (prevVideoWatched === undefined) delete next[targetDay.id];
+          else next[targetDay.id] = prevVideoWatched;
+          return next;
+        });
       }
       setActionNotice(
         { type: "error", text: res.message || "Failed to save workout notes." },

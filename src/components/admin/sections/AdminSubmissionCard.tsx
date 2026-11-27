@@ -3,7 +3,9 @@
 import {
   Check,
   CheckCircle2,
+  Droplets,
   Dumbbell,
+  Footprints,
   Info,
   Moon,
   Smile,
@@ -180,7 +182,28 @@ export function AdminSubmissionCard({
           <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
             <Utensils className="w-3.5 h-3.5 text-zinc-500" />
             <span className="text-[11px] font-medium">Meal:</span>
-            <span className="text-[11px] font-semibold">{sub.mealCompliance}</span>
+            <span className="text-[11px] font-semibold">
+              {sub.mealCompliance}
+              {sub.caloriesKcal && sub.caloriesKcal > 0 ? ` (${sub.caloriesKcal} kcal)` : ""}
+            </span>
+          </div>
+        )}
+
+        {/* Water Telemetry */}
+        {typeof sub.waterMl === "number" && sub.waterMl > 0 && (
+          <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+            <Droplets className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[11px] font-medium">Water:</span>
+            <span className="font-mono text-[11px]">{sub.waterMl.toLocaleString()} ml</span>
+          </div>
+        )}
+
+        {/* Steps Telemetry */}
+        {typeof sub.stepsCount === "number" && sub.stepsCount > 0 && (
+          <div className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-white/5 border border-zinc-200/70 dark:border-white/10 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+            <Footprints className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[11px] font-medium">Steps:</span>
+            <span className="font-mono text-[11px]">{sub.stepsCount.toLocaleString()}</span>
           </div>
         )}
 

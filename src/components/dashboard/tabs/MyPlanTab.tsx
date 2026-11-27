@@ -44,6 +44,7 @@ import {
   HeaderBackButton,
   HeaderProfileButton,
   type HeaderProfileMenuActions,
+  getModalPortalRoot,
   safeHttpUrl,
 } from "./shared";
 import { MyPlanIndex } from "./my-plan/MyPlanIndex";
@@ -203,6 +204,7 @@ export function MyPlanOverview({
   enrolledPrograms = [],
   onOpenProgram,
   onOpenProgramTask,
+  onBackToHome,
   autoOpenTaskNonce,
 }: {
   program: PlanProgramInfo | null;
@@ -250,7 +252,7 @@ export function MyPlanOverview({
   onSaveWorkoutNotes: (
     notes: string,
     dayId: string,
-    extra?: { selectedWorkout?: string; checklistCompleted?: string[] }
+    extra?: { selectedWorkout?: string; checklistCompleted?: string[]; videoWatched?: boolean }
   ) => Promise<void | boolean>;
   onCompleteDay: (dayId: string) => Promise<void | boolean>;
   bodyMetricLogs?: BodyMetricPoint[];
@@ -280,6 +282,7 @@ export function MyPlanOverview({
   enrolledPrograms?: MyPlanIndexItem[];
   onOpenProgram?: (programId: string) => void;
   onOpenProgramTask?: (programId: string) => void;
+  onBackToHome?: () => void;
   autoOpenTaskNonce?: number;
 }) {
   const { locale, t } = useLocale();
@@ -376,6 +379,18 @@ export function MyPlanOverview({
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const activeMonthStr = new Intl.DateTimeFormat(localeTag, {
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const activeYearStr = new Intl.DateTimeFormat(localeTag, {
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(activeBannerDate);
+  const activeDayDateStr = new Intl.DateTimeFormat(localeTag, {
+    day: "2-digit",
     timeZone: "Asia/Jakarta",
   }).format(activeBannerDate);
   const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
@@ -551,9 +566,9 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Home Top Date Picker (Program Detail places Date Picker directly inside the Program Banner) */}
+      {/* 0. Home Top Stacked Date Picker (Month / Year / Date stacked vertically) */}
       {isStandalone && (
-        <div className="w-full flex items-center justify-end gap-2">
+        <div className="w-full flex items-center justify-end">
           {!isFeatureLocked ? (
             <button
               type="button"
@@ -562,19 +577,30 @@ export function MyPlanOverview({
                 setCalendarMonth(new Date(w.year, w.month, 1));
                 setShowCalendarModal(true);
               }}
-              aria-label="Select date from calendar"
-              className="group h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] hover:bg-zinc-300/60 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 active:scale-95 transition cursor-pointer shrink-0"
+              aria-label={`Select date from calendar (${activeFullDateStr})`}
+              className="group px-2 py-1 rounded-2xl inline-flex flex-col items-end text-right hover:opacity-75 active:scale-95 transition cursor-pointer shrink-0 select-none"
             >
-              <Calendar className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
-              <span className="text-xs font-geometric font-semibold text-zinc-950 dark:text-white leading-tight whitespace-nowrap">
-                {activeFullDateStr}
+              <span className="text-[11px] font-geometric font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400 leading-none">
+                {activeMonthStr}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
+              <span className="text-[10px] font-geometric font-medium text-zinc-400 dark:text-zinc-500 tabular-nums leading-none mt-1">
+                {activeYearStr}
+              </span>
+              <span className="text-2xl sm:text-[26px] font-geometric font-semibold text-zinc-950 dark:text-white tabular-nums leading-none mt-1">
+                {activeDayDateStr}
+              </span>
             </button>
           ) : (
-            <span className="h-10 px-3 rounded-2xl bg-[#ececea] dark:bg-white/[0.04] border border-zinc-200/60 dark:border-white/10 inline-flex items-center gap-1.5 text-xs font-geometric font-semibold text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap opacity-65">
-              <Calendar className="w-3.5 h-3.5 shrink-0" />
-              <span>{activeFullDateStr}</span>
+            <span className="px-2 py-1 inline-flex flex-col items-end text-right shrink-0 opacity-65 select-none">
+              <span className="text-[11px] font-geometric font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400 leading-none">
+                {activeMonthStr}
+              </span>
+              <span className="text-[10px] font-geometric font-medium text-zinc-400 dark:text-zinc-500 tabular-nums leading-none mt-1">
+                {activeYearStr}
+              </span>
+              <span className="text-2xl sm:text-[26px] font-geometric font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums leading-none mt-1">
+                {activeDayDateStr}
+              </span>
             </span>
           )}
         </div>
@@ -823,6 +849,30 @@ export function MyPlanOverview({
                     extraCompletedTasks={isStandalone ? programTodayCompletedTasks : 0}
                     autoOpenProgramTaskNonce={!isStandalone ? autoOpenTaskNonce : 0}
                     autoOpenHabitRequest={isStandalone ? habitOpenRequest : null}
+                    nextPendingProgram={
+                      isStandalone
+                        ? (() => {
+                            const nextProg = activeEnrolledPrograms.find(
+                              (p) => !p.isUpcoming && !p.isCompleted && !p.todayCoreTaskDone
+                            );
+                            if (!nextProg) return null;
+                            const dt = (nextProg.todayDayType || "").toUpperCase();
+                            const taskTitle =
+                              dt === "REST_DAY"
+                                ? "Rest Activity"
+                                : dt && dt !== "TRAINING_DAY"
+                                  ? "Connect"
+                                  : "Online Training";
+                            return {
+                              programId: nextProg.programId,
+                              title: nextProg.title,
+                              taskTitle,
+                            };
+                          })()
+                        : null
+                    }
+                    onOpenProgramTask={onOpenProgramTask || onOpenProgram}
+                    onBackToHome={!isStandalone ? onBackToHome : undefined}
                     activities={activities}
                     checks={checks}
                     initialDone={initialDone}
@@ -993,96 +1043,117 @@ export function MyPlanOverview({
                             return (
                               <div
                                 key={prog.programId}
-                                className="w-full grid grid-cols-[120px_1fr] sm:grid-cols-[144px_1fr] items-stretch rounded-2xl overflow-hidden border border-zinc-200/70 dark:border-white/10 shadow-sm"
+                                className="relative w-full rounded-2xl overflow-hidden bg-zinc-900"
                               >
-                                {/* Left Side: Today's Program Task Pane (Direct 1-tap open to Training/Rest/Connect) */}
-                                <button
-                                  type="button"
-                                  disabled={prog.isUpcoming}
-                                  onClick={() =>
-                                    (onOpenProgramTask || onOpenProgram)?.(prog.programId)
-                                  }
-                                  aria-label={`${taskWidgetTitle} - ${prog.title}`}
-                                  className={`group relative w-full h-full min-h-[124px] p-3.5 sm:p-4 flex flex-col justify-between text-left border-r border-zinc-200/70 dark:border-white/10 transition cursor-pointer disabled:cursor-default ${
-                                    isCoreDone
-                                      ? "bg-[#e4e4e1] dark:bg-white/[0.03]"
-                                      : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07]"
-                                  } ${prog.isUpcoming ? "opacity-60" : "active:brightness-95"}`}
-                                >
-                                  <div className={`w-full flex items-start ${isCoreDone ? "opacity-75" : ""}`}>
-                                    <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
-                                      <TaskFillIcon
-                                        className={`w-6 h-6 ${
-                                          prog.isUpcoming ? "text-zinc-400 dark:text-zinc-500" : ""
-                                        }`}
-                                      />
-                                      {isCorePending && (
-                                        <span
-                                          aria-label="Not completed"
-                                          className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
-                                        />
-                                      )}
-                                      {isCoreDone && (
-                                        <span
-                                          aria-label="Completed"
-                                          className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
-                                        >
-                                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                        </span>
-                                      )}
-                                    </span>
-                                  </div>
+                                {/* Shared Full-Bleed Cover Image Background across both sides */}
+                                <div className="absolute inset-0 pointer-events-none">
+                                  {prog.coverImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={prog.coverImage}
+                                      alt=""
+                                      className="w-full h-full object-cover object-center"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/75" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                                </div>
 
-                                  <div className={`pt-3 w-full min-w-0 space-y-0.5 ${isCoreDone ? "opacity-75" : ""}`}>
-                                    <span className="block text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white leading-snug truncate w-full">
-                                      {taskWidgetTitle}
-                                    </span>
-                                    <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal truncate">
-                                      {taskWidgetDuration}
-                                    </span>
-                                  </div>
-                                </button>
-
-                                {/* Right Side: Program Banner Pane with Cover Image Background (Opens Program Detail) */}
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenProgram?.(prog.programId)}
-                                  className="group relative w-full min-h-[124px] overflow-hidden bg-zinc-900 p-3.5 sm:p-4 flex flex-col justify-between text-left text-white transition active:brightness-95 cursor-pointer min-w-0"
-                                >
-                                  {/* Full-bleed program cover image background */}
-                                  <div className="absolute inset-0 pointer-events-none">
-                                    {prog.coverImage ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={prog.coverImage}
-                                        alt=""
-                                        className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
-                                  </div>
-
-                                  {/* Top Row: Plain Day text (no box/border, no duplicate status badge) */}
-                                  <div className="relative z-10 flex items-center justify-between gap-2 w-full">
-                                    <span className="text-[11px] font-mono font-semibold text-white/90 drop-shadow-xs truncate">
+                                <div className="relative z-10 grid grid-cols-[1fr_118px] sm:grid-cols-[1fr_144px] items-stretch gap-2.5 p-3 sm:p-3.5 min-h-[128px] sm:min-h-[136px]">
+                                  {/* Left Side: Spacious Program Overview (Opens Program Detail) */}
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenProgram?.(prog.programId)}
+                                    className="group p-1 sm:p-1.5 flex flex-col justify-between text-left text-white min-w-0 transition active:opacity-85 cursor-pointer"
+                                  >
+                                    <span className="text-[11px] font-mono font-medium text-white/80 truncate w-full">
                                       {prog.isUpcoming
                                         ? dayTypeLabel
                                         : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
                                     </span>
-                                  </div>
 
-                                  {/* Bottom Row: Program Title + Organization · Sports · Online/Hybrid (no arrow) */}
-                                  <div className="relative z-10 pt-5 w-full min-w-0 space-y-0.5">
-                                    <p className="text-sm sm:text-base font-geometric font-semibold text-white truncate leading-snug">
-                                      {prog.title}
-                                    </p>
-                                    <p className="text-[11px] font-mono text-white/80 truncate">
-                                      {metaLine}
-                                    </p>
-                                  </div>
-                                </button>
+                                    <div className="pt-4 w-full min-w-0 space-y-0.5">
+                                      <p className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-2 group-hover:opacity-95">
+                                        {prog.title}
+                                      </p>
+                                      <p className="text-[11px] font-sans text-white/75 truncate">
+                                        {metaLine}
+                                      </p>
+                                    </div>
+                                  </button>
+
+                                  {/* Right Side: Inset Today's Task Action Pod (1-Tap Direct Launch) */}
+                                  <button
+                                    type="button"
+                                    disabled={prog.isUpcoming}
+                                    onClick={() =>
+                                      (onOpenProgramTask || onOpenProgram)?.(prog.programId)
+                                    }
+                                    aria-label={`${taskWidgetTitle} - ${prog.title}`}
+                                    className={`group relative w-full h-full rounded-xl p-3 flex flex-col justify-between text-left transition cursor-pointer disabled:cursor-default ${
+                                      prog.isUpcoming
+                                        ? "bg-black/45 text-white/65 opacity-80"
+                                        : isCoreDone
+                                          ? "bg-black/50 hover:bg-black/60 text-white active:scale-[0.98]"
+                                          : "bg-[#f6f6f4] hover:bg-white text-zinc-950 active:scale-[0.98]"
+                                    }`}
+                                  >
+                                    <div className="w-full flex items-center justify-between gap-1">
+                                      <span className="relative inline-flex items-center justify-center shrink-0">
+                                        <TaskFillIcon className="w-5 h-5" />
+                                        {isCorePending && (
+                                          <span
+                                            aria-label="Not completed"
+                                            className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#f6f6f4]"
+                                          />
+                                        )}
+                                        {isCoreDone && (
+                                          <span
+                                            aria-label="Completed"
+                                            className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-black/60 flex items-center justify-center"
+                                          >
+                                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                          </span>
+                                        )}
+                                      </span>
+
+                                      {!prog.isUpcoming && !isCoreDone && (
+                                        <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-950 group-hover:translate-x-0.5 transition-all shrink-0" />
+                                      )}
+                                    </div>
+
+                                    <div className="pt-2.5 w-full min-w-0 space-y-0.5">
+                                      <span
+                                        className={`block text-xs font-geometric font-semibold leading-tight truncate w-full ${
+                                          prog.isUpcoming
+                                            ? "text-white/75"
+                                            : isCoreDone
+                                              ? "text-white"
+                                              : "text-zinc-950"
+                                        }`}
+                                      >
+                                        {taskWidgetTitle}
+                                      </span>
+                                      <span
+                                        className={`block text-[10px] font-mono leading-normal truncate ${
+                                          prog.isUpcoming
+                                            ? "text-white/50"
+                                            : isCoreDone
+                                              ? "text-white/70"
+                                              : "text-zinc-500"
+                                        }`}
+                                      >
+                                        {isCoreDone
+                                          ? isId
+                                            ? "Selesai"
+                                            : "Done"
+                                          : taskWidgetDuration}
+                                      </span>
+                                    </div>
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -1291,7 +1362,7 @@ export function MyPlanOverview({
               </div>
             );
           })(),
-          document.body
+          getModalPortalRoot()
         )}
 
       {/* External Community Disclaimer Modal */}
@@ -1340,7 +1411,7 @@ export function MyPlanOverview({
               </div>
             </div>
           </div>,
-          document.body
+          getModalPortalRoot()
         )}
 
       {showReportModal && (

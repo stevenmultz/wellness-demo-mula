@@ -412,6 +412,8 @@ export function DashboardClient({
           4000
         );
       }
+    } catch {
+      setActionNotice({ type: "error", text: "Connection interrupted. Please try again." }, 4000);
     } finally {
       setPassCheckoutLoadingId(null);
     }
@@ -512,6 +514,8 @@ export function DashboardClient({
           4000
         );
       }
+    } catch {
+      setActionNotice({ type: "error", text: "Connection interrupted. Please try again." }, 4000);
     } finally {
       setEnrollingId(null);
     }
@@ -1091,6 +1095,12 @@ export function DashboardClient({
             <MyPlanOverview
               globalMonthlyDays={standaloneDays}
               autoOpenTaskNonce={autoOpenTaskNonce}
+              onBackToHome={() => {
+                setAutoOpenTaskNonce(0);
+                setMyPlanView("intro");
+                setIsOverHero(true);
+                window.scrollTo({ top: 0 });
+              }}
               program={
                 overviewEnrollment && currentProgram
                   ? {

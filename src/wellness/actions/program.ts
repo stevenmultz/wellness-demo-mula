@@ -74,7 +74,21 @@ export async function wellnessAdminDuplicateProgram(
 export async function wellnessUserSubmitDayProgress(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
-  return submitDayProgressService(rawInput);
+  try {
+    return await submitDayProgressService(rawInput);
+  } catch (err) {
+    if (err instanceof Error && err.name === "WellnessAuthError") {
+      return {
+        success: false,
+        message: "Your session has expired. Please reload and sign in again.",
+      };
+    }
+    console.error("[program progress action error]:", err);
+    return {
+      success: false,
+      message: "Could not save progress. Please try again.",
+    };
+  }
 }
 
 export async function wellnessAdminGetProgramSubmissions(

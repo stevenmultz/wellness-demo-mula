@@ -32,7 +32,15 @@ const SubmitCustomTaskSchema = z.object({
 export async function wellnessUserSubmitCustomTask(
   rawInput: unknown
 ): Promise<WellnessActionResult> {
-  const session = await requireAuth();
+  let session;
+  try {
+    session = await requireAuth();
+  } catch {
+    return {
+      success: false,
+      message: "Your session has expired. Please reload and sign in again.",
+    };
+  }
 
   const parsed = SubmitCustomTaskSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -302,7 +310,6 @@ export async function wellnessUserSubmitCustomTask(
   });
 
   try {
-    revalidatePath("/dashboard");
     revalidatePath("/admin");
   } catch {
     // Ignore outside request context

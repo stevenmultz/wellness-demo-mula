@@ -1,7 +1,7 @@
 import type { Viewport } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { getWellnessSession } from "@/wellness/security/session";
+import { getWellnessSession, peekVerifiedSessionUserId } from "@/wellness/security/session";
 import { isUserOnboardingComplete } from "@/wellness/validators/auth";
 import { prisma } from "@/wellness/db";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
@@ -80,28 +80,37 @@ export default function DashboardPage() {
 }
 
 async function DashboardContent() {
-  const session = await getWellnessSession();
-  if (!session) {
+  const canPeekSession = typeof peekVerifiedSessionUserId === "function";
+  const peekedUserId = canPeekSession ? await peekVerifiedSessionUserId() : null;
+
+  if (canPeekSession && !peekedUserId) {
     redirect("/?auth=signin&target=dashboard");
   }
-  if (!isUserOnboardingComplete(session)) {
-    redirect("/onboarding");
-  }
 
-  const locale = await getServerLocale(session.preferredLocale);
+  const preSession = canPeekSession ? null : await getWellnessSession();
+  const targetUserId = peekedUserId ?? preSession?.userId ?? null;
+  if (!targetUserId) {
+    redirect("/?auth=signin&target=dashboard");
+  }
 
   const now = new Date();
   const todayDateOnly = toWibDateOnly(now);
-  const yearAgoDateOnly = addWibDays(todayDateOnly, -365);
+  // Home & Metrics only inspect the past 60 days (30d current vs 30d previous);
+  // 90d/1y historical charts are loaded on demand via wellnessGetGrowthAnalytics.
+  const recentLogsStart = addWibDays(todayDateOnly, -62);
 
-  // Single parallel round-trip (Zero N+1):
-  // 1. Enrolled programs (with days, progresses, customTasks & submissions)
-  // 2. Global body metric logs
-  // 3. Universal UserDailyLog (past 365 days + extraWorkouts)
-  // 4. Active Standalone Tracking Pass catalog plans
-  const [enrollments, bodyMetricLogsRaw, dailyLogsRaw, trackingPassPlansRaw] = await Promise.all([
+  // True single-wave parallel DB round-trip (Session + Active Programs + Lightweight Past/Pending Enrollments + Metrics + Logs):
+  const [
+    session,
+    activeEnrollmentsRaw,
+    otherEnrollmentsRaw,
+    bodyMetricLogsRaw,
+    dailyLogsRaw,
+    trackingPassPlansRaw,
+  ] = await Promise.all([
+    preSession ? Promise.resolve(preSession) : getWellnessSession(),
     prisma.programEnrollment.findMany({
-      where: { userId: session.userId },
+      where: { userId: targetUserId, status: "ACTIVE" },
       include: {
         program: {
           include: {
@@ -115,13 +124,13 @@ async function DashboardContent() {
             days: {
               include: {
                 progresses: {
-                  where: { userId: session.userId },
+                  where: { userId: targetUserId },
                 },
                 customTasks: {
                   orderBy: { sortOrder: "asc" },
                   include: {
                     submissions: {
-                      where: { userId: session.userId },
+                      where: { userId: targetUserId },
                     },
                   },
                 },
@@ -138,23 +147,59 @@ async function DashboardContent() {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.programEnrollment.findMany({
+      where: { userId: targetUserId, status: { not: "ACTIVE" } },
+      include: {
+        program: {
+          include: {
+            ...PROGRAM_TAXONOMY_INCLUDE,
+            _count: {
+              select: {
+                days: true,
+                enrollments: { where: { status: "ACTIVE" } },
+              },
+            },
+            days: {
+              select: {
+                id: true,
+                dayNumber: true,
+                title: true,
+                dayType: true,
+                mapLink: true,
+                eventTitle: true,
+                eventHost: true,
+                onsiteVenue: true,
+                onsiteSchedule: true,
+              },
+              orderBy: { dayNumber: "asc" },
+            },
+          },
+        },
+        transactions: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { qrisStringOrUrl: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.userBodyMetricLog
       .findMany({
-        where: { userId: session.userId },
+        where: { userId: targetUserId },
         orderBy: { recordedAt: "desc" },
-        take: 150,
+        take: 60,
       })
       .then((rows) => rows.reverse()),
     prisma.userDailyLog.findMany({
       where: {
-        userId: session.userId,
-        logDate: { gte: yearAgoDateOnly },
+        userId: targetUserId,
+        logDate: { gte: recentLogsStart },
       },
       include: {
         extraWorkouts: { orderBy: { createdAt: "asc" } },
       },
       orderBy: { logDate: "asc" },
-      take: 366,
+      take: 65,
     }),
     prisma.trackingPassPlan.findMany({
       where: { isActive: true },
@@ -162,6 +207,49 @@ async function DashboardContent() {
       take: 20,
     }),
   ]);
+
+  if (!session) {
+    redirect("/?auth=signin&target=dashboard");
+  }
+  if (!isUserOnboardingComplete(session)) {
+    redirect("/onboarding");
+  }
+
+  const locale = await getServerLocale(session.preferredLocale);
+
+  const normalizedOtherEnrollments: typeof activeEnrollmentsRaw = otherEnrollmentsRaw.map(
+    (e) =>
+      ({
+        ...e,
+        program: e.program
+          ? {
+              ...e.program,
+              days: e.program.days.map((d) => ({
+                ...d,
+                programId: e.program.id,
+                version: 1,
+                workoutOptionsJson: null,
+                sleepRecommendation: null,
+                dayNotificationsJson: null,
+                videoUrl: null,
+                videoChecklistJson: null,
+                mealRecommendation: null,
+                meetupLink: null,
+                eventDetails: null,
+                restInstructions: null,
+                createdAt: e.program.createdAt,
+                updatedAt: e.program.updatedAt,
+                progresses: [],
+                customTasks: [],
+              })),
+            }
+          : e.program,
+      }) as (typeof activeEnrollmentsRaw)[number]
+  );
+
+  const enrollments = [...activeEnrollmentsRaw, ...normalizedOtherEnrollments].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 
   const initialDailyLogs: DailyLogDTO[] = dailyLogsRaw.map(serializeDailyLog);
   const dailyLogByDateKey = new Map<string, DailyLogDTO>(

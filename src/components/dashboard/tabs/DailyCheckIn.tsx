@@ -4,12 +4,11 @@ import { useEffect, useMemo, useRef, useState, type ComponentType } from "react"
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  ArrowRight,
   Check,
   Dumbbell,
-  Footprints,
   Loader2,
   MessageCircle,
-  Plus,
   RotateCcw,
   Trash2,
   Users,
@@ -17,7 +16,7 @@ import {
 import { buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { formatWibDateKey } from "@/wellness/utils/timezone";
-import { HeaderBackButton, InfoPopupModal } from "./shared";
+import { HeaderBackButton, InfoPopupModal, getModalPortalRoot } from "./shared";
 import { CustomTaskSection } from "./CustomTaskSection";
 import {
   FillCameraIcon,
@@ -188,13 +187,13 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   const currentTask = tasks[step] || tasks[0];
 
-  const handleFinishTask = () => {
-    // Water task (step === 3) reflects live waterMl > 0 from parent props so resetting to 0 ml never shows done
-    if (!selectedLocked && isSelectedToday && step !== 3) {
-      markDone(step);
-    }
-    setDetailOpen(false);
-  };
+  const [nextTaskPrompt, setNextTaskPrompt] = useState<{
+    title: string;
+    subtitle: string;
+    remainingCount: number;
+    Icon: ComponentType<FillIconProps>;
+    onContinue: () => void;
+  } | null>(null);
 
   const customTasksList = selectedDay.customTasks || [];
   const selectedDateKey =
@@ -208,23 +207,21 @@ export function DailyCheckIn(props: DailyCheckInProps) {
   // ── Daily Steps Task State (PostgreSQL-backed via UserDailyLog, Multi-Plan Synced) ──
   const steps = selectedDay.userProgress?.stepsCount ?? 0;
   const [stepsModalOpen, setStepsModalOpen] = useState(false);
-  const [draftSteps, setDraftSteps] = useState<number>(steps);
+  const [stepsInput, setStepsInput] = useState<string>(() => (steps > 0 ? String(steps) : ""));
   const [stepsBusy, setStepsBusy] = useState(false);
-  const [showCustomSteps, setShowCustomSteps] = useState(false);
-  const [customStepsInput, setCustomStepsInput] = useState("");
+  const [stepsError, setStepsError] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraftSteps(selectedDay.userProgress?.stepsCount ?? 0);
+    const nextSteps = selectedDay.userProgress?.stepsCount ?? 0;
+    setStepsInput(nextSteps > 0 ? String(nextSteps) : "");
     setStepsModalOpen(false);
-    setShowCustomSteps(false);
-    setCustomStepsInput("");
+    setStepsError(null);
   }, [selectedDay.id, selectedDay.userProgress?.stepsCount]);
 
   const openStepsModal = () => {
     if (isFeatureLocked || isSelectedFuture) return;
-    setDraftSteps(steps);
-    setShowCustomSteps(false);
-    setCustomStepsInput("");
+    setStepsInput(steps > 0 ? String(steps) : "");
+    setStepsError(null);
     setStepsModalOpen(true);
   };
 
@@ -241,9 +238,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     }
     lastAutoOpenHabitNonceRef.current = req.nonce;
     if (req.habit === "steps") {
-      setDraftSteps(steps);
-      setShowCustomSteps(false);
-      setCustomStepsInput("");
+      setStepsInput(steps > 0 ? String(steps) : "");
+      setStepsError(null);
       setStepsModalOpen(true);
       return;
     }
@@ -256,32 +252,12 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     setDetailOpen(true);
   }, [props.autoOpenHabitRequest, isFeatureLocked, isSelectedFuture, steps]);
 
-  const handleAddDraftSteps = (inc: number) => {
-    setDraftSteps((prev) => Math.max(0, Math.min(100000, prev + inc)));
-  };
-
-  const handleCustomStepsSubmit = () => {
-    const val = parseInt(customStepsInput, 10);
-    if (!Number.isNaN(val) && val > 0) {
-      handleAddDraftSteps(val);
-      setCustomStepsInput("");
-      setShowCustomSteps(false);
-    }
-  };
-
-  const handleSaveStepsModal = async () => {
-    if (stepsBusy) return;
-    if (!selectedLocked || isAnytime) {
-      setStepsBusy(true);
-      try {
-        const ok = await props.onSaveSteps?.(draftSteps, selectedDay.id);
-        if (ok === false) return;
-      } finally {
-        setStepsBusy(false);
-      }
-    }
-    setStepsModalOpen(false);
-  };
+  const parsedDraftSteps = useMemo(() => {
+    const trimmed = stepsInput.trim();
+    if (!trimmed) return 0;
+    const n = parseInt(trimmed, 10);
+    return Number.isNaN(n) ? -1 : n;
+  }, [stepsInput]);
 
   const stepsDone = steps > 0 || Boolean(selectedDay.userProgress?.isCompleted);
   const activeCoreTaskEntries = tasks
@@ -511,6 +487,76 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })),
   ];
 
+  const promptNextTaskAfterSave = (justCompletedKey: string | null) => {
+    if (!justCompletedKey || isFeatureLocked || isSelectedFuture) return;
+    const remainingTiles = taskTiles.filter(
+      (t) => !t.isDone && !t.disabled && t.key !== justCompletedKey
+    );
+    if (remainingTiles.length > 0) {
+      const nextTile = remainingTiles[0];
+      setNextTaskPrompt({
+        title: nextTile.title,
+        subtitle: nextTile.durationLabel,
+        remainingCount: remainingTiles.length,
+        Icon: nextTile.Icon,
+        onContinue: () => {
+          setNextTaskPrompt(null);
+          nextTile.onOpen();
+        },
+      });
+      return;
+    }
+
+    if (isStandalone && props.nextPendingProgram && props.onOpenProgramTask) {
+      const prog = props.nextPendingProgram;
+      setNextTaskPrompt({
+        title: prog.taskTitle,
+        subtitle: prog.title,
+        remainingCount: 1,
+        Icon: FillDumbbellIcon,
+        onContinue: () => {
+          setNextTaskPrompt(null);
+          props.onOpenProgramTask?.(prog.programId);
+        },
+      });
+    }
+  };
+
+  const handleFinishTask = (completedNow = true) => {
+    // Water task (step === 3) reflects live waterMl > 0 from parent props so resetting to 0 ml never shows done
+    if (!selectedLocked && isSelectedToday && step !== 3 && completedNow) {
+      markDone(step);
+    }
+    const completedKey = completedNow ? `core-${currentTask.title}` : null;
+    setDetailOpen(false);
+    promptNextTaskAfterSave(completedKey);
+  };
+
+  const handleSaveStepsModal = async () => {
+    if (stepsBusy) return;
+    if (!selectedLocked || isAnytime) {
+      if (parsedDraftSteps < 0 || parsedDraftSteps > 100000) {
+        setStepsError("Please enter a valid step count between 0 and 100,000.");
+        return;
+      }
+      setStepsError(null);
+      setStepsBusy(true);
+      try {
+        const ok = await props.onSaveSteps?.(parsedDraftSteps, selectedDay.id);
+        if (ok === false) return;
+      } catch {
+        setStepsError("Could not save steps. Please try again.");
+        return;
+      } finally {
+        setStepsBusy(false);
+      }
+    }
+    setStepsModalOpen(false);
+    if (parsedDraftSteps > 0) {
+      promptNextTaskAfterSave("core-daily-steps");
+    }
+  };
+
   return (
     <section className="w-full space-y-3 sm:space-y-4">
       <InfoPopupModal
@@ -721,9 +767,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
           modalOnly
           externalOpenTaskId={openCustomTaskId}
           onExternalModalClose={() => setOpenCustomTaskId(null)}
-          onSubmitted={(customTaskId, submission, dayCompleted) =>
-            props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission, dayCompleted)
-          }
+          onModalBack={isProgramOnly ? () => props.onBackToHome?.() : undefined}
+          onSubmitted={(customTaskId, submission, dayCompleted) => {
+            props.onCustomTaskSubmitted?.(selectedDay.id, customTaskId, submission, dayCompleted);
+            promptNextTaskAfterSave(`custom-${customTaskId}`);
+          }}
         />
       )}
 
@@ -747,14 +795,19 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               checks={selectedChecks}
               step={step}
               onFinish={handleFinishTask}
-              onClose={() => setDetailOpen(false)}
+              onClose={() => {
+                setDetailOpen(false);
+                if (isProgramOnly) {
+                  props.onBackToHome?.();
+                }
+              }}
               props={props}
             />
           </div>,
-          document.body
+          getModalPortalRoot()
         )}
 
-      {/* Daily Steps Fullscreen Task Modal (matches TaskForm & WaterStepView) */}
+      {/* Daily Steps Fullscreen Task Modal (Direct Input from Apple Health / Google Fit) */}
       {stepsModalOpen &&
         typeof document !== "undefined" &&
         createPortal(
@@ -792,213 +845,126 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    handleSaveStepsModal();
+                    void handleSaveStepsModal();
                   }}
                   className="flex-1 flex flex-col justify-between gap-8 pt-6 min-w-0"
                 >
                   <div className="space-y-6 min-w-0">
                     <div className="space-y-1.5">
-                      <h2 className="text-xl sm:text-2xl font-geometric font-medium tracking-tight text-zinc-950 dark:text-white leading-tight">
-                        {isId
-                          ? "Berapa langkah yang Anda tempuh hari ini?"
-                          : "How many steps did you take today?"}
+                      <h2 className="text-xl sm:text-2xl font-geometric font-normal tracking-tight text-zinc-950 dark:text-white leading-snug">
+                        How many steps did you take today?
                       </h2>
                       <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                        {isId
-                          ? "Catat langkah harian untuk mengurangi estimasi kalori bersih (~40 kcal per 1.000 langkah)."
-                          : "Log your daily steps to deduct estimated calories burned from net daily calories (~40 kcal per 1,000 steps)."}
+                        Check your step count in Apple Health, Google Fit, or your smartwatch and enter today&apos;s total below.
                       </p>
                     </div>
 
-                    {/* Progress & Live Total Card */}
                     {(() => {
                       const TARGET_STEPS = 10000;
-                      const stepsPct = Math.min(100, Math.round((draftSteps / TARGET_STEPS) * 100));
-                      const draftBurnedKcal = Math.round(draftSteps * 0.04);
+                      const safeVal = Math.max(0, parsedDraftSteps);
+                      const stepsPct = Math.min(100, Math.round((safeVal / TARGET_STEPS) * 100));
+                      const draftBurnedKcal = Math.round(safeVal * 0.04);
                       const isReadOnly = selectedLocked && !isAnytime;
 
                       return (
-                        <>
-                          <div className="p-5 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-3">
-                            <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                              <div className="flex items-baseline gap-1.5">
-                                <span className="text-3xl font-geometric font-light tracking-tight text-zinc-950 dark:text-white tabular-nums leading-none">
-                                  {draftSteps.toLocaleString()}
-                                </span>
-                                <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                                  / {TARGET_STEPS.toLocaleString()} steps
-                                </span>
-                              </div>
+                        <div className="p-5 rounded-2xl bg-white/85 dark:bg-[#141414] border border-zinc-200/80 dark:border-white/10 space-y-4">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <label
+                                htmlFor="direct-steps-count-input"
+                                className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                              >
+                                Total Steps Today
+                              </label>
+                              {!isReadOnly && safeVal > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setStepsInput("");
+                                    setStepsError(null);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-red-600 dark:hover:text-red-400 transition cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Reset</span>
+                                </button>
+                              )}
+                            </div>
 
-                              <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                            <div className="relative">
+                              <input
+                                id="direct-steps-count-input"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                max={100000}
+                                disabled={isReadOnly}
+                                autoFocus={!isReadOnly}
+                                placeholder="e.g. 7500"
+                                value={stepsInput}
+                                onChange={(e) => {
+                                  setStepsInput(e.target.value);
+                                  setStepsError(null);
+                                }}
+                                className="w-full h-14 px-4 pr-20 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#18181b] text-2xl font-geometric font-semibold tabular-nums text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white disabled:opacity-60 transition"
+                              />
+                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-zinc-400 pointer-events-none">
+                                steps
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-baseline justify-between gap-2 text-xs">
+                              <span className="text-zinc-500 dark:text-zinc-400 font-medium">
+                                {safeVal.toLocaleString()} / {TARGET_STEPS.toLocaleString()} daily goal
+                              </span>
+                              <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
                                 {draftBurnedKcal > 0
                                   ? `-${draftBurnedKcal} kcal (${stepsPct}%)`
                                   : `${stepsPct}%`}
                               </span>
                             </div>
 
-                            <div className="w-full h-2.5 rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
+                            <div className="w-full h-2 rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden">
                               <div
                                 className="h-full rounded-full bg-zinc-950 dark:bg-white transition-all duration-300"
                                 style={{ width: `${stepsPct}%` }}
                               />
                             </div>
-
-                            {!isReadOnly && (
-                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-200/60 dark:border-white/10">
-                                <button
-                                  type="button"
-                                  disabled={draftSteps <= 0}
-                                  onClick={() => setDraftSteps(0)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-40 disabled:hover:text-zinc-600 disabled:hover:bg-transparent transition cursor-pointer disabled:cursor-default"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                  <span>{isId ? "Reset Langkah" : "Reset Steps"}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setShowCustomSteps((prev) => !prev)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                  <span>
-                                    {showCustomSteps
-                                      ? isId
-                                        ? "Tutup Custom"
-                                        : "Close Custom"
-                                      : isId
-                                        ? "Tambah Custom"
-                                        : "Add Custom"}
-                                  </span>
-                                </button>
-                              </div>
-                            )}
-
-                            {!isReadOnly && showCustomSteps && (
-                              <div className="pt-2 flex items-center gap-2 animate-in fade-in duration-150">
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={1}
-                                  max={100000}
-                                  step={100}
-                                  placeholder={
-                                    isId ? "Jumlah langkah (mis. 3500)" : "Steps count (e.g. 3500)"
-                                  }
-                                  value={customStepsInput}
-                                  onChange={(e) => setCustomStepsInput(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      e.preventDefault();
-                                      handleCustomStepsSubmit();
-                                    }
-                                  }}
-                                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#18181b] text-xs font-mono text-zinc-950 dark:text-white placeholder:text-zinc-400 outline-none focus:border-zinc-950 dark:focus:border-white"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={!customStepsInput || parseInt(customStepsInput, 10) <= 0}
-                                  onClick={handleCustomStepsSubmit}
-                                  className="px-4 py-2.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold disabled:opacity-40 transition cursor-pointer"
-                                >
-                                  {isId ? "Tambah" : "Add"}
-                                </button>
-                              </div>
-                            )}
                           </div>
-
-                          {/* 4 Quick Step Tap Cards */}
-                          {!isReadOnly && (
-                            <div className="space-y-2.5">
-                              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
-                                {isId
-                                  ? "Pilih Tambahan Cepat (Tap untuk menambah)"
-                                  : "Quick Add (Tap to add steps)"}
-                              </span>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                {[
-                                  {
-                                    inc: 1000,
-                                    name: isId ? "Jalan Singkat" : "Short Walk",
-                                    kcal: 40,
-                                  },
-                                  {
-                                    inc: 2500,
-                                    name: isId ? "Jalan Santai" : "Casual Walk",
-                                    kcal: 100,
-                                  },
-                                  {
-                                    inc: 5000,
-                                    name: isId ? "Jalan Aktif" : "Active Walk",
-                                    kcal: 200,
-                                  },
-                                  {
-                                    inc: 10000,
-                                    name: isId ? "Target Harian" : "Daily Goal",
-                                    kcal: 400,
-                                  },
-                                ].map((preset) => (
-                                  <button
-                                    key={preset.inc}
-                                    type="button"
-                                    onClick={() => handleAddDraftSteps(preset.inc)}
-                                    className="group relative p-4 rounded-2xl border border-zinc-200/90 dark:border-white/15 bg-white dark:bg-[#141414] hover:border-zinc-400 dark:hover:border-white/30 text-left transition active:scale-95 cursor-pointer shadow-2xs flex flex-col justify-between min-h-[108px]"
-                                  >
-                                    <div className="flex items-center justify-between w-full">
-                                      <span className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                        <Footprints className="w-5 h-5" />
-                                      </span>
-
-                                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-zinc-100 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
-                                        +{preset.inc.toLocaleString()}
-                                      </span>
-                                    </div>
-
-                                    <div className="pt-3">
-                                      <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-tight">
-                                        {preset.name}
-                                      </span>
-                                      <span className="block text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal mt-0.5">
-                                        -{preset.kcal} kcal · Tap +{preset.inc.toLocaleString()}
-                                      </span>
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </>
+                        </div>
                       );
                     })()}
                   </div>
 
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="submit"
-                      disabled={stepsBusy}
-                      className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 disabled:opacity-40 transition cursor-pointer"
-                    >
-                      {stepsBusy ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4" />
-                      )}
-                      <span>
-                        {selectedLocked && !isAnytime
-                          ? isId
-                            ? "Tutup"
-                            : "Close"
-                          : "Save & Finish"}
-                      </span>
-                    </button>
+                  <div className="space-y-3 pt-2">
+                    {stepsError && (
+                      <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-sans font-medium leading-relaxed">
+                        {stepsError}
+                      </div>
+                    )}
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={stepsBusy}
+                        className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 disabled:opacity-40 transition cursor-pointer"
+                      >
+                        {stepsBusy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        <span>{selectedLocked && !isAnytime ? "Close" : "Save"}</span>
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>
             </div>
           </div>,
-          document.body
+          getModalPortalRoot()
         )}
       {/* Optional Body Weight Fullscreen Modal */}
       {weightModalOpen &&
@@ -1115,14 +1081,83 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       ) : (
                         <Check className="w-4 h-4" />
                       )}
-                      <span>{isId ? "Simpan Berat" : "Save Weight"}</span>
+                      <span>Save</span>
                     </button>
                   </div>
                 </form>
               </div>
             </div>
           </div>,
-          document.body
+          getModalPortalRoot()
+        )}
+
+      {/* Post-Save "Continue to Next Task" Prompt Pop-up */}
+      {nextTaskPrompt &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={() => setNextTaskPrompt(null)}
+            className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="next-task-prompt-title"
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 p-5 sm:p-6 space-y-4 shadow-2xl"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-full bg-[var(--semantic-green)] text-white flex items-center justify-center shrink-0">
+                  <Check className="w-4 h-4 stroke-[3]" />
+                </span>
+                <div>
+                  <h3
+                    id="next-task-prompt-title"
+                    className="text-base font-geometric font-semibold text-zinc-950 dark:text-white leading-tight"
+                  >
+                    Saved! Continue to next task?
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {nextTaskPrompt.remainingCount}{" "}
+                    {nextTaskPrompt.remainingCount === 1 ? "task" : "tasks"} remaining
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#ececea] dark:bg-white/[0.05] border border-zinc-200/70 dark:border-white/10 flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-white dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shrink-0">
+                  <nextTaskPrompt.Icon className="w-5 h-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-white truncate">
+                    {nextTaskPrompt.title}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {nextTaskPrompt.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setNextTaskPrompt(null)}
+                  className="h-10 rounded-full bg-zinc-200/75 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-300/70 dark:hover:bg-white/15 active:scale-95 transition cursor-pointer"
+                >
+                  Later
+                </button>
+                <button
+                  type="button"
+                  onClick={nextTaskPrompt.onContinue}
+                  className="h-10 rounded-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95 transition cursor-pointer"
+                >
+                  <span>Continue</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>,
+          getModalPortalRoot()
         )}
     </section>
   );

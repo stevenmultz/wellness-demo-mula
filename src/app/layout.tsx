@@ -90,7 +90,7 @@ export default async function RootLayout({
                 user-select: none;
                 overflow: hidden;
                 pointer-events: none;
-                transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+                transition: opacity 0.14s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.14s cubic-bezier(0.16, 1, 0.3, 1);
               }
               #zera-pwa-splash.splash-dismissed {
                 opacity: 0;
@@ -120,6 +120,7 @@ export default async function RootLayout({
               <AuraBackground />
               <div className="relative z-10">{children}</div>
             </SmoothScroll>
+            <div id="zera-modal-root" />
           </LocaleProvider>
         </ThemeProvider>
       </body>

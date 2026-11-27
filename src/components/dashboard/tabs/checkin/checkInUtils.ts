@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   Angry,
   Droplets,
@@ -12,6 +13,14 @@ import {
   Users,
   Utensils,
 } from "lucide-react";
+import {
+  FillMoodGoodIcon,
+  FillMoodHappyIcon,
+  FillMoodOkayIcon,
+  FillMoodSickIcon,
+  FillMoodTiredIcon,
+  type FillIconProps,
+} from "../sharedFillIcons";
 import { parseWorkoutOptionGroups } from "@/wellness/utils/json";
 import { extractWaterMl } from "@/wellness/utils/nutrition";
 import { computeSafeSleepMinutes } from "@/wellness/utils/wellness-metrics";
@@ -54,7 +63,7 @@ export interface DailyCheckInProps {
   onSaveWorkoutNotes: (
     notes: string,
     dayId: string,
-    extra?: { selectedWorkout?: string; checklistCompleted?: string[] }
+    extra?: { selectedWorkout?: string; checklistCompleted?: string[]; videoWatched?: boolean }
   ) => SaveResult;
   onSaveMeal: (compliance: string, notes: string, dayId: string) => SaveResult;
   onSaveWater: (waterMl: number, dayId: string) => SaveResult;
@@ -109,6 +118,13 @@ export interface DailyCheckInProps {
     habit: "sleep" | "meal" | "water" | "steps";
     nonce: number;
   } | null;
+  nextPendingProgram?: {
+    programId: string;
+    title: string;
+    taskTitle: string;
+  } | null;
+  onOpenProgramTask?: (programId: string) => void;
+  onBackToHome?: () => void;
 }
 
 export function getTasksForDay(dayType: string) {
@@ -168,28 +184,53 @@ export const FACES = [
 export const BEDTIME_PRESETS = ["21:30", "22:00", "22:30", "23:00", "23:30", "00:00"];
 export const WAKETIME_PRESETS = ["05:30", "06:00", "06:30", "07:00", "07:30", "08:00"];
 
-export const SLEEP_FEELINGS = [
+export interface FeelingOption {
+  label: string;
+  desc: string;
+  Icon?: ComponentType<FillIconProps>;
+}
+
+export const SLEEP_FEELINGS: readonly FeelingOption[] = [
   {
-    label: "Segar & Enak (Fresh & Ready)",
-    desc: "Bangun bugar, segar, dan berenergi penuh untuk aktivitas hari ini.",
+    label: "Fresh & Energized",
+    desc: "Woke up refreshed, clear-headed, and full of energy for today.",
+    Icon: FillMoodHappyIcon,
   },
   {
-    label: "Cukup Baik (Good & Rested)",
-    desc: "Tidur nyenyak, merasa pulih dan tenang memulai hari.",
+    label: "Good & Rested",
+    desc: "Slept soundly and feeling calm, recovered, and steady.",
+    Icon: FillMoodGoodIcon,
   },
   {
-    label: "Biasa Saja (Okay / Normal)",
-    desc: "Kondisi tubuh netral atau butuh sedikit waktu untuk fokus.",
+    label: "Okay / Normal",
+    desc: "Neutral morning state; just need a moment to warm up and focus.",
+    Icon: FillMoodOkayIcon,
   },
   {
-    label: "Lelah / Kurang Tidur (Tired)",
-    desc: "Tidur kurang nyenyak, tubuh terasa letih atau mengantuk.",
+    label: "Tired / Groggy",
+    desc: "Restless or short sleep; body still feels drowsy or fatigued.",
+    Icon: FillMoodTiredIcon,
   },
   {
-    label: "Sakit (Sick / Unwell)",
-    desc: "Merasa demam, flu, nyeri badan, atau sakit; butuh istirahat pemulihan.",
+    label: "Sick / Unwell",
+    desc: "Feeling feverish, sore, or under the weather; need recovery rest.",
+    Icon: FillMoodSickIcon,
   },
 ];
+
+export function normalizeSleepFeelingLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  if (lower.includes("segar") || lower.includes("fresh")) return "Fresh & Energized";
+  if (lower.includes("cukup baik") || lower.includes("good & rested")) return "Good & Rested";
+  if (lower.includes("biasa saja") || lower.includes("okay")) return "Okay / Normal";
+  if (lower.includes("lelah") || lower.includes("tired") || lower.includes("groggy"))
+    return "Tired / Groggy";
+  if (lower.includes("sakit") || lower.includes("sick") || lower.includes("unwell"))
+    return "Sick / Unwell";
+  return trimmed;
+}
 
 export const MEAL_FEELINGS = [
   { label: "Energized & Light", desc: "Clean steady fuel with comfortable digestion." },

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockRequireAuth, mockHasWriteAccess, mockRateLimit, mockTx, mockPrisma } = vi.hoisted(() => {
   const tx = {
@@ -106,6 +106,8 @@ function makeDailyLogRow(overrides: Record<string, unknown> = {}) {
 describe("Daily Biomarker CRUD & Multi-Plan Sync Service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-25T05:00:00.000Z"));
     mockRequireAuth.mockResolvedValue({ userId: "user_1", role: "USER" });
     mockHasWriteAccess.mockResolvedValue({ allowed: true, hasActiveCohort: false });
     mockRateLimit.mockResolvedValue({ allowed: true, remaining: 14, resetMs: 60000 });
@@ -114,6 +116,10 @@ describe("Daily Biomarker CRUD & Multi-Plan Sync Service", () => {
     mockPrisma.$transaction.mockImplementation(async (cb: (client: typeof mockTx) => unknown) =>
       cb(mockTx)
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("blocks writes cleanly when user tracking access is expired (Read-Only Archive)", async () => {

@@ -2,21 +2,58 @@
 
 import { useState } from "react";
 import {
+  Calendar,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
   ExternalLink,
+  ListChecks,
   MapPin,
   Minus,
   Play,
   Plus,
   Star,
+  User,
   Users,
+  Video,
 } from "lucide-react";
 import { extractVideoThumbnail } from "@/wellness/integrations/video-provider";
 import type { WorkoutOptionGroup } from "@/wellness/utils/json";
 import type { PlanDay } from "../MyPlanTab";
 import { safeHttpUrl } from "../shared";
-import { REST_FEELINGS, TRAINING_FEELINGS, type SubStepId } from "./checkInUtils";
+import { parseLines, REST_FEELINGS, TRAINING_FEELINGS, type SubStepId } from "./checkInUtils";
 import { FeelingSelector, StepHeader } from "./SleepMealSteps";
+
+function toEmbedVideoUrl(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}?rel=0`;
+      if (u.pathname.startsWith("/shorts/")) {
+        const id = u.pathname.replace(/^\/shorts\//, "").split("/")[0];
+        if (id) return `https://www.youtube.com/embed/${id}?rel=0`;
+      }
+      if (u.pathname.startsWith("/embed/")) return trimmed;
+    }
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.replace(/^\//, "").split("/")[0];
+      if (id) return `https://www.youtube.com/embed/${id}?rel=0`;
+    }
+    if (u.hostname.includes("vimeo.com") && !u.hostname.includes("player.vimeo.com")) {
+      const id = u.pathname.replace(/^\//, "").split("/")[0];
+      if (/^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
+    }
+    if (u.hostname.includes("player.vimeo.com")) return trimmed;
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 interface ActivityStepProps {
   currentSubStep: SubStepId;
@@ -70,6 +107,8 @@ export function ActivityStepView({
   onSelectConnectRating,
 }: ActivityStepProps) {
   const [editingRep, setEditingRep] = useState<{ name: string; value: string } | null>(null);
+  const [rundownOpen, setRundownOpen] = useState<boolean>(true);
+  void checkedCount;
 
   if (currentSubStep === "training_option") {
     return (
@@ -94,7 +133,7 @@ export function ActivityStepView({
                 key={g.optionName}
                 type="button"
                 onClick={() => onClickWorkoutOption(g.optionName)}
-                className={`relative w-full h-32 rounded-2xl overflow-hidden text-left transition active:scale-[0.99] group ${
+                className={`relative w-full h-32 rounded-2xl overflow-hidden text-left transition active:scale-[0.99] group cursor-pointer ${
                   isSelected
                     ? "ring-2 ring-zinc-950 dark:ring-white shadow-md"
                     : "ring-1 ring-zinc-900/10 dark:ring-white/15 hover:ring-zinc-400"
@@ -135,163 +174,196 @@ export function ActivityStepView({
     );
   }
 
-  if (currentSubStep === "training_video") {
+  // Unified Online Training Page: Video + Movement Checklist Together
+  if (currentSubStep === "training_movements" || currentSubStep === "training_video") {
     const safeVideoUrl = activeVideo ? safeHttpUrl(activeVideo.url) : null;
+    const embedUrl = safeVideoUrl ? toEmbedVideoUrl(safeVideoUrl) : null;
+
     return (
       <div className="space-y-6 min-w-0">
-        <StepHeader title="Watch the guided session" />
+        <StepHeader
+          title={activeVideo ? "Guided video & movement checklist" : "Log completed movements"}
+          subtitle={
+            activeVideo && movements.length > 0
+              ? "Watch the guided session and check off each movement as you complete it."
+              : null
+          }
+        />
+
         {activeVideo && (
-          <div className="space-y-3">
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-              {safeVideoUrl && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
-                  <a
-                    href={safeVideoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={onOpenVideo}
-                    className="w-14 h-14 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-                  >
-                    <Play className="w-6 h-6 fill-current ml-0.5" />
-                  </a>
-                </div>
-              )}
-              <div className="absolute bottom-3 left-4 right-4 text-white">
-                <p className="text-sm font-semibold truncate">{activeVideo.title}</p>
-                <p className="text-xs text-white/80">Guided training movement cues</p>
+          <div className="space-y-2.5">
+            {embedUrl ? (
+              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
+                <iframe
+                  src={embedUrl}
+                  title={activeVideo.title}
+                  onLoad={onOpenVideo}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
               </div>
-            </div>
+            ) : (
+              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-950 shadow-sm border border-zinc-200 dark:border-white/15">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={extractVideoThumbnail(activeVideo.url, "/coach.webp")}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+                {safeVideoUrl && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex items-center justify-center">
+                    <a
+                      href={safeVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={onOpenVideo}
+                      className="w-14 h-14 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                    >
+                      <Play className="w-6 h-6 fill-current ml-0.5" />
+                    </a>
+                  </div>
+                )}
+                <div className="absolute bottom-3 left-4 right-4 text-white">
+                  <p className="text-sm font-semibold truncate">{activeVideo.title}</p>
+                  <p className="text-xs text-white/80">Guided training movement cues</p>
+                </div>
+              </div>
+            )}
 
             {safeVideoUrl && (
-              <a
-                href={safeVideoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onOpenVideo}
-                className="w-full h-12 px-4 rounded-2xl border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-semibold text-zinc-950 dark:text-white flex items-center justify-center gap-2 transition hover:border-zinc-300 dark:hover:border-white/25"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Open Video Guide</span>
-                <ExternalLink className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-              </a>
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
+                  {activeVideo.title}
+                </span>
+                <a
+                  href={safeVideoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onOpenVideo}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-white hover:opacity-80 shrink-0"
+                >
+                  <span>Open in YouTube</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                </a>
+              </div>
             )}
           </div>
         )}
-      </div>
-    );
-  }
-
-  if (currentSubStep === "training_movements") {
-    return (
-      <div className="space-y-6 min-w-0">
-        <StepHeader title="Log completed movements" />
 
         {movements.length > 0 ? (
-          <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
-            {movements.map((name) => {
-              const checked = isChecked(name);
-              const moveObj = selectedGroup?.movements.find((m) => m.name === name);
-              const targetLabel = moveObj?.target;
-              const targetReps = parseTargetReps(targetLabel);
-              const currentReps = getMovementReps(name, targetReps);
-              const isEditing = editingRep?.name === name;
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                Exercise Checklist
+              </span>
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
+                {movements.filter(isChecked).length} / {movements.length} done
+              </span>
+            </div>
 
-              return (
-                <div key={name} className="py-4 px-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="flex items-start gap-3 min-w-0 cursor-pointer select-none flex-1">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => onToggleMovement(name, currentReps)}
-                        className="w-4 h-4 mt-0.5 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
-                      />
-                      <div className="min-w-0">
-                        <span
-                          className={`text-sm leading-relaxed block transition ${
-                            checked
-                              ? "line-through text-zinc-400 dark:text-zinc-500"
-                              : "font-medium text-zinc-900 dark:text-white"
-                          }`}
-                        >
-                          {name}
-                        </span>
-                        {targetLabel && (
-                          <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mt-0.5">
-                            Target: {targetLabel}
+            <div className="divide-y divide-zinc-200/90 dark:divide-white/10 border-t border-b border-zinc-200/90 dark:border-white/10">
+              {movements.map((name) => {
+                const checked = isChecked(name);
+                const moveObj = selectedGroup?.movements.find((m) => m.name === name);
+                const targetLabel = moveObj?.target;
+                const targetReps = parseTargetReps(targetLabel);
+                const currentReps = getMovementReps(name, targetReps);
+                const isEditing = editingRep?.name === name;
+
+                return (
+                  <div key={name} className="py-3.5 px-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="flex items-start gap-3 min-w-0 cursor-pointer select-none flex-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => onToggleMovement(name, currentReps)}
+                          className="w-4 h-4 mt-0.5 rounded border-zinc-300 dark:border-white/20 text-zinc-950 focus:ring-zinc-950 shrink-0 accent-zinc-950 dark:accent-white"
+                        />
+                        <div className="min-w-0">
+                          <span
+                            className={`text-sm leading-relaxed block transition ${
+                              checked
+                                ? "line-through text-zinc-400 dark:text-zinc-500"
+                                : "font-medium text-zinc-900 dark:text-white"
+                            }`}
+                          >
+                            {name}
                           </span>
-                        )}
-                      </div>
-                    </label>
+                          {targetLabel && (
+                            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 block mt-0.5">
+                              Target: {targetLabel}
+                            </span>
+                          )}
+                        </div>
+                      </label>
 
-                    <div
-                      className="flex items-center gap-1 shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        disabled={currentReps <= 1}
-                        onClick={() => {
-                          setEditingRep(null);
-                          onUpdateMovementReps(name, Math.max(1, currentReps - 1));
-                        }}
-                        aria-label={`Decrease reps for ${name}`}
-                        className="w-8 h-8 rounded-lg bg-white dark:bg-[#141414] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
+                      <div
+                        className="flex items-center gap-1 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <input
-                        type="number"
-                        min={1}
-                        max={999}
-                        inputMode="numeric"
-                        aria-label={`Reps for ${name}`}
-                        value={isEditing ? editingRep.value : String(currentReps)}
-                        onFocus={() => setEditingRep({ name, value: String(currentReps) })}
-                        onChange={(e) => setEditingRep({ name, value: e.target.value })}
-                        onBlur={() => {
-                          const parsed = parseInt(editingRep?.value || "", 10);
-                          setEditingRep(null);
-                          if (!isNaN(parsed) && parsed >= 1) {
-                            onUpdateMovementReps(name, parsed);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            (e.currentTarget as HTMLInputElement).blur();
-                          }
-                        }}
-                        className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-950 dark:text-white bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <button
-                        type="button"
-                        disabled={currentReps >= 999}
-                        onClick={() => {
-                          setEditingRep(null);
-                          onUpdateMovementReps(name, Math.min(999, currentReps + 1));
-                        }}
-                        aria-label={`Increase reps for ${name}`}
-                        className="w-8 h-8 rounded-lg bg-white dark:bg-[#141414] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                        <button
+                          type="button"
+                          disabled={currentReps <= 1}
+                          onClick={() => {
+                            setEditingRep(null);
+                            onUpdateMovementReps(name, Math.max(1, currentReps - 1));
+                          }}
+                          aria-label={`Decrease reps for ${name}`}
+                          className="w-8 h-8 rounded-lg bg-white dark:bg-[#141414] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15 cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={999}
+                          inputMode="numeric"
+                          aria-label={`Reps for ${name}`}
+                          value={isEditing ? editingRep.value : String(currentReps)}
+                          onFocus={() => setEditingRep({ name, value: String(currentReps) })}
+                          onChange={(e) => setEditingRep({ name, value: e.target.value })}
+                          onBlur={() => {
+                            const parsed = parseInt(editingRep?.value || "", 10);
+                            setEditingRep(null);
+                            if (!isNaN(parsed) && parsed >= 1) {
+                              onUpdateMovementReps(name, parsed);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              (e.currentTarget as HTMLInputElement).blur();
+                            }
+                          }}
+                          className="w-12 h-8 text-center text-xs font-mono font-semibold text-zinc-950 dark:text-white bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 rounded-lg outline-none focus:border-zinc-950 dark:focus:border-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          disabled={currentReps >= 999}
+                          onClick={() => {
+                            setEditingRep(null);
+                            onUpdateMovementReps(name, Math.min(999, currentReps + 1));
+                          }}
+                          aria-label={`Increase reps for ${name}`}
+                          className="w-8 h-8 rounded-lg bg-white dark:bg-[#141414] hover:bg-zinc-100 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition disabled:opacity-30 active:scale-95 border border-zinc-200 dark:border-white/15 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         ) : (
-          <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            No individual movements configured for this session. Proceed to the next step.
-          </p>
+          !activeVideo && (
+            <p className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              No individual movements configured for this session. Proceed to the next step.
+            </p>
+          )
         )}
       </div>
     );
@@ -358,71 +430,177 @@ export function ActivityStepView({
   }
 
   if (currentSubStep === "connect_attendance") {
-    return (
-      <div className="space-y-6 min-w-0">
-        <StepHeader title={`Will you attend ${day.eventTitle || "this session"}?`} />
+    const safeMeetup = safeHttpUrl(day.meetupLink);
+    const safeMap = safeHttpUrl(day.mapLink);
+    const rundownLines = parseLines(day.eventDetails);
+    const hasRundown =
+      rundownLines.length > 0 || Boolean(day.eventDetails?.trim()) || Boolean(day.onsiteSchedule);
+    const isZoomOrVirtual =
+      safeMeetup &&
+      (safeMeetup.toLowerCase().includes("zoom") ||
+        safeMeetup.toLowerCase().includes("meet.google") ||
+        safeMeetup.toLowerCase().includes("teams"));
 
-        {(safeHttpUrl(day.meetupLink) || day.onsiteVenue) && (
-          <div className="py-4 border-t border-b border-zinc-200/90 dark:border-white/10 space-y-2.5 text-xs">
-            {day.onsiteVenue && (
-              <div className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300">
-                <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{day.onsiteVenue}</span>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {safeHttpUrl(day.meetupLink) && (
+    return (
+      <div className="space-y-5 min-w-0">
+        <StepHeader
+          title={day.eventTitle || "Community Connect Session"}
+          subtitle="Access the live Zoom / Meetup link, check today's rundown, and confirm your attendance."
+        />
+
+        {/* 1. Direct Session Access Card (Zoom / Meetup Link + Venue / Schedule) */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 space-y-3.5">
+          {(day.onsiteSchedule || day.eventHost || day.onsiteVenue) && (
+            <div className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300">
+              {day.onsiteSchedule && (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
+                  <span className="font-semibold text-zinc-950 dark:text-white">
+                    {day.onsiteSchedule}
+                  </span>
+                </div>
+              )}
+              {day.eventHost && (
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
+                  <span>Host: {day.eventHost}</span>
+                </div>
+              )}
+              {day.onsiteVenue && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-zinc-500 dark:text-zinc-400" />
+                  <span>{day.onsiteVenue}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(safeMeetup || safeMap) ? (
+            <div className="space-y-2 pt-1">
+              {safeMeetup && (
                 <a
-                  href={safeHttpUrl(day.meetupLink)!}
+                  href={safeMeetup}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-9 px-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-semibold inline-flex items-center gap-1.5"
+                  className="w-full h-11 px-4 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs sm:text-sm font-semibold flex items-center justify-between gap-2 hover:opacity-90 active:scale-[0.99] transition"
                 >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Join Zoom Meeting</span>
-                  <ExternalLink className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-2 truncate">
+                    <Video className="w-4 h-4 shrink-0" />
+                    <span className="truncate">
+                      {isZoomOrVirtual ? "Join Zoom / Live Meeting" : "Open Meetup Link"}
+                    </span>
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-80" />
                 </a>
               )}
-              {safeHttpUrl(day.mapLink) && (
+
+              {safeMeetup && (
+                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 truncate px-0.5">
+                  {safeMeetup}
+                </p>
+              )}
+
+              {safeMap && (
                 <a
-                  href={safeHttpUrl(day.mapLink)!}
+                  href={safeMap}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-9 px-4 rounded-full border border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-xs font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 hover:border-zinc-300 dark:hover:border-white/25 transition"
+                  className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-white/15 bg-zinc-50 dark:bg-white/[0.04] text-xs font-semibold text-zinc-900 dark:text-zinc-100 flex items-center justify-between gap-2 hover:border-zinc-300 dark:hover:border-white/25 transition"
                 >
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>Open Maps</span>
+                  <span className="inline-flex items-center gap-2 truncate">
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span>Open Venue in Google Maps</span>
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
                 </a>
               )}
             </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <Calendar className="w-4 h-4 shrink-0" />
+              <span>Meeting link will be shared by your coach prior to session start.</span>
+            </div>
+          )}
+        </div>
+
+        {/* 2. Check Rundown Section */}
+        {hasRundown && (
+          <div className="rounded-2xl bg-white dark:bg-[#141414] border border-zinc-200 dark:border-white/15 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRundownOpen((prev) => !prev)}
+              className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition cursor-pointer"
+            >
+              <span className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-zinc-950 dark:text-white">
+                <ListChecks className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0" />
+                <span>Session Rundown</span>
+              </span>
+              {rundownOpen ? (
+                <ChevronUp className="w-4 h-4 text-zinc-500 shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0" />
+              )}
+            </button>
+
+            {rundownOpen && (
+              <div className="px-4 pb-4 pt-1 border-t border-zinc-100 dark:border-white/10 space-y-2">
+                {rundownLines.length > 1 ? (
+                  <ol className="space-y-2 pt-1">
+                    {rundownLines.map((line, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-xs leading-relaxed">
+                        <span className="w-5 h-5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-mono text-[10px] font-semibold flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span className="text-zinc-700 dark:text-zinc-300">{line}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : day.eventDetails?.trim() ? (
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line pt-1">
+                    {day.eventDetails.trim()}
+                  </p>
+                ) : (
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
+                    Scheduled time: {day.onsiteSchedule}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-2.5">
-          <button
-            type="button"
-            onClick={() => onSelectAttendance("attend")}
-            className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
-              connectAttendance === "attend"
-                ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-            }`}
-          >
-            <span>I Will Attend</span>
-            <Check className="w-4 h-4" />
-          </button>
+        {/* 3. Attendance Selection */}
+        <div className="space-y-2 pt-1">
+          <span className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Will you attend this session?
+          </span>
+          <div className="grid grid-cols-1 gap-2.5">
+            <button
+              type="button"
+              onClick={() => onSelectAttendance("attend")}
+              className={`h-13 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between cursor-pointer ${
+                connectAttendance === "attend"
+                  ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                  : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+              }`}
+            >
+              <span>I Will Attend</span>
+              {connectAttendance === "attend" && <Check className="w-4 h-4" />}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => onSelectAttendance("cannot_attend")}
-            className={`h-14 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between ${
-              connectAttendance === "cannot_attend"
-                ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
-                : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
-            }`}
-          >
-            <span>Cannot Attend</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onSelectAttendance("cannot_attend")}
+              className={`h-13 px-5 rounded-2xl border text-sm font-semibold transition flex items-center justify-between cursor-pointer ${
+                connectAttendance === "cannot_attend"
+                  ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-sm"
+                  : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-white/25"
+              }`}
+            >
+              <span>Cannot Attend</span>
+              {connectAttendance === "cannot_attend" && <Check className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -443,7 +621,7 @@ export function ActivityStepView({
               key={star}
               type="button"
               onClick={() => onSelectConnectRating(star)}
-              className={`min-w-0 py-3.5 px-1 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
+              className={`min-w-0 py-3.5 px-1 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
                 filled
                   ? "border-zinc-950 dark:border-white bg-zinc-50 dark:bg-white/[0.08]"
                   : "border-zinc-200 dark:border-white/15 bg-white dark:bg-[#141414] hover:border-zinc-300 dark:hover:border-white/25"

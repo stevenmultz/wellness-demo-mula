@@ -432,59 +432,58 @@ body,
   }
 }
 
-/* Buddy mascot: cheap transform-only motion (idle bob, blink, look-around, pop, hop) */
-.buddy svg * {
-  transform-box: fill-box;
-  transform-origin: center;
-}
+/* Buddy mascot: ultra-low-power GPU compositor-only motion (translate3d / scale3d, zero SVG re-rasterization, paused off-screen & backgrounded) */
 .buddy-bob {
-  animation: buddy-bob 3.4s ease-in-out infinite;
+  animation: buddy-bob 4.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  transform-origin: center;
+  backface-visibility: hidden;
 }
 .buddy-look {
-  animation: buddy-look 7s ease-in-out infinite;
+  animation: buddy-look 8.5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  transform-origin: center;
+  backface-visibility: hidden;
 }
 .buddy-blink {
-  animation: buddy-blink 4.6s ease-in-out infinite;
-}
-.buddy-pop {
-  animation: buddy-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+  animation: buddy-blink 5.6s ease-in-out infinite;
+  transform-origin: center;
+  backface-visibility: hidden;
 }
 .buddy-hop {
-  animation: buddy-hop 0.5s cubic-bezier(0.3, 0.7, 0.4, 1) 1;
+  animation: buddy-hop 0.52s cubic-bezier(0.22, 1, 0.36, 1) 1;
+  transform-origin: center bottom;
+  backface-visibility: hidden;
 }
 .buddy[data-paused="true"] *,
 .buddy[data-paused="true"] {
   animation-play-state: paused !important;
 }
 @keyframes buddy-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  25% { transform: translate3d(0, -4.5px, 0) rotate(-1.1deg); }
+  50% { transform: translate3d(0, -1px, 0) rotate(0deg); }
+  75% { transform: translate3d(0, -4.5px, 0) rotate(1.1deg); }
 }
 @keyframes buddy-look {
-  0%, 18%, 100% { transform: translateX(0); }
-  30%, 46% { transform: translateX(-2.5px); }
-  60%, 78% { transform: translateX(2.5px); }
+  0%, 18%, 100% { transform: translate3d(0, 0, 0); }
+  28%, 44% { transform: translate3d(-3.5px, -1px, 0); }
+  54%, 60% { transform: translate3d(0, 0.5px, 0); }
+  70%, 86% { transform: translate3d(3.5px, -0.8px, 0); }
 }
 @keyframes buddy-blink {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.1); }
-}
-@keyframes buddy-pop {
-  0% { transform: scale(0.88); }
-  60% { transform: scale(1.06); }
-  100% { transform: scale(1); }
+  0%, 93%, 100% { transform: scale3d(1, 1, 1); }
+  96% { transform: scale3d(1.06, 0.08, 1); }
 }
 @keyframes buddy-hop {
-  0% { transform: translateY(0) scale(1, 1); }
-  25% { transform: translateY(0) scale(1.08, 0.9); }
-  55% { transform: translateY(-16px) scale(0.95, 1.06); }
-  100% { transform: translateY(0) scale(1, 1); }
+  0% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
+  22% { transform: translate3d(0, 1px, 0) scale3d(1.07, 0.92, 1); }
+  54% { transform: translate3d(0, -13px, 0) scale3d(0.95, 1.05, 1); }
+  80% { transform: translate3d(0, 0, 0) scale3d(1.02, 0.98, 1); }
+  100% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .buddy-bob,
   .buddy-look,
   .buddy-blink,
-  .buddy-pop,
   .buddy-hop {
     animation: none !important;
   }

@@ -21,7 +21,7 @@ import type {
   CustomTaskType,
   ProgramDayCustomTaskDTO,
 } from "@/wellness/utils/custom-tasks";
-import { HeaderBackButton } from "./shared";
+import { HeaderBackButton, getModalPortalRoot } from "./shared";
 import { StepHeader } from "./checkin/SleepMealSteps";
 import {
   FillCameraIcon,
@@ -43,6 +43,7 @@ export interface CustomTaskSectionProps {
   modalOnly?: boolean;
   externalOpenTaskId?: string | null;
   onExternalModalClose?: () => void;
+  onModalBack?: () => void;
   onSubmitted?: (
     customTaskId: string,
     submission: NonNullable<ProgramDayCustomTaskDTO["submission"]>,
@@ -234,6 +235,7 @@ export function CustomTaskSection({
   modalOnly = false,
   externalOpenTaskId = null,
   onExternalModalClose,
+  onModalBack,
   onSubmitted,
 }: CustomTaskSectionProps) {
   const { locale, t } = useLocale();
@@ -527,6 +529,7 @@ export function CustomTaskSection({
                       setStepIdx((prev) => prev - 1);
                     } else {
                       closeModal();
+                      onModalBack?.();
                     }
                   }}
                 />
@@ -885,7 +888,9 @@ export function CustomTaskSection({
                 )}
 
                 {errorMsg && (
-                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">{errorMsg}</p>
+                  <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-sans font-medium leading-relaxed">
+                    {errorMsg}
+                  </div>
                 )}
               </div>
 
@@ -908,10 +913,8 @@ export function CustomTaskSection({
                         : saving
                           ? t.common.saving
                           : isLastStep
-                            ? t.dashboard.submitCustomTask
-                            : locale === "id"
-                              ? "Lanjut"
-                              : "Continue"}
+                            ? "Save"
+                            : "Continue"}
                     </span>
                     {!isLastStep && !saving && uploadingPhotoKey === null && (
                       <ChevronRight className="w-4 h-4" />
@@ -921,7 +924,7 @@ export function CustomTaskSection({
               )}
             </div>
           </div>,
-          document.body
+          getModalPortalRoot()
         )}
     </div>
   );

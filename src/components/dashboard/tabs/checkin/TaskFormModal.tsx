@@ -11,6 +11,7 @@ import {
   TIME_24H_RE,
   computeMealTotals,
   matchesScopedMovement,
+  normalizeSleepFeelingLabel,
   parseLines,
   readMealDraft,
   sleepMinutes,
@@ -45,7 +46,7 @@ export function TaskForm({
   activities: string[];
   checks: string[];
   step: number;
-  onFinish: () => void;
+  onFinish: (completed?: boolean) => void;
   onClose: () => void;
   props: DailyCheckInProps;
 }) {
@@ -59,7 +60,7 @@ export function TaskForm({
   const [sleepFeeling, setSleepFeeling] = useState<string>(() => {
     const raw = progress?.assessmentResponse || "";
     const match = raw.match(/Sleep Feeling:\s*(.+)/i);
-    return match ? match[1].trim() : "";
+    return match ? normalizeSleepFeelingLabel(match[1]) : "";
   });
 
   const [workout, setWorkout] = useState(
@@ -201,8 +202,9 @@ export function TaskForm({
       }
       const list: SubStepId[] = [];
       if (groups.length > 0) list.push("training_option");
-      if (videos.length > 0) list.push("training_video");
-      if (movements.length > 0 || groups.length > 0) list.push("training_movements");
+      if (videos.length > 0 || movements.length > 0 || groups.length > 0) {
+        list.push("training_movements");
+      }
       list.push("training_mood");
       return list;
     }
@@ -507,6 +509,7 @@ export function TaskForm({
         (await props.onSaveWorkoutNotes(finalNotes, day.id, {
           selectedWorkout: activeWorkout || undefined,
           checklistCompleted: localChecks,
+          ...(videos.length > 0 ? { videoWatched: true } : {}),
         })) !== false
       );
     }
@@ -594,7 +597,8 @@ export function TaskForm({
         setError("Could not save entry. Please try again.");
         return;
       }
-      onFinish();
+      const completedNow = step === 3 ? waterMl > 0 : true;
+      onFinish(completedNow);
     } catch {
       setError("Could not save entry. Please try again.");
     } finally {
@@ -784,7 +788,7 @@ export function TaskForm({
 
           <div className="space-y-3 pt-2">
             {error && (
-              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-mono">
+              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400 font-sans font-medium leading-relaxed">
                 {error}
               </div>
             )}
@@ -793,14 +797,14 @@ export function TaskForm({
               <button
                 type="submit"
                 disabled={busy}
-                className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40"
+                className="group py-1.5 text-sm font-semibold text-zinc-950 dark:text-white hover:opacity-75 inline-flex items-center gap-1.5 active:scale-95 transition disabled:opacity-40 cursor-pointer"
               >
                 {busy ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : isFinalSubStep ? (
                   <Check className="w-4 h-4" />
                 ) : null}
-                <span>{isFinalSubStep ? "Save & Finish" : "Continue"}</span>
+                <span>{isFinalSubStep ? "Save" : "Continue"}</span>
                 {!isFinalSubStep && (
                   <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 )}

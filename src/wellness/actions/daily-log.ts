@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import {
   addExtraWorkoutService,
   deleteExtraWorkoutService,
@@ -12,63 +11,101 @@ import {
   saveDailyWaterService,
   updateExtraWorkoutService,
 } from "../services/daily-log";
+import type { WellnessActionResult } from "./auth";
 
-function safeRevalidateDashboard() {
-  try {
-    revalidatePath("/dashboard");
-  } catch {
-    // Ignore outside Next.js request context
+function toSafeErrorResult<T = never>(
+  err: unknown,
+  fallbackMessage: string
+): WellnessActionResult<T> {
+  if (err instanceof Error) {
+    if (err.name === "WellnessAuthError") {
+      return {
+        success: false,
+        message: "Your session has expired. Please reload and sign in again.",
+      };
+    }
+    if (err.name === "WellnessForbiddenError") {
+      return {
+        success: false,
+        message: err.message || "You do not have permission for this action.",
+      };
+    }
   }
+  console.error("[daily-log action error]:", err);
+  return {
+    success: false,
+    message: fallbackMessage,
+  };
 }
 
 export async function wellnessSaveDailySleep(rawInput: unknown) {
-  const res = await saveDailySleepService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await saveDailySleepService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save sleep log. Please try again.");
+  }
 }
 
 export async function wellnessSaveDailyWater(rawInput: unknown) {
-  const res = await saveDailyWaterService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await saveDailyWaterService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save water intake. Please try again.");
+  }
 }
 
 export async function wellnessSaveDailySteps(rawInput: unknown) {
-  const res = await saveDailyStepsService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await saveDailyStepsService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save daily steps. Please try again.");
+  }
 }
 
 export async function wellnessSaveDailyMeal(rawInput: unknown) {
-  const res = await saveDailyMealService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await saveDailyMealService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save meal log. Please try again.");
+  }
 }
 
 export async function wellnessAddExtraWorkout(rawInput: unknown) {
-  const res = await addExtraWorkoutService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await addExtraWorkoutService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save extra workout. Please try again.");
+  }
 }
 
 export async function wellnessUpdateExtraWorkout(rawInput: unknown) {
-  const res = await updateExtraWorkoutService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await updateExtraWorkoutService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not update extra workout. Please try again.");
+  }
 }
 
 export async function wellnessDeleteExtraWorkout(rawInput: unknown) {
-  const res = await deleteExtraWorkoutService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await deleteExtraWorkoutService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not remove extra workout. Please try again.");
+  }
 }
 
 export async function wellnessLogSelfBodyMetric(rawInput: unknown) {
-  const res = await logSelfBodyMetricService(rawInput);
-  if (res.success) safeRevalidateDashboard();
-  return res;
+  try {
+    return await logSelfBodyMetricService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not save body measurement. Please try again.");
+  }
 }
 
 export async function wellnessGetGrowthAnalytics(rawInput?: { range?: "30d" | "90d" | "1y" }) {
-  return getUserGrowthAnalyticsService(rawInput);
+  try {
+    return await getUserGrowthAnalyticsService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not load analytics. Please try again.");
+  }
 }
