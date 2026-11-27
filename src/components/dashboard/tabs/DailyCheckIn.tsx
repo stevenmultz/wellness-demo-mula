@@ -498,12 +498,26 @@ export function DailyCheckIn(props: DailyCheckInProps) {
     dayId: string;
     dayNumber: number;
     title: string;
-    durationLabel: string;
+    dateLabel: string;
     isDone: boolean;
     isPastSkipped: boolean;
     Icon: ComponentType<FillIconProps>;
     onOpen: () => void;
   }
+
+  const formatProgramTaskDate = (unlockDate: string | undefined, dayNumber: number): string => {
+    if (unlockDate) {
+      const parsed = new Date(unlockDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        return new Intl.DateTimeFormat(isId ? "id-ID" : "en-GB", {
+          day: "numeric",
+          month: "short",
+          timeZone: "Asia/Jakarta",
+        }).format(parsed);
+      }
+    }
+    return isId ? `Hari ${dayNumber}` : `Day ${dayNumber}`;
+  };
 
   const buildProgramTasksForDay = (dItem: typeof day): ProgramUnlockedTaskItem[] => {
     const isTodayItem = dItem.id === day.id;
@@ -520,7 +534,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         : dItem.dayType !== "TRAINING_DAY"
           ? FillUsersIcon
           : FillDumbbellIcon;
-    const coreDuration = dItem.dayType === "TRAINING_DAY" ? "15 min" : "2 min";
+    const dateLabel = formatProgramTaskDate(dItem.unlockDate, dItem.dayNumber);
 
     const items: ProgramUnlockedTaskItem[] = [];
     if (coreTask) {
@@ -529,7 +543,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         dayId: dItem.id,
         dayNumber: dItem.dayNumber,
         title: coreTask.title,
-        durationLabel: coreDuration,
+        dateLabel,
         isDone: coreDone,
         isPastSkipped: isPastItem && !coreDone,
         Icon: coreIcon,
@@ -549,7 +563,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         dayId: dItem.id,
         dayNumber: dItem.dayNumber,
         title: ct.title,
-        durationLabel: getCustomDurationLabel(ct),
+        dateLabel,
         isDone: ctDone,
         isPastSkipped: isPastItem && !ctDone,
         Icon: getCustomFillIcon(ct),
@@ -757,7 +771,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
       {isProgramOnly ? (
         <div className="w-full space-y-6">
-          {/* Separated Today's Tasks Section */}
+          {/* Separated Today's Tasks Section (2-Column Habit Card Style) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-2 px-0.5">
               <span className="text-xs font-geometric font-semibold uppercase tracking-[0.08em] text-zinc-950 dark:text-white">
@@ -768,7 +782,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
               </span>
             </div>
 
-            <ol className="w-full space-y-2.5">
+            <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
               {todayProgramTasks.map((item) => {
                 const ItemIcon = item.Icon;
                 const isPending = !item.isDone && !item.isPastSkipped;
@@ -778,51 +792,41 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                       type="button"
                       disabled={isFeatureLocked}
                       onClick={item.onOpen}
-                      aria-label={`Day ${item.dayNumber}: ${item.title}`}
-                      className={`group w-full rounded-2xl p-4 flex items-center justify-between gap-3.5 text-left transition cursor-pointer active:scale-[0.99] disabled:cursor-default ${
+                      aria-label={`Day ${item.dayNumber}: ${item.title} (${item.dateLabel})`}
+                      className={`group relative w-full h-full min-h-[108px] rounded-2xl p-4 flex flex-col justify-between text-left border transition cursor-pointer disabled:cursor-default active:scale-[0.98] ${
                         item.isDone
-                          ? "opacity-65 bg-[#e4e4e1] dark:bg-white/[0.03]"
-                          : "bg-[#ececea] dark:bg-white/[0.05] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.08]"
+                          ? "opacity-60 bg-[#e4e4e1] dark:bg-white/[0.03] border-zinc-300/50 dark:border-white/5"
+                          : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                       }`}
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <span className="relative w-10 h-10 rounded-xl bg-white/80 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-950 dark:text-white">
-                          <ItemIcon className="w-5 h-5" />
+                      <div className="w-full flex items-start justify-between">
+                        <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
+                          <ItemIcon className="w-6 h-6" />
                           {isPending && (
                             <span
                               aria-label="Not completed"
-                              className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                              className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
                             />
                           )}
                           {item.isDone && (
                             <span
                               aria-label="Completed"
-                              className="semantic-badge-box absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
+                              className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
                             >
                               <Check className="w-2.5 h-2.5 stroke-[3]" />
                             </span>
                           )}
                         </span>
-
-                        <div className="min-w-0 space-y-0.5">
-                          <span className="block text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate">
-                            {item.title}
-                          </span>
-                          <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                            {isId ? `Hari ${item.dayNumber}` : `Day ${item.dayNumber}`} · {item.durationLabel}
-                          </span>
-                        </div>
                       </div>
 
-                      <span
-                        className={`text-[11px] font-mono font-semibold shrink-0 ${
-                          item.isDone
-                            ? "text-[var(--semantic-green)]"
-                            : "text-zinc-700 dark:text-zinc-300"
-                        }`}
-                      >
-                        {item.isDone ? (isId ? "Selesai" : "Done") : isId ? "Mulai" : "Start"}
-                      </span>
+                      <div className="pt-3 w-full min-w-0 space-y-0.5">
+                        <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate w-full">
+                          {item.title}
+                        </span>
+                        <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal truncate">
+                          {item.dateLabel}
+                        </span>
+                      </div>
                     </button>
                   </li>
                 );
@@ -830,7 +834,7 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </ol>
           </div>
 
-          {/* Separated Unlocked Program Tasks (Day 1 to End, One by One) */}
+          {/* Separated Unlocked Program Tasks (Day 1 to End, 2-Column Habit Card Style) */}
           {otherUnlockedProgramTasks.length > 0 ? (
             <div className="space-y-2.5 pt-1">
               <div className="flex items-center justify-between gap-2 px-0.5">
@@ -842,72 +846,59 @@ export function DailyCheckIn(props: DailyCheckInProps) {
                 </span>
               </div>
 
-              <ol className="w-full space-y-2">
+              <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
                 {otherUnlockedProgramTasks.map((item) => {
                   const ItemIcon = item.Icon;
+                  const isPending = !item.isDone && !item.isPastSkipped;
                   return (
                     <li key={item.key} className="w-full">
                       <button
                         type="button"
                         disabled={isFeatureLocked}
                         onClick={item.onOpen}
-                        aria-label={`Day ${item.dayNumber}: ${item.title}`}
-                        className={`group w-full rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 text-left transition cursor-pointer active:scale-[0.99] disabled:cursor-default ${
+                        aria-label={`Day ${item.dayNumber}: ${item.title} (${item.dateLabel})`}
+                        className={`group relative w-full h-full min-h-[108px] rounded-2xl p-4 flex flex-col justify-between text-left border transition cursor-pointer disabled:cursor-default active:scale-[0.98] ${
                           item.isDone
-                            ? "opacity-65 bg-[#e4e4e1] dark:bg-white/[0.03]"
-                            : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07]"
+                            ? "opacity-60 bg-[#e4e4e1] dark:bg-white/[0.03] border-zinc-300/50 dark:border-white/5"
+                            : item.isPastSkipped
+                              ? "opacity-75 bg-[#e4e4e1] dark:bg-white/[0.03] border-zinc-300/50 dark:border-white/5 hover:opacity-90"
+                              : "bg-[#ececea] dark:bg-white/[0.04] border-zinc-200/50 dark:border-white/5 hover:bg-[#e7e7e4] dark:hover:bg-white/[0.06]"
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="relative w-9 h-9 rounded-xl bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
-                            <ItemIcon className="w-4 h-4" />
+                        <div className="w-full flex items-start justify-between gap-2">
+                          <span className="relative inline-flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
+                            <ItemIcon className="w-6 h-6" />
                             {item.isDone && (
                               <span
                                 aria-label="Completed"
-                                className="semantic-badge-box absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
+                                className="semantic-badge-box absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
                               >
-                                <Check className="w-2 h-2 stroke-[3]" />
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
                               </span>
                             )}
-                            {!item.isDone && !item.isPastSkipped && (
+                            {isPending && (
                               <span
                                 aria-label="Not completed"
-                                className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                                className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
                               />
                             )}
                           </span>
 
-                          <div className="min-w-0 space-y-0.5">
-                            <span className="block text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate">
-                              {item.title}
+                          {item.isPastSkipped && (
+                            <span className="text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400">
+                              {isId ? "Terlewat" : "Missed"}
                             </span>
-                            <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                              {isId ? `Hari ${item.dayNumber}` : `Day ${item.dayNumber}`} · {item.durationLabel}
-                            </span>
-                          </div>
+                          )}
                         </div>
 
-                        <span
-                          className={`text-[11px] font-mono font-medium shrink-0 ${
-                            item.isDone
-                              ? "text-[var(--semantic-green)]"
-                              : item.isPastSkipped
-                                ? "text-zinc-400 dark:text-zinc-500"
-                                : "text-zinc-700 dark:text-zinc-300"
-                          }`}
-                        >
-                          {item.isDone
-                            ? isId
-                              ? "Selesai"
-                              : "Done"
-                            : item.isPastSkipped
-                              ? isId
-                                ? "Terlewat"
-                                : "Missed"
-                              : isId
-                                ? "Mulai"
-                                : "Start"}
-                        </span>
+                        <div className="pt-3 w-full min-w-0 space-y-0.5">
+                          <span className="block text-sm font-semibold text-zinc-950 dark:text-white leading-normal truncate w-full">
+                            {item.title}
+                          </span>
+                          <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400 leading-normal truncate">
+                            {item.dateLabel}
+                          </span>
+                        </div>
                       </button>
                     </li>
                   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
@@ -25,7 +25,7 @@ import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
 import type { TrackingAccessStatusDTO } from "@/wellness/services/tracking-entitlement";
 import type { TrackingPassPlanDTO } from "@/wellness/actions/tracking-pass";
-import { getWibCalendarDate } from "@/wellness/utils/timezone";
+import { getWibCalendarDate, parseWibDateKey } from "@/wellness/utils/timezone";
 import { useLocale } from "@/wellness/i18n/LocaleContext";
 import { DailyCheckIn } from "./DailyCheckIn";
 import {
@@ -409,8 +409,8 @@ export function MyPlanOverview({
     activeSelectedDay?.wibDateKey ||
     effectiveTodayKey;
 
-  // O(5) lightweight centered 5-date strip: [selected - 2, selected - 1, SELECTED, selected + 1, selected + 2]
-  const centeredFiveDates = useMemo(() => {
+  // O(9) GPU-composited centered 5-date ribbon carousel (2 hidden buffer slots each side for seamless gliding)
+  const centeredNineDates = useMemo(() => {
     if (!isStandalone) return [];
     const [yStr, mStr, dStr] = effectiveSelectedKey.split("-");
     const baseYear = Number(yStr) || 2026;
@@ -428,7 +428,7 @@ export function MyPlanOverview({
     });
     const keyFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" });
 
-    return [-2, -1, 0, 1, 2].map((offset) => {
+    return [-4, -3, -2, -1, 0, 1, 2, 3, 4].map((offset) => {
       const dt = new Date(baseUtcNoon + offset * 86400000);
       const dateKey = keyFmt.format(dt);
       const w = getWibCalendarDate(dt);
@@ -439,12 +439,47 @@ export function MyPlanOverview({
         month: w.month,
         monthLabel: monthFmt.format(dt),
         dayLabel: dayFmt.format(dt),
+        isVisibleWindow: offset >= -2 && offset <= 2,
         isSelectedCenter: offset === 0,
         isToday: dateKey === effectiveTodayKey,
         isFuture: dateKey > effectiveTodayKey,
       };
     });
   }, [isStandalone, effectiveSelectedKey, effectiveTodayKey, localeTag]);
+
+  const stripTrackRef = useRef<HTMLDivElement | null>(null);
+  const prevStripKeyRef = useRef<string>(effectiveSelectedKey);
+  const dateSwipeStartXRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    const prevKey = prevStripKeyRef.current;
+    prevStripKeyRef.current = effectiveSelectedKey;
+    if (!isStandalone || prevKey === effectiveSelectedKey) return;
+
+    const prevDt = parseWibDateKey(prevKey);
+    const nextDt = parseWibDateKey(effectiveSelectedKey);
+    if (!prevDt || !nextDt) return;
+
+    const rawDiffDays = Math.round((nextDt.getTime() - prevDt.getTime()) / 86400000);
+    if (rawDiffDays === 0) return;
+
+    const clampedDiff = Math.max(-2, Math.min(2, rawDiffDays));
+    const startPct = -40 + clampedDiff * 20;
+    const trackEl = stripTrackRef.current;
+    if (trackEl && typeof trackEl.animate === "function") {
+      trackEl.getAnimations?.().forEach((anim) => anim.cancel());
+      trackEl.animate(
+        [
+          { transform: `translate3d(${startPct}%, 0, 0)` },
+          { transform: "translate3d(-40%, 0, 0)" },
+        ],
+        {
+          duration: 280,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        }
+      );
+    }
+  }, [isStandalone, effectiveSelectedKey]);
 
   const handleChooseCalendarDate = (dateKey: string) => {
     if (!dateKey || dateKey > effectiveTodayKey) return;
@@ -631,85 +666,123 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Home Top Centered 5-Date Index Strip (Other dates switch date; Current center index opens Calendar) */}
+      {/* 0. Home Top Smooth Centered 5-Date Index Strip (Other dates glide smoothly to center; center opens Calendar) */}
       {isStandalone && (
         <div
-          className={`w-full grid grid-cols-5 gap-1.5 sm:gap-2 select-none ${
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            dateSwipeStartXRef.current = e.touches[0].clientX;
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            const startX = dateSwipeStartXRef.current;
+            dateSwipeStartXRef.current = null;
+            if (startX === null || isFeatureLocked) return;
+            const deltaX = e.changedTouches[0].clientX - startX;
+            if (Math.abs(deltaX) < 32) return;
+            const targetOffset = deltaX > 0 ? -1 : 1;
+            const targetSlot = centeredNineDates.find((s) => s.offset === targetOffset);
+            if (targetSlot && !targetSlot.isFuture) {
+              handleChooseCalendarDate(targetSlot.dateKey);
+            }
+          }}
+          className={`relative w-full overflow-hidden rounded-2xl select-none ${
             isFeatureLocked ? "opacity-65 pointer-events-none" : ""
           }`}
         >
-          {centeredFiveDates.map((slot) => {
-            const isDisabled = isFeatureLocked || slot.isFuture;
-            return (
-              <button
-                key={slot.dateKey}
-                type="button"
-                disabled={isDisabled}
-                onClick={() => {
-                  if (isDisabled) return;
-                  if (slot.isSelectedCenter) {
-                    setCalendarViewMonth({ year: slot.year, month: slot.month });
-                    setShowHomeCalendarModal(true);
-                  } else {
-                    handleChooseCalendarDate(slot.dateKey);
-                  }
-                }}
-                aria-pressed={slot.isSelectedCenter}
-                aria-label={
-                  slot.isFuture
-                    ? `${slot.monthLabel} ${slot.dayLabel} (${isId ? "Akan datang" : "Upcoming"})`
-                    : slot.isSelectedCenter
-                      ? `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Buka kalender" : "Open calendar"}`
-                      : `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Pindah ke tanggal ini" : "Switch to this date"}`
-                }
-                className={`relative py-2.5 px-1 rounded-2xl flex flex-col items-center justify-center text-center transition ${
-                  slot.isFuture
-                    ? "opacity-30 cursor-default text-zinc-400 dark:text-zinc-600"
-                    : slot.isSelectedCenter
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 cursor-pointer active:scale-95"
-                      : slot.isToday
-                        ? "bg-zinc-200/95 dark:bg-white/15 text-zinc-950 dark:text-white hover:bg-zinc-300/80 dark:hover:bg-white/20 cursor-pointer active:scale-95"
-                        : "bg-transparent hover:bg-zinc-200/60 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 cursor-pointer active:scale-95"
-                }`}
-              >
-                <span
-                  className={`text-[10px] sm:text-[11px] font-geometric font-semibold uppercase tracking-[0.08em] leading-none ${
-                    slot.isFuture
-                      ? "text-zinc-400 dark:text-zinc-600"
-                      : slot.isSelectedCenter
-                        ? "text-white/80 dark:text-zinc-600"
-                        : slot.isToday
-                          ? "text-zinc-900 dark:text-white"
-                          : "text-zinc-500 dark:text-zinc-400"
-                  }`}
-                >
-                  {slot.monthLabel}
-                </span>
+          {/* Fixed Center Active Backdrop Pill so date items glide seamlessly through the center slot */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-[40%] w-[20%] px-0.5 sm:px-1 z-0"
+          >
+            <div className="w-full h-full rounded-2xl bg-zinc-950 dark:bg-white shadow-xs" />
+          </div>
 
-                <span
-                  className={`text-lg sm:text-xl font-geometric tabular-nums leading-none mt-1 ${
-                    slot.isFuture
-                      ? "font-medium text-zinc-400 dark:text-zinc-600"
-                      : slot.isSelectedCenter
-                        ? "font-semibold text-white dark:text-zinc-950"
-                        : slot.isToday
-                          ? "font-bold text-zinc-950 dark:text-white"
-                          : "font-semibold text-zinc-900 dark:text-white"
-                  }`}
+          <div
+            ref={stripTrackRef}
+            style={{ transform: "translate3d(-40%, 0, 0)" }}
+            className="relative z-10 flex items-stretch will-change-transform"
+          >
+            {centeredNineDates.map((slot) => {
+              const isDisabled = isFeatureLocked || slot.isFuture || !slot.isVisibleWindow;
+              return (
+                <div
+                  key={slot.dateKey}
+                  style={{ flex: "0 0 20%" }}
+                  className="px-0.5 sm:px-1 shrink-0"
                 >
-                  {slot.dayLabel}
-                </span>
+                  <button
+                    type="button"
+                    disabled={isDisabled}
+                    tabIndex={slot.isVisibleWindow ? 0 : -1}
+                    aria-hidden={!slot.isVisibleWindow || undefined}
+                    onClick={() => {
+                      if (isDisabled) return;
+                      if (slot.isSelectedCenter) {
+                        setCalendarViewMonth({ year: slot.year, month: slot.month });
+                        setShowHomeCalendarModal(true);
+                      } else {
+                        handleChooseCalendarDate(slot.dateKey);
+                      }
+                    }}
+                    aria-pressed={slot.isSelectedCenter}
+                    aria-label={
+                      slot.isFuture
+                        ? `${slot.monthLabel} ${slot.dayLabel} (${isId ? "Akan datang" : "Upcoming"})`
+                        : slot.isSelectedCenter
+                          ? `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Buka kalender" : "Open calendar"}`
+                          : `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Pindah ke tanggal ini" : "Switch to this date"}`
+                    }
+                    className={`w-full relative py-2.5 px-1 rounded-2xl flex flex-col items-center justify-center text-center transition-[background-color,color,opacity] duration-200 ease-out ${
+                      slot.isFuture
+                        ? "opacity-30 cursor-default text-zinc-400 dark:text-zinc-600"
+                        : slot.isSelectedCenter
+                          ? "bg-transparent text-white dark:text-zinc-950 cursor-pointer"
+                          : slot.isToday
+                            ? "bg-zinc-200/90 dark:bg-white/15 text-zinc-950 dark:text-white hover:bg-zinc-300/80 dark:hover:bg-white/20 cursor-pointer active:scale-95"
+                            : "bg-transparent hover:bg-zinc-200/60 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 cursor-pointer active:scale-95"
+                    }`}
+                  >
+                    <span
+                      className={`text-[10px] sm:text-[11px] font-geometric font-semibold uppercase tracking-[0.08em] leading-none transition-colors duration-200 ${
+                        slot.isFuture
+                          ? "text-zinc-400 dark:text-zinc-600"
+                          : slot.isSelectedCenter
+                            ? "text-white/80 dark:text-zinc-600"
+                            : slot.isToday
+                              ? "text-zinc-900 dark:text-white"
+                              : "text-zinc-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      {slot.monthLabel}
+                    </span>
 
-                {/* Prominent Today indicator so Today is always unmistakable */}
-                {slot.isToday && (
-                  <span
-                    aria-hidden="true"
-                    className="semantic-badge-box mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--semantic-green)]"
-                  />
-                )}
-              </button>
-            );
-          })}
+                    <span
+                      className={`text-lg sm:text-xl font-geometric tabular-nums leading-none mt-1 transition-colors duration-200 ${
+                        slot.isFuture
+                          ? "font-medium text-zinc-400 dark:text-zinc-600"
+                          : slot.isSelectedCenter
+                            ? "font-semibold text-white dark:text-zinc-950"
+                            : slot.isToday
+                              ? "font-bold text-zinc-950 dark:text-white"
+                              : "font-semibold text-zinc-900 dark:text-white"
+                      }`}
+                    >
+                      {slot.dayLabel}
+                    </span>
+
+                    {/* Prominent Today indicator so Today is always unmistakable */}
+                    {slot.isToday && (
+                      <span
+                        aria-hidden="true"
+                        className="semantic-badge-box mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--semantic-green)]"
+                      />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1188,7 +1261,7 @@ export function MyPlanOverview({
                                         ? "bg-black/45 text-white/65 opacity-80"
                                         : isCoreDone
                                           ? "bg-black/50 hover:bg-black/60 text-white active:scale-[0.98]"
-                                          : "bg-[#f6f6f4] hover:bg-white text-zinc-950 active:scale-[0.98]"
+                                          : "bg-[#ececea] dark:bg-zinc-900/90 hover:bg-[#e5e5e2] dark:hover:bg-zinc-800 text-zinc-950 dark:text-white active:scale-[0.98]"
                                     }`}
                                   >
                                     <div className="w-full flex items-center justify-start">
@@ -1197,7 +1270,7 @@ export function MyPlanOverview({
                                         {isCorePending && (
                                           <span
                                             aria-label="Not completed"
-                                            className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#f6f6f4]"
+                                            className="semantic-badge-box absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-zinc-900"
                                           />
                                         )}
                                         {isCoreDone && (
