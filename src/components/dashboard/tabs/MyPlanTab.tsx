@@ -5,9 +5,7 @@ import { createPortal } from "react-dom";
 import { BRAND, buildConciergeWhatsAppUrl } from "@/wellness/brand";
 import {
   ArrowRight,
-  Calendar,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -21,7 +19,6 @@ import {
   Sparkles,
   User as UserIcon,
   Users,
-  X,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
@@ -329,7 +326,8 @@ export function MyPlanOverview({
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [datePageOffset, setDatePageOffset] = useState<number>(0);
+  const dateStripTouchXRef = useRef<number | null>(null);
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "online" | "hybrid">("all");
   const [programStatusFilter, setProgramStatusFilter] = useState<"todo" | "done">("todo");
   const [habitOpenRequest, setHabitOpenRequest] = useState<{
@@ -373,44 +371,65 @@ export function MyPlanOverview({
     return new Date(Date.now() + diffDays * 86400000);
   };
 
-  const activeBannerDate = getProgramDayDate(activeSelectedDay);
   const localeTag = locale === "id" ? "id-ID" : "en-GB";
-  const activeFullDateStr = new Intl.DateTimeFormat(localeTag, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
-  const activeMonthStr = new Intl.DateTimeFormat(localeTag, {
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
-  const activeYearStr = new Intl.DateTimeFormat(localeTag, {
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
-  const activeDayDateStr = new Intl.DateTimeFormat(localeTag, {
-    day: "2-digit",
-    timeZone: "Asia/Jakarta",
-  }).format(activeBannerDate);
-  const activeDayNum = activeSelectedDay?.dayNumber || baseTodayDayNum;
+
+  // Build 5-dates-per-page chunks aligned so offset 0 always shows the 5 most recent days ending on Today
+  const homeDatePages = useMemo(() => {
+    const DAYS_PER_PAGE = 5;
+    const sourceDays: PlanDay[] =
+      sortedProgramDays.length > 0
+        ? sortedProgramDays
+        : Array.from({ length: DAYS_PER_PAGE }, (_, idx) => {
+            const dt = new Date(Date.now() - (DAYS_PER_PAGE - 1 - idx) * 86400000);
+            const w = getWibCalendarDate(dt);
+            const key = `${w.year}-${String(w.month + 1).padStart(2, "0")}-${String(w.date).padStart(2, "0")}`;
+            return {
+              id: `fallback-${key}`,
+              dayNumber: idx + 1,
+              title: "Daily Wellness",
+              dayType: "REST_DAY",
+              unlockDate: dt.toISOString(),
+              isCalendarUnlocked: true,
+              isPast2359: idx < DAYS_PER_PAGE - 1,
+              videoUrl: null,
+              videoChecklist: [],
+              mealRecommendation: null,
+              meetupLink: null,
+              onsiteVenue: null,
+              onsiteSchedule: null,
+              restInstructions: null,
+              customTasks: [],
+              userProgress: null,
+            } as PlanDay;
+          });
+
+    const pages: PlanDay[][] = [];
+    for (let end = sourceDays.length; end > 0; end -= DAYS_PER_PAGE) {
+      const start = Math.max(0, end - DAYS_PER_PAGE);
+      pages.push(sourceDays.slice(start, end));
+    }
+    return pages; // index 0 = newest 5 days, index 1 = previous 5 days, ...
+  }, [sortedProgramDays]);
+
+  const maxDatePageOffset = Math.max(0, homeDatePages.length - 1);
+  const safeDatePageOffset = Math.min(datePageOffset, maxDatePageOffset);
+  const visibleHomeDates = homeDatePages[safeDatePageOffset] ?? [];
+
+  const bannerRefDay = isStandalone ? activeSelectedDay : day || activeSelectedDay;
+  const activeDayNum = bannerRefDay?.dayNumber || baseTodayDayNum;
   const activeDayTypeLabel =
-    activeSelectedDay?.dayType === "TRAINING_DAY"
+    bannerRefDay?.dayType === "TRAINING_DAY"
       ? locale === "id"
         ? "Hari Latihan"
         : "Training Day"
-      : activeSelectedDay?.dayType === "REST_DAY"
+      : bannerRefDay?.dayType === "REST_DAY"
         ? locale === "id"
           ? "Hari Istirahat"
           : "Rest Day"
         : locale === "id"
           ? "Hari Pertemuan"
           : "Meetup Day";
-
-  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
-    const w = getWibCalendarDate(getProgramDayDate(day));
-    return new Date(w.year, w.month, 1);
-  });
+  void activeDayTypeLabel;
 
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
@@ -499,13 +518,13 @@ export function MyPlanOverview({
     : isUpcoming
       ? ([{ index: 0 as const, label: "Info", count: 0 }] as const)
       : ([
-          { index: 1 as const, label: isId ? "Latihan" : "Training", count: pendingTasksCount },
+          { index: 1 as const, label: t.myPlan.subtabTasks, count: pendingTasksCount },
           { index: 0 as const, label: "Info", count: 0 },
         ] as const);
 
   const bannerTodayFocusTitle =
-    activeSelectedDay?.title?.trim() ||
-    (activeSelectedDay?.dayType === "TRAINING_DAY"
+    bannerRefDay?.title?.trim() ||
+    (bannerRefDay?.dayType === "TRAINING_DAY"
       ? isId
         ? "Latihan Terjadwal & Pemulihan Aktif"
         : "Scheduled Training & Active Conditioning"
@@ -566,43 +585,111 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Home Top Stacked Date Picker (Month / Year / Date stacked vertically) */}
+      {/* 0. Home Top 5-Dates-Per-Page Strip (Strictly stacked: Year -> Month -> Date) */}
       {isStandalone && (
-        <div className="w-full flex items-center justify-end">
-          {!isFeatureLocked ? (
-            <button
-              type="button"
-              onClick={() => {
-                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-                setCalendarMonth(new Date(w.year, w.month, 1));
-                setShowCalendarModal(true);
-              }}
-              aria-label={`Select date from calendar (${activeFullDateStr})`}
-              className="group px-2 py-1 rounded-2xl inline-flex flex-col items-end text-right hover:opacity-75 active:scale-95 transition cursor-pointer shrink-0 select-none"
-            >
-              <span className="text-[11px] font-geometric font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400 leading-none">
-                {activeMonthStr}
-              </span>
-              <span className="text-[10px] font-geometric font-medium text-zinc-400 dark:text-zinc-500 tabular-nums leading-none mt-1">
-                {activeYearStr}
-              </span>
-              <span className="text-2xl sm:text-[26px] font-geometric font-semibold text-zinc-950 dark:text-white tabular-nums leading-none mt-1">
-                {activeDayDateStr}
-              </span>
-            </button>
-          ) : (
-            <span className="px-2 py-1 inline-flex flex-col items-end text-right shrink-0 opacity-65 select-none">
-              <span className="text-[11px] font-geometric font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400 leading-none">
-                {activeMonthStr}
-              </span>
-              <span className="text-[10px] font-geometric font-medium text-zinc-400 dark:text-zinc-500 tabular-nums leading-none mt-1">
-                {activeYearStr}
-              </span>
-              <span className="text-2xl sm:text-[26px] font-geometric font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums leading-none mt-1">
-                {activeDayDateStr}
-              </span>
-            </span>
-          )}
+        <div
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            if (isFeatureLocked) return;
+            dateStripTouchXRef.current = e.touches[0].clientX;
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            if (isFeatureLocked || dateStripTouchXRef.current === null) return;
+            const dx = e.changedTouches[0].clientX - dateStripTouchXRef.current;
+            dateStripTouchXRef.current = null;
+            if (dx > 50 && safeDatePageOffset < maxDatePageOffset) {
+              setDatePageOffset((p) => Math.min(maxDatePageOffset, p + 1));
+            } else if (dx < -50 && safeDatePageOffset > 0) {
+              setDatePageOffset((p) => Math.max(0, p - 1));
+            }
+          }}
+          className={`w-full flex items-center gap-1 sm:gap-2 select-none ${
+            isFeatureLocked ? "opacity-65 pointer-events-none" : ""
+          }`}
+        >
+          <button
+            type="button"
+            disabled={isFeatureLocked || safeDatePageOffset >= maxDatePageOffset}
+            onClick={() => setDatePageOffset((p) => Math.min(maxDatePageOffset, p + 1))}
+            aria-label={isId ? "5 tanggal sebelumnya" : "Previous 5 dates"}
+            className="w-8 h-12 rounded-xl flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white disabled:opacity-25 transition cursor-pointer disabled:cursor-default shrink-0"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <div className="flex-1 grid grid-cols-5 gap-1 sm:gap-2">
+            {visibleHomeDates.map((dItem) => {
+              const itemDate = getProgramDayDate(dItem);
+              const yearStr = new Intl.DateTimeFormat(localeTag, {
+                year: "numeric",
+                timeZone: "Asia/Jakarta",
+              }).format(itemDate);
+              const monthStr = new Intl.DateTimeFormat(localeTag, {
+                month: "short",
+                timeZone: "Asia/Jakarta",
+              }).format(itemDate);
+              const dayDateStr = new Intl.DateTimeFormat(localeTag, {
+                day: "2-digit",
+                timeZone: "Asia/Jakarta",
+              }).format(itemDate);
+              const isSelected = dItem.id === activeSelectedDay?.id;
+
+              return (
+                <button
+                  key={dItem.id}
+                  type="button"
+                  disabled={isFeatureLocked}
+                  onClick={() => setSelectedDayId(dItem.id)}
+                  aria-pressed={isSelected}
+                  aria-label={`${yearStr} ${monthStr} ${dayDateStr}`}
+                  className={`py-2 px-1 rounded-2xl flex flex-col items-center justify-center text-center transition cursor-pointer disabled:cursor-default ${
+                    isSelected
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                      : "bg-transparent hover:bg-zinc-200/60 dark:hover:bg-white/[0.06] text-zinc-950 dark:text-white active:scale-95"
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] font-geometric font-medium tabular-nums leading-none ${
+                      isSelected
+                        ? "text-white/70 dark:text-zinc-500"
+                        : "text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    {yearStr}
+                  </span>
+                  <span
+                    className={`text-[11px] font-geometric font-semibold uppercase tracking-[0.06em] leading-none mt-1 ${
+                      isSelected
+                        ? "text-white/90 dark:text-zinc-700"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }`}
+                  >
+                    {monthStr}
+                  </span>
+                  <span
+                    className={`text-lg sm:text-xl font-geometric font-semibold tabular-nums leading-none mt-1 ${
+                      isSelected
+                        ? "text-white dark:text-zinc-950"
+                        : "text-zinc-950 dark:text-white"
+                    }`}
+                  >
+                    {dayDateStr}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            disabled={isFeatureLocked || safeDatePageOffset <= 0}
+            onClick={() => setDatePageOffset((p) => Math.max(0, p - 1))}
+            aria-label={isId ? "5 tanggal berikutnya" : "Next 5 dates"}
+            className="w-8 h-12 rounded-xl flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white disabled:opacity-25 transition cursor-pointer disabled:cursor-default shrink-0"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -626,10 +713,10 @@ export function MyPlanOverview({
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/30" />
           </div>
 
-          {/* Top Row: Community Profile/Logo (Left) & Date Picker (Right) */}
-          <div className="relative z-10 flex items-center justify-between gap-2">
+          {/* Top Row: Community Profile/Logo (Date removed per clean Program Banner design) */}
+          <div className="relative z-10 flex items-center justify-start gap-2">
             <div
-              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[55%] min-w-0"
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full backdrop-blur-md border border-white/15 max-w-[80%] min-w-0"
               style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
             >
               {program?.organizationLogo ? (
@@ -648,24 +735,6 @@ export function MyPlanOverview({
                 {program?.organizationName || program?.coachName || "Community"}
               </span>
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const w = getWibCalendarDate(getProgramDayDate(activeSelectedDay));
-                setCalendarMonth(new Date(w.year, w.month, 1));
-                setShowCalendarModal(true);
-              }}
-              aria-label="Select date from calendar"
-              className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md active:scale-95 transition cursor-pointer text-left border border-white/15 shrink-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.42)" }}
-            >
-              <Calendar className="w-3.5 h-3.5 text-white/80 shrink-0" />
-              <span className="text-xs font-geometric font-semibold text-white leading-tight whitespace-nowrap">
-                {activeFullDateStr}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-white/80 shrink-0 transition-transform duration-200 group-hover:translate-y-0.5" />
-            </button>
           </div>
 
           {/* Bottom Row: Today's Focus + Day X of Y Progress Bar */}
@@ -1045,7 +1114,7 @@ export function MyPlanOverview({
                                 key={prog.programId}
                                 className="relative w-full rounded-2xl overflow-hidden bg-zinc-900"
                               >
-                                {/* Shared Full-Bleed Cover Image Background across both sides */}
+                                {/* Shared Full-Bleed Cover Image Background across both sides (bright, natural legibility scrim) */}
                                 <div className="absolute inset-0 pointer-events-none">
                                   {prog.coverImage ? (
                                     // eslint-disable-next-line @next/next/no-img-element
@@ -1055,10 +1124,9 @@ export function MyPlanOverview({
                                       className="w-full h-full object-cover object-center"
                                     />
                                   ) : (
-                                    <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                                    <div className="w-full h-full bg-gradient-to-br from-zinc-700 via-zinc-800 to-zinc-900" />
                                   )}
-                                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/75" />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-black/10" />
                                 </div>
 
                                 <div className="relative z-10 grid grid-cols-[1fr_118px] sm:grid-cols-[1fr_144px] items-stretch gap-2.5 p-3 sm:p-3.5 min-h-[128px] sm:min-h-[136px]">
@@ -1068,23 +1136,23 @@ export function MyPlanOverview({
                                     onClick={() => onOpenProgram?.(prog.programId)}
                                     className="group p-1 sm:p-1.5 flex flex-col justify-between text-left text-white min-w-0 transition active:opacity-85 cursor-pointer"
                                   >
-                                    <span className="text-[11px] font-mono font-medium text-white/80 truncate w-full">
+                                    <span className="text-[11px] font-mono font-medium text-white/95 drop-shadow-xs truncate w-full">
                                       {prog.isUpcoming
                                         ? dayTypeLabel
                                         : `${isId ? "Hari" : "Day"} ${prog.currentDayNumber || 1}/${Math.max(prog.totalDays || prog.dayCount || 1, prog.currentDayNumber || 1)} · ${dayTypeLabel}`}
                                     </span>
 
                                     <div className="pt-4 w-full min-w-0 space-y-0.5">
-                                      <p className="text-sm sm:text-base font-geometric font-semibold text-white leading-snug line-clamp-2 group-hover:opacity-95">
+                                      <p className="text-sm sm:text-base font-geometric font-semibold text-white drop-shadow-xs leading-snug line-clamp-2 group-hover:opacity-95">
                                         {prog.title}
                                       </p>
-                                      <p className="text-[11px] font-sans text-white/75 truncate">
+                                      <p className="text-[11px] font-sans text-white/85 drop-shadow-xs truncate">
                                         {metaLine}
                                       </p>
                                     </div>
                                   </button>
 
-                                  {/* Right Side: Inset Today's Task Action Pod (1-Tap Direct Launch) */}
+                                  {/* Right Side: Inset Today's Task Action Pod (1-Tap Direct Launch, no arrow) */}
                                   <button
                                     type="button"
                                     disabled={prog.isUpcoming}
@@ -1100,7 +1168,7 @@ export function MyPlanOverview({
                                           : "bg-[#f6f6f4] hover:bg-white text-zinc-950 active:scale-[0.98]"
                                     }`}
                                   >
-                                    <div className="w-full flex items-center justify-between gap-1">
+                                    <div className="w-full flex items-center justify-start">
                                       <span className="relative inline-flex items-center justify-center shrink-0">
                                         <TaskFillIcon className="w-5 h-5" />
                                         {isCorePending && (
@@ -1118,10 +1186,6 @@ export function MyPlanOverview({
                                           </span>
                                         )}
                                       </span>
-
-                                      {!prog.isUpcoming && !isCoreDone && (
-                                        <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-950 group-hover:translate-x-0.5 transition-all shrink-0" />
-                                      )}
                                     </div>
 
                                     <div className="pt-2.5 w-full min-w-0 space-y-0.5">
@@ -1210,160 +1274,6 @@ export function MyPlanOverview({
           )}
         </div>
       </div>
-
-      {/* Calendar Date Picker Modal (Triggered by clicking date on Image Banner) */}
-      {showCalendarModal &&
-        typeof document !== "undefined" &&
-        createPortal(
-          (() => {
-            const viewYear = calendarMonth.getFullYear();
-            const viewMonth = calendarMonth.getMonth();
-            const monthLabel = new Intl.DateTimeFormat(
-              locale === "id" ? "id-ID" : "en-US",
-              { month: "long", year: "numeric" }
-            ).format(calendarMonth);
-
-            const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
-            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-            const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
-
-            const dayByYmd = new Map<string, PlanDay>();
-            for (const pd of sortedProgramDays) {
-              const w = getWibCalendarDate(getProgramDayDate(pd));
-              const key = `${w.year}-${w.month}-${w.date}`;
-              if (!dayByYmd.has(key)) {
-                dayByYmd.set(key, pd);
-              }
-            }
-
-            return (
-              <div
-                onClick={() => setShowCalendarModal(false)}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => e.stopPropagation()}
-                className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
-              >
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Select program date"
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-sm rounded-3xl bg-[#f6f6f4] dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
-                >
-                  {/* Header: Month Navigation + Today & Close */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCalendarMonth(new Date(viewYear, viewMonth - 1, 1))
-                        }
-                        aria-label="Previous month"
-                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition cursor-pointer"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <span className="px-2 text-sm font-geometric font-semibold text-zinc-950 dark:text-white">
-                        {monthLabel}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCalendarMonth(new Date(viewYear, viewMonth + 1, 1))
-                        }
-                        aria-label="Next month"
-                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition cursor-pointer"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {day && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedDayId(day.id);
-                            setShowCalendarModal(false);
-                          }}
-                          className="h-8 px-2.5 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white transition cursor-pointer"
-                        >
-                          Today
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setShowCalendarModal(false)}
-                        aria-label="Close calendar"
-                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 7-Column Weekday Headers */}
-                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono uppercase text-zinc-400 dark:text-zinc-500">
-                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => (
-                      <span key={w}>{w}</span>
-                    ))}
-                  </div>
-
-                  {/* 7-Column Month Dates Grid */}
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {Array.from({ length: totalCells }, (_, idx) => {
-                      const dateNum = idx - firstWeekday + 1;
-                      if (dateNum < 1 || dateNum > daysInMonth) {
-                        return <div key={`empty-${idx}`} className="h-11 rounded-xl" />;
-                      }
-
-                      const key = `${viewYear}-${viewMonth}-${dateNum}`;
-                      const matchedDay = dayByYmd.get(key);
-                      const isSelected =
-                        !!matchedDay && matchedDay.id === activeSelectedDay?.id;
-                      const isTodayCell = !!matchedDay && matchedDay.id === day?.id;
-
-                      if (!matchedDay) {
-                        return (
-                          <div
-                            key={key}
-                            className="h-10 rounded-xl flex items-center justify-center text-xs font-mono text-zinc-300 dark:text-zinc-700 select-none"
-                          >
-                            <span>{dateNum}</span>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => {
-                            setSelectedDayId(matchedDay.id);
-                            setShowCalendarModal(false);
-                          }}
-                          className={`h-10 rounded-xl flex items-center justify-center transition active:scale-95 cursor-pointer relative ${
-                            isSelected
-                              ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-xs"
-                              : isTodayCell
-                              ? "bg-zinc-300/80 dark:bg-white/20 text-zinc-950 dark:text-white font-semibold"
-                              : "bg-[#ececea] dark:bg-white/[0.06] text-zinc-900 dark:text-zinc-200 hover:bg-zinc-300/60 dark:hover:bg-white/10"
-                          }`}
-                        >
-                          <span className="text-xs font-mono leading-none">
-                            {dateNum}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })(),
-          getModalPortalRoot()
-        )}
 
       {/* External Community Disclaimer Modal */}
       {showCommunityModal &&

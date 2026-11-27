@@ -65,6 +65,11 @@ export function DailyCheckIn(props: DailyCheckInProps) {
 
   const selectedDayId = props.selectedDayId || internalSelectedDayId;
 
+  const selectProgramDay = (targetDayId: string) => {
+    setInternalSelectedDayId(targetDayId);
+    props.onSelectDayId?.(targetDayId);
+  };
+
   const [resetCountdown, setResetCountdown] = useState<string>(() =>
     getWibResetCountdown()
   );
@@ -170,14 +175,15 @@ export function DailyCheckIn(props: DailyCheckInProps) {
       isProgramOnly &&
       nonce > 0 &&
       nonce !== lastAutoOpenNonceRef.current &&
-      !isFeatureLocked &&
-      !isSelectedFuture
+      !isFeatureLocked
     ) {
       lastAutoOpenNonceRef.current = nonce;
+      selectProgramDay(day.id);
       setStep(1);
       setDetailOpen(true);
     }
-  }, [props.autoOpenProgramTaskNonce, isProgramOnly, isFeatureLocked, isSelectedFuture]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.autoOpenProgramTaskNonce, isProgramOnly, isFeatureLocked, day.id]);
 
   const markDone = (index: number) => {
     if (isSelectedToday) {
@@ -487,6 +493,89 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         })),
   ];
 
+  interface ProgramUnlockedTaskItem {
+    key: string;
+    dayId: string;
+    dayNumber: number;
+    title: string;
+    durationLabel: string;
+    isDone: boolean;
+    isPastSkipped: boolean;
+    Icon: ComponentType<FillIconProps>;
+    onOpen: () => void;
+  }
+
+  const buildProgramTasksForDay = (dItem: typeof day): ProgramUnlockedTaskItem[] => {
+    const isTodayItem = dItem.id === day.id;
+    const dTasks = getTasksForDay(dItem.dayType);
+    const coreTask = dTasks[1];
+    const dDoneArr = isTodayItem
+      ? done
+      : deriveDayDone(dItem, deriveDayActivities(dItem), deriveDayChecks(dItem));
+    const coreDone = Boolean(dDoneArr[1]);
+    const isPastItem = !isAnytime && !isTodayItem && (dItem.isPast2359 || dItem.dayNumber < day.dayNumber);
+    const coreIcon: ComponentType<FillIconProps> =
+      dItem.dayType === "REST_DAY"
+        ? FillHeartIcon
+        : dItem.dayType !== "TRAINING_DAY"
+          ? FillUsersIcon
+          : FillDumbbellIcon;
+    const coreDuration = dItem.dayType === "TRAINING_DAY" ? "15 min" : "2 min";
+
+    const items: ProgramUnlockedTaskItem[] = [];
+    if (coreTask) {
+      items.push({
+        key: `prog-${dItem.id}-core`,
+        dayId: dItem.id,
+        dayNumber: dItem.dayNumber,
+        title: coreTask.title,
+        durationLabel: coreDuration,
+        isDone: coreDone,
+        isPastSkipped: isPastItem && !coreDone,
+        Icon: coreIcon,
+        onOpen: () => {
+          if (isFeatureLocked) return;
+          selectProgramDay(dItem.id);
+          setStep(1);
+          setDetailOpen(true);
+        },
+      });
+    }
+
+    for (const ct of dItem.customTasks || []) {
+      const ctDone = Boolean(ct.submission);
+      items.push({
+        key: `prog-${dItem.id}-custom-${ct.id}`,
+        dayId: dItem.id,
+        dayNumber: dItem.dayNumber,
+        title: ct.title,
+        durationLabel: getCustomDurationLabel(ct),
+        isDone: ctDone,
+        isPastSkipped: isPastItem && !ctDone,
+        Icon: getCustomFillIcon(ct),
+        onOpen: () => {
+          if (isFeatureLocked) return;
+          selectProgramDay(dItem.id);
+          setOpenCustomTaskId(ct.id);
+        },
+      });
+    }
+
+    return items;
+  };
+
+  const unlockedProgramDays = isProgramOnly
+    ? programDays.filter((dItem) =>
+        isAnytime ? true : Boolean(dItem.isCalendarUnlocked) || dItem.id === day.id
+      )
+    : [];
+  const todayProgramTasks = isProgramOnly ? buildProgramTasksForDay(day) : [];
+  const otherUnlockedProgramTasks = isProgramOnly
+    ? unlockedProgramDays
+        .filter((dItem) => dItem.id !== day.id)
+        .flatMap((dItem) => buildProgramTasksForDay(dItem))
+    : [];
+
   const promptNextTaskAfterSave = (justCompletedKey: string | null) => {
     if (!justCompletedKey || isFeatureLocked || isSelectedFuture) return;
     const remainingTiles = taskTiles.filter(
@@ -666,8 +755,176 @@ export function DailyCheckIn(props: DailyCheckInProps) {
         </div>
       )}
 
-      {/* Free-Order 2-Column Task Tiles Grid */}
-      <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
+      {isProgramOnly ? (
+        <div className="w-full space-y-6">
+          {/* Separated Today's Tasks Section */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <span className="text-xs font-geometric font-semibold uppercase tracking-[0.08em] text-zinc-950 dark:text-white">
+                {isId ? `Hari Ini · Hari ${day.dayNumber}` : `Today · Day ${day.dayNumber}`}
+              </span>
+              <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                {todayProgramTasks.filter((t) => t.isDone).length}/{todayProgramTasks.length}
+              </span>
+            </div>
+
+            <ol className="w-full space-y-2.5">
+              {todayProgramTasks.map((item) => {
+                const ItemIcon = item.Icon;
+                const isPending = !item.isDone && !item.isPastSkipped;
+                return (
+                  <li key={item.key} className="w-full">
+                    <button
+                      type="button"
+                      disabled={isFeatureLocked}
+                      onClick={item.onOpen}
+                      aria-label={`Day ${item.dayNumber}: ${item.title}`}
+                      className={`group w-full rounded-2xl p-4 flex items-center justify-between gap-3.5 text-left transition cursor-pointer active:scale-[0.99] disabled:cursor-default ${
+                        item.isDone
+                          ? "opacity-65 bg-[#e4e4e1] dark:bg-white/[0.03]"
+                          : "bg-[#ececea] dark:bg-white/[0.05] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.08]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <span className="relative w-10 h-10 rounded-xl bg-white/80 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-950 dark:text-white">
+                          <ItemIcon className="w-5 h-5" />
+                          {isPending && (
+                            <span
+                              aria-label="Not completed"
+                              className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                            />
+                          )}
+                          {item.isDone && (
+                            <span
+                              aria-label="Completed"
+                              className="semantic-badge-box absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
+                            >
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </span>
+                          )}
+                        </span>
+
+                        <div className="min-w-0 space-y-0.5">
+                          <span className="block text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate">
+                            {item.title}
+                          </span>
+                          <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                            {isId ? `Hari ${item.dayNumber}` : `Day ${item.dayNumber}`} · {item.durationLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[11px] font-mono font-semibold shrink-0 ${
+                          item.isDone
+                            ? "text-[var(--semantic-green)]"
+                            : "text-zinc-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        {item.isDone ? (isId ? "Selesai" : "Done") : isId ? "Mulai" : "Start"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+
+          {/* Separated Unlocked Program Tasks (Day 1 to End, One by One) */}
+          {otherUnlockedProgramTasks.length > 0 ? (
+            <div className="space-y-2.5 pt-1">
+              <div className="flex items-center justify-between gap-2 px-0.5">
+                <span className="text-xs font-geometric font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+                  {isId ? "Tugas Terbuka Lainnya (Hari 1 – Akhir)" : "Unlocked Tasks (Day 1 – End)"}
+                </span>
+                <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                  {otherUnlockedProgramTasks.filter((t) => t.isDone).length}/{otherUnlockedProgramTasks.length}
+                </span>
+              </div>
+
+              <ol className="w-full space-y-2">
+                {otherUnlockedProgramTasks.map((item) => {
+                  const ItemIcon = item.Icon;
+                  return (
+                    <li key={item.key} className="w-full">
+                      <button
+                        type="button"
+                        disabled={isFeatureLocked}
+                        onClick={item.onOpen}
+                        aria-label={`Day ${item.dayNumber}: ${item.title}`}
+                        className={`group w-full rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3.5 text-left transition cursor-pointer active:scale-[0.99] disabled:cursor-default ${
+                          item.isDone
+                            ? "opacity-65 bg-[#e4e4e1] dark:bg-white/[0.03]"
+                            : "bg-[#ececea] dark:bg-white/[0.04] hover:bg-[#e5e5e2] dark:hover:bg-white/[0.07]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="relative w-9 h-9 rounded-xl bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0 text-zinc-900 dark:text-white">
+                            <ItemIcon className="w-4 h-4" />
+                            {item.isDone && (
+                              <span
+                                aria-label="Completed"
+                                className="semantic-badge-box absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[var(--semantic-green)] text-white ring-2 ring-[#e4e4e1] dark:ring-[#18181b] flex items-center justify-center"
+                              >
+                                <Check className="w-2 h-2 stroke-[3]" />
+                              </span>
+                            )}
+                            {!item.isDone && !item.isPastSkipped && (
+                              <span
+                                aria-label="Not completed"
+                                className="semantic-badge-box absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[var(--semantic-red-dot)] ring-2 ring-[#ececea] dark:ring-[#18181b]"
+                              />
+                            )}
+                          </span>
+
+                          <div className="min-w-0 space-y-0.5">
+                            <span className="block text-sm font-geometric font-semibold text-zinc-950 dark:text-white truncate">
+                              {item.title}
+                            </span>
+                            <span className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                              {isId ? `Hari ${item.dayNumber}` : `Day ${item.dayNumber}`} · {item.durationLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[11px] font-mono font-medium shrink-0 ${
+                            item.isDone
+                              ? "text-[var(--semantic-green)]"
+                              : item.isPastSkipped
+                                ? "text-zinc-400 dark:text-zinc-500"
+                                : "text-zinc-700 dark:text-zinc-300"
+                          }`}
+                        >
+                          {item.isDone
+                            ? isId
+                              ? "Selesai"
+                              : "Done"
+                            : item.isPastSkipped
+                              ? isId
+                                ? "Terlewat"
+                                : "Missed"
+                              : isId
+                                ? "Mulai"
+                                : "Start"}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ) : (
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 px-1 pt-1">
+              {isId
+                ? "Tugas hari berikutnya akan terbuka otomatis setiap hari pukul 00:00 WIB."
+                : "Subsequent program tasks unlock automatically each day at 00:00 WIB."}
+            </p>
+          )}
+        </div>
+      ) : (
+        /* Free-Order 2-Column Task Tiles Grid (Home Standalone Habits) */
+        <ol className="w-full grid grid-cols-2 gap-3 sm:gap-4">
         {taskTiles.map((tile) => {
           const TileIcon = tile.Icon;
           const isPending = !tile.isDone && !tile.isOptional && !isSelectedFuture;
@@ -725,7 +982,8 @@ export function DailyCheckIn(props: DailyCheckInProps) {
             </li>
           );
         })}
-      </ol>
+        </ol>
+      )}
 
       {/* Community Group Chat Widget (moved to Info tab in Program Detail) */}
       {!isStandalone && !isProgramOnly && (
