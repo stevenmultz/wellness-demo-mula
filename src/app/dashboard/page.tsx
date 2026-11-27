@@ -95,9 +95,8 @@ async function DashboardContent() {
 
   const now = new Date();
   const todayDateOnly = toWibDateOnly(now);
-  // Home & Metrics only inspect the past 60 days (30d current vs 30d previous);
-  // 90d/1y historical charts are loaded on demand via wellnessGetGrowthAnalytics.
-  const recentLogsStart = addWibDays(todayDateOnly, -62);
+  // Keep initial SSR lightweight (recent 14 days only — older dates are fetched on demand in 5-day slices when selected in the Home calendar).
+  const recentLogsStart = addWibDays(todayDateOnly, -13);
 
   // True single-wave parallel DB round-trip (Session + Active Programs + Lightweight Past/Pending Enrollments + Metrics + Logs):
   const [
@@ -199,7 +198,7 @@ async function DashboardContent() {
         extraWorkouts: { orderBy: { createdAt: "asc" } },
       },
       orderBy: { logDate: "asc" },
-      take: 65,
+      take: 15,
     }),
     prisma.trackingPassPlan.findMany({
       where: { isActive: true },

@@ -126,6 +126,11 @@ export const GetGrowthAnalyticsSchema = z.object({
   range: z.enum(["30d", "90d", "1y"]).default("30d"),
 });
 
+export const GetDailyLogsRangeSchema = z.object({
+  startDate: WibDateKeySchema,
+  endDate: WibDateKeySchema,
+});
+
 export const UpsertTrackingPassPlanSchema = z.object({
   id: z.string().trim().min(1).max(128).optional(),
   slug: z

@@ -3,6 +3,7 @@
 import {
   addExtraWorkoutService,
   deleteExtraWorkoutService,
+  getDailyLogsByRangeService,
   getUserGrowthAnalyticsService,
   logSelfBodyMetricService,
   saveDailyMealService,
@@ -107,5 +108,16 @@ export async function wellnessGetGrowthAnalytics(rawInput?: { range?: "30d" | "9
     return await getUserGrowthAnalyticsService(rawInput);
   } catch (err) {
     return toSafeErrorResult(err, "Could not load analytics. Please try again.");
+  }
+}
+
+export async function wellnessGetDailyLogsByRange(rawInput: {
+  startDate: string;
+  endDate: string;
+}) {
+  try {
+    return await getDailyLogsByRangeService(rawInput);
+  } catch (err) {
+    return toSafeErrorResult(err, "Could not load logs for the selected date.");
   }
 }

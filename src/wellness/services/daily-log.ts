@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { RATE_LIMITS } from "../config";
 import { requireAuth } from "../security/guards";
-import { checkDistributedRateLimit } from "../security/rate-limit";
+import { checkDistributedRateLimit, checkRateLimit } from "../security/rate-limit";
 import {
   UpsertDailyMealSchema,
   UpsertDailySleepSchema,
@@ -13,6 +13,7 @@ import {
   DeleteExtraWorkoutSchema,
   UpsertSelfBodyMetricSchema,
   GetGrowthAnalyticsSchema,
+  GetDailyLogsRangeSchema,
 } from "../validators/daily-log";
 import {
   WIB_OFFSET_MS,
@@ -1391,5 +1392,63 @@ export async function getUserGrowthAnalyticsService(
       series,
       weightSeries,
     },
+  };
+}
+
+/**
+ * Lightweight on-demand reader for a bounded date slice (capped at max 35 days)
+ * so inspecting past dates from the Home calendar never loads all historical logs upfront.
+ */
+export async function getDailyLogsByRangeService(
+  rawInput: unknown
+): Promise<WellnessActionResult<DailyLogDTO[]>> {
+  const session = await requireAuth();
+  const rl = checkRateLimit(`daily_log_range:${session.userId}`, {
+    windowMs: 60 * 1000,
+    maxRequests: 60,
+  });
+  if (!rl.allowed) {
+    return { success: false, message: "Too many requests. Please wait a moment." };
+  }
+
+  const parsed = GetDailyLogsRangeSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: parsed.error.issues[0]?.message || "Invalid date range.",
+    };
+  }
+
+  const startDt = parseWibDateKey(parsed.data.startDate);
+  const endDt = parseWibDateKey(parsed.data.endDate);
+  if (!startDt || !endDt || endDt.getTime() < startDt.getTime()) {
+    return { success: false, message: "Invalid date range." };
+  }
+
+  // Strictly cap query span to 35 days max to prevent DB/payload overload
+  const maxSpanMs = 35 * 86400000;
+  const clampedStartDt =
+    endDt.getTime() - startDt.getTime() > maxSpanMs
+      ? new Date(endDt.getTime() - maxSpanMs)
+      : startDt;
+
+  const rows = await prisma.userDailyLog.findMany({
+    where: {
+      userId: session.userId,
+      logDate: {
+        gte: clampedStartDt,
+        lte: endDt,
+      },
+    },
+    include: {
+      extraWorkouts: { orderBy: { createdAt: "asc" } },
+    },
+    orderBy: { logDate: "asc" },
+    take: 36,
+  });
+
+  return {
+    success: true,
+    data: rows.map(serializeDailyLog),
   };
 }

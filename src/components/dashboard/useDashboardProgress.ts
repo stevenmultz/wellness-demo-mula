@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { wellnessUserSubmitDayProgress as rawWellnessUserSubmitDayProgress } from "@/wellness/actions/program";
 import {
   wellnessAddExtraWorkout as rawWellnessAddExtraWorkout,
   wellnessDeleteExtraWorkout as rawWellnessDeleteExtraWorkout,
+  wellnessGetDailyLogsByRange as rawWellnessGetDailyLogsByRange,
   wellnessSaveDailyMeal as rawWellnessSaveDailyMeal,
   wellnessSaveDailySleep as rawWellnessSaveDailySleep,
   wellnessSaveDailySteps as rawWellnessSaveDailySteps,
@@ -120,6 +121,15 @@ const wellnessDeleteExtraWorkout = (payload: Parameters<typeof rawWellnessDelete
     payload
   );
 
+const wellnessGetDailyLogsByRange = (
+  payload: Parameters<typeof rawWellnessGetDailyLogsByRange>[0]
+) =>
+  safeInvokeAction(
+    rawWellnessGetDailyLogsByRange,
+    "Could not load logs for the selected date.",
+    payload
+  );
+
 interface UseDashboardProgressParams {
   currentProgram: ProgramItem | null;
   calendarDay: ProgramDayItem | null;
@@ -150,6 +160,28 @@ export function useDashboardProgress({
     }
     return map;
   });
+
+  // Track which date slices have already been fetched (initial 14-day SSR window is pre-covered)
+  const fetchedRangeKeysRef = useRef<Set<string>>(new Set());
+
+  const ensureDateRangeLoaded = useCallback(async (startDate: string, endDate: string) => {
+    const rangeKey = `${startDate}:${endDate}`;
+    if (fetchedRangeKeysRef.current.has(rangeKey)) return;
+    fetchedRangeKeysRef.current.add(rangeKey);
+
+    const res = await wellnessGetDailyLogsByRange({ startDate, endDate });
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+      setDailyLogsByDate((prev) => {
+        const next = { ...prev };
+        for (const row of res.data!) {
+          next[row.logDate] = row;
+        }
+        return next;
+      });
+    } else if (!res.success) {
+      fetchedRangeKeysRef.current.delete(rangeKey);
+    }
+  }, []);
 
   const [dayChecklists, setDayChecklists] = useState<Record<string, string[]>>({});
   const [dayVideoWatched, setDayVideoWatched] = useState<Record<string, boolean>>({});
@@ -1104,6 +1136,7 @@ export function useDashboardProgress({
 
   return {
     dailyLogsByDate,
+    ensureDateRangeLoaded,
     dayChecklists,
     overlayDay,
     setDayCompletedOverride,

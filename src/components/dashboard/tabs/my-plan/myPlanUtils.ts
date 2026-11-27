@@ -404,11 +404,15 @@ export type BodyHabitAction =
   | "info"
   | "none";
 
+export type BodySignalKind = "intro" | "task" | "reassurance";
+
 export interface BodySignal {
   id: string;
+  kind?: BodySignalKind;
   action: BodyHabitAction;
   tone: "attention" | "positive" | "neutral";
   message: string;
+  detail?: string;
   programId?: string;
 }
 
@@ -430,11 +434,15 @@ export function deriveBodySignals(params: {
     return [
       {
         id: "locked",
+        kind: "intro",
         action: "none",
         tone: "neutral",
         message: isId
-          ? "Aktifkan tracking, nanti aku ingatkan soal tidur, air, makan, dan langkahmu."
-          : "Unlock tracking and I will nudge you about sleep, water, food, and steps.",
+          ? "Aktifkan tracking dulu, biar kita bisa jalan bareng!"
+          : "Unlock tracking so we can team up every day!",
+        detail: isId
+          ? "Begitu aktif, kita pantau tidur, air, makan, dan langkah bareng."
+          : "Once unlocked, we'll track our sleep, water, meals, and steps together.",
       },
     ];
   }
@@ -456,6 +464,12 @@ export function deriveBodySignals(params: {
       mealComplianceUpper.includes("POOR"));
   const stepsCount = progress?.stepsCount ?? 0;
 
+  const completedCoreHabits =
+    (sleepLogged ? 1 : 0) +
+    (effectiveWaterMl > 0 ? 1 : 0) +
+    (mealLogged ? 1 : 0) +
+    (stepsCount > 0 ? 1 : 0);
+
   const pendingProgram = activePrograms.find(
     (p) => !p.isUpcoming && !p.isCompleted && !p.todayCoreTaskDone
   );
@@ -467,11 +481,13 @@ export function deriveBodySignals(params: {
       key: "sleep",
       signal: {
         id: "sleep-unlogged",
+        kind: "task",
         action: "sleep",
         tone: "attention",
-        message: isId
-          ? "Semalam tidurmu gimana? Yuk dicatat!"
-          : "How did you sleep last night? Let's log it!",
+        message: isId ? "Kita belum catat tidur semalam." : "We haven't logged our sleep yet.",
+        detail: isId
+          ? "Tidur 7+ jam jaga energi kita seharian. Mau kita catat sekarang?"
+          : "7h+ rest keeps our recovery strong. Want to log last night's sleep?",
       },
     });
   } else if (sleepMins > 0 && sleepMins < SLEEP_TARGET_MINS) {
@@ -480,11 +496,15 @@ export function deriveBodySignals(params: {
       key: "sleep",
       signal: {
         id: "sleep-low",
+        kind: "task",
         action: "sleep",
         tone: "attention",
         message: isId
-          ? `Semalam kamu cuma tidur ${hrs} jam. Malam ini coba 7 jam+ ya?`
-          : `You only slept ${hrs}h last night. Try for 7h+ tonight, okay?`,
+          ? `Kita cuma tidur ${hrs} jam semalam.`
+          : `We only slept ${hrs}h last night.`,
+        detail: isId
+          ? "Hari ini kita atur ritme santai, malam nanti kita kejar 7+ jam ya!"
+          : "Let's pace ourselves today and aim for 7h+ rest tonight!",
       },
     });
   }
@@ -495,16 +515,20 @@ export function deriveBodySignals(params: {
       key: "water",
       signal: {
         id: "water-low",
+        kind: "task",
         action: "water",
         tone: "attention",
         message:
           effectiveWaterMl === 0
             ? isId
-              ? "Kamu belum minum sama sekali nih. Yuk minum segelas!"
-              : "You haven't had any water yet. Grab a glass with me?"
+              ? "Kita belum minum air hari ini!"
+              : "We haven't had any water yet!"
             : isId
-              ? `Tinggal ${remainingMl.toLocaleString()} ml lagi buat target airmu. Semangat!`
-              : `Only ${remainingMl.toLocaleString()} ml to go for your water goal. You can do it!`,
+              ? `Kita kurang ${remainingMl.toLocaleString()} ml air lagi.`
+              : `We have ${remainingMl.toLocaleString()} ml water left.`,
+        detail: isId
+          ? "Segelas air sekarang bikin fokus kita segar lagi. Yuk catat minum!"
+          : "A quick glass right now keeps our energy steady. Ready to log?",
       },
     });
   }
@@ -514,15 +538,19 @@ export function deriveBodySignals(params: {
       key: "meal",
       signal: {
         id: mealOffTrack ? "meal-offtrack" : "meal-unlogged",
+        kind: "task",
         action: "meal",
         tone: "attention",
         message: mealOffTrack
           ? isId
-            ? "Makan berikutnya kita seimbangkan ya?"
-            : "Let's keep your next meal balanced, okay?"
+            ? "Yuk seimbangkan makan kita berikutnya."
+            : "Let's balance our next meal!"
           : isId
-            ? "Hari ini kamu makan apa? Yuk dicatat biar tetap on track."
-            : "What have you eaten today? Let's log it to stay on track.",
+            ? "Hari ini kita sudah makan apa?"
+            : "What have we eaten today?",
+        detail: isId
+          ? "Mencatat makan bantu kita jaga nutrisi tetap konsisten."
+          : "Logging our meals keeps our fuel and recovery right on track.",
       },
     });
   }
@@ -533,16 +561,20 @@ export function deriveBodySignals(params: {
       key: "steps",
       signal: {
         id: "steps-low",
+        kind: "task",
         action: "steps",
         tone: "attention",
         message:
           stepsCount === 0
             ? isId
-              ? "Jalan santai yuk? Langkahmu masih nol nih."
-              : "Let's go for a little walk? Your steps are still at zero."
+              ? "Langkah kita masih 0 nih, jalan yuk?"
+              : "Our steps are at 0 — quick walk?"
             : isId
-              ? `${remainingSteps.toLocaleString()} langkah lagi buat capai targetmu. Yuk jalan!`
-              : `${remainingSteps.toLocaleString()} more steps to hit your goal. Let's walk!`,
+              ? `Kurang ${remainingSteps.toLocaleString()} langkah lagi!`
+              : `We need ${remainingSteps.toLocaleString()} more steps!`,
+        detail: isId
+          ? "Jalan santai 10 menit aja sudah bantu kita dekat ke 7.000 langkah."
+          : "Even a 10-minute stroll gets us closer to our 7,000-step target.",
       },
     });
   }
@@ -553,16 +585,20 @@ export function deriveBodySignals(params: {
       key: "training",
       signal: {
         id: `program-${pendingProgram.programId}`,
+        kind: "task",
         action: "training",
         tone: "attention",
         programId: pendingProgram.programId,
         message: isRest
           ? isId
-            ? `Waktunya pemulihan. Cek aktivitas istirahat hari ini di "${pendingProgram.title}".`
-            : `Time for recovery. Check today's rest activity in "${pendingProgram.title}".`
+            ? "Waktunya sesi pemulihan kita!"
+            : "Time for our recovery session!"
           : isId
-            ? `Sesi kamu di "${pendingProgram.title}" sudah menunggu. Siap gerak?`
-            : `Your session in "${pendingProgram.title}" is waiting. Ready to move?`,
+            ? "Sesi latihan kita sudah siap!"
+            : "Our training session is ready!",
+        detail: isId
+          ? `Task hari ini di "${pendingProgram.title}" sudah terbuka buat kita.`
+          : `Today's task in "${pendingProgram.title}" is unlocked and waiting for us.`,
       },
     });
   }
@@ -587,82 +623,125 @@ export function deriveBodySignals(params: {
   habits.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
   const result: BodySignal[] = [];
-
-  // Proactive: how many tasks are left today
   const pendingTasks = params.totalPendingTasks ?? 0;
+
+  // 1. Short "we" task count summary
   if (pendingTasks > 0) {
+    const openLabels = habits
+      .slice(0, 3)
+      .map((h) => h.key)
+      .join(", ");
     result.push({
       id: "tasks-left",
+      kind: "task",
       action: "info",
       tone: "attention",
       message: isId
-        ? `Kamu masih punya ${pendingTasks} task hari ini. Semangat!`
-        : `You still have ${pendingTasks} task${pendingTasks > 1 ? "s" : ""} left today. You can do it!`,
+        ? `Kita punya ${pendingTasks} task lagi hari ini!`
+        : `We have ${pendingTasks} task${pendingTasks > 1 ? "s" : ""} left today!`,
+      detail: openLabels
+        ? isId
+          ? `Masih ada ${openLabels} yang belum beres. Kita cicil satu-satu yuk!`
+          : `Still open: ${openLabels}. Let's knock them out one at a time!`
+        : isId
+          ? "Kita selesaikan satu per satu dengan santai ya."
+          : "Let's clear them one by one at our own pace.",
     });
   }
 
-  // Proactive: what's scheduled tomorrow across active programs
+  // 2. Affirmative Reassurance (responds with Thanks / Hide)
+  result.push({
+    id: pendingTasks === 0 ? "reassure-complete" : "reassure-proud",
+    kind: "reassurance",
+    action: "none",
+    tone: "positive",
+    message:
+      pendingTasks === 0
+        ? isId
+          ? "Semua task kita beres! Bangga banget sama kita."
+          : "We cleared every task today! So proud of us."
+        : completedCoreHabits > 0
+          ? isId
+            ? `Kita sudah cicil ${completedCoreHabits} kebiasaan hari ini. Keren!`
+            : `We already knocked out ${completedCoreHabits} habit${completedCoreHabits > 1 ? "s" : ""}. Proud of us!`
+          : isId
+            ? "Hadir hari ini aja sudah hebat. Pelan-pelan bareng ya."
+            : "Showing up today already counts. We've got this together.",
+  });
+
+  // 3. Individual habit & program nudges
+  for (const h of habits) result.push(h.signal);
+
+  // 4. Tomorrow's schedule across active programs
   for (const p of activePrograms) {
     const tomorrow = (p.tomorrowDayType || "").toUpperCase();
     if (p.isUpcoming || p.isCompleted || !tomorrow) continue;
     if (tomorrow === "TRAINING_DAY") {
       result.push({
         id: `tomorrow-training-${p.programId}`,
+        kind: "task",
         action: "program",
         tone: "neutral",
         programId: p.programId,
-        message: isId
-          ? `Besok ada sesi latihan di "${p.title}". Siapin tenagamu ya!`
-          : `Tomorrow you have a training session in "${p.title}". Get ready!`,
+        message: isId ? "Besok kita ada jadwal latihan!" : "We have training tomorrow!",
+        detail: isId
+          ? `Sesi latihan berikutnya di "${p.title}" menanti besok.`
+          : `Our next workout in "${p.title}" unlocks tomorrow.`,
       });
     } else if (tomorrow === "REST_DAY") {
       result.push({
         id: `tomorrow-rest-${p.programId}`,
+        kind: "task",
         action: "program",
         tone: "positive",
         programId: p.programId,
-        message: isId
-          ? `Besok hari istirahat di "${p.title}" — waktunya recharge.`
-          : `Tomorrow is a rest day in "${p.title}" — time to recharge.`,
+        message: isId ? "Besok jadwal istirahat kita." : "Tomorrow is our rest day.",
+        detail: isId
+          ? `Waktunya pemulihan penuh di "${p.title}" besok.`
+          : `Full recovery day in "${p.title}" tomorrow.`,
       });
     } else {
       result.push({
         id: `meetup-${p.programId}`,
+        kind: "task",
         action: "program",
         tone: "neutral",
         programId: p.programId,
-        message: isId
-          ? `Besok ada meetup di "${p.title}". Jangan sampai ketinggalan ya!`
-          : `Tomorrow there's a meetup in "${p.title}". Don't miss it!`,
+        message: isId ? "Besok kita ada meetup!" : "We have a meetup tomorrow!",
+        detail: isId
+          ? `Jangan lewatkan sesi komunitas "${p.title}" besok ya!`
+          : `Don't miss our "${p.title}" community session tomorrow!`,
       });
     }
   }
 
-  for (const h of habits) result.push(h.signal);
-
-  // Proactive: how many programs the user is following
+  // 5. Active programs count
   const followed = activePrograms.filter((p) => !p.isCompleted).length;
   if (followed > 0) {
     result.push({
       id: "programs-count",
+      kind: "task",
       action: "info",
       tone: "positive",
       message: isId
-        ? `Kamu lagi ikut ${followed} program. Pertahankan semangatnya!`
-        : `You're in ${followed} program${followed > 1 ? "s" : ""} right now. Keep the momentum going!`,
+        ? `Kita lagi jalanin ${followed} program bareng!`
+        : `We're in ${followed} program${followed > 1 ? "s" : ""} together!`,
+      detail: isId
+        ? "Konsisten sedikit demi sedikit tiap hari itu kunci kita."
+        : "Small consistent wins every day — that's how we level up.",
     });
   }
 
-  if (habits.length === 0 && pendingTasks === 0) {
-    result.push({
-      id: "all-good",
-      action: "none",
-      tone: "positive",
-      message: isId
-        ? "Kamu hebat hari ini! Aku bangga banget."
-        : "You are doing great today! I am so proud of you.",
-    });
-  }
+  // 6. Second gentle reassurance card in rotation
+  result.push({
+    id: "reassure-steady",
+    kind: "reassurance",
+    action: "none",
+    tone: "positive",
+    message: isId
+      ? "Ingat, kita jalan di ritme kita sendiri. Kamu nggak sendirian."
+      : "No rush — we move at our own pace. You're doing great.",
+  });
 
   return result;
 }

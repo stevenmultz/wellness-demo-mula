@@ -19,6 +19,7 @@ import {
   Sparkles,
   User as UserIcon,
   Users,
+  X,
 } from "lucide-react";
 import type { ProgramDailyPlan } from "@/wellness/utils/daily-tasks";
 import type { ProgramDayCustomTaskDTO } from "@/wellness/utils/custom-tasks";
@@ -203,6 +204,10 @@ export function MyPlanOverview({
   onOpenProgramTask,
   onBackToHome,
   autoOpenTaskNonce,
+  homeSelectedDateKey,
+  todayDateKey,
+  onSelectHomeDate,
+  onOpenMetricsSubtab,
 }: {
   program: PlanProgramInfo | null;
   plan: ProgramDailyPlan | null;
@@ -281,6 +286,10 @@ export function MyPlanOverview({
   onOpenProgramTask?: (programId: string) => void;
   onBackToHome?: () => void;
   autoOpenTaskNonce?: number;
+  homeSelectedDateKey?: string;
+  todayDateKey?: string;
+  onSelectHomeDate?: (dateKey: string) => void;
+  onOpenMetricsSubtab?: () => void;
 }) {
   const { locale, t } = useLocale();
   const isId = locale === "id";
@@ -326,20 +335,31 @@ export function MyPlanOverview({
   const [widgetIndex, setWidgetIndex] = useState<0 | 1 | 2>(1);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [datePageOffset, setDatePageOffset] = useState<number>(0);
-  const dateStripTouchXRef = useRef<number | null>(null);
+  const [showHomeCalendarModal, setShowHomeCalendarModal] = useState(false);
+  const [calendarViewMonth, setCalendarViewMonth] = useState<{ year: number; month: number }>(() => {
+    const w = getWibCalendarDate(new Date());
+    return { year: w.year, month: w.month };
+  });
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "online" | "hybrid">("all");
   const [programStatusFilter, setProgramStatusFilter] = useState<"todo" | "done">("todo");
   const [habitOpenRequest, setHabitOpenRequest] = useState<{
     habit: "sleep" | "meal" | "water" | "steps";
     nonce: number;
   } | null>(null);
-  const [selectedDayId, setSelectedDayId] = useState<string>(() => day?.id || "");
+  const [selectedDayId, setSelectedDayId] = useState<string>(() =>
+    isStandalone && homeSelectedDateKey
+      ? `standalone-${homeSelectedDateKey}`
+      : day?.id || ""
+  );
   useEffect(() => {
+    if (isStandalone && homeSelectedDateKey) {
+      setSelectedDayId(`standalone-${homeSelectedDateKey}`);
+      return;
+    }
     if (day?.id) {
       setSelectedDayId(day.id);
     }
-  }, [day?.id]);
+  }, [isStandalone, homeSelectedDateKey, day?.id]);
 
   const sortedProgramDays = useMemo(() => {
     const list =
@@ -373,47 +393,61 @@ export function MyPlanOverview({
 
   const localeTag = locale === "id" ? "id-ID" : "en-GB";
 
-  // Build 5-dates-per-page chunks aligned so offset 0 always shows the 5 most recent days ending on Today
-  const homeDatePages = useMemo(() => {
-    const DAYS_PER_PAGE = 5;
-    const sourceDays: PlanDay[] =
-      sortedProgramDays.length > 0
-        ? sortedProgramDays
-        : Array.from({ length: DAYS_PER_PAGE }, (_, idx) => {
-            const dt = new Date(Date.now() - (DAYS_PER_PAGE - 1 - idx) * 86400000);
-            const w = getWibCalendarDate(dt);
-            const key = `${w.year}-${String(w.month + 1).padStart(2, "0")}-${String(w.date).padStart(2, "0")}`;
-            return {
-              id: `fallback-${key}`,
-              dayNumber: idx + 1,
-              title: "Daily Wellness",
-              dayType: "REST_DAY",
-              unlockDate: dt.toISOString(),
-              isCalendarUnlocked: true,
-              isPast2359: idx < DAYS_PER_PAGE - 1,
-              videoUrl: null,
-              videoChecklist: [],
-              mealRecommendation: null,
-              meetupLink: null,
-              onsiteVenue: null,
-              onsiteSchedule: null,
-              restInstructions: null,
-              customTasks: [],
-              userProgress: null,
-            } as PlanDay;
-          });
+  const effectiveTodayKey = useMemo(
+    () =>
+      todayDateKey ||
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date()),
+    [todayDateKey]
+  );
 
-    const pages: PlanDay[][] = [];
-    for (let end = sourceDays.length; end > 0; end -= DAYS_PER_PAGE) {
-      const start = Math.max(0, end - DAYS_PER_PAGE);
-      pages.push(sourceDays.slice(start, end));
-    }
-    return pages; // index 0 = newest 5 days, index 1 = previous 5 days, ...
-  }, [sortedProgramDays]);
+  const effectiveSelectedKey =
+    homeSelectedDateKey ||
+    activeSelectedDay?.wibDateKey ||
+    effectiveTodayKey;
 
-  const maxDatePageOffset = Math.max(0, homeDatePages.length - 1);
-  const safeDatePageOffset = Math.min(datePageOffset, maxDatePageOffset);
-  const visibleHomeDates = homeDatePages[safeDatePageOffset] ?? [];
+  // O(5) lightweight centered 5-date strip: [selected - 2, selected - 1, SELECTED, selected + 1, selected + 2]
+  const centeredFiveDates = useMemo(() => {
+    if (!isStandalone) return [];
+    const [yStr, mStr, dStr] = effectiveSelectedKey.split("-");
+    const baseYear = Number(yStr) || 2026;
+    const baseMonthIdx = (Number(mStr) || 1) - 1;
+    const baseDay = Number(dStr) || 1;
+    // Noon UTC avoids any boundary drift when formatting in Asia/Jakarta
+    const baseUtcNoon = Date.UTC(baseYear, baseMonthIdx, baseDay, 5, 0, 0);
+    const monthFmt = new Intl.DateTimeFormat(localeTag, {
+      month: "short",
+      timeZone: "Asia/Jakarta",
+    });
+    const dayFmt = new Intl.DateTimeFormat(localeTag, {
+      day: "2-digit",
+      timeZone: "Asia/Jakarta",
+    });
+    const keyFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" });
+
+    return [-2, -1, 0, 1, 2].map((offset) => {
+      const dt = new Date(baseUtcNoon + offset * 86400000);
+      const dateKey = keyFmt.format(dt);
+      const w = getWibCalendarDate(dt);
+      return {
+        offset,
+        dateKey,
+        year: w.year,
+        month: w.month,
+        monthLabel: monthFmt.format(dt),
+        dayLabel: dayFmt.format(dt),
+        isSelectedCenter: offset === 0,
+        isToday: dateKey === effectiveTodayKey,
+        isFuture: dateKey > effectiveTodayKey,
+      };
+    });
+  }, [isStandalone, effectiveSelectedKey, effectiveTodayKey, localeTag]);
+
+  const handleChooseCalendarDate = (dateKey: string) => {
+    if (!dateKey || dateKey > effectiveTodayKey) return;
+    setSelectedDayId(`standalone-${dateKey}`);
+    onSelectHomeDate?.(dateKey);
+    setShowHomeCalendarModal(false);
+  };
 
   const bannerRefDay = isStandalone ? activeSelectedDay : day || activeSelectedDay;
   const activeDayNum = bannerRefDay?.dayNumber || baseTodayDayNum;
@@ -502,7 +536,13 @@ export function MyPlanOverview({
     const maxTab = isStandalone ? 2 : 1;
     if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
       if (deltaX < -80) {
-        setWidgetIndex((prev) => (prev < maxTab ? ((prev + 1) as 0 | 1 | 2) : prev));
+        setWidgetIndex((prev) => {
+          const next = prev < maxTab ? ((prev + 1) as 0 | 1 | 2) : prev;
+          if (isStandalone && next === 2) {
+            onOpenMetricsSubtab?.();
+          }
+          return next;
+        });
       } else if (deltaX > 80) {
         setWidgetIndex((prev) => (prev > minTab ? ((prev - 1) as 0 | 1 | 2) : prev));
       }
@@ -585,111 +625,79 @@ export function MyPlanOverview({
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-16">
-      {/* 0. Home Top 5-Dates-Per-Page Strip (Strictly stacked: Year -> Month -> Date) */}
+      {/* 0. Home Top Centered 5-Date Index Strip (Month + Date only; Selected always centered; Future dimmed & disabled; Tap opens Calendar) */}
       {isStandalone && (
         <div
-          onTouchStart={(e) => {
-            e.stopPropagation();
-            if (isFeatureLocked) return;
-            dateStripTouchXRef.current = e.touches[0].clientX;
-          }}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
-            if (isFeatureLocked || dateStripTouchXRef.current === null) return;
-            const dx = e.changedTouches[0].clientX - dateStripTouchXRef.current;
-            dateStripTouchXRef.current = null;
-            if (dx > 50 && safeDatePageOffset < maxDatePageOffset) {
-              setDatePageOffset((p) => Math.min(maxDatePageOffset, p + 1));
-            } else if (dx < -50 && safeDatePageOffset > 0) {
-              setDatePageOffset((p) => Math.max(0, p - 1));
-            }
-          }}
-          className={`w-full flex items-center gap-1 sm:gap-2 select-none ${
+          className={`w-full grid grid-cols-5 gap-1.5 sm:gap-2 select-none ${
             isFeatureLocked ? "opacity-65 pointer-events-none" : ""
           }`}
         >
-          <button
-            type="button"
-            disabled={isFeatureLocked || safeDatePageOffset >= maxDatePageOffset}
-            onClick={() => setDatePageOffset((p) => Math.min(maxDatePageOffset, p + 1))}
-            aria-label={isId ? "5 tanggal sebelumnya" : "Previous 5 dates"}
-            className="w-8 h-12 rounded-xl flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white disabled:opacity-25 transition cursor-pointer disabled:cursor-default shrink-0"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div className="flex-1 grid grid-cols-5 gap-1 sm:gap-2">
-            {visibleHomeDates.map((dItem) => {
-              const itemDate = getProgramDayDate(dItem);
-              const yearStr = new Intl.DateTimeFormat(localeTag, {
-                year: "numeric",
-                timeZone: "Asia/Jakarta",
-              }).format(itemDate);
-              const monthStr = new Intl.DateTimeFormat(localeTag, {
-                month: "short",
-                timeZone: "Asia/Jakarta",
-              }).format(itemDate);
-              const dayDateStr = new Intl.DateTimeFormat(localeTag, {
-                day: "2-digit",
-                timeZone: "Asia/Jakarta",
-              }).format(itemDate);
-              const isSelected = dItem.id === activeSelectedDay?.id;
-
-              return (
-                <button
-                  key={dItem.id}
-                  type="button"
-                  disabled={isFeatureLocked}
-                  onClick={() => setSelectedDayId(dItem.id)}
-                  aria-pressed={isSelected}
-                  aria-label={`${yearStr} ${monthStr} ${dayDateStr}`}
-                  className={`py-2 px-1 rounded-2xl flex flex-col items-center justify-center text-center transition cursor-pointer disabled:cursor-default ${
-                    isSelected
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                      : "bg-transparent hover:bg-zinc-200/60 dark:hover:bg-white/[0.06] text-zinc-950 dark:text-white active:scale-95"
+          {centeredFiveDates.map((slot) => {
+            const isDisabled = isFeatureLocked || slot.isFuture;
+            return (
+              <button
+                key={slot.dateKey}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => {
+                  if (isDisabled) return;
+                  setCalendarViewMonth({ year: slot.year, month: slot.month });
+                  setShowHomeCalendarModal(true);
+                }}
+                aria-pressed={slot.isSelectedCenter}
+                aria-label={
+                  slot.isFuture
+                    ? `${slot.monthLabel} ${slot.dayLabel} (${isId ? "Akan datang" : "Upcoming"})`
+                    : `${slot.monthLabel} ${slot.dayLabel}${slot.isToday ? (isId ? " · Hari ini" : " · Today") : ""} — ${isId ? "Pilih tanggal dari kalender" : "Open calendar"}`
+                }
+                className={`relative py-2.5 px-1 rounded-2xl flex flex-col items-center justify-center text-center transition ${
+                  slot.isFuture
+                    ? "opacity-30 cursor-default text-zinc-400 dark:text-zinc-600"
+                    : slot.isSelectedCenter
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 cursor-pointer active:scale-95"
+                      : slot.isToday
+                        ? "bg-zinc-200/95 dark:bg-white/15 text-zinc-950 dark:text-white hover:bg-zinc-300/80 dark:hover:bg-white/20 cursor-pointer active:scale-95"
+                        : "bg-transparent hover:bg-zinc-200/60 dark:hover:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 cursor-pointer active:scale-95"
+                }`}
+              >
+                <span
+                  className={`text-[10px] sm:text-[11px] font-geometric font-semibold uppercase tracking-[0.08em] leading-none ${
+                    slot.isFuture
+                      ? "text-zinc-400 dark:text-zinc-600"
+                      : slot.isSelectedCenter
+                        ? "text-white/80 dark:text-zinc-600"
+                        : slot.isToday
+                          ? "text-zinc-900 dark:text-white"
+                          : "text-zinc-500 dark:text-zinc-400"
                   }`}
                 >
-                  <span
-                    className={`text-[10px] font-geometric font-medium tabular-nums leading-none ${
-                      isSelected
-                        ? "text-white/70 dark:text-zinc-500"
-                        : "text-zinc-400 dark:text-zinc-500"
-                    }`}
-                  >
-                    {yearStr}
-                  </span>
-                  <span
-                    className={`text-[11px] font-geometric font-semibold uppercase tracking-[0.06em] leading-none mt-1 ${
-                      isSelected
-                        ? "text-white/90 dark:text-zinc-700"
-                        : "text-zinc-500 dark:text-zinc-400"
-                    }`}
-                  >
-                    {monthStr}
-                  </span>
-                  <span
-                    className={`text-lg sm:text-xl font-geometric font-semibold tabular-nums leading-none mt-1 ${
-                      isSelected
-                        ? "text-white dark:text-zinc-950"
-                        : "text-zinc-950 dark:text-white"
-                    }`}
-                  >
-                    {dayDateStr}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  {slot.monthLabel}
+                </span>
 
-          <button
-            type="button"
-            disabled={isFeatureLocked || safeDatePageOffset <= 0}
-            onClick={() => setDatePageOffset((p) => Math.max(0, p - 1))}
-            aria-label={isId ? "5 tanggal berikutnya" : "Next 5 dates"}
-            className="w-8 h-12 rounded-xl flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white disabled:opacity-25 transition cursor-pointer disabled:cursor-default shrink-0"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+                <span
+                  className={`text-lg sm:text-xl font-geometric tabular-nums leading-none mt-1 ${
+                    slot.isFuture
+                      ? "font-medium text-zinc-400 dark:text-zinc-600"
+                      : slot.isSelectedCenter
+                        ? "font-semibold text-white dark:text-zinc-950"
+                        : slot.isToday
+                          ? "font-bold text-zinc-950 dark:text-white"
+                          : "font-semibold text-zinc-900 dark:text-white"
+                  }`}
+                >
+                  {slot.dayLabel}
+                </span>
+
+                {/* Prominent Today indicator so Today is always unmistakable */}
+                {slot.isToday && (
+                  <span
+                    aria-hidden="true"
+                    className="semantic-badge-box mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--semantic-green)]"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -854,6 +862,9 @@ export function MyPlanOverview({
                   tabIndex={isFeatureLocked ? -1 : undefined}
                   onClick={() => {
                     if (isFeatureLocked) return;
+                    if (isStandalone && index === 2) {
+                      onOpenMetricsSubtab?.();
+                    }
                     setWidgetIndex(index);
                   }}
                   className={`h-9 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed ${
@@ -1274,6 +1285,149 @@ export function MyPlanOverview({
           )}
         </div>
       </div>
+
+      {/* Lightweight Home Calendar Date Picker Modal (Pure O(42) math, zero DB fetch until a date is chosen) */}
+      {isStandalone &&
+        showHomeCalendarModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (() => {
+            const { year: viewYear, month: viewMonth } = calendarViewMonth;
+            const monthLabel = new Intl.DateTimeFormat(
+              locale === "id" ? "id-ID" : "en-US",
+              { month: "long", year: "numeric" }
+            ).format(new Date(viewYear, viewMonth, 1));
+
+            const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+            const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+            const [todayYStr, todayMStr] = effectiveTodayKey.split("-");
+            const todayYear = Number(todayYStr) || viewYear;
+            const todayMonthIdx = (Number(todayMStr) || 1) - 1;
+            const canGoNextMonth =
+              viewYear < todayYear ||
+              (viewYear === todayYear && viewMonth < todayMonthIdx);
+
+            const stepCalendarMonth = (delta: number) => {
+              const dt = new Date(viewYear, viewMonth + delta, 1);
+              setCalendarViewMonth({ year: dt.getFullYear(), month: dt.getMonth() });
+            };
+
+            return (
+              <div
+                onClick={() => setShowHomeCalendarModal(false)}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                className="fixed inset-0 z-[100] bg-black/65 flex items-center justify-center p-4 animate-in fade-in duration-150"
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={isId ? "Pilih tanggal" : "Select date"}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-sm rounded-3xl bg-[#f6f6f4] dark:bg-[#161616] border border-zinc-200 dark:border-white/10 p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => stepCalendarMonth(-1)}
+                        aria-label={isId ? "Bulan sebelumnya" : "Previous month"}
+                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 flex items-center justify-center transition cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="px-2 text-sm font-geometric font-semibold text-zinc-950 dark:text-white">
+                        {monthLabel}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!canGoNextMonth}
+                        onClick={() => stepCalendarMonth(1)}
+                        aria-label={isId ? "Bulan berikutnya" : "Next month"}
+                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 dark:hover:bg-white/15 text-zinc-800 dark:text-zinc-200 disabled:opacity-30 flex items-center justify-center transition cursor-pointer disabled:cursor-default"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleChooseCalendarDate(effectiveTodayKey)}
+                        className="h-8 px-2.5 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 text-[11px] font-geometric font-semibold text-zinc-900 dark:text-white transition cursor-pointer"
+                      >
+                        {isId ? "Hari Ini" : "Today"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowHomeCalendarModal(false)}
+                        aria-label={isId ? "Tutup kalender" : "Close calendar"}
+                        className="w-8 h-8 rounded-xl bg-[#ececea] dark:bg-white/10 hover:bg-zinc-300/70 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-geometric font-semibold uppercase text-zinc-400 dark:text-zinc-500">
+                    {(isId
+                      ? ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+                      : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                    ).map((w) => (
+                      <span key={w}>{w}</span>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {Array.from({ length: totalCells }, (_, idx) => {
+                      const dateNum = idx - firstWeekday + 1;
+                      if (dateNum < 1 || dateNum > daysInMonth) {
+                        return <div key={`empty-${idx}`} className="h-10 rounded-xl" />;
+                      }
+
+                      const cellKey = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(dateNum).padStart(2, "0")}`;
+                      const isFutureCell = cellKey > effectiveTodayKey;
+                      const isSelectedCell = cellKey === effectiveSelectedKey;
+                      const isTodayCell = cellKey === effectiveTodayKey;
+
+                      return (
+                        <button
+                          key={cellKey}
+                          type="button"
+                          disabled={isFutureCell}
+                          onClick={() => handleChooseCalendarDate(cellKey)}
+                          className={`h-10 rounded-xl flex flex-col items-center justify-center transition relative ${
+                            isFutureCell
+                              ? "opacity-30 cursor-default text-zinc-400 dark:text-zinc-600"
+                              : isSelectedCell
+                                ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-semibold cursor-pointer active:scale-95"
+                                : isTodayCell
+                                  ? "bg-zinc-200/95 dark:bg-white/20 text-zinc-950 dark:text-white font-bold cursor-pointer active:scale-95"
+                                  : "bg-[#ececea] dark:bg-white/[0.06] text-zinc-900 dark:text-zinc-200 hover:bg-zinc-300/60 dark:hover:bg-white/10 cursor-pointer active:scale-95"
+                          }`}
+                        >
+                          <span className="text-xs font-geometric tabular-nums leading-none">
+                            {dateNum}
+                          </span>
+                          {isTodayCell && (
+                            <span
+                              aria-hidden="true"
+                              className="semantic-badge-box mt-0.5 w-1 h-1 rounded-full bg-[var(--semantic-green)]"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })(),
+          getModalPortalRoot()
+        )}
 
       {/* External Community Disclaimer Modal */}
       {showCommunityModal &&

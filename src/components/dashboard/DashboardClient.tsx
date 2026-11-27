@@ -354,6 +354,7 @@ export function DashboardClient({
 
   const {
     dailyLogsByDate,
+    ensureDateRangeLoaded,
     dayChecklists,
     overlayDay,
     setDayCompletedOverride,
@@ -646,6 +647,7 @@ export function DashboardClient({
     );
   });
   const todayWibDateKey = formatWibDateKey(new Date());
+  const [selectedHomeDateKey, setSelectedHomeDateKey] = useState<string>(todayWibDateKey);
   const overlappingTrainingCount = useMemo(() => {
     let count = 0;
     for (const enr of activeEnrollments) {
@@ -767,6 +769,124 @@ export function DashboardClient({
   }, [todayWibDateKey, dailyLogsByDate, myEnrolledPrograms, currentProgram?.id, overlayDay]);
 
   const standaloneTodayDay = standaloneDays[standaloneDays.length - 1] ?? null;
+
+  // Build active selected Home day in O(1) if the user jumped to a date older than the 30-day window
+  const standaloneDaysWithSelected = useMemo<PlanDay[]>(() => {
+    if (
+      !selectedHomeDateKey ||
+      standaloneDays.some((d) => d.wibDateKey === selectedHomeDateKey)
+    ) {
+      return standaloneDays;
+    }
+    const selDt = parseWibDateKey(selectedHomeDateKey);
+    const todayDt = parseWibDateKey(todayWibDateKey);
+    if (!selDt || !todayDt) return standaloneDays;
+
+    const yesterdayKey = formatDateOnlyKey(addWibDays(todayDt, -1));
+    const isEditable =
+      selectedHomeDateKey === todayWibDateKey || selectedHomeDateKey === yesterdayKey;
+    const gLog = dailyLogsByDate[selectedHomeDateKey] ?? null;
+
+    let mealComp: string | null = null;
+    if (gLog?.mealQualityMode === "ON_PLAN") mealComp = "FULL";
+    else if (gLog?.mealQualityMode === "PARTIAL") mealComp = "PARTIAL";
+    else if (gLog?.mealQualityMode === "OFF_TRACK") mealComp = "OFF_TRACK";
+    else if (gLog?.mealQualityMode === "SELF_LOGGED") mealComp = "SELF_LOGGED";
+
+    const serializedMealNotes =
+      gLog &&
+      (gLog.mealQualityMode != null ||
+        gLog.caloriesKcal > 0 ||
+        gLog.carbsG > 0 ||
+        gLog.proteinG > 0 ||
+        gLog.fatG > 0)
+        ? JSON.stringify({
+            mealsCount: gLog.mealsCount || 1,
+            mealFeeling: gLog.mealFeeling || undefined,
+            calories: gLog.caloriesKcal,
+            carbsG: gLog.carbsG,
+            proteinG: gLog.proteinG,
+            fatG: gLog.fatG,
+            mealEntries: Array.isArray(gLog.mealEntriesJson) ? gLog.mealEntriesJson : [],
+          })
+        : null;
+
+    const diffDaysFromToday = Math.round((selDt.getTime() - todayDt.getTime()) / 86400000);
+    const extraDay: PlanDay = {
+      id: `standalone-${selectedHomeDateKey}`,
+      dayNumber: diffDaysFromToday + 30,
+      title: "Daily Wellness",
+      dayType: "REST_DAY",
+      wibDateKey: selectedHomeDateKey,
+      unlockDate: selDt.toISOString(),
+      isCalendarUnlocked: true,
+      isPast2359: !isEditable,
+      videoUrl: null,
+      videoChecklist: [],
+      mealRecommendation: null,
+      meetupLink: null,
+      onsiteVenue: null,
+      onsiteSchedule: null,
+      restInstructions: null,
+      customTasks: [],
+      userProgress: gLog
+        ? {
+            videoWatched: false,
+            isCompleted: false,
+            checklistCompleted: null,
+            bedtime: gLog.bedtime,
+            wakeTime: gLog.wakeTime,
+            sleepDurationMinutes: gLog.sleepDurationMinutes,
+            assessmentResponse: gLog.sleepFeeling
+              ? `Sleep Feeling: ${gLog.sleepFeeling}`
+              : null,
+            mealCompliance: mealComp,
+            mealNotes: serializedMealNotes,
+            waterMl: gLog.waterMl,
+            stepsCount: gLog.stepsCount,
+            stepsBurnedKcal: gLog.stepsBurnedKcal,
+            caloriesKcal: gLog.caloriesKcal,
+            carbsG: gLog.carbsG,
+            proteinG: gLog.proteinG,
+            fatG: gLog.fatG,
+            mealQualityMode: gLog.mealQualityMode,
+            extraWorkouts: gLog.extraWorkouts ?? [],
+          }
+        : null,
+    };
+    return [extraDay, ...standaloneDays];
+  }, [selectedHomeDateKey, standaloneDays, todayWibDateKey, dailyLogsByDate]);
+
+  const handleSelectHomeDate = useCallback(
+    (nextDateKey: string) => {
+      if (!nextDateKey || nextDateKey > todayWibDateKey) return;
+      setSelectedHomeDateKey(nextDateKey);
+
+      const todayDt = parseWibDateKey(todayWibDateKey);
+      const targetDt = parseWibDateKey(nextDateKey);
+      if (!todayDt || !targetDt) return;
+
+      // Initial SSR already covers [today - 13 .. today]; only fetch a tiny 5-day slice on demand for older dates!
+      const ssrFloorKey = formatDateOnlyKey(addWibDays(todayDt, -13));
+      const sliceStartKey = formatDateOnlyKey(addWibDays(targetDt, -2));
+      if (sliceStartKey < ssrFloorKey) {
+        const rawEndDt = addWibDays(targetDt, 2);
+        const clampedEndDt = rawEndDt.getTime() > todayDt.getTime() ? todayDt : rawEndDt;
+        const sliceEndKey = formatDateOnlyKey(clampedEndDt);
+        void ensureDateRangeLoaded(sliceStartKey, sliceEndKey);
+      }
+    },
+    [todayWibDateKey, ensureDateRangeLoaded]
+  );
+
+  const handleOpenHomeMetricsSubtab = useCallback(() => {
+    const todayDt = parseWibDateKey(todayWibDateKey);
+    if (!todayDt) return;
+    // Lazily load days [-35 .. -14] once only when the user actually opens Metrics
+    const startKey = formatDateOnlyKey(addWibDays(todayDt, -35));
+    const endKey = formatDateOnlyKey(addWibDays(todayDt, -14));
+    void ensureDateRangeLoaded(startKey, endKey);
+  }, [todayWibDateKey, ensureDateRangeLoaded]);
 
   const extractStandaloneDateKey = (dayId?: string) =>
     dayId?.startsWith("standalone-") ? dayId.slice("standalone-".length) : todayWibDateKey;
@@ -1030,6 +1150,10 @@ export function DashboardClient({
               program={null}
               plan={null}
               day={standaloneTodayDay}
+              homeSelectedDateKey={selectedHomeDateKey}
+              todayDateKey={todayWibDateKey}
+              onSelectHomeDate={handleSelectHomeDate}
+              onOpenMetricsSubtab={handleOpenHomeMetricsSubtab}
               stats={{
                 completed: 0,
                 skipped: 0,
@@ -1037,8 +1161,8 @@ export function DashboardClient({
                 segments: [],
               }}
               checklist={undefined}
-              historyDays={standaloneDays}
-              allProgramDays={standaloneDays}
+              historyDays={standaloneDaysWithSelected}
+              allProgramDays={standaloneDaysWithSelected}
               globalMonthlyDays={standaloneDays}
               onExplore={() => {
                 setExploreView("catalog");
